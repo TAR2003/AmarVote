@@ -85,23 +85,27 @@ def create_election_manifest_interactive() -> Manifest:
     # Basic election info
     election_title = get_input("Enter election title", "General Election 2023")
     election_scope = get_input("Enter election scope ID", f"election-{uuid.uuid4()}")
+
+    # We have added the title and scope from the user input
     
     # Election dates
     start_date = datetime.now()
+    # The start date is now
     end_date = start_date + timedelta(days=1)
+    # We are adding one day to set the end time from the election exactly 1 day from now (start time)
     print(f"Election dates: {start_date} to {end_date}")
     
     # Create geopolitical units
     print("\n=== Geopolitical Units ===")
     geopolitical_units = []
     num_units = get_int_input("Enter number of geopolitical units", 2)
-    
+    # This is the geopolitical units
     for i in range(num_units):
         print(f"\nGeopolitical Unit {i+1}:")
         unit_id = get_input("  Enter unit ID", f"unit-{i+1}")
         name = get_input("  Enter unit name", f"District {i+1}")
         unit_type = get_input("  Enter unit type (county, state, etc.)", "county")
-        
+        # GeopoliticalUnit class contains object_id, name, type, contact_information elements
         geopolitical_units.append(
             GeopoliticalUnit(
                 object_id=unit_id,
@@ -116,11 +120,11 @@ def create_election_manifest_interactive() -> Manifest:
     print("\n=== Political Parties ===")
     parties = []
     num_parties = get_int_input("Enter number of political parties", 2)
-    
+    # Now adding the political parties
     for i in range(num_parties):
-        print(f"\nParty {i+1}:")
+        print(f"\nParty {i+1}:") # We can select the serial number as the party id
         party_id = get_input("  Enter party ID", f"party-{i+1}")
-        name = get_input("  Enter party name", f"Party {i+1}")
+        name = get_input("  Enter party name", f"Party {i+1}") # we can select the party name
         abbreviation = get_input("  Enter party abbreviation", name[:3].upper())
         
         parties.append(
@@ -130,7 +134,7 @@ def create_election_manifest_interactive() -> Manifest:
                 abbreviation=abbreviation,
                 color=None,
                 logo_uri=None,
-            )
+            ) # the party class needed object_id, name, abbreviation, color, logo_uri
         )
         print(f"Added {name} ({abbreviation})")
     
@@ -159,24 +163,25 @@ def create_election_manifest_interactive() -> Manifest:
                 object_id=candidate_id,
                 name=name,
                 party_id=parties[party_choice-1].object_id,
-            )
+            ) # Candidate class needs object_id, name, party_id
         )
         print(f"Added {name} ({parties[party_choice-1].abbreviation})")
     
     # Create contests
     print("\n=== Contests ===")
     contests = []
-    num_contests = get_int_input("Enter number of contests", 2)
+    num_contests = get_int_input("Enter number of contests", 2) # generally we would prefer the contest number to be one
     
     for i in range(num_contests):
         print(f"\nContest {i+1}:")
-        contest_id = get_input("  Enter contest ID", f"contest-{i+1}")
+        contest_id = get_input("  Enter contest ID", f"contest-{i+1}") #contest id is the user input serial number, which might be unnecessary
         
         # Select geopolitical unit
         print("  Available geopolitical units:")
         for j, unit in enumerate(geopolitical_units):
-            print(f"    {j+1}. {unit.name} ({unit.object_id})")
+            print(f"    {j+1}. {unit.name} ({unit.object_id})") # We can fix the only one geopolitical unit for a certain election
         
+        # We have to make the geopoliticalUnit default to the first one because we might not need this on a web app
         unit_choice = get_int_input("  Select geopolitical unit number", 1)
         if unit_choice < 1 or unit_choice > len(geopolitical_units):
             print("Invalid selection, using first unit")
@@ -188,14 +193,15 @@ def create_election_manifest_interactive() -> Manifest:
         
         # Create selections
         selections = []
-        print("  Available candidates:")
+        print("  Available candidates:") # available candidate number
         for j, candidate in enumerate(candidates):
             party = next((p for p in parties if p.object_id == candidate.party_id), None)
             party_name = f" ({party.abbreviation})" if party else ""
             print(f"    {j+1}. {candidate.name}{party_name}")
         
         num_selections = get_int_input("  How many candidates will be in this contest?", min(3, len(candidates)))
-        
+        # it will determine how many of the candidates we will keep on our list
+        # we can set it to default all of them
         for j in range(num_selections):
             candidate_choice = get_int_input(f"  Select candidate {j+1} (number)", j+1)
             if candidate_choice < 1 or candidate_choice > len(candidates):
@@ -207,7 +213,7 @@ def create_election_manifest_interactive() -> Manifest:
                     object_id=f"{contest_id}-selection-{j+1}",
                     candidate_id=candidates[candidate_choice-1].object_id,
                     sequence_order=j,
-                )
+                ) # SelectionDescription needs object_id, candidate_id, sequence_order
             )
             print(f"  Added {candidates[candidate_choice-1].name}")
         
@@ -223,7 +229,7 @@ def create_election_manifest_interactive() -> Manifest:
                 ballot_subtitle=None,
                 votes_allowed=votes_allowed,
                 number_elected=number_elected,
-            )
+            ) # Contest needs object_id, sequence_order, electoral_district_id, vote_variation, name, ballot_selections, ballot_title, ballot_subtitle, votes_allowed, number_elected
         )
         print(f"Added contest: {name} with {len(selections)} candidates")
     
@@ -237,13 +243,13 @@ def create_election_manifest_interactive() -> Manifest:
         style_id = get_input("  Enter ballot style ID", f"style-{i+1}")
         
         # Select geopolitical units
-        print("  Available geopolitical units:")
+        print("  Available geopolitical units:") # we can set it to default 1
         for j, unit in enumerate(geopolitical_units):
             print(f"    {j+1}. {unit.name} ({unit.object_id})")
         
         selected_units = []
         num_units_in_style = get_int_input("  How many units will be in this ballot style?", 1)
-        
+        # we can just fix it to be 1, because geopolitical unit might not be a necessary feature in a web application
         for j in range(num_units_in_style):
             unit_choice = get_int_input(f"  Select unit {j+1} (number)", j+1)
             if unit_choice < 1 or unit_choice > len(geopolitical_units):
@@ -259,7 +265,7 @@ def create_election_manifest_interactive() -> Manifest:
                 geopolitical_unit_ids=selected_units,
                 party_ids=None,
                 image_uri=None,
-            )
+            ) # BallotStyle needs object_id, geopolitical_unit_ids, party_ids, image_uri
         )
         print(f"Added ballot style {style_id} with {len(selected_units)} units")
     
@@ -277,7 +283,7 @@ def create_election_manifest_interactive() -> Manifest:
         ballot_styles=ballot_styles,
         name=election_title,
         contact_information=None,
-    )
+    ) # Creating the election Manifest
     
     print("\n=== Election Summary ===")
     print(f"Title: {manifest.name}")
@@ -289,12 +295,13 @@ def create_election_manifest_interactive() -> Manifest:
     print(f"Contests: {len(manifest.contests)}")
     print(f"Ballot Styles: {len(manifest.ballot_styles)}")
     
-    return manifest
+    return manifest # manifest is the total necessary information to create an election
+
 
 def interactive_key_ceremony(number_of_guardians: int, quorum: int) -> Tuple[List[Guardian], Any]:
     """Conduct an interactive key ceremony."""
     print("\n=== Key Ceremony ===")
-    
+    # We are inside the key ceremony process it seems
     # Create guardians
     guardians = []
     for i in range(number_of_guardians):
@@ -307,7 +314,7 @@ def interactive_key_ceremony(number_of_guardians: int, quorum: int) -> Tuple[Lis
             sequence_order,
             number_of_guardians,
             quorum,
-        )
+        ) # making of a guardian class element 
         guardians.append(guardian)
         print(f"✅ Created Guardian {guardian.id}")
     
@@ -322,7 +329,7 @@ def interactive_key_ceremony(number_of_guardians: int, quorum: int) -> Tuple[Lis
     for guardian in guardians:
         mediator.announce(guardian.share_key())
         print(f"✅ Guardian {guardian.id} announced public key")
-    
+    # Announce Keys
     # Share Keys
     for guardian in guardians:
         announced_keys = get_optional(mediator.share_announced())

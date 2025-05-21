@@ -1,11 +1,27 @@
-from fastapi import FastAPI, HTTPException, status
-from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
-from typing import List, Dict, Optional
-import uvicorn
-from datetime import datetime
+#!/usr/bin/env python
+from fastapi import FastAPI, HTTPException
+from typing import Dict, List, Optional
 import uuid
-from electionguard_tools.helpers.election_builder import ElectionBuilder
+from datetime import datetime
+
+# ElectionGuard imports
+from electionguard.ballot import (
+    BallotBoxState,
+    CiphertextBallot,
+    PlaintextBallot,
+    PlaintextBallotSelection,
+    PlaintextBallotContest,
+    SubmittedBallot,
+)
+from electionguard.constants import get_constants
+from electionguard.data_store import DataStore
+from electionguard.decryption_mediator import DecryptionMediator
+from electionguard.election import CiphertextElectionContext
+from electionguard.election_polynomial import LagrangeCoefficientsRecord
+from electionguard.encrypt import EncryptionDevice, EncryptionMediator
+from electionguard.guardian import Guardian
+from electionguard.key_ceremony_mediator import KeyCeremonyMediator
+from electionguard.ballot_box import BallotBox, get_ballots
 from electionguard.manifest import (
     Manifest,
     InternalManifest,
@@ -17,36 +33,26 @@ from electionguard.manifest import (
     BallotStyle,
     ElectionType,
     VoteVariationType,
-    ContactInformation
+    SpecVersion,
+    ContactInformation,
+    ReportingUnitType
 )
-from electionguard.election import CiphertextElectionContext
-from electionguard.guardian import Guardian
-from electionguard.key_ceremony import (
-    ElectionPartialKeyBackup,
-    ElectionPartialKeyVerification
+from electionguard_tools.helpers.election_builder import ElectionBuilder
+from electionguard.tally import (
+    tally_ballots,
+    CiphertextTally,
+    PlaintextTally,
 )
-from electionguard.ballot import (
-    PlaintextBallot,
-    CiphertextBallot,
-    SubmittedBallot
-)
-from electionguard.tally import CiphertextTally, PlaintextTally
-from electionguard.decryption_share import DecryptionShare
+from electionguard.type import BallotId
+from electionguard.utils import get_optional
 
-# Import the functions from your existing code
-from main import (
-    create_election_manifest,
-    create_plaintext_ballots,
-    run_election_demo
-)
 
-app = FastAPI(
-    title="ElectionGuard Microservice",
-    description="Microservice for end-to-end verifiable elections using ElectionGuard",
-    version="1.0.0"
-)
+from pydantic import BaseModel
+from fastapi.middleware.cors import CORSMiddleware
 
-# CORS configuration
+app = FastAPI()
+
+# Enable CORS
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -55,697 +61,380 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# In-memory storage for demo purposes (in production, use a database)
-election_db = {
-    "manifests": {},
+# Temporary storage for demonstration (in production, this would be handled by the client)
+temp_storage = {
+    "election_manifest": None,
+    "internal_manifest": None,
+    "context": None,
     "guardians": {},
-    "key_ceremonies": {},
-    "ballots": {},
-    "tallies": {}
+    "ballot_store": DataStore(),
+    "plaintext_ballots": {}
 }
 
-# Pydantic models for request/response schemas
-class ElectionManifestRequest(BaseModel):
-    name: str = "Test Election"
-    geopolitical_units: Optional[List[Dict]] = None
-    parties: Optional[List[Dict]] = None
-    candidates: Optional[List[Dict]] = None
-    contests: Optional[List[Dict]] = None
-    ballot_styles: Optional[List[Dict]] = None
+# Request/Response Models
+class ElectionSetupRequest(BaseModel):
+    number_of_guardians: int
+    quorum: int
+    election_manifest: Optional[Dict] = None
 
-class ElectionManifestResponse(BaseModel):
-    election_id: str
-    manifest: Dict
-    created_at: datetime
-
-class GuardianRequest(BaseModel):
-    guardian_id: str
+class GuardianInfo(BaseModel):
+    id: str
     sequence_order: int
     number_of_guardians: int
     quorum: int
 
-class GuardianResponse(BaseModel):
-    guardian_id: str
-    sequence_order: int
-    public_key: Dict
-
-class KeyCeremonyRequest(BaseModel):
-    guardian_ids: List[str]
-    quorum: int
-
-class KeyCeremonyResponse(BaseModel):
-    ceremony_id: str
-    guardian_public_keys: Dict[str, Dict]
-    status: str
-
-class BackupRequest(BaseModel):
-    ceremony_id: str
-    sending_guardian_id: str
-    designated_guardian_id: str
-
-class BackupResponse(BaseModel):
-    backup_id: str
-    sending_guardian_id: str
-    designated_guardian_id: str
-    backup_data: Dict
-
-class VerificationRequest(BaseModel):
-    ceremony_id: str
-    sending_guardian_id: str
-    designated_guardian_id: str
-
-class VerificationResponse(BaseModel):
-    verification_id: str
-    is_valid: bool
-    message: str
-
-class JointKeyResponse(BaseModel):
-    ceremony_id: str
-    joint_public_key: Dict
+class JointPublicKeyResponse(BaseModel):
+    joint_public_key: str
     commitment_hash: str
-    status: str
+    guardian_ids: List[str]
+    election_manifest: Dict
 
-class EncryptionDeviceRequest(BaseModel):
-    device_id: int
-    session_id: int
-    launch_code: int
-    location: str
+class BallotEncryptionRequest(BaseModel):
+    plaintext_ballot: Dict
+    device_id: int = 1
 
-class EncryptionDeviceResponse(BaseModel):
-    device_id: int
-    uuid: str
-    created_at: datetime
-
-class PlaintextBallotRequest(BaseModel):
-    ballot_style_id: str
-    contests: List[Dict]
-
-class PlaintextBallotResponse(BaseModel):
+class BallotEncryptionResponse(BaseModel):
+    encrypted_ballot: Dict
     ballot_id: str
-    ballot_style_id: str
-    contests: List[Dict]
-    status: str
-
-class CiphertextBallotResponse(BaseModel):
-    ballot_id: str
-    ballot_style_id: str
-    contests: List[Dict]
-    tracking_id: str
-    status: str
-
-class SubmitBallotRequest(BaseModel):
-    ballot_id: str
-    action: str  # 'cast' or 'spoil'
-
-class SubmitBallotResponse(BaseModel):
-    ballot_id: str
-    state: str
-    tracking_id: str
-    timestamp: datetime
 
 class TallyRequest(BaseModel):
-    election_id: str
+    ballot_ids: List[str]
 
-class TallyResponse(BaseModel):
-    tally_id: str
-    contest_results: Dict
-    cast_ballot_count: int
-    spoiled_ballot_count: int
+class DecryptionRequest(BaseModel):
+    guardian_shares: List[Dict]  # List of guardian decryption shares
 
-class DecryptionShareRequest(BaseModel):
-    guardian_id: str
-    tally_id: str
-
-class DecryptionShareResponse(BaseModel):
-    share_id: str
-    guardian_id: str
-    tally_share: Dict
-    ballot_shares: Dict[str, Dict]
-
-class DecryptedTallyResponse(BaseModel):
-    tally_id: str
-    plaintext_tally: Dict
-    spoiled_ballots: Dict[str, Dict]
-    verification_status: str
-
-# Helper functions for serialization
-def serialize_manifest(manifest: Manifest) -> Dict:
-    return manifest.to_json()
-
-def serialize_guardian(guardian: Guardian) -> Dict:
-    return {
-        "id": guardian.id,
-        "sequence_order": guardian.sequence_order,
-        "public_key": guardian.share_key().to_json() if guardian.share_key() else None
-    }
+# Helper Functions
+def create_default_manifest() -> Manifest:
+    """Create a default election manifest if none is provided"""
+    geopolitical_units = [GeopoliticalUnit(
+        object_id="county-1",
+        name="County 1",
+        type=ReportingUnitType.county,
+        contact_information=None,
+    )]
+    
+    parties = [
+        Party(object_id="party-1", name="Party One", abbreviation="P1"),
+        Party(object_id="party-2", name="Party Two", abbreviation="P2"),
+    ]
+    
+    candidates = [
+        Candidate(object_id="candidate-1", name="Candidate One", party_id="party-1"),
+        Candidate(object_id="candidate-2", name="Candidate Two", party_id="party-2"),
+    ]
+    
+    contests = [
+        Contest(
+            object_id="contest-1",
+            sequence_order=0,
+            electoral_district_id="county-1",
+            vote_variation=VoteVariationType.one_of_m,
+            name="County Executive",
+            ballot_selections=[
+                SelectionDescription(
+                    object_id="contest-1-candidate-1",
+                    candidate_id="candidate-1",
+                    sequence_order=0,
+                ),
+                SelectionDescription(
+                    object_id="contest-1-candidate-2",
+                    candidate_id="candidate-2",
+                    sequence_order=1,
+                ),
+            ],
+            votes_allowed=1,
+            number_elected=1,
+        )
+    ]
+    
+    ballot_styles = [
+        BallotStyle(
+            object_id="ballot-style-1",
+            geopolitical_unit_ids=["county-1"],
+        )
+    ]
+    
+    return Manifest(
+        election_scope_id=f"election-{uuid.uuid4()}",
+        spec_version="1.0",
+        type=ElectionType.general,
+        start_date=datetime.now(),
+        end_date=datetime.now(),
+        geopolitical_units=geopolitical_units,
+        parties=parties,
+        candidates=candidates,
+        contests=contests,
+        ballot_styles=ballot_styles,
+        name="Default Election",
+    )
 
 # API Endpoints
-@app.post("/elections", response_model=ElectionManifestResponse, status_code=status.HTTP_201_CREATED)
-async def create_election(request: ElectionManifestRequest):
-    """Create a new election manifest"""
+@app.post("/setup-election", response_model=JointPublicKeyResponse)
+async def setup_election(request: ElectionSetupRequest):
+    """Setup the election and generate the joint public key"""
     try:
-        # For demo, we'll use the hardcoded manifest from the example
-        # In a real implementation, you'd build this from the request data
-        manifest = create_election_manifest()
+        # Create or use provided manifest
+        if request.election_manifest:
+            # Convert dict to Manifest object (implementation depends on your serialization)
+            manifest = Manifest.from_dict(request.election_manifest)
+        else:
+            manifest = create_default_manifest()
         
-        election_id = f"election-{uuid.uuid4()}"
-        election_db["manifests"][election_id] = manifest
+        # Store manifest temporarily
+        temp_storage["election_manifest"] = manifest
         
-        return {
-            "election_id": election_id,
-            "manifest": serialize_manifest(manifest),
-            "created_at": datetime.now()
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating election: {str(e)}"
-        )
-
-@app.post("/guardians", response_model=GuardianResponse, status_code=status.HTTP_201_CREATED)
-async def create_guardian(request: GuardianRequest):
-    """Create a new election guardian"""
-    try:
-        guardian = Guardian.from_nonce(
-            request.guardian_id,
-            request.sequence_order,
+        # Create election builder
+        election_builder = ElectionBuilder(
             request.number_of_guardians,
-            request.quorum
+            request.quorum,
+            manifest
         )
         
-        election_db["guardians"][request.guardian_id] = guardian
+        # Setup Guardians
+        guardians = []
+        guardian_ids = []
+        for i in range(request.number_of_guardians):
+            guardian = Guardian.from_nonce(
+                str(uuid.uuid4()),  # guardian id
+                i + 1,  # sequence order
+                request.number_of_guardians,
+                request.quorum,
+            )
+            guardians.append(guardian)
+            guardian_ids.append(guardian.id)
+            temp_storage["guardians"][guardian.id] = guardian
         
-        return {
-            "guardian_id": guardian.id,
-            "sequence_order": guardian.sequence_order,
-            "public_key": guardian.share_key().to_json()
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating guardian: {str(e)}"
+        # Setup Key Ceremony Mediator
+        mediator = KeyCeremonyMediator(
+            "key-ceremony-mediator", 
+            guardians[0].ceremony_details
         )
-
-@app.post("/key-ceremonies", response_model=KeyCeremonyResponse, status_code=status.HTTP_201_CREATED)
-async def start_key_ceremony(request: KeyCeremonyRequest):
-    """Start a new key ceremony"""
-    try:
-        ceremony_id = f"ceremony-{uuid.uuid4()}"
-        guardians = [election_db["guardians"][gid] for gid in request.guardian_ids]
         
-        # In a real implementation, we'd use the KeyCeremonyMediator
-        # For this demo, we'll just store the guardian public keys
-        public_keys = {}
+        # ROUND 1: Public Key Sharing
         for guardian in guardians:
-            public_keys[guardian.id] = guardian.share_key().to_json()
+            mediator.announce(guardian.share_key())
         
-        election_db["key_ceremonies"][ceremony_id] = {
-            "guardian_ids": request.guardian_ids,
-            "quorum": request.quorum,
-            "public_keys": public_keys,
-            "status": "public_keys_shared"
-        }
+        # Share Keys
+        for guardian in guardians:
+            announced_keys = get_optional(mediator.share_announced())
+            for key in announced_keys:
+                if guardian.id != key.owner_id:
+                    guardian.save_guardian_key(key)
+        
+        # ROUND 2: Election Partial Key Backup Sharing
+        for sending_guardian in guardians:
+            sending_guardian.generate_election_partial_key_backups()
+            
+            backups = []
+            for designated_guardian in guardians:
+                if designated_guardian.id != sending_guardian.id:
+                    backup = get_optional(
+                        sending_guardian.share_election_partial_key_backup(
+                            designated_guardian.id
+                        )
+                    )
+                    backups.append(backup)
+            
+            mediator.receive_backups(backups)
+        
+        # Receive Backups
+        for designated_guardian in guardians:
+            backups = get_optional(mediator.share_backups(designated_guardian.id))
+            for backup in backups:
+                designated_guardian.save_election_partial_key_backup(backup)
+        
+        # ROUND 3: Verification of Backups
+        for designated_guardian in guardians:
+            verifications = []
+            for backup_owner in guardians:
+                if designated_guardian.id != backup_owner.id:
+                    verification = designated_guardian.verify_election_partial_key_backup(
+                        backup_owner.id
+                    )
+                    verifications.append(get_optional(verification))
+            
+            mediator.receive_backup_verifications(verifications)
+        
+        # FINAL: Publish Joint Key
+        joint_key = get_optional(mediator.publish_joint_key())
+        
+        # Set the joint key and commitment hash in the election builder
+        election_builder.set_public_key(joint_key.joint_public_key)
+        election_builder.set_commitment_hash(joint_key.commitment_hash)
+        
+        # Build the election
+        internal_manifest, context = get_optional(election_builder.build())
+        
+        # Store election context and internal manifest
+        temp_storage["internal_manifest"] = internal_manifest
+        temp_storage["context"] = context
         
         return {
-            "ceremony_id": ceremony_id,
-            "guardian_public_keys": public_keys,
-            "status": "public_keys_shared"
+            "joint_public_key": str(joint_key.joint_public_key),
+            "commitment_hash": str(joint_key.commitment_hash),
+            "guardian_ids": guardian_ids,
+            "election_manifest": manifest.to_dict()  # Implement to_dict() in your Manifest class
         }
+    
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error starting key ceremony: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/key-ceremonies/{ceremony_id}/backups", response_model=BackupResponse, status_code=status.HTTP_201_CREATED)
-async def create_backup(ceremony_id: str, request: BackupRequest):
-    """Create a partial key backup for a designated guardian"""
-    try:
-        ceremony = election_db["key_ceremonies"].get(ceremony_id)
-        if not ceremony:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Key ceremony not found"
-            )
-            
-        sending_guardian = election_db["guardians"].get(request.sending_guardian_id)
-        if not sending_guardian:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Sending guardian not found"
-            )
-            
-        # Generate backups (simplified for demo)
-        sending_guardian.generate_election_partial_key_backups()
-        backup = sending_guardian.share_election_partial_key_backup(request.designated_guardian_id)
-        
-        # Store backup (in real implementation, this would go to the mediator)
-        backup_id = f"backup-{uuid.uuid4()}"
-        
-        return {
-            "backup_id": backup_id,
-            "sending_guardian_id": request.sending_guardian_id,
-            "designated_guardian_id": request.designated_guardian_id,
-            "backup_data": get_optional(backup).to_json()
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating backup: {str(e)}"
-        )
-
-@app.post("/key-ceremonies/{ceremony_id}/verify", response_model=VerificationResponse)
-async def verify_backup(ceremony_id: str, request: VerificationRequest):
-    """Verify a guardian's backup"""
-    try:
-        ceremony = election_db["key_ceremonies"].get(ceremony_id)
-        if not ceremony:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Key ceremony not found"
-            )
-            
-        designated_guardian = election_db["guardians"].get(request.designated_guardian_id)
-        if not designated_guardian:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Designated guardian not found"
-            )
-            
-        # In a real implementation, we'd get the backup from the mediator and verify it
-        verification_id = f"verification-{uuid.uuid4()}"
-        
-        return {
-            "verification_id": verification_id,
-            "is_valid": True,  # Simplified for demo
-            "message": "Backup verified successfully"
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error verifying backup: {str(e)}"
-        )
-
-@app.post("/key-ceremonies/{ceremony_id}/joint-key", response_model=JointKeyResponse)
-async def publish_joint_key(ceremony_id: str):
-    """Publish the joint election key"""
-    try:
-        ceremony = election_db["key_ceremonies"].get(ceremony_id)
-        if not ceremony:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Key ceremony not found"
-            )
-            
-        # In a real implementation, we'd use the mediator to compute the joint key
-        # For demo, we'll return a mock response
-        joint_key = {
-            "joint_public_key": {
-                "key": "mock-joint-key",
-                "coefficients": []
-            },
-            "commitment_hash": "mock-commitment-hash"
-        }
-        
-        ceremony["status"] = "joint_key_published"
-        ceremony["joint_key"] = joint_key
-        
-        return {
-            "ceremony_id": ceremony_id,
-            "joint_public_key": joint_key["joint_public_key"],
-            "commitment_hash": joint_key["commitment_hash"],
-            "status": "completed"
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error publishing joint key: {str(e)}"
-        )
-
-@app.post("/encryption-devices", response_model=EncryptionDeviceResponse, status_code=status.HTTP_201_CREATED)
-async def create_encryption_device(request: EncryptionDeviceRequest):
-    """Create a new encryption device"""
-    try:
-        # In a real implementation, we'd create an EncryptionDevice
-        device_uuid = str(uuid.uuid4())
-        
-        return {
-            "device_id": request.device_id,
-            "uuid": device_uuid,
-            "created_at": datetime.now()
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating encryption device: {str(e)}"
-        )
-
-@app.post("/elections/{election_id}/ballots/plaintext", response_model=PlaintextBallotResponse, status_code=status.HTTP_201_CREATED)
-async def create_plaintext_ballot(election_id: str, request: PlaintextBallotRequest):
-    """Create a plaintext ballot"""
-    try:
-        manifest = election_db["manifests"].get(election_id)
-        if not manifest:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Election not found"
-            )
-            
-        # In a real implementation, we'd validate the ballot against the manifest
-        ballot_id = f"ballot-{uuid.uuid4()}"
-        
-        # Store the plaintext ballot (in production, this would be ephemeral)
-        if "ballots" not in election_db:
-            election_db["ballots"] = {}
-        election_db["ballots"][ballot_id] = {
-            "type": "plaintext",
-            "data": request.dict(),
-            "election_id": election_id
-        }
-        
-        return {
-            "ballot_id": ballot_id,
-            "ballot_style_id": request.ballot_style_id,
-            "contests": request.contests,
-            "status": "created"
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating plaintext ballot: {str(e)}"
-        )
-
-@app.post("/elections/{election_id}/ballots/encrypt", response_model=CiphertextBallotResponse)
-async def encrypt_ballot(election_id: str, ballot_id: str):
+@app.post("/encrypt-ballot", response_model=BallotEncryptionResponse)
+async def encrypt_ballot(request: BallotEncryptionRequest):
     """Encrypt a plaintext ballot"""
     try:
-        manifest = election_db["manifests"].get(election_id)
-        if not manifest:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Election not found"
-            )
-            
-        ballot_data = election_db["ballots"].get(ballot_id)
-        if not ballot_data or ballot_data["type"] != "plaintext":
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Plaintext ballot not found"
-            )
-            
-        # In a real implementation, we'd use the EncryptionMediator
-        # For demo, we'll return a mock encrypted ballot
-        tracking_id = str(uuid.uuid4())
+        if not temp_storage["internal_manifest"] or not temp_storage["context"]:
+            raise HTTPException(status_code=400, detail="Election not set up. Call /setup-election first.")
         
-        # Store the ciphertext ballot
-        election_db["ballots"][ballot_id] = {
-            "type": "ciphertext",
-            "tracking_id": tracking_id,
-            "election_id": election_id,
-            "status": "encrypted"
-        }
+        # Convert dict to PlaintextBallot (implementation depends on your serialization)
+        plaintext_ballot = PlaintextBallot.from_dict(request.plaintext_ballot)
+        
+        # Store plaintext ballot for verification later
+        temp_storage["plaintext_ballots"][plaintext_ballot.object_id] = plaintext_ballot
+        
+        # Create encryption device and mediator
+        device = EncryptionDevice(
+            device_id=request.device_id,
+            session_id=1,
+            launch_code=1,
+            location="polling-place"
+        )
+        encrypter = EncryptionMediator(
+            temp_storage["internal_manifest"],
+            temp_storage["context"],
+            device
+        )
+        
+        # Encrypt the ballot
+        encrypted_ballot = encrypter.encrypt(plaintext_ballot)
+        if not encrypted_ballot:
+            raise HTTPException(status_code=400, detail="Failed to encrypt ballot")
+        
+        ciphertext_ballot = get_optional(encrypted_ballot)
         
         return {
-            "ballot_id": ballot_id,
-            "ballot_style_id": ballot_data["data"]["ballot_style_id"],
-            "contests": ballot_data["data"]["contests"],  # In real implementation, these would be encrypted
-            "tracking_id": tracking_id,
-            "status": "encrypted"
+            "encrypted_ballot": ciphertext_ballot.to_dict(),  # Implement to_dict()
+            "ballot_id": ciphertext_ballot.object_id
         }
+    
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error encrypting ballot: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/elections/{election_id}/ballots/submit", response_model=SubmitBallotResponse)
-async def submit_ballot(election_id: str, request: SubmitBallotRequest):
-    """Submit a ballot (cast or spoil)"""
+@app.post("/cast-ballot")
+async def cast_ballot(ballot_id: str):
+    """Cast an encrypted ballot"""
     try:
-        manifest = election_db["manifests"].get(election_id)
-        if not manifest:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Election not found"
-            )
-            
-        ballot_data = election_db["ballots"].get(request.ballot_id)
-        if not ballot_data or ballot_data["type"] != "ciphertext":
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Ciphertext ballot not found"
-            )
-            
-        # In a real implementation, we'd use the BallotBox
-        state = "CAST" if request.action.lower() == "cast" else "SPOILED"
+        if not temp_storage["internal_manifest"] or not temp_storage["context"]:
+            raise HTTPException(status_code=400, detail="Election not set up. Call /setup-election first.")
         
-        # Update ballot status
-        election_db["ballots"][request.ballot_id]["state"] = state
-        election_db["ballots"][request.ballot_id]["submitted_at"] = datetime.now()
+        # In a real implementation, you would retrieve the encrypted ballot from your database
+        # For this example, we'll assume it's in temp_storage
+        encrypted_ballot = None  # Retrieve from your storage
+        
+        if not encrypted_ballot:
+            raise HTTPException(status_code=404, detail="Ballot not found")
+        
+        # Create ballot box
+        ballot_box = BallotBox(
+            temp_storage["internal_manifest"],
+            temp_storage["context"],
+            temp_storage["ballot_store"]
+        )
+        
+        # Cast the ballot
+        submitted_ballot = ballot_box.cast(encrypted_ballot)
+        if not submitted_ballot:
+            raise HTTPException(status_code=400, detail="Failed to cast ballot")
+        
+        return {"status": "success", "ballot_id": ballot_id, "state": "CAST"}
+    
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+@app.post("/tally-ballots", response_model=Dict)
+async def tally_ballots_endpoint(request: TallyRequest):
+    """Tally the encrypted ballots"""
+    try:
+        if not temp_storage["internal_manifest"] or not temp_storage["context"]:
+            raise HTTPException(status_code=400, detail="Election not set up. Call /setup-election first.")
+        
+        # In a real implementation, you would retrieve all ballots from your database
+        # For this example, we'll use the temp_storage
+        ballot_store = temp_storage["ballot_store"]
+        
+        # Tally the ballots
+        ciphertext_tally = get_optional(
+            tally_ballots(
+                ballot_store,
+                temp_storage["internal_manifest"],
+                temp_storage["context"]
+            )
+        )
         
         return {
-            "ballot_id": request.ballot_id,
-            "state": state,
-            "tracking_id": ballot_data["tracking_id"],
-            "timestamp": datetime.now()
+            "encrypted_tally": ciphertext_tally.to_dict(),  # Implement to_dict()
+            "cast_ballot_count": ciphertext_tally.cast()
         }
+    
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error submitting ballot: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=str(e))
 
-@app.post("/elections/{election_id}/tally", response_model=TallyResponse)
-async def tally_ballots(election_id: str):
-    """Tally the cast ballots"""
+@app.post("/decrypt-tally", response_model=Dict)
+async def decrypt_tally(request: DecryptionRequest):
+    """Decrypt the tally using guardian shares"""
     try:
-        manifest = election_db["manifests"].get(election_id)
-        if not manifest:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Election not found"
-            )
+        if not temp_storage["internal_manifest"] or not temp_storage["context"]:
+            raise HTTPException(status_code=400, detail="Election not set up. Call /setup-election first.")
+        
+        # Configure the Decryption Mediator
+        decryption_mediator = DecryptionMediator(
+            "decryption-mediator",
+            temp_storage["context"],
+        )
+        
+        # Process each guardian's share
+        for share in request.guardian_shares:
+            # In a real implementation, you would validate each share
+            # For this example, we'll assume they're valid
+            guardian_key = share["guardian_key"]
+            tally_share = share["tally_share"]
+            ballot_shares = share.get("ballot_shares", [])
             
-        # In a real implementation, we'd tally the actual ballots
-        # For demo, we'll return mock results
-        tally_id = f"tally-{uuid.uuid4()}"
+            decryption_mediator.announce(
+                guardian_key,
+                tally_share,
+                ballot_shares
+            )
         
-        # Count cast and spoiled ballots
-        cast_count = sum(1 for b in election_db["ballots"].values() if b.get("state") == "CAST")
-        spoiled_count = sum(1 for b in election_db["ballots"].values() if b.get("state") == "SPOILED")
+        # Check if we have enough shares to decrypt
+        if len(request.guardian_shares) < temp_storage["context"].quorum:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Not enough guardian shares. Need {temp_storage['context'].quorum}, got {len(request.guardian_shares)}"
+            )
         
-        # Mock contest results
-        contest_results = {}
-        for contest in manifest.contests:
-            contest_results[contest.object_id] = {
-                "name": contest.name,
-                "selections": {
-                    sel.object_id: {
-                        "candidate_id": sel.candidate_id,
-                        "tally": random.randint(0, cast_count)
-                    }
-                    for sel in contest.ballot_selections
-                }
-            }
+        # Get the encrypted tally (from previous step)
+        ciphertext_tally = None  # Retrieve from your storage
         
-        # Store the tally
-        election_db["tallies"][tally_id] = {
-            "election_id": election_id,
-            "contest_results": contest_results,
-            "cast_count": cast_count,
-            "spoiled_count": spoiled_count
-        }
+        if not ciphertext_tally:
+            raise HTTPException(status_code=400, detail="No tally found. Call /tally-ballots first.")
+        
+        # Get the plaintext tally
+        plaintext_tally = get_optional(
+            decryption_mediator.get_plaintext_tally(
+                ciphertext_tally,
+                temp_storage["election_manifest"]
+            )
+        )
         
         return {
-            "tally_id": tally_id,
-            "contest_results": contest_results,
-            "cast_ballot_count": cast_count,
-            "spoiled_ballot_count": spoiled_count
+            "plaintext_tally": plaintext_tally.to_dict(),  # Implement to_dict()
+            "verification_status": "success"
         }
+    
     except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error tallying ballots: {str(e)}"
-        )
-
-@app.post("/tallies/{tally_id}/decryption-shares", response_model=DecryptionShareResponse)
-async def create_decryption_share(tally_id: str, request: DecryptionShareRequest):
-    """Create a decryption share for a tally"""
-    try:
-        tally = election_db["tallies"].get(tally_id)
-        if not tally:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Tally not found"
-            )
-            
-        guardian = election_db["guardians"].get(request.guardian_id)
-        if not guardian:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Guardian not found"
-            )
-            
-        # In a real implementation, we'd compute the actual shares
-        # For demo, we'll return mock data
-        share_id = f"share-{uuid.uuid4()}"
-        
-        return {
-            "share_id": share_id,
-            "guardian_id": request.guardian_id,
-            "tally_share": {
-                "guardian_id": request.guardian_id,
-                "tally_id": tally_id,
-                "share": "mock-tally-share"
-            },
-            "ballot_shares": {
-                "mock-ballot-id": {
-                    "guardian_id": request.guardian_id,
-                    "ballot_id": "mock-ballot-id",
-                    "share": "mock-ballot-share"
-                }
-            }
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error creating decryption share: {str(e)}"
-        )
-
-@app.post("/tallies/{tally_id}/decrypt", response_model=DecryptedTallyResponse)
-async def decrypt_tally(tally_id: str):
-    """Decrypt a tally using the collected shares"""
-    try:
-        tally = election_db["tallies"].get(tally_id)
-        if not tally:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Tally not found"
-            )
-            
-        # In a real implementation, we'd use the DecryptionMediator
-        # For demo, we'll return mock decrypted results
-        plaintext_tally = {}
-        for contest_id, contest in tally["contest_results"].items():
-            plaintext_tally[contest_id] = {
-                "name": contest["name"],
-                "selections": {
-                    sel_id: {
-                        "candidate_id": sel["candidate_id"],
-                        "tally": sel["tally"],
-                        "decrypted": True
-                    }
-                    for sel_id, sel in contest["selections"].items()
-                }
-            }
-        
-        # Mock spoiled ballots
-        spoiled_ballots = {
-            bid: {
-                "contests": {
-                    contest.object_id: {
-                        "selections": {
-                            sel.object_id: {
-                                "vote": random.randint(0, 1),
-                                "decrypted": True
-                            }
-                            for sel in contest.ballot_selections
-                        }
-                    }
-                    for contest in tally["manifest"].contests
-                }
-            }
-            for bid, b in election_db["ballots"].items() 
-            if b.get("state") == "SPOILED"
-        }
-        
-        return {
-            "tally_id": tally_id,
-            "plaintext_tally": plaintext_tally,
-            "spoiled_ballots": spoiled_ballots,
-            "verification_status": "verified"
-        }
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error decrypting tally: {str(e)}"
-        )
-
-@app.get("/elections/{election_id}/results")
-async def get_election_results(election_id: str):
-    """Get the final election results"""
-    try:
-        manifest = election_db["manifests"].get(election_id)
-        if not manifest:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Election not found"
-            )
-            
-        # Find the most recent tally for this election
-        tally = next(
-            (t for t_id, t in election_db["tallies"].items() 
-            if t["election_id"] == election_id),
-            None
-        )
-        
-        if not tally:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="No tally found for this election"
-            )
-            
-        # Format results for display
-        results = {
-            "election_id": election_id,
-            "total_ballots": tally["cast_count"] + tally["spoiled_count"],
-            "cast_ballots": tally["cast_count"],
-            "spoiled_ballots": tally["spoiled_count"],
-            "contests": []
-        }
-        
-        for contest_id, contest in tally["contest_results"].items():
-            contest_data = {
-                "contest_id": contest_id,
-                "name": contest["name"],
-                "selections": []
-            }
-            
-            for sel_id, sel in contest["selections"].items():
-                candidate = next(
-                    (c for c in manifest.candidates 
-                    if c.object_id == sel["candidate_id"]),
-                    None
-                )
-                party = next(
-                    (p for p in manifest.parties 
-                    if candidate and p.object_id == candidate.party_id),
-                    None
-                )
-                
-                contest_data["selections"].append({
-                    "selection_id": sel_id,
-                    "candidate_id": sel["candidate_id"],
-                    "candidate_name": candidate.name if candidate else "Unknown",
-                    "party_name": party.name if party else "Independent",
-                    "votes": sel["tally"],
-                    "is_winner": False  # Would be determined based on votes
-                })
-            
-            # Determine winner(s)
-            if contest_data["selections"]:
-                max_votes = max(s["votes"] for s in contest_data["selections"])
-                for sel in contest_data["selections"]:
-                    sel["is_winner"] = sel["votes"] == max_votes
-                    
-            results["contests"].append(contest_data)
-        
-        return results
-    except Exception as e:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Error getting election results: {str(e)}"
-        )
+        raise HTTPException(status_code=400, detail=str(e))
 
 if __name__ == "__main__":
+    import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000)
