@@ -15,6 +15,7 @@ from electionguard.ballot import (
     PlaintextBallotContest,
     SubmittedBallot,
 )
+from electionguard.serialize import to_raw, from_raw
 from electionguard.constants import get_constants
 from electionguard.data_store import DataStore
 from electionguard.decryption_mediator import DecryptionMediator
@@ -23,7 +24,10 @@ from electionguard.election_polynomial import LagrangeCoefficientsRecord
 from electionguard.encrypt import EncryptionDevice, EncryptionMediator
 from electionguard.guardian import Guardian
 from electionguard.key_ceremony_mediator import KeyCeremonyMediator
+from electionguard.key_ceremony import  ElectionKeyPair
 from electionguard.ballot_box import BallotBox, get_ballots
+from electionguard.elgamal import ElGamalPublicKey, ElGamalSecretKey
+from electionguard.group import ElementModQ, ElementModP, g_pow_p, int_to_p, int_to_q
 from electionguard.manifest import (
     Manifest,
     InternalManifest,
@@ -47,93 +51,71 @@ from electionguard.tally import (
 )
 from electionguard.type import BallotId
 from electionguard.utils import get_optional
+from electionguard.election_polynomial import ElectionPolynomial, Coefficient, SecretCoefficient, PublicCommitment
+from electionguard.schnorr import SchnorrProof
+from electionguard.elgamal import ElGamalKeyPair, ElGamalPublicKey, ElGamalSecretKey
+from electionguard.group import *
 
 
 # Global variable to track voter choices
 voter_choices = defaultdict(dict)
+geopolitical_unit = GeopoliticalUnit(
+            object_id="county-1",
+            name="County 1",
+            type=ReportingUnitType.county,
+            contact_information=None,
+        )
+ # Create Ballot Styles
+ballot_style =   BallotStyle(
+            object_id="ballot-style-1",
+            geopolitical_unit_ids=["county-1"],
+            party_ids=None,
+            image_uri=None,
+        )
+       
+ 
 
-def create_election_manifest() -> Manifest:
+def create_election_manifest(party_names: List[str], party_abbreviations: List[str], candidate_names: List[str]) -> Manifest:
     """
     Create a complete election manifest programmatically.
     """
     print("Creating election manifest...")
     
-    # Create Geopolitical Units
-    geopolitical_units: List[GeopoliticalUnit] = [
-        GeopoliticalUnit(
-            object_id="county-1",
-            name="County 1",
-            type=ReportingUnitType.county,
-            contact_information=None,
-        ),
-    ]
-    
-    # Create Parties
-    parties: List[Party] = [
-        Party(
-            object_id="party-1",
-            name="Party One",
-            abbreviation="P1",
-            color=None,
-            logo_uri=None,
-        ),
-        Party(
-            object_id="party-2",
-            name="Party Two",
-            abbreviation="P2",
-            color=None,
-            logo_uri=None,
-        ),
-        Party(
-            object_id="party-3",
-            name="Party Three",
-            abbreviation="P3",
-            color=None,
-            logo_uri=None,
-        ),
-        Party(
-            object_id="independent",
-            name="Independent",
-            abbreviation="IND",
-            color=None,
-            logo_uri=None,
-        ),
-    ]
-    
-    # Create Candidates
-    candidates: List[Candidate] = [
-        Candidate(
-            object_id="candidate-1",
-            name="Candidate One",
-            party_id="party-1",
-        ),
-        Candidate(
-            object_id="candidate-2",
-            name="Candidate Two",
-            party_id="party-2",
-        ),
-        Candidate(
-            object_id="candidate-3",
-            name="Candidate Three",
-            party_id="party-3",
-        ),
-        Candidate(
-            object_id="candidate-4",
-            name="Candidate Four",
-            party_id="party-1",
-        ),
-        Candidate(
-            object_id="candidate-5",
-            name="Candidate Five",
-            party_id="party-2",
-        ),
-        Candidate(
-            object_id="candidate-6",
-            name="Candidate Six",
-            party_id="independent",
-        ),
-    ]
-    
+    parties: List[Party] = []
+
+    for i in range(len(party_names)):
+        parties.append(
+            Party(
+                object_id=f"party-{i+1}",
+                name=party_names[i],
+                abbreviation=party_abbreviations[i],
+                color=None,
+                logo_uri=None,
+            )
+        )
+
+    candidates: List[Candidate] = []
+
+    for i in range(len(candidate_names)):
+        candidates.append(
+            Candidate(
+                object_id=f"candidate-{i+1}",
+                name=candidate_names[i],
+                party_id=f"party-{i+1}",
+            )
+        )
+   
+    ballot_selections: List[SelectionDescription] = []
+
+    for i in range(len(candidate_names)):
+        ballot_selections.append(
+            SelectionDescription(
+                object_id=f"contest-1-candidate-{i+1}",
+                candidate_id=f"candidate-{i+1}",
+                sequence_order=i,
+            )
+        )
+
     # Create Contests
     contests: List[Contest] = [
         Contest(
@@ -142,23 +124,7 @@ def create_election_manifest() -> Manifest:
             electoral_district_id="county-1",
             vote_variation=VoteVariationType.one_of_m,
             name="County Executive",
-            ballot_selections=[
-                SelectionDescription(
-                    object_id="contest-1-candidate-1",
-                    candidate_id="candidate-1",
-                    sequence_order=0,
-                ),
-                SelectionDescription(
-                    object_id="contest-1-candidate-2",
-                    candidate_id="candidate-2",
-                    sequence_order=1,
-                ),
-                SelectionDescription(
-                    object_id="contest-1-candidate-3",
-                    candidate_id="candidate-3",
-                    sequence_order=2,
-                ),
-            ],
+            ballot_selections=ballot_selections,
             ballot_title=None,
             ballot_subtitle=None,
             votes_allowed=1,
@@ -167,15 +133,7 @@ def create_election_manifest() -> Manifest:
         
     ]
     
-    # Create Ballot Styles
-    ballot_styles: List[BallotStyle] = [
-        BallotStyle(
-            object_id="ballot-style-1",
-            geopolitical_unit_ids=["county-1"],
-            party_ids=None,
-            image_uri=None,
-        ),
-    ]
+   
     
     # Create the Manifest
     manifest = Manifest(
@@ -184,11 +142,11 @@ def create_election_manifest() -> Manifest:
         type=ElectionType.general,
         start_date=datetime.now(),
         end_date=datetime.now(),
-        geopolitical_units=geopolitical_units,
+        geopolitical_units=[geopolitical_unit],
         parties=parties,
         candidates=candidates,
         contests=contests,
-        ballot_styles=ballot_styles,
+        ballot_styles=[ballot_style],
         name="Test Election",
         contact_information=None,
     )
@@ -283,6 +241,84 @@ def create_plaintext_ballots(manifest: Manifest, ballot_count: int = 20) -> List
     print(f"Generated {len(plaintext_ballots)} plaintext ballots")
     return plaintext_ballots
 
+def create_guardian_keys(number_of_guardians: int = 5, number_of_quorum: int = 3):
+    """
+    Create a list of GuardianKey objects.
+    """
+from electionguard.decryption_share import DecryptionShare
+from electionguard.decryption import compute_decryption_share, compute_decryption_share_for_ballot
+
+
+def compute_tally_share(
+        _election_keys: ElectionKeyPair,
+        tally: CiphertextTally, context: CiphertextElectionContext
+    ) -> Optional[DecryptionShare]:
+        """
+        Compute the decryption share of tally.
+
+        :param tally: Ciphertext tally to get share of
+        :param context: Election context
+        :return: Decryption share of tally or None if failure
+        """
+        return compute_decryption_share(
+            _election_keys,
+            tally,
+            context,
+        )
+
+def compute_ballot_shares(
+    _election_keys: ElectionKeyPair,
+    ballots: List[SubmittedBallot], context: CiphertextElectionContext
+) -> Dict[BallotId, Optional[DecryptionShare]]:
+    """
+    Compute the decryption shares of ballots.    :param ballots: List of ciphertext ballots to gethares of
+    :param context: Election context
+    :return: Decryption shares of ballots or None ifailure
+    """
+    shares = {}
+    for ballot in ballots:
+        share = compute_decryption_share_for_ballot(
+            _election_keys,
+            ballot,
+            context,
+        )
+        shares[ballot.object_id] = share
+    return shares
+
+def decrypt_result(
+        ciphertext_tally, context, manifest, decryption_mediator, _election_keys : List[ElectionKeyPair], submitted_ballots_list, guardian_no
+):
+    """hello"""
+    print("submitted ballots list: " , submitted_ballots_list)
+    for i in range (guardian_no):
+        # Each guardian computes their share of the tally
+        
+        guardian_key = _election_keys[i].share()
+        tally_share = compute_tally_share(_election_keys[i],ciphertext_tally, context)
+        ballot_shares = compute_ballot_shares(_election_keys[i],submitted_ballots_list, context)
+        
+        # Guardian announces their share
+        decryption_mediator.announce(
+            guardian_key, 
+            get_optional(tally_share),
+            ballot_shares
+        )
+        print(f"✅ Guardian {i} computed and shared tally & ballot decryption shares")
+    
+    lagrange_coefficients = LagrangeCoefficientsRecord(
+        decryption_mediator.get_lagrange_coefficients()
+    )
+    print("✅ Generated Lagrange coefficients for decryption")
+    
+    # Get the plaintext tally
+    plaintext_tally = get_optional(
+        decryption_mediator.get_plaintext_tally(ciphertext_tally, manifest)
+    )
+    print("✅ Successfully decrypted tally")
+    """The decryption tally part using election guard guardian class is over now """
+    # After key ceremony, store these values:
+    """THis is are the alternate probable way to decrypt the keys using only the public and private keys of the guardians"""
+    
 
 def run_election_demo():
     """
@@ -302,7 +338,7 @@ def run_election_demo():
     
     # Step 0: Configure Election
     print("\n🔹 STEP 0: Configuring Election")
-    manifest = create_election_manifest()
+    manifest = create_election_manifest(party_names=["Democratic", "Republican"], party_abbreviations=["D", "R"], candidate_names=["Joe Biden", "Donald Trump"])
     
     # Create election builder
     election_builder = ElectionBuilder(
@@ -413,6 +449,16 @@ def run_election_demo():
         guardian_key = guardian.share_key()
         print(f"Guardian's {guardian.id} Key::: {guardian_key.key}")
 
+    # g0 = guardians[0]
+    # gdata0 = serialize_to_json(g0)
+    # print(f"g0: {g0}")
+    # print(f"gdata0: {gdata0}")
+
+    # print("Now the reconstruction process")
+    # gtemp = reconstruct_from_json(gdata0)
+    # print(f"gtemp: {gtemp}")
+    # guardians[0] = gtemp
+
     
     # Set the joint key and commitment hash in the election builder
     election_builder.set_public_key(joint_key.joint_public_key)
@@ -507,15 +553,31 @@ def run_election_demo():
         context,
     )
     print("✅ Created decryption mediator")
-    
-    # Have each guardian participate in the decryption
     submitted_ballots_list = list(submitted_ballots.values())
+    # Have each guardian participate in the decryption
+    """The decryption part using Guardian class of election Guard is starting right now """
     
-    for guardian in guardians:
+    guardian_public_keys_json = [int(g._election_keys.key_pair.public_key) for g in guardians]  # List of ElementModP
+    guardian_private_keys_json = [int(g._election_keys.key_pair.secret_key) for g in guardians]  # List of ElementModQ 
+    guardian_polynomials_json = [to_raw(g._election_keys.polynomial) for g in guardians]
+    guardian_ids = [f"guardian-{i}" for i in range(len(guardians))]
+    guardian_public_keys = [int_to_p(g) for g in guardian_public_keys_json]
+    guardian_private_keys = [int_to_q( g) for g in guardian_private_keys_json]
+    guardian_polynomials = [from_raw(ElectionPolynomial,g ) for g in guardian_polynomials_json]
+    _election_keys : ElectionKeyPair = []
+    print(f" The new public keys are {guardian_public_keys}")
+    print(f" The new private keys are {guardian_private_keys}")
+    print(f" The new polynomials are {guardian_polynomials}")
+    for i in range (NUMBER_OF_GUARDIANS):
+        _election_keys.append(ElectionKeyPair(owner_id=guardian_ids[i], sequence_order=i, key_pair=ElGamalKeyPair(guardian_private_keys[i],guardian_public_keys[i]), polynomial=guardian_polynomials[i]))
+
+    print("submitted ballots list: " , submitted_ballots_list)
+    for i in range (NUMBER_OF_GUARDIANS):
         # Each guardian computes their share of the tally
-        guardian_key = guardian.share_key()
-        tally_share = guardian.compute_tally_share(ciphertext_tally, context)
-        ballot_shares = guardian.compute_ballot_shares(submitted_ballots_list, context)
+        
+        guardian_key = _election_keys[i].share()
+        tally_share = compute_tally_share(_election_keys[i],ciphertext_tally, context)
+        ballot_shares = compute_ballot_shares(_election_keys[i],submitted_ballots_list, context)
         
         # Guardian announces their share
         decryption_mediator.announce(
@@ -523,7 +585,7 @@ def run_election_demo():
             get_optional(tally_share),
             ballot_shares
         )
-        print(f"✅ Guardian {guardian.id} computed and shared tally & ballot decryption shares")
+        print(f"✅ Guardian {i} computed and shared tally & ballot decryption shares")
     
     lagrange_coefficients = LagrangeCoefficientsRecord(
         decryption_mediator.get_lagrange_coefficients()
@@ -535,7 +597,12 @@ def run_election_demo():
         decryption_mediator.get_plaintext_tally(ciphertext_tally, manifest)
     )
     print("✅ Successfully decrypted tally")
+    """The decryption tally part using election guard guardian class is over now """
+    # After key ceremony, store these values:
+    """THis is are the alternate probable way to decrypt the keys using only the public and private keys of the guardians"""
     
+   
+    # TODO - it is the part where we get the plaintext spoiled ballots
     # Get the plaintext spoiled ballots
     plaintext_spoiled_ballots = get_optional(
         decryption_mediator.get_plaintext_ballots(submitted_ballots_list, manifest)
