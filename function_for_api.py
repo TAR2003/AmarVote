@@ -111,7 +111,7 @@ def create_election_manifest(party_names: List[str], party_abbreviations: List[s
         ballot_selections.append(
             SelectionDescription(
                 object_id=f"contest-1-candidate-{i+1}",
-                candidate_id=f"candidate-{i+1}",
+                candidate_id=f"{candidate_names[i]}",
                 sequence_order=i,
             )
         )
@@ -169,12 +169,24 @@ def create_election_manifest(party_names: List[str], party_abbreviations: List[s
     
     return manifest
 
+def selected_option(manifest:Manifest, candidate_id: str):
+    for option in manifest.contests[0].ballot_selections:
+        if option.candidate_id == candidate_id:
+            return option
+
+def create_one_plainText_ballot(manifest : Manifest, name: str): 
+    """Youre here"""
+    selection = selected_option(manifest, name)
+    print(f"The selection for Joe Biden is: {selection}")
+    # return candidates
+
 
 def create_plaintext_ballots(manifest: Manifest, ballot_count: int = 20) -> List[PlaintextBallot]:
     """
     Generate plaintext ballots programmatically based on the manifest.
     """
     print(" Starting ballot text generating phase...")
+    create_one_plainText_ballot(manifest, "Joe Biden")
     plaintext_ballots: List[PlaintextBallot] = [] # we have to save the list somewhere
     ballot_styles = manifest.ballot_styles # it is fixed, only one
     print('Ballot styles: ', ballot_styles)
@@ -201,6 +213,7 @@ def create_plaintext_ballots(manifest: Manifest, ballot_count: int = 20) -> List
                 chosen_selection = random.choice(contest.ballot_selections)
                 print(i, 'th voter')
                 print('Available selections: ', contest.ballot_selections)
+                print(f"Length of available selection: {len(contest.ballot_selections)}")
                 print('Chosed selection: ', chosen_selection)
                 
                 # Record the voter's choice in our global tracker
@@ -285,40 +298,7 @@ def compute_ballot_shares(
         shares[ballot.object_id] = share
     return shares
 
-def decrypt_result(
-        ciphertext_tally, context, manifest, decryption_mediator, _election_keys : List[ElectionKeyPair], submitted_ballots_list, guardian_no
-):
-    """hello"""
-    print("submitted ballots list: " , submitted_ballots_list)
-    for i in range (guardian_no):
-        # Each guardian computes their share of the tally
-        
-        guardian_key = _election_keys[i].share()
-        tally_share = compute_tally_share(_election_keys[i],ciphertext_tally, context)
-        ballot_shares = compute_ballot_shares(_election_keys[i],submitted_ballots_list, context)
-        
-        # Guardian announces their share
-        decryption_mediator.announce(
-            guardian_key, 
-            get_optional(tally_share),
-            ballot_shares
-        )
-        print(f"✅ Guardian {i} computed and shared tally & ballot decryption shares")
-    
-    lagrange_coefficients = LagrangeCoefficientsRecord(
-        decryption_mediator.get_lagrange_coefficients()
-    )
-    print("✅ Generated Lagrange coefficients for decryption")
-    
-    # Get the plaintext tally
-    plaintext_tally = get_optional(
-        decryption_mediator.get_plaintext_tally(ciphertext_tally, manifest)
-    )
-    print("✅ Successfully decrypted tally")
-    """The decryption tally part using election guard guardian class is over now """
-    # After key ceremony, store these values:
-    """THis is are the alternate probable way to decrypt the keys using only the public and private keys of the guardians"""
-    
+
 
 def run_election_demo():
     """
@@ -560,6 +540,7 @@ def run_election_demo():
     guardian_public_keys_json = [int(g._election_keys.key_pair.public_key) for g in guardians]  # List of ElementModP
     guardian_private_keys_json = [int(g._election_keys.key_pair.secret_key) for g in guardians]  # List of ElementModQ 
     guardian_polynomials_json = [to_raw(g._election_keys.polynomial) for g in guardians]
+    # print('Type of file: ' , type(guardian_polynomials_json[0]))
     guardian_ids = [f"guardian-{i}" for i in range(len(guardians))]
     guardian_public_keys = [int_to_p(g) for g in guardian_public_keys_json]
     guardian_private_keys = [int_to_q( g) for g in guardian_private_keys_json]
