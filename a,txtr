@@ -1,0 +1,23 @@
+
+    Starting ElectionGuard End-to-End Demo
+    Number of Guardians: 5
+    Quorum Required: 3
+    Number of Ballots: 20
+    
+
+🔹 STEP 0: Configuring Election
+Creating election manifest...
+
+        ----------------------------------------
+        # Election Summary:
+        # Scope: election-34f63b7b-7020-4e50-8af9-dfb6afa4eced
+        # Geopolitical Units: 1
+        # Parties: 2
+        # Candidates: 2
+        # Contests: 1
+        # Ballot Styles: 1
+        ========================================
+        # start_date: 2025-05-24 18:20:51.517110
+        # end_date: 2025-05-24 18:20:51.517113
+        ----------------------------------------
+    

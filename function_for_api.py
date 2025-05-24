@@ -75,7 +75,7 @@ ballot_style =   BallotStyle(
        
  
 
-def create_election_manifest(party_names: List[str], party_abbreviations: List[str], candidate_names: List[str]) -> Manifest:
+def create_election_manifest(party_names: List[str], party_abbreviations: List[str], candidate_names: List[str], from_year: int, to_year: int, from_month: int, to_month: int, from_day: int, to_day: int,from_hour: int, to_hour: int, from_minute: int, to_minute: int, from_second: int, to_second: int) -> Manifest:
     """
     Create a complete election manifest programmatically.
     """
@@ -133,15 +133,16 @@ def create_election_manifest(party_names: List[str], party_abbreviations: List[s
         
     ]
     
-   
+    start_date  = datetime(from_year, from_month, from_day, from_hour, from_minute, from_second, 0, None)
+    end_date = datetime(to_year, to_month, to_day, to_hour, to_minute, to_second, 0, None)
     
-    # Create the Manifest
+    # Create the Manifest 
     manifest = Manifest(
         election_scope_id=f"election-{uuid.uuid4()}",
         spec_version="1.0",
         type=ElectionType.general,
-        start_date=datetime.now(),
-        end_date=datetime.now(),
+        start_date=start_date,
+        end_date=end_date,
         geopolitical_units=[geopolitical_unit],
         parties=parties,
         candidates=candidates,
@@ -318,8 +319,9 @@ def run_election_demo():
     
     # Step 0: Configure Election
     print("\n🔹 STEP 0: Configuring Election")
-    manifest = create_election_manifest(party_names=["Democratic", "Republican"], party_abbreviations=["D", "R"], candidate_names=["Joe Biden", "Donald Trump"])
-    
+    manifest = create_election_manifest(party_names=["Democratic", "Republican"], party_abbreviations=["D", "R"], candidate_names=["Joe Biden", "Donald Trump"], from_year=2025, to_year=2025, from_month=5, to_month=5, from_day=24, to_day=25, from_hour=12, to_hour=12, from_minute=0, to_minute=0, from_second=0, to_second=0)
+    # manifest_temp = to_raw(manifest)
+    # manifest = from_raw(Manifest ,manifest_temp)
     # Create election builder
     election_builder = ElectionBuilder(
         NUMBER_OF_GUARDIANS, 
@@ -441,6 +443,7 @@ def run_election_demo():
 
     
     # Set the joint key and commitment hash in the election builder
+    print(f"joint key: {joint_key}")
     election_builder.set_public_key(joint_key.joint_public_key)
     election_builder.set_commitment_hash(joint_key.commitment_hash)
     
