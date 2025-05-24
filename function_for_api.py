@@ -524,6 +524,7 @@ def run_election_demo():
     ciphertext_tally = get_optional(
         tally_ballots(ballot_store, internal_manifest, context)
     )
+    
     print(f"✅ Created encrypted tally with {ciphertext_tally.cast()} cast ballots")
     
     # Get spoiled ballots

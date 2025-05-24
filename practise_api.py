@@ -26,7 +26,7 @@ from electionguard.guardian import Guardian
 from electionguard.key_ceremony_mediator import KeyCeremonyMediator
 from electionguard.key_ceremony import ElectionKeyPair, ElectionPublicKey
 from electionguard.ballot_box import BallotBox, get_ballots
-from electionguard.elgamal import ElGamalPublicKey, ElGamalSecretKey
+from electionguard.elgamal import ElGamalPublicKey, ElGamalSecretKey, ElGamalCiphertext
 from electionguard.group import ElementModQ, ElementModP, g_pow_p, int_to_p, int_to_q
 from electionguard.manifest import (
     Manifest,
@@ -48,6 +48,8 @@ from electionguard.tally import (
     tally_ballots,
     CiphertextTally,
     PlaintextTally,
+    CiphertextTallyContest,
+    CiphertextTallySelection
 )
 from electionguard.type import BallotId
 from electionguard.utils import get_optional
@@ -147,14 +149,18 @@ def create_election_manifest(
     
     return manifest
 
-def create_plaintext_ballot(manifest: Manifest, candidate_name: str, ballot_id: str) -> PlaintextBallot:
+def create_plaintext_ballot(party_names, candidate_names, candidate_name: str, ballot_id: str) -> PlaintextBallot:
     """Create a single plaintext ballot for a specific candidate."""
+    manifest = create_election_manifest(
+        party_names,
+        candidate_names,
+    )
     selection = None
-    for contest in manifest.contests:
-        for option in contest.ballot_selections:
-            if option.candidate_id == candidate_name:
-                selection = option
-                break
+    contest = manifest.contests[0]
+    for option in contest.ballot_selections:
+        if option.candidate_id == candidate_name:
+            selection = option
+            break
     
     if not selection:
         raise ValueError(f"Candidate {candidate_name} not found in manifest")
@@ -276,15 +282,23 @@ def setup_guardians_and_joint_key(number_of_guardians: int, quorum: int) -> Tupl
     return guardian_public_keys_json, guardian_private_keys_json, guardian_polynomials_json, joint_key.joint_public_key, joint_key.commitment_hash
 
 def encrypt_ballot(
-    manifest: Manifest,
-    joint_public_key: ElementModP,
-    commitment_hash: ElementModQ,
-    plaintext_ballot: PlaintextBallot
+    party_names,
+    candidate_names,
+    joint_public_key_json,
+    commitment_hash_json,
+    plaintext_ballot_json
 ) -> Optional[CiphertextBallot]:
     """
     Second function: Encrypt a single ballot.
     Returns the encrypted ballot or None if encryption fails.
     """
+    joint_public_key = int_to_p(joint_public_key_json)
+    commitment_hash = int_to_q(commitment_hash_json)
+    plaintext_ballot = from_raw(PlaintextBallot, plaintext_ballot_json)
+    manifest = create_election_manifest(
+        party_names,
+        candidate_names,
+    )
     print(f"\n🔹 Encrypting ballot: {plaintext_ballot.object_id}")
     
     # Create election builder and set public key and commitment hash
@@ -313,16 +327,27 @@ def encrypt_ballot(
         return None
 
 def tally_encrypted_ballots(
-    manifest: Manifest,
-    joint_public_key: ElementModP,
-    commitment_hash: ElementModQ,
-    encrypted_ballots: List[CiphertextBallot]
+    party_names,
+    candidate_names,
+    joint_public_key_json,
+    commitment_hash_json,
+    encrypted_ballots_json
 ) -> Tuple[CiphertextTally, List[SubmittedBallot]]:
     """
     Third function: Tally encrypted ballots.
     Returns the ciphertext tally and list of submitted ballots.
     """
     print("\n🔹 Tallying encrypted ballots")
+    joint_public_key = int_to_p(joint_public_key_json)
+    commitment_hash = int_to_q(commitment_hash_json)
+    encrypted_ballots : List[CiphertextBallot] = []
+    for encrypted_ballot_json in encrypted_ballots_json:
+        encrypted_ballots.append(from_raw(CiphertextBallot, encrypted_ballot_json))
+    manifest = create_election_manifest(
+        party_names,
+        candidate_names,
+    )
+    
     
     # Create election builder and set public key and commitment hash
     election_builder = ElectionBuilder(
@@ -359,7 +384,7 @@ def tally_encrypted_ballots(
         tally_ballots(ballot_store, internal_manifest, context)
     )
     print(f"✅ Created encrypted tally with {ciphertext_tally.cast()} cast ballots")
-    
+    # print(f"submitter ballots: {submitted_ballots}")
     return ciphertext_tally, submitted_ballots
 
 
@@ -400,12 +425,8 @@ def compute_ballot_shares(
     return shares
 
 
-
-
-def decrypt_tally_and_ballots(
-    guardian_public_keys_json,
-    guardian_private_keys_json,
-    guardian_polynomials_json,
+def newfunction(
+    _election_keys: List[ElectionKeyPair],
     manifest: Manifest,
     ciphertext_tally: CiphertextTally,
     submitted_ballots: List[SubmittedBallot],
@@ -415,16 +436,8 @@ def decrypt_tally_and_ballots(
     Fourth function: Decrypt tally and spoiled ballots.
     Returns the plaintext tally and dictionary of spoiled ballot decryptions.
     """
-    guardian_ids = [f"guardian-{i}" for i in range(len(guardian_public_keys_json))]
+    print("\n🔹 Decrypting tally and spoiled ballots")
     
-    guardian_public_keys = [int_to_p(g) for g in guardian_public_keys_json]
-    guardian_private_keys = [int_to_q( g) for g in guardian_private_keys_json]
-    guardian_polynomials = [from_raw(ElectionPolynomial,g ) for g in guardian_polynomials_json]
-
-    
-    _election_keys : ElectionKeyPair = []
-    for i in range (len(guardian_public_keys)):
-        _election_keys.append(ElectionKeyPair(owner_id=guardian_ids[i], sequence_order=i, key_pair=ElGamalKeyPair(guardian_private_keys[i],guardian_public_keys[i]), polynomial=guardian_polynomials[i]))
 
     
     # For decryption, we don't actually need to set the public key or commitment hash
@@ -449,6 +462,7 @@ def decrypt_tally_and_ballots(
             get_optional(tally_share),
             ballot_shares
         )
+
         print(f"✅ Guardian {election_key.owner_id} computed and shared decryption shares")
     
     # Get the plaintext tally
@@ -466,9 +480,131 @@ def decrypt_tally_and_ballots(
     return plaintext_tally, plaintext_spoiled_ballots
 
 
+def decrypt_tally_and_ballots(
+    guardian_public_keys_json,
+    guardian_private_keys_json,
+    guardian_polynomials_json,
+    party_names,
+    candidate_names,
+    ciphertext_tally_json,
+    submitted_ballots_json,
+    joint_public_key_json,
+    commitment_hash_json
+) -> Dict[str, Any]:
+    try:
+        # 1. Create election manifest and setup
+        manifest = create_election_manifest(party_names, candidate_names)
+        election_builder = ElectionBuilder(
+            number_of_guardians=len(guardian_public_keys_json),
+            quorum=len(guardian_public_keys_json),
+            manifest=manifest
+        )
+        
+        # 2. Set election parameters
+        joint_public_key = int_to_p(joint_public_key_json)
+        commitment_hash = int_to_q(commitment_hash_json)
+        election_builder.set_public_key(joint_public_key)
+        election_builder.set_commitment_hash(commitment_hash)
+        
+        # 3. Prepare guardian data
+        guardian_ids = [f"guardian-{i}" for i in range(len(guardian_public_keys_json))]
+        _election_keys = [
+            ElectionKeyPair(
+                owner_id=guardian_ids[i],
+                sequence_order=i,
+                key_pair=ElGamalKeyPair(
+                    int_to_q(guardian_private_keys_json[i]),
+                    int_to_p(guardian_public_keys_json[i])
+                ),
+                polynomial=from_raw(ElectionPolynomial, guardian_polynomials_json[i])
+            )
+            for i in range(len(guardian_public_keys_json))
+        ]
+
+        # 4. Build election context
+        internal_manifest, context = get_optional(election_builder.build())
+        
+        # 5. Prepare tally and ballots
+        ciphertext_tally = raw_to_ciphertext_tally(ciphertext_tally_json, manifest=manifest)
+        submitted_ballots = [
+            from_raw(SubmittedBallot, ballot_json)
+            for ballot_json in submitted_ballots_json
+        ]
+
+        # 6. Configure decryption mediator
+        decryption_mediator = DecryptionMediator(
+            "decryption-mediator",
+            context,
+        )
+
+        # 7. Process each guardian's shares
+        for election_key in _election_keys:
+            guardian_key = election_key.share()
+            tally_share = compute_tally_share(election_key, ciphertext_tally, context)
+            ballot_shares = compute_ballot_shares(election_key, submitted_ballots, context)
+            
+            decryption_mediator.announce(
+                guardian_key,
+                get_optional(tally_share),
+                ballot_shares
+            )
+
+        # 8. Get decrypted results
+        plaintext_tally = get_optional(
+            decryption_mediator.get_plaintext_tally(ciphertext_tally, manifest)
+        )
+        plaintext_spoiled_ballots = get_optional(
+            decryption_mediator.get_plaintext_ballots(submitted_ballots, manifest)
+        )
+        
+        # Process the results
+        election_results = {}
+        for contest_id, contest in plaintext_tally.contests.items():
+            election_results[contest_id] = {}
+            for selection_id, selection in contest.selections.items():
+                election_results[contest_id][selection_id] = {
+                    "tally": selection.tally,
+                    "name": selection_id  # or get candidate name from manifest
+                }
+        
+        spoiled_ballots_info = get_spoiled_ballot_info(
+            plaintext_spoiled_ballots,
+            party_names,
+            candidate_names
+        )
+
+        return {
+            "election_results": election_results,
+            "spoiled_ballots": spoiled_ballots_info,
+            "success": True,
+            "message": "Decryption completed successfully"
+        }
+
+    except Exception as e:
+        return {
+            "success": False,
+            "message": f"Decryption failed: {str(e)}"
+        }
+from electionguard.serialize import to_raw, from_raw
+from electionguard.manifest import Manifest, InternalManifest
+import json
+
+
+from electionguard.tally import CiphertextTally, CiphertextTallyContest, CiphertextTallySelection
+from electionguard.elgamal import ElGamalCiphertext
+from typing import Dict
+
+import json
+import inspect
+from enum import Enum
+
+ 
+
+
 def get_spoiled_ballot_info(
     plaintext_spoiled_ballots: Dict[BallotId, PlaintextTally],
-    manifest: Manifest
+    party_names,
+    candidate_names
 ) -> List[Dict[str, Any]]:
     """
     Extract meaningful information from spoiled ballots.
@@ -480,6 +616,10 @@ def get_spoiled_ballot_info(
     Returns:
         List of dictionaries containing ballot ID and selected candidate information
     """
+    manifest = create_election_manifest(
+        party_names,
+        candidate_names,
+    )
     spoiled_ballot_info = []
     
     # Create a mapping from selection IDs to candidate names
@@ -507,11 +647,55 @@ def get_spoiled_ballot_info(
         spoiled_ballot_info.append(ballot_data)
     
     return spoiled_ballot_info
-def run_demo():
+
+
+def check(ciphertext_tally: CiphertextTally):
+    """Checkibng"""
+    
+from typing import Set, Dict, List
+import json
+from electionguard.tally import CiphertextTally
+from electionguard.manifest import Manifest, InternalManifest
+from electionguard.election import CiphertextElectionContext
+
+def ciphertext_tally_to_raw(tally: CiphertextTally) -> Dict:
+    """Convert a CiphertextTally to a raw dictionary for serialization."""
+    return {
+        "_encryption": to_raw(tally._encryption),
+        "cast_ballot_ids": list(tally.cast_ballot_ids),  # Convert set to list
+        "spoiled_ballot_ids": list(tally.spoiled_ballot_ids),  # Convert set to list
+        "contests": {contest_id: to_raw(contest) for contest_id, contest in tally.contests.items()},
+        "_internal_manifest": to_raw(tally._internal_manifest),
+        "_manifest": to_raw(tally._internal_manifest.manifest)
+    }
+
+def raw_to_ciphertext_tally(raw: Dict, manifest: Manifest = None) -> CiphertextTally:
+    """Reconstruct a CiphertextTally from its raw dictionary representation."""
+    # Handle manifest (either from parameter or raw data)
+    internal_manifest = InternalManifest(manifest)
+    
+    # Create tally
+    tally = CiphertextTally(
+        object_id=raw.get("object_id", ""),
+        _internal_manifest=internal_manifest,
+        _encryption=from_raw(CiphertextElectionContext, raw["_encryption"]),
+    )
+    
+    # Convert lists back to sets (no need for from_raw on simple sets)
+    tally.cast_ballot_ids = set(raw["cast_ballot_ids"])
+    tally.spoiled_ballot_ids = set(raw["spoiled_ballot_ids"])
+    
+    # Handle contests
+    tally.contests = {
+        contest_id: from_raw(CiphertextTallyContest, contest_raw)
+        for contest_id, contest_raw in raw["contests"].items()
+    }
+    
+    return tally
+
+def run_demo(party_names, candidate_names, voter_no, number_of_guardians, quorum):
     """Demonstration of the complete workflow using the four functions."""
 
-    number_of_guardians = 3
-    quorum = 2
     # Step 1: Setup guardians and create joint key
     guardian_public_keys_json, guardian_private_keys_json, guardian_polynomials_json, joint_public_key, commitment_hash = setup_guardians_and_joint_key(
         number_of_guardians=number_of_guardians,
@@ -522,51 +706,115 @@ def run_demo():
     
     # Step 2: Create manifest and ballots
     manifest = create_election_manifest(
-        party_names=["Democratic", "Republican"],
-        candidate_names=["Joe Biden", "Donald Trump"],
+        party_names,
+        candidate_names,
     )
-    election_builder = ElectionBuilder (number_of_guardians=number_of_guardians, quorum=quorum, manifest=manifest)
-    election_builder.set_public_key(joint_public_key)
-    election_builder.set_commitment_hash(commitment_hash)
+    print(f"Manifest hash in the main: {manifest.crypto_hash}")
+    # election_builder = ElectionBuilder (number_of_guardians=number_of_guardians, quorum=quorum, manifest=manifest)
+    # election_builder.set_public_key(joint_public_key)
+    # election_builder.set_commitment_hash(commitment_hash)
     # Create some plaintext ballots
     plaintext_ballots = []
-    voter_count = 10
-    for i in range(voter_count):
-        plaintext_ballots.append(create_plaintext_ballot(manifest, "Joe Biden", f"ballot-{i*2}"))
-        plaintext_ballots.append(create_plaintext_ballot(manifest, "Donald Trump", f"ballot-{i*2 + 1}"))
+    for i in range(voter_no):
+        plaintext_ballots.append(create_plaintext_ballot(party_names, candidate_names, "Joe Biden", f"ballot-{i*2}"))
+        plaintext_ballots.append(create_plaintext_ballot(party_names, candidate_names, "Donald Trump", f"ballot-{i*2 + 1}"))
     
     # Encrypt the ballots
+    joint_public_key_json = ElementModP(joint_public_key)
+    commitment_hash_json = ElementModQ(commitment_hash)
+    plaintext_ballots = [to_raw(plaintext_ballot) for plaintext_ballot in plaintext_ballots]
     encrypted_ballots = []
     for ballot in plaintext_ballots:
-        encrypted = encrypt_ballot(manifest, joint_public_key, commitment_hash, ballot)
+        encrypted = encrypt_ballot(party_names, candidate_names, joint_public_key, commitment_hash, ballot)
         if encrypted:
             encrypted_ballots.append(encrypted)
     
+    encrypted_ballots = [to_raw(encrypted_ballot) for encrypted_ballot in encrypted_ballots]
     # Tally the encrypted ballots
     ciphertext_tally, submitted_ballots = tally_encrypted_ballots(
-        manifest, joint_public_key, commitment_hash, encrypted_ballots
+        party_names, candidate_names, joint_public_key_json, commitment_hash_json, encrypted_ballots
     )
-
+    print('Publishing Now:',ciphertext_tally.publish())
+    ciphertext_tally_json = ciphertext_tally_to_raw(ciphertext_tally)
+    # ciphertext_tally = raw_to_ciphertext_tally(ciphertext_tally_json, manifest=manifest)
+    # check(ciphertext_tally)
+    submitted_ballots = [to_raw(submitted_ballot) for submitted_ballot in submitted_ballots]
     # Decrypt the tally and ballots
-    plaintext_tally, plaintext_spoiled_ballots = decrypt_tally_and_ballots(
+    result = decrypt_tally_and_ballots(
         guardian_public_keys_json=guardian_public_keys_json,
         guardian_private_keys_json=guardian_private_keys_json,
         guardian_polynomials_json=guardian_polynomials_json,
-        manifest=manifest,
-        ciphertext_tally=ciphertext_tally,
-        submitted_ballots=submitted_ballots,
-        election_builder=election_builder
+        party_names=party_names,
+        candidate_names=candidate_names,
+        ciphertext_tally_json=ciphertext_tally_json,
+        submitted_ballots_json=submitted_ballots,
+        joint_public_key_json=joint_public_key_json,
+        commitment_hash_json=commitment_hash_json
+
+    )
+    # manifest = create_election_manifest(party_names, candidate_names)
+    # election_builder = ElectionBuilder(
+    #         number_of_guardians=len(guardian_public_keys_json),
+    #         quorum=len(guardian_public_keys_json),
+    #         manifest=manifest
+    # )
+        
+    #     # 2. Set election parameters
+    # joint_public_key = int_to_p(joint_public_key_json)
+    # commitment_hash = int_to_q(commitment_hash_json)
+    # election_builder.set_public_key(joint_public_key)
+    # election_builder.set_commitment_hash(commitment_hash)
+    
+    # # 3. Prepare guardian data
+    # guardian_ids = [f"guardian-{i}" for i in range(len(guardian_public_keys_json))]
+    # _election_keys = [
+    #     ElectionKeyPair(
+    #         owner_id=guardian_ids[i],
+    #         sequence_order=i,
+    #         key_pair=ElGamalKeyPair(
+    #             int_to_q(guardian_private_keys_json[i]),
+    #             int_to_p(guardian_public_keys_json[i])
+    #         ),
+    #         polynomial=from_raw(ElectionPolynomial, guardian_polynomials_json[i])
+    #     )
+    #     for i in range(len(guardian_public_keys_json))
+    # ]
+    # result = newfunction(_election_keys, manifest, ciphertext_tally, submitted_ballots, election_builder)
+    print(f"The election results: {result}")
+    result = decrypt_tally_and_ballots(
+    guardian_public_keys_json=guardian_public_keys_json,
+    guardian_private_keys_json=guardian_private_keys_json,
+    guardian_polynomials_json=guardian_polynomials_json,
+    party_names=party_names,
+    candidate_names=candidate_names,
+    ciphertext_tally_json=ciphertext_tally_json,
+    submitted_ballots_json=submitted_ballots,
+    joint_public_key_json=joint_public_key,
+    commitment_hash_json=commitment_hash
     )
     
-    # Print results
-    print("\n📊 Election Results:")
-    for contest_id, contest_tally in plaintext_tally.contests.items():
-        print(f"\nContest: {contest_id}")
-        for selection_id, selection_tally in contest_tally.selections.items():
-            print(f"  Selection {selection_id}: {selection_tally.tally} votes")
-    info = get_spoiled_ballot_info(plaintext_spoiled_ballots, manifest)
-    print(f"get spoiled ballot info: {info}")
+    if result.get("success"):
+        print("\nElection Results:")
+        for contest_id, contest in result["election_results"].items():
+            print(f"\nContest: {contest_id}")
+            for selection_id, selection in contest.items():
+                print(f"  {selection_id}: {selection['tally']} votes")
+        
+        print("\nSpoiled Ballots:")
+        for ballot in result["spoiled_ballots"]:
+            print(f"\nBallot ID: {ballot['ballot_id']}")
+            for selection in ballot["selections"]:
+                print(f"  Voted for: {selection['candidate']}")
+    else:
+        print(f"\nError: {result['message']}")
+    
+    
 
 if __name__ == "__main__":
-    run_demo()
+    run_demo(
+        party_names=["Party A", "Party B"],
+        candidate_names=[ "Joe Biden", "Donald Trump"], 
+        voter_no=10,
+        number_of_guardians=3,
+        quorum=2)
     print("\n🎉 Demo completed successfully!")
