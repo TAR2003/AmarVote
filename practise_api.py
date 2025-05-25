@@ -281,7 +281,8 @@ def setup_guardians_and_joint_key(number_of_guardians: int, quorum: int) -> Tupl
     return guardian_public_keys_json, guardian_private_keys_json, guardian_polynomials_json, joint_key.joint_public_key, joint_key.commitment_hash
 
 def encrypt_ballot(
-    manifest,
+    party_names,
+    candidate_names,
     joint_public_key_json,
     commitment_hash_json,
     plaintext_ballot
@@ -293,10 +294,10 @@ def encrypt_ballot(
     joint_public_key = int_to_p(joint_public_key_json)
     commitment_hash = int_to_q(commitment_hash_json)
     # plaintext_ballot = from_raw(PlaintextBallot, plaintext_ballot_json)
-    # manifest = create_election_manifest(
-    #     party_names,
-    #     candidate_names,
-    # )
+    manifest = create_election_manifest(
+        party_names,
+        candidate_names,
+    )
     print(f"\n🔹 Encrypting ballot: {plaintext_ballot.object_id}")
     
     # Create election builder and set public key and commitment hash
@@ -325,7 +326,8 @@ def encrypt_ballot(
         return None
 
 def tally_encrypted_ballots(
-    manifest,
+    party_names,
+    candidate_names,
     joint_public_key_json,
     commitment_hash_json,
     encrypted_ballots_json
@@ -340,10 +342,10 @@ def tally_encrypted_ballots(
     encrypted_ballots : List[CiphertextBallot] = []
     for encrypted_ballot_json in encrypted_ballots_json:
         encrypted_ballots.append(from_raw(CiphertextBallot, encrypted_ballot_json))
-    # manifest = create_election_manifest(
-    #     party_names,
-    #     candidate_names,
-    # )
+    manifest = create_election_manifest(
+        party_names,
+        candidate_names,
+    )
     
     
     # Create election builder and set public key and commitment hash
@@ -723,19 +725,7 @@ def run_demo(party_names, candidate_names, voter_no, number_of_guardians, quorum
 
    
     
-    # Step 2: Create manifest and ballots
-    manifest = create_election_manifest(
-        party_names,
-        candidate_names,
-    )
 
-    # manifest = manifest_to_dict(manifest)
-    # manifest = dict_to_manifest(manifest)
-    print(f"Manifest hash in the main: {manifest.crypto_hash}")
-    # election_builder = ElectionBuilder (number_of_guardians=number_of_guardians, quorum=quorum, manifest=manifest)
-    # election_builder.set_public_key(joint_public_key)
-    # election_builder.set_commitment_hash(commitment_hash)
-    # Create some plaintext ballots
     plaintext_ballots = []
     for i in range(voter_no):
         plaintext_ballots.append(create_plaintext_ballot(party_names, candidate_names, "Joe Biden", f"ballot-{i*2}"))
@@ -748,28 +738,18 @@ def run_demo(party_names, candidate_names, voter_no, number_of_guardians, quorum
     commitment_hash_json = ElementModQ(commitment_hash)
     # plaintext_ballots = [to_raw(plaintext_ballot) for plaintext_ballot in plaintext_ballots]
     encrypted_ballots = []
-    manifest = create_election_manifest(
-        party_names,
-        candidate_names,
-    )
-    print("Manifest 1:")
-    print(manifest)
+    
     for ballot in plaintext_ballots:
-        encrypted = encrypt_ballot(manifest, joint_public_key, commitment_hash, ballot)
+        encrypted = encrypt_ballot(party_names, candidate_names, joint_public_key, commitment_hash, ballot)
         if encrypted:
             encrypted_ballots.append(encrypted)
     print('Encrypted Ballots:')
     print(f"Encrypted Ballot: {encrypted_ballots[0]}")
     print(f"Encrypted Ballot: {encrypted_ballots[1]}")
     encrypted_ballots = [to_raw(e) for e in encrypted_ballots]
-    manifest = create_election_manifest(
-        party_names,
-        candidate_names,
-    )
-    print("Manifest 2:")
-    print(manifest)
+    
     ciphertext_tally, submitted_ballots = tally_encrypted_ballots(
-        manifest, joint_public_key_json, commitment_hash_json, encrypted_ballots
+        party_names, candidate_names, joint_public_key_json, commitment_hash_json, encrypted_ballots
     )
     print('Publishing Now:',ciphertext_tally.publish())
     ciphertext_tally_json = ciphertext_tally_to_raw(ciphertext_tally)
