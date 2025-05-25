@@ -572,12 +572,26 @@ def decrypt_tally_and_ballots(
             candidate_names
         )
 
-        return {
+        result = {
             "election_results": election_results,
             "spoiled_ballots": spoiled_ballots_info,
             "success": True,
             "message": "Decryption completed successfully"
         }
+        if result.get("success"):
+            print("\nElection Results:")
+            for contest_id, contest in result["election_results"].items():
+                print(f"\nContest: {contest_id}")
+                for selection_id, selection in contest.items():
+                    print(f"  {selection_id}: {selection['tally']} votes")
+
+            print("\nSpoiled Ballots:")
+            for ballot in result["spoiled_ballots"]:
+                print(f"\nBallot ID: {ballot['ballot_id']}")
+                for selection in ballot["selections"]:
+                    print(f"  Voted for: {selection['candidate']}")
+        else:
+            print(f"\nError: {result['message']}")
 
     except Exception as e:
         return {
@@ -648,8 +662,6 @@ def get_spoiled_ballot_info(
     return spoiled_ballot_info
 
 
-def check(ciphertext_tally: CiphertextTally):
-    """Checkibng"""
     
 from typing import Set, Dict, List
 import json
@@ -748,32 +760,9 @@ def run_demo(party_names, candidate_names, voter_no, number_of_guardians, quorum
     )
     
     print(f"The election results: {result}")
-    result = decrypt_tally_and_ballots(
-    guardian_public_keys_json=guardian_public_keys_json,
-    guardian_private_keys_json=guardian_private_keys_json,
-    guardian_polynomials_json=guardian_polynomials_json,
-    party_names=party_names,
-    candidate_names=candidate_names,
-    ciphertext_tally_json=ciphertext_tally_json,
-    submitted_ballots_json=submitted_ballots,
-    joint_public_key_json=joint_public_key_json,
-    commitment_hash_json=commitment_hash_json
-    )
+    print('=='*20)
     
-    if result.get("success"):
-        print("\nElection Results:")
-        for contest_id, contest in result["election_results"].items():
-            print(f"\nContest: {contest_id}")
-            for selection_id, selection in contest.items():
-                print(f"  {selection_id}: {selection['tally']} votes")
-        
-        print("\nSpoiled Ballots:")
-        for ballot in result["spoiled_ballots"]:
-            print(f"\nBallot ID: {ballot['ballot_id']}")
-            for selection in ballot["selections"]:
-                print(f"  Voted for: {selection['candidate']}")
-    else:
-        print(f"\nError: {result['message']}")
+    
     
     
 
