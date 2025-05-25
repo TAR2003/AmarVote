@@ -1,18 +1,42 @@
-### AmarVote
+# 🗳️ AmarVote
 
-In this repository, there are three main sections and folder for that
-The first one the frontend folder, which contains all the react codes responsible for the frontend
-The second the backend folder, which contains all the backend java springboot codes for the backend
-The third one is the microservice folder, which contains all the microservices codes for the backend
+This repository contains three main sections:
 
-## Build and run
-To run the microservice, open the terminal and run the following commands:
-docker-compose build (to build the docker images)
-docker-compose up -d (to run the docker images)
-docker-compose ps (to check the status of the docker images)
-docker logs -f electionguard_service (to check the live log of the docker images)
-docker logs electionguard_service (to check the recent logs of the docker images)
-docker-compose down (to stop the docker images)
+## 📁 Project Structure
+
+- **`frontend/`**  
+  Contains all the **React code** responsible for the frontend user interface.
+
+- **`backend/`**  
+  Contains all the **Java Spring Boot code** for core backend functionalities.
+
+- **`microservice/`**  
+  Contains all the **Python microservices** supporting the backend infrastructure.
+
+---
+
+## 🚀 Build and Run Microservices
+
+To **build and run the microservices**, use the following Docker Compose commands:
+
+```bash
+# Build the Docker images
+docker-compose build
+
+# Run the services in detached mode
+docker-compose up -d
+
+# Check the status of all services
+docker-compose ps
+
+# View live logs for a specific service (e.g., electionguard_service)
+docker logs -f electionguard_service
+
+# View recent logs for a specific service
+docker logs electionguard_service
+
+# Stop and remove all running containers
+docker-compose down
 
 ## 📚 Documentation
 
