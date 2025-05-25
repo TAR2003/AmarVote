@@ -19,23 +19,35 @@ This repository contains three main sections:
 
 To **build and run the microservices**, use the following Docker Compose commands:
 
+
+### Build the Docker images
 ```bash
-# Build the Docker images
 docker-compose build
+```
 
-# Run the services in detached mode
+### Run the services in detached mode
+```bash
 docker-compose up -d
+``` 
 
-# Check the status of all services
+### Check the status of all services
+```bash
 docker-compose ps
+```
 
-# View live logs for a specific service (e.g., electionguard_service)
+### View live logs for a specific service (e.g., electionguard_service)
+```bash
 docker logs -f electionguard_service
+```
 
-# View recent logs for a specific service
+
+### View recent logs for a specific service
+```bash
 docker logs electionguard_service
+```
 
-# Stop and remove all running containers
+### Stop and remove all running containers
+```bash
 docker-compose down
 ```
 
