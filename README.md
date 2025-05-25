@@ -37,6 +37,7 @@ docker logs electionguard_service
 
 # Stop and remove all running containers
 docker-compose down
+```
 
 ## 📚 Documentation
 
