@@ -1,0 +1,27 @@
+version: '3.8'
+
+services:
+  electionguard:
+    build: .
+    container_name: electionguard_service
+    ports:
+      - "5000:5000"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.10
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 3s
+      retries: 3
+    environment:
+      - FLASK_DEBUG=0
+
+networks:
+  election_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/24
+          gateway: 172.20.0.1

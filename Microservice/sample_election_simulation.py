@@ -375,6 +375,7 @@ def tally_encrypted_ballots(
         
     
     # Tally the ballots
+    
     ciphertext_tally = get_optional(
         tally_ballots(ballot_store, internal_manifest, context)
     )
