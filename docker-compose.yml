@@ -61,6 +61,18 @@ services:
       retries: 3
     environment:
       - FLASK_DEBUG=0
+      
+  # React Frontend service
+  frontend:
+    build: ./frontend
+    container_name: amarvote_frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.40
 
 volumes:
   postgres_data:

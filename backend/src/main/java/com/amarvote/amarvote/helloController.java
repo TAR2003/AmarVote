@@ -17,7 +17,7 @@ public class helloController {
 
     @RequestMapping("/hello")
     public String hello() {
-        return "Hello, World!";
+        return "Hello from AmarVote Backend!";
     }
     
     @GetMapping("/users/count")
