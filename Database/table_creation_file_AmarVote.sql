@@ -11,7 +11,9 @@ CREATE TABLE users (
     password_hash TEXT NOT NULL, -- hashed version of the password
     salt TEXT NOT NULL, -- necessary element for hashing, so that hash of two same password remain different
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- account creation time
-    last_login TIMESTAMP WITH TIME ZONE -- login for the latest session
+    last_login TIMESTAMP WITH TIME ZONE, -- login for the latest session
+    NID INTEGER NOT NULL DEFAULT 0,
+    profile_pic TEXT
 );
 
 -- Contains all the possible election status
@@ -32,6 +34,7 @@ CREATE TABLE elections (
     encrypted_tally TEXT, -- the completed tally for all the encrypted ballot papers(encrypted result)
     base_hash TEXT, --hash value derived from election context for verifying encryptino chain
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- creation of that particualr election
+    profile_pic TEXT,
     CONSTRAINT valid_election_times CHECK (ending_time > starting_time) -- election starting time cannot be later than its ending time
 );
 
@@ -62,6 +65,9 @@ CREATE TABLE election_choices (
     election_id INTEGER NOT NULL REFERENCES elections(election_id) ON DELETE CASCADE,
     option_title VARCHAR(255) NOT NULL, -- titel of the choice
     option_description TEXT, -- description for the option
+    party_name VARCHAR(100), -- name of the party for that option
+    candidate_pic TEXT,
+    party_pic TEXT,
     total_votes INTEGER NOT NULL DEFAULT 0, -- total received votes for that spcific option (if tally is completely decrypted)
     UNIQUE (election_id, option_title) 
 );
