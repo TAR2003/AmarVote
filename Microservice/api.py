@@ -59,6 +59,11 @@ from electionguard.decryption import compute_decryption_share, compute_decryptio
 
 app = Flask(__name__)
 
+@app.route('/health', methods=['GET'])
+def health_check():
+    """Health check endpoint for Docker health monitoring."""
+    return jsonify({"status": "healthy", "service": "electionguard"}), 200
+
 # Global variable to track voter choices
 voter_choices = defaultdict(dict)
 
