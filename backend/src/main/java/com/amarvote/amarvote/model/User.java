@@ -33,11 +33,17 @@ public class User {
     @Column(name = "last_login")
     private OffsetDateTime lastLogin;
 
+    @Column(name = "nid")
+    private Integer nid; // Added missing field
+
+    @Column(name = "profile_pic")
+    private String profilePic; // Added missing field
+
     // Default constructor required by JPA
     public User() {
     }
 
-    // Getters and setters
+    // Getters and setters for all fields
     public Integer getUserId() {
         return userId;
     }
@@ -102,6 +108,22 @@ public class User {
         this.lastLogin = lastLogin;
     }
 
+    public Integer getNid() {
+        return nid;
+    }
+
+    public void setNid(Integer nid) {
+        this.nid = nid;
+    }
+
+    public String getProfilePic() {
+        return profilePic;
+    }
+
+    public void setProfilePic(String profilePic) {
+        this.profilePic = profilePic;
+    }
+
     @Override
     public String toString() {
         return "User{" +
@@ -111,6 +133,8 @@ public class User {
                 ", userName='" + userName + '\'' +
                 ", createdAt=" + createdAt +
                 ", lastLogin=" + lastLogin +
+                ", nid=" + nid +
+                ", profilePic='" + profilePic + '\'' +
                 '}';
     }
 }
