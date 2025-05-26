@@ -1,5 +1,6 @@
 package com.amarvote.amarvote;
 
+
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -7,6 +8,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import com.amarvote.amarvote.repository.UserRepository;
+
 // import com.amarvote.amarvote.model.User;
 
 @RestController
@@ -28,6 +30,7 @@ public class helloController {
     
     @GetMapping("/users/{email}")
     public ResponseEntity<?> getUserByEmail(@PathVariable String email) {
+        System.out.println("Fetching user with email: " + email);
         return userRepository.findByUserEmail(email)
                 .map(user -> ResponseEntity.ok().body(user))
                 .orElse(ResponseEntity.notFound().build());

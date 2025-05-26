@@ -27,20 +27,27 @@ services:
 
   # Spring Boot Backend service
   backend:
-    build: ./backend
+    build: 
+      context: ./backend
+      dockerfile: Dockerfile.dev
     container_name: amarvote_backend
-    depends_on:
-      postgres:
-        condition: service_healthy
+    # Using external Neon database, so we don't need to depend on local postgres
+    # depends_on:
+    #   postgres:
+    #     condition: service_healthy
     ports:
       - "8080:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/amarvote
-      - SPRING_DATASOURCE_USERNAME=amarvote_user
-      - SPRING_DATASOURCE_PASSWORD=amarvote_password
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${NEON_HOST}:${NEON_PORT}/${NEON_DATABASE}?sslmode=require
+      - SPRING_DATASOURCE_USERNAME=${NEON_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${NEON_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_DEVTOOLS_RESTART_ENABLED=true
+      - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
     volumes:
+      - ./backend:/app
       - ./backend/logs:/app/logs
+      - maven_repo:/root/.m2
     networks:
       election_net:
         ipv4_address: 172.20.0.30
@@ -64,10 +71,19 @@ services:
       
   # React Frontend service
   frontend:
-    build: ./frontend
+    build: 
+      context: ./frontend
+      dockerfile: Dockerfile.dev
     container_name: amarvote_frontend
     ports:
-      - "3000:80"
+      - "3000:3000"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - WDS_SOCKET_PORT=3000
+      - REACT_APP_API_URL=http://localhost:8080
     depends_on:
       - backend
     networks:
@@ -76,6 +92,7 @@ services:
 
 volumes:
   postgres_data:
+  maven_repo:
 
 networks:
   election_net:

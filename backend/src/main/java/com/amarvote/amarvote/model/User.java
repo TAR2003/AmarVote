@@ -27,6 +27,12 @@ public class User {
     @Column(name = "salt", nullable = false)
     private String salt;
 
+    @Column(name = "nid", nullable = true)
+    private String nid;
+
+    @Column(name = "profile_pic", nullable = true)
+    private String profilePic;
+
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
 
@@ -86,6 +92,22 @@ public class User {
         this.salt = salt;
     }
 
+    public String getNid() {
+        return nid;
+    }
+
+    public void setNid(String nid) {
+        this.nid = nid;
+    }
+
+    public String getProfilePic() {
+        return profilePic;
+    }
+
+    public void setProfilePic(String profilePic) {
+        this.profilePic = profilePic;
+    }
+
     public OffsetDateTime getCreatedAt() {
         return createdAt;
     }
@@ -109,6 +131,8 @@ public class User {
                 ", userEmail='" + userEmail + '\'' +
                 ", isVerified=" + isVerified +
                 ", userName='" + userName + '\'' +
+                ", nid='" + nid + '\'' +
+                ", profilePic='" + profilePic + '\'' +
                 ", createdAt=" + createdAt +
                 ", lastLogin=" + lastLogin +
                 '}';

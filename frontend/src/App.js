@@ -13,9 +13,9 @@ function App() {
       try {
         setLoading(true);
         // Call the backend at the configured API URL
-        const apiUrl = process.env.REACT_APP_API_URL || 'http://localhost:8081';
-        console.log('Calling API at:', `${apiUrl}/hello`);
-        const response = await axios.get(`${apiUrl}/hello`);
+        const apiUrl = process.env.REACT_APP_API_URL;
+        console.log('Calling API at:', `${apiUrl}/users/count`);
+        const response = await axios.get(`${apiUrl}/users/count`);
         setMessage(response.data);
         setError(null);
       } catch (err) {
@@ -39,7 +39,7 @@ function App() {
           ) : error ? (
             <div className="error-message">
               <p>{error}</p>
-              <p>Make sure the backend is running at localhost:8081</p>
+              <p>Make sure the backend is running at localhost:8080</p>
             </div>
           ) : (
             <div className="response-container">
