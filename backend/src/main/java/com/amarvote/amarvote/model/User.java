@@ -27,12 +27,6 @@ public class User {
     @Column(name = "salt", nullable = false)
     private String salt;
 
-    @Column(name = "nid", nullable = true)
-    private String nid;
-
-    @Column(name = "profile_pic", nullable = true)
-    private String profilePic;
-
     @Column(name = "created_at")
     private OffsetDateTime createdAt;
 
@@ -40,7 +34,7 @@ public class User {
     private OffsetDateTime lastLogin;
 
     @Column(name = "nid")
-    private Integer nid; // Added missing field
+    private String nid; // Added missing field
 
     @Column(name = "profile_pic")
     private String profilePic; // Added missing field
@@ -97,22 +91,7 @@ public class User {
     public void setSalt(String salt) {
         this.salt = salt;
     }
-
-    public String getNid() {
-        return nid;
-    }
-
-    public void setNid(String nid) {
-        this.nid = nid;
-    }
-
-    public String getProfilePic() {
-        return profilePic;
-    }
-
-    public void setProfilePic(String profilePic) {
-        this.profilePic = profilePic;
-    }
+    
 
     public OffsetDateTime getCreatedAt() {
         return createdAt;
@@ -130,11 +109,11 @@ public class User {
         this.lastLogin = lastLogin;
     }
 
-    public Integer getNid() {
+    public String getNid() {
         return nid;
     }
 
-    public void setNid(Integer nid) {
+    public void setNid(String nid) {
         this.nid = nid;
     }
 

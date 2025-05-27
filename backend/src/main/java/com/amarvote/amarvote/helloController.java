@@ -19,11 +19,12 @@ public class helloController {
 
     @RequestMapping("/hello")
     public String hello() {
-        return "Hello from AmarVote Backend!";
+        return "Hello from AmarVote Backend!yeeee";
     }
     
     @GetMapping("/users/count")
     public String getUsersCount() {
+        System.out.println("Now the nid is string");
         long count = userRepository.count();
         return "Total users in database: " + count;
     }
