@@ -12,7 +12,7 @@ CREATE TABLE users (
     salt TEXT NOT NULL, -- necessary element for hashing, so that hash of two same password remain different
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- account creation time
     last_login TIMESTAMP WITH TIME ZONE, -- login for the latest session
-    NID INTEGER NOT NULL DEFAULT 0,
+    NID TEXT NOT NULL,
     profile_pic TEXT
 );
 
