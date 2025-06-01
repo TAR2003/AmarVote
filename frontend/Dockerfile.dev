@@ -1,4 +1,4 @@
-# Development environment for React with hot reloading
+# Development environment for Vite with hot reloading
 FROM node:18-alpine
 
 WORKDIR /app
@@ -7,16 +7,13 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm install
 
-# No need to copy source code as it will be mounted as a volume
-# This enables hot reloading
+# Source code is expected to be mounted as a volume when running docker-compose or docker run
 
-# Set NODE_ENV to development
+# Set environment variables if needed
 ENV NODE_ENV=development
-ENV CI=true
-ENV WDS_SOCKET_PORT=3000
 
-# Expose development port
-EXPOSE 3000
+# Expose the default Vite dev server port
+EXPOSE 5173
 
-# Start the development server with hot reloading
-CMD ["npm", "start"]
+# Start Vite dev server with host 0.0.0.0 so it is accessible from outside container
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]

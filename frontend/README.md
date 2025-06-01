@@ -1,41 +1,12 @@
-# AmarVote Frontend
+# React + Vite
 
-This is the React frontend application for the AmarVote project. It interacts with the backend API to provide a user interface for the voting system.
+This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
 
-## Development
+Currently, two official plugins are available:
 
-### Prerequisites
+- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
+- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
 
-- Node.js (v14 or later)
-- npm (v6 or later)
+## Expanding the ESLint configuration
 
-### Setup
-
-1. Install dependencies:
-
-```bash
-npm install
-```
-
-2. Start the development server:
-
-```bash
-npm start
-```
-
-This will start the application in development mode. Open [http://localhost:3000](http://localhost:3000) to view it in your browser.
-
-## Docker
-
-To build and run the frontend using Docker:
-
-```bash
-docker build -t amarvote-frontend .
-docker run -p 3000:80 amarvote-frontend
-```
-
-## Environment Variables
-
-The following environment variables can be configured:
-
-- `REACT_APP_API_URL`: URL of the backend API (default: http://localhost:8081)
+If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
