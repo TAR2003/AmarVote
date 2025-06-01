@@ -1,10 +1,11 @@
 package com.amarvote.amarvote.repository;
 
-import com.amarvote.amarvote.model.User;
+import java.util.Optional;
+
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
+import com.amarvote.amarvote.model.User;
 
 @Repository
 public interface UserRepository extends JpaRepository<User, Integer> {

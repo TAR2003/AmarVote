@@ -24,6 +24,26 @@ services:
       election_net:
         ipv4_address: 172.20.0.30
 
+  # Frontend service with hot reloading for Vite
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: amarvote_frontend
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    environment:
+      - CHOKIDAR_USEPOLLING=true
+      - VITE_API_URL=http://localhost:8080
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.40
+    depends_on:
+      - backend
+
   # ElectionGuard microservice
   electionguard:
     build: ./Microservice
@@ -40,27 +60,6 @@ services:
       retries: 3
     environment:
       - FLASK_DEBUG=0
-      
-  # React Frontend service
-  frontend:
-    build: 
-      context: ./frontend
-      dockerfile: Dockerfile.dev
-    container_name: amarvote_frontend
-    ports:
-      - "3000:3000"
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    environment:
-      - CHOKIDAR_USEPOLLING=true
-      - WDS_SOCKET_PORT=3000
-      - REACT_APP_API_URL=http://localhost:8080
-    depends_on:
-      - backend
-    networks:
-      election_net:
-        ipv4_address: 172.20.0.40
 
 volumes:
   maven_repo:
