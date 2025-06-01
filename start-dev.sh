@@ -10,7 +10,7 @@ docker compose up -d
 
 echo ""
 echo "Development environment is up and running!"
-echo "Frontend: http://localhost:3000"
+echo "Frontend: http://localhost:5173"
 echo "Backend: http://localhost:8080"
 echo ""
 echo "Your code changes will be automatically reflected without rebuilding."
