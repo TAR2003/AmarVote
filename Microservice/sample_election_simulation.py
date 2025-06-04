@@ -613,6 +613,137 @@ import inspect
 from enum import Enum
 
  
+def compute_guardian_decryption_shares(
+    guardian_id: str,
+    sequence_order: int,
+    guardian_public_key: int,
+    guardian_private_key: int,
+    guardian_polynomial: dict,
+    ciphertext_tally: CiphertextTally,
+    submitted_ballots: List[SubmittedBallot],
+    election_builder: ElectionBuilder
+) -> Tuple[ElectionPublicKey, Optional[DecryptionShare], Dict[BallotId, Optional[DecryptionShare]]]:
+    """
+    Compute decryption shares for a single guardian.
+    Returns the guardian's public key, tally share, and ballot shares.
+    """
+    # Convert inputs to proper types
+    public_key = int_to_p(guardian_public_key)
+    private_key = int_to_q(guardian_private_key)
+    polynomial = from_raw(ElectionPolynomial, guardian_polynomial)
+    
+    # Create election key pair for this guardian
+    election_key = ElectionKeyPair(
+        owner_id=guardian_id,
+        sequence_order=sequence_order,
+        key_pair=ElGamalKeyPair(private_key, public_key),
+        polynomial=polynomial
+    )
+    
+    # Build the election context
+    internal_manifest, context = get_optional(election_builder.build())
+    
+    # Compute shares
+    guardian_public_key = election_key.share()
+    tally_share = compute_decryption_share(election_key, ciphertext_tally, context)
+    ballot_shares = compute_ballot_shares(election_key, submitted_ballots, context)
+    
+    print(f"✅ Guardian {guardian_id} computed decryption shares")
+
+    public_key = guardian_public_key
+
+    # Serialize each component
+    serialized_public_key = to_raw(public_key) if public_key else None
+    serialized_tally_share = to_raw(tally_share) if tally_share else None
+
+    serialized_ballot_shares = {}
+    for ballot_id, ballot_share in ballot_shares.items():
+        serialized_ballot_shares[ballot_id] = to_raw(ballot_share) if ballot_share else None
+
+    
+    return serialized_public_key, serialized_tally_share,  serialized_ballot_shares
+
+
+def compute_ballot_shares(
+    _election_keys: ElectionKeyPair,
+    ballots: List[SubmittedBallot], context: CiphertextElectionContext
+) -> Dict[BallotId, Optional[DecryptionShare]]:
+    """
+    Compute the decryption shares of ballots.    :param ballots: List of ciphertext ballots to gethares of
+    :param context: Election context
+    :return: Decryption shares of ballots or None ifailure
+    """
+    shares = {}
+    for ballot in ballots:
+        share = compute_decryption_share_for_ballot(
+            _election_keys,
+            ballot,
+            context,
+        )
+        shares[ballot.object_id] = share
+    return shares
+
+def combine_decryption_shares(
+    manifest: Manifest,
+    ciphertext_tally: CiphertextTally,
+    submitted_ballots: List[SubmittedBallot],
+    election_builder: ElectionBuilder,
+    guardian_shares) -> Tuple[PlaintextTally, Dict[BallotId, PlaintextTally]]:
+    """
+    Combine decryption shares from all guardians to produce final results.
+    Returns the plaintext tally and dictionary of spoiled ballot decryptions.
+    """
+    # Build the election context
+    internal_manifest, context = get_optional(election_builder.build())
+
+    serialized_shares = guardian_shares
+
+    deserialized_shares = []
+    for serialized_tuple in serialized_shares:
+        serialized_public_key, serialized_tally_share, serialized_ballot_shares = serialized_tuple
+
+        # Deserialize each component
+        public_key = from_raw(ElectionPublicKey, serialized_public_key) if serialized_public_key else   None
+        tally_share = from_raw(DecryptionShare, serialized_tally_share) if serialized_tally_share else  None
+
+        ballot_shares = {}
+        for ballot_id, serialized_ballot_share in serialized_ballot_shares.items():
+            ballot_shares[ballot_id] = from_raw(DecryptionShare, serialized_ballot_share) if    serialized_ballot_share else None
+
+        deserialized_shares.append((public_key, tally_share, ballot_shares))
+
+
+    guardian_shares = deserialized_shares
+    
+    # Configure the Decryption Mediator
+    decryption_mediator = DecryptionMediator(
+        "decryption-mediator",
+        context,
+    )
+    
+    # Add all guardian shares to the mediator
+    for guardian_public_key, tally_share, ballot_shares in guardian_shares:
+        decryption_mediator.announce(
+            guardian_public_key,
+            get_optional(tally_share),
+            ballot_shares
+        )
+        print(f"✅ Added decryption shares from guardian {guardian_public_key.owner_id}")
+    
+    # Get the plaintext tally
+    plaintext_tally = get_optional(
+        decryption_mediator.get_plaintext_tally(ciphertext_tally, manifest)
+    )
+    print("✅ Successfully decrypted tally")
+    
+    # Get the plaintext spoiled ballots
+    plaintext_spoiled_ballots = get_optional(
+        decryption_mediator.get_plaintext_ballots(submitted_ballots, manifest)
+    )
+    print(f"✅ Successfully decrypted {len(plaintext_spoiled_ballots)} spoiled ballots")
+    
+    return plaintext_tally, plaintext_spoiled_ballots
+
 
 
 def get_spoiled_ballot_info(
