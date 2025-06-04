@@ -11,11 +11,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import com.amarvote.amarvote.dto.LoginRequest;
-import com.amarvote.amarvote.model.User;
-import com.amarvote.amarvote.repository.UserRepository;
 import com.amarvote.amarvote.dto.LoginResponse;
 import com.amarvote.amarvote.dto.RegisterRequest;
 import com.amarvote.amarvote.dto.RegisterResponse;
+import com.amarvote.amarvote.model.User;
+import com.amarvote.amarvote.repository.UserRepository;
 
 @Service
 public class UserService {
