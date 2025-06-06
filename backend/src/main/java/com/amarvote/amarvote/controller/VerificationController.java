@@ -1,6 +1,7 @@
 package com.amarvote.amarvote.controller;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -28,19 +29,20 @@ public class VerificationController {
    @PostMapping("/send-code")
     public ResponseEntity<String> sendVerificationCode(@RequestBody @Valid VerificationCodeRequest request) {
         VerificationCode verificationCode = codeService.createCodeForEmail(request.getEmail());
-        emailService.sendVerificationEmail(request.getEmail(), verificationCode.getCode());
+        emailService.sendSignupVerificationEmail(request.getEmail(), verificationCode.getCode());
         return ResponseEntity.ok("Verification code sent to " + request.getEmail());
     }
 
     @PostMapping("/verify-code")
-    public ResponseEntity<String> verifyCode(@RequestBody @Valid CodeValidationRequest request) {
-        boolean isValid = codeService.validateCode(request.getCode());
-        System.out.println("Verification code: " + request.getCode());
-        if (isValid) {
-            codeService.deleteCode(request.getCode());
-            return ResponseEntity.ok("Verification successful");
+    public ResponseEntity<String> verifyResetCode(@Valid @RequestBody CodeValidationRequest request) {
+        String email = request.getEmail();
+        String code = request.getCode();
+
+        if (codeService.validateCodeForEmail(email, code)) {
+            codeService.deleteCode(code);
+            return ResponseEntity.ok("Code is valid");
         } else {
-            return ResponseEntity.badRequest().body("Invalid or expired verification code");
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid or expired code");
         }
     }
 }
