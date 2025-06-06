@@ -9,6 +9,7 @@ import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.amarvote.amarvote.dto.LoginRequest;
 import com.amarvote.amarvote.dto.LoginResponse;
@@ -74,10 +75,28 @@ public class UserService {
             // If no exception, authentication successful
             String jwtToken = jwtService.generateJWTToken(request.getEmail());
             System.out.println("Generated JWT Token: " + jwtToken);
-            return new LoginResponse(jwtToken, request.getEmail(),true, "User login successful");
+            return new LoginResponse(jwtToken, request.getEmail(), true, "User login successful");
         } catch (AuthenticationException ex) {
-           return new LoginResponse(null, null,false, "Invalid email or password");
+            return new LoginResponse(null, null, false, "Invalid email or password");
         }
+    }
+
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByUserEmail(email);
+    }
+
+    public boolean checkPassword(String email, String password) {
+        return userRepository.findByUserEmail(email)
+                .map(user -> encoder.matches(password, user.getPassword()))
+                .orElse(false);
+    }
+
+    @Transactional
+    public void updatePasswordByEmail(String email, String newPassword) {
+        userRepository.findByUserEmail(email).ifPresent(user -> {
+            user.setPasswordHash(encoder.encode(newPassword));
+            userRepository.save(user);
+        });
     }
 
     public String getJwtToken(String email) {

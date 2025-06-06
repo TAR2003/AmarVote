@@ -29,10 +29,18 @@ public class VerificationCodeService {
     // Validate code: check if code exists and is not expired
     public boolean validateCode(String code) {
         Optional<VerificationCode> opt = codeRepository.findByCode(code);
-        if (opt.isEmpty()) return false;
+        if (opt.isEmpty()) {
+            return false;
+        }
 
         VerificationCode verificationCode = opt.get();
         return verificationCode.getExpiryDate().isAfter(OffsetDateTime.now());
+    }
+
+    public boolean validateCodeForEmail(String email, String code) {
+        Optional<VerificationCode> opt = codeRepository.findByEmail(email);
+        return opt.filter(vc -> vc.getCode().equals(code) && vc.getExpiryDate().isAfter(OffsetDateTime.now()))
+                .isPresent();
     }
 
     //delete the verification code after succesfully signing up
@@ -44,11 +52,11 @@ public class VerificationCodeService {
         }
     }
 
-     @Transactional
-     public void deleteExpiredCodes() {
+    @Transactional
+    public void deleteExpiredCodes() {
         OffsetDateTime now = OffsetDateTime.now();
         codeRepository.deleteByExpiryDateBefore(now);
-    } 
+    }
 
     // // Optionally: delete expired tokens periodically
     // public void deleteExpiredTokens() {

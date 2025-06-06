@@ -69,4 +69,30 @@ public class JWTService {
         return extractClaim(jwtToken, Claims::getExpiration);
     }
 
+    public String generatePasswordResetToken(String email, long durationMillis) {
+        return Jwts.builder()
+                .subject(email)
+                .issuedAt(new Date())
+                .expiration(new Date(System.currentTimeMillis() + durationMillis))
+                .claim("purpose", "password-reset")
+                .signWith(getKey())
+                .compact();
+    }
+
+    public String validatePasswordResetToken(String token) {
+        try {
+            Claims claims = extractAllClaims(token);
+            if (!"password-reset".equals(claims.get("purpose"))) {
+                return null;
+            }
+            return claims.getSubject(); // email
+        } catch (io.jsonwebtoken.ExpiredJwtException e) {
+            // token expired
+            return null;
+        } catch (io.jsonwebtoken.JwtException e) {
+            // any other JWT parsing exception
+            return null;
+        }
+    }
+
 }
