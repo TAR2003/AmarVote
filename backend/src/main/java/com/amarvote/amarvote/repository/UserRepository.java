@@ -10,4 +10,5 @@ import com.amarvote.amarvote.model.User;
 @Repository
 public interface UserRepository extends JpaRepository<User, Integer> {
     Optional<User> findByUserEmail(String userEmail);
+    boolean existsByUserEmail(String userEmail);
 }

@@ -2,7 +2,7 @@ package com.amarvote.amarvote.dto;
 
 import java.time.OffsetDateTime;
 
-import jakarta.validation.constraints.Size;
+import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 
@@ -15,7 +15,8 @@ public class RegisterRequest {
     @NotBlank(message = "Valid Email Address is required")
     private String email;
 
-    @Size(min = 8, message = "Password must be at least 8 characters")
+    //password must be at least 8 characters long and contain letters, numbers, and a special character
+    @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-zA-Z])(?=.*[@#$%^&+=!]).{8,}$", message = "Password must be at least 8 characters long and contain letters, numbers, and a special character")
     @NotBlank(message = "Password is required")
     private String password;
 
