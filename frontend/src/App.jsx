@@ -5,27 +5,23 @@ import Login from "./pages/Login";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Hello from "./pages/Hello";
+import ForgetPassword from "./pages/ForgotPassword";
+import CreateNewPassword from "./pages/CreateNewPassword"; // ✅ Import the page
 
 function App() {
-  // Use userEmail (or isAuthenticated boolean) instead of token
   const [userEmail, setUserEmail] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // On app load, check if user session exists by hitting backend endpoint
   useEffect(() => {
     async function checkSession() {
       try {
         const res = await fetch("http://localhost:8080/api/auth/session", {
           method: "GET",
-          credentials: "include", // send cookies
+          credentials: "include",
         });
         if (res.ok) {
           const data = await res.json();
-          if (data.email) {
-            setUserEmail(data.email);
-          } else {
-            setUserEmail(null);
-          }
+          setUserEmail(data.email || null);
         } else {
           setUserEmail(null);
         }
@@ -39,24 +35,17 @@ function App() {
     checkSession();
   }, []);
 
-  // Listen for logout events from other tabs
   useEffect(() => {
     function syncLogout(event) {
       if (event.key === "logout") {
-        // Another tab logged out, clear userEmail here too
         setUserEmail(null);
       }
     }
     window.addEventListener("storage", syncLogout);
-
-    return () => {
-      window.removeEventListener("storage", syncLogout);
-    };
+    return () => window.removeEventListener("storage", syncLogout);
   }, []);
 
-  if (loading) {
-    return <div>Loading...</div>; // or a spinner component
-  }
+  if (loading) return <div>Loading...</div>;
 
   const isAuthenticated = !!userEmail;
 
@@ -91,6 +80,26 @@ function App() {
               <Dashboard userEmail={userEmail} setUserEmail={setUserEmail} />
             ) : (
               <Navigate to="/login" replace />
+            )
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <ForgetPassword />
+            )
+          }
+        />
+        <Route
+          path="/create-password"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <CreateNewPassword />
             )
           }
         />
