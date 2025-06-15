@@ -7,6 +7,8 @@ import Dashboard from "./pages/Dashboard";
 import Hello from "./pages/Hello";
 import ForgetPassword from "./pages/ForgotPassword";
 import CreateNewPassword from "./pages/CreateNewPassword"; // ✅ Import the page
+import Home from "./pages/Home";
+import HowItWorks from "./pages/HowItWorks";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -53,6 +55,8 @@ function App() {
     <Router>
       <Routes>
         <Route path="/hello" element={<Hello />} />
+        <Route path="/" element={<Home />} />
+        <Route path="/how-it-works" element={<HowItWorks />} />
         <Route
           path="/login"
           element={
