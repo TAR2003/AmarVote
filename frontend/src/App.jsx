@@ -1,5 +1,10 @@
 import React, { useState, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router-dom";
+import {
+  BrowserRouter as Router,
+  Routes,
+  Route,
+  Navigate,
+} from "react-router-dom";
 
 import Login from "./pages/Login";
 import Signup from "./pages/Signup";
@@ -9,6 +14,8 @@ import ForgetPassword from "./pages/ForgotPassword";
 import CreateNewPassword from "./pages/CreateNewPassword"; // ✅ Import the page
 import Home from "./pages/Home";
 import HowItWorks from "./pages/HowItWorks";
+import AuthenticatedLayout from "./pages/AuthenticatedLayout";
+import Profile from "./pages/Profile";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -70,53 +77,61 @@ function App() {
         <Route
           path="/signup"
           element={
-            isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <Signup />
-            )
+            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Signup />
           }
         />
         <Route
-          path="/dashboard"
           element={
-            isAuthenticated ? (
-              <Dashboard userEmail={userEmail} setUserEmail={setUserEmail} />
-            ) : (
-              <Navigate to="/login" replace />
-            )
+            <AuthenticatedLayout
+              userEmail={userEmail}
+              setUserEmail={setUserEmail}
+            />
           }
-        />
-        <Route
-          path="/forgot-password"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <ForgetPassword />
-            )
-          }
-        />
-        <Route
-          path="/create-password"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <CreateNewPassword />
-            )
-          }
-        />
-        <Route
-          path="/"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <Navigate to="/login" replace />
-            )
-          }
-        />
+        >
+          {/* <Route path="/elections" element={<Elections />} />
+          <Route path="/profile" element={<Profile />} />
+          other routes */}
+          <Route
+            path="/profile"
+            element={
+              isAuthenticated ? (
+                <Profile userEmail={userEmail} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          ></Route>
+          <Route
+            path="/dashboard"
+            element={
+              isAuthenticated ? (
+                <Dashboard userEmail={userEmail} setUserEmail={setUserEmail} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/forgot-password"
+            element={
+              isAuthenticated ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <ForgetPassword />
+              )
+            }
+          />
+          <Route
+            path="/create-password"
+            element={
+              isAuthenticated ? (
+                <Navigate to="/dashboard" replace />
+              ) : (
+                <CreateNewPassword />
+              )
+            }
+          />
+        </Route>
       </Routes>
     </Router>
   );
