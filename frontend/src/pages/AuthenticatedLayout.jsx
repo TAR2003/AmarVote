@@ -27,12 +27,14 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
         credentials: "include",
       });
 
-      if (!res.ok) {
-        throw new Error("Logout failed");
-      }
+      if (!res.ok) throw new Error("Logout failed");
 
+      // Clear user data
       setUserEmail(null);
+      localStorage.removeItem("email");
       localStorage.setItem("logout", Date.now());
+
+      // Redirect to login
       navigate("/login");
     } catch (err) {
       console.error("Logout error:", err);
