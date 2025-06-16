@@ -304,7 +304,6 @@ export default function Signup({ setUserEmail }) {
                 </div>
               </div>
 
-              {/* Verification Section */}
               {!codeSent && (
                 <button
                   type="button"
