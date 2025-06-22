@@ -40,6 +40,9 @@ jobs:
       - name: Build with Maven (Skip Tests)
         run: mvn -B package -DskipTests
 
+      - name: Run Unit Tests
+        run: mvn -B test
+
   frontend:
     name: Frontend (React)
     runs-on: ubuntu-latest
