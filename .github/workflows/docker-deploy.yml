@@ -14,34 +14,91 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Ensure full repository history
       
-      - name: Validate files
+      - name: Debug file structure
         run: |
-          ls -la frontend/ backend/
-          [ ! -f frontend/package.json ] && echo "❌ Missing package.json" && exit 1
-          [ ! -f backend/pom.xml ] && echo "❌ Missing pom.xml" && exit 1
+          echo "Current directory: $(pwd)"
+          echo "Files in repository:"
+          ls -R
+          echo "Frontend contents:"
+          ls -la frontend/
+          echo "Backend contents:"
+          ls -la backend/
 
-      - name: Verify VM Docker
+      - name: Validate critical files
+        run: |
+          if [ ! -f "frontend/package.json" ]; then
+            echo "::error::Missing frontend/package.json"
+            echo "Frontend directory contents:"
+            ls -la frontend/
+            exit 1
+          fi
+          
+          if [ ! -f "backend/pom.xml" ]; then
+            echo "::error::Missing backend/pom.xml"
+            echo "Backend directory contents:"
+            ls -la backend/
+            exit 1
+          fi
+          echo "All required files present"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up Docker Compose
+        uses: docker/setup-compose-action@v1
+
+      - name: Set up SSH
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.AZURE_VM_SECRET }}
+      
+      - name: Add Azure VM to known hosts
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
+
+      - name: Verify VM connection
+        run: |
+          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} "echo 'VM connection successful'"
+
+      - name: Prepare VM directory
         run: |
           ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-            "docker --version || (echo 'Docker not installed'; exit 1)"
+            "mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/app && \
+             chmod -R 755 /home/${{ secrets.AZURE_VM_USERNAME }}/app"
 
-      - name: Create app directory
+      - name: Copy files to VM
         run: |
-          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-            "mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/app"
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            ./ ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app/
 
-      - name: Copy files
+      - name: Set up Docker context
         run: |
-          scp -r . ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app
+          docker context create azure-vm-${{ github.run_id }} --docker "host=ssh://${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}"
+          docker context use azure-vm-${{ github.run_id }}
+      
+      - name: Deploy with docker-compose
+        run: |
+          docker compose -f docker-compose.yml down || true
+          docker compose -f docker-compose.yml build --no-cache
+          docker compose -f docker-compose.yml up -d --force-recreate
+      
+      - name: Verify deployment
+        run: |
+          docker compose -f docker-compose.yml ps -a
+          sleep 10  # Wait for services to start
+          curl -v http://${{ secrets.AZURE_VM_HOST }}
+          curl -v http://${{ secrets.AZURE_VM_HOST }}:8080/actuator/health
 
-      - name: Deploy
+      - name: Clean up
+        if: always()
         run: |
-          docker context create azure-vm --docker "host=ssh://${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}"
-          docker context use azure-vm
-          docker compose -f docker-compose.yml up --build -d
           docker context use default
-
-      - name: Verify
-        run: |
-          curl -sSf http://${{ secrets.AZURE_VM_HOST }} || exit 1
+          docker context rm azure-vm-${{ github.run_id }} || true
