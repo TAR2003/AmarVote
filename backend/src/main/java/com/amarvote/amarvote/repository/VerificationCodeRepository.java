@@ -13,4 +13,3 @@ public interface VerificationCodeRepository extends JpaRepository<VerificationCo
     void deleteByExpiryDateBefore(OffsetDateTime time);
     void deleteByCode(String code);
 }
-
