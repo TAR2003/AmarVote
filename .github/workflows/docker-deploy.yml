@@ -10,99 +10,94 @@ jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
     runs-on: ubuntu-latest
-    timeout-minutes: 30
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0
-          path: src
+          fetch-depth: 0  # Ensure full repository history
       
-      - name: Validate environment
+      - name: Debug file structure
         run: |
-          cd src
           echo "Current directory: $(pwd)"
-          echo "Repository structure:"
+          echo "Files in repository:"
           ls -R
-          
+          echo "Frontend contents:"
+          ls -la frontend/
+          echo "Backend contents:"
+          ls -la backend/
+
+      - name: Validate critical files
+        run: |
           if [ ! -f "frontend/package.json" ]; then
             echo "::error::Missing frontend/package.json"
+            echo "Frontend directory contents:"
             ls -la frontend/
             exit 1
           fi
           
           if [ ! -f "backend/pom.xml" ]; then
             echo "::error::Missing backend/pom.xml"
+            echo "Backend directory contents:"
             ls -la backend/
             exit 1
           fi
+          echo "All required files present"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
 
       - name: Set up Docker Compose
-        uses: docker/setup-compose-action@v2  # Changed from v3 to v2
-      
-      - name: Configure SSH
+        uses: docker/setup-compose-action@v1
+
+      - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.AZURE_VM_SECRET }}
       
-      - name: Set up VM connection
+      - name: Add Azure VM to known hosts
         run: |
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Prepare VM environment
+      - name: Verify VM connection
         run: |
-          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} <<EOF
-          sudo apt-get update
-          sudo apt-get install -y docker.io docker-compose-plugin
-          sudo usermod -aG docker \$USER
-          mkdir -p /home/\$USER/app
-          chmod -R 755 /home/\$USER/app
-          EOF
+          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} "echo 'VM connection successful'"
 
-      - name: Transfer application files
+      - name: Prepare VM directory
         run: |
-          cd src
-          rsync -avz --progress --delete \
+          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+            "mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/app && \
+             chmod -R 755 /home/${{ secrets.AZURE_VM_USERNAME }}/app"
+
+      - name: Copy files to VM
+        run: |
+          rsync -avz --delete \
             --exclude='.git' \
             --exclude='node_modules' \
-            --exclude='.idea' \
             ./ ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app/
 
-      - name: Set up remote Docker context
+      - name: Set up Docker context
         run: |
-          docker context create azure-vm-${{ github.run_id }} \
-            --docker "host=ssh://${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}"
+          docker context create azure-vm-${{ github.run_id }} --docker "host=ssh://${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}"
           docker context use azure-vm-${{ github.run_id }}
       
-      - name: Deploy application stack
+      - name: Deploy with docker-compose
         run: |
-          docker compose -f docker-compose.yml down --remove-orphans || true
-          docker compose -f docker-compose.yml build --no-cache --pull
+          docker compose -f docker-compose.yml down || true
+          docker compose -f docker-compose.yml build --no-cache
           docker compose -f docker-compose.yml up -d --force-recreate
-          docker compose -f docker-compose.yml ps -a
-
-      - name: Verify services
+      
+      - name: Verify deployment
         run: |
-          sleep 15  # Wait for services to initialize
-          
-          # Frontend check
-          curl -v --retry 3 --retry-delay 5 \
-            http://${{ secrets.AZURE_VM_HOST }} \
-            || (docker compose logs frontend && exit 1)
-            
-          # Backend check
-          curl -v --retry 3 --retry-delay 5 \
-            http://${{ secrets.AZURE_VM_HOST }}:8080/actuator/health \
-            || (docker compose logs backend && exit 1)
+          docker compose -f docker-compose.yml ps -a
+          sleep 10  # Wait for services to start
+          curl -v http://${{ secrets.AZURE_VM_HOST }}
+          curl -v http://${{ secrets.AZURE_VM_HOST }}:8080/actuator/health
 
-      - name: Clean up resources
+      - name: Clean up
         if: always()
         run: |
           docker context use default
