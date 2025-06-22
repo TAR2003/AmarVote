@@ -8,13 +8,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-import com.amarvote.amarvote.dto.VerificationCodeRequest;
-import com.amarvote.amarvote.dto.CreateNewPasswordRequest;
 import com.amarvote.amarvote.dto.ChangePasswordRequest;
-import com.amarvote.amarvote.service.UserService;
-import com.amarvote.amarvote.service.JWTService;
-import com.amarvote.amarvote.service.VerificationCodeService;
+import com.amarvote.amarvote.dto.CreateNewPasswordRequest;
+import com.amarvote.amarvote.dto.VerificationCodeRequest;
 import com.amarvote.amarvote.service.EmailService;
+import com.amarvote.amarvote.service.JWTService;
+import com.amarvote.amarvote.service.UserService;
+import com.amarvote.amarvote.service.VerificationCodeService;
 
 import jakarta.validation.Valid;
 
