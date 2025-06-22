@@ -31,7 +31,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: amarvote_frontend
     ports:
-      - "5173:5173"
+      - "5173:80"
     volumes:
       - ./frontend:/app
       - /app/node_modules
