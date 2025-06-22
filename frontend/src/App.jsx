@@ -58,6 +58,8 @@ function App() {
 
   const isAuthenticated = !!userEmail;
 
+  // ...existing imports and code...
+
   return (
     <Router>
       <Routes>
@@ -80,6 +82,30 @@ function App() {
             isAuthenticated ? <Navigate to="/dashboard" replace /> : <Signup />
           }
         />
+
+        {/* Move these routes outside the AuthenticatedLayout */}
+        <Route
+          path="/forgot-password"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <ForgetPassword />
+            )
+          }
+        />
+        <Route
+          path="/create-password"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <CreateNewPassword />
+            )
+          }
+        />
+
+        {/* AuthenticatedLayout routes */}
         <Route
           element={
             <AuthenticatedLayout
@@ -88,9 +114,6 @@ function App() {
             />
           }
         >
-          {/* <Route path="/elections" element={<Elections />} />
-          <Route path="/profile" element={<Profile />} />
-          other routes */}
           <Route
             path="/profile"
             element={
@@ -100,7 +123,7 @@ function App() {
                 <Navigate to="/login" replace />
               )
             }
-          ></Route>
+          />
           <Route
             path="/dashboard"
             element={
@@ -111,26 +134,7 @@ function App() {
               )
             }
           />
-          <Route
-            path="/forgot-password"
-            element={
-              isAuthenticated ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <ForgetPassword />
-              )
-            }
-          />
-          <Route
-            path="/create-password"
-            element={
-              isAuthenticated ? (
-                <Navigate to="/dashboard" replace />
-              ) : (
-                <CreateNewPassword />
-              )
-            }
-          />
+          {/* Add other authenticated routes here */}
         </Route>
       </Routes>
     </Router>
