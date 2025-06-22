@@ -17,100 +17,75 @@ jobs:
         with:
           fetch-depth: 0
 
-      - name: Debug file structure
-        run: |
-          echo "Current directory: $(pwd)"
-          echo "Files in repository:"
-          ls -R
-          echo "Frontend contents:"
-          ls -la frontend/
-          echo "Backend contents:"
-          ls -la backend/
-
-      - name: Validate critical files
-        run: |
-          if [ ! -f "frontend/package.json" ]; then
-            echo "::error::Missing frontend/package.json"
-            ls -la frontend/
-            exit 1
-          fi
-          
-          if [ ! -f "backend/pom.xml" ]; then
-            echo "::error::Missing backend/pom.xml"
-            ls -la backend/
-            exit 1
-          fi
-          echo "All required files present"
-
-      - name: Set up Docker Buildx
+      - name: Set up Docker tools
         uses: docker/setup-buildx-action@v3
 
       - name: Set up Docker Compose
         uses: docker/setup-compose-action@v1
 
-      - name: Set up SSH
-        uses: webfactory/ssh-agent@v0.9.0
-        with:
-          ssh-private-key: ${{ secrets.AZURE_VM_SECRET }}
-
-      - name: Configure SSH
+      - name: Configure SSH access
         run: |
-          SSH_DIR="/home/runner/.ssh"
-          mkdir -p $SSH_DIR
-          chmod 700 $SSH_DIR
-          ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> $SSH_DIR/known_hosts
-          chmod 600 $SSH_DIR/known_hosts
-          echo "SSH configuration complete"
+          SSH_DIR="$HOME/.ssh"
+          mkdir -p "$SSH_DIR"
+          chmod 700 "$SSH_DIR"
+          echo "${{ secrets.AZURE_VM_SSH_KEY }}" > "$SSH_DIR/id_rsa"
+          chmod 600 "$SSH_DIR/id_rsa"
+          ssh-keyscan -H "${{ secrets.AZURE_VM_HOST }}" >> "$SSH_DIR/known_hosts"
+          echo "SSH configured"
 
-      - name: Test VM connection
+      - name: Verify VM connectivity
         run: |
-          ssh -v -o StrictHostKeyChecking=no \
-            ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-            "echo 'SSH connection successful'"
+          ssh -i "$HOME/.ssh/id_rsa" \
+            -o StrictHostKeyChecking=no \
+            "${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}" \
+            "echo 'Connection successful' && \
+             sudo ufw allow 22/tcp && \
+             sudo ufw allow 80/tcp && \
+             sudo ufw allow 8080/tcp && \
+             sudo ufw allow 5000/tcp || true"
 
-      - name: Prepare VM directory
+      - name: Prepare VM environment
         run: |
-          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-            "rm -rf ~/app && \
-             mkdir -p ~/app && \
-             chmod -R 755 ~/app"
+          ssh -i "$HOME/.ssh/id_rsa" \
+            "${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}" \
+            "rm -rf ~/app && mkdir -p ~/app && chmod 755 ~/app"
 
-      - name: Copy files to VM
+      - name: Transfer application files
         run: |
-          rsync -avz --delete \
-            -e "ssh -o StrictHostKeyChecking=no" \
+          rsync -avz --progress --delete \
+            -e "ssh -i $HOME/.ssh/id_rsa -o StrictHostKeyChecking=no" \
             --exclude='.git' \
             --exclude='node_modules' \
             --exclude='.github' \
-            ./ ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:~/app/
+            ./ "${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:~/app/"
 
-      - name: Install Docker Compose on VM (if needed)
+      - name: Ensure Docker tools are available
         run: |
-          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+          ssh -i "$HOME/.ssh/id_rsa" \
+            "${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}" \
             "command -v docker-compose &>/dev/null || \
              sudo curl -L \"https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)\" \
              -o /usr/local/bin/docker-compose && \
              sudo chmod +x /usr/local/bin/docker-compose"
 
-      - name: Deploy application
+      - name: Deploy application stack
         run: |
-          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+          ssh -i "$HOME/.ssh/id_rsa" \
+            "${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}" \
             "cd ~/app && \
-             docker-compose -f docker-compose.yml down --remove-orphans || true && \
-             docker-compose -f docker-compose.yml build --no-cache && \
-             docker-compose -f docker-compose.yml up -d --force-recreate"
+             docker-compose down --remove-orphans || true && \
+             docker-compose build --no-cache && \
+             docker-compose up -d --force-recreate && \
+             sleep 10"
 
-      - name: Verify deployment
+      - name: Validate deployment
         run: |
-          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-            "docker ps -a && \
-             docker-compose -f ~/app/docker-compose.yml ps -a"
+          echo "Checking containers..."
+          ssh -i "$HOME/.ssh/id_rsa" \
+            "${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}" \
+            "docker ps -a && docker-compose logs --tail=50"
           
-          echo "Waiting for services to start..."
-          sleep 20
-          
-          echo "Testing frontend:"
-          curl -v http://${{ secrets.AZURE_VM_HOST }} || true
-          
-          echo "Testing backend health:"
-          curl -v http://${{ secrets.AZURE_VM_HOST }}:8080/actuator/health || true
+          echo "Testing endpoints..."
+          curl --retry 3 --retry-delay 5 -v "http://${{ secrets.AZURE_VM_HOST }}" || true
+          curl --retry 3 --retry-delay 5 -v "http://${{ secrets.AZURE_VM_HOST }}:8080/actuator/health" || true
+          curl --retry 3 --retry-delay 5 -v "http://${{ secrets.AZURE_VM_HOST }}:5000/health" || true
