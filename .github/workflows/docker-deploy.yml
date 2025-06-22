@@ -15,8 +15,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Ensure full repository history
-      
+          fetch-depth: 0
+
       - name: Debug file structure
         run: |
           echo "Current directory: $(pwd)"
@@ -31,14 +31,12 @@ jobs:
         run: |
           if [ ! -f "frontend/package.json" ]; then
             echo "::error::Missing frontend/package.json"
-            echo "Frontend directory contents:"
             ls -la frontend/
             exit 1
           fi
           
           if [ ! -f "backend/pom.xml" ]; then
             echo "::error::Missing backend/pom.xml"
-            echo "Backend directory contents:"
             ls -la backend/
             exit 1
           fi
@@ -54,51 +52,65 @@ jobs:
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.AZURE_VM_SECRET }}
-      
-      - name: Add Azure VM to known hosts
-        run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
 
-      - name: Verify VM connection
+      - name: Configure SSH
         run: |
-          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} "echo 'VM connection successful'"
+          SSH_DIR="/home/runner/.ssh"
+          mkdir -p $SSH_DIR
+          chmod 700 $SSH_DIR
+          ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> $SSH_DIR/known_hosts
+          chmod 600 $SSH_DIR/known_hosts
+          echo "SSH configuration complete"
+
+      - name: Test VM connection
+        run: |
+          ssh -v -o StrictHostKeyChecking=no \
+            ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+            "echo 'SSH connection successful'"
 
       - name: Prepare VM directory
         run: |
           ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-            "mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/app && \
-             chmod -R 755 /home/${{ secrets.AZURE_VM_USERNAME }}/app"
+            "rm -rf ~/app && \
+             mkdir -p ~/app && \
+             chmod -R 755 ~/app"
 
       - name: Copy files to VM
         run: |
           rsync -avz --delete \
+            -e "ssh -o StrictHostKeyChecking=no" \
             --exclude='.git' \
             --exclude='node_modules' \
-            ./ ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app/
+            --exclude='.github' \
+            ./ ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:~/app/
 
-      - name: Set up Docker context
+      - name: Install Docker Compose on VM (if needed)
         run: |
-          docker context create azure-vm-${{ github.run_id }} --docker "host=ssh://${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}"
-          docker context use azure-vm-${{ github.run_id }}
-      
-      - name: Deploy with docker-compose
+          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+            "command -v docker-compose &>/dev/null || \
+             sudo curl -L \"https://github.com/docker/compose/releases/latest/download/docker-compose-$(uname -s)-$(uname -m)\" \
+             -o /usr/local/bin/docker-compose && \
+             sudo chmod +x /usr/local/bin/docker-compose"
+
+      - name: Deploy application
         run: |
-          docker compose -f docker-compose.yml down || true
-          docker compose -f docker-compose.yml build --no-cache
-          docker compose -f docker-compose.yml up -d --force-recreate
-      
+          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+            "cd ~/app && \
+             docker-compose -f docker-compose.yml down --remove-orphans || true && \
+             docker-compose -f docker-compose.yml build --no-cache && \
+             docker-compose -f docker-compose.yml up -d --force-recreate"
+
       - name: Verify deployment
         run: |
-          docker compose -f docker-compose.yml ps -a
-          sleep 10  # Wait for services to start
-          curl -v http://${{ secrets.AZURE_VM_HOST }}
-          curl -v http://${{ secrets.AZURE_VM_HOST }}:8080/actuator/health
-
-      - name: Clean up
-        if: always()
-        run: |
-          docker context use default
-          docker context rm azure-vm-${{ github.run_id }} || true
+          ssh ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+            "docker ps -a && \
+             docker-compose -f ~/app/docker-compose.yml ps -a"
+          
+          echo "Waiting for services to start..."
+          sleep 20
+          
+          echo "Testing frontend:"
+          curl -v http://${{ secrets.AZURE_VM_HOST }} || true
+          
+          echo "Testing backend health:"
+          curl -v http://${{ secrets.AZURE_VM_HOST }}:8080/actuator/health || true
