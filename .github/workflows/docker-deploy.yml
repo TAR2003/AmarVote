@@ -43,7 +43,7 @@ jobs:
       
       - name: Verify deployment
         run: |
-          docker compose -f docker-compose.deploy.yml ps
+          docker compose -f docker-compose.yml ps
       
       - name: Reset Docker context
         if: always()
