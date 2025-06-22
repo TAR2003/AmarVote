@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import axios from "axios";
 import Layout from "./Layout";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 export default function Signup({ setUserEmail }) {
   const navigate = useNavigate();
@@ -21,48 +22,56 @@ export default function Signup({ setUserEmail }) {
   const [verificationCode, setVerificationCode] = useState("");
   const [isVerified, setIsVerified] = useState(false);
   const [verifying, setVerifying] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
-  const validate = () => {
-    const newErrors = {};
-    if (!formData.userName.trim()) newErrors.userName = "Username is required";
-    if (!formData.email.trim()) newErrors.email = "Email is required";
-    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email))
-      newErrors.email = "Invalid email address";
-    if (!formData.password) newErrors.password = "Password is required";
-    else if (formData.password.length < 8)
-      newErrors.password = "Password must be at least 8 characters";
-    if (!formData.confirmPassword)
-      newErrors.confirmPassword = "Confirm password is required";
-    else if (formData.password !== formData.confirmPassword)
-      newErrors.confirmPassword = "Passwords do not match";
-    if (!formData.nid.trim()) newErrors.nid = "NID is required";
-    return newErrors;
+  // Create individual pattern checks for better visual feedback
+  const passwordPatterns = {
+    length: formData.password.length >= 8,
+    letter: /[a-zA-Z]/.test(formData.password),
+    digit: /\d/.test(formData.password),
+    special: /[@#$%^&+=!]/.test(formData.password)
+  };
+  
+  // Full password pattern for validation
+  const passwordPattern = /^(?=.*[0-9])(?=.*[a-zA-Z])(?=.*[@#$%^&+=!]).{8,}$/;
+  const isPasswordValid = passwordPattern.test(formData.password);
+  const doPasswordsMatch = formData.password === formData.confirmPassword;
+
+  const isValidURL = (url) => {
+    try {
+      if (!url) return true;
+      const parsed = new URL(url);
+      return ["http:", "https:"].includes(parsed.protocol);
+    } catch {
+      return false;
+    }
+  };
+
+  const isFormReadyForVerification = () => {
+    return (
+      formData.userName.trim() &&
+      /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) &&
+      isPasswordValid &&
+      doPasswordsMatch &&
+      formData.nid.trim() &&
+      isValidURL(formData.profilePic)
+    );
   };
 
   const handleChange = (e) => {
-    setFormData((prev) => ({
-      ...prev,
-      [e.target.name]: e.target.value,
-    }));
-    setErrors((prev) => ({ ...prev, [e.target.name]: "" }));
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+    setErrors((prev) => ({ ...prev, [name]: "" }));
     setServerError("");
   };
 
   const handleSendCode = async () => {
-    if (!formData.email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
-      setErrors((prev) => ({
-        ...prev,
-        email: "Please enter a valid email first",
-      }));
-      return;
-    }
+    if (!isFormReadyForVerification()) return;
     try {
-      const res = await axios.post(
-        "http://localhost:8080/api/verify/send-code",
-        {
-          email: formData.email,
-        }
-      );
+      const res = await axios.post("http://localhost:8080/api/verify/send-code", {
+        email: formData.email.trim(),
+      });
       alert(res.data);
       setCodeSent(true);
     } catch {
@@ -71,17 +80,13 @@ export default function Signup({ setUserEmail }) {
   };
 
   const handleVerifyCode = async () => {
-    if (!verificationCode.trim())
-      return alert("Please enter the verification code.");
+    if (!verificationCode.trim()) return alert("Please enter the verification code.");
     setVerifying(true);
     try {
-      const res = await axios.post(
-        "http://localhost:8080/api/verify/verify-code",
-        {
-          code: verificationCode,
-          email: formData.email,
-        }
-      );
+      const res = await axios.post("http://localhost:8080/api/verify/verify-code", {
+        code: verificationCode,
+        email: formData.email.trim(),
+      });
       alert(res.data);
       setIsVerified(true);
     } catch {
@@ -93,33 +98,25 @@ export default function Signup({ setUserEmail }) {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    const validationErrors = validate();
-    if (Object.keys(validationErrors).length > 0) {
-      setErrors(validationErrors);
-      return;
-    }
     if (!isVerified) {
       alert("Please verify your email before signing up.");
+      return;
+    }
+    if (!isValidURL(formData.profilePic)) {
+      setErrors((prev) => ({ ...prev, profilePic: "Invalid URL for profile picture." }));
       return;
     }
 
     setLoading(true);
     try {
-      const response = await axios.post(
-        "http://localhost:8080/api/auth/register",
-        formData
-      );
+      const response = await axios.post("http://localhost:8080/api/auth/register", formData);
       if (response.data.success) {
-        navigate("/login", {
-          state: { message: "Signup successful! Please login." },
-        });
+        navigate("/login", { state: { message: "Signup successful! Please login." } });
       } else {
         setServerError(response.data.message || "Registration failed.");
       }
     } catch (err) {
-      const message =
-        err.response?.data?.message ||
-        "Something went wrong. Please try again.";
+      const message = err.response?.data?.message || "Something went wrong. Please try again.";
       setServerError(message);
     } finally {
       setLoading(false);
@@ -128,307 +125,174 @@ export default function Signup({ setUserEmail }) {
 
   return (
     <Layout>
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
-            <span className="text-5xl">📝</span>
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
-              Create your account
-            </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <h2 className="text-3xl font-bold text-gray-900">Create your account</h2>
+            <p className="text-sm mt-2 text-gray-600">
               Already have an account?{" "}
-              <Link
-                to="/login"
-                className="font-medium text-blue-600 hover:text-blue-500"
-              >
+              <Link to="/login" className="text-blue-600 hover:text-blue-500 font-medium">
                 Sign in
               </Link>
             </p>
           </div>
 
-          {serverError && (
-            <div className="rounded-md bg-red-50 p-4 border-l-4 border-red-500">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <span className="text-red-500">✗</span>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-red-700">{serverError}</p>
-                </div>
-              </div>
+          {serverError && <div className="text-red-500 text-center text-sm">{serverError}</div>}
+
+          <form className="bg-white p-6 rounded-lg shadow-md space-y-5" onSubmit={handleSubmit}>
+            <input
+              type="text"
+              name="userName"
+              placeholder="Username"
+              value={formData.userName}
+              onChange={handleChange}
+              className="w-full border p-2 rounded"
+              required
+            />
+
+            <input
+              type="email"
+              name="email"
+              placeholder="Email"
+              value={formData.email}
+              onChange={handleChange}
+              className="w-full border p-2 rounded"
+              required
+            />
+
+            <div className="relative">
+              <input
+                type={showPassword ? "text" : "password"}
+                name="password"
+                placeholder="Password"
+                value={formData.password}
+                onChange={handleChange}
+                className="w-full border p-2 rounded pr-10"
+                required
+                autoComplete="off"
+              />
+              {formData.password && (
+                <span
+                  className="absolute right-3 top-3 text-gray-600 cursor-pointer"
+                  onClick={() => setShowPassword((prev) => !prev)}
+                >
+                  {showPassword ? <FaEyeSlash /> : <FaEye />}
+                </span>
+              )}
             </div>
-          )}
 
-          <div className="bg-white py-8 px-6 shadow rounded-lg sm:px-10 border border-gray-200">
-            <form className="mb-0 space-y-6" onSubmit={handleSubmit}>
-              <div>
-                <label
-                  htmlFor="userName"
-                  className="block text-sm font-medium text-gray-700"
+            {/* Live password criteria - updated to include detailed list */}
+            <ul className="text-sm text-gray-600 space-y-1 pl-4">
+              <li className={passwordPatterns.length ? "text-green-600" : "text-gray-400"}>
+                ✓ At least 8 characters
+              </li>
+              <li className={passwordPatterns.letter ? "text-green-600" : "text-gray-400"}>
+                ✓ Contains a letter
+              </li>
+              <li className={passwordPatterns.digit ? "text-green-600" : "text-gray-400"}>
+                ✓ Contains a number
+              </li>
+              <li className={passwordPatterns.special ? "text-green-600" : "text-gray-400"}>
+                ✓ Contains a special character (@#$%^&+=!)
+              </li>
+            </ul>
+
+            <div className="relative">
+              <input
+                type={showConfirmPassword ? "text" : "password"}
+                name="confirmPassword"
+                placeholder="Confirm Password"
+                value={formData.confirmPassword}
+                onChange={handleChange}
+                className="w-full border p-2 rounded pr-10"
+                required
+                autoComplete="off"
+              />
+              {formData.confirmPassword && (
+                <span
+                  className="absolute right-3 top-3 text-gray-600 cursor-pointer"
+                  onClick={() => setShowConfirmPassword((prev) => !prev)}
                 >
-                  Username
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="userName"
-                    name="userName"
-                    type="text"
-                    required
-                    value={formData.userName}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Your username"
-                  />
-                </div>
-                {errors.userName && (
-                  <p className="mt-1 text-sm text-red-600">{errors.userName}</p>
-                )}
-              </div>
+                  {showConfirmPassword ? <FaEyeSlash /> : <FaEye />}
+                </span>
+              )}
+            </div>
 
-              <div>
-                <label
-                  htmlFor="email"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Email address
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="email"
-                    name="email"
-                    type="email"
-                    autoComplete="email"
-                    required
-                    value={formData.email}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="you@example.com"
-                  />
-                </div>
-                {errors.email && (
-                  <p className="mt-1 text-sm text-red-600">{errors.email}</p>
-                )}
-              </div>
+            <p className={doPasswordsMatch ? "text-green-600 text-sm" : "text-red-500 text-sm"}>
+              {doPasswordsMatch ? "✓ Passwords match" : "✗ Passwords do not match"}
+            </p>
 
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Password
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    value={formData.password}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="••••••••"
-                  />
-                </div>
-                {errors.password && (
-                  <p className="mt-1 text-sm text-red-600">{errors.password}</p>
-                )}
-              </div>
+            <input
+              type="text"
+              name="nid"
+              placeholder="National ID"
+              value={formData.nid}
+              onChange={handleChange}
+              className="w-full border p-2 rounded"
+              required
+            />
 
-              <div>
-                <label
-                  htmlFor="confirmPassword"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Confirm Password
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="confirmPassword"
-                    name="confirmPassword"
-                    type="password"
-                    required
-                    value={formData.confirmPassword}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="••••••••"
-                  />
-                </div>
-                {errors.confirmPassword && (
-                  <p className="mt-1 text-sm text-red-600">
-                    {errors.confirmPassword}
-                  </p>
-                )}
-              </div>
+            <input
+              type="url"
+              name="profilePic"
+              placeholder="Profile Picture URL (optional)"
+              value={formData.profilePic}
+              onChange={handleChange}
+              className="w-full border p-2 rounded"
+            />
+            {errors.profilePic && (
+              <p className="text-red-500 text-sm">{errors.profilePic}</p>
+            )}
 
-              <div>
-                <label
-                  htmlFor="nid"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  National ID (NID)
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="nid"
-                    name="nid"
-                    type="text"
-                    required
-                    value={formData.nid}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="Your national ID number"
-                  />
-                </div>
-                {errors.nid && (
-                  <p className="mt-1 text-sm text-red-600">{errors.nid}</p>
-                )}
-              </div>
+            {!codeSent && (
+              <button
+                type="button"
+                onClick={handleSendCode}
+                disabled={!isFormReadyForVerification()}
+                className={`w-full py-2 rounded text-white font-semibold ${
+                  isFormReadyForVerification()
+                    ? "bg-blue-600 hover:bg-blue-700"
+                    : "bg-blue-300 cursor-not-allowed"
+                }`}
+              >
+                Send Verification Code
+              </button>
+            )}
 
-              <div>
-                <label
-                  htmlFor="profilePic"
-                  className="block text-sm font-medium text-gray-700"
-                >
-                  Profile Picture URL (optional)
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="profilePic"
-                    name="profilePic"
-                    type="text"
-                    value={formData.profilePic}
-                    onChange={handleChange}
-                    className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                    placeholder="https://example.com/profile.jpg"
-                  />
-                </div>
-              </div>
-
-              {!codeSent && (
+            {codeSent && !isVerified && (
+              <>
+                <input
+                  type="text"
+                  placeholder="Verification Code"
+                  value={verificationCode}
+                  onChange={(e) => setVerificationCode(e.target.value)}
+                  className="w-full border p-2 rounded"
+                />
                 <button
                   type="button"
-                  onClick={handleSendCode}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                  onClick={handleVerifyCode}
+                  disabled={verifying}
+                  className="w-full py-2 rounded bg-green-600 hover:bg-green-700 text-white font-semibold"
                 >
-                  Send Verification Code
+                  {verifying ? "Verifying..." : "Verify Code"}
                 </button>
-              )}
+              </>
+            )}
 
-              {codeSent && !isVerified && (
-                <div className="space-y-4">
-                  <div>
-                    <label
-                      htmlFor="verificationCode"
-                      className="block text-sm font-medium text-gray-700"
-                    >
-                      Verification Code
-                    </label>
-                    <div className="mt-1">
-                      <input
-                        id="verificationCode"
-                        type="text"
-                        value={verificationCode}
-                        onChange={(e) => setVerificationCode(e.target.value)}
-                        className="w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
-                        placeholder="Enter code sent to your email"
-                      />
-                    </div>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={handleVerifyCode}
-                    disabled={verifying}
-                    className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-green-600 hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500 ${
-                      verifying ? "opacity-75 cursor-not-allowed" : ""
-                    }`}
-                  >
-                    {verifying ? (
-                      <span className="flex items-center">
-                        <svg
-                          className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                          xmlns="http://www.w3.org/2000/svg"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                        >
-                          <circle
-                            className="opacity-25"
-                            cx="12"
-                            cy="12"
-                            r="10"
-                            stroke="currentColor"
-                            strokeWidth="4"
-                          ></circle>
-                          <path
-                            className="opacity-75"
-                            fill="currentColor"
-                            d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                          ></path>
-                        </svg>
-                        Verifying...
-                      </span>
-                    ) : (
-                      "Verify Code"
-                    )}
-                  </button>
-                </div>
-              )}
+            {isVerified && <p className="text-green-600 text-center text-sm">✅ Email verified</p>}
 
-              {isVerified && (
-                <div className="rounded-md bg-green-50 p-4 border-l-4 border-green-500">
-                  <div className="flex">
-                    <div className="flex-shrink-0">
-                      <span className="text-green-500">✓</span>
-                    </div>
-                    <div className="ml-3">
-                      <p className="text-sm text-green-700">
-                        Email verified successfully!
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              <div>
-                <button
-                  type="submit"
-                  disabled={loading || !isVerified}
-                  className={`w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 ${
-                    loading || !isVerified
-                      ? "opacity-75 cursor-not-allowed"
-                      : ""
-                  }`}
-                >
-                  {loading ? (
-                    <span className="flex items-center">
-                      <svg
-                        className="animate-spin -ml-1 mr-2 h-4 w-4 text-white"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Signing up...
-                    </span>
-                  ) : (
-                    "Sign Up"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
+            <button
+              type="submit"
+              disabled={loading || !isVerified}
+              className={`w-full py-2 rounded text-white font-semibold ${
+                loading || !isVerified
+                  ? "bg-gray-400 cursor-not-allowed"
+                  : "bg-blue-600 hover:bg-blue-700"
+              }`}
+            >
+              {loading ? "Signing up..." : "Sign Up"}
+            </button>
+          </form>
         </div>
       </div>
     </Layout>
