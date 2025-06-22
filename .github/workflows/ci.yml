@@ -3,14 +3,24 @@ name: CI
 on:
   push:
     paths:
+      - 'docker-compose.yml'         # Add this line to cover all amarvote subfolders/files
+      - 'Database/**'       # Include Database folder
+      - 'Microservice/**'
+      - 'docs/**'          # Include docs folder
       - 'backend/**'
       - 'frontend/**'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/docker-deploy.yml'
   pull_request:
     paths:
+      - 'docker-compose.yml'         # Add this line to cover all amarvote subfolders/files
+      - 'Database/**'       # Include Database folder
+      - 'Microservice/**'
+      - 'docs/**'          # Include docs folder
       - 'backend/**'
       - 'frontend/**'
       - '.github/workflows/ci.yml'
+      - '.github/workflows/docker-deploy.yml'
 
 jobs:
   backend:
