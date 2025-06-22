@@ -1,42 +1,38 @@
-# Use OpenJDK 21 as the base image since that's specified in pom.xml
-FROM eclipse-temurin:21-jdk AS build
+# Build stage
+FROM eclipse-temurin:21-jdk AS builder
 
-# Set the working directory in the container
-WORKDIR /app
-
-# Copy the Maven wrapper and POM
-COPY mvnw .
-COPY .mvn .mvn
-COPY pom.xml .
-
-# Make the Maven wrapper executable
+WORKDIR /workspace
+COPY . .
 RUN chmod +x mvnw
 
-# Download Maven dependencies
-RUN ./mvnw dependency:go-offline -B
+# Build the application (includes dependency resolution)
+RUN ./mvnw clean package -DskipTests
 
-# Copy the project source
-COPY src src
-
-# Build the application
-RUN ./mvnw package -DskipTests
-
-# Use a smaller runtime image
+# Runtime stage
 FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
-# Copy the built JAR file from the build stage
-COPY --from=build /app/target/*.jar app.jar
+# Copy the built JAR (using wildcard to handle version numbers)
+COPY --from=builder /workspace/target/*.jar app.jar
 
-# Create a volume for logs
-VOLUME /app/logs
+# Create directory for logs and ensure proper permissions
+RUN mkdir -p /app/logs && \
+    chmod -R 755 /app/logs
 
-# Expose port the Spring Boot application typically uses
+# Configure health check
+HEALTHCHECK --interval=30s --timeout=3s \
+    CMD curl -f http://localhost:8080/actuator/health || exit 1
+
+# Configure non-root user
+RUN useradd -m appuser && \
+    chown -R appuser:appuser /app
+USER appuser
+
+# Configure JVM options (adjust based on your VM resources)
+ENV JAVA_OPTS="-XX:MaxRAMPercentage=75 -Djava.security.egd=file:/dev/./urandom"
+
 EXPOSE 8080
 
-# Environment variable to configure JVM options
-ENV JAVA_OPTS=""
-
-# Command to run the application
-ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]
+# Use shell form for variable expansion
+ENTRYPOINT ["sh", "-c", "exec java ${JAVA_OPTS} -jar app.jar"]
