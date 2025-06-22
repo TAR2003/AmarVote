@@ -95,7 +95,6 @@ jobs:
           docker compose -f docker-compose.yml ps -a
           sleep 10  # Wait for services to start
           curl -v http://${{ secrets.AZURE_VM_HOST }}
-          curl -v http://${{ secrets.AZURE_VM_HOST }}:8080/actuator/health
 
       - name: Clean up
         if: always()
