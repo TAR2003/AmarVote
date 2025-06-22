@@ -14,6 +14,11 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+      
+      - name: Validate critical files
+        run: |
+          [ ! -f frontend/package.json ] && echo "❌ Missing frontend/package.json" && exit 1
+          [ ! -f backend/pom.xml ] && echo "❌ Missing backend/pom.xml" && exit 1
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -29,25 +34,34 @@ jobs:
       - name: Add Azure VM to known hosts
         run: |
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
-      - name: Set up Docker context for remote host
+      - name: Copy files to VM
         run: |
-          docker context create azure-vm --docker "host=ssh://${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}"
-          docker context use azure-vm
+          scp -r . ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app
+
+      - name: Set up Docker context
+        run: |
+          docker context create azure-vm-${{ github.run_id }} --docker "host=ssh://${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}"
+          docker context use azure-vm-${{ github.run_id }}
       
       - name: Deploy with docker-compose
         run: |
           docker compose -f docker-compose.yml down || true
-          docker compose -f docker-compose.yml pull
-          docker compose -f docker-compose.yml up --build -d
+          docker compose -f docker-compose.yml pull || echo "Pull failed, building locally..."
+          docker compose -f docker-compose.yml build --no-cache
+          docker compose -f docker-compose.yml up -d --force-recreate
       
       - name: Verify deployment
         run: |
-          docker compose -f docker-compose.yml ps
-      
-      - name: Reset Docker context
+          docker compose -f docker-compose.yml ps -a
+          curl -sSf http://${{ secrets.AZURE_VM_HOST }} || exit 1
+          curl -sSf http://${{ secrets.AZURE_VM_HOST }}:8080/actuator/health || exit 1
+
+      - name: Clean up
         if: always()
         run: |
           docker context use default
-          docker context rm azure-vm
+          docker context rm azure-vm-${{ github.run_id }} || true
