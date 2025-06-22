@@ -1,8 +1,8 @@
 package com.amarvote.amarvote.service;
 
+import java.security.SecureRandom;
 import java.time.OffsetDateTime;
 import java.util.Optional;
-import java.util.UUID;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
@@ -17,10 +17,20 @@ public class VerificationCodeService {
     @Autowired
     private VerificationCodeRepository codeRepository;
 
+    public String generateAlphanumericCode(int length) {
+        String chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
+        SecureRandom random = new SecureRandom();
+        StringBuilder sb = new StringBuilder();
+        for (int i = 0; i < length; i++) {
+            sb.append(chars.charAt(random.nextInt(chars.length())));
+        }
+        return sb.toString();
+    }
+
     // Generate code, save with expiry 10 mins from now
     public VerificationCode createCodeForEmail(String email) {
         VerificationCode code = new VerificationCode();
-        code.setCode(UUID.randomUUID().toString());
+        code.setCode(generateAlphanumericCode(8)); // 
         code.setEmail(email);
         code.setExpiryDate(OffsetDateTime.now().plusMinutes(10));
         return codeRepository.save(code);
