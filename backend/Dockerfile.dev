@@ -1,21 +1,18 @@
+# Development environment for Spring Boot with hot reloading
 FROM maven:3.9-eclipse-temurin-21
 
 WORKDIR /app
 
-# Create logs directory with proper permissions
-RUN mkdir -p /app/logs && chmod 777 /app/logs
-
-# Copy only the POM file first to cache dependencies
+# Copy only the pom.xml and download dependencies to improve rebuild efficiency
 COPY pom.xml .
+# Cache Maven dependencies
 RUN mvn dependency:go-offline -B
 
-# Copy the rest of the source code
-COPY src ./src
+# No need to copy source code as it will be mounted as a volume in docker-compose.yml
+# This enables hot reloading with Spring DevTools
 
-# Package the application first (this ensures spring-boot plugin is available)
-RUN mvn clean package -DskipTests
-
+# Expose port
 EXPOSE 8080
 
-# Run the pre-built JAR file instead of using spring-boot:run
-CMD ["java", "-jar", "target/amarvote-0.0.1-SNAPSHOT.jar"]
+# Start the application in development mode
+CMD ["mvn", "spring-boot:run", "-Dspring-boot.run.jvmArguments=-Dspring.devtools.restart.enabled=true"]
