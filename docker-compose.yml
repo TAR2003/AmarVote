@@ -13,15 +13,18 @@ services:
       - SPRING_DATASOURCE_USERNAME=${NEON_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${NEON_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - SPRING_DEVTOOLS_RESTART_ENABLED=true
-      - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
     volumes:
-      - ./backend:/app
       - backend_logs:/app/logs
       - maven_repo:/root/.m2
     networks:
       election_net:
         ipv4_address: 172.20.0.30
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8080/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
 
   frontend:
     build:
@@ -30,13 +33,12 @@ services:
     container_name: amarvote_frontend
     ports:
       - "80:80"
-    volumes:
-      - ./frontend:/app
     networks:
       election_net:
         ipv4_address: 172.20.0.40
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
 
   electionguard:
     build: ./Microservice
