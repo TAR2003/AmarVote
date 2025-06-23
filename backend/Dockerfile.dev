@@ -2,11 +2,14 @@ FROM maven:3.9-eclipse-temurin-21
 
 WORKDIR /app
 
+# Create logs directory with proper permissions
+RUN mkdir -p /app/logs && chmod 777 /app/logs
+
 # Copy pom.xml and download dependencies
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
-# Now copy full source code so spring-boot:run works
+# Copy full source code
 COPY . .
 
 EXPOSE 8080

@@ -15,8 +15,8 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Ensure full repository history
-      
+          fetch-depth: 0
+
       - name: Debug file structure
         run: |
           echo "Current directory: $(pwd)"
@@ -77,6 +77,7 @@ jobs:
           rsync -avz --delete \
             --exclude='.git' \
             --exclude='node_modules' \
+            --exclude='backend/logs' \
             ./ ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app/
 
       - name: Set up Docker context
@@ -93,7 +94,7 @@ jobs:
       - name: Verify deployment
         run: |
           docker compose -f docker-compose.yml ps -a
-          sleep 10  # Wait for services to start
+          sleep 10
           curl -v http://${{ secrets.AZURE_VM_HOST }}
 
       - name: Clean up

@@ -17,7 +17,7 @@ services:
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
     volumes:
       - ./backend:/app
-      - ./backend/logs:/app/logs
+      - backend_logs:/app/logs
       - maven_repo:/root/.m2
     networks:
       election_net:
@@ -26,12 +26,12 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile  # Changed from Dockerfile.dev to Dockerfile
+      dockerfile: Dockerfile
     container_name: amarvote_frontend
     ports:
-      - "80:80"  # Changed from 80:5173 to 80:80
+      - "80:80"
     volumes:
-      - ./frontend:/app  # Only needed for development
+      - ./frontend:/app
     networks:
       election_net:
         ipv4_address: 172.20.0.40
@@ -56,6 +56,7 @@ services:
 
 volumes:
   maven_repo:
+  backend_logs:
 
 networks:
   election_net:
