@@ -5,13 +5,17 @@ WORKDIR /app
 # Create logs directory with proper permissions
 RUN mkdir -p /app/logs && chmod 777 /app/logs
 
-# Copy pom.xml and download dependencies
+# Copy only the POM file first to cache dependencies
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
-# Copy full source code
-COPY . .
+# Copy the rest of the source code
+COPY src ./src
+
+# Package the application first (this ensures spring-boot plugin is available)
+RUN mvn clean package -DskipTests
 
 EXPOSE 8080
 
-CMD ["mvn", "spring-boot:run", "-Dspring-boot.run.jvmArguments=-Dspring.devtools.restart.enabled=true"]
+# Run the pre-built JAR file instead of using spring-boot:run
+CMD ["java", "-jar", "target/amarvote-0.0.1-SNAPSHOT.jar"]
