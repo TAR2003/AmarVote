@@ -96,6 +96,7 @@ jobs:
       
       - name: Deploy with docker-compose
         run: |
+          docker volume create maven_repo || true
           docker compose -f docker-compose.yml down || true
           docker compose -f docker-compose.yml build
           docker compose -f docker-compose.yml up -d --force-recreate

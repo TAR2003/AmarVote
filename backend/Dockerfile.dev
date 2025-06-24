@@ -13,4 +13,4 @@ COPY . .
 RUN mvn clean install -DskipTests
 
 EXPOSE 8080
-CMD ["mvn", "spring-boot:run"]
+CMD ["java", "-jar", "target/amarvote-0.0.1-SNAPSHOT.jar"]
