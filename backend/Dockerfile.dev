@@ -6,8 +6,8 @@ WORKDIR /app
 COPY pom.xml .
 RUN mvn dependency:go-offline -B
 
-# Copy source code
-COPY src ./src
+# Copy entire project structure (including src)
+COPY . .
 
 # For development with live reload
 CMD ["mvn", "spring-boot:run"]
