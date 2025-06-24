@@ -1,32 +1,27 @@
 # Build stage
 FROM node:18-alpine AS build
 
-# Set working directory
 WORKDIR /app
-
-# Copy package.json and package-lock.json or pnpm-lock.yaml or yarn.lock
 COPY package*.json ./
-
-# Install dependencies
 RUN npm install
-
-# Copy all source files
 COPY . .
-
-# Build the Vite app (outputs to /app/dist)
 RUN npm run build
 
 # Production stage
 FROM nginx:alpine
 
-# Copy built files from build stage (now from /app/dist)
-COPY --from=build /app/dist /usr/share/nginx/html
+# Remove default nginx config
+RUN rm -rf /etc/nginx/conf.d/*
 
-# Copy nginx config to handle SPA routing
+# Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Expose port 80
-EXPOSE 80
+# Copy built files
+COPY --from=build /app/dist /usr/share/nginx/html
 
-# Start nginx server
+# Set permissions for nginx
+RUN chown -R nginx:nginx /usr/share/nginx/html && \
+    chmod -R 755 /usr/share/nginx/html
+
+EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
