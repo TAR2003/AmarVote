@@ -1,16 +1,20 @@
 FROM maven:3.9-eclipse-temurin-21
 
-# Create two separate workspaces
+# Update CA certificates and configure Maven
+RUN apt-get update && \
+    apt-get install -y ca-certificates && \
+    update-ca-certificates && \
+    mkdir -p /root/.m2 && \
+    echo "<settings><mirrors><mirror><id>central-http</id><url>https://repo1.maven.org/maven2</url><mirrorOf>central</mirrorOf></mirror></mirrors></settings>" > /root/.m2/settings.xml
+
 WORKDIR /build
 COPY pom.xml .
-# Force download of all plugins and dependencies
-RUN mvn -B spring-boot:help dependency:go-offline
+# Retry logic for flaky connections
+RUN mvn -B dependency:resolve || mvn -B dependency:resolve
 
-# Switch to runtime workspace
 WORKDIR /app
-# Copy only the essential non-source files
 COPY src/main/resources/application.properties ./src/main/resources/
 
 EXPOSE 8080
 
-CMD ["mvn", "spring-boot:run", "-Dspring-boot.run.jvmArguments=-Dspring.devtools.restart.enabled=true","-Dspring-boot.run.profiles=dev"]
+CMD ["mvn", "spring-boot:run"]
