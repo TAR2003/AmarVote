@@ -2,15 +2,12 @@ FROM maven:3.9-eclipse-temurin-21
 
 WORKDIR /app
 
-# Copy pom.xml first and download dependencies
+# Copy POM first for dependency caching
 COPY pom.xml .
-RUN mvn dependency:go-offline -B || true
+RUN mvn dependency:go-offline -B
 
-# Copy the rest of the source
-COPY . .
+# Copy source code
+COPY src ./src
 
-# Build the app
-RUN mvn clean install -DskipTests
-
-EXPOSE 8080
-CMD ["java", "-jar", "target/amarvote-0.0.1-SNAPSHOT.jar"]
+# For development with live reload
+CMD ["mvn", "spring-boot:run"]
