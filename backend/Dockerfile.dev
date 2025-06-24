@@ -1,11 +1,16 @@
 FROM maven:3.9-eclipse-temurin-21
 
 WORKDIR /app
+
+# Copy pom.xml first and download dependencies
+COPY pom.xml .
+RUN mvn dependency:go-offline -B || true
+
+# Copy the rest of the source
 COPY . .
 
-# Build and cache dependencies
+# Build the app
 RUN mvn clean install -DskipTests
 
 EXPOSE 8080
-
 CMD ["mvn", "spring-boot:run"]

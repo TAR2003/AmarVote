@@ -18,6 +18,8 @@ services:
     volumes:
       - ./backend:/app
       - ./backend/logs:/app/logs
+      - maven_repo:/root/.m2   # <--- This line is missing!
+
     networks:
       election_net:
         ipv4_address: 172.20.0.30
@@ -53,6 +55,8 @@ services:
     environment:
       - FLASK_DEBUG=0
 
+volumes:
+  maven_repo:
 
 
 networks:
