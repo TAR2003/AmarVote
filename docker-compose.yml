@@ -17,6 +17,7 @@ services:
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
     volumes:
       - ./backend/src:/app/src
+      - ./backend/pom.xml:/app/pom.xml
       - ./backend/logs:/app/logs
       - maven_repo:/root/.m2   # <--- This line is missing!
 
