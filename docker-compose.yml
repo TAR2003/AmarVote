@@ -2,7 +2,7 @@ version: '3.8'
 
 services:
   backend:
-    build: 
+    build:
       context: ./backend
       dockerfile: Dockerfile.dev
     container_name: amarvote_backend
@@ -65,5 +65,5 @@ networks:
       config:
         - subnet: 172.20.0.0/24
           gateway: 172.20.0.1
-          
+
           
