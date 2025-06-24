@@ -16,8 +16,8 @@ services:
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
     volumes:
-      - ./backend/src:/app/src
-      - ./backend/logs:/app/logs
+      # - ./backend/src:/app/src
+      # - ./backend/logs:/app/logs
       - maven_repo:/root/.m2   # <--- This line is missing!
 
     networks:
