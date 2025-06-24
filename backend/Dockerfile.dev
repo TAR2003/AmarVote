@@ -1,24 +1,11 @@
 FROM maven:3.9-eclipse-temurin-21
 
-# Setup certificate and Maven mirror
-RUN apt-get update && \
-    apt-get install -y ca-certificates && \
-    update-ca-certificates && \
-    mkdir -p /root/.m2 && \
-    echo "<settings><mirrors><mirror><id>central-http</id><url>https://repo1.maven.org/maven2</url><mirrorOf>central</mirrorOf></mirror></mirrors></settings>" > /root/.m2/settings.xml
-
-# Set working directory
 WORKDIR /app
-
-# Copy pom.xml and download dependencies (improves build caching)
-COPY pom.xml ./
-RUN mvn dependency:go-offline
-
-# Copy entire backend project
 COPY . .
 
-# Expose port 8080
+# Build and cache dependencies
+RUN mvn clean install -DskipTests
+
 EXPOSE 8080
 
-# Run Spring Boot application (dev mode)
 CMD ["mvn", "spring-boot:run"]
