@@ -16,10 +16,7 @@ services:
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
     volumes:
-      # - ./backend/src:/app/src
-      # - ./backend/logs:/app/logs
-      - maven_repo:/root/.m2   # <--- This line is missing!
-
+      - maven_repo:/root/.m2
     networks:
       election_net:
         ipv4_address: 172.20.0.30
@@ -27,12 +24,10 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile  # Changed from Dockerfile.dev to Dockerfile
+      dockerfile: Dockerfile
     container_name: amarvote_frontend
     ports:
-      - "80:80"  # Changed from 80:5173 to 80:80
-    volumes:
-      - ./frontend:/app  # Only needed for development
+      - "80:80"
     networks:
       election_net:
         ipv4_address: 172.20.0.40
@@ -58,7 +53,6 @@ services:
 volumes:
   maven_repo:
 
-
 networks:
   election_net:
     driver: bridge
@@ -67,5 +61,3 @@ networks:
       config:
         - subnet: 172.20.0.0/24
           gateway: 172.20.0.1
-
-          
