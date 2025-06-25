@@ -24,7 +24,7 @@ function App() {
   useEffect(() => {
     async function checkSession() {
       try {
-        const res = await fetch("http://localhost:8080/api/auth/session", {
+        const res = await fetch("/api/auth/session", {
           method: "GET",
           credentials: "include",
         });

@@ -13,7 +13,7 @@ export default function ForgotPassword() {
     setError(null);
 
     try {
-      const res = await fetch("http://localhost:8080/api/password/forgot-password", {
+      const res = await fetch("/api/password/forgot-password", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email }),
