@@ -42,28 +42,30 @@ jobs:
           ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Create remote directory and copy compose file
+      - name: Prepare remote environment
         run: |
           ssh -o StrictHostKeyChecking=no \
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-              "mkdir -p /app"
+              "mkdir -p ~/app && cd ~/app"
+
+      - name: Copy production compose file
+        run: |
           scp -o StrictHostKeyChecking=no \
               docker-compose.yml \
-              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/app/docker-compose.yml
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:~/app/docker-compose.yml
 
       - name: Deploy to Azure VM
         run: |
           ssh -o StrictHostKeyChecking=no \
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-              "docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} && \
-               cd /app && \
-               docker compose down && \
-               docker compose pull && \
-               docker compose up -d --remove-orphans"
+              "docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} \
+              && cd ~/app \
+              && docker compose down \
+              && docker compose pull \
+              && docker compose up -d --remove-orphans"
 
       - name: Verify deployment
         run: |
           ssh -o StrictHostKeyChecking=no \
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-              "docker ps -a && \
-               curl -I http://localhost || true"
+              "docker ps -a && sleep 10 && curl -I http://localhost || true"
