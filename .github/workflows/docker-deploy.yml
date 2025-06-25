@@ -1,71 +1,38 @@
-name: Build and Deploy to Azure VM
+name: Continuous Deployment (CD)
 
 on:
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
-
-env:
-  DOCKER_IMAGE_NAME: your-org/your-app
-  DOCKER_IMAGE_TAG: ${{ github.run_id }}
+  push:
+    branches: [deployment]
 
 jobs:
-  deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
+  deploy-to-vm:
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-
-      - name: Login to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Build and push Docker images
-        run: |
-          docker compose -f docker-compose.yml build
-          docker compose -f docker-compose.yml push
 
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.AZURE_VM_SECRET }}
 
-      - name: Add Azure VM to known hosts
+      - name: Add VM to known hosts
         run: |
           mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
           ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> ~/.ssh/known_hosts
-          chmod 600 ~/.ssh/known_hosts
-
-      - name: Prepare remote environment
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-              "mkdir -p ~/app && cd ~/app"
-
-      - name: Copy production compose file
-        run: |
-          scp -o StrictHostKeyChecking=no \
-              docker-compose.yml \
-              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:~/app/docker-compose.yml
 
       - name: Deploy to Azure VM
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-              "docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} \
-              && cd ~/app \
-              && docker compose down \
-              && docker compose pull \
-              && docker compose up -d --remove-orphans"
-
-      - name: Verify deployment
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-              "docker ps -a && sleep 10 && curl -I http://localhost || true"
+        uses: appleboy/ssh-action@v1.0.0
+        with:
+          host: ${{ secrets.AZURE_VM_HOST }}
+          username: amarvote
+          key: ${{ secrets.AZURE_VM_SECRET }}
+          script: |
+            cd /home/amarvote
+            git pull origin deployment
+            docker compose down
+            docker image prune -af
+            docker compose pull
+            docker compose up -d --build
+            docker ps -a  # Verify containers are running
+          timeout: 60m
