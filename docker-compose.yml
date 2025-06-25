@@ -13,51 +13,64 @@ services:
       - SPRING_DATASOURCE_USERNAME=${NEON_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${NEON_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - SPRING_DEVTOOLS_RESTART_ENABLED=true
-      - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
+      - SPRING_DEVTOOLS_RESTART_ENABLED=false  # Critical for low memory
+      - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=false
+      - JAVA_TOOL_OPTIONS=-Xms96m -Xmx256m -XX:MaxRAMPercentage=60.0 -XX:+UseSerialGC
+    deploy:
+      resources:
+        limits:
+          memory: 320m  # Absolute max (60% of available)
+        reservations:
+          memory: 192m  # Guaranteed minimum
     volumes:
-      # - ./backend/src:/app/src
-      # - ./backend/logs:/app/logs
-      - maven_repo:/root/.m2   # <--- This line is missing!
-
+      - maven_repo:/root/.m2
     networks:
       election_net:
         ipv4_address: 172.20.0.30
+    restart: unless-stopped
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile  # Changed from Dockerfile.dev to Dockerfile
+      dockerfile: Dockerfile
     container_name: amarvote_frontend
     ports:
-      - "80:80"  # Changed from 80:5173 to 80:80
-    volumes:
-      - ./frontend:/app  # Only needed for development
+      - "80:80"
+    deploy:
+      resources:
+        limits:
+          memory: 128m  # Nginx is lightweight
     networks:
       election_net:
         ipv4_address: 172.20.0.40
     depends_on:
       - backend
+    restart: unless-stopped
 
   electionguard:
     build: ./Microservice
     container_name: electionguard_service
     ports:
       - "5000:5000"
-    networks:
-      election_net:
-        ipv4_address: 172.20.0.10
+    environment:
+      - FLASK_DEBUG=0
+      - PYTHONUNBUFFERED=1  # Reduce Python memory usage
+    deploy:
+      resources:
+        limits:
+          memory: 96m  # Minimal Flask needs
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:5000/health || exit 1"]
       interval: 30s
       timeout: 3s
       retries: 3
-    environment:
-      - FLASK_DEBUG=0
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.10
+    restart: unless-stopped
 
 volumes:
   maven_repo:
-
 
 networks:
   election_net:
@@ -67,5 +80,3 @@ networks:
       config:
         - subnet: 172.20.0.0/24
           gateway: 172.20.0.1
-
-          
