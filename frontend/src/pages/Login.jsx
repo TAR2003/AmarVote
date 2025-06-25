@@ -2,6 +2,7 @@ import React, { useState, useEffect } from "react";
 import { useNavigate, useLocation, Link } from "react-router-dom";
 import Layout from "./Layout";
 import { FaEye, FaEyeSlash } from "react-icons/fa";
+// just to trigger another commit
 
 export default function Login({ setUserEmail }) {
   const [email, setEmail] = useState("");
