@@ -27,8 +27,8 @@ jobs:
 
       - name: Build and push Docker images
         run: |
-          docker compose -f docker-compose.prod.yml build
-          docker compose -f docker-compose.prod.yml push
+          docker compose -f docker-compose.yml build
+          docker compose -f docker-compose.yml push
 
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
@@ -45,7 +45,7 @@ jobs:
       - name: Copy production compose file to server
         run: |
           scp -o StrictHostKeyChecking=no \
-              docker-compose.prod.yml \
+              docker-compose.yml \
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/app/docker-compose.yml
 
       - name: Deploy to Azure VM
