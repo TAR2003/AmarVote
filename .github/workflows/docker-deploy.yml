@@ -42,8 +42,11 @@ jobs:
           ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Copy production compose file to server
+      - name: Create remote directory and copy compose file
         run: |
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+              "mkdir -p /app"
           scp -o StrictHostKeyChecking=no \
               docker-compose.yml \
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/app/docker-compose.yml
@@ -53,7 +56,6 @@ jobs:
           ssh -o StrictHostKeyChecking=no \
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
               "docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} && \
-               mkdir -p /app && \
                cd /app && \
                docker compose down && \
                docker compose pull && \
