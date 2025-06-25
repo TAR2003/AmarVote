@@ -69,7 +69,7 @@ export default function Signup({ setUserEmail }) {
   const handleSendCode = async () => {
     if (!isFormReadyForVerification()) return;
     try {
-      const res = await axios.post("http://localhost:8080/api/verify/send-code", {
+      const res = await axios.post("/api/verify/send-code", {
         email: formData.email.trim(),
       });
       alert(res.data);
@@ -83,7 +83,7 @@ export default function Signup({ setUserEmail }) {
     if (!verificationCode.trim()) return alert("Please enter the verification code.");
     setVerifying(true);
     try {
-      const res = await axios.post("http://localhost:8080/api/verify/verify-code", {
+      const res = await axios.post("/api/verify/verify-code", {
         code: verificationCode,
         email: formData.email.trim(),
       });
@@ -109,7 +109,7 @@ export default function Signup({ setUserEmail }) {
 
     setLoading(true);
     try {
-      const response = await axios.post("http://localhost:8080/api/auth/register", formData);
+      const response = await axios.post("/api/auth/register", formData);
       if (response.data.success) {
         navigate("/login", { state: { message: "Signup successful! Please login." } });
       } else {

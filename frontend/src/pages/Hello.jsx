@@ -4,11 +4,11 @@ function Hello() {
   const [message, setMessage] = useState("Loading...");
 
   useEffect(() => {
-    fetch("http://localhost:8080/hello", {
+    fetch("/api/health", {
       credentials: "include", // if you expect cookies to be sent
     })
       .then((res) => {
-        if (!res.ok) throw new Error("Failed to fetch /hello");
+        if (!res.ok) throw new Error("Failed to fetch /api/health");
         return res.text(); // or res.json() if backend returns JSON
       })
       .then((data) => setMessage(data))
