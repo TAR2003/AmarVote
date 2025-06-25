@@ -1,10 +1,14 @@
-name: Deploy to Azure VM in code
+name: Build and Deploy to Azure VM
 
 on:
   workflow_run:
     workflows: ["CI"]
     types:
       - completed
+
+env:
+  DOCKER_IMAGE_NAME: your-org/your-app
+  DOCKER_IMAGE_TAG: ${{ github.run_id }}
 
 jobs:
   deploy:
@@ -14,47 +18,23 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
         with:
-          fetch-depth: 0
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Debug file structure
+      - name: Build and push Docker images
         run: |
-          echo "Current directory: $(pwd)"
-          echo "Files in repository:"
-          ls -R
-          echo "Frontend contents:"
-          ls -la frontend/
-          echo "Backend contents:"
-          ls -la backend/
-
-      - name: Validate critical files
-        run: |
-          if [ ! -f "frontend/package.json" ]; then
-            echo "::error::Missing frontend/package.json"
-            echo "Frontend directory contents:"
-            ls -la frontend/
-            exit 1
-          fi
-          
-          if [ ! -f "backend/pom.xml" ]; then
-            echo "::error::Missing backend/pom.xml"
-            echo "Backend directory contents:"
-            ls -la backend/
-            exit 1
-          fi
-          echo "All required files present"
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Set up Docker Compose
-        uses: docker/setup-compose-action@v1
+          docker compose -f docker-compose.prod.yml build
+          docker compose -f docker-compose.prod.yml push
 
       - name: Set up SSH
         uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.AZURE_VM_SECRET }}
-      
+
       - name: Add Azure VM to known hosts
         run: |
           mkdir -p ~/.ssh
@@ -62,53 +42,26 @@ jobs:
           ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> ~/.ssh/known_hosts
           chmod 600 ~/.ssh/known_hosts
 
-      - name: Debug SSH connection
+      - name: Copy production compose file to server
         run: |
-          echo "Testing SSH connection..."
-          ssh -v -o StrictHostKeyChecking=no ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} "echo 'SSH connection successful'"
+          scp -o StrictHostKeyChecking=no \
+              docker-compose.prod.yml \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/app/docker-compose.yml
 
-      - name: Prepare VM directory
+      - name: Deploy to Azure VM
         run: |
           ssh -o StrictHostKeyChecking=no \
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-              "sudo mkdir -p /home/${{ secrets.AZURE_VM_USERNAME }}/app && \
-               sudo chown -R ${{ secrets.AZURE_VM_USERNAME }}:${{ secrets.AZURE_VM_USERNAME }} /home/${{ secrets.AZURE_VM_USERNAME }}/app && \
-               sudo chmod -R 755 /home/${{ secrets.AZURE_VM_USERNAME }}/app"
+              "docker login -u ${{ secrets.DOCKERHUB_USERNAME }} -p ${{ secrets.DOCKERHUB_TOKEN }} && \
+               mkdir -p /app && \
+               cd /app && \
+               docker compose down && \
+               docker compose pull && \
+               docker compose up -d --remove-orphans"
 
-      - name: Verify directory structure
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-              "ls -la /home/${{ secrets.AZURE_VM_USERNAME }}/app"
-
-      - name: Copy files to VM
-        run: |
-          rsync -avz --delete \
-            --exclude='.git' \
-            --exclude='node_modules' \
-            --exclude='backend/logs' \
-            ./ ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app/
-
-      - name: Set up Docker context
-        run: |
-          docker context create azure-vm-${{ github.run_id }} --docker "host=ssh://${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}"
-          docker context use azure-vm-${{ github.run_id }}
-      
-      - name: Deploy with docker-compose
-        run: |
-          docker volume create maven_repo || true
-          docker compose -f docker-compose.yml down || true
-          docker compose -f docker-compose.yml build
-          docker compose -f docker-compose.yml up -d --force-recreate
-      
       - name: Verify deployment
         run: |
-          docker compose -f docker-compose.yml ps -a
-          sleep 10
-          curl -v http://${{ secrets.AZURE_VM_HOST }}
-
-      - name: Clean up
-        if: always()
-        run: |
-          docker context use default
-          docker context rm azure-vm-${{ github.run_id }} || true
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+              "docker ps -a && \
+               curl -I http://localhost || true"

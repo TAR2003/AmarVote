@@ -21,7 +21,7 @@ public class helloController {
     @Autowired
     private WebClient webClient; // Injected WebClient
 
-    @RequestMapping("/hello")
+    @RequestMapping("/api/health")
     public String hello() {
         System.out.println("We are in the hello controller");
         return "Successfully connected with hello controoler backiend";
