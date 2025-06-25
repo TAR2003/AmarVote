@@ -2,7 +2,7 @@ name: Continuous Deployment (CD)
 
 on:
   push:
-    branches: [deployment]
+    branches: [main]  # Changed from 'deployment' to 'main'
 
 jobs:
   deploy-to-vm:
@@ -19,7 +19,9 @@ jobs:
       - name: Add VM to known hosts
         run: |
           mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           ssh-keyscan -H ${{ secrets.AZURE_VM_HOST }} >> ~/.ssh/known_hosts
+          chmod 600 ~/.ssh/known_hosts
 
       - name: Deploy to Azure VM
         uses: appleboy/ssh-action@v1.0.0
@@ -28,11 +30,13 @@ jobs:
           username: amarvote
           key: ${{ secrets.AZURE_VM_SECRET }}
           script: |
-            cd /home/amarvote
-            git pull origin deployment
+            cd /home/amarvote/app  # Changed to consistent directory
+            git pull origin main    # Changed from 'deployment' to 'main'
             docker compose down
             docker image prune -af
             docker compose pull
             docker compose up -d --build
-            docker ps -a  # Verify containers are running
+            sleep 10  # Wait for containers to initialize
+            docker ps -a
+            curl -I http://localhost || true  # Verify frontend
           timeout: 60m
