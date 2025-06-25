@@ -14,9 +14,9 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.web.cors.CorsConfigurationSource;
 
 import com.amarvote.amarvote.filter.JWTFilter;
-
 
 @Configuration
 @EnableWebSecurity
@@ -28,21 +28,23 @@ public class SecurityConfig {
     @Autowired
     private JWTFilter jwtFilter;
 
+    @Autowired
+    private CorsConfigurationSource corsConfigurationSource;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
-                .cors(cors -> {})
+                .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authorize -> authorize
-                    .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/session", "/api/password/forgot-password", "/api/password/create-password", "/api/verify/send-code", "/api/verify/verify-code", "/api/health").permitAll() // Allow public access to these endpoints
-                    .anyRequest().authenticated())
-                
+                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/session", "/api/password/forgot-password", "/api/password/create-password", "/api/verify/send-code", "/api/verify/verify-code", "/api/health").permitAll() // Allow public access to these endpoints
+                .anyRequest().authenticated())
                 // .httpBasic(httpBasic -> {}) // Lambda DSL syntax
                 .sessionManagement(session -> session
-                        .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
                 .build();
-    }   
+    }
 
     @Bean
     public AuthenticationProvider authenticationProvider() {
