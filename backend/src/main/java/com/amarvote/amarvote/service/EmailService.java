@@ -60,7 +60,7 @@ public class EmailService {
 
     private String loadResetPasswordTemplate(String resetLink) {
         try {
-            ClassPathResource resource = new ClassPathResource("templates/reset-password-email.html");
+            ClassPathResource resource = new ClassPathResource("templates/resetpasswordemail.html");
             String html = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
             return html.replace("{{RESET_LINK}}", resetLink);
         } catch (IOException e) {
