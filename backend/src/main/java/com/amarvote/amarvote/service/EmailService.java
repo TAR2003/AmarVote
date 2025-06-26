@@ -5,6 +5,7 @@ import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.beans.factory.annotation.Value;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -18,6 +19,9 @@ public class EmailService {
 
     @Autowired
     private JavaMailSender mailSender;
+
+    @Value("${spring.mail.username}")
+    private String fromEmail;
 
     public void sendSignupVerificationEmail(String toEmail, String token) {
         String subject = "Signup Email Verification Code";
@@ -35,7 +39,7 @@ public class EmailService {
             helper.setTo(toEmail);
             helper.setSubject(subject);
             helper.setText(htmlContent, true); // true enables HTML
-            helper.setFrom("amarvote2025@gmail.com");
+            helper.setFrom(fromEmail);
 
             mailSender.send(message);
         } catch (MessagingException e) {
@@ -50,7 +54,7 @@ public class EmailService {
             helper.setTo(toEmail);
             helper.setSubject(subject);
             helper.setText(message, false);
-            helper.setFrom("your_email@gmail.com");
+            helper.setFrom(fromEmail);
 
             mailSender.send(mimeMessage);
         } catch (MessagingException e) {
