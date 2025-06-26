@@ -10,5 +10,5 @@ import java.util.UUID;
 public interface PasswordResetTokenRepository extends JpaRepository<PasswordResetToken, UUID> {
     Optional<PasswordResetToken> findByToken(String token);
     void deleteByEmail(String email);
-    void deleteByExpiryDateBefore(OffsetDateTime time);
+    void deleteByExpiryTimeBefore(OffsetDateTime time);
 }

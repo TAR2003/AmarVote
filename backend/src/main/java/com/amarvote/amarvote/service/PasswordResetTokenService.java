@@ -40,7 +40,7 @@ public class PasswordResetTokenService {
     @Transactional
     public void deleteExpiredTokens() {
         OffsetDateTime now = OffsetDateTime.now();
-        tokenRepository.deleteByExpiryDateBefore(now);
+        tokenRepository.deleteByExpiryTimeBefore(now);
     }
 
 }
