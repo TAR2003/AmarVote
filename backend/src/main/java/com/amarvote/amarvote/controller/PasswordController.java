@@ -44,7 +44,7 @@ public class PasswordController {
 
         //15 minutes validation for password reset token(for now on it's mock link for creating password)
         String token = jwtService.generatePasswordResetToken(email, 900000); // your JWT reset token
-        String resetLink = "http://localhost:5173/create-password?token=" + token; // or your deployed frontend URL
+        String resetLink = "https://www.amarvote2025.me/create-password?token=" + token; // or your deployed frontend URL
 
         emailService.sendForgotPasswordEmail(email, resetLink); // modify your email service to send link
 
