@@ -25,8 +25,8 @@ public class CorsConfig {
                 "http://192.168.0.108",
                 "http://192.168.0.105",
                 "http://172.29.251.136",
-                "http://amarvote2025.me",
-                "http://www.amarvote2025.me"
+                "https://amarvote2025.me",
+                "https://www.amarvote2025.me"
         ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
