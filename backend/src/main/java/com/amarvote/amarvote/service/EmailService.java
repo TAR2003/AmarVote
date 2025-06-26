@@ -35,7 +35,7 @@ public class EmailService {
             helper.setTo(toEmail);
             helper.setSubject(subject);
             helper.setText(htmlContent, true); // true enables HTML
-            helper.setFrom("your_email@gmail.com");
+            helper.setFrom("amarvote2025@gmail.com");
 
             mailSender.send(message);
         } catch (MessagingException e) {
