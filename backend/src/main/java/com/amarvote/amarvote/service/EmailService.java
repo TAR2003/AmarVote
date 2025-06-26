@@ -1,9 +1,17 @@
 package com.amarvote.amarvote.service;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.mail.SimpleMailMessage;
+import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+
+import jakarta.mail.MessagingException;
+import jakarta.mail.internet.MimeMessage;
+
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 
 @Service
 public class EmailService {
@@ -14,67 +22,49 @@ public class EmailService {
     public void sendSignupVerificationEmail(String toEmail, String token) {
         String subject = "Signup Email Verification Code";
         String message = "Welcome! Your signup verification code is: " + token + "\n\nThis code will expire in 10 minutes.";
-
-        sendEmail(toEmail, subject, message);
+        sendPlainTextEmail(toEmail, subject, message);
     }
 
     public void sendForgotPasswordEmail(String toEmail, String resetLink) {
-        String subject = "Password Reset Link";
-        String message = "You requested a password reset. Click the link below to reset your password:\n"
-                + resetLink + "\n\nThis link will expire in 10 minutes.";
+        String subject = "🔐 Password Reset Request";
+        String htmlContent = loadResetPasswordTemplate(resetLink);
 
-        sendEmail(toEmail, subject, message);
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true); // true enables HTML
+            helper.setFrom("your_email@gmail.com");
+
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            throw new RuntimeException("Failed to send HTML email", e);
+        }
     }
 
-    private void sendEmail(String toEmail, String subject, String message) {
-        SimpleMailMessage email = new SimpleMailMessage();
-        email.setTo(toEmail);
-        email.setSubject(subject);
-        email.setText(message);
-        email.setFrom("your_email@gmail.com");
+    private void sendPlainTextEmail(String toEmail, String subject, String message) {
+        MimeMessage mimeMessage = mailSender.createMimeMessage();
+        try {
+            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(message, false);
+            helper.setFrom("your_email@gmail.com");
 
-        mailSender.send(email);
+            mailSender.send(mimeMessage);
+        } catch (MessagingException e) {
+            throw new RuntimeException("Failed to send plain text email", e);
+        }
+    }
+
+    private String loadResetPasswordTemplate(String resetLink) {
+        try {
+            ClassPathResource resource = new ClassPathResource("templates/reset-password-email.html");
+            String html = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+            return html.replace("{{RESET_LINK}}", resetLink);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load reset password email template", e);
+        }
     }
 }
-
-// package com.amarvote.amarvote.service;
-// import java.util.Collections;
-// import org.springframework.beans.factory.annotation.Value;
-// import org.springframework.stereotype.Service;
-// import brevo.ApiClient;
-// import brevo.ApiException;
-// import brevo.Configuration;
-// import brevoApi.TransactionalEmailsApi;
-// import brevoModel.SendSmtpEmail;
-// import brevoModel.SendSmtpEmailSender;
-// import brevoModel.SendSmtpEmailTo;
-// import jakarta.annotation.PostConstruct;
-// @Service
-// public class EmailService {
-//     @Value("${brevo.api.key}")
-//     private String apiKey;
-//     @Value("${brevo.sender.email}")
-//     private String senderEmail;
-//     @Value("${brevo.sender.name}")
-//     private String senderName;
-//     private TransactionalEmailsApi emailApi;
-//     @PostConstruct
-//     public void init() {
-//         ApiClient client = Configuration.getDefaultApiClient();
-//         client.setApiKey(apiKey);
-//         this.emailApi = new TransactionalEmailsApi(client);
-//     }
-//     public void sendVerificationEmail(String toEmail, String code) {
-//         SendSmtpEmail smtpEmail = new SendSmtpEmail()
-//                 .sender(new SendSmtpEmailSender().email(senderEmail).name(senderName))
-//                 .to(Collections.singletonList(new SendSmtpEmailTo().email(toEmail)))
-//                 .subject("Verify Your Account")
-//                 .htmlContent("<p>Your verification code is: <strong>" + code + "</strong></p><p>This code will expire in 10 minutes.</p>");
-//         try {
-//             emailApi.sendTransacEmail(smtpEmail);
-//             System.out.println("Verification email sent to " + toEmail);
-//         } catch (ApiException e) {
-//             throw new RuntimeException("Failed to send email: " + e.getResponseBody(), e);
-//         }
-//     }
-// }
