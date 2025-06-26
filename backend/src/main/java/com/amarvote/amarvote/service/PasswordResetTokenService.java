@@ -5,6 +5,7 @@ import com.amarvote.amarvote.repository.PasswordResetTokenRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import com.amarvote.amarvote.dto.TokenValidationResult;
 
 import java.time.OffsetDateTime;
 import java.util.Optional;
@@ -27,9 +28,24 @@ public class PasswordResetTokenService {
         return tokenRepository.save(tokenEntity);
     }
 
-    public Optional<PasswordResetToken> validateToken(String token) {
-        return tokenRepository.findByToken(token)
-                .filter(t -> !t.isUsed() && t.getExpiryTime().isAfter(OffsetDateTime.now()));
+    public TokenValidationResult validateToken(String token) {
+          Optional<PasswordResetToken> optional = tokenRepository.findByToken(token);
+    
+    if (optional.isEmpty()) {
+        return new TokenValidationResult(false, "not_found", null);
+    }
+
+    PasswordResetToken t = optional.get();
+
+    if (t.isUsed()) {
+        return new TokenValidationResult(false, "used", t);
+    }
+
+    if (t.getExpiryTime().isBefore(OffsetDateTime.now())) {
+        return new TokenValidationResult(false, "expired", t);
+    }
+
+    return new TokenValidationResult(true, "valid", t);
     }
 
     @Transactional
