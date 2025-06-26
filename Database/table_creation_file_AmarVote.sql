@@ -145,6 +145,17 @@ CREATE TABLE audit_log (
     ip_address INET -- the ip address for the event 
 );
 
+CREATE TABLE password_reset_tokens (
+    token_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(), -- unique identifier for each token
+    email VARCHAR(255) NOT NULL REFERENCES users(user_email) ON DELETE CASCADE,
+    token TEXT NOT NULL, -- the JWT or random token string
+    used BOOLEAN NOT NULL DEFAULT FALSE, -- mark token as used after one-time usage
+    expiry_time TIMESTAMP WITH TIME ZONE NOT NULL, -- when this token expires
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP, -- when it was created
+    used_at TIMESTAMP WITH TIME ZONE -- when it was actually used
+);
+
+
 -- Create indexes for better performance
 CREATE INDEX idx_ballots_election ON ballots(election_id);
 CREATE INDEX idx_ballots_tracking ON ballots(tracking_code);
@@ -155,3 +166,5 @@ CREATE INDEX idx_choices_election ON election_choices(election_id);
 CREATE INDEX idx_blocked_ips ON blocked_connections(ip_address);
 CREATE INDEX idx_audit_log_election ON audit_log(election_id);
 CREATE INDEX idx_audit_log_user ON audit_log(user_id);
+CREATE INDEX idx_password_reset_email ON password_reset_tokens(email);
+CREATE INDEX idx_password_reset_token ON password_reset_tokens(token);
