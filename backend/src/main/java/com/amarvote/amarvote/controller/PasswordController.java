@@ -11,10 +11,12 @@ import org.springframework.web.bind.annotation.RestController;
 import com.amarvote.amarvote.dto.ChangePasswordRequest;
 import com.amarvote.amarvote.dto.CreateNewPasswordRequest;
 import com.amarvote.amarvote.dto.VerificationCodeRequest;
+import com.amarvote.amarvote.model.PasswordResetToken;
 import com.amarvote.amarvote.service.EmailService;
 import com.amarvote.amarvote.service.JWTService;
 import com.amarvote.amarvote.service.UserService;
 import com.amarvote.amarvote.service.VerificationCodeService;
+import com.amarvote.amarvote.service.PasswordResetTokenService;
 
 import jakarta.validation.Valid;
 
@@ -34,21 +36,24 @@ public class PasswordController {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private PasswordResetTokenService tokenService; // Assuming you have a service to manage password reset tokens
+
     @PostMapping("/forgot-password")
     public ResponseEntity<String> sendResetLink(@Valid @RequestBody VerificationCodeRequest request) {
-        String email = request.getEmail();
+         String email = request.getEmail();
 
         if (!userService.existsByEmail(email)) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User with this email doesn't exist");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
         }
 
-        //15 minutes validation for password reset token(for now on it's mock link for creating password)
-        String token = jwtService.generatePasswordResetToken(email, 900000); // your JWT reset token
-        String resetLink = "http://localhost:5173/create-password?token=" + token; // or your deployed frontend URL
+        String token = jwtService.generatePasswordResetToken(email, 900_000); // 15 mins
+        tokenService.createToken(email, token, 900_000);
 
-        emailService.sendForgotPasswordEmail(email, resetLink); // modify your email service to send link
+        String resetLink = "https://www.amarvote2025.me/create-password?token=" + token;
+        emailService.sendForgotPasswordEmail(email, resetLink);
 
-        return ResponseEntity.ok("Password reset link sent to your email");
+        return ResponseEntity.ok("Reset link sent to email.");
     }
 
     @PostMapping("/create-password")
@@ -56,19 +61,22 @@ public class PasswordController {
         String token = request.getResetToken();
         String newPassword = request.getNewPassword();
 
-        String email = jwtService.validatePasswordResetToken(token); // returns email if valid, else null
-
-        if (email == null) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid or expired token");
+        var tokenOpt = tokenService.validateToken(token);
+        if (tokenOpt.isEmpty()) {
+            return ResponseEntity.badRequest().body("Invalid or expired token.");
         }
 
-          //check if the user exists or not
+        PasswordResetToken validToken = tokenOpt.get();
+        String email = validToken.getEmail();
+
         if (!userService.existsByEmail(email)) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User with this email doesn't exist");
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
         }
 
         userService.updatePasswordByEmail(email, newPassword);
-        return ResponseEntity.ok("Password reset successfully");
+        tokenService.markTokenAsUsed(validToken);
+
+        return ResponseEntity.ok("Password successfully reset.");
     }
 
     @PostMapping("/change-password")
