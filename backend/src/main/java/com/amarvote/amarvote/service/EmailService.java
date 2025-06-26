@@ -24,41 +24,31 @@ public class EmailService {
     private String fromEmail;
 
     public void sendSignupVerificationEmail(String toEmail, String token) {
-        String subject = "Signup Email Verification Code";
-        String message = "Welcome! Your signup verification code is: " + token + "\n\nThis code will expire in 10 minutes.";
-        sendPlainTextEmail(toEmail, subject, message);
+        String subject = "📩 Signup Email Verification Code";
+        String htmlContent = loadVerificationCodeTemplate(token);
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
     }
 
     public void sendForgotPasswordEmail(String toEmail, String resetLink) {
         String subject = "🔐 Password Reset Request";
         String htmlContent = loadResetPasswordTemplate(resetLink);
 
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private void sendHtmlEmail(String toEmail, String subject, String htmlContent) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
             helper.setTo(toEmail);
             helper.setSubject(subject);
-            helper.setText(htmlContent, true); // true enables HTML
+            helper.setText(htmlContent, true); // Enable HTML
             helper.setFrom(fromEmail);
 
             mailSender.send(message);
         } catch (MessagingException e) {
             throw new RuntimeException("Failed to send HTML email", e);
-        }
-    }
-
-    private void sendPlainTextEmail(String toEmail, String subject, String message) {
-        MimeMessage mimeMessage = mailSender.createMimeMessage();
-        try {
-            MimeMessageHelper helper = new MimeMessageHelper(mimeMessage, false, "UTF-8");
-            helper.setTo(toEmail);
-            helper.setSubject(subject);
-            helper.setText(message, false);
-            helper.setFrom(fromEmail);
-
-            mailSender.send(mimeMessage);
-        } catch (MessagingException e) {
-            throw new RuntimeException("Failed to send plain text email", e);
         }
     }
 
@@ -69,6 +59,16 @@ public class EmailService {
             return html.replace("{{RESET_LINK}}", resetLink);
         } catch (IOException e) {
             throw new RuntimeException("Failed to load reset password email template", e);
+        }
+    }
+
+    private String loadVerificationCodeTemplate(String code) {
+        try {
+            ClassPathResource resource = new ClassPathResource("templates/verificationcodeemail.html");
+            String html = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+            return html.replace("{{VERIFICATION_CODE}}", code);
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load verification code email template", e);
         }
     }
 }
