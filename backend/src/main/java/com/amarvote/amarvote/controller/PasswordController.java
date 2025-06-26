@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.amarvote.amarvote.dto.ChangePasswordRequest;
 import com.amarvote.amarvote.dto.CreateNewPasswordRequest;
+import com.amarvote.amarvote.dto.PasswordResetRequest;
 import com.amarvote.amarvote.dto.VerificationCodeRequest;
 import com.amarvote.amarvote.model.PasswordResetToken;
 import com.amarvote.amarvote.service.EmailService;
@@ -40,7 +41,7 @@ public class PasswordController {
     private PasswordResetTokenService tokenService; // Assuming you have a service to manage password reset tokens
 
     @PostMapping("/forgot-password")
-    public ResponseEntity<String> sendResetLink(@Valid @RequestBody VerificationCodeRequest request) {
+    public ResponseEntity<String> sendResetLink(@Valid @RequestBody PasswordResetRequest request) {
          String email = request.getEmail();
 
         if (!userService.existsByEmail(email)) {
