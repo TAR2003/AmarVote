@@ -24,16 +24,19 @@ public class CorsConfig {
                 "http://20.6.129.179",
                 "http://192.168.0.108",
                 "http://192.168.0.105",
-                "http://172.29.251.136"));
+                "http://172.29.251.136",
+                "http://amarvote2025.me",
+                "http://www.amarvote2025.me"
+        ));
         configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
         configuration.setExposedHeaders(Arrays.asList("Authorization"));
         configuration.setAllowCredentials(true);
         configuration.setMaxAge(3600L);
-        
+
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-    
+
 }
