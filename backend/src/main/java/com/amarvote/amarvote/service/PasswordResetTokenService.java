@@ -16,6 +16,7 @@ public class PasswordResetTokenService {
     @Autowired
     private PasswordResetTokenRepository tokenRepository;
 
+    @Transactional
     public PasswordResetToken createToken(String email, String token, long durationMillis) {
         tokenRepository.deleteByEmail(email); // allow only one active token per email
         PasswordResetToken tokenEntity = PasswordResetToken.builder()
@@ -31,6 +32,7 @@ public class PasswordResetTokenService {
                 .filter(t -> !t.isUsed() && t.getExpiryTime().isAfter(OffsetDateTime.now()));
     }
 
+    @Transactional
     public void markTokenAsUsed(PasswordResetToken token) {
         token.setUsed(true);
         token.setUsedAt(OffsetDateTime.now());
