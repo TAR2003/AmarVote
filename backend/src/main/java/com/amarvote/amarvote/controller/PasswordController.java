@@ -11,6 +11,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.amarvote.amarvote.dto.ChangePasswordRequest;
 import com.amarvote.amarvote.dto.CreateNewPasswordRequest;
 import com.amarvote.amarvote.dto.PasswordResetRequest;
+import com.amarvote.amarvote.dto.TokenValidationResult;
 import com.amarvote.amarvote.dto.VerificationCodeRequest;
 import com.amarvote.amarvote.model.PasswordResetToken;
 import com.amarvote.amarvote.service.EmailService;
@@ -42,7 +43,7 @@ public class PasswordController {
 
     @PostMapping("/forgot-password")
     public ResponseEntity<String> sendResetLink(@Valid @RequestBody PasswordResetRequest request) {
-         String email = request.getEmail();
+        String email = request.getEmail();
 
         if (!userService.existsByEmail(email)) {
             return ResponseEntity.status(HttpStatus.NOT_FOUND).body("User not found.");
@@ -62,12 +63,22 @@ public class PasswordController {
         String token = request.getResetToken();
         String newPassword = request.getNewPassword();
 
-        var tokenOpt = tokenService.validateToken(token);
-        if (tokenOpt.isEmpty()) {
-            return ResponseEntity.badRequest().body("Invalid or expired token.");
+        TokenValidationResult result = tokenService.validateToken(token);
+
+        if (!result.isValid()) {
+            return switch (result.getReason()) {
+                case "not_found" ->
+                    ResponseEntity.status(HttpStatus.NOT_FOUND).body("Reset token not found.");
+                case "used" ->
+                    ResponseEntity.status(HttpStatus.CONFLICT).body("This reset link has already been used.");
+                case "expired" ->
+                    ResponseEntity.status(HttpStatus.GONE).body("This reset link has expired.");
+                default ->
+                    ResponseEntity.badRequest().body("Invalid token.");
+            };
         }
 
-        PasswordResetToken validToken = tokenOpt.get();
+        PasswordResetToken validToken = result.getToken();
         String email = validToken.getEmail();
 
         if (!userService.existsByEmail(email)) {
