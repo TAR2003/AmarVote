@@ -31,20 +31,22 @@ export default function ElectionPage() {
         <h1 className="text-2xl font-bold">Election Page</h1>
       </header>
       <div className="flex flex-col md:flex-row max-w-4xl mx-auto mt-8 bg-white rounded shadow-lg overflow-hidden">
-        {/* Sidebar Menu */}
-        <aside className="md:w-1/4 border-b md:border-b-0 md:border-r bg-gray-100">
-          <nav className="flex md:flex-col">
-            {subMenus.map((menu) => (
-              <button
-                key={menu.key}
-                className={`w-full px-4 py-3 text-left hover:bg-blue-100 focus:outline-none transition ${activeTab === menu.key ? 'bg-blue-200 font-semibold' : ''}`}
-                onClick={() => setActiveTab(menu.key)}
-              >
-                {menu.name}
-              </button>
-            ))}
-          </nav>
-        </aside>
+        {/* Submenu as rectangular boxes */}
+        <div className="flex flex-wrap gap-4 mb-8">
+          {subMenus.map((menu) => (
+            <button
+              key={menu.key}
+              className={`flex-1 min-w-[180px] px-6 py-4 rounded-lg shadow border text-lg font-medium transition-all duration-200
+                ${activeTab === menu.key
+                  ? 'bg-blue-600 text-white border-blue-700 scale-105'
+                  : 'bg-white text-gray-700 border-gray-200 hover:bg-blue-50 hover:border-blue-400'}
+              `}
+              onClick={() => setActiveTab(menu.key)}
+            >
+              {menu.name}
+            </button>
+          ))}
+        </div>
         {/* Main Content */}
         <main className="flex-1 p-6">
           {activeTab === 'voting' && (
