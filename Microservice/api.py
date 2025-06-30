@@ -263,8 +263,8 @@ def api_setup_guardians():
     """API endpoint to setup guardians and create joint key."""
     try:
         data = request.json
-        number_of_guardians = data['number_of_guardians']
-        quorum = data['quorum']
+        number_of_guardians = int(data['number_of_guardians'])  # Convert to int
+        quorum = int(data['quorum'])  # Convert to int
         party_names = data['party_names']
         candidate_names = data['candidate_names']
         
@@ -335,12 +335,12 @@ def api_setup_guardians():
         
         # Store election data
         election_data['guardians'] = guardians
-        election_data['joint_public_key'] = int(joint_key.joint_public_key)
-        election_data['commitment_hash'] = int(joint_key.commitment_hash)
+        election_data['joint_public_key'] = str(int(joint_key.joint_public_key))  # Convert to string
+        election_data['commitment_hash'] = str(int(joint_key.commitment_hash))  # Convert to string
         election_data['manifest'] = create_election_manifest(party_names, candidate_names)
         
-        guardian_public_keys = [int(g._election_keys.key_pair.public_key) for g in guardians]
-        guardian_private_keys = [int(g._election_keys.key_pair.secret_key) for g in guardians]
+        guardian_public_keys = [str(int(g._election_keys.key_pair.public_key)) for g in guardians]  # Convert to string
+        guardian_private_keys = [str(int(g._election_keys.key_pair.secret_key)) for g in guardians]  # Convert to string
         guardian_polynomials = [to_raw(g._election_keys.polynomial) for g in guardians]
         
         response = {
@@ -367,15 +367,19 @@ def api_create_encrypted_ballot():
         candidate_names = data['candidate_names']
         candidate_name = data['candidate_name']
         ballot_id = data['ballot_id']
-        joint_public_key = data['joint_public_key']  # New: Get from request
-        commitment_hash = data['commitment_hash']    # New: Get from request
+        joint_public_key = data['joint_public_key']  # Expecting string
+        commitment_hash = data['commitment_hash']    # Expecting string
+        
+        # Convert string inputs to integers for internal processing
+        joint_public_key_int = int(joint_public_key)
+        commitment_hash_int = int(commitment_hash)
         
         ballot = create_plaintext_ballot(party_names, candidate_names, candidate_name, ballot_id)
         encrypted_ballot = encrypt_ballot(
             party_names, 
             candidate_names, 
-            joint_public_key,  # Use from request instead of election_data
-            commitment_hash,   # Use from request instead of election_data
+            joint_public_key_int,  # Use converted int
+            commitment_hash_int,    # Use converted int
             ballot
         )
         
@@ -384,7 +388,7 @@ def api_create_encrypted_ballot():
             ballot_hash = generate_ballot_hash(encrypted_ballot)
             ballot_hashes[encrypted_ballot.object_id] = ballot_hash
             
-            # Store the encrypted ballot (optional - you might not want to store if not using election_data)
+            # Store the encrypted ballot (optional)
             election_data['encrypted_ballots'].append(to_raw(encrypted_ballot))
             
             response = {
@@ -433,6 +437,11 @@ def encrypt_ballot(
         return get_optional(encrypted_ballot)
     return None
 
+@app.route('/health', methods=['GET'])
+def api_health_check():
+    """API endpoint for health check."""
+    return jsonify({'status': 'healthy'}), 200
+
 @app.route('/create_encrypted_tally', methods=['POST'])
 def api_create_encrypted_tally():
     """API endpoint to tally encrypted ballots."""
@@ -440,22 +449,26 @@ def api_create_encrypted_tally():
         data = request.json
         party_names = data['party_names']
         candidate_names = data['candidate_names']
-        joint_public_key = data['joint_public_key']  # From request
-        commitment_hash = data['commitment_hash']     # From request
+        joint_public_key = data['joint_public_key']  # Expecting string
+        commitment_hash = data['commitment_hash']    # Expecting string
         encrypted_ballots = data['encrypted_ballots'] # From request
         
         if not encrypted_ballots:
             return jsonify({'status': 'error', 'message': 'No ballots to tally. Provide encrypted ballots.'}), 400
         
+        # Convert string inputs to integers for internal processing
+        joint_public_key_int = int(joint_public_key)
+        commitment_hash_int = int(commitment_hash)
+        
         ciphertext_tally_json, submitted_ballots_json = tally_encrypted_ballots(
             party_names,
             candidate_names,
-            joint_public_key,    # From request
-            commitment_hash,     # From request
-            encrypted_ballots    # From request
+            joint_public_key_int,    # Use converted int
+            commitment_hash_int,     # Use converted int
+            encrypted_ballots        # From request
         )
         
-        # Optionally store tally data if needed (can remove if not using global state)
+        # Optionally store tally data if needed
         election_data['ciphertext_tally'] = ciphertext_tally_json
         election_data['submitted_ballots'] = submitted_ballots_json
         
@@ -524,43 +537,54 @@ def api_create_partial_decryption():
     try:
         data = request.json
         guardian_id = data['guardian_id']
-        sequence_order = data['sequence_order']
-        guardian_public_key = data['guardian_public_key']
-        guardian_private_key = data['guardian_private_key']
+        sequence_order = int(data['sequence_order'])  # Convert to int
+        guardian_public_key = data['guardian_public_key']  # Expecting string
+        guardian_private_key = data['guardian_private_key']  # Expecting string
         guardian_polynomial = data['guardian_polynomial']
         party_names = data['party_names']
         candidate_names = data['candidate_names']
         ciphertext_tally_json = data['ciphertext_tally']  # From request
         submitted_ballots_json = data['submitted_ballots']  # From request
-        joint_public_key_json = data['joint_public_key']  # From request
-        commitment_hash_json = data['commitment_hash']  # From request
-        number_of_guardians = data['number_of_guardians']  # From request
+        joint_public_key = data['joint_public_key']  # Expecting string
+        commitment_hash = data['commitment_hash']  # Expecting string
+        number_of_guardians = int(data['number_of_guardians'])  # Convert to int
 
+        # Convert string inputs to integers for internal processing
+        guardian_public_key_int = int(guardian_public_key)
+        guardian_private_key_int = int(guardian_private_key)
+        joint_public_key_int = int(joint_public_key)
+        commitment_hash_int = int(commitment_hash)
+        
         shares = compute_guardian_decryption_shares(
             party_names=party_names,
             candidate_names=candidate_names,
             guardian_id=guardian_id,
             sequence_order=sequence_order,
-            guardian_public_key=guardian_public_key,
-            guardian_private_key=guardian_private_key,
+            guardian_public_key=guardian_public_key_int,
+            guardian_private_key=guardian_private_key_int,
             guardian_polynomial=guardian_polynomial,
-            ciphertext_tally_json=ciphertext_tally_json,  # From request
-            submitted_ballots_json=submitted_ballots_json,  # From request
-            joint_public_key_json=joint_public_key_json,  # From request
-            commitment_hash_json=commitment_hash_json,  # From request
-            number_of_guardians=number_of_guardians  # From request
+            ciphertext_tally_json=ciphertext_tally_json,
+            submitted_ballots_json=submitted_ballots_json,
+            joint_public_key_json=joint_public_key_int,
+            commitment_hash_json=commitment_hash_int,
+            number_of_guardians=number_of_guardians
         )
         
-        # Optionally store the guardian shares (can be removed if not needed)
+        # Convert numeric outputs back to strings for response
+        guardian_public_key_str = shares[0]
+        tally_share_str = shares[1]
+        ballot_shares_str = shares[2]
+        
+        # Optionally store the guardian shares
         if 'guardian_shares' not in election_data:
             election_data['guardian_shares'] = []
-        election_data['guardian_shares'].append(shares)
+        election_data['guardian_shares'].append((guardian_public_key_str, tally_share_str, ballot_shares_str))
         
         response = {
             'status': 'success',
-            'guardian_public_key': shares[0],
-            'tally_share': shares[1],
-            'ballot_shares': shares[2]
+            'guardian_public_key': guardian_public_key_str,
+            'tally_share': tally_share_str,
+            'ballot_shares': ballot_shares_str
         }
         return jsonify(response), 200
     
@@ -621,7 +645,7 @@ def compute_guardian_decryption_shares(
     tally_share = compute_decryption_share(election_key, ciphertext_tally, context)
     ballot_shares = compute_ballot_shares(election_key, submitted_ballots, context)
     
-    # Serialize each component
+    # Serialize each component (output will be string-based JSON)
     serialized_public_key = to_raw(guardian_public_key) if guardian_public_key else None
     serialized_tally_share = to_raw(tally_share) if tally_share else None
 
@@ -638,8 +662,8 @@ def api_combine_partial_decryption():
         data = request.json
         party_names = data['party_names']
         candidate_names = data['candidate_names']
-        joint_public_key_json = data['joint_public_key']  # From request
-        commitment_hash_json = data['commitment_hash']    # From request
+        joint_public_key = data['joint_public_key']  # Expecting string
+        commitment_hash = data['commitment_hash']    # Expecting string
         ciphertext_tally_json = data['ciphertext_tally'] # From request
         submitted_ballots_json = data['submitted_ballots'] # From request
         guardian_shares = data['guardian_shares']        # From request
@@ -647,14 +671,18 @@ def api_combine_partial_decryption():
         if not guardian_shares:
             return jsonify({'status': 'error', 'message': 'No guardian shares provided'}), 400
         
+        # Convert string inputs to integers for internal processing
+        joint_public_key_int = int(joint_public_key)
+        commitment_hash_int = int(commitment_hash)
+        
         results = combine_decryption_shares(
             party_names=party_names,
             candidate_names=candidate_names,
-            joint_public_key_json=joint_public_key_json,  # From request
-            commitment_hash_json=commitment_hash_json,    # From request
-            ciphertext_tally_json=ciphertext_tally_json, # From request
-            submitted_ballots_json=submitted_ballots_json, # From request
-            guardian_shares=guardian_shares               # From request
+            joint_public_key_json=joint_public_key_int,
+            commitment_hash_json=commitment_hash_int,
+            ciphertext_tally_json=ciphertext_tally_json,
+            submitted_ballots_json=submitted_ballots_json,
+            guardian_shares=guardian_shares
         )
         
         response = {
@@ -670,8 +698,8 @@ def api_combine_partial_decryption():
 def combine_decryption_shares(
     party_names: List[str],
     candidate_names: List[str],
-    joint_public_key_json: Dict,
-    commitment_hash_json: Dict,
+    joint_public_key_json: int,
+    commitment_hash_json: int,
     ciphertext_tally_json: Dict,
     submitted_ballots_json: List[Dict],
     guardian_shares: List[Tuple]
@@ -778,8 +806,8 @@ def combine_decryption_shares(
         for selection in contest.selections.values():
             candidate = selection.object_id
             results['results']['candidates'][candidate] = {
-                'votes': selection.tally,
-                'percentage': round(selection.tally / len(cast_ballot_ids) * 100, 2) if len(cast_ballot_ids) > 0 else 0
+                'votes': str(selection.tally),  # Convert to string
+                'percentage': str(round(selection.tally / len(cast_ballot_ids) * 100, 2)) if len(cast_ballot_ids) > 0 else "0"  # Convert to string
             }
     
     # Process spoiled ballots
@@ -799,7 +827,7 @@ def combine_decryption_shares(
                         ballot_info['selections'].append({
                             'contest_id': contest.object_id,
                             'selection_id': selection.object_id,
-                            'vote': selection.vote
+                            'vote': str(selection.vote)  # Convert to string
                         })
             
             results['results']['spoiled_ballots'].append(ballot_info)
@@ -830,7 +858,7 @@ def combine_decryption_shares(
     for i, (guardian_public_key, _, _) in enumerate(deserialized_shares):
         results['verification']['guardians'].append({
             'id': guardian_public_key.owner_id,
-            'sequence_order': guardian_public_key.sequence_order,
+            'sequence_order': str(guardian_public_key.sequence_order),  # Convert to string
             'public_key': str(guardian_public_key.key)
         })
     
