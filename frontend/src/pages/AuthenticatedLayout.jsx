@@ -8,6 +8,7 @@ import {
   FiLogOut,
   FiSearch,
   FiBell,
+  FiBarChart2,
 } from "react-icons/fi";
 
 const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
@@ -180,6 +181,12 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
             >
               Profile
             </Link>
+            <Link
+              to="/election-page"
+              className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+            >
+              Election Page
+            </Link>
             <button
               onClick={handleLogout}
               className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50"
@@ -223,6 +230,13 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                 >
                   <FiSettings className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
                   Settings
+                </Link>
+                <Link
+                  to="/election-page"
+                  className="group flex items-center px-3 py-3 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors duration-200"
+                >
+                  <FiBarChart2 className="mr-3 h-5 w-5 text-gray-400 group-hover:text-blue-500" />
+                  Election Page
                 </Link>
               </nav>
             </div>

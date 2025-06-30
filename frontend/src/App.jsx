@@ -17,6 +17,7 @@ import HowItWorks from "./pages/HowItWorks";
 import AuthenticatedLayout from "./pages/AuthenticatedLayout";
 import Profile from "./pages/Profile";
 import CreateElection from "./pages/CreateElection";
+import ElectionPage from "./pages/ElectionPage";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -58,8 +59,6 @@ function App() {
   if (loading) return <div>Loading...</div>;
 
   const isAuthenticated = !!userEmail;
-
-  // ...existing imports and code...
 
   return (
     <Router>
@@ -140,6 +139,16 @@ function App() {
             element={
               isAuthenticated ? (
                 <CreateElection />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/election-page"
+            element={
+              isAuthenticated ? (
+                <ElectionPage />
               ) : (
                 <Navigate to="/login" replace />
               )
