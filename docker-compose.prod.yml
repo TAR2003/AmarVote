@@ -24,19 +24,18 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev  # Make sure this matches your filename
+      dockerfile: Dockerfile
     container_name: amarvote_frontend
     ports:
-      - "5173:5173"  # Only expose Vite port
+      - "80:80"
+      - "443:443"
     networks:
       election_net:
         ipv4_address: 172.20.0.40
     depends_on:
       - backend
     volumes:
-      - ./frontend:/app  # Mount source code
-      - /app/node_modules  # Preserve node_modules
-      - ./frontend/certs:/app/certs  # Mount certificates
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 
   electionguard:
     build: ./Microservice
