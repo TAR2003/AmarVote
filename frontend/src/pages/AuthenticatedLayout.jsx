@@ -169,10 +169,10 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               Dashboard
             </Link>
             <Link
-              to="/elections"
+              to="/create-election"
               className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50"
             >
-              Elections
+              Create Elections
             </Link>
             <Link
               to="/profile"
@@ -204,11 +204,11 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                   Dashboard
                 </Link>
                 <Link
-                  to="/elections"
+                  to="/create-election"
                   className="group flex items-center px-3 py-3 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors duration-200"
                 >
                   <FiUsers className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
-                  Elections
+                  Create Elections
                 </Link>
                 <Link
                   to="/profile"
