@@ -16,6 +16,7 @@ import Home from "./pages/Home";
 import HowItWorks from "./pages/HowItWorks";
 import AuthenticatedLayout from "./pages/AuthenticatedLayout";
 import Profile from "./pages/Profile";
+import CreateElection from "./pages/CreateElection";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -129,6 +130,16 @@ function App() {
             element={
               isAuthenticated ? (
                 <Dashboard userEmail={userEmail} setUserEmail={setUserEmail} />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/create-election"
+            element={
+              isAuthenticated ? (
+                <CreateElection />
               ) : (
                 <Navigate to="/login" replace />
               )
