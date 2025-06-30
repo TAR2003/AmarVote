@@ -18,6 +18,7 @@ import AuthenticatedLayout from "./pages/AuthenticatedLayout";
 import Profile from "./pages/Profile";
 import CreateElection from "./pages/CreateElection";
 import ElectionPage from "./pages/ElectionPage";
+import LoadingScreen from "./pages/Loading";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -56,7 +57,7 @@ function App() {
     return () => window.removeEventListener("storage", syncLogout);
   }, []);
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) return LoadingScreen;
 
   const isAuthenticated = !!userEmail;
 
