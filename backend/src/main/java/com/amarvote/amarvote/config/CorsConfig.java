@@ -18,6 +18,7 @@ public class CorsConfig {
                 "http://localhost",
                 "http://localhost:80",
                 "http://localhost:5173",
+                "https://localhost:5173",
                 "http://frontend",
                 "http://172.20.0.40", // Frontend container IP
                 "http://192.168.56.1",
