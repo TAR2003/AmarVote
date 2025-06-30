@@ -2,7 +2,7 @@ import requests
 import json
 from typing import Dict, Any
 
-BASE_URL = "http://20.6.131.190:5000"
+BASE_URL = "http://localhost:5000"
 
 def test_election_workflow():
     # 1. Setup Guardians
