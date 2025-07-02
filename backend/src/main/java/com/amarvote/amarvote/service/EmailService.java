@@ -1,18 +1,18 @@
 package com.amarvote.amarvote.service;
 
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
-import org.springframework.beans.factory.annotation.Value;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
-
-import java.io.IOException;
-import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 
 @Service
 public class EmailService {
@@ -36,6 +36,13 @@ public class EmailService {
 
         sendHtmlEmail(toEmail, subject, htmlContent);
     }
+
+    public void sendGuardianPrivateKeyEmail(String toEmail, String electionTitle, String privateKey) {
+        String subject = "🛡️ Your Guardian Private Key for Election: " + electionTitle;
+        String htmlContent = loadGuardianPrivateKeyTemplate(electionTitle, privateKey);
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
 
     private void sendHtmlEmail(String toEmail, String subject, String htmlContent) {
         try {
@@ -71,4 +78,16 @@ public class EmailService {
             throw new RuntimeException("Failed to load verification code email template", e);
         }
     }
+
+    private String loadGuardianPrivateKeyTemplate(String electionTitle, String privateKey) {
+    try {
+        ClassPathResource resource = new ClassPathResource("templates/GuardianPrivateKeyEmail.html");
+        String html = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+        html = html.replace("{{ELECTION_TITLE}}", electionTitle);
+        html = html.replace("{{PRIVATE_KEY}}", privateKey);
+        return html;
+    } catch (IOException e) {
+        throw new RuntimeException("Failed to load guardian private key email template", e);
+    }
+}
 }
