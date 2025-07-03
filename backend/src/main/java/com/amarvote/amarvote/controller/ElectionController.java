@@ -20,6 +20,8 @@ import com.amarvote.amarvote.dto.CastBallotResponse;
 import com.amarvote.amarvote.dto.ElectionCreationRequest;
 import com.amarvote.amarvote.dto.ElectionDetailResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
+import com.amarvote.amarvote.dto.EligibilityCheckRequest;
+import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.service.BallotService;
 import com.amarvote.amarvote.service.ElectionService;
@@ -179,6 +181,51 @@ public class ElectionController {
                     .success(false)
                     .message("Internal server error occurred")
                     .errorReason("Server error: " + e.getMessage())
+                    .build());
+        }
+    }
+
+    @PostMapping(value = "/eligibility", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<EligibilityCheckResponse> checkEligibility(
+            @Valid @RequestBody EligibilityCheckRequest request,
+            HttpServletRequest httpRequest) {
+        
+        // Get user email from request attributes (set by JWTFilter)
+        String userEmail = (String) httpRequest.getAttribute("userEmail");
+        System.out.println("Checking eligibility for election ID: " + request.getElectionId() + " by user: " + userEmail);
+        
+        // Alternative: Get user email from Spring Security context
+        if (userEmail == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+        }
+        
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(EligibilityCheckResponse.builder()
+                    .eligible(false)
+                    .message("User authentication required")
+                    .reason("Unauthorized")
+                    .hasVoted(false)
+                    .isElectionActive(false)
+                    .electionStatus("N/A")
+                    .build());
+        }
+        
+        try {
+            EligibilityCheckResponse response = ballotService.checkEligibility(request, userEmail);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(EligibilityCheckResponse.builder()
+                    .eligible(false)
+                    .message("Internal server error occurred")
+                    .reason("Server error: " + e.getMessage())
+                    .hasVoted(false)
+                    .isElectionActive(false)
+                    .electionStatus("Error")
                     .build());
         }
     }

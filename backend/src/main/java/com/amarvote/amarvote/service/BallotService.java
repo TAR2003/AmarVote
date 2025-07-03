@@ -14,6 +14,8 @@ import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
 import com.amarvote.amarvote.dto.ElectionGuardBallotRequest;
 import com.amarvote.amarvote.dto.ElectionGuardBallotResponse;
+import com.amarvote.amarvote.dto.EligibilityCheckRequest;
+import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.Election;
@@ -180,6 +182,106 @@ public class BallotService {
                 .success(false)
                 .message("An error occurred while casting the ballot")
                 .errorReason("Internal server error: " + e.getMessage())
+                .build();
+        }
+    }
+
+    /**
+     * Check if a user is eligible to vote in a specific election
+     * Returns comprehensive eligibility information including reasons for ineligibility
+     */
+    public EligibilityCheckResponse checkEligibility(EligibilityCheckRequest request, String userEmail) {
+        try {
+            // 1. Find user by email
+            Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
+            if (!userOpt.isPresent()) {
+                return EligibilityCheckResponse.builder()
+                    .eligible(false)
+                    .message("User not found")
+                    .reason("User account not found")
+                    .hasVoted(false)
+                    .isElectionActive(false)
+                    .electionStatus("N/A")
+                    .build();
+            }
+            User user = userOpt.get();
+
+            // 2. Find election
+            Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
+            if (!electionOpt.isPresent()) {
+                return EligibilityCheckResponse.builder()
+                    .eligible(false)
+                    .message("Election not found")
+                    .reason("Election does not exist")
+                    .hasVoted(false)
+                    .isElectionActive(false)
+                    .electionStatus("Not Found")
+                    .build();
+            }
+            Election election = electionOpt.get();
+
+            // 3. Check election status
+            Instant now = Instant.now();
+            String electionStatus;
+            boolean isElectionActive = false;
+            
+            if (now.isBefore(election.getStartingTime())) {
+                electionStatus = "Not Started";
+            } else if (now.isAfter(election.getEndingTime())) {
+                electionStatus = "Ended";
+            } else {
+                electionStatus = "Active";
+                isElectionActive = true;
+            }
+
+            // 4. Check if user has already voted
+            boolean hasVoted = hasUserAlreadyVoted(user.getUserId(), election.getElectionId());
+
+            // 5. Check if user is eligible to vote
+            boolean isEligible = checkVoterEligibility(user.getUserId(), election);
+
+            // 6. Build comprehensive response
+            String message;
+            String reason;
+            boolean overallEligible = false;
+
+            if (hasVoted) {
+                message = "You have already voted in this election";
+                reason = "Already voted";
+            } else if (!isEligible) {
+                message = "You are not eligible to vote in this election";
+                reason = "Not in voter list";
+            } else if (!isElectionActive) {
+                if (electionStatus.equals("Not Started")) {
+                    message = "Election has not started yet";
+                    reason = "Election not active";
+                } else {
+                    message = "Election has ended";
+                    reason = "Election ended";
+                }
+            } else {
+                message = "You are eligible to vote";
+                reason = "Eligible";
+                overallEligible = true;
+            }
+
+            return EligibilityCheckResponse.builder()
+                .eligible(overallEligible)
+                .message(message)
+                .reason(reason)
+                .hasVoted(hasVoted)
+                .isElectionActive(isElectionActive)
+                .electionStatus(electionStatus)
+                .build();
+
+        } catch (Exception e) {
+            return EligibilityCheckResponse.builder()
+                .eligible(false)
+                .message("Error checking eligibility")
+                .reason("Internal server error: " + e.getMessage())
+                .hasVoted(false)
+                .isElectionActive(false)
+                .electionStatus("Error")
                 .build();
         }
     }
