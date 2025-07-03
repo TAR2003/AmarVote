@@ -11,8 +11,15 @@ import org.springframework.web.reactive.function.client.WebClient; // Fixed: Use
 import com.amarvote.amarvote.dto.ElectionCreationRequest; // Added: For setting content type
 import com.amarvote.amarvote.dto.ElectionGuardianSetupRequest; // Added: For handling HTTP responses
 import com.amarvote.amarvote.dto.ElectionGuardianSetupResponse;
+import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.Election;
+import com.amarvote.amarvote.model.ElectionChoice;
+import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.repository.ElectionRepository;
+import com.amarvote.amarvote.repository.GuardianRepository;
+import com.amarvote.amarvote.repository.UserRepository;
+import com.amarvote.amarvote.repository.AllowedVoterRepository;
+import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
@@ -31,6 +38,18 @@ public class ElectionService {
     @Autowired
     private EmailService emailService;
 
+    @Autowired
+    private UserRepository userRepository;
+
+    @Autowired
+    private GuardianRepository guardianRepository;
+
+    @Autowired
+    private ElectionChoiceRepository electionChoiceRepository;
+
+    @Autowired
+    private AllowedVoterRepository allowedVoterRepository;
+
     @Transactional
     public Election createElection(ElectionCreationRequest request) {
         // Validate candidate pictures and party pictures match names
@@ -46,15 +65,15 @@ public class ElectionService {
 
         // Call ElectionGuard microservice
         ElectionGuardianSetupRequest guardianRequest = new ElectionGuardianSetupRequest(
-                Integer.parseInt(request.guardianNumber()), // guardianNumber should be int
-                Integer.parseInt(request.guardianNumber()), // Same as number of guardians for quorum
+                Integer.parseInt(request.guardianNumber()),
+                Integer.parseInt(request.guardianNumber()),
                 request.partyNames(),
                 request.candidateNames()
         );
 
         ElectionGuardianSetupResponse guardianResponse = callElectionGuardService(guardianRequest);
 
-        // Create and save election
+        // Create and save election FIRST to generate electionId
         Election election = new Election();
         election.setElectionTitle(request.electionTitle());
         election.setElectionDescription(request.electionDescription());
@@ -63,30 +82,33 @@ public class ElectionService {
         election.setNoOfCandidates(request.candidateNames().size());
         election.setJointPublicKey(guardianResponse.joint_public_key());
         election.setManifestHash(guardianResponse.manifest());
-        election.setStatus("draft"); // Set initial status to DRAFT
+        election.setStatus("draft");
         election.setStartingTime(request.startingTime());
         election.setEndingTime(request.endingTime());
         election.setBaseHash(guardianResponse.commitment_hash());
 
-        //we have to create guardians here
-        // STEP 1: Ensure guardianEmails match number of guardians
+        // ✅ Save to DB to get generated ID
+        election = electionRepository.save(election);
+
+        // Validate guardian email and private key count
         List<String> guardianEmails = request.guardianEmails();
-        List<String> guardianPrivateKeys = guardianResponse.guardian_private_keys(); // from JSON
+        List<String> guardianPrivateKeys = guardianResponse.guardian_private_keys();
         if (guardianEmails.size() != guardianPrivateKeys.size()) {
             throw new IllegalArgumentException("Guardian emails and private keys count must match");
         }
 
-        // STEP 2: Send private keys via email to guardians
+        // Send private key emails
         for (int i = 0; i < guardianEmails.size(); i++) {
             String email = guardianEmails.get(i);
             String privateKey = guardianPrivateKeys.get(i);
 
-            // Send email with private key
-            emailService.sendGuardianPrivateKeyEmail(email, privateKey, election.getElectionTitle());
+            if (!userRepository.existsByUserEmail(email)) {
+                throw new RuntimeException("User not found for email: " + email);
+            }
 
+            emailService.sendGuardianPrivateKeyEmail(email, privateKey, election.getElectionTitle());
         }
 
-        //print the private keys to console
         System.out.println("Guardian Private Keys:");
         for (int i = 0; i < guardianPrivateKeys.size(); i++) {
             System.out.printf("Guardian %d (%s) Private Key: %s%n", i + 1, guardianEmails.get(i), guardianPrivateKeys.get(i));
@@ -94,8 +116,81 @@ public class ElectionService {
 
         System.out.println("Email sent to guardians with their private keys.");
 
-        return electionRepository.save(election);
+        // Now save Guardian objects
+        List<String> guardianPublicKeys = guardianResponse.guardian_public_keys();
+        List<String> guardianPolynomials = guardianResponse.guardian_polynomials();
 
+        for (int i = 0; i < guardianEmails.size(); i++) {
+            String email = guardianEmails.get(i);
+
+            Integer userId = userRepository.findByUserEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found for email: " + email))
+                    .getUserId();
+            System.out.println("id pabo");
+            int id = election.getElectionId().intValue();
+            System.out.println("id paise");
+
+            Guardian guardian = Guardian.builder()
+                    .electionId(election.getElectionId()) // Now safely use
+                    .userId(userId)
+                    .guardianPublicKey(guardianPublicKeys.get(i))
+                    .guardianPolynomial(guardianPolynomials.get(i))
+                    .sequenceOrder(i + 1)
+                    .decryptedOrNot(false)
+                    .partialDecryptedTally(null)
+                    .proof(null)
+                    .build();
+
+            guardianRepository.save(guardian);
+        }
+
+        System.out.println("Guardians saved successfully.");
+
+        List<String> candidateNames = request.candidateNames();
+        List<String> partyNames = request.partyNames();
+        List<String> candidatePictures = request.candidatePictures();
+        List<String> partyPictures = request.partyPictures();
+
+        for (int i = 0; i < candidateNames.size(); i++) {
+            String candidateName = candidateNames.get(i);
+            String partyName = (i < partyNames.size()) ? partyNames.get(i) : null;
+            String candidatePic = (candidatePictures != null && i < candidatePictures.size()) ? candidatePictures.get(i) : null;
+            String partyPic = (partyPictures != null && i < partyPictures.size()) ? partyPictures.get(i) : null;
+
+            ElectionChoice choice = ElectionChoice.builder()
+                    .electionId(election.getElectionId())
+                    .optionTitle(candidateName)
+                    .optionDescription(null) // or some logic to provide description
+                    .partyName(partyName)
+                    .candidatePic(candidatePic)
+                    .partyPic(partyPic)
+                    .totalVotes(0)
+                    .build();
+
+            electionChoiceRepository.save(choice);
+        }
+
+        System.out.println("Election choices saved successfully.");
+
+        List<String> voterEmails = request.voterEmails();
+
+        for (String email : voterEmails) {
+            Integer userId = userRepository.findByUserEmail(email)
+                    .orElseThrow(() -> new RuntimeException("User not found for voter email: " + email))
+                    .getUserId();
+
+            AllowedVoter allowedVoter = AllowedVoter.builder()
+                    .electionId(election.getElectionId())
+                    .userId(userId)
+                    .hasVoted(false)
+                    .build();
+
+            allowedVoterRepository.save(allowedVoter);
+        }
+
+        System.out.println("Allowed voters saved successfully.");
+
+        return election;
     }
 
     private ElectionGuardianSetupResponse callElectionGuardService(ElectionGuardianSetupRequest request) {
