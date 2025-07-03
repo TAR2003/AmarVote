@@ -3,21 +3,21 @@ package com.amarvote.amarvote.filter;
 import java.io.IOException;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
+import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
+
+import com.amarvote.amarvote.service.JWTService;
+import com.amarvote.amarvote.service.MyUserDetailsService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
-
-import com.amarvote.amarvote.service.JWTService;
-import com.amarvote.amarvote.service.MyUserDetailsService;
-import org.springframework.stereotype.Component;
 
 @Component
 public class JWTFilter extends OncePerRequestFilter {
@@ -35,27 +35,34 @@ public class JWTFilter extends OncePerRequestFilter {
         String jwtToken = null;
         String userEmail = null;
 
-        // Extract JWT from cookie named "token"
-        Cookie[] cookies = request.getCookies();
-        System.out.println("Cookies: " + (cookies != null ? cookies.length : "null"));
-        
-        
+        // First try to extract JWT from Authorization header
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            jwtToken = authHeader.substring(7);
+            System.out.println("JWT Token from Authorization header: " + jwtToken);
+        }
 
-        if (cookies != null) {
-            for (Cookie cookie : cookies) {
-                System.out.println(cookie.getName());
-                if ("jwtToken".equals(cookie.getName())) {
-                    jwtToken = cookie.getValue();
-                    break;
+        // If not found in header, try cookie
+        if (jwtToken == null) {
+            Cookie[] cookies = request.getCookies();
+            System.out.println("Cookies: " + (cookies != null ? cookies.length : "null"));
+            
+            if (cookies != null) {
+                for (Cookie cookie : cookies) {
+                    System.out.println(cookie.getName());
+                    if ("jwtToken".equals(cookie.getName())) {
+                        jwtToken = cookie.getValue();
+                        System.out.println("JWT Token from cookie: " + jwtToken);
+                        break;
+                    }
                 }
             }
         }
 
-        System.out.println("JWT Token: " + jwtToken);
-
         if (jwtToken != null) {
             try {
                 userEmail = jwtService.extractUserEmailFromToken(jwtToken);
+                System.out.println("Extracted user email: " + userEmail);
             } catch (Exception e) {
                 logger.warn("Failed to extract user from JWT", e);
             }
@@ -67,6 +74,10 @@ public class JWTFilter extends OncePerRequestFilter {
                             userDetails, null, userDetails.getAuthorities());
                     authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                     SecurityContextHolder.getContext().setAuthentication(authToken);
+                    
+                    // Store the original JWT token in request attributes for later use
+                    request.setAttribute("jwtToken", jwtToken);
+                    request.setAttribute("userEmail", userEmail);
                 }
             }
         }

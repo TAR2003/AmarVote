@@ -15,11 +15,11 @@ import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.Guardian;
+import com.amarvote.amarvote.repository.AllowedVoterRepository;
+import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.UserRepository;
-import com.amarvote.amarvote.repository.AllowedVoterRepository;
-import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
@@ -51,7 +51,13 @@ public class ElectionService {
     private AllowedVoterRepository allowedVoterRepository;
 
     @Transactional
-    public Election createElection(ElectionCreationRequest request) {
+    public Election createElection(ElectionCreationRequest request, String jwtToken, String userEmail) {
+        // Log the received token and email
+        System.out.println("=========== ELECTION SERVICE ===========");
+        System.out.println("Received JWT Token: " + jwtToken);
+        System.out.println("Received User Email: " + userEmail);
+        System.out.println("========================================");
+
         // Validate candidate pictures and party pictures match names
         if (request.candidatePictures() != null
                 && request.candidatePictures().size() != request.candidateNames().size()) {
@@ -126,9 +132,9 @@ public class ElectionService {
             Integer userId = userRepository.findByUserEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found for email: " + email))
                     .getUserId();
-            System.out.println("id pabo");
+            // System.out.println("id pabo");
             int id = election.getElectionId().intValue();
-            System.out.println("id paise");
+            // System.out.println("id paise");
 
             Guardian guardian = Guardian.builder()
                     .electionId(election.getElectionId()) // Now safely use
@@ -209,7 +215,7 @@ public class ElectionService {
 
             // HttpEntity<ElectionGuardianSetupRequest> entity = new HttpEntity<>(request, headers);
             // ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
-            System.out.println("Sending request to ElectionGuard service: " + request);
+            // System.out.println("Sending request to ElectionGuard service: " + request);
             String response = webClient.post()
                     .uri(url)
                     .contentType(MediaType.APPLICATION_JSON)
@@ -218,7 +224,7 @@ public class ElectionService {
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
-            System.out.println("Received response from ElectionGuard service: " + response);
+            // System.out.println("Received response from ElectionGuard service: " + response);
             if (response == null) {
                 throw new RuntimeException("Invalid response from ElectionGuard service");
             }
