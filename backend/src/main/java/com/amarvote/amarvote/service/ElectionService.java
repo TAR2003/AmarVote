@@ -1,6 +1,8 @@
 package com.amarvote.amarvote.service;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
@@ -11,6 +13,7 @@ import org.springframework.web.reactive.function.client.WebClient; // Fixed: Use
 import com.amarvote.amarvote.dto.ElectionCreationRequest; // Added: For setting content type
 import com.amarvote.amarvote.dto.ElectionGuardianSetupRequest; // Added: For handling HTTP responses
 import com.amarvote.amarvote.dto.ElectionGuardianSetupResponse;
+import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
@@ -200,9 +203,102 @@ public class ElectionService {
         return election;
     }
 
+    /**
+     * Get all elections that are accessible to a specific user
+     * This includes:
+     * 1. All elections where the user is in the allowed voters list
+     * 2. All elections where the user is the admin (admin_email matches)
+     * 3. All elections where the user is a guardian
+     */
+    public List<ElectionResponse> getAllAccessibleElections(String userEmail) {
+        System.out.println("Fetching accessible elections for user: " + userEmail);
+        List<Election> elections = electionRepository.findAllAccessibleElections(userEmail);
+        System.out.println("Found " + elections.size() + " accessible elections for user: " + userEmail);
+        return elections.stream()
+                .map(election -> convertToElectionResponse(election, userEmail))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get all elections where user is in allowed voters
+     */
+    public List<ElectionResponse> getElectionsForUser(String userEmail) {
+        List<Election> elections = electionRepository.findElectionsForUser(userEmail);
+        return elections.stream()
+                .map(election -> convertToElectionResponse(election, userEmail))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get all elections where user is admin
+     */
+    public List<ElectionResponse> getElectionsByAdmin(String userEmail) {
+        List<Election> elections = electionRepository.findElectionsByAdmin(userEmail);
+        return elections.stream()
+                .map(election -> convertToElectionResponse(election, userEmail))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Get all elections where user is guardian
+     */
+    public List<ElectionResponse> getElectionsByGuardian(String userEmail) {
+        List<Election> elections = electionRepository.findElectionsByGuardian(userEmail);
+        return elections.stream()
+                .map(election -> convertToElectionResponse(election, userEmail))
+                .collect(Collectors.toList());
+    }
+
+    /**
+     * Convert Election entity to ElectionResponse DTO with user roles
+     */
+    private ElectionResponse convertToElectionResponse(Election election, String userEmail) {
+        // Determine user roles for this election
+        List<String> userRoles = new ArrayList<>();
+        
+        // Check if user is admin
+        if (election.getAdminEmail() != null && election.getAdminEmail().equals(userEmail)) {
+            userRoles.add("admin");
+        }
+        
+        // Check if user is in allowed voters
+        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
+        if (!allowedVoters.isEmpty()) {
+            userRoles.add("voter");
+        }
+        
+        // Check if user is guardian
+        List<Guardian> guardians = guardianRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
+        if (!guardians.isEmpty()) {
+            userRoles.add("guardian");
+        }
+        
+        // Determine if election is public or private
+        // Public elections have no allowed voters, private elections have specific allowed voters
+        List<AllowedVoter> allAllowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
+        boolean isPublic = allAllowedVoters.isEmpty();
+        
+        return ElectionResponse.builder()
+                .electionId(election.getElectionId())
+                .electionTitle(election.getElectionTitle())
+                .electionDescription(election.getElectionDescription())
+                .status(election.getStatus())
+                .startingTime(election.getStartingTime())
+                .endingTime(election.getEndingTime())
+                .profilePic(election.getProfilePic())
+                .adminEmail(election.getAdminEmail())
+                .numberOfGuardians(election.getNumberOfGuardians())
+                .electionQuorum(election.getElectionQuorum())
+                .noOfCandidates(election.getNoOfCandidates())
+                .createdAt(election.getCreatedAt())
+                .userRoles(userRoles)
+                .isPublic(isPublic)
+                .build();
+    }
+
     private ElectionGuardianSetupResponse callElectionGuardService(ElectionGuardianSetupRequest request) {
         try {
-            String url = "http://host.docker.internal:5000/setup_guardians";
+            String url = "/setup_guardians";
             // System.out.println("Trying to connect to backend...");
             // String response = webClient.get()
             //     .uri("http://host.docker.internal:5000/health") // 👈 Use host.docker.internal

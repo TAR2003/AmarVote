@@ -18,6 +18,7 @@ import AuthenticatedLayout from "./pages/AuthenticatedLayout";
 import Profile from "./pages/Profile";
 import CreateElection from "./pages/CreateElection";
 import ElectionPage from "./pages/ElectionPage";
+import AllElections from "./pages/AllElections";
 import LoadingScreen from "./pages/Loading";
 
 function App() {
@@ -150,6 +151,16 @@ function App() {
             element={
               isAuthenticated ? (
                 <ElectionPage />
+              ) : (
+                <Navigate to="/login" replace />
+              )
+            }
+          />
+          <Route
+            path="/all-elections"
+            element={
+              isAuthenticated ? (
+                <AllElections />
               ) : (
                 <Navigate to="/login" replace />
               )
