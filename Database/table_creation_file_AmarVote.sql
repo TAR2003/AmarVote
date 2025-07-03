@@ -53,6 +53,7 @@ CREATE TABLE IF NOT EXISTS guardians (
     election_id INTEGER NOT NULL,
     user_id INTEGER NOT NULL,
     guardian_public_key TEXT NOT NULL,
+    guardian_polynomial TEXT NOT NULL,
     sequence_order INTEGER NOT NULL CHECK (sequence_order > 0),
     decrypted_or_not BOOLEAN NOT NULL DEFAULT FALSE,
     partial_decrypted_tally TEXT,
@@ -165,6 +166,13 @@ CREATE TABLE IF NOT EXISTS password_reset_tokens (
     CONSTRAINT fk_user_email FOREIGN KEY (email) REFERENCES users(user_email) ON DELETE CASCADE
 );
 
+CREATE TABLE signup_verification (
+    id SERIAL PRIMARY KEY,
+    verification_code VARCHAR(255) NOT NULL UNIQUE,
+    email VARCHAR(255) NOT NULL,
+    expiry_date TIMESTAMP WITH TIME ZONE NOT NULL
+);
+
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_ballots_election ON ballots(election_id);
 CREATE INDEX IF NOT EXISTS idx_ballots_tracking ON ballots(tracking_code);
@@ -177,3 +185,4 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_election ON audit_log(election_id);
 CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_reset_email ON password_reset_tokens(email);
 CREATE INDEX IF NOT EXISTS idx_password_reset_token ON password_reset_tokens(token);
+CREATE INDEX idx_verification_code ON signup_verification(verification_code);
