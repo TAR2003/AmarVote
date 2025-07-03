@@ -30,6 +30,7 @@ public class ElectionDetailResponse {
     private Instant createdAt;
     private String profilePic;
     private String adminEmail;
+    private String adminName;
     
     // Guardian Information
     private List<GuardianInfo> guardians;

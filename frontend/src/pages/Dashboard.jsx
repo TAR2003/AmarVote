@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import {
   FiCalendar,
   FiCheckCircle,
@@ -9,6 +10,7 @@ import {
 import { fetchAllElections } from "../utils/api";
 
 const Dashboard = ({ userEmail }) => {
+  const navigate = useNavigate();
   const [elections, setElections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -31,6 +33,11 @@ const Dashboard = ({ userEmail }) => {
       loadElections();
     }
   }, [userEmail]);
+
+  // Handle navigation to election page
+  const handleElectionClick = (electionId) => {
+    navigate(`/election-page/${electionId}`);
+  };
 
   // Calculate stats from real data
   const calculateStats = () => {
@@ -224,16 +231,57 @@ const Dashboard = ({ userEmail }) => {
               ongoing.map((election) => (
                 <div
                   key={election.electionId}
-                  className="p-4 hover:bg-gray-50 transition-colors duration-150"
+                  className="p-4 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                  onClick={() => handleElectionClick(election.electionId)}
                 >
                   <div className="flex items-center justify-between">
-                    <div>
-                      <h3 className="text-base font-medium text-gray-900">
-                        {election.electionTitle}
-                      </h3>
+                    <div className="flex-1">
+                      <div className="flex items-center">
+                        <h3 className="text-base font-medium text-gray-900">
+                          {election.electionTitle}
+                        </h3>
+                        {/* Public/Private Indicator */}
+                        <span
+                          className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            election.isPublic 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-orange-100 text-orange-800'
+                          }`}
+                        >
+                          {election.isPublic ? 'Public' : 'Private'}
+                        </span>
+                      </div>
+                      
                       <p className="text-sm text-gray-500 mt-1">
                         {election.electionDescription}
                       </p>
+
+                      {/* User Roles */}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
+                          <span
+                            key={role}
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              role === 'admin' ? 'bg-red-100 text-red-800' :
+                              role === 'guardian' ? 'bg-purple-100 text-purple-800' :
+                              'bg-blue-100 text-blue-800'
+                            }`}
+                          >
+                            {role.charAt(0).toUpperCase() + role.slice(1)}
+                          </span>
+                        ))}
+                        {/* Show eligible voter status for public elections */}
+                        {election.isPublic && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Eligible Voter (Public)
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="mt-2 text-xs text-gray-400">
+                        Admin: {election.adminName ? `${election.adminName} (${election.adminEmail})` : election.adminEmail}
+                      </div>
+                      
                       <p className="text-xs text-gray-400 mt-1">
                         Ends: {new Date(election.endingTime).toLocaleDateString("en-US", {
                           year: "numeric",
@@ -244,9 +292,17 @@ const Dashboard = ({ userEmail }) => {
                         })}
                       </p>
                     </div>
-                    <button className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                      Vote Now
-                    </button>
+                    <div className="flex-shrink-0 ml-4">
+                      <button 
+                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleElectionClick(election.electionId);
+                        }}
+                      >
+                        {(election.userRoles?.includes('voter') || election.isPublic) ? 'Vote Now' : 'View Election'}
+                      </button>
+                    </div>
                   </div>
                 </div>
               ))
@@ -275,19 +331,60 @@ const Dashboard = ({ userEmail }) => {
               completed.map((election) => (
                 <div
                   key={election.electionId}
-                  className="p-4 hover:bg-gray-50 transition-colors duration-150"
+                  className="p-4 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                  onClick={() => handleElectionClick(election.electionId)}
                 >
                   <div className="flex items-start">
                     <div className="flex-shrink-0 h-10 w-10 rounded-full flex items-center justify-center bg-green-100">
                       <FiCheckCircle className="h-5 w-5 text-green-600" />
                     </div>
-                    <div className="ml-4">
-                      <h3 className="text-base font-medium text-gray-900">
-                        {election.electionTitle}
-                      </h3>
+                    <div className="ml-4 flex-1">
+                      <div className="flex items-center">
+                        <h3 className="text-base font-medium text-gray-900">
+                          {election.electionTitle}
+                        </h3>
+                        {/* Public/Private Indicator */}
+                        <span
+                          className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            election.isPublic 
+                              ? 'bg-green-100 text-green-800' 
+                              : 'bg-orange-100 text-orange-800'
+                          }`}
+                        >
+                          {election.isPublic ? 'Public' : 'Private'}
+                        </span>
+                      </div>
+                      
                       <p className="text-sm text-gray-500 mt-1">
                         {election.electionDescription}
                       </p>
+
+                      {/* User Roles */}
+                      <div className="mt-2 flex flex-wrap gap-1">
+                        {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
+                          <span
+                            key={role}
+                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                              role === 'admin' ? 'bg-red-100 text-red-800' :
+                              role === 'guardian' ? 'bg-purple-100 text-purple-800' :
+                              'bg-blue-100 text-blue-800'
+                            }`}
+                          >
+                            {role.charAt(0).toUpperCase() + role.slice(1)}
+                          </span>
+                        ))}
+                        {/* Show eligible voter status for public elections */}
+                        {election.isPublic && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Eligible Voter (Public)
+                          </span>
+                        )}
+                      </div>
+                      
+                      <div className="mt-2 text-xs text-gray-400">
+                        Admin: {election.adminName ? `${election.adminName} (${election.adminEmail})` : election.adminEmail}
+                      </div>
+                      
                       <p className="text-xs text-gray-400 mt-1">
                         Ended on {new Date(election.endingTime).toLocaleDateString()}
                       </p>
@@ -319,16 +416,57 @@ const Dashboard = ({ userEmail }) => {
             upcoming.map((election) => (
               <div
                 key={election.electionId}
-                className="p-4 hover:bg-gray-50 transition-colors duration-150"
+                className="p-4 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                onClick={() => handleElectionClick(election.electionId)}
               >
                 <div className="flex items-center justify-between">
-                  <div>
-                    <h3 className="text-base font-medium text-gray-900">
-                      {election.electionTitle}
-                    </h3>
+                  <div className="flex-1">
+                    <div className="flex items-center">
+                      <h3 className="text-base font-medium text-gray-900">
+                        {election.electionTitle}
+                      </h3>
+                      {/* Public/Private Indicator */}
+                      <span
+                        className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          election.isPublic 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-orange-100 text-orange-800'
+                        }`}
+                      >
+                        {election.isPublic ? 'Public' : 'Private'}
+                      </span>
+                    </div>
+                    
                     <p className="text-sm text-gray-500 mt-1">
                       {election.electionDescription}
                     </p>
+
+                    {/* User Roles */}
+                    <div className="mt-2 flex flex-wrap gap-1">
+                      {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
+                        <span
+                          key={role}
+                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            role === 'admin' ? 'bg-red-100 text-red-800' :
+                            role === 'guardian' ? 'bg-purple-100 text-purple-800' :
+                            'bg-blue-100 text-blue-800'
+                          }`}
+                        >
+                          {role.charAt(0).toUpperCase() + role.slice(1)}
+                        </span>
+                      ))}
+                      {/* Show eligible voter status for public elections */}
+                      {election.isPublic && (
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          Eligible Voter (Public)
+                        </span>
+                      )}
+                    </div>
+                    
+                    <div className="mt-2 text-xs text-gray-400">
+                      Admin: {election.adminName ? `${election.adminName} (${election.adminEmail})` : election.adminEmail}
+                    </div>
+                    
                     <p className="text-xs text-gray-400 mt-1">
                       Starts on {new Date(election.startingTime).toLocaleDateString("en-US", {
                         year: "numeric",
@@ -339,9 +477,17 @@ const Dashboard = ({ userEmail }) => {
                       })}
                     </p>
                   </div>
-                  <button className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                    Set Reminder
-                  </button>
+                  <div className="flex-shrink-0 ml-4">
+                    <button 
+                      className="inline-flex items-center px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        // Set reminder functionality can be added here
+                      }}
+                    >
+                      Set Reminder
+                    </button>
+                  </div>
                 </div>
               </div>
             ))

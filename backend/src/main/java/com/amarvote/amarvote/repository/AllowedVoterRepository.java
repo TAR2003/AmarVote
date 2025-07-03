@@ -1,6 +1,7 @@
 package com.amarvote.amarvote.repository;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
@@ -33,5 +34,12 @@ public interface AllowedVoterRepository extends JpaRepository<AllowedVoter, Long
            "WHERE av.electionId = :electionId " +
            "ORDER BY u.userName")
     List<Object[]> findAllowedVotersWithUserDetailsByElectionId(@Param("electionId") Long electionId);
+    
+    // Check if user exists in allowed voters by user ID and election ID
+    @Query("SELECT av FROM AllowedVoter av WHERE av.electionId = :electionId AND av.userId = :userId")
+    Optional<AllowedVoter> findByElectionIdAndUserId(@Param("electionId") Long electionId, @Param("userId") Integer userId);
+    
+    // Check if user exists in allowed voters by user ID and election ID
+    boolean existsByElectionIdAndUserId(Long electionId, Integer userId);
 }
 
