@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { electionApi } from "../utils/electionApi";
 import { FiCalendar, FiClock, FiUsers, FiInfo } from "react-icons/fi";
 
 const AllElections = () => {
+  const navigate = useNavigate();
   const [elections, setElections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -25,6 +27,11 @@ const AllElections = () => {
     loadElections();
   }, []);
 
+  // Handle navigation to election page
+  const handleElectionClick = (electionId) => {
+    navigate(`/election-page/${electionId}`);
+  };
+
   // Filter elections based on status or user role
   const getFilteredElections = () => {
     const now = new Date();
@@ -32,9 +39,15 @@ const AllElections = () => {
     // First filter by user role if specified
     let filtered = elections;
     if (["voter", "admin", "guardian"].includes(filter)) {
-      filtered = elections.filter((election) =>
-        election.userRoles && election.userRoles.includes(filter)
-      );
+      filtered = elections.filter((election) => {
+        if (filter === "voter") {
+          // User can vote if they are explicitly listed as voter OR if election is public
+          return (election.userRoles && election.userRoles.includes(filter)) || election.isPublic;
+        } else {
+          // For admin and guardian, check explicit roles only
+          return election.userRoles && election.userRoles.includes(filter);
+        }
+      });
     }
     
     // Filter by public/private if specified
@@ -145,7 +158,7 @@ const AllElections = () => {
               { key: "completed", label: "Completed", count: elections.filter(e => new Date(e.endingTime) <= new Date()).length },
               { key: "public", label: "Public", count: elections.filter(e => e.isPublic === true).length },
               { key: "private", label: "Private", count: elections.filter(e => e.isPublic === false).length },
-              { key: "voter", label: "As Voter", count: elections.filter(e => e.userRoles?.includes('voter')).length },
+              { key: "voter", label: "As Voter", count: elections.filter(e => (e.userRoles?.includes('voter')) || e.isPublic).length },
               { key: "admin", label: "As Admin", count: elections.filter(e => e.userRoles?.includes('admin')).length },
               { key: "guardian", label: "As Guardian", count: elections.filter(e => e.userRoles?.includes('guardian')).length },
             ].map((tab) => (
@@ -177,7 +190,8 @@ const AllElections = () => {
               return (
                 <div
                   key={election.electionId}
-                  className="p-6 hover:bg-gray-50 transition-colors duration-150"
+                  className="p-6 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                  onClick={() => handleElectionClick(election.electionId)}
                 >
                   <div className="flex items-start justify-between">
                     <div className="flex-1">
@@ -209,22 +223,26 @@ const AllElections = () => {
                       </p>
 
                       {/* User Roles */}
-                      {election.userRoles && election.userRoles.length > 0 && (
-                        <div className="mt-3 flex flex-wrap gap-2">
-                          {election.userRoles.map((role) => (
-                            <span
-                              key={role}
-                              className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                                role === 'admin' ? 'bg-red-100 text-red-800' :
-                                role === 'guardian' ? 'bg-purple-100 text-purple-800' :
-                                'bg-blue-100 text-blue-800'
-                              }`}
-                            >
-                              {role.charAt(0).toUpperCase() + role.slice(1)}
-                            </span>
-                          ))}
-                        </div>
-                      )}
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
+                          <span
+                            key={role}
+                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                              role === 'admin' ? 'bg-red-100 text-red-800' :
+                              role === 'guardian' ? 'bg-purple-100 text-purple-800' :
+                              'bg-blue-100 text-blue-800'
+                            }`}
+                          >
+                            {role.charAt(0).toUpperCase() + role.slice(1)}
+                          </span>
+                        ))}
+                        {/* Show eligible voter status for public elections */}
+                        {election.isPublic && (
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            Eligible Voter (Public)
+                          </span>
+                        )}
+                      </div>
                       
                       <div className="mt-4 flex items-center space-x-6 text-sm text-gray-500">
                         <div className="flex items-center">
@@ -258,23 +276,41 @@ const AllElections = () => {
                       </div>
                       
                       <div className="mt-2 text-xs text-gray-400">
-                        Admin: {election.adminEmail}
+                        Admin: {election.adminName ? `${election.adminName} (${election.adminEmail})` : election.adminEmail}
                       </div>
                     </div>
                     
                     <div className="flex-shrink-0 ml-4">
                       {status === "ongoing" && (
-                        <button className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
-                          Vote Now
+                        <button 
+                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleElectionClick(election.electionId);
+                          }}
+                        >
+                          {(election.userRoles?.includes('voter') || election.isPublic) ? 'Vote Now' : 'View Election'}
                         </button>
                       )}
                       {status === "upcoming" && (
-                        <button className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <button 
+                          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            // Set reminder functionality can be added here
+                          }}
+                        >
                           Set Reminder
                         </button>
                       )}
                       {status === "completed" && (
-                        <button className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                        <button 
+                          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleElectionClick(election.electionId);
+                          }}
+                        >
                           View Results
                         </button>
                       )}

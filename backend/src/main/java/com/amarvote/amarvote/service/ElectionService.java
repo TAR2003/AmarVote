@@ -281,6 +281,15 @@ public class ElectionService {
         List<AllowedVoter> allAllowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
         boolean isPublic = allAllowedVoters.isEmpty();
         
+        // Get admin name
+        String adminName = null;
+        if (election.getAdminEmail() != null) {
+            Optional<User> adminUser = userRepository.findByUserEmail(election.getAdminEmail());
+            if (adminUser.isPresent()) {
+                adminName = adminUser.get().getUserName();
+            }
+        }
+        
         return ElectionResponse.builder()
                 .electionId(election.getElectionId())
                 .electionTitle(election.getElectionTitle())
@@ -290,6 +299,7 @@ public class ElectionService {
                 .endingTime(election.getEndingTime())
                 .profilePic(election.getProfilePic())
                 .adminEmail(election.getAdminEmail())
+                .adminName(adminName)
                 .numberOfGuardians(election.getNumberOfGuardians())
                 .electionQuorum(election.getElectionQuorum())
                 .noOfCandidates(election.getNoOfCandidates())
@@ -391,6 +401,15 @@ public class ElectionService {
         // Get election choices
         List<ElectionDetailResponse.ElectionChoiceInfo> electionChoices = getElectionChoicesForElection(election.getElectionId());
         
+        // Get admin name
+        String adminName = null;
+        if (election.getAdminEmail() != null) {
+            Optional<User> adminUser = userRepository.findByUserEmail(election.getAdminEmail());
+            if (adminUser.isPresent()) {
+                adminName = adminUser.get().getUserName();
+            }
+        }
+        
         return ElectionDetailResponse.builder()
                 .electionId(election.getElectionId())
                 .electionTitle(election.getElectionTitle())
@@ -408,6 +427,7 @@ public class ElectionService {
                 .createdAt(election.getCreatedAt())
                 .profilePic(election.getProfilePic())
                 .adminEmail(election.getAdminEmail())
+                .adminName(adminName)
                 .guardians(guardians)
                 .voters(voters)
                 .electionChoices(electionChoices)

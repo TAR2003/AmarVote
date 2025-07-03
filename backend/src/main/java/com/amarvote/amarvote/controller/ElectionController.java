@@ -15,10 +15,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.amarvote.amarvote.dto.CastBallotRequest;
+import com.amarvote.amarvote.dto.CastBallotResponse;
 import com.amarvote.amarvote.dto.ElectionCreationRequest;
 import com.amarvote.amarvote.dto.ElectionDetailResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.model.Election;
+import com.amarvote.amarvote.service.BallotService;
 import com.amarvote.amarvote.service.ElectionService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -32,6 +35,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class ElectionController {
     private final ElectionService electionService;
+    private final BallotService ballotService;
 
     @PostMapping("/create-election")
     public ResponseEntity<Election> createElection(
@@ -132,6 +136,50 @@ public class ElectionController {
             System.err.println("Error fetching election details: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @PostMapping(value = "/cast-ballot", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<CastBallotResponse> castBallot(
+            @Valid @RequestBody CastBallotRequest request,
+            HttpServletRequest httpRequest) {
+        
+        // Get user email from request attributes (set by JWTFilter)
+        String userEmail = (String) httpRequest.getAttribute("userEmail");
+        System.out.println("Casting ballot for election ID: " + request.getElectionId() + " by user: " + userEmail);
+        
+        // Alternative: Get user email from Spring Security context
+        if (userEmail == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+        }
+        
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(CastBallotResponse.builder()
+                    .success(false)
+                    .message("User authentication required")
+                    .errorReason("Unauthorized")
+                    .build());
+        }
+        
+        try {
+            CastBallotResponse response = ballotService.castBallot(request, userEmail);
+            
+            if (response.isSuccess()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(CastBallotResponse.builder()
+                    .success(false)
+                    .message("Internal server error occurred")
+                    .errorReason("Server error: " + e.getMessage())
+                    .build());
         }
     }
 }

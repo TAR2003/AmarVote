@@ -83,7 +83,12 @@ export default function ElectionPage() {
   };
 
   const canUserVote = () => {
-    return electionData?.userRoles?.includes('voter') && getElectionStatus() === 'Active';
+    // User can vote if:
+    // 1. They are explicitly listed as a voter, OR
+    // 2. The election is public (no voter restrictions)
+    // AND the election is currently active
+    const isEligibleVoter = electionData?.userRoles?.includes('voter') || electionData?.isPublic;
+    return isEligibleVoter && getElectionStatus() === 'Active';
   };
 
   const canUserManageGuardian = () => {
@@ -147,7 +152,17 @@ export default function ElectionPage() {
               </span>
               <div className="flex items-center space-x-2 text-sm text-gray-600">
                 <FiUser className="h-4 w-4" />
-                <span>Your roles: {electionData.userRoles?.join(', ') || 'Viewer'}</span>
+                <span>
+                  Your roles: {
+                    (() => {
+                      const roles = [...(electionData.userRoles || [])];
+                      if (electionData.isPublic && !roles.includes('voter')) {
+                        roles.push('voter (public)');
+                      }
+                      return roles.length > 0 ? roles.join(', ') : 'Viewer';
+                    })()
+                  }
+                </span>
               </div>
             </div>
           </div>
@@ -198,7 +213,7 @@ export default function ElectionPage() {
                     <p><span className="font-medium">Description:</span> {electionData.electionDescription || 'No description provided'}</p>
                     <p><span className="font-medium">Status:</span> {electionData.status}</p>
                     <p><span className="font-medium">Type:</span> {electionData.isPublic ? 'Public' : 'Private'}</p>
-                    <p><span className="font-medium">Admin:</span> {electionData.adminEmail}</p>
+                    <p><span className="font-medium">Admin:</span> {electionData.adminName ? `${electionData.adminName} (${electionData.adminEmail})` : electionData.adminEmail}</p>
                   </div>
                 </div>
                 <div>
@@ -278,7 +293,7 @@ export default function ElectionPage() {
                 <FiAlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h4 className="text-lg font-semibold text-gray-700 mb-2">Voting Not Available</h4>
                 <p className="text-gray-600">
-                  {!electionData.userRoles?.includes('voter') 
+                  {!electionData.userRoles?.includes('voter') && !electionData.isPublic
                     ? 'You are not authorized to vote in this election.'
                     : getElectionStatus() !== 'Active'
                     ? 'Voting is only available during the election period.'

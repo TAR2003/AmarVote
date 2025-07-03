@@ -21,6 +21,7 @@ public class ElectionResponse {
     private Instant endingTime;
     private String profilePic;
     private String adminEmail;
+    private String adminName;
     private Integer numberOfGuardians;
     private Integer electionQuorum;
     private Integer noOfCandidates;
