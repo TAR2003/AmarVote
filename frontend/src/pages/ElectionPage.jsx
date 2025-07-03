@@ -10,7 +10,11 @@ import {
   FiCheckCircle, 
   FiUser,
   FiAlertCircle,
-  FiTrendingUp
+  FiTrendingUp,
+  FiX,
+  FiLoader,
+  FiCopy,
+  FiSave
 } from 'react-icons/fi';
 
 const subMenus = [
@@ -24,10 +28,20 @@ export default function ElectionPage() {
   const { id } = useParams();
   const [activeTab, setActiveTab] = useState('info');
   const [selectedCandidate, setSelectedCandidate] = useState('');
-  const [submitted, setSubmitted] = useState(false);
   const [electionData, setElectionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  
+  // Voting-related state
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [voteResult, setVoteResult] = useState(null);
+  const [hasVoted, setHasVoted] = useState(false);
+  const [voteError, setVoteError] = useState(null);
+  
+  // Eligibility state
+  const [eligibilityData, setEligibilityData] = useState(null);
+  const [checkingEligibility, setCheckingEligibility] = useState(false);
 
   useEffect(() => {
     const fetchElectionData = async () => {
@@ -38,6 +52,9 @@ export default function ElectionPage() {
           setError('You are not authorized to view this election or the election does not exist.');
         } else {
           setElectionData(data);
+          // Check if user has already voted
+          const currentUser = data.voters?.find(voter => voter.isCurrentUser);
+          setHasVoted(currentUser?.hasVoted || false);
         }
       } catch (err) {
         setError('Failed to load election data: ' + err.message);
@@ -51,10 +68,101 @@ export default function ElectionPage() {
     }
   }, [id]);
 
+  // Check eligibility when switching to voting tab
+  useEffect(() => {
+    const checkEligibility = async () => {
+      if (activeTab === 'voting' && id && !eligibilityData && !checkingEligibility) {
+        try {
+          setCheckingEligibility(true);
+          const response = await electionApi.checkEligibility(id);
+          setEligibilityData(response);
+        } catch (err) {
+          console.error('Error checking eligibility:', err);
+          setEligibilityData({
+            eligible: false,
+            message: 'Error checking eligibility',
+            reason: 'Unable to verify eligibility status',
+            hasVoted: false,
+            isElectionActive: false,
+            electionStatus: 'Error'
+          });
+        } finally {
+          setCheckingEligibility(false);
+        }
+      }
+    };
+
+    checkEligibility();
+  }, [activeTab, id, eligibilityData, checkingEligibility]);
+
   const handleVoteSubmit = (e) => {
     e.preventDefault();
-    setSubmitted(true);
-    // TODO: Implement actual vote submission logic
+    if (!selectedCandidate) return;
+    setShowConfirmModal(true);
+  };
+
+  const handleConfirmVote = async () => {
+    setIsSubmitting(true);
+    setVoteError(null);
+    
+    try {
+      const selectedChoice = electionData.electionChoices.find(
+        choice => choice.choiceId.toString() === selectedCandidate
+      );
+      
+      const result = await electionApi.castBallot(
+        id,
+        selectedChoice.choiceId,
+        selectedChoice.optionTitle
+      );
+      
+      // Store the voted candidate information with the result
+      const voteResultWithCandidate = {
+        ...result,
+        votedCandidate: selectedChoice
+      };
+      
+      setVoteResult(voteResultWithCandidate);
+      setHasVoted(true);
+      setSelectedCandidate('');
+      setShowConfirmModal(false);
+      
+      // Update eligibility data to reflect that user has voted
+      setEligibilityData(prev => ({
+        ...prev,
+        eligible: false,
+        hasVoted: true,
+        message: 'You have already voted in this election',
+        reason: 'Already voted'
+      }));
+    } catch (err) {
+      setVoteError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const copyToClipboard = (text) => {
+    navigator.clipboard.writeText(text);
+  };
+
+  const saveVoteDetails = () => {
+    const details = `
+Election: ${electionData.electionTitle}
+Vote Hash: ${voteResult.hashCode}
+Tracking Code: ${voteResult.trackingCode}
+Date: ${new Date().toLocaleString()}
+Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
+Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
+    `.trim();
+    
+    const blob = new Blob([details], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `vote-receipt-${id}.txt`;
+    a.click();
+    URL.revokeObjectURL(url);
   };
 
   const formatDate = (dateString) => {
@@ -87,8 +195,9 @@ export default function ElectionPage() {
     // 1. They are explicitly listed as a voter, OR
     // 2. The election is public (no voter restrictions)
     // AND the election is currently active
+    // AND they haven't already voted
     const isEligibleVoter = electionData?.userRoles?.includes('voter') || electionData?.isPublic;
-    return isEligibleVoter && getElectionStatus() === 'Active';
+    return isEligibleVoter && getElectionStatus() === 'Active' && !hasVoted;
   };
 
   const canUserManageGuardian = () => {
@@ -288,67 +397,334 @@ export default function ElectionPage() {
               <FiCheckCircle className="h-5 w-5 mr-2" />
               Voting Booth
             </h3>
-            {!canUserVote() ? (
+            
+            {/* Eligibility Loading */}
+            {checkingEligibility && (
               <div className="text-center py-8">
-                <FiAlertCircle className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-gray-700 mb-2">Voting Not Available</h4>
-                <p className="text-gray-600">
-                  {!electionData.userRoles?.includes('voter') && !electionData.isPublic
-                    ? 'You are not authorized to vote in this election.'
-                    : getElectionStatus() !== 'Active'
-                    ? 'Voting is only available during the election period.'
-                    : 'Voting is not available at this time.'
-                  }
-                </p>
+                <FiLoader className="h-8 w-8 text-blue-500 mx-auto mb-4 animate-spin" />
+                <p className="text-gray-600">Checking your eligibility to vote...</p>
               </div>
-            ) : submitted ? (
-              <div className="text-center py-8">
-                <FiCheckCircle className="h-12 w-12 text-green-500 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-gray-700 mb-2">Vote Submitted Successfully!</h4>
-                <p className="text-gray-600">Thank you for participating in this election.</p>
-              </div>
-            ) : (
-              <form onSubmit={handleVoteSubmit} className="max-w-2xl">
-                <div className="mb-6">
-                  <label className="block text-sm font-medium text-gray-700 mb-3">
-                    Select your candidate:
-                  </label>
-                  <div className="space-y-3">
-                    {electionData.electionChoices?.map((choice) => (
-                      <div key={choice.choiceId} className="flex items-center p-3 border rounded-lg hover:bg-gray-50">
-                        <input
-                          type="radio"
-                          id={choice.choiceId}
-                          name="candidate"
-                          value={choice.choiceId}
-                          checked={selectedCandidate === choice.choiceId.toString()}
-                          onChange={(e) => setSelectedCandidate(e.target.value)}
-                          className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                        />
-                        <label htmlFor={choice.choiceId} className="ml-3 flex-1 cursor-pointer">
-                          <div className="flex items-center space-x-3">
-                            {choice.candidatePic && (
-                              <img src={choice.candidatePic} alt={choice.optionTitle} className="h-10 w-10 rounded-full object-cover" />
-                            )}
-                            <div>
-                              <p className="font-medium text-gray-900">{choice.optionTitle}</p>
-                              <p className="text-sm text-gray-600">{choice.partyName}</p>
-                            </div>
-                          </div>
-                        </label>
-                      </div>
-                    ))}
+            )}
+            
+            {/* Eligibility Status Display */}
+            {!checkingEligibility && eligibilityData && (
+              <div className={`border rounded-lg p-4 mb-6 ${
+                eligibilityData.eligible 
+                  ? 'bg-green-50 border-green-200' 
+                  : eligibilityData.hasVoted 
+                    ? 'bg-blue-50 border-blue-200'
+                    : 'bg-red-50 border-red-200'
+              }`}>
+                <div className="flex items-center">
+                  {eligibilityData.eligible ? (
+                    <FiCheckCircle className="h-6 w-6 text-green-500 mr-3" />
+                  ) : eligibilityData.hasVoted ? (
+                    <FiCheckCircle className="h-6 w-6 text-blue-500 mr-3" />
+                  ) : (
+                    <FiAlertCircle className="h-6 w-6 text-red-500 mr-3" />
+                  )}
+                  <div>
+                    <h4 className={`font-semibold ${
+                      eligibilityData.eligible 
+                        ? 'text-green-900' 
+                        : eligibilityData.hasVoted 
+                          ? 'text-blue-900'
+                          : 'text-red-900'
+                    }`}>
+                      {eligibilityData.message}
+                    </h4>
+                    <p className={`text-sm ${
+                      eligibilityData.eligible 
+                        ? 'text-green-800' 
+                        : eligibilityData.hasVoted 
+                          ? 'text-blue-800'
+                          : 'text-red-800'
+                    }`}>
+                      Status: {eligibilityData.electionStatus} | 
+                      Reason: {eligibilityData.reason}
+                    </p>
                   </div>
                 </div>
-                <button
-                  type="submit"
-                  disabled={!selectedCandidate}
-                  className="w-full bg-blue-600 text-white py-3 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed font-medium"
-                >
-                  Submit Vote
-                </button>
-              </form>
+              </div>
             )}
+            
+            {/* Vote Success Result */}
+            {voteResult && (
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+                <div className="text-center">
+                  <FiCheckCircle className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+                  <h4 className="text-lg font-semibold text-blue-900 mb-2">Vote Cast Successfully!</h4>
+                  <p className="text-blue-800 mb-4">Your vote has been securely recorded and encrypted.</p>
+                  
+                  <div className="bg-white rounded-lg p-4 mb-4">
+                    <h5 className="font-medium text-gray-900 mb-3">Important: Save Your Vote Details</h5>
+                    <div className="space-y-3 text-sm">
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="font-medium">Vote Hash:</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono text-xs">{voteResult.hashCode}</span>
+                          <button
+                            onClick={() => copyToClipboard(voteResult.hashCode)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <FiCopy className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
+                        <span className="font-medium">Tracking Code:</span>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-mono text-xs">{voteResult.trackingCode}</span>
+                          <button
+                            onClick={() => copyToClipboard(voteResult.trackingCode)}
+                            className="text-blue-600 hover:text-blue-800"
+                          >
+                            <FiCopy className="h-4 w-4" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      onClick={saveVoteDetails}
+                      className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                    >
+                      <FiSave className="h-4 w-4" />
+                      <span>Save Vote Receipt</span>
+                    </button>
+                  </div>
+                  
+                  <div className="text-xs text-blue-700 bg-blue-100 p-3 rounded">
+                    <p className="font-medium mb-1">⚠️ Important Notice:</p>
+                    <p>Please save your vote hash and tracking code. You can use these to verify your vote was counted correctly when results are published.</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* Vote Error */}
+            {voteError && (
+              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
+                <div className="flex items-center">
+                  <FiAlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                  <div>
+                    <h4 className="font-medium text-red-900">Vote Submission Failed</h4>
+                    <p className="text-sm text-red-800 mt-1">{voteError}</p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
+            {/* All Available Choices (Always Shown) */}
+            {!checkingEligibility && electionData?.electionChoices && (
+              <div className="mb-6">
+                <h4 className="text-lg font-semibold text-gray-900 mb-4">Election Candidates</h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {electionData.electionChoices.map((choice) => (
+                    <div 
+                      key={choice.choiceId} 
+                      className="border-2 border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
+                    >
+                      <div className="flex items-center space-x-4">
+                        {choice.candidatePic && (
+                          <img 
+                            src={choice.candidatePic} 
+                            alt={choice.optionTitle} 
+                            className="h-16 w-16 rounded-full object-cover"
+                          />
+                        )}
+                        <div className="flex-1">
+                          <h5 className="font-semibold text-gray-900 text-lg">{choice.optionTitle}</h5>
+                          {choice.partyName && (
+                            <p className="text-gray-600 font-medium">{choice.partyName}</p>
+                          )}
+                          {choice.optionDescription && (
+                            <p className="text-sm text-gray-500 mt-1">{choice.optionDescription}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+            
+            {/* Voting Form - Only Enabled if Eligible */}
+            {!checkingEligibility && eligibilityData?.eligible && !voteResult && (
+              <div className="max-w-2xl">
+                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                  <div className="flex items-center">
+                    <FiInfo className="h-5 w-5 text-yellow-600 mr-2" />
+                    <div>
+                      <h4 className="font-medium text-yellow-900">Voting Instructions</h4>
+                      <p className="text-sm text-yellow-800 mt-1">
+                        Select one candidate from the list below and click "Cast Vote" to submit your ballot. 
+                        You can only vote once in this election.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+                
+                <form onSubmit={handleVoteSubmit}>
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Select your candidate:
+                    </label>
+                    <div className="space-y-3">
+                      {electionData.electionChoices?.map((choice) => (
+                        <div key={choice.choiceId} className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${
+                          selectedCandidate === choice.choiceId.toString()
+                            ? 'border-blue-500 bg-blue-50'
+                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                        }`}>
+                          <input
+                            type="radio"
+                            id={choice.choiceId}
+                            name="candidate"
+                            value={choice.choiceId}
+                            checked={selectedCandidate === choice.choiceId.toString()}
+                            onChange={(e) => setSelectedCandidate(e.target.value)}
+                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
+                          />
+                          <label htmlFor={choice.choiceId} className="ml-4 flex-1 cursor-pointer">
+                            <div className="flex items-center space-x-4">
+                              {choice.candidatePic && (
+                                <img 
+                                  src={choice.candidatePic} 
+                                  alt={choice.optionTitle} 
+                                  className="h-12 w-12 rounded-full object-cover"
+                                />
+                              )}
+                              <div>
+                                <p className="font-medium text-gray-900 text-lg">{choice.optionTitle}</p>
+                                {choice.partyName && (
+                                  <p className="text-sm text-gray-600">{choice.partyName}</p>
+                                )}
+                                {choice.optionDescription && (
+                                  <p className="text-sm text-gray-500 mt-1">{choice.optionDescription}</p>
+                                )}
+                              </div>
+                            </div>
+                          </label>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                  
+                  <div className="flex justify-center">
+                    <button
+                      type="submit"
+                      disabled={!selectedCandidate || isSubmitting}
+                      className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${
+                        !selectedCandidate || isSubmitting
+                          ? 'bg-gray-400 cursor-not-allowed'
+                          : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+                      }`}
+                    >
+                      {isSubmitting ? (
+                        <div className="flex items-center space-x-2">
+                          <FiLoader className="h-4 w-4 animate-spin" />
+                          <span>Casting Vote...</span>
+                        </div>
+                      ) : (
+                        'Cast Vote'
+                      )}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            )}
+            
+            {/* Voting Not Available - Show when not eligible and not already voted */}
+            {!checkingEligibility && eligibilityData && !eligibilityData.eligible && !eligibilityData.hasVoted && (
+              <div className="text-center py-8">
+                <FiAlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+                <h4 className="text-lg font-semibold text-gray-700 mb-2">Voting Not Available</h4>
+                <p className="text-gray-600 mb-4">{eligibilityData.message}</p>
+                {eligibilityData.reason === 'Election not active' && eligibilityData.electionStatus === 'Not Started' && (
+                  <p className="text-sm text-gray-500">
+                    Voting starts: {formatDate(electionData.startingTime)}
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+        
+        {/* Vote Confirmation Modal */}
+        {showConfirmModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <div className="flex justify-between items-center mb-4">
+                <h3 className="text-lg font-semibold text-gray-900">Confirm Your Vote</h3>
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  disabled={isSubmitting}
+                  className="text-gray-400 hover:text-gray-600"
+                >
+                  <FiX className="h-6 w-6" />
+                </button>
+              </div>
+              
+              <div className="mb-6">
+                <p className="text-sm text-gray-600 mb-4">
+                  You are about to cast your vote for:
+                </p>
+                {(() => {
+                  const selectedChoice = electionData.electionChoices.find(
+                    choice => choice.choiceId.toString() === selectedCandidate
+                  );
+                  return (
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                      <div className="flex items-center space-x-3">
+                        {selectedChoice?.candidatePic && (
+                          <img 
+                            src={selectedChoice.candidatePic} 
+                            alt={selectedChoice.optionTitle} 
+                            className="h-10 w-10 rounded-full object-cover"
+                          />
+                        )}
+                        <div>
+                          <p className="font-medium text-blue-900">{selectedChoice?.optionTitle}</p>
+                          {selectedChoice?.partyName && (
+                            <p className="text-sm text-blue-700">{selectedChoice.partyName}</p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+                
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-sm text-yellow-800">
+                    <strong>Warning:</strong> This action cannot be undone. You will not be able to change your vote after submission.
+                  </p>
+                </div>
+              </div>
+              
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => setShowConfirmModal(false)}
+                  disabled={isSubmitting}
+                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmVote}
+                  disabled={isSubmitting}
+                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {isSubmitting ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <FiLoader className="h-4 w-4 animate-spin" />
+                      <span>Submitting...</span>
+                    </div>
+                  ) : (
+                    'Confirm Vote'
+                  )}
+                </button>
+              </div>
+            </div>
           </div>
         )}
 

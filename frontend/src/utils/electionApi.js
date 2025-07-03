@@ -80,4 +80,63 @@ export const electionApi = {
       throw error;
     }
   },
+
+  /**
+   * Cast a ballot for an election
+   */
+  async castBallot(electionId, choiceId, optionTitle) {
+    try {
+      const response = await fetch('/api/cast-ballot', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          electionId,
+          selectedCandidate: optionTitle
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error casting ballot:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Check if user is eligible to vote in a specific election
+   */
+  async checkEligibility(electionId) {
+    try {
+      const response = await fetch('/api/eligibility', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          electionId
+        }),
+      });
+
+      const data = await response.json();
+      
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error checking eligibility:', error);
+      throw error;
+    }
+  },
 };
