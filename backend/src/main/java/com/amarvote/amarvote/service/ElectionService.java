@@ -92,6 +92,7 @@ public class ElectionService {
         election.setStartingTime(request.startingTime());
         election.setEndingTime(request.endingTime());
         election.setBaseHash(guardianResponse.commitment_hash());
+        election.setAdminEmail(userEmail); // Set admin email from request
 
         // ✅ Save to DB to get generated ID
         election = electionRepository.save(election);
