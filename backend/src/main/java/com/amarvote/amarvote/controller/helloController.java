@@ -54,7 +54,7 @@ public class helloController {
     public String getConnection() {
         System.out.println("Trying to connect to backend...");
         String response = webClient.get()
-                .uri("http://host.docker.internal:5000/health") // 👈 Use host.docker.internal
+                .uri("/health") // 👈 Use host.docker.internal
                 .retrieve()
                 .bodyToMono(String.class)
                 .block();
