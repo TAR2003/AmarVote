@@ -54,4 +54,30 @@ export const electionApi = {
       throw error;
     }
   },
+
+  /**
+   * Fetch detailed election information by ID
+   * Returns null if user is not authorized to view the election
+   */
+  async getElectionById(electionId) {
+    try {
+      const response = await fetch(`/api/election/${electionId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching election details:', error);
+      throw error;
+    }
+  },
 };
