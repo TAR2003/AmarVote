@@ -2,6 +2,7 @@ package com.amarvote.amarvote.service;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -11,13 +12,15 @@ import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient; // Fixed: Use Spring's HttpHeaders, not Netty's
 
 import com.amarvote.amarvote.dto.ElectionCreationRequest; // Added: For setting content type
-import com.amarvote.amarvote.dto.ElectionGuardianSetupRequest; // Added: For handling HTTP responses
+import com.amarvote.amarvote.dto.ElectionDetailResponse; // Added: For handling HTTP responses
+import com.amarvote.amarvote.dto.ElectionGuardianSetupRequest;
 import com.amarvote.amarvote.dto.ElectionGuardianSetupResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.Guardian;
+import com.amarvote.amarvote.model.User;
 import com.amarvote.amarvote.repository.AllowedVoterRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
@@ -294,6 +297,213 @@ public class ElectionService {
                 .userRoles(userRoles)
                 .isPublic(isPublic)
                 .build();
+    }
+
+    /**
+     * Get detailed election information by ID
+     * Returns election details if the user is authorized to view it
+     * Authorization rules:
+     * 1. User is the admin
+     * 2. User is a guardian
+     * 3. User is a voter
+     * 4. Election is public (no allowed voters)
+     * 
+     * @param electionId The ID of the election to retrieve
+     * @param userEmail The email of the user requesting the election
+     * @return ElectionDetailResponse if authorized, null if not authorized
+     */
+    public ElectionDetailResponse getElectionById(Long electionId, String userEmail) {
+        System.out.println("Fetching election details for ID: " + electionId + " by user: " + userEmail);
+        
+        // First, check if the election exists
+        Optional<Election> electionOpt = electionRepository.findById(electionId);
+        if (!electionOpt.isPresent()) {
+            System.out.println("Election not found: " + electionId);
+            return null;
+        }
+        
+        Election election = electionOpt.get();
+        
+        // Check if user is authorized to view this election
+        if (!isUserAuthorizedToViewElection(election, userEmail)) {
+            System.out.println("User " + userEmail + " is not authorized to view election " + electionId);
+            return null;
+        }
+        
+        System.out.println("User " + userEmail + " is authorized to view election " + electionId);
+        
+        // Build the detailed response
+        return buildElectionDetailResponse(election, userEmail);
+    }
+    
+    /**
+     * Check if user is authorized to view the election
+     */
+    private boolean isUserAuthorizedToViewElection(Election election, String userEmail) {
+        // Check if user is the admin
+        if (election.getAdminEmail() != null && election.getAdminEmail().equals(userEmail)) {
+            System.out.println("User is admin of election " + election.getElectionId());
+            return true;
+        }
+        
+        // Check if user is a guardian
+        List<Guardian> guardians = guardianRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
+        if (!guardians.isEmpty()) {
+            System.out.println("User is guardian of election " + election.getElectionId());
+            return true;
+        }
+        
+        // Check if user is a voter
+        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
+        if (!allowedVoters.isEmpty()) {
+            System.out.println("User is voter of election " + election.getElectionId());
+            return true;
+        }
+        
+        // Check if election is public (no allowed voters)
+        List<AllowedVoter> allVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
+        if (allVoters.isEmpty()) {
+            System.out.println("Election " + election.getElectionId() + " is public");
+            return true;
+        }
+        
+        System.out.println("User is not authorized to view election " + election.getElectionId());
+        return false;
+    }
+    
+    /**
+     * Build detailed election response with all related information
+     */
+    private ElectionDetailResponse buildElectionDetailResponse(Election election, String userEmail) {
+        // Get user roles for this election
+        List<String> userRoles = getUserRolesForElection(election, userEmail);
+        
+        // Check if election is public
+        List<AllowedVoter> allVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
+        Boolean isPublic = allVoters.isEmpty();
+        
+        // Get guardians with user details
+        List<ElectionDetailResponse.GuardianInfo> guardians = getGuardianInfoForElection(election.getElectionId());
+        
+        // Get voters with user details
+        List<ElectionDetailResponse.VoterInfo> voters = getVoterInfoForElection(election.getElectionId());
+        
+        // Get election choices
+        List<ElectionDetailResponse.ElectionChoiceInfo> electionChoices = getElectionChoicesForElection(election.getElectionId());
+        
+        return ElectionDetailResponse.builder()
+                .electionId(election.getElectionId())
+                .electionTitle(election.getElectionTitle())
+                .electionDescription(election.getElectionDescription())
+                .numberOfGuardians(election.getNumberOfGuardians())
+                .electionQuorum(election.getElectionQuorum())
+                .noOfCandidates(election.getNoOfCandidates())
+                .jointPublicKey(election.getJointPublicKey())
+                .manifestHash(election.getManifestHash())
+                .status(election.getStatus())
+                .startingTime(election.getStartingTime())
+                .endingTime(election.getEndingTime())
+                .encryptedTally(election.getEncryptedTally())
+                .baseHash(election.getBaseHash())
+                .createdAt(election.getCreatedAt())
+                .profilePic(election.getProfilePic())
+                .adminEmail(election.getAdminEmail())
+                .guardians(guardians)
+                .voters(voters)
+                .electionChoices(electionChoices)
+                .userRoles(userRoles)
+                .isPublic(isPublic)
+                .build();
+    }
+    
+    /**
+     * Get user roles for a specific election
+     */
+    private List<String> getUserRolesForElection(Election election, String userEmail) {
+        List<String> userRoles = new ArrayList<>();
+        
+        // Check if user is admin
+        if (election.getAdminEmail() != null && election.getAdminEmail().equals(userEmail)) {
+            userRoles.add("admin");
+        }
+        
+        // Check if user is in allowed voters
+        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
+        if (!allowedVoters.isEmpty()) {
+            userRoles.add("voter");
+        }
+        
+        // Check if user is guardian
+        List<Guardian> guardians = guardianRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
+        if (!guardians.isEmpty()) {
+            userRoles.add("guardian");
+        }
+        
+        return userRoles;
+    }
+    
+    /**
+     * Get guardian information for an election
+     */
+    private List<ElectionDetailResponse.GuardianInfo> getGuardianInfoForElection(Long electionId) {
+        List<Object[]> guardianData = guardianRepository.findGuardiansWithUserDetailsByElectionId(electionId);
+        
+        return guardianData.stream()
+                .map(data -> {
+                    Guardian guardian = (Guardian) data[0];
+                    User user = (User) data[1];
+                    
+                    return ElectionDetailResponse.GuardianInfo.builder()
+                            .userEmail(user.getUserEmail())
+                            .userName(user.getUserName())
+                            .guardianPublicKey(guardian.getGuardianPublicKey())
+                            .guardianPolynomial(guardian.getGuardianPolynomial())
+                            .sequenceOrder(guardian.getSequenceOrder())
+                            .decryptedOrNot(guardian.getDecryptedOrNot())
+                            .partialDecryptedTally(guardian.getPartialDecryptedTally())
+                            .proof(guardian.getProof())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Get voter information for an election
+     */
+    private List<ElectionDetailResponse.VoterInfo> getVoterInfoForElection(Long electionId) {
+        List<Object[]> voterData = allowedVoterRepository.findAllowedVotersWithUserDetailsByElectionId(electionId);
+        
+        return voterData.stream()
+                .map(data -> {
+                    AllowedVoter allowedVoter = (AllowedVoter) data[0];
+                    User user = (User) data[1];
+                    
+                    return ElectionDetailResponse.VoterInfo.builder()
+                            .userEmail(user.getUserEmail())
+                            .userName(user.getUserName())
+                            .hasVoted(allowedVoter.getHasVoted())
+                            .build();
+                })
+                .collect(Collectors.toList());
+    }
+    
+    /**
+     * Get election choices for an election
+     */
+    private List<ElectionDetailResponse.ElectionChoiceInfo> getElectionChoicesForElection(Long electionId) {
+        List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(electionId);
+        
+        return choices.stream()
+                .map(choice -> ElectionDetailResponse.ElectionChoiceInfo.builder()
+                        .choiceId(choice.getChoiceId())
+                        .optionTitle(choice.getOptionTitle())
+                        .optionDescription(choice.getOptionDescription())
+                        .partyName(choice.getPartyName())
+                        .candidatePic(choice.getCandidatePic())
+                        .partyPic(choice.getPartyPic())
+                        .totalVotes(choice.getTotalVotes())
+                        .build())
+                .collect(Collectors.toList());
     }
 
     private ElectionGuardianSetupResponse callElectionGuardService(ElectionGuardianSetupRequest request) {

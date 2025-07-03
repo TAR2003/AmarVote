@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useParams } from 'react-router-dom';
 
 const subMenus = [
   { name: 'Voting Booth', key: 'voting' },
@@ -14,6 +15,7 @@ const candidates = [
 ];
 
 export default function ElectionPage() {
+  const { id } = useParams(); // Assuming you are using react-router-dom for routing
   const [activeTab, setActiveTab] = useState('voting');
   const [selectedCandidate, setSelectedCandidate] = useState('');
   const [submitted, setSubmitted] = useState(false);
@@ -26,6 +28,7 @@ export default function ElectionPage() {
 
   return (
     <div className="min-h-screen bg-gray-50">
+      <h2 className="text-xl font-semibold mb-4">Election ID: {id}</h2>
       {/* Layout Header */}
       <header className="bg-blue-700 text-white p-4 shadow">
         <h1 className="text-2xl font-bold">Election Page</h1>
