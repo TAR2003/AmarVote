@@ -51,6 +51,7 @@ public class ElectionService {
         // Create and save election
         Election election = new Election();
         election.setElectionTitle(request.electionTitle());
+        election.setElectionDescription(request.electionDescription());
         election.setNumberOfGuardians(guardianRequest.number_of_guardians());
         election.setElectionQuorum(guardianRequest.quorum());
         election.setNoOfCandidates(request.candidateNames().size());
