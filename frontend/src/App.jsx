@@ -122,7 +122,7 @@ function App() {
             element={<Dashboard userEmail={userEmail} setUserEmail={setUserEmail} />}
           />
           <Route path="/create-election" element={<CreateElection />} />
-          <Route path="/election-page" element={<ElectionPage />} />
+          <Route path="/election-page/:id" element={<ElectionPage />} />
           <Route path="/all-elections" element={<AllElections />} />
           {/* Add other authenticated routes here */}
         </Route>

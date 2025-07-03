@@ -27,4 +27,11 @@ public interface GuardianRepository extends JpaRepository<Guardian, Long> {
            "JOIN User u ON g.userId = u.userId " +
            "WHERE u.userEmail = :userEmail")
     List<Guardian> findByUserEmail(@Param("userEmail") String userEmail);
+    
+    // Find guardians with user details for a specific election
+    @Query("SELECT g, u FROM Guardian g " +
+           "JOIN User u ON g.userId = u.userId " +
+           "WHERE g.electionId = :electionId " +
+           "ORDER BY g.sequenceOrder")
+    List<Object[]> findGuardiansWithUserDetailsByElectionId(@Param("electionId") Long electionId);
 }

@@ -26,5 +26,12 @@ public interface AllowedVoterRepository extends JpaRepository<AllowedVoter, Long
            "JOIN User u ON av.userId = u.userId " +
            "WHERE u.userEmail = :userEmail")
     List<AllowedVoter> findByUserEmail(@Param("userEmail") String userEmail);
+    
+    // Find allowed voters with user details for a specific election
+    @Query("SELECT av, u FROM AllowedVoter av " +
+           "JOIN User u ON av.userId = u.userId " +
+           "WHERE av.electionId = :electionId " +
+           "ORDER BY u.userName")
+    List<Object[]> findAllowedVotersWithUserDetailsByElectionId(@Param("electionId") Long electionId);
 }
 

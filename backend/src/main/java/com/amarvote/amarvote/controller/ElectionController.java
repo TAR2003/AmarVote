@@ -9,12 +9,14 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.amarvote.amarvote.dto.ElectionCreationRequest;
+import com.amarvote.amarvote.dto.ElectionDetailResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.service.ElectionService;
@@ -88,6 +90,46 @@ public class ElectionController {
             
         } catch (Exception e) {
             System.err.println("Error fetching elections: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @GetMapping("/election/{id}")
+    public ResponseEntity<ElectionDetailResponse> getElectionById(
+            @PathVariable Long id, 
+            HttpServletRequest httpRequest) {
+        try {
+            // Get user email from request attributes (set by JWTFilter)
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            
+            // Alternative: Get user email from Spring Security context
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+            
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
+            }
+            
+            System.out.println("Fetching election details for ID: " + id + " by user: " + userEmail);
+            
+            // Get election details if user is authorized
+            ElectionDetailResponse electionDetails = electionService.getElectionById(id, userEmail);
+            
+            if (electionDetails == null) {
+                // User is not authorized to view this election or election doesn't exist
+                return ResponseEntity.ok(null);
+            }
+            
+            System.out.println("Successfully retrieved election details for ID: " + id);
+            return ResponseEntity.ok(electionDetails);
+            
+        } catch (Exception e) {
+            System.err.println("Error fetching election details: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
         }
