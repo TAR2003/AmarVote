@@ -23,6 +23,11 @@ public class EmailService {
     @Value("${spring.mail.username}")
     private String fromEmail;
 
+    // Package-private setter for testing
+    void setFromEmail(String fromEmail) {
+        this.fromEmail = fromEmail;
+    }
+
     public void sendSignupVerificationEmail(String toEmail, String token) {
         String subject = "📩 Signup Email Verification Code";
         String htmlContent = loadVerificationCodeTemplate(token);
@@ -42,7 +47,6 @@ public class EmailService {
         String htmlContent = loadGuardianPrivateKeyTemplate(electionTitle, privateKey);
         sendHtmlEmail(toEmail, subject, htmlContent);
     }
-
 
     private void sendHtmlEmail(String toEmail, String subject, String htmlContent) {
         try {
@@ -80,14 +84,14 @@ public class EmailService {
     }
 
     private String loadGuardianPrivateKeyTemplate(String electionTitle, String privateKey) {
-    try {
-        ClassPathResource resource = new ClassPathResource("templates/GuardianPrivateKeyEmail.html");
-        String html = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
-        html = html.replace("{{ELECTION_TITLE}}", electionTitle);
-        html = html.replace("{{PRIVATE_KEY}}", privateKey);
-        return html;
-    } catch (IOException e) {
-        throw new RuntimeException("Failed to load guardian private key email template", e);
+        try {
+            ClassPathResource resource = new ClassPathResource("templates/GuardianPrivateKeyEmail.html");
+            String html = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+            html = html.replace("{{ELECTION_TITLE}}", electionTitle);
+            html = html.replace("{{PRIVATE_KEY}}", privateKey);
+            return html;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load guardian private key email template", e);
+        }
     }
-}
 }

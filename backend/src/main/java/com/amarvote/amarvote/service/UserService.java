@@ -58,13 +58,16 @@ public class UserService {
             user.setProfilePic(null);
         }
 
-        User registeredUser = userRepository.save(user);
+        userRepository.save(user); // throws if failure
+        return new RegisterResponse(true, "User registered successfully");
 
-        if (registeredUser != null) { // successfully user has been registered
-            return new RegisterResponse(true, "User registered successfully");
-        }
+        // User registeredUser = userRepository.save(user);
 
-        return new RegisterResponse(false, "User registration failed"); // failed to register user
+        // if (registeredUser != null) { // successfully user has been registered
+        //     return new RegisterResponse(true, "User registered successfully");
+        // }
+
+        // return new RegisterResponse(false, "User registration failed"); // failed to register user
     }
 
     public LoginResponse verify(LoginRequest request) {
