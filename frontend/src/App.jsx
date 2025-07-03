@@ -107,7 +107,7 @@ function App() {
           }
         />
 
-        {/* AuthenticatedLayout routes */}
+        {/* AuthenticatedLayout routes - Authentication is handled by AuthenticatedLayout */}
         <Route
           element={
             <AuthenticatedLayout
@@ -116,56 +116,14 @@ function App() {
             />
           }
         >
-          <Route
-            path="/profile"
-            element={
-              isAuthenticated ? (
-                <Profile userEmail={userEmail} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+          <Route path="/profile" element={<Profile userEmail={userEmail} />} />
           <Route
             path="/dashboard"
-            element={
-              isAuthenticated ? (
-                <Dashboard userEmail={userEmail} setUserEmail={setUserEmail} />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
+            element={<Dashboard userEmail={userEmail} setUserEmail={setUserEmail} />}
           />
-          <Route
-            path="/create-election"
-            element={
-              isAuthenticated ? (
-                <CreateElection />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-          <Route
-            path="/election-page"
-            element={
-              isAuthenticated ? (
-                <ElectionPage />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
-          <Route
-            path="/all-elections"
-            element={
-              isAuthenticated ? (
-                <AllElections />
-              ) : (
-                <Navigate to="/login" replace />
-              )
-            }
-          />
+          <Route path="/create-election" element={<CreateElection />} />
+          <Route path="/election-page" element={<ElectionPage />} />
+          <Route path="/all-elections" element={<AllElections />} />
           {/* Add other authenticated routes here */}
         </Route>
       </Routes>
