@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Guardian Private Key - AmarVote</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+        }
+        .container {
+            max-width: 650px;
+            margin: 0 auto;
+            padding: 40px 20px;
+        }
+        .email-card {
+            background: #ffffff;
+            border-radius: 16px;
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.1);
+            overflow: hidden;
+            position: relative;
+        }
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 40px 30px;
+            text-align: center;
+            color: white;
+            position: relative;
+        }
+        .header::after {
+            content: '';
+            position: absolute;
+            bottom: -10px;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 0;
+            height: 0;
+            border-left: 15px solid transparent;
+            border-right: 15px solid transparent;
+            border-top: 15px solid #764ba2;
+        }
+        .shield-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+            display: block;
+        }
+        .header h1 {
+            margin: 0;
+            font-size: 28px;
+            font-weight: 600;
+            letter-spacing: -0.5px;
+        }
+        .content {
+            padding: 40px 30px;
+            line-height: 1.7;
+            color: #333;
+        }
+        .greeting {
+            font-size: 18px;
+            margin-bottom: 25px;
+            color: #2c3e50;
+        }
+        .election-title {
+            background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            text-align: center;
+            margin: 25px 0;
+            box-shadow: 0 8px 16px rgba(240, 147, 251, 0.3);
+        }
+        .election-title h2 {
+            margin: 0;
+            font-size: 24px;
+            font-weight: 600;
+        }
+        .private-key-section {
+            background: #f8f9fa;
+            border: 2px dashed #e9ecef;
+            border-radius: 12px;
+            padding: 25px;
+            margin: 30px 0;
+            position: relative;
+        }
+        .private-key-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+            color: #dc3545;
+            font-weight: 600;
+        }
+        .key-icon {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+        .private-key {
+            background: #2c3e50;
+            color: #ecf0f1;
+            padding: 20px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+            word-break: break-all;
+            line-height: 1.5;
+            border-left: 4px solid #e74c3c;
+            position: relative;
+        }
+        .copy-hint {
+            background: #fff3cd;
+            border: 1px solid #ffeaa7;
+            color: #856404;
+            padding: 12px 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+        }
+        .copy-hint::before {
+            content: '💡';
+            margin-right: 10px;
+            font-size: 16px;
+        }
+        .security-warning {
+            background: linear-gradient(135deg, #ff9a9e 0%, #fecfef 100%);
+            border-radius: 12px;
+            padding: 20px;
+            margin: 25px 0;
+            color: #721c24;
+        }
+        .warning-header {
+            display: flex;
+            align-items: center;
+            font-weight: 600;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .warning-icon {
+            font-size: 20px;
+            margin-right: 10px;
+        }
+        .security-points {
+            margin: 15px 0;
+            padding-left: 0;
+            list-style: none;
+        }
+        .security-points li {
+            margin: 8px 0;
+            padding-left: 25px;
+            position: relative;
+        }
+        .security-points li::before {
+            content: '🔒';
+            position: absolute;
+            left: 0;
+        }
+        .footer {
+            background: #f8f9fa;
+            padding: 30px;
+            text-align: center;
+            border-top: 1px solid #e9ecef;
+        }
+        .footer p {
+            margin: 5px 0;
+            color: #6c757d;
+        }
+        .brand {
+            font-weight: 600;
+            color: #667eea;
+        }
+        .contact-info {
+            background: #e3f2fd;
+            border-radius: 8px;
+            padding: 15px;
+            margin: 20px 0;
+            text-align: center;
+            color: #1565c0;
+        }
+        @media (max-width: 600px) {
+            .container {
+                padding: 20px 10px;
+            }
+            .content {
+                padding: 30px 20px;
+            }
+            .header {
+                padding: 30px 20px;
+            }
+            .header h1 {
+                font-size: 24px;
+            }
+            .election-title h2 {
+                font-size: 20px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="email-card">
+            <div class="header">
+                <span class="shield-icon">🛡️</span>
+                <h1>Guardian Assignment</h1>
+                <p style="margin: 10px 0 0 0; opacity: 0.9;">Election Security Guardian</p>
+            </div>
+            
+            <div class="content">
+                <div class="greeting">
+                    Dear Esteemed Guardian,
+                </div>
+                
+                <p>You have been selected to serve as a <strong>security guardian</strong> for our democratic election process. This is a position of great trust and responsibility.</p>
+                
+                <div class="election-title">
+                    <h2>{{ELECTION_TITLE}}</h2>
+                </div>
+                
+                <p>As a guardian, you play a crucial role in ensuring the integrity and security of this election. Below is your unique private key that will be used for the cryptographic security of the election process.</p>
+                
+                <div class="private-key-section">
+                    <div class="private-key-header">
+                        <span class="key-icon">🔐</span>
+                        Your Private Guardian Key
+                    </div>
+                    <div class="private-key">{{PRIVATE_KEY}}</div>
+                    <div class="copy-hint">
+                        Please copy this key and store it in a secure location immediately.
+                    </div>
+                </div>
+                
+                <div class="security-warning">
+                    <div class="warning-header">
+                        <span class="warning-icon">⚠️</span>
+                        Critical Security Instructions
+                    </div>
+                    <ul class="security-points">
+                        <li>Never share this private key with anyone</li>
+                        <li>Store it in a secure, encrypted location</li>
+                        <li>Do not save it in plain text files or emails</li>
+                        <li>Consider using a password manager or secure vault</li>
+                        <li>You will need this key during the election process</li>
+                    </ul>
+                </div>
+                
+                <div class="contact-info">
+                    <strong>Need Help?</strong><br>
+                    If you have any questions or concerns, please contact the election administrator immediately.
+                </div>
+                
+                <p style="margin-top: 30px; color: #6c757d; font-style: italic;">
+                    If you were not expecting this email or did not agree to serve as a guardian, please contact the election administrator immediately.
+                </p>
+            </div>
+            
+            <div class="footer">
+                <p>Thank you for your service to democratic integrity</p>
+                <p class="brand">AmarVote Election System</p>
+                <p style="font-size: 12px; margin-top: 15px;">
+                    This email contains sensitive information. Please handle with care.
+                </p>
+            </div>
+        </div>
+    </div>
+</body>
+</html>

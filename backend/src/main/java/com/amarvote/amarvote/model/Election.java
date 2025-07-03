@@ -34,7 +34,7 @@ public class Election {
     @Column(name = "election_title", nullable = false)
     private String electionTitle;
 
-    @Column(name = "election_description")
+    @Column(name = "election_description", columnDefinition = "TEXT")
     private String electionDescription;
 
     @Column(name = "number_of_guardians", nullable = false)
@@ -46,13 +46,13 @@ public class Election {
     @Column(name = "no_of_candidates", nullable = false)
     private Integer noOfCandidates;
 
-    @Column(name = "joint_public_key")
+    @Column(name = "joint_public_key", columnDefinition = "TEXT")
     private String jointPublicKey;
 
-    @Column(name = "manifest_hash")
+    @Column(name = "manifest_hash", columnDefinition= "TEXT")
     private String manifestHash;
 
-    @Column(name = "status")
+    @Column(name = "status", columnDefinition= "TEXT")
     private String status;
 
     @Column(name = "starting_time", nullable = false)
@@ -61,17 +61,17 @@ public class Election {
     @Column(name = "ending_time", nullable = false)
     private Instant endingTime;
 
-    @Column(name = "encrypted_tally")
+    @Column(name = "encrypted_tally", columnDefinition = "TEXT")
     private String encryptedTally;
 
-    @Column(name = "base_hash")
+    @Column(name = "base_hash", columnDefinition = "TEXT")
     private String baseHash;
 
     @Column(name = "created_at", updatable = false)
     @CreationTimestamp
     private Instant createdAt;
 
-    @Column(name = "profile_pic")
+    @Column(name = "profile_pic", columnDefinition = "TEXT")
     private String profilePic;
 }
 
