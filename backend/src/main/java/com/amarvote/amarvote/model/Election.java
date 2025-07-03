@@ -73,6 +73,9 @@ public class Election {
 
     @Column(name = "profile_pic", columnDefinition = "TEXT")
     private String profilePic;
+
+    @Column(name  = "admin_email", columnDefinition = "TEXT")
+    private String adminEmail;
 }
 
 
