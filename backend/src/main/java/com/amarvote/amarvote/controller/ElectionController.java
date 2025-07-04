@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
+import com.amarvote.amarvote.dto.CreateTallyRequest;
+import com.amarvote.amarvote.dto.CreateTallyResponse;
 import com.amarvote.amarvote.dto.ElectionCreationRequest;
 import com.amarvote.amarvote.dto.ElectionDetailResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
@@ -25,6 +27,7 @@ import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.service.BallotService;
 import com.amarvote.amarvote.service.ElectionService;
+import com.amarvote.amarvote.service.TallyService;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -38,6 +41,7 @@ import lombok.RequiredArgsConstructor;
 public class ElectionController {
     private final ElectionService electionService;
     private final BallotService ballotService;
+    private final TallyService tallyService;
 
     @PostMapping("/create-election")
     public ResponseEntity<Election> createElection(
@@ -231,6 +235,48 @@ public class ElectionController {
                     .hasVoted(false)
                     .isElectionActive(false)
                     .electionStatus("Error")
+                    .build());
+        }
+    }
+
+    @PostMapping(value = "/create-tally", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<CreateTallyResponse> createTally(
+            @Valid @RequestBody CreateTallyRequest request,
+            HttpServletRequest httpRequest) {
+        
+        // Get user email from request attributes (set by JWTFilter)
+        String userEmail = (String) httpRequest.getAttribute("userEmail");
+        System.out.println("Creating tally for election ID: " + request.getElection_id() + " by user: " + userEmail);
+        
+        // Alternative: Get user email from Spring Security context
+        if (userEmail == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+        }
+        
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(CreateTallyResponse.builder()
+                    .success(false)
+                    .message("User authentication required")
+                    .build());
+        }
+        
+        try {
+            CreateTallyResponse response = tallyService.createTally(request, userEmail);
+            
+            if (response.isSuccess()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(CreateTallyResponse.builder()
+                    .success(false)
+                    .message("Internal server error occurred: " + e.getMessage())
                     .build());
         }
     }
