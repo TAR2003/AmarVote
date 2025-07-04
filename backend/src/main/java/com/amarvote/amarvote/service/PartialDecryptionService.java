@@ -1,6 +1,7 @@
 package com.amarvote.amarvote.service;
 
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -317,8 +318,16 @@ public class PartialDecryptionService {
 
             ElectionGuardCombineDecryptionResponse guardResponse = callElectionGuardCombineDecryptionService(guardRequest);
 
-            // 10. Return the results
+            // 10. Update election results in database and return response
             if ("success".equals(guardResponse.status())) {
+                // Update the total_votes in election_choices table
+                updateElectionChoicesWithResults(request.election_id(), guardResponse.results(), electionChoices);
+                
+                // Update election status to 'decrypted'
+                election.setStatus("decrypted");
+                electionRepository.save(election);
+                System.out.println("Updated election status to 'decrypted' for election: " + request.election_id());
+                
                 return CombinePartialDecryptionResponse.builder()
                     .success(true)
                     .message("Partial decryption combined successfully")
@@ -368,6 +377,79 @@ public class PartialDecryptionService {
         } catch (Exception e) {
             System.err.println("Failed to call ElectionGuard combine decryption service: " + e.getMessage());
             throw new RuntimeException("Failed to call ElectionGuard combine decryption service", e);
+        }
+    }
+
+    private void updateElectionChoicesWithResults(Long electionId, Object results, List<ElectionChoice> electionChoices) {
+        try {
+            System.out.println("Updating election choices with vote results for election: " + electionId);
+            
+            // Parse the results object to extract vote counts
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resultsMap = (Map<String, Object>) results;
+            
+            @SuppressWarnings("unchecked")
+            Map<String, Object> resultsSection = (Map<String, Object>) resultsMap.get("results");
+            
+            if (resultsSection == null) {
+                System.err.println("No 'results' section found in the response");
+                return;
+            }
+            
+            @SuppressWarnings("unchecked")
+            Map<String, Object> candidates = (Map<String, Object>) resultsSection.get("candidates");
+            
+            if (candidates == null) {
+                System.err.println("No 'candidates' section found in results");
+                return;
+            }
+            
+            // Update each election choice with its vote count
+            for (ElectionChoice choice : electionChoices) {
+                String candidateName = choice.getOptionTitle();
+                
+                @SuppressWarnings("unchecked")
+                Map<String, Object> candidateData = (Map<String, Object>) candidates.get(candidateName);
+                
+                if (candidateData != null) {
+                    Object votesObj = candidateData.get("votes");
+                    if (votesObj != null) {
+                        try {
+                            // Handle both String and Integer vote counts
+                            int voteCount;
+                            if (votesObj instanceof String) {
+                                voteCount = Integer.parseInt((String) votesObj);
+                            } else if (votesObj instanceof Integer) {
+                                voteCount = (Integer) votesObj;
+                            } else {
+                                voteCount = 0;
+                                System.err.println("Unexpected vote type for candidate " + candidateName + ": " + votesObj.getClass());
+                            }
+                            
+                            choice.setTotalVotes(voteCount);
+                            System.out.println("Updated votes for candidate '" + candidateName + "': " + voteCount);
+                        } catch (NumberFormatException e) {
+                            System.err.println("Failed to parse vote count for candidate " + candidateName + ": " + votesObj);
+                            choice.setTotalVotes(0);
+                        }
+                    } else {
+                        System.err.println("No vote count found for candidate: " + candidateName);
+                        choice.setTotalVotes(0);
+                    }
+                } else {
+                    System.err.println("No data found for candidate: " + candidateName);
+                    choice.setTotalVotes(0);
+                }
+            }
+            
+            // Save all updated election choices
+            electionChoiceRepository.saveAll(electionChoices);
+            System.out.println("Successfully updated " + electionChoices.size() + " election choices with vote counts");
+            
+        } catch (Exception e) {
+            System.err.println("Error updating election choices with results: " + e.getMessage());
+            e.printStackTrace();
+            // Don't throw the exception here as we still want to return the results to frontend
         }
     }
 }
