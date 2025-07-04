@@ -1,5 +1,6 @@
 package com.amarvote.amarvote.service;
 
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -67,11 +68,21 @@ public class TallyService {
                     .build();
             }
             
-            // Check if election is completed
-            if (!"completed".equals(election.getStatus())) {
+            // Check if election has ended (ending time has passed)
+            if (election.getEndingTime().isAfter(Instant.now())) {
                 return CreateTallyResponse.builder()
                     .success(false)
-                    .message("Election must be completed before creating tally")
+                    .message("Election has not ended yet. Cannot create tally until election ends.")
+                    .build();
+            }
+            
+            // Check if encrypted tally already exists
+            if (election.getEncryptedTally() != null && !election.getEncryptedTally().trim().isEmpty()) {
+                System.out.println("Encrypted tally already exists for election: " + request.getElection_id());
+                return CreateTallyResponse.builder()
+                    .success(true)
+                    .message("Encrypted tally already calculated")
+                    .encryptedTally(election.getEncryptedTally())
                     .build();
             }
             
