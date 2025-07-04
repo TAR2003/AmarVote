@@ -666,7 +666,18 @@ def api_combine_partial_decryption():
         commitment_hash = data['commitment_hash']    # Expecting string
         ciphertext_tally_json = data['ciphertext_tally'] # From request
         submitted_ballots_json = data['submitted_ballots'] # From request
-        guardian_shares = data['guardian_shares']        # From request
+        guardian_public_keys = data['guardian_public_keys']  # Expecting string
+        tally_shares = data['tally_shares']  # From request
+        ballot_shares = data['ballot_shares']  # From request
+
+        guardian_shares = []
+        for i in range (len(ballot_shares)):
+            guardian_shares.append((
+                guardian_public_keys[i],
+                tally_shares[i],
+                ballot_shares[i]
+            ))
+     # From request
         
         if not guardian_shares:
             return jsonify({'status': 'error', 'message': 'No guardian shares provided'}), 400

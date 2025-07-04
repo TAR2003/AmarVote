@@ -89,7 +89,11 @@ def test_election_workflow():
     
     
 
-    guardian_shares = []
+    # guardian_shares = []
+    guardian_public_keys_array = []
+    tally_shares = []
+    ballot_shares = []
+
     
     for i in range(setup_data['number_of_guardians']):
         guardian_data = {
@@ -109,12 +113,10 @@ def test_election_workflow():
         share_response = requests.post(f"{BASE_URL}/create_partial_decryption", json=guardian_data)
         assert share_response.status_code == 200, "Partial decryption failed"
         share_result = share_response.json()
-        guardian_shares.append((
-            share_result['guardian_public_key'],
-            share_result['tally_share'],
-            share_result['ballot_shares']
-        ))
-        print(f"Created partial decryption for guardian {i+1}")
+        guardian_public_keys_array.append(share_result['guardian_public_key'])
+        tally_shares.append(share_result['tally_share'])
+        ballot_shares.append(share_result['ballot_shares'])
+        # print(f"Created partial decryption for guardian {i+1}")
         
     
     # 5. Combine decryptions and get results
@@ -126,9 +128,13 @@ def test_election_workflow():
         "commitment_hash": commitment_hash,
         "ciphertext_tally": ciphertext_tally,
         "submitted_ballots": submitted_ballots,
-        "guardian_shares": guardian_shares
+        "guardian_public_keys": guardian_public_keys_array,
+        "tally_shares": tally_shares,
+        "ballot_shares": ballot_shares,
     }
-    
+    print("Data to combine:")
+    print(json.dumps(combine_data, indent=2))
+
     combine_response = requests.post(f"{BASE_URL}/combine_partial_decryption", json=combine_data)
     assert combine_response.status_code == 200, "Combining decryptions failed"
     final_results = combine_response.json()

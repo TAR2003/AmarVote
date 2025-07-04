@@ -64,7 +64,7 @@ public class Election {
     @Column(name = "ending_time", nullable = false)
     private Instant endingTime;
 
-     @Column(name = "encrypted_tally", columnDefinition = "JSONB")
+    @Column(name = "encrypted_tally", columnDefinition = "JSONB")
     @JdbcTypeCode(SqlTypes.JSON)
     private String encryptedTally;
 

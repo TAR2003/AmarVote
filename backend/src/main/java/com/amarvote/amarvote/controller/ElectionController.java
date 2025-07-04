@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
+import com.amarvote.amarvote.dto.CreatePartialDecryptionRequest;
+import com.amarvote.amarvote.dto.CreatePartialDecryptionResponse;
 import com.amarvote.amarvote.dto.CreateTallyRequest;
 import com.amarvote.amarvote.dto.CreateTallyResponse;
 import com.amarvote.amarvote.dto.ElectionCreationRequest;
@@ -27,6 +29,7 @@ import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.service.BallotService;
 import com.amarvote.amarvote.service.ElectionService;
+import com.amarvote.amarvote.service.PartialDecryptionService;
 import com.amarvote.amarvote.service.TallyService;
 
 import jakarta.servlet.http.HttpServletRequest;
@@ -42,6 +45,7 @@ public class ElectionController {
     private final ElectionService electionService;
     private final BallotService ballotService;
     private final TallyService tallyService;
+    private final PartialDecryptionService partialDecryptionService;
 
     @PostMapping("/create-election")
     public ResponseEntity<Election> createElection(
@@ -275,6 +279,49 @@ public class ElectionController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(CreateTallyResponse.builder()
+                    .success(false)
+                    .message("Internal server error occurred: " + e.getMessage())
+                    .build());
+        }
+    }
+
+    @PostMapping(value = "/create-partial-decryption", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<CreatePartialDecryptionResponse> createPartialDecryption(
+            @Valid @RequestBody CreatePartialDecryptionRequest request,
+            HttpServletRequest httpRequest) {
+        
+        // Get user email from request attributes (set by JWTFilter)
+        String userEmail = (String) httpRequest.getAttribute("userEmail");
+        System.out.println("Creating partial decryption for election ID: " + request.election_id() + " by user: " + userEmail);
+        
+        // Alternative: Get user email from Spring Security context
+        if (userEmail == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+        }
+        
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                .body(CreatePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("User authentication required")
+                    .build());
+        }
+        
+        try {
+            CreatePartialDecryptionResponse response = partialDecryptionService.createPartialDecryption(request, userEmail);
+            
+            if (response.success()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        } catch (Exception e) {
+            System.err.println("Error creating partial decryption: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(CreatePartialDecryptionResponse.builder()
                     .success(false)
                     .message("Internal server error occurred: " + e.getMessage())
                     .build());
