@@ -102,10 +102,27 @@ public class BallotService {
             // 4. Check eligibility
             boolean isEligible = checkVoterEligibility(user.getUserId(), election);
             if (!isEligible) {
+                String errorMessage;
+                String errorReason;
+                
+                if ("public".equals(election.getPrivacy())) {
+                    List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
+                    if (!allowedVoters.isEmpty()) {
+                        errorMessage = "You are not eligible to vote in this election. Although this is a public election, only users in the voter list can vote.";
+                        errorReason = "Not in voter list for public election";
+                    } else {
+                        errorMessage = "You are not eligible to vote in this election";
+                        errorReason = "Not eligible for public election";
+                    }
+                } else {
+                    errorMessage = "You are not eligible to vote in this election. You are not in the allowed voters list.";
+                    errorReason = "Not in voter list for private election";
+                }
+                
                 return CastBallotResponse.builder()
                     .success(false)
-                    .message("You are not eligible to vote in this election")
-                    .errorReason("Not eligible to vote")
+                    .message(errorMessage)
+                    .errorReason(errorReason)
                     .build();
             }
 
@@ -249,8 +266,21 @@ public class BallotService {
                 message = "You have already voted in this election";
                 reason = "Already voted";
             } else if (!isEligible) {
-                message = "You are not eligible to vote in this election";
-                reason = "Not in voter list";
+                // More specific message based on election privacy and voter list
+                if ("public".equals(election.getPrivacy())) {
+                    List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
+                    if (!allowedVoters.isEmpty()) {
+                        message = "You are not eligible to vote in this election. Although this is a public election, only users in the voter list can vote.";
+                        reason = "Not in voter list for public election";
+                    } else {
+                        // This shouldn't happen if checkVoterEligibility works correctly
+                        message = "You are not eligible to vote in this election";
+                        reason = "Not eligible for public election";
+                    }
+                } else {
+                    message = "You are not eligible to vote in this election. You are not in the allowed voters list.";
+                    reason = "Not in voter list for private election";
+                }
             } else if (!isElectionActive) {
                 if (electionStatus.equals("Not Started")) {
                     message = "Election has not started yet";
@@ -290,17 +320,29 @@ public class BallotService {
         // Check if user is in allowed voters list
         List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
         
-        // If it's a public election (empty voter list), user is eligible
-        if (allowedVoters.isEmpty()) {
-            return true; // Public election - anyone can vote
+        // Check if user is in the allowed voters list
+        boolean isInVoterList = allowedVoters.stream()
+            .anyMatch(av -> av.getUserId().equals(userId));
+        
+        // If it's a public election (privacy = 'public')
+        if ("public".equals(election.getPrivacy())) {
+            // If voter list is empty, anyone can vote
+            if (allowedVoters.isEmpty()) {
+                return true; // Public election with no voter list - anyone can vote
+            } else {
+                // If voter list is not empty, only people on the list can vote
+                return isInVoterList; // Public election with voter list - only listed voters can vote
+            }
         }
         
-        // Check if user is in the allowed voters list
-        return allowedVoters.stream()
-            .anyMatch(av -> av.getUserId().equals(userId));
+        // For private elections, user must be in the allowed voters list
+        return isInVoterList;
     }
 
     private boolean hasUserAlreadyVoted(Integer userId, Long electionId) {
+        // For both public and private elections, check if user has voted
+        // For public elections, users get added to allowed_voters table when they vote
+        // For private elections, users are already in the table and hasVoted gets updated
         List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(electionId);
         
         return allowedVoters.stream()
@@ -311,24 +353,30 @@ public class BallotService {
     private void updateVoterStatus(Integer userId, Election election) {
         List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
         
-        // If it's a public election (empty voter list), add user to allowed voters
-        if (allowedVoters.isEmpty()) {
-            AllowedVoter newVoter = AllowedVoter.builder()
-                .electionId(election.getElectionId())
-                .userId(userId)
-                .hasVoted(true)
-                .build();
-            allowedVoterRepository.save(newVoter);
+        // Check if user already exists in allowed voters
+        Optional<AllowedVoter> existingVoterOpt = allowedVoters.stream()
+            .filter(av -> av.getUserId().equals(userId))
+            .findFirst();
+        
+        if (existingVoterOpt.isPresent()) {
+            // User already exists in allowed voters, just update hasVoted status
+            AllowedVoter existingVoter = existingVoterOpt.get();
+            existingVoter.setHasVoted(true);
+            allowedVoterRepository.save(existingVoter);
         } else {
-            // Update existing allowed voter
-            Optional<AllowedVoter> voterOpt = allowedVoters.stream()
-                .filter(av -> av.getUserId().equals(userId))
-                .findFirst();
-            
-            if (voterOpt.isPresent()) {
-                AllowedVoter voter = voterOpt.get();
-                voter.setHasVoted(true);
-                allowedVoterRepository.save(voter);
+            // User doesn't exist in allowed voters
+            if ("public".equals(election.getPrivacy())) {
+                // For public elections, add user to allowed voters with hasVoted = true
+                AllowedVoter newVoter = AllowedVoter.builder()
+                    .electionId(election.getElectionId())
+                    .userId(userId)
+                    .hasVoted(true)
+                    .build();
+                allowedVoterRepository.save(newVoter);
+            } else {
+                // For private elections, user should already be in the list
+                // This case shouldn't happen if eligibility check is working correctly
+                System.err.println("Warning: User " + userId + " not found in allowed voters for private election " + election.getElectionId());
             }
         }
     }

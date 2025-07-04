@@ -13,7 +13,7 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
     
     // Get all elections that are accessible to a specific user
     // This includes: 
-    // 1. All public elections (elections with no allowed voters)
+    // 1. All public elections (elections with privacy = 'public')
     // 2. All elections where the user is in the allowed voters list
     // 3. All elections where the user is the admin (admin_email matches)
     // 4. All elections where the user is a guardian
@@ -23,7 +23,7 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
            "LEFT JOIN Guardian g ON e.electionId = g.electionId " +
            "LEFT JOIN User u2 ON g.userId = u2.userId " +
            "WHERE " +
-           "   (NOT EXISTS (SELECT 1 FROM AllowedVoter av2 WHERE av2.electionId = e.electionId)) " + // Public elections
+           "   e.privacy = 'public' " + // Public elections
            "   OR u1.userEmail = :userEmail " + // User is allowed voter
            "   OR e.adminEmail = :userEmail " + // User is admin
            "   OR u2.userEmail = :userEmail")   // User is guardian

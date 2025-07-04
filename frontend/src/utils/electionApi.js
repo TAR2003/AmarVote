@@ -113,6 +113,10 @@ export const electionApi = {
 
   /**
    * Check if user is eligible to vote in a specific election
+   * Returns an object with the following properties:
+   * - canVote: boolean indicating if the user can vote in this election
+   * - hasVoted: boolean indicating if the user has already voted in this election
+   * - reason: string explaining why the user can't vote (if applicable)
    */
   async checkEligibility(electionId) {
     try {
@@ -136,7 +140,12 @@ export const electionApi = {
       return data;
     } catch (error) {
       console.error('Error checking eligibility:', error);
-      throw error;
+      // Return a default object that indicates the user cannot vote
+      return {
+        canVote: false,
+        hasVoted: false,
+        reason: error.message || 'Error checking eligibility'
+      };
     }
   },
 };
