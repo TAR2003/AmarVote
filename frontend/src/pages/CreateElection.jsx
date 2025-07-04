@@ -5,13 +5,34 @@ const CreateElection = () => {
         title: "",
         privacy: "public",
         eligibility: "",
+        voterEmails: [],
         guardianNumber: 1,
         guardianEmails: [""]
+        ,candidateNumber: 1,
+        candidates: [{ name: "", party: "", description: "" }]
     });
 
     const handleChange = (e) => {
         const { name, value } = e.target;
         setForm((prev) => ({ ...prev, [name]: value }));
+    };
+
+    // Handle CSV upload for voter emails
+    const handleVoterCSVUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const text = event.target.result;
+            // Split by line, trim, filter empty, and flatten if comma-separated
+            let emails = text
+                .split(/\r?\n/)
+                .map(line => line.split(',').map(email => email.trim()))
+                .flat()
+                .filter(email => email.length > 0);
+            setForm((prev) => ({ ...prev, voterEmails: emails }));
+        };
+        reader.readAsText(file);
     };
 
     const handleGuardianEmailChange = (idx, value) => {
@@ -27,6 +48,21 @@ const CreateElection = () => {
             guardianNumber: number,
             guardianEmails: Array(number).fill("").map((v, i) => prev.guardianEmails[i] || "")
         }));
+    };
+
+    const handleCandidateNumberChange = (e) => {
+        const number = parseInt(e.target.value, 10) || 1;
+        setForm((prev) => ({
+            ...prev,
+            candidateNumber: number,
+            candidates: Array(number).fill("").map((v, i) => prev.candidates && prev.candidates[i] ? prev.candidates[i] : { name: "", party: "", description: "" })
+        }));
+    };
+
+    const handleCandidateChange = (idx, field, value) => {
+        const updated = [...form.candidates];
+        updated[idx] = { ...updated[idx], [field]: value };
+        setForm((prev) => ({ ...prev, candidates: updated }));
     };
 
     const handleSubmit = (e) => {
@@ -63,15 +99,60 @@ const CreateElection = () => {
                     </select>
                 </div>
                 <div>
-                    <label className="block text-gray-700 font-medium mb-1">Eligibility of Voter List</label>
+                    <label className="block text-gray-700 font-medium mb-1">Eligibility of Voter List (Upload CSV of Emails)</label>
                     <input
-                        type="text"
-                        name="eligibility"
-                        value={form.eligibility}
-                        onChange={handleChange}
-                        placeholder="e.g. All registered users"
+                        type="file"
+                        accept=".csv"
+                        onChange={handleVoterCSVUpload}
                         className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
                     />
+                    {form.voterEmails.length > 0 && (
+                        <div className="mt-2 text-sm text-green-700">
+                            {form.voterEmails.length} emails loaded.
+                        </div>
+                    )}
+                </div>
+                <div>
+                    <label className="block text-gray-700 font-medium mb-1">Candidate Number</label>
+                    <input
+                        type="number"
+                        name="candidateNumber"
+                        min="1"
+                        value={form.candidateNumber}
+                        onChange={handleCandidateNumberChange}
+                        className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500"
+                    />
+                </div>
+                <div>
+                    <label className="block text-gray-700 font-medium mb-1">Candidates</label>
+                    {Array.from({ length: form.candidateNumber }).map((_, idx) => (
+                        <div key={idx} className="mb-4 p-4 border rounded-lg bg-gray-50">
+                            <label className="block text-gray-600 font-medium mb-1">Candidate #{idx + 1}</label>
+                            <input
+                                type="text"
+                                value={form.candidates[idx]?.name || ""}
+                                onChange={e => handleCandidateChange(idx, "name", e.target.value)}
+                                required
+                                placeholder="Candidate Name"
+                                className="w-full px-3 py-2 border rounded-lg mb-2"
+                            />
+                            <input
+                                type="text"
+                                value={form.candidates[idx]?.party || ""}
+                                onChange={e => handleCandidateChange(idx, "party", e.target.value)}
+                                required
+                                placeholder="Party Name"
+                                className="w-full px-3 py-2 border rounded-lg mb-2"
+                            />
+                            <textarea
+                                value={form.candidates[idx]?.description || ""}
+                                onChange={e => handleCandidateChange(idx, "description", e.target.value)}
+                                required
+                                placeholder="Short Description"
+                                className="w-full px-3 py-2 border rounded-lg"
+                            />
+                        </div>
+                    ))}
                 </div>
                 <div>
                     <label className="block text-gray-700 font-medium mb-1">Guardian Number</label>
