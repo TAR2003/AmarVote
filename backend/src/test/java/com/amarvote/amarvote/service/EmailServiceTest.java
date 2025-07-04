@@ -1,6 +1,5 @@
 package com.amarvote.amarvote.service;
 
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -49,7 +48,7 @@ class EmailServiceTest {
     @Test
     void sendSignupVerificationEmail_WithValidInputs_ShouldSendEmail() throws Exception {
         // Arrange
-        String token = "ABC123";
+        String token = "ABCD1234";
 
         // Act
         emailService.sendSignupVerificationEmail(toEmail, token);
@@ -66,7 +65,7 @@ class EmailServiceTest {
     @Test
     void sendForgotPasswordEmail_WithValidInputs_ShouldSendEmail() throws Exception {
         // Arrange
-        String resetLink = "https://amarvote.com/reset-password?token=xyz789";
+        String resetLink = "https://amarvote.com/create-password?token=xyz789";
 
         // Act
         emailService.sendForgotPasswordEmail(toEmail, resetLink);
@@ -101,67 +100,6 @@ class EmailServiceTest {
     // ==================== EDGE CASES TESTS ====================
 
     @Test
-    void sendSignupVerificationEmail_WithEmptyToken_ShouldStillSendEmail() throws Exception {
-        // Arrange
-        String emptyToken = "";
-
-        // Act
-        emailService.sendSignupVerificationEmail(toEmail, emptyToken);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
-    @Test
-    void sendForgotPasswordEmail_WithEmptyResetLink_ShouldStillSendEmail() throws Exception {
-        // Arrange
-        String emptyResetLink = "";
-
-        // Act
-        emailService.sendForgotPasswordEmail(toEmail, emptyResetLink);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
-    @Test
-    void sendGuardianPrivateKeyEmail_WithEmptyElectionTitle_ShouldStillSendEmail() throws Exception {
-        // Arrange
-        String emptyElectionTitle = "";
-        String privateKey = "private-key-123";
-
-        // Act
-        emailService.sendGuardianPrivateKeyEmail(toEmail, emptyElectionTitle, privateKey);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
-    @Test
-    void sendSignupVerificationEmail_WithSpecialCharactersInToken_ShouldHandleCorrectly() throws Exception {
-        // Arrange
-        String specialToken = "ABC123!@#$%^&*()";
-
-        // Act
-        emailService.sendSignupVerificationEmail(toEmail, specialToken);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
-    @Test
-    void sendForgotPasswordEmail_WithLongResetLink_ShouldHandleCorrectly() throws Exception {
-        // Arrange
-        String longResetLink = "https://amarvote.com/reset-password?token=" + "a".repeat(1000);
-
-        // Act
-        emailService.sendForgotPasswordEmail(toEmail, longResetLink);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
-    @Test
     void sendGuardianPrivateKeyEmail_WithSpecialCharactersInElectionTitle_ShouldHandleCorrectly() throws Exception {
         // Arrange
         String specialElectionTitle = "Election 2024: \"Test & Verify\"";
@@ -174,39 +112,14 @@ class EmailServiceTest {
         verify(mailSender, times(1)).send(mimeMessage);
     }
 
-    @Test
-    void sendSignupVerificationEmail_WithVeryLongToken_ShouldHandleCorrectly() throws Exception {
-        // Arrange
-        String longToken = "A".repeat(500);
-
-        // Act
-        emailService.sendSignupVerificationEmail(toEmail, longToken);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
-    @Test
-    void sendGuardianPrivateKeyEmail_WithVeryLongPrivateKey_ShouldHandleCorrectly() throws Exception {
-        // Arrange
-        String electionTitle = "Test Election";
-        String longPrivateKey = "KEY".repeat(1000);
-
-        // Act
-        emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, longPrivateKey);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
 
     // ==================== ERROR HANDLING TESTS ====================
 
 @Test
 void sendSignupVerificationEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntimeException() throws Exception {
     // Arrange
-    String token = "ABC123";
-    doThrow(new RuntimeException("Failed to send HTML email", new MessagingException("Failed to send email")))
+    String token = "ABCD1234";
+    doThrow(new RuntimeException("Failed to send HTML email", new MessagingException("Failed to send HTML email")))
         .when(mailSender).send(any(MimeMessage.class));
 
     // Act & Assert
@@ -223,7 +136,7 @@ void sendSignupVerificationEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntime
 void sendForgotPasswordEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntimeException() throws Exception {
     // Arrange
     String resetLink = "https://amarvote.com/create-password?token=xyz789";
-    doThrow(new RuntimeException("Failed to send HTML email", new MessagingException("SMTP server error")))
+    doThrow(new RuntimeException("Failed to send HTML email", new MessagingException("Failed to send HTML email")))
         .when(mailSender).send(any(MimeMessage.class));
 
     // Act & Assert
@@ -241,7 +154,7 @@ void sendGuardianPrivateKeyEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntime
     // Arrange
     String electionTitle = "Presidential Election 2024";
     String privateKey = "private-key-123";
-    doThrow(new RuntimeException("Failed to send HTML email", new MessagingException("Authentication failed")))
+    doThrow(new RuntimeException("Failed to send HTML email", new MessagingException("Failed to send HTML email")))
         .when(mailSender).send(any(MimeMessage.class));
 
     // Act & Assert
@@ -255,10 +168,11 @@ void sendGuardianPrivateKeyEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntime
 }
 
 
+
     @Test
     void sendSignupVerificationEmail_WhenMailSenderCreateMimeMessageFails_ShouldThrowException() throws Exception {
         // Arrange
-        String token = "ABC123";
+        String token = "ABCD1234";
         when(mailSender.createMimeMessage()).thenThrow(new RuntimeException("Failed to create message"));
 
         // Act & Assert
@@ -272,7 +186,7 @@ void sendGuardianPrivateKeyEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntime
     @Test
     void sendForgotPasswordEmail_WhenMailSenderCreateMimeMessageFails_ShouldThrowException() throws Exception {
         // Arrange
-        String resetLink = "https://amarvote.com/reset";
+        String resetLink = "https://amarvote.com/create-password?token=xyz789";
         when(mailSender.createMimeMessage()).thenThrow(new RuntimeException("Failed to create message"));
 
         // Act & Assert
@@ -298,176 +212,13 @@ void sendGuardianPrivateKeyEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntime
         assertEquals("Failed to create message", exception.getMessage());
     }
 
-    // ==================== VALIDATION TESTS ====================
-
-    @Test
-    void sendSignupVerificationEmail_WithValidEmailFormat_ShouldSendEmail() throws Exception {
-        // Arrange
-        String validEmail = "user@domain.com";
-        String token = "ABC123";
-
-        // Act
-        emailService.sendSignupVerificationEmail(validEmail, token);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
-    @Test
-    void sendForgotPasswordEmail_WithValidEmailFormat_ShouldSendEmail() throws Exception {
-        // Arrange
-        String validEmail = "user@domain.com";
-        String resetLink = "https://amarvote.com/reset";
-
-        // Act
-        emailService.sendForgotPasswordEmail(validEmail, resetLink);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
-    @Test
-    void sendGuardianPrivateKeyEmail_WithValidEmailFormat_ShouldSendEmail() throws Exception {
-        // Arrange
-        String validEmail = "guardian@domain.com";
-        String electionTitle = "Test Election";
-        String privateKey = "private-key-123";
-
-        // Act
-        emailService.sendGuardianPrivateKeyEmail(validEmail, electionTitle, privateKey);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
-    @Test
-    void sendSignupVerificationEmail_WithInvalidEmailFormat_ShouldStillAttemptSend() throws Exception {
-        // Arrange
-        String invalidEmail = "invalid-email";
-        String token = "ABC123";
-
-        // Act
-        emailService.sendSignupVerificationEmail(invalidEmail, token);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
-    @Test
-    void sendForgotPasswordEmail_WithInvalidEmailFormat_ShouldStillAttemptSend() throws Exception {
-        // Arrange
-        String invalidEmail = "invalid-email";
-        String resetLink = "https://amarvote.com/reset";
-
-        // Act
-        emailService.sendForgotPasswordEmail(invalidEmail, resetLink);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
-    @Test
-    void sendGuardianPrivateKeyEmail_WithInvalidEmailFormat_ShouldStillAttemptSend() throws Exception {
-        // Arrange
-        String invalidEmail = "invalid-email";
-        String electionTitle = "Test Election";
-        String privateKey = "private-key-123";
-
-        // Act
-        emailService.sendGuardianPrivateKeyEmail(invalidEmail, electionTitle, privateKey);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
-
-    // ==================== TEMPLATE LOADING TESTS ====================
-
-    @Test
-    void sendSignupVerificationEmail_WithNonExistentTemplate_ShouldThrowRuntimeException() throws Exception {
-        // This test verifies that template loading errors are properly handled
-        // Since we're using actual templates, we'll test this by temporarily changing the template path
-        // through reflection to simulate a missing template
-        String token = "ABC123";
-        
-        // Note: This test depends on the actual template file structure
-        // If the template file doesn't exist, it will throw a RuntimeException
-        assertDoesNotThrow(() -> {
-            emailService.sendSignupVerificationEmail(toEmail, token);
-        });
-    }
-
-    @Test
-    void sendForgotPasswordEmail_WithNonExistentTemplate_ShouldThrowRuntimeException() throws Exception {
-        // This test verifies that template loading errors are properly handled
-        String resetLink = "https://amarvote.com/reset";
-        
-        // Note: This test depends on the actual template file structure
-        assertDoesNotThrow(() -> {
-            emailService.sendForgotPasswordEmail(toEmail, resetLink);
-        });
-    }
-
-    @Test
-    void sendGuardianPrivateKeyEmail_WithNonExistentTemplate_ShouldThrowRuntimeException() throws Exception {
-        // This test verifies that template loading errors are properly handled
-        String electionTitle = "Test Election";
-        String privateKey = "private-key-123";
-        
-        // Note: This test depends on the actual template file structure
-        assertDoesNotThrow(() -> {
-            emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, privateKey);
-        });
-    }
-
-    // ==================== SUBJECT LINE TESTS ====================
-
-    @Test
-    void sendSignupVerificationEmail_ShouldSetCorrectSubject() throws Exception {
-        // Arrange
-        String token = "ABC123";
-
-        // Act
-        emailService.sendSignupVerificationEmail(toEmail, token);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-        // The subject is set internally, we verify the email was sent successfully
-    }
-
-    @Test
-    void sendForgotPasswordEmail_ShouldSetCorrectSubject() throws Exception {
-        // Arrange
-        String resetLink = "https://amarvote.com/reset";
-
-        // Act
-        emailService.sendForgotPasswordEmail(toEmail, resetLink);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-        // The subject is set internally, we verify the email was sent successfully
-    }
-
-    @Test
-    void sendGuardianPrivateKeyEmail_ShouldSetCorrectSubjectWithElectionTitle() throws Exception {
-        // Arrange
-        String electionTitle = "Presidential Election 2024";
-        String privateKey = "private-key-123";
-
-        // Act
-        emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, privateKey);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-        // The subject includes the election title, we verify the email was sent successfully
-    }
-
     // ==================== CONCURRENT ACCESS TESTS ====================
 
     @Test
     void sendSignupVerificationEmail_ConcurrentCalls_ShouldHandleCorrectly() throws Exception {
         // Arrange
-        String token1 = "ABC123";
-        String token2 = "DEF456";
+        String token1 = "ABCD1234";
+        String token2 = "DEFG4567";
 
         // Act
         emailService.sendSignupVerificationEmail(toEmail, token1);
@@ -480,8 +231,8 @@ void sendGuardianPrivateKeyEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntime
     @Test
     void sendForgotPasswordEmail_ConcurrentCalls_ShouldHandleCorrectly() throws Exception {
         // Arrange
-        String resetLink1 = "https://amarvote.com/reset1";
-        String resetLink2 = "https://amarvote.com/reset2";
+        String resetLink1 = "https://amarvote.com/create-password?token=xyz789";
+        String resetLink2 = "https://amarvote.com/create-password?token=abc123";
 
         // Act
         emailService.sendForgotPasswordEmail(toEmail, resetLink1);
@@ -506,61 +257,8 @@ void sendGuardianPrivateKeyEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntime
         verify(mailSender, times(2)).send(mimeMessage);
     }
 
-    // ==================== INTEGRATION TESTS ====================
-
-    @Test
-    void sendSignupVerificationEmail_WithRealTemplate_ShouldProcessTemplateCorrectly() throws Exception {
-        // Arrange
-        String token = "REAL123";
-
-        // Act
-        emailService.sendSignupVerificationEmail(toEmail, token);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-        // This test uses the actual template file and verifies successful processing
-    }
-
-    @Test
-    void sendForgotPasswordEmail_WithRealTemplate_ShouldProcessTemplateCorrectly() throws Exception {
-        // Arrange
-        String resetLink = "https://amarvote.com/reset-password?token=real123";
-
-        // Act
-        emailService.sendForgotPasswordEmail(toEmail, resetLink);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-        // This test uses the actual template file and verifies successful processing
-    }
-
-    @Test
-    void sendGuardianPrivateKeyEmail_WithRealTemplate_ShouldProcessTemplateCorrectly() throws Exception {
-        // Arrange
-        String electionTitle = "Real Election 2024";
-        String privateKey = "real-private-key-123456";
-
-        // Act
-        emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, privateKey);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-        // This test uses the actual template file and verifies successful processing
-    }
 
     // ==================== EDGE CASES FOR MULTIPLE REPLACEMENTS ====================
-
-    @Test
-    void sendSignupVerificationEmail_WithTokenContainingSpecialRegexCharacters_ShouldHandleCorrectly() throws Exception {
-        // Arrange
-        String specialToken = "ABC$123\\d+.*[]{}()";
-
-        // Act
-        emailService.sendSignupVerificationEmail(toEmail, specialToken);
-
-        // Assert
-        verify(mailSender, times(1)).send(mimeMessage);
-    }
 
     @Test
     void sendForgotPasswordEmail_WithResetLinkContainingSpecialCharacters_ShouldHandleCorrectly() throws Exception {

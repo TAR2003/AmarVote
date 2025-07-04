@@ -5,6 +5,7 @@ import jakarta.validation.constraints.Pattern;
 
 public class CreateNewPasswordRequest {
 
+    @NotBlank(message = "Reset token is required")
     private String resetToken;
     
     @Pattern(regexp = "^(?=.*[0-9])(?=.*[a-zA-Z])(?=.*[@#$%^&+=!]).{8,}$", message = "Password must be at least 8 characters long and contain letters, numbers, and a special character")
