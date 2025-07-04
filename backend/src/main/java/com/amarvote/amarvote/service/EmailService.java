@@ -56,7 +56,6 @@ public class EmailService {
             helper.setSubject(subject);
             helper.setText(htmlContent, true); // Enable HTML
             helper.setFrom(fromEmail);
-
             mailSender.send(message);
         } catch (MessagingException e) {
             throw new RuntimeException("Failed to send HTML email", e);
