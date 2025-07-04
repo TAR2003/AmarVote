@@ -30,13 +30,23 @@ export async function apiRequest(endpoint, options = {}) {
 
 /**
  * Fetch all elections accessible to the current user
- * @returns {Promise<Array>} Array of election objects
+ * This returns ALL necessary election data including:
+ * - Basic election info (title, description, dates)
+ * - User's role in each election (voter, admin, guardian)
+ * - User's voting status (hasVoted)
+ * - Election visibility (isPublic)
+ * - Election metadata (noOfCandidates, adminName, adminEmail)
+ * 
+ * The frontend will use ONLY this data without making additional API calls
+ * @returns {Promise<Array>} Array of complete election objects
  */
 export async function fetchAllElections() {
   try {
+    console.log('API: Making single API call to fetch all elections data');
     const elections = await apiRequest('/all-elections', {
       method: 'GET',
     });
+    console.log(`API: Fetched ${elections.length} elections with complete data`);
     return elections;
   } catch (error) {
     console.error('Error fetching elections:', error);

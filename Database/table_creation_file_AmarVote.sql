@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS elections (
     status TEXT NOT NULL DEFAULT 'draft', -- Changed from election_status enum
     starting_time TIMESTAMP WITH TIME ZONE NOT NULL,
     ending_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    encrypted_tally TEXT,
+    encrypted_tally JSONB,
     base_hash TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     profile_pic TEXT,

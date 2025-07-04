@@ -1,21 +1,226 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo, useCallback, memo, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import { electionApi } from "../utils/electionApi";
-import { FiCalendar, FiClock, FiUsers, FiInfo } from "react-icons/fi";
+import { fetchAllElections } from "../utils/api";
+import { timezoneUtils } from "../utils/timezoneUtils";
+import { FiCalendar, FiClock, FiUsers, FiInfo, FiLoader } from "react-icons/fi";
+
+/**
+ * AllElections Component - Optimized for single API call
+ * 
+ * This component fetches all election data (including user roles, voting status, etc.) 
+ * in a single API call and uses only that data to render the entire UI.
+ * No additional API calls are made in loops or for individual elections.
+ * 
+ * Expected election data structure from API:
+ * {
+ *   electionId: string,
+ *   electionTitle: string,
+ *   electionDescription: string,
+ *   startingTime: string,
+ *   endingTime: string,
+ *   isPublic: boolean,
+ *   userRoles: string[], // ['voter', 'admin', 'guardian']
+ *   hasVoted: boolean,
+ *   noOfCandidates: number,
+ *   adminName: string,
+ *   adminEmail: string
+ * }
+ */
+
+// Skeleton component for loading states
+const ElectionCardSkeleton = () => (
+  <div className="p-6 border-b border-gray-200 animate-pulse">
+    <div className="flex items-start justify-between">
+      <div className="flex-1">
+        <div className="h-6 bg-gray-300 rounded w-2/3 mb-2"></div>
+        <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+        <div className="flex gap-2 mb-3">
+          <div className="h-5 bg-gray-200 rounded w-16"></div>
+          <div className="h-5 bg-gray-200 rounded w-20"></div>
+        </div>
+        <div className="flex gap-4">
+          <div className="h-4 bg-gray-200 rounded w-24"></div>
+          <div className="h-4 bg-gray-200 rounded w-32"></div>
+        </div>
+      </div>
+      <div className="h-8 bg-gray-200 rounded w-24"></div>
+    </div>
+  </div>
+);
+
+// Cache for election data
+const electionCache = new Map();
+const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
+
+// Memoized Election Card component for better performance
+const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getStatusColor }) => {
+  const status = getElectionStatus(election);
+  
+  const handleClick = useCallback(() => {
+    onElectionClick(election.electionId);
+  }, [onElectionClick, election.electionId]);
+
+  const handleActionClick = useCallback((e) => {
+    e.stopPropagation();
+    onElectionClick(election.electionId);
+  }, [onElectionClick, election.electionId]);
+
+  return (
+    <div
+      className="p-6 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+      onClick={handleClick}
+    >
+      <div className="flex items-start justify-between">
+        <div className="flex-1">
+          <div className="flex items-center">
+            <h3 className="text-lg font-medium text-gray-900">
+              {election.electionTitle}
+            </h3>
+            <span
+              className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(status)}`}
+            >
+              {status.charAt(0).toUpperCase() + status.slice(1)}
+            </span>
+            <span
+              className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                election.isPublic 
+                  ? 'bg-green-100 text-green-800' 
+                  : 'bg-orange-100 text-orange-800'
+              }`}
+            >
+              {election.isPublic ? 'Public' : 'Private'}
+            </span>
+          </div>
+          
+          <p className="mt-1 text-sm text-gray-500">
+            {election.electionDescription}
+          </p>
+
+          {/* User Roles */}
+          <div className="mt-3 flex flex-wrap gap-2">
+            {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
+              <span
+                key={role}
+                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                  role === 'admin' ? 'bg-red-100 text-red-800' :
+                  role === 'guardian' ? 'bg-purple-100 text-purple-800' :
+                  'bg-blue-100 text-blue-800'
+                }`}
+              >
+                {role.charAt(0).toUpperCase() + role.slice(1)}
+              </span>
+            ))}
+            {election.isPublic && (
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                Eligible Voter (Public)
+              </span>
+            )}
+          </div>
+          
+          <div className="mt-4 flex items-center space-x-6 text-sm text-gray-500">
+            <div className="flex items-center">
+              <FiCalendar className="h-4 w-4 mr-1" />
+              <span>
+                {timezoneUtils.formatElectionDate(election.startingTime)}
+              </span>
+            </div>
+            <div className="flex items-center">
+              <FiClock className="h-4 w-4 mr-1" />
+              <span>
+                Ends: {timezoneUtils.formatElectionDate(election.endingTime)}
+              </span>
+            </div>
+            <div className="flex items-center">
+              <FiUsers className="h-4 w-4 mr-1" />
+              <span>{election.noOfCandidates} candidates</span>
+            </div>
+          </div>
+          
+          <div className="mt-2 text-xs text-gray-400">
+            Admin: {election.adminName ? `${election.adminName} (${election.adminEmail})` : election.adminEmail}
+          </div>
+        </div>
+        
+        <div className="flex-shrink-0 ml-4">
+          {status === "ongoing" && (
+            <button 
+              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                election.hasVoted 
+                  ? 'text-gray-700 bg-gray-200 cursor-not-allowed'
+                  : ((election.userRoles?.includes('voter') || election.isPublic) 
+                      ? 'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' 
+                      : 'text-gray-700 bg-gray-200 hover:bg-gray-300 focus:ring-gray-500')
+              }`}
+              onClick={handleActionClick}
+              disabled={election.hasVoted && ((election.userRoles?.includes('voter') || election.isPublic))}
+            >
+              {((election.userRoles?.includes('voter') || election.isPublic) && !election.hasVoted) ? 'Vote Now' : 
+               election.hasVoted ? 'Already Voted' : 'View Election'}
+            </button>
+          )}
+          {status === "upcoming" && (
+            <button 
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              onClick={handleActionClick}
+            >
+              Set Reminder
+            </button>
+          )}
+          {status === "completed" && (
+            <button 
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              onClick={handleActionClick}
+            >
+              View Results
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+});
 
 const AllElections = () => {
   const navigate = useNavigate();
   const [elections, setElections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const [filter, setFilter] = useState("all"); // all, upcoming, ongoing, completed, public, private, voter, admin, guardian
+  const [filter, setFilter] = useState("all");
+  const [displayLimit, setDisplayLimit] = useState(10); // Limit initial render
+  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
+  // Optimized data loading with caching
   useEffect(() => {
     const loadElections = async () => {
       try {
         setLoading(true);
-        const electionData = await electionApi.getAllElections();
+        
+        // Check cache first
+        const cacheKey = 'all_elections';
+        const cached = electionCache.get(cacheKey);
+        
+        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
+          console.log('Using cached election data');
+          setElections(cached.data);
+          setLoading(false);
+          setInitialLoadComplete(true);
+          return;
+        }
+        
+        // Make a single API call to fetch all election data
+        console.log('Fetching fresh election data');
+        const electionData = await fetchAllElections();
+        
+        // Store all data from the API call
         setElections(electionData);
+        setInitialLoadComplete(true);
+        
+        // Cache the data with timestamp
+        electionCache.set(cacheKey, { 
+          data: electionData, 
+          timestamp: Date.now() 
+        });
+        
       } catch (err) {
         setError(err.message);
         console.error("Error loading elections:", err);
@@ -27,13 +232,38 @@ const AllElections = () => {
     loadElections();
   }, []);
 
-  // Handle navigation to election page
-  const handleElectionClick = (electionId) => {
+  // Handle navigation to election page - memoized
+  const handleElectionClick = useCallback((electionId) => {
     navigate(`/election-page/${electionId}`);
-  };
+  }, [navigate]);
 
-  // Filter elections based on status or user role
-  const getFilteredElections = () => {
+  // Memoized election status function
+  const getElectionStatus = useCallback((election) => {
+    const now = new Date();
+    const startTime = new Date(election.startingTime);
+    const endTime = new Date(election.endingTime);
+
+    if (startTime > now) return "upcoming";
+    if (startTime <= now && endTime > now) return "ongoing";
+    return "completed";
+  }, []);
+
+  // Memoized status color function
+  const getStatusColor = useCallback((status) => {
+    switch (status) {
+      case "upcoming":
+        return "bg-blue-100 text-blue-800";
+      case "ongoing":
+        return "bg-green-100 text-green-800";
+      case "completed":
+        return "bg-gray-100 text-gray-800";
+      default:
+        return "bg-gray-100 text-gray-800";
+    }
+  }, []);
+
+  // Memoized filtered elections with progressive loading
+  const { filteredElections, hasMore } = useMemo(() => {
     const now = new Date();
     
     // First filter by user role if specified
@@ -60,55 +290,80 @@ const AllElections = () => {
     // Then filter by time-based status
     switch (filter) {
       case "upcoming":
-        return filtered.filter((e) => new Date(e.startingTime) > now);
+        filtered = filtered.filter((e) => new Date(e.startingTime) > now);
+        break;
       case "ongoing":
-        return filtered.filter(
+        filtered = filtered.filter(
           (e) => new Date(e.startingTime) <= now && new Date(e.endingTime) > now
         );
+        break;
       case "completed":
-        return filtered.filter((e) => new Date(e.endingTime) <= now);
-      default:
-        return filtered;
+        filtered = filtered.filter((e) => new Date(e.endingTime) <= now);
+        break;
     }
-  };
+    
+    // Sort by most recent first for better UX
+    filtered.sort((a, b) => new Date(b.startingTime) - new Date(a.startingTime));
+    
+    return {
+      filteredElections: filtered.slice(0, displayLimit),
+      hasMore: filtered.length > displayLimit
+    };
+  }, [elections, filter, displayLimit]);
 
-  const filteredElections = getFilteredElections();
+  // Function to load more elections
+  const loadMoreElections = useCallback(() => {
+    setDisplayLimit(prev => prev + 10);
+  }, []);
 
-  const getElectionStatus = (election) => {
+  // Reset display limit when filter changes
+  useEffect(() => {
+    setDisplayLimit(10);
+  }, [filter]);
+
+  // Memoized tab counts to prevent recalculation on every render
+  const tabCounts = useMemo(() => {
     const now = new Date();
-    const startTime = new Date(election.startingTime);
-    const endTime = new Date(election.endingTime);
-
-    if (startTime > now) return "upcoming";
-    if (startTime <= now && endTime > now) return "ongoing";
-    return "completed";
-  };
-
-  const getStatusColor = (status) => {
-    switch (status) {
-      case "upcoming":
-        return "bg-blue-100 text-blue-800";
-      case "ongoing":
-        return "bg-green-100 text-green-800";
-      case "completed":
-        return "bg-gray-100 text-gray-800";
-      default:
-        return "bg-gray-100 text-gray-800";
-    }
-  };
+    return {
+      all: elections.length,
+      upcoming: elections.filter(e => new Date(e.startingTime) > now).length,
+      ongoing: elections.filter(e => new Date(e.startingTime) <= now && new Date(e.endingTime) > now).length,
+      completed: elections.filter(e => new Date(e.endingTime) <= now).length,
+      public: elections.filter(e => e.isPublic === true).length,
+      private: elections.filter(e => e.isPublic === false).length,
+      voter: elections.filter(e => (e.userRoles?.includes('voter')) || e.isPublic).length,
+      admin: elections.filter(e => e.userRoles?.includes('admin')).length,
+      guardian: elections.filter(e => e.userRoles?.includes('guardian')).length,
+    };
+  }, [elections]);
 
   if (loading) {
     return (
       <div className="space-y-6">
-        <div className="bg-white shadow rounded-lg p-6">
-          <div className="animate-pulse">
-            <div className="h-8 bg-gray-300 rounded w-1/4 mb-4"></div>
-            <div className="h-4 bg-gray-300 rounded w-1/2 mb-8"></div>
-            <div className="space-y-4">
-              {[...Array(5)].map((_, i) => (
-                <div key={i} className="h-24 bg-gray-300 rounded"></div>
+        <div className="bg-white shadow rounded-lg">
+          <div className="px-6 py-4 border-b border-gray-200">
+            <div className="animate-pulse">
+              <div className="h-8 bg-gray-300 rounded w-1/4 mb-2"></div>
+              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+            </div>
+          </div>
+          
+          {/* Filter tabs skeleton */}
+          <div className="px-6 py-4">
+            <div className="flex flex-wrap gap-2">
+              {[...Array(8)].map((_, i) => (
+                <div key={i} className="h-8 bg-gray-200 rounded-md w-20 animate-pulse"></div>
               ))}
             </div>
+          </div>
+        </div>
+
+        {/* Elections List Skeleton */}
+        <div className="bg-white shadow rounded-lg">
+          <div className="divide-y divide-gray-200">
+            {[...Array(5)].map((_, i) => (
+              <ElectionCardSkeleton key={i} />
+            ))}
           </div>
         </div>
       </div>
@@ -152,15 +407,15 @@ const AllElections = () => {
         <div className="px-6 py-4">
           <div className="flex flex-wrap gap-2">
             {[
-              { key: "all", label: "All Elections", count: elections.length },
-              { key: "upcoming", label: "Upcoming", count: elections.filter(e => new Date(e.startingTime) > new Date()).length },
-              { key: "ongoing", label: "Ongoing", count: elections.filter(e => new Date(e.startingTime) <= new Date() && new Date(e.endingTime) > new Date()).length },
-              { key: "completed", label: "Completed", count: elections.filter(e => new Date(e.endingTime) <= new Date()).length },
-              { key: "public", label: "Public", count: elections.filter(e => e.isPublic === true).length },
-              { key: "private", label: "Private", count: elections.filter(e => e.isPublic === false).length },
-              { key: "voter", label: "As Voter", count: elections.filter(e => (e.userRoles?.includes('voter')) || e.isPublic).length },
-              { key: "admin", label: "As Admin", count: elections.filter(e => e.userRoles?.includes('admin')).length },
-              { key: "guardian", label: "As Guardian", count: elections.filter(e => e.userRoles?.includes('guardian')).length },
+              { key: "all", label: "All Elections", count: tabCounts.all },
+              { key: "upcoming", label: "Upcoming", count: tabCounts.upcoming },
+              { key: "ongoing", label: "Ongoing", count: tabCounts.ongoing },
+              { key: "completed", label: "Completed", count: tabCounts.completed },
+              { key: "public", label: "Public", count: tabCounts.public },
+              { key: "private", label: "Private", count: tabCounts.private },
+              { key: "voter", label: "As Voter", count: tabCounts.voter },
+              { key: "admin", label: "As Admin", count: tabCounts.admin },
+              { key: "guardian", label: "As Guardian", count: tabCounts.guardian },
             ].map((tab) => (
               <button
                 key={tab.key}
@@ -248,25 +503,13 @@ const AllElections = () => {
                         <div className="flex items-center">
                           <FiCalendar className="h-4 w-4 mr-1" />
                           <span>
-                            {new Date(election.startingTime).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            {timezoneUtils.formatElectionDate(election.startingTime)}
                           </span>
                         </div>
                         <div className="flex items-center">
                           <FiClock className="h-4 w-4 mr-1" />
                           <span>
-                            Ends: {new Date(election.endingTime).toLocaleDateString("en-US", {
-                              year: "numeric",
-                              month: "short",
-                              day: "numeric",
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })}
+                            Ends: {timezoneUtils.formatElectionDate(election.endingTime)}
                           </span>
                         </div>
                         <div className="flex items-center">
@@ -342,6 +585,19 @@ const AllElections = () => {
             </div>
           )}
         </div>
+        
+        {/* Load More Button */}
+        {hasMore && filteredElections.length > 0 && (
+          <div className="px-6 py-4 border-t border-gray-200">
+            <button
+              onClick={loadMoreElections}
+              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+            >
+              <FiLoader className="h-4 w-4 mr-2" />
+              Load More Elections
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

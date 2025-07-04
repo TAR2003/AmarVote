@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { electionApi } from "../utils/electionApi";
 import { userApi } from "../utils/userApi";
+import { timezoneUtils } from "../utils/timezoneUtils";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
 
@@ -207,12 +208,18 @@ const CreateElection = () => {
         setIsSubmitting(true);
 
         try {
-            // Convert dates to ISO format
+            // Convert dates to UTC format for backend storage
             const electionData = {
                 ...form,
-                startingTime: form.startingTime.toISOString(),
-                endingTime: form.endingTime.toISOString()
+                startingTime: timezoneUtils.convertToUTC(form.startingTime),
+                endingTime: timezoneUtils.convertToUTC(form.endingTime)
             };
+
+            console.log('Sending election data with UTC times:', {
+                startingTime: electionData.startingTime,
+                endingTime: electionData.endingTime,
+                userTimezone: timezoneUtils.getUserTimezone()
+            });
 
             const response = await electionApi.createElection(electionData);
             setSuccess("Election created successfully!");
