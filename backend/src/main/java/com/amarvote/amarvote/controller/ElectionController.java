@@ -17,6 +17,8 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
+import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
+import com.amarvote.amarvote.dto.CombinePartialDecryptionResponse;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionResponse;
 import com.amarvote.amarvote.dto.CreateTallyRequest;
@@ -322,6 +324,30 @@ public class ElectionController {
             System.err.println("Error creating partial decryption: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                 .body(CreatePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("Internal server error occurred: " + e.getMessage())
+                    .build());
+        }
+    }
+
+    @PostMapping(value = "/combine-partial-decryption", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<CombinePartialDecryptionResponse> combinePartialDecryption(
+            @Valid @RequestBody CombinePartialDecryptionRequest request) {
+        
+        System.out.println("Combining partial decryption for election ID: " + request.election_id());
+        
+        try {
+            CombinePartialDecryptionResponse response = partialDecryptionService.combinePartialDecryption(request);
+            
+            if (response.success()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        } catch (Exception e) {
+            System.err.println("Error combining partial decryption: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(CombinePartialDecryptionResponse.builder()
                     .success(false)
                     .message("Internal server error occurred: " + e.getMessage())
                     .build());

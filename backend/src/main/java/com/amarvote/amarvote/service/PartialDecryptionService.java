@@ -2,14 +2,19 @@ package com.amarvote.amarvote.service;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
+import com.amarvote.amarvote.dto.CombinePartialDecryptionResponse;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionResponse;
+import com.amarvote.amarvote.dto.ElectionGuardCombineDecryptionRequest;
+import com.amarvote.amarvote.dto.ElectionGuardCombineDecryptionResponse;
 import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionRequest;
 import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionResponse;
 import com.amarvote.amarvote.model.Election;
@@ -194,6 +199,175 @@ public class PartialDecryptionService {
         } catch (Exception e) {
             System.err.println("Failed to call ElectionGuard partial decryption service: " + e.getMessage());
             throw new RuntimeException("Failed to call ElectionGuard partial decryption service", e);
+        }
+    }
+
+    @Transactional
+    public CombinePartialDecryptionResponse combinePartialDecryption(CombinePartialDecryptionRequest request) {
+        try {
+            // 1. Fetch election
+            Optional<Election> electionOpt = electionRepository.findById(request.election_id());
+            if (!electionOpt.isPresent()) {
+                return CombinePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("Election not found")
+                    .build();
+            }
+            Election election = electionOpt.get();
+
+            // 2. Check if ciphertext_tally exists
+            if (election.getEncryptedTally() == null || election.getEncryptedTally().trim().isEmpty()) {
+                return CombinePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("Election tally has not been created yet. Please create the tally first.")
+                    .build();
+            }
+
+            // 3. Fetch election choices for candidate_names and party_names
+            List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionId(request.election_id());
+            if (electionChoices.isEmpty()) {
+                return CombinePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("No election choices found for this election")
+                    .build();
+            }
+
+            List<String> candidateNames = electionChoices.stream()
+                .map(ElectionChoice::getOptionTitle)
+                .collect(Collectors.toList());
+            
+            List<String> partyNames = electionChoices.stream()
+                .map(ElectionChoice::getPartyName)
+                .filter(partyName -> partyName != null && !partyName.trim().isEmpty())
+                .distinct()
+                .collect(Collectors.toList());
+
+            // 4. Fetch submitted ballots
+            List<SubmittedBallot> submittedBallots = submittedBallotRepository.findByElectionId(request.election_id());
+            List<String> ballotCipherTexts = submittedBallots.stream()
+                .map(SubmittedBallot::getCipherText)
+                .collect(Collectors.toList());
+
+            // 5. Fetch all guardians for this election
+            List<Guardian> guardians = guardianRepository.findByElectionId(request.election_id());
+            if (guardians.isEmpty()) {
+                return CombinePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("No guardians found for this election")
+                    .build();
+            }
+
+            // 6. Check if all guardians have completed their partial decryption
+            for (Guardian guardian : guardians) {
+                if (guardian.getTallyShare() == null || guardian.getTallyShare().trim().isEmpty()) {
+                    return CombinePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Sorry, all guardians have not yet decrypted their shares. Please ensure all guardians complete their partial decryption first.")
+                        .build();
+                }
+            }
+
+            // 7. Extract guardian data
+            List<String> guardianPublicKeys = guardians.stream()
+                .map(Guardian::getGuardianDecryptionKey)
+                .collect(Collectors.toList());
+            
+            List<String> tallyShares = guardians.stream()
+                .map(Guardian::getTallyShare)
+                .collect(Collectors.toList());
+            
+            List<Object> ballotShares = guardians.stream()
+                .map(guardian -> {
+                    try {
+                        if (guardian.getPartialDecryptedTally() != null && !guardian.getPartialDecryptedTally().trim().isEmpty()) {
+                            return objectMapper.readValue(guardian.getPartialDecryptedTally(), Object.class);
+                        }
+                        return null;
+                    } catch (Exception e) {
+                        System.err.println("Failed to parse partial decrypted tally for guardian: " + e.getMessage());
+                        return null;
+                    }
+                })
+                .collect(Collectors.toList());
+
+            // 8. Parse the encrypted tally JSON from database
+            Object ciphertextTallyObject = null;
+            try {
+                ciphertextTallyObject = objectMapper.readValue(election.getEncryptedTally(), Object.class);
+            } catch (Exception e) {
+                System.err.println("Failed to parse encrypted tally JSON: " + e.getMessage());
+                return CombinePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("Failed to parse encrypted tally data")
+                    .build();
+            }
+
+            // 9. Call ElectionGuard microservice
+            ElectionGuardCombineDecryptionRequest guardRequest = ElectionGuardCombineDecryptionRequest.builder()
+                .party_names(partyNames)
+                .candidate_names(candidateNames)
+                .joint_public_key(election.getJointPublicKey())
+                .commitment_hash(election.getBaseHash())
+                .ciphertext_tally(ciphertextTallyObject)
+                .submitted_ballots(ballotCipherTexts)
+                .guardian_public_keys(guardianPublicKeys)
+                .tally_shares(tallyShares)
+                .ballot_shares(ballotShares)
+                .build();
+
+            ElectionGuardCombineDecryptionResponse guardResponse = callElectionGuardCombineDecryptionService(guardRequest);
+
+            // 10. Return the results
+            if ("success".equals(guardResponse.status())) {
+                return CombinePartialDecryptionResponse.builder()
+                    .success(true)
+                    .message("Partial decryption combined successfully")
+                    .results(guardResponse.results())
+                    .build();
+            } else {
+                return CombinePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("Failed to combine partial decryption: " + guardResponse.message())
+                    .build();
+            }
+
+        } catch (Exception e) {
+            System.err.println("Error combining partial decryption: " + e.getMessage());
+            return CombinePartialDecryptionResponse.builder()
+                .success(false)
+                .message("Internal server error: " + e.getMessage())
+                .build();
+        }
+    }
+
+    private ElectionGuardCombineDecryptionResponse callElectionGuardCombineDecryptionService(
+            ElectionGuardCombineDecryptionRequest request) {
+        
+        try {
+            String url = "/combine_partial_decryption";
+            
+            System.out.println("Calling ElectionGuard combine decryption service at: " + url);
+            System.out.println("Sending request to ElectionGuard service: " + request);
+            
+            String response = webClient.post()
+                .uri(url)
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON)
+                .bodyValue(request)
+                .retrieve()
+                .bodyToMono(String.class)
+                .block();
+            
+            System.out.println("Received response from ElectionGuard service: " + response);
+            
+            if (response == null) {
+                throw new RuntimeException("Invalid response from ElectionGuard service");
+            }
+
+            return objectMapper.readValue(response, ElectionGuardCombineDecryptionResponse.class);
+        } catch (Exception e) {
+            System.err.println("Failed to call ElectionGuard combine decryption service: " + e.getMessage());
+            throw new RuntimeException("Failed to call ElectionGuard combine decryption service", e);
         }
     }
 }
