@@ -16,6 +16,7 @@ import com.amarvote.amarvote.dto.ElectionDetailResponse; // Added: For handling 
 import com.amarvote.amarvote.dto.ElectionGuardianSetupRequest;
 import com.amarvote.amarvote.dto.ElectionGuardianSetupResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
+import com.amarvote.amarvote.dto.OptimizedElectionResponse;
 import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
@@ -213,14 +214,48 @@ public class ElectionService {
      * 1. All elections where the user is in the allowed voters list
      * 2. All elections where the user is the admin (admin_email matches)
      * 3. All elections where the user is a guardian
+     * 
+     * Optimized implementation to retrieve all required election data in a single query
+     * to avoid N+1 query problems when fetching hundreds of elections.
      */
     public List<ElectionResponse> getAllAccessibleElections(String userEmail) {
-        System.out.println("Fetching accessible elections for user: " + userEmail);
-        List<Election> elections = electionRepository.findAllAccessibleElections(userEmail);
-        System.out.println("Found " + elections.size() + " accessible elections for user: " + userEmail);
-        return elections.stream()
-                .map(election -> convertToElectionResponse(election, userEmail))
+        System.out.println("Fetching optimized accessible elections for user: " + userEmail);
+        long startTime = System.currentTimeMillis();
+        
+        List<Object[]> queryResults = electionRepository.findOptimizedAccessibleElectionsWithDetails(userEmail);
+        
+        // Convert query results to DTOs
+        List<OptimizedElectionResponse> optimizedResponses = queryResults.stream()
+                .map(OptimizedElectionResponse::fromQueryResult)
                 .collect(Collectors.toList());
+        
+        // Convert to ElectionResponse for backward compatibility
+        List<ElectionResponse> responses = optimizedResponses.stream()
+                .map(opt -> ElectionResponse.builder()
+                        .electionId(opt.getElectionId())
+                        .electionTitle(opt.getElectionTitle())
+                        .electionDescription(opt.getElectionDescription())
+                        .status(opt.getStatus())
+                        .startingTime(opt.getStartingTime())
+                        .endingTime(opt.getEndingTime())
+                        .profilePic(opt.getProfilePic())
+                        .adminEmail(opt.getAdminEmail())
+                        .adminName(opt.getAdminName())
+                        .numberOfGuardians(opt.getNumberOfGuardians())
+                        .electionQuorum(opt.getElectionQuorum())
+                        .noOfCandidates(opt.getNoOfCandidates())
+                        .createdAt(opt.getCreatedAt())
+                        .userRoles(opt.getUserRoles())
+                        .isPublic(opt.getIsPublic())
+                        .hasVoted(opt.getHasVoted())
+                        .build())
+                .collect(Collectors.toList());
+        
+        long endTime = System.currentTimeMillis();
+        System.out.println("Found " + responses.size() + " accessible elections for user: " + userEmail + 
+                " in " + (endTime - startTime) + "ms");
+        
+        return responses;
     }
 
     /**
@@ -255,6 +290,12 @@ public class ElectionService {
 
     /**
      * Convert Election entity to ElectionResponse DTO with user roles
+     * 
+     * NOTE: This method is now primarily used for individual election fetches.
+     * For fetching multiple elections (like in getAllAccessibleElections), 
+     * we use a more optimized approach with batch fetching to avoid N+1 query problems.
+     * 
+     * @see #getAllAccessibleElections(String)
      */
     private ElectionResponse convertToElectionResponse(Election election, String userEmail) {
         // Determine user roles for this election

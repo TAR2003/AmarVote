@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams } from 'react-router-dom';
 import { electionApi } from '../utils/electionApi';
+import { timezoneUtils } from '../utils/timezoneUtils';
 import { 
   FiCalendar, 
   FiClock, 
@@ -151,7 +152,7 @@ export default function ElectionPage() {
 Election: ${electionData.electionTitle}
 Vote Hash: ${voteResult.hashCode}
 Tracking Code: ${voteResult.trackingCode}
-Date: ${new Date().toLocaleString()}
+Date: ${timezoneUtils.formatForDisplay(new Date().toISOString())}
 Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
     `.trim();
@@ -166,7 +167,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
   };
 
   const formatDate = (dateString) => {
-    return new Date(dateString).toLocaleString();
+    return timezoneUtils.formatForDisplay(dateString);
   };
 
   const getElectionStatus = () => {

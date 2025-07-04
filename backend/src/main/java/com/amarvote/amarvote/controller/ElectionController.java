@@ -67,6 +67,11 @@ public class ElectionController {
         return ResponseEntity.status(HttpStatus.CREATED).body(election);
     }
 
+    /**
+     * Get all elections accessible to the current user
+     * This endpoint is optimized to fetch all required data in a single query
+     * to avoid N+1 query problems when dealing with hundreds of elections.
+     */
     @GetMapping("/all-elections")
     public ResponseEntity<List<ElectionResponse>> getAllElections(HttpServletRequest httpRequest) {
         try {
@@ -85,12 +90,12 @@ public class ElectionController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
             
-            System.out.println("Fetching all accessible elections for user: " + userEmail);
+            System.out.println("API: Fetching optimized accessible elections for user: " + userEmail);
             
-            // Get all elections accessible to the user
+            // Get all elections accessible to the user using the optimized method
             List<ElectionResponse> accessibleElections = electionService.getAllAccessibleElections(userEmail);
             
-            System.out.println("Found " + accessibleElections.size() + " accessible elections");
+            System.out.println("API: Found " + accessibleElections.size() + " accessible elections - data includes all fields required by frontend");
             
             return ResponseEntity.ok(accessibleElections);
             
