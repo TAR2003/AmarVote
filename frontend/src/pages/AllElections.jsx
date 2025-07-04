@@ -283,13 +283,22 @@ const AllElections = () => {
                     <div className="flex-shrink-0 ml-4">
                       {status === "ongoing" && (
                         <button 
-                          className="inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                            election.hasVoted 
+                              ? 'text-gray-700 bg-gray-200 cursor-not-allowed'
+                              : ((election.userRoles?.includes('voter') || election.isPublic) 
+                                  ? 'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' 
+                                  : 'text-gray-700 bg-gray-200 hover:bg-gray-300 focus:ring-gray-500')
+                          }`}
                           onClick={(e) => {
                             e.stopPropagation();
                             handleElectionClick(election.electionId);
                           }}
+                          disabled={election.hasVoted && ((election.userRoles?.includes('voter') || election.isPublic))}
                         >
-                          {(election.userRoles?.includes('voter') || election.isPublic) ? 'Vote Now' : 'View Election'}
+                          {/* Show Vote Now only if user is eligible and hasn't voted yet */}
+                          {((election.userRoles?.includes('voter') || election.isPublic) && !election.hasVoted) ? 'Vote Now' : 
+                           election.hasVoted ? 'Already Voted' : 'View Election'}
                         </button>
                       )}
                       {status === "upcoming" && (

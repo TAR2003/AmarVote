@@ -33,6 +33,6 @@ public class ElectionResponse {
     // Indicates if the election is public (no allowed voters) or private (has allowed voters)
     private Boolean isPublic;
     
-    // Note: Sensitive fields like jointPublicKey, manifestHash, baseHash, etc. 
-    // are not included in this response DTO for security reasons
+    // Indicates if the current user has already voted in this election
+    private Boolean hasVoted;
 }

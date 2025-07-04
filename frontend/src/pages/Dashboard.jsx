@@ -8,12 +8,14 @@ import {
   FiAward,
 } from "react-icons/fi";
 import { fetchAllElections } from "../utils/api";
+import { electionApi } from "../utils/electionApi"; // Add import for electionApi
 
 const Dashboard = ({ userEmail }) => {
   const navigate = useNavigate();
   const [elections, setElections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [eligibilityStatus, setEligibilityStatus] = useState({}); // Add eligibility status state
 
   useEffect(() => {
     const loadElections = async () => {
@@ -21,6 +23,28 @@ const Dashboard = ({ userEmail }) => {
         setLoading(true);
         const electionData = await fetchAllElections();
         setElections(electionData);
+        
+        // Check eligibility for ongoing elections
+        const now = new Date();
+        const ongoingElections = electionData.filter(
+          e => new Date(e.startingTime) <= now && new Date(e.endingTime) > now
+        );
+        
+        // Create an object to store eligibility status for each election
+        const eligibilityData = {};
+        
+        // Check eligibility for each ongoing election
+        await Promise.all(ongoingElections.map(async (election) => {
+          try {
+            const response = await electionApi.checkEligibility(election.electionId);
+            eligibilityData[election.electionId] = response;
+          } catch (error) {
+            console.error(`Error checking eligibility for election ${election.electionId}:`, error);
+            eligibilityData[election.electionId] = { canVote: false, hasVoted: false, reason: "Error checking eligibility" };
+          }
+        }));
+        
+        setEligibilityStatus(eligibilityData);
       } catch (err) {
         setError(err.message);
         console.error("Error loading elections:", err);
@@ -103,6 +127,75 @@ const Dashboard = ({ userEmail }) => {
   };
 
   const { upcoming, ongoing, completed } = categorizeElections();
+
+  // Check eligibility for elections
+  useEffect(() => {
+    const checkEligibility = async () => {
+      try {
+        const statuses = await Promise.all(
+          elections.map(async (election) => {
+            if (election.isPublic) {
+              return { electionId: election.electionId, eligible: true };
+            } else {
+              const response = await electionApi.checkVoterEligibility(
+                election.electionId,
+                userEmail
+              );
+              return { electionId: election.electionId, eligible: response.eligible };
+            }
+          })
+        );
+
+        const eligibilityMap = {};
+        statuses.forEach((status) => {
+          eligibilityMap[status.electionId] = status.eligible;
+        });
+        setEligibilityStatus(eligibilityMap);
+      } catch (err) {
+        console.error("Error checking eligibility:", err);
+      }
+    };
+
+    if (elections.length > 0) {
+      checkEligibility();
+    }
+  }, [elections, userEmail]);
+
+  // Get button style and text based on eligibility status
+  const getVoteButtonInfo = (election) => {
+    const electionId = election.electionId;
+    const eligibility = eligibilityStatus[electionId];
+    
+    // Default values if eligibility check hasn't completed
+    let buttonText = "View Election";
+    let buttonStyle = "text-gray-700 bg-gray-200 hover:bg-gray-300 focus:ring-gray-500";
+    let isDisabled = false;
+    
+    // If we have eligibility data for this election
+    if (eligibility) {
+      if (eligibility.hasVoted) {
+        buttonText = "Already Voted";
+        buttonStyle = "text-gray-700 bg-gray-200 cursor-not-allowed";
+        isDisabled = true;
+      } else if (eligibility.canVote) {
+        buttonText = "Vote Now";
+        buttonStyle = "text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500";
+        isDisabled = false;
+      } else {
+        buttonText = "Not Eligible";
+        buttonStyle = "text-gray-700 bg-gray-200 cursor-not-allowed";
+        isDisabled = true;
+      }
+    } else {
+      // If user roles suggest they can vote, show "Vote Now" pending eligibility check
+      if ((election.userRoles?.includes('voter') || election.isPublic) && !election.hasVoted) {
+        buttonText = "Vote Now";
+        buttonStyle = "text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500";
+      }
+    }
+    
+    return { buttonText, buttonStyle, isDisabled };
+  };
 
   if (loading) {
     return (
@@ -293,15 +386,21 @@ const Dashboard = ({ userEmail }) => {
                       </p>
                     </div>
                     <div className="flex-shrink-0 ml-4">
-                      <button 
-                        className="inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
-                        onClick={(e) => {
-                          e.stopPropagation();
-                          handleElectionClick(election.electionId);
-                        }}
-                      >
-                        {(election.userRoles?.includes('voter') || election.isPublic) ? 'Vote Now' : 'View Election'}
-                      </button>
+                      {(() => {
+                        const { buttonText, buttonStyle, isDisabled } = getVoteButtonInfo(election);
+                        return (
+                          <button 
+                            className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${buttonStyle}`}
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              handleElectionClick(election.electionId);
+                            }}
+                            disabled={isDisabled}
+                          >
+                            {buttonText}
+                          </button>
+                        );
+                      })()}
                     </div>
                   </div>
                 </div>

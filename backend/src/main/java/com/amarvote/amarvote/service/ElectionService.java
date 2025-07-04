@@ -99,6 +99,7 @@ public class ElectionService {
         election.setEndingTime(request.endingTime());
         election.setBaseHash(guardianResponse.commitment_hash());
         election.setAdminEmail(userEmail); // Set admin email from request
+        election.setPrivacy(request.electionPrivacy()); // Set privacy field
 
         // ✅ Save to DB to get generated ID
         election = electionRepository.save(election);
@@ -276,10 +277,17 @@ public class ElectionService {
             userRoles.add("guardian");
         }
         
-        // Determine if election is public or private
-        // Public elections have no allowed voters, private elections have specific allowed voters
-        List<AllowedVoter> allAllowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
-        boolean isPublic = allAllowedVoters.isEmpty();
+        // Determine if election is public or private based on privacy field
+        boolean isPublic = "public".equals(election.getPrivacy());
+        
+        // Check if user has already voted in this election
+        boolean hasVoted = false;
+        Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
+        if (userOpt.isPresent()) {
+            List<AllowedVoter> allAllowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
+            hasVoted = allAllowedVoters.stream()
+                .anyMatch(av -> av.getUserId().equals(userOpt.get().getUserId()) && av.getHasVoted());
+        }
         
         // Get admin name
         String adminName = null;
@@ -306,6 +314,7 @@ public class ElectionService {
                 .createdAt(election.getCreatedAt())
                 .userRoles(userRoles)
                 .isPublic(isPublic)
+                .hasVoted(hasVoted)
                 .build();
     }
 
@@ -370,9 +379,8 @@ public class ElectionService {
             return true;
         }
         
-        // Check if election is public (no allowed voters)
-        List<AllowedVoter> allVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
-        if (allVoters.isEmpty()) {
+        // Check if election is public (privacy = 'public')
+        if ("public".equals(election.getPrivacy())) {
             System.out.println("Election " + election.getElectionId() + " is public");
             return true;
         }
@@ -388,9 +396,8 @@ public class ElectionService {
         // Get user roles for this election
         List<String> userRoles = getUserRolesForElection(election, userEmail);
         
-        // Check if election is public
-        List<AllowedVoter> allVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
-        Boolean isPublic = allVoters.isEmpty();
+        // Check if election is public based on privacy field
+        Boolean isPublic = "public".equals(election.getPrivacy());
         
         // Get guardians with user details
         List<ElectionDetailResponse.GuardianInfo> guardians = getGuardianInfoForElection(election.getElectionId());

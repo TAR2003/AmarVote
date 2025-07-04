@@ -35,6 +35,7 @@ CREATE TABLE IF NOT EXISTS elections (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     profile_pic TEXT,
     admin_email TEXT, -- Added admin_email field
+	privacy TEXT,
     CONSTRAINT valid_election_times CHECK (ending_time > starting_time),
     CONSTRAINT valid_status CHECK (status IN ('draft', 'active', 'completed', 'decrypted'))
 );

@@ -76,6 +76,9 @@ public class Election {
 
     @Column(name  = "admin_email", columnDefinition = "TEXT")
     private String adminEmail;
+
+    @Column(name = "privacy", columnDefinition = "TEXT")
+    private String privacy;
 }
 
 
