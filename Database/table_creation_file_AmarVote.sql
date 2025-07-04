@@ -175,6 +175,15 @@ CREATE TABLE IF NOT EXISTS signup_verification (
     expiry_date TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
+-- Submitted Ballots Table (for ElectionGuard tally results)
+CREATE TABLE IF NOT EXISTS submitted_ballots (
+    submitted_ballot_id SERIAL PRIMARY KEY,
+    election_id INTEGER NOT NULL,
+    cipher_text TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE
+);
+
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_ballots_election ON ballots(election_id);
 CREATE INDEX IF NOT EXISTS idx_ballots_tracking ON ballots(tracking_code);
@@ -188,3 +197,4 @@ CREATE INDEX IF NOT EXISTS idx_audit_log_user ON audit_log(user_id);
 CREATE INDEX IF NOT EXISTS idx_password_reset_email ON password_reset_tokens(email);
 CREATE INDEX IF NOT EXISTS idx_password_reset_token ON password_reset_tokens(token);
 CREATE INDEX IF NOT EXISTS idx_verification_code ON signup_verification(verification_code);
+CREATE INDEX IF NOT EXISTS idx_submitted_ballots_election ON submitted_ballots(election_id);
