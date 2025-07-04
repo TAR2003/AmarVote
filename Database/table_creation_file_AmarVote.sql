@@ -58,8 +58,10 @@ CREATE TABLE IF NOT EXISTS guardians (
     guardian_polynomial TEXT NOT NULL,
     sequence_order INTEGER NOT NULL CHECK (sequence_order > 0),
     decrypted_or_not BOOLEAN NOT NULL DEFAULT FALSE,
-    partial_decrypted_tally TEXT,
+    partial_decrypted_tally JSONB,
     proof TEXT,
+    guardian_decryption_key TEXT, -- Added guardian_decryption_key field
+    tally_share TEXT, -- Added tally_share field
     PRIMARY KEY (election_id, user_id),
     CONSTRAINT unique_sequence_order UNIQUE (election_id, sequence_order),
     CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE,
@@ -97,6 +99,17 @@ CREATE TABLE IF NOT EXISTS ballots (
     CONSTRAINT unique_tracking_code UNIQUE (tracking_code),
     CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE,
     CONSTRAINT valid_ballot_status CHECK (status IN ('cast', 'spoiled', 'challenged'))
+);
+
+
+
+-- Submitted Ballots Table (for ElectionGuard tally results)
+CREATE TABLE IF NOT EXISTS submitted_ballots (
+    submitted_ballot_id SERIAL PRIMARY KEY,
+    election_id INTEGER NOT NULL,
+    cipher_text TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE
 );
 
 -- Decryption Table
@@ -175,14 +188,6 @@ CREATE TABLE IF NOT EXISTS signup_verification (
     expiry_date TIMESTAMP WITH TIME ZONE NOT NULL
 );
 
--- Submitted Ballots Table (for ElectionGuard tally results)
-CREATE TABLE IF NOT EXISTS submitted_ballots (
-    submitted_ballot_id SERIAL PRIMARY KEY,
-    election_id INTEGER NOT NULL,
-    cipher_text TEXT NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE
-);
 
 -- Create indexes
 CREATE INDEX IF NOT EXISTS idx_ballots_election ON ballots(election_id);

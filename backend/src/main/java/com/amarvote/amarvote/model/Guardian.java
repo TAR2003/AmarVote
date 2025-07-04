@@ -1,5 +1,8 @@
 package com.amarvote.amarvote.model;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -34,9 +37,16 @@ public class Guardian {
     @Column(name = "decrypted_or_not", nullable = false)
     private Boolean decryptedOrNot = false;
 
-    @Column(name = "partial_decrypted_tally", columnDefinition = "TEXT")
+     @Column(name = "partial_decrypted_tally", columnDefinition = "JSONB")
+    @JdbcTypeCode(SqlTypes.JSON)
     private String partialDecryptedTally;
 
     @Column(name = "proof", columnDefinition = "TEXT")
     private String proof;
+
+    @Column(name = "guardian_decryption_key", columnDefinition = "TEXT")
+    private String guardianDecryptionKey; // Added guardian_decryption_key field
+
+    @Column(name = "tally_share", columnDefinition = "TEXT")
+    private String tallyShare; // Added tally_share field
 }
