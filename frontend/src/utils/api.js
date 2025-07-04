@@ -1,6 +1,13 @@
 // API utilities for making requests to the backend
 const API_BASE_URL = '/api';
 
+// Get CSRF token from cookie
+function getCsrfToken() {
+  const cookies = document.cookie.split('; ');
+  const csrfCookie = cookies.find(cookie => cookie.startsWith('XSRF-TOKEN='));
+  return csrfCookie ? csrfCookie.split('=')[1] : '';
+}
+
 /**
  * Make an authenticated API request
  * @param {string} endpoint - API endpoint
@@ -10,22 +17,49 @@ const API_BASE_URL = '/api';
 export async function apiRequest(endpoint, options = {}) {
   const url = `${API_BASE_URL}${endpoint}`;
   
-  const defaultOptions = {
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+  // Include CSRF token for non-GET requests
+  const headers = {
+    'Content-Type': 'application/json',
+    ...options.headers,
   };
   
-  const response = await fetch(url, { ...defaultOptions, ...options });
-  
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+  if (options.method && options.method !== 'GET') {
+    const csrfToken = getCsrfToken();
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+    }
+    console.log(`CSRF token for ${endpoint}:`, csrfToken ? 'present' : 'missing');
   }
   
-  return response.json();
+  const defaultOptions = {
+    credentials: 'include',
+    headers
+  };
+  
+  try {
+    const response = await fetch(url, { ...defaultOptions, ...options });
+    
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch (e) {
+        errorData = {};
+      }
+      
+      console.error(`API Error (${response.status}):`, errorData);
+      throw new Error(
+        errorData.message || 
+        (errorData.error && errorData.error.message) || 
+        `Request failed with status ${response.status}: ${response.statusText}`
+      );
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error(`API Request failed for ${endpoint}:`, error);
+    throw error;
+  }
 }
 
 /**
@@ -118,6 +152,62 @@ export async function logoutUser() {
     });
   } catch (error) {
     console.error('Error logging out:', error);
+    throw error;
+  }
+}
+
+/**
+ * Get user profile data
+ * @returns {Promise<Object>} User profile data
+ */
+export async function getUserProfile() {
+  try {
+    const response = await apiRequest('/auth/profile', {
+      method: 'GET',
+    });
+    return response;
+  } catch (error) {
+    console.error('Error fetching user profile:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update user profile
+ * @param {Object} profileData - Profile data to update (userName, profilePic, nid)
+ * @returns {Promise<Object>} Updated profile data
+ */
+export async function updateUserProfile(profileData) {
+  try {
+    console.log('Sending profile update request:', profileData);
+    const response = await apiRequest('/auth/profile', {
+      method: 'PUT',
+      body: JSON.stringify(profileData),
+    });
+    console.log('Profile update response:', response);
+    return response;
+  } catch (error) {
+    console.error('Error updating user profile:', error);
+    throw error;
+  }
+}
+
+/**
+ * Update user password
+ * @param {Object} passwordData - Password data (currentPassword, newPassword, confirmPassword)
+ * @returns {Promise<Object>} Success response
+ */
+export async function updateUserPassword(passwordData) {
+  try {
+    console.log('Sending password update request');
+    const response = await apiRequest('/auth/password', {
+      method: 'PUT',
+      body: JSON.stringify(passwordData),
+    });
+    console.log('Password update response:', response);
+    return response;
+  } catch (error) {
+    console.error('Error updating password:', error);
     throw error;
   }
 }

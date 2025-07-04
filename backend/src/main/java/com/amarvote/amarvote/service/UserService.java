@@ -1,6 +1,7 @@
 package com.amarvote.amarvote.service;
 
 import java.time.OffsetDateTime;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -15,6 +16,8 @@ import com.amarvote.amarvote.dto.LoginRequest;
 import com.amarvote.amarvote.dto.LoginResponse;
 import com.amarvote.amarvote.dto.RegisterRequest;
 import com.amarvote.amarvote.dto.RegisterResponse;
+import com.amarvote.amarvote.dto.UpdateProfileRequest;
+import com.amarvote.amarvote.dto.UserProfileDTO;
 import com.amarvote.amarvote.model.User;
 import com.amarvote.amarvote.repository.UserRepository;
 
@@ -104,5 +107,58 @@ public class UserService {
 
     public String getJwtToken(String email) {
         return jwtService.generateJWTToken(email);
+    }
+    
+    /**
+     * Get user profile by email
+     * @param email User's email
+     * @return UserProfileDTO containing user profile information
+     */
+    public Optional<UserProfileDTO> getUserProfileByEmail(String email) {
+        return userRepository.findByUserEmail(email)
+                .map(user -> new UserProfileDTO(
+                        user.getUserId(),
+                        user.getUserEmail(),
+                        user.getUserName(),
+                        user.getNid(),
+                        user.getProfilePic(),
+                        user.isVerified()
+                ));
+    }
+    
+    /**
+     * Update user profile
+     * @param email User's email
+     * @param request Update profile request containing new profile information
+     * @return Updated UserProfileDTO
+     */
+    @Transactional
+    public Optional<UserProfileDTO> updateUserProfile(String email, UpdateProfileRequest request) {
+        return userRepository.findByUserEmail(email)
+                .map(user -> {
+                    // Update user fields if provided in the request
+                    if (request.getUserName() != null && !request.getUserName().trim().isEmpty()) {
+                        user.setUserName(request.getUserName());
+                    }
+                    
+                    if (request.getNid() != null) {
+                        user.setNid(request.getNid());
+                    }
+                    
+                    if (request.getProfilePic() != null) {
+                        user.setProfilePic(request.getProfilePic());
+                    }
+                    
+                    userRepository.save(user);
+                    
+                    return new UserProfileDTO(
+                            user.getUserId(),
+                            user.getUserEmail(),
+                            user.getUserName(),
+                            user.getNid(),
+                            user.getProfilePic(),
+                            user.isVerified()
+                    );
+                });
     }
 }
