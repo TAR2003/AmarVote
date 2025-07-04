@@ -17,9 +17,11 @@ import com.amarvote.amarvote.dto.ElectionGuardTallyResponse;
 import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
+import com.amarvote.amarvote.model.SubmittedBallot;
 import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
+import com.amarvote.amarvote.repository.SubmittedBallotRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
@@ -37,6 +39,9 @@ public class TallyService {
     
     @Autowired
     private ElectionChoiceRepository electionChoiceRepository;
+    
+    @Autowired
+    private SubmittedBallotRepository submittedBallotRepository;
     
     @Autowired
     private WebClient webClient;
@@ -156,6 +161,24 @@ public class TallyService {
             
             election.setEncryptedTally(ciphertextTallyJson);
             electionRepository.save(election);
+            
+            // Save submitted_ballots from ElectionGuard response
+            if (guardResponse.getSubmitted_ballots() != null && guardResponse.getSubmitted_ballots().length > 0) {
+                System.out.println("Saving " + guardResponse.getSubmitted_ballots().length + " submitted ballots for election: " + request.getElection_id());
+                
+                for (String submittedBallotCipherText : guardResponse.getSubmitted_ballots()) {
+                    SubmittedBallot submittedBallot = SubmittedBallot.builder()
+                        .electionId(request.getElection_id())
+                        .cipherText(submittedBallotCipherText)
+                        .build();
+                    
+                    submittedBallotRepository.save(submittedBallot);
+                }
+                
+                System.out.println("Successfully saved submitted ballots for election: " + request.getElection_id());
+            } else {
+                System.out.println("No submitted ballots received from ElectionGuard for election: " + request.getElection_id());
+            }
             
             System.out.println("Successfully created and saved encrypted tally for election: " + request.getElection_id());
             
