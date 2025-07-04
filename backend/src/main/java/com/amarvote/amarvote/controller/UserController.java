@@ -1,5 +1,7 @@
 package com.amarvote.amarvote.controller;
 
+import java.util.Map;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -8,6 +10,7 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -16,6 +19,8 @@ import com.amarvote.amarvote.dto.LoginRequest;
 import com.amarvote.amarvote.dto.LoginResponse;
 import com.amarvote.amarvote.dto.RegisterRequest;
 import com.amarvote.amarvote.dto.RegisterResponse;
+import com.amarvote.amarvote.dto.UpdatePasswordRequest;
+import com.amarvote.amarvote.dto.UpdateProfileRequest;
 import com.amarvote.amarvote.dto.UserSession;
 import com.amarvote.amarvote.service.UserService;
 
@@ -29,6 +34,69 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+    
+    @GetMapping("/profile")
+    public ResponseEntity<?> getUserProfile() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        if (authentication == null || !authentication.isAuthenticated() 
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No active session");
+        }
+        
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        String email = userDetails.getUsername();
+        
+        return userService.getUserProfileByEmail(email)
+                .map(profile -> ResponseEntity.ok(profile))
+                .orElse(ResponseEntity.notFound().build());
+    }
+    
+    @PutMapping("/profile")
+    public ResponseEntity<?> updateUserProfile(@Valid @RequestBody UpdateProfileRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        if (authentication == null || !authentication.isAuthenticated() 
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No active session");
+        }
+        
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        String email = userDetails.getUsername();
+        
+        return userService.updateUserProfile(email, request)
+                .map(profile -> ResponseEntity.ok(profile))
+                .orElse(ResponseEntity.notFound().build());
+    }
+    
+    @PutMapping("/password")
+    public ResponseEntity<?> updatePassword(@Valid @RequestBody UpdatePasswordRequest request) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        if (authentication == null || !authentication.isAuthenticated() 
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No active session");
+        }
+        
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        String email = userDetails.getUsername();
+        
+        // Check if current password is valid
+        if (!userService.checkPassword(email, request.getCurrentPassword())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("success", false, "message", "Current password is incorrect"));
+        }
+        
+        // Check if new passwords match
+        if (!request.getNewPassword().equals(request.getConfirmPassword())) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("success", false, "message", "New password and confirmation do not match"));
+        }
+        
+        // Update password
+        userService.updatePasswordByEmail(email, request.getNewPassword());
+        return ResponseEntity.ok(Map.of("success", true, "message", "Password updated successfully"));
+    }
 
     @PostMapping("/register")
     public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {

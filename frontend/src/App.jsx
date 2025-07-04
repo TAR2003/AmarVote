@@ -116,7 +116,7 @@ function App() {
             />
           }
         >
-          <Route path="/profile" element={<Profile userEmail={userEmail} />} />
+          <Route path="/profile" element={<Profile />} />
           <Route
             path="/dashboard"
             element={<Dashboard userEmail={userEmail} setUserEmail={setUserEmail} />}
