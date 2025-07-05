@@ -131,21 +131,100 @@ export const electionApi = {
         }),
       });
 
-      const data = await response.json();
-      
       if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
+      const data = await response.json();
       return data;
     } catch (error) {
       console.error('Error checking eligibility:', error);
-      // Return a default object that indicates the user cannot vote
-      return {
-        canVote: false,
-        hasVoted: false,
-        reason: error.message || 'Error checking eligibility'
-      };
+      throw error;
+    }
+  },
+
+  /**
+   * Create tally for an election (automatically called when election page loads)
+   */
+  async createTally(electionId) {
+    try {
+      const response = await fetch('/api/create-tally', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          election_id: electionId
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error creating tally:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Submit guardian partial decryption key
+   */
+  async submitGuardianKey(electionId, guardianKey) {
+    try {
+      const response = await fetch('/api/partial-decryption', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          election_id: electionId,
+          key: guardianKey
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error submitting guardian key:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Combine partial decryptions to get final results
+   */
+  async combinePartialDecryptions(electionId) {
+    try {
+      const response = await fetch('/api/combine-partial-decryption', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          election_id: electionId
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error combining partial decryptions:', error);
+      throw error;
     }
   },
 };
