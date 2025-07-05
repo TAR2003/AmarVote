@@ -1,27 +1,18 @@
-# Build stage
-FROM node:18-alpine AS build
-
+# Stage 1: Build with memory limits
+FROM node:18-alpine AS builder
 WORKDIR /app
+ENV NODE_OPTIONS="--max-old-space-size=512"
 COPY package*.json ./
-RUN npm install
+RUN npm ci --production
 COPY . .
 RUN npm run build
 
-# Production stage
+# Stage 2: Production runtime
 FROM nginx:alpine
-
-# Remove default nginx config
 RUN rm -rf /etc/nginx/conf.d/*
-
-# Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
-
-# Copy built files
-COPY --from=build /app/dist /usr/share/nginx/html
-
-# Set permissions for nginx
+COPY --from=builder /app/dist /usr/share/nginx/html
 RUN chown -R nginx:nginx /usr/share/nginx/html && \
     chmod -R 755 /usr/share/nginx/html
-
 EXPOSE 80
 CMD ["nginx", "-g", "daemon off;"]
