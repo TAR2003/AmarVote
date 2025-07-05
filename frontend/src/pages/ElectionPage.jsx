@@ -272,7 +272,7 @@ export default function ElectionPage() {
   const [tallyCreated, setTallyCreated] = useState(false);
   const [creatingTally, setCreatingTally] = useState(false);
 
-  // Load election data and create tally
+  // Load election data and optionally create tally
   useEffect(() => {
     const fetchElectionData = async () => {
       try {
@@ -286,8 +286,13 @@ export default function ElectionPage() {
           const currentUser = data.voters?.find(voter => voter.isCurrentUser);
           setHasVoted(currentUser?.hasVoted || false);
           
-          // Auto-create tally when page loads
-          await createTallyForElection(id);
+          // Auto-create tally if election has ended and tally doesn't exist yet
+          const electionStatus = getElectionStatusFromData(data);
+          
+          if (electionStatus === 'Ended' && !data.encryptedTally) {
+            console.log('Election has ended - creating tally automatically');
+            await createTallyForElection(id);
+          }
         }
       } catch (err) {
         setError('Failed to load election data: ' + err.message);
@@ -468,14 +473,19 @@ export default function ElectionPage() {
     
     try {
       const result = await electionApi.submitGuardianKey(id, guardianKey);
-      setKeySubmissionResult(result);
-      setGuardianKey('');
       
-      // Refresh election data to update guardian status
-      const updatedData = await electionApi.getElectionById(id);
-      setElectionData(updatedData);
+      if (result.success) {
+        setKeySubmissionResult(result);
+        setGuardianKey('');
+        
+        // Refresh election data to update guardian status
+        const updatedData = await electionApi.getElectionById(id);
+        setElectionData(updatedData);
+      } else {
+        setKeySubmissionError(result.message || 'Failed to submit guardian key');
+      }
     } catch (err) {
-      setKeySubmissionError(err.message);
+      setKeySubmissionError(err.message || 'Failed to submit guardian key');
     } finally {
       setIsSubmittingKey(false);
     }
@@ -561,6 +571,18 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
     return 'Active';
   };
 
+  const getElectionStatusFromData = (data) => {
+    if (!data) return 'Unknown';
+    
+    const now = new Date();
+    const startDate = new Date(data.startingTime);
+    const endDate = new Date(data.endingTime);
+    
+    if (now < startDate) return 'Upcoming';
+    if (now > endDate) return 'Ended';
+    return 'Active';
+  };
+
   const getStatusColor = (status) => {
     switch (status) {
       case 'Upcoming': return 'bg-yellow-100 text-yellow-800';
@@ -576,7 +598,16 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
   };
 
   const canUserManageGuardian = () => {
-    return electionData?.userRoles?.includes('guardian');
+    // Check if user is a guardian by looking at the guardians array
+    if (!electionData?.guardians) return false;
+    
+    // Find if current user's email matches any guardian's email
+    // We look for the guardian marked as current user OR match by email if available
+    const currentUserIsGuardian = electionData.guardians.some(guardian => 
+      guardian.isCurrentUser === true
+    );
+    
+    return currentUserIsGuardian;
   };
 
   const canUserViewResults = () => {
@@ -1183,7 +1214,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                               <div>
                                 <h5 className="font-medium text-green-900">Partial Decryption Successful</h5>
                                 <p className="text-sm text-green-800 mt-1">
-                                  Your key has been verified and partial decryption has been completed.
+                                  {keySubmissionResult.message || "Your key has been verified and partial decryption has been completed."}
                                 </p>
                               </div>
                             </div>
@@ -1547,13 +1578,13 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
               <DataDisplay
                 title="Commitment Hash"
-                data={electionData.commitmentHash || "Not available"}
+                data={electionData.baseHash || "Not available"}
                 type="text"
               />
 
               <DataDisplay
                 title="Election Manifest"
-                data={electionData.manifest || "Not available"}
+                data={electionData.manifestHash || "Not available"}
               />
 
               {electionData.guardians && electionData.guardians.length > 0 && (
@@ -1563,12 +1594,17 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                     <div key={guardian.userEmail} className="space-y-3">
                       <DataDisplay
                         title={`Guardian ${index + 1} Public Key (${guardian.userName})`}
-                        data={guardian.publicKey || "Not available"}
+                        data={guardian.guardianPublicKey || "Not available"}
                         type="text"
                       />
                       <DataDisplay
                         title={`Guardian ${index + 1} Polynomial`}
-                        data={guardian.polynomial || "Not available"}
+                        data={guardian.guardianPolynomial || "Not available"}
+                      />
+                      <DataDisplay
+                        title={`Guardian ${index + 1} Decryption Status`}
+                        data={guardian.decryptedOrNot ? "Submitted" : "Pending"}
+                        type="text"
                       />
                     </div>
                   ))}

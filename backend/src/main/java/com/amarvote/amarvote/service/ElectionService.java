@@ -441,10 +441,10 @@ public class ElectionService {
         Boolean isPublic = "public".equals(election.getPrivacy());
         
         // Get guardians with user details
-        List<ElectionDetailResponse.GuardianInfo> guardians = getGuardianInfoForElection(election.getElectionId());
+        List<ElectionDetailResponse.GuardianInfo> guardians = getGuardianInfoForElection(election.getElectionId(), userEmail);
         
         // Get voters with user details
-        List<ElectionDetailResponse.VoterInfo> voters = getVoterInfoForElection(election.getElectionId());
+        List<ElectionDetailResponse.VoterInfo> voters = getVoterInfoForElection(election.getElectionId(), userEmail);
         
         // Get election choices
         List<ElectionDetailResponse.ElectionChoiceInfo> electionChoices = getElectionChoicesForElection(election.getElectionId());
@@ -513,7 +513,7 @@ public class ElectionService {
     /**
      * Get guardian information for an election
      */
-    private List<ElectionDetailResponse.GuardianInfo> getGuardianInfoForElection(Long electionId) {
+    private List<ElectionDetailResponse.GuardianInfo> getGuardianInfoForElection(Long electionId, String currentUserEmail) {
         List<Object[]> guardianData = guardianRepository.findGuardiansWithUserDetailsByElectionId(electionId);
         
         return guardianData.stream()
@@ -530,6 +530,7 @@ public class ElectionService {
                             .decryptedOrNot(guardian.getDecryptedOrNot())
                             .partialDecryptedTally(guardian.getPartialDecryptedTally())
                             .proof(guardian.getProof())
+                            .isCurrentUser(user.getUserEmail().equals(currentUserEmail))
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -538,7 +539,7 @@ public class ElectionService {
     /**
      * Get voter information for an election
      */
-    private List<ElectionDetailResponse.VoterInfo> getVoterInfoForElection(Long electionId) {
+    private List<ElectionDetailResponse.VoterInfo> getVoterInfoForElection(Long electionId, String currentUserEmail) {
         List<Object[]> voterData = allowedVoterRepository.findAllowedVotersWithUserDetailsByElectionId(electionId);
         
         return voterData.stream()
@@ -550,6 +551,7 @@ public class ElectionService {
                             .userEmail(user.getUserEmail())
                             .userName(user.getUserName())
                             .hasVoted(allowedVoter.getHasVoted())
+                            .isCurrentUser(user.getUserEmail().equals(currentUserEmail))
                             .build();
                 })
                 .collect(Collectors.toList());
