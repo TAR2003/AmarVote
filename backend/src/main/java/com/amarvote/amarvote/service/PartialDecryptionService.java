@@ -156,6 +156,10 @@ public class PartialDecryptionService {
             guardian.setPartialDecryptedTally(ballotSharesJson);
             guardian.setGuardianDecryptionKey(guardResponse.guardian_public_key());
             guardian.setTallyShare(guardResponse.tally_share());
+            
+            // Mark guardian as having completed decryption
+            guardian.setDecryptedOrNot(true);
+            
             guardianRepository.save(guardian);
 
             return CreatePartialDecryptionResponse.builder()

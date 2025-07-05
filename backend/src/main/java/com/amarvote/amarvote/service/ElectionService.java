@@ -443,6 +443,13 @@ public class ElectionService {
         // Get guardians with user details
         List<ElectionDetailResponse.GuardianInfo> guardians = getGuardianInfoForElection(election.getElectionId(), userEmail);
         
+        // Calculate guardian progress
+        int totalGuardians = guardians.size();
+        int guardiansSubmitted = (int) guardians.stream()
+                .filter(guardian -> guardian.getDecryptedOrNot() != null && guardian.getDecryptedOrNot())
+                .count();
+        boolean allGuardiansSubmitted = totalGuardians > 0 && guardiansSubmitted == totalGuardians;
+        
         // Get voters with user details
         List<ElectionDetailResponse.VoterInfo> voters = getVoterInfoForElection(election.getElectionId(), userEmail);
         
@@ -477,6 +484,9 @@ public class ElectionService {
                 .adminEmail(election.getAdminEmail())
                 .adminName(adminName)
                 .guardians(guardians)
+                .totalGuardians(totalGuardians)
+                .guardiansSubmitted(guardiansSubmitted)
+                .allGuardiansSubmitted(allGuardiansSubmitted)
                 .voters(voters)
                 .electionChoices(electionChoices)
                 .userRoles(userRoles)
@@ -521,13 +531,16 @@ public class ElectionService {
                     Guardian guardian = (Guardian) data[0];
                     User user = (User) data[1];
                     
+                    // Calculate decryption status based on tallyShare field
+                    boolean hasDecrypted = guardian.getTallyShare() != null && !guardian.getTallyShare().trim().isEmpty();
+                    
                     return ElectionDetailResponse.GuardianInfo.builder()
                             .userEmail(user.getUserEmail())
                             .userName(user.getUserName())
                             .guardianPublicKey(guardian.getGuardianPublicKey())
                             .guardianPolynomial(guardian.getGuardianPolynomial())
                             .sequenceOrder(guardian.getSequenceOrder())
-                            .decryptedOrNot(guardian.getDecryptedOrNot())
+                            .decryptedOrNot(hasDecrypted)
                             .partialDecryptedTally(guardian.getPartialDecryptedTally())
                             .proof(guardian.getProof())
                             .isCurrentUser(user.getUserEmail().equals(currentUserEmail))

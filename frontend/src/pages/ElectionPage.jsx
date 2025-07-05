@@ -27,7 +27,8 @@ import {
   FiDatabase,
   FiLock,
   FiUnlock,
-  FiHash
+  FiHash,
+  FiCheck
 } from 'react-icons/fi';
 import { 
   BarChart, 
@@ -1190,7 +1191,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                   <div className="p-4 bg-green-50 rounded-lg">
                     <h4 className="font-medium text-green-900 mb-2">Decryption Status</h4>
                     <p className="text-sm text-green-800">
-                      {electionData.guardians?.filter(g => g.decryptedOrNot).length || 0} of {electionData.guardians?.length || 0} guardians have submitted keys
+                      {electionData.guardiansSubmitted || 0} of {electionData.totalGuardians || 0} guardians have submitted keys
                     </p>
                   </div>
                 </div>
@@ -1304,6 +1305,31 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 {/* Guardian List */}
                 <div>
                   <h4 className="font-medium text-gray-900 mb-3">Guardian Status</h4>
+                  
+                  {/* Guardian Progress Summary */}
+                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                    <div className="flex items-center justify-between">
+                      <span className="text-sm text-gray-600">Partial Decryption Progress:</span>
+                      <span className="font-medium text-gray-900">
+                        {electionData.guardiansSubmitted || 0} of {electionData.totalGuardians || 0} guardians submitted
+                      </span>
+                    </div>
+                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                      <div 
+                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                        style={{ 
+                          width: `${electionData.totalGuardians > 0 ? ((electionData.guardiansSubmitted || 0) / electionData.totalGuardians) * 100 : 0}%` 
+                        }}
+                      ></div>
+                    </div>
+                    {electionData.allGuardiansSubmitted && (
+                      <div className="mt-2 flex items-center text-green-600">
+                        <FiCheck className="h-4 w-4 mr-1" />
+                        <span className="text-sm font-medium">All guardians have submitted their keys</span>
+                      </div>
+                    )}
+                  </div>
+                  
                   <div className="space-y-2">
                     {electionData.guardians?.map((guardian) => (
                       <div key={guardian.userEmail} className="flex items-center justify-between p-3 border rounded-lg">
@@ -1374,7 +1400,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                   const totalBallots = processedResults.totalVotedUsers;
                   const totalVotesInChoices = processedResults.totalVotes;
                   const needsDecryption = totalVotesInChoices !== totalBallots && totalBallots > 0;
-                  const allGuardiansSubmitted = electionData.guardians?.every(g => g.decryptedOrNot) || false;
+                  const allGuardiansSubmitted = electionData.allGuardiansSubmitted || false;
 
                   return (
                     <>
@@ -1386,7 +1412,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                               <h4 className="font-medium text-yellow-900">Waiting for Guardian Keys</h4>
                               <p className="text-sm text-yellow-800">
                                 Final results are not yet available. Guardians need to submit their partial decryption keys.
-                                ({electionData.guardians?.filter(g => g.decryptedOrNot).length || 0} of {electionData.guardians?.length || 0} submitted)
+                                ({electionData.guardiansSubmitted || 0} of {electionData.totalGuardians || 0} submitted)
                               </p>
                             </div>
                           </div>
