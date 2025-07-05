@@ -4,9 +4,7 @@ services:
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile
-      args:
-        MAVEN_OPTS: -Xmx384m -Xms128m
+      dockerfile: Dockerfile.dev
     container_name: amarvote_backend
     ports:
       - "8080:8080"
@@ -15,18 +13,10 @@ services:
       - SPRING_DATASOURCE_USERNAME=${NEON_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${NEON_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - JAVA_OPTS=-Xmx384m -Xms128m -XX:+UseSerialGC
-    deploy:
-      resources:
-        limits:
-          memory: 500M
-          cpus: '0.5'
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:8080/actuator/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-      start_period: 60s
+      - SPRING_DEVTOOLS_RESTART_ENABLED=true
+      - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
+    volumes:
+      - maven_repo:/root/.m2
     networks:
       election_net:
         ipv4_address: 172.20.0.30
@@ -39,51 +29,24 @@ services:
     ports:
       - "80:80"
       - "443:443"
-    environment:
-      - NODE_ENV=production
-      - NODE_OPTIONS=--max-old-space-size=512
-    deploy:
-      resources:
-        limits:
-          memory: 600M
-          cpus: '0.5'
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
-    depends_on:
-      backend:
-        condition: service_healthy
-    volumes:
-      - /etc/letsencrypt:/etc/letsencrypt:ro
     networks:
       election_net:
         ipv4_address: 172.20.0.40
+    depends_on:
+      - backend
+    volumes:
+      - /etc/letsencrypt:/etc/letsencrypt:ro
 
   electionguard:
-    build:
-      context: ./Microservice
-      dockerfile: Dockerfile.prod
+    build: ./Microservice
     container_name: electionguard_service
     ports:
       - "5000:5000"
-    environment:
-      - FLASK_DEBUG=0
-      - FLASK_ENV=production
-    deploy:
-      resources:
-        limits:
-          memory: 300M
-          cpus: '0.3'
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5000/health || exit 1"]
-      interval: 30s
-      timeout: 10s
-      retries: 3
     networks:
       election_net:
         ipv4_address: 172.20.0.10
+    environment:
+      - FLASK_DEBUG=0
 
 volumes:
   maven_repo:
