@@ -176,7 +176,7 @@ export const electionApi = {
    */
   async submitGuardianKey(electionId, guardianKey) {
     try {
-      const response = await fetch('/api/partial-decryption', {
+      const response = await fetch('/api/create-partial-decryption', {
         method: 'POST',
         credentials: 'include',
         headers: {

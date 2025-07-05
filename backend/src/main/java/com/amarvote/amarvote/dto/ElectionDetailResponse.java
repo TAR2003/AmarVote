@@ -60,6 +60,7 @@ public class ElectionDetailResponse {
         private Boolean decryptedOrNot;
         private String partialDecryptedTally;
         private String proof;
+        private Boolean isCurrentUser;
     }
     
     @Data
@@ -70,6 +71,7 @@ public class ElectionDetailResponse {
         private String userEmail;
         private String userName;
         private Boolean hasVoted;
+        private Boolean isCurrentUser;
     }
     
     @Data
