@@ -58,7 +58,7 @@ function App() {
     return () => window.removeEventListener("storage", syncLogout);
   }, []);
 
-  if (loading) return LoadingScreen;
+  if (loading) return <LoadingScreen />;
 
   const isAuthenticated = !!userEmail;
 
