@@ -213,13 +213,37 @@
                     Dear Esteemed Guardian,
                 </div>
                 
-                <p>You have been selected to serve as a <strong>security guardian</strong> for our democratic election process. This is a position of great trust and responsibility.</p>
+                <p>You have been selected to serve as a <strong>security guardian</strong> for the following important election. As a guardian, you are entrusted with one of the most critical roles in our democratic process - ensuring the integrity, security, and verifiability of the election results.</p>
                 
                 <div class="election-title">
                     <h2>{{ELECTION_TITLE}}</h2>
                 </div>
                 
-                <p>As a guardian, you play a crucial role in ensuring the integrity and security of this election. Below is your unique private key that will be used for the cryptographic security of the election process.</p>
+                <div class="election-description" style="background: #f8f9fa; border-left: 4px solid #667eea; padding: 15px; margin: 20px 0; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0; color: #2c3e50;">About This Election:</h4>
+                    <p style="margin: 0; color: #555; line-height: 1.6;">{{ELECTION_DESCRIPTION}}</p>
+                </div>
+                
+                <div class="election-link" style="background: #e3f2fd; border: 1px solid #2196f3; padding: 15px; margin: 20px 0; border-radius: 8px; text-align: center;">
+                    <h4 style="margin: 0 0 10px 0; color: #1565c0;">🗳️ Access Your Election Dashboard</h4>
+                    <p style="margin: 0 0 10px 0; color: #1976d2;">Your primary hub for all guardian activities. Click the button below to access the election page where you can:</p>
+                    <ul style="text-align: left; color: #1976d2; margin: 10px 0; padding-left: 20px;">
+                        <li>Monitor the election status and voting progress in real-time</li>
+                        <li>View detailed information about your guardian role and responsibilities</li>
+                        <li>Submit your guardian key for decryption when the election ends</li>
+                        <li>Participate in the secure results decryption process</li>
+                        <li>Access election verification tools and audit information</li>
+                    </ul>
+                    <a href="https://amarvote2025.me/election-page/{{ELECTION_ID}}" 
+                       style="display: inline-block; background: #2196f3; color: white; padding: 12px 24px; text-decoration: none; border-radius: 6px; font-weight: 600; margin: 10px 0;">
+                        🔗 Open Election Dashboard
+                    </a>
+                    <p style="margin: 10px 0 0 0; font-size: 12px; color: #666;">
+                        Direct Link: https://amarvote2025.me/election-page/{{ELECTION_ID}}
+                    </p>
+                </div>
+                
+                <p>As a guardian for "<strong>{{ELECTION_TITLE}}</strong>", you are a vital component of the election's cryptographic security infrastructure. Your role ensures that votes remain private while enabling transparent verification of results. Below is your unique private key that will be used for the secure decryption of election results.</p>
                 
                 <div class="private-key-section">
                     <div class="private-key-header">
@@ -228,7 +252,7 @@
                     </div>
                     <div class="private-key">{{PRIVATE_KEY}}</div>
                     <div class="copy-hint">
-                        Please copy this key and store it in a secure location immediately.
+                        💡 Copy this key immediately and store it securely. You'll need it to decrypt results after the election ends.
                     </div>
                 </div>
                 
@@ -238,21 +262,36 @@
                         Critical Security Instructions
                     </div>
                     <ul class="security-points">
-                        <li>Never share this private key with anyone</li>
-                        <li>Store it in a secure, encrypted location</li>
-                        <li>Do not save it in plain text files or emails</li>
-                        <li>Consider using a password manager or secure vault</li>
-                        <li>You will need this key during the election process</li>
+                        <li>Never share this private key with anyone - not even other guardians or administrators</li>
+                        <li>Store it in a secure, encrypted location (password manager recommended)</li>
+                        <li>Do not save it in plain text files, emails, or unencrypted documents</li>
+                        <li>Make a secure backup copy in case your primary storage fails</li>
+                        <li>You will need this exact key to submit partial decryption after the election ends</li>
+                        <li>Keep this key safe until the election results are finalized and verified</li>
+                        <li>If you lose this key, it may prevent the election results from being decrypted</li>
                     </ul>
                 </div>
                 
+                <div style="background: #fff9c4; border: 1px solid #ffa726; padding: 15px; margin: 20px 0; border-radius: 8px;">
+                    <h4 style="margin: 0 0 10px 0; color: #e65100;">📋 Your Guardian Responsibilities</h4>
+                    <p style="margin: 0; color: #ef6c00; line-height: 1.6;">
+                        <strong>When to use your key:</strong> After the election officially ends, you will receive a notification and see a prompt on the election dashboard to submit your guardian key. This key is essential for the cryptographic decryption process that enables the final results to be calculated while maintaining voter privacy.
+                    </p>
+                    <p style="margin: 10px 0 0 0; color: #ef6c00; line-height: 1.6;">
+                        <strong>How it works:</strong> Multiple guardians must submit their keys to decrypt the results (threshold cryptography). This ensures no single person can decrypt votes alone, maintaining both security and privacy.
+                    </p>
+                </div>
+                
                 <div class="contact-info">
-                    <strong>Need Help?</strong><br>
-                    If you have any questions or concerns, please contact the election administrator immediately.
+                    <strong>📞 Need Help or Have Questions?</strong><br>
+                    For any questions about your guardian role, technical support, or concerns about this election:<br>
+                    • Access the help section on the election dashboard<br>
+                    • Contact the election administrator through the dashboard messaging system<br>
+                    • Email our support team with "Guardian Support - {{ELECTION_TITLE}}" in the subject line
                 </div>
                 
                 <p style="margin-top: 30px; color: #6c757d; font-style: italic;">
-                    If you were not expecting this email or did not agree to serve as a guardian, please contact the election administrator immediately.
+                    <strong>Important:</strong> If you were not expecting this email, did not agree to serve as a guardian for "{{ELECTION_TITLE}}", or believe this email was sent in error, please contact the election administrator immediately through the election dashboard or our support channels.
                 </p>
             </div>
             

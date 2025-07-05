@@ -122,7 +122,7 @@ public class ElectionService {
                 throw new RuntimeException("User not found for email: " + email);
             }
 
-            emailService.sendGuardianPrivateKeyEmail(email, privateKey, election.getElectionTitle());
+            emailService.sendGuardianPrivateKeyEmail(email, election.getElectionTitle(), election.getElectionDescription(), privateKey, election.getElectionId());
         }
 
         System.out.println("Guardian Private Keys:");
