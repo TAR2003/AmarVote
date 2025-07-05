@@ -35,6 +35,11 @@ public class ElectionDetailResponse {
     // Guardian Information
     private List<GuardianInfo> guardians;
     
+    // Guardian Progress Information
+    private Integer totalGuardians;
+    private Integer guardiansSubmitted;
+    private Boolean allGuardiansSubmitted;
+    
     // Voter Information
     private List<VoterInfo> voters;
     
