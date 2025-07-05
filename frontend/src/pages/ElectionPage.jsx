@@ -638,9 +638,8 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
   };
 
   const canUserViewVerification = () => {
-    // Only show verification tab if results are available
-    const processedResults = processElectionResults();
-    return processedResults !== null;
+    // Only show verification after results have been displayed to the user
+    return canUserViewResults() && resultsData !== null;
   };
 
   if (loading) {
