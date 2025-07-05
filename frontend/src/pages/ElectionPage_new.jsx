@@ -329,6 +329,12 @@ export default function ElectionPage() {
     return getElectionStatus() === 'Ended' || electionData?.earlyResultAccess;
   };
 
+  const canUserViewVerification = () => {
+    // Only show verification tab if results are available
+    const processedResults = processElectionResults();
+    return processedResults !== null;
+  };
+
   const canSubmitGuardianKey = () => {
     const currentUserEmail = localStorage.getItem('userEmail');
     const guardian = electionData?.guardians?.find(g => g.userEmail === currentUserEmail);
@@ -1178,13 +1184,28 @@ export default function ElectionPage() {
 
         {activeTab === 'verification' && (
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <FiEye className="h-5 w-5 mr-2" />
-              Election Verification
-            </h3>
-            <p className="text-gray-600 mb-6">
-              This section displays cryptographic artifacts that can be used to verify the integrity and correctness of the election.
-            </p>
+            {!canUserViewVerification() ? (
+              <div className="text-center py-12">
+                <FiEye className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Verification Not Available</h3>
+                <p className="text-gray-600 mb-4">
+                  Election verification will be available after the results have been displayed.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 inline-block">
+                  <p className="text-sm text-blue-800">
+                    <strong>Why?</strong> Verification artifacts are only generated after the election results have been computed and displayed.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <FiEye className="h-5 w-5 mr-2" />
+                  Election Verification
+                </h3>
+                <p className="text-gray-600 mb-6">
+                  This section displays cryptographic artifacts that can be used to verify the integrity and correctness of the election.
+                </p>
             
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               <DataDisplay 
@@ -1245,6 +1266,8 @@ export default function ElectionPage() {
                 the election results. Each piece of data can be downloaded in JSON format for use with verification software.
               </p>
             </div>
+            </>
+            )}
           </div>
         )}
       </div>
