@@ -594,8 +594,26 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
   };
 
   const canUserVote = () => {
-    const isEligibleVoter = electionData?.userRoles?.includes('voter') || electionData?.isPublic;
-    return isEligibleVoter && getElectionStatus() === 'Active' && !hasVoted;
+    // Check if user can vote based on the new eligibility field
+    return canUserVoteInElection(electionData) && getElectionStatus() === 'Active' && !hasVoted;
+  };
+
+  // Helper function to determine if user can vote in an election based on eligibility
+  const canUserVoteInElection = (election) => {
+    if (!election) return false;
+    
+    const eligibility = election.eligibility;
+    
+    if (eligibility === 'unlisted') {
+      // For unlisted elections, anyone can vote (no voter list restriction)
+      return true;
+    } else if (eligibility === 'listed') {
+      // For listed elections, only users with 'voter' role can vote
+      return election.userRoles?.includes('voter') || false;
+    }
+    
+    // Default fallback - if eligibility is not set or unknown, be restrictive
+    return false;
   };
 
   const canUserManageGuardian = () => {
@@ -698,8 +716,13 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                   Your roles: {
                     (() => {
                       const roles = [...(electionData.userRoles || [])];
-                      if (electionData.isPublic && !roles.includes('voter')) {
-                        roles.push('voter (public)');
+                      // Add voting eligibility info based on new eligibility field
+                      if (canUserVoteInElection(electionData) && !roles.includes('voter')) {
+                        if (electionData.eligibility === 'unlisted') {
+                          roles.push('voter (open voting)');
+                        } else {
+                          roles.push('voter');
+                        }
                       }
                       return roles.length > 0 ? roles.join(', ') : 'Viewer';
                     })()
@@ -761,7 +784,8 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                     <p><span className="font-medium">Title:</span> {electionData.electionTitle}</p>
                     <p><span className="font-medium">Description:</span> {electionData.electionDescription || 'No description provided'}</p>
                     <p><span className="font-medium">Status:</span> {electionData.status}</p>
-                    <p><span className="font-medium">Type:</span> {electionData.isPublic ? 'Public' : 'Private'}</p>
+                    <p><span className="font-medium">Privacy:</span> {electionData.isPublic ? 'Public' : 'Private'}</p>
+                    <p><span className="font-medium">Voting Eligibility:</span> {electionData.eligibility === 'listed' ? 'Listed voters only' : 'Open to anyone'}</p>
                     <p><span className="font-medium">Admin:</span> {electionData.adminName ? `${electionData.adminName} (${electionData.adminEmail})` : electionData.adminEmail}</p>
                   </div>
                 </div>

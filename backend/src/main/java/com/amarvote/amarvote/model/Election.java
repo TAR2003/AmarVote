@@ -83,6 +83,9 @@ public class Election {
 
     @Column(name = "privacy", columnDefinition = "TEXT")
     private String privacy;
+
+    @Column(name = "eligibility", columnDefinition = "TEXT")
+    private String eligibility;
 }
 
 

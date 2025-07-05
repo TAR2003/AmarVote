@@ -22,7 +22,7 @@ const CreateElection = () => {
         electionTitle: "",
         electionDescription: "",
         electionPrivacy: "public",
-        electionEligibility: "email",
+        electionEligibility: "listed",
         voterEmails: [],
         guardianNumber: "3",
         guardianEmails: [],
@@ -196,6 +196,11 @@ const CreateElection = () => {
 
         if (form.electionPrivacy === "private" && form.voterEmails.length === 0) {
             setError("Voter list is required for private elections");
+            return;
+        }
+
+        if (form.electionEligibility === "listed" && form.voterEmails.length === 0) {
+            setError("Voter list is required for listed eligibility elections");
             return;
         }
 
@@ -413,29 +418,29 @@ const CreateElection = () => {
                                 <input
                                     type="radio"
                                     name="electionEligibility"
-                                    value="email"
-                                    checked={form.electionEligibility === "email"}
+                                    value="listed"
+                                    checked={form.electionEligibility === "listed"}
                                     onChange={handleChange}
                                     className="form-radio h-5 w-5 text-blue-600"
                                 />
-                                <span className="ml-2 text-gray-700">Email List</span>
+                                <span className="ml-2 text-gray-700">Listed Voters Only</span>
                             </label>
                             
                             <label className="inline-flex items-center">
                                 <input
                                     type="radio"
                                     name="electionEligibility"
-                                    value="anyone"
-                                    checked={form.electionEligibility === "anyone"}
+                                    value="unlisted"
+                                    checked={form.electionEligibility === "unlisted"}
                                     onChange={handleChange}
                                     className="form-radio h-5 w-5 text-blue-600"
                                 />
-                                <span className="ml-2 text-gray-700">Anyone with Link</span>
+                                <span className="ml-2 text-gray-700">Anyone Can Vote</span>
                             </label>
                         </div>
                     </div>
                     
-                    {(form.electionPrivacy === "private" || form.electionEligibility === "email") && (
+                    {(form.electionPrivacy === "private" || form.electionEligibility === "listed") && (
                         <div className="mb-4">
                             <label className="block text-gray-700 font-medium mb-2">
                                 Voter Emails 

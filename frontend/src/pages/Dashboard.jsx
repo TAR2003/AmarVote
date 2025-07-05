@@ -10,6 +10,24 @@ import {
 import { fetchAllElections } from "../utils/api";
 import { timezoneUtils } from "../utils/timezoneUtils";
 
+// Helper function to determine if user can vote in an election based on eligibility
+const canUserVoteInElection = (election) => {
+  if (!election) return false;
+  
+  const eligibility = election.eligibility;
+  
+  if (eligibility === 'unlisted') {
+    // For unlisted elections, anyone can vote (no voter list restriction)
+    return true;
+  } else if (eligibility === 'listed') {
+    // For listed elections, only users with 'voter' role can vote
+    return election.userRoles?.includes('voter') || false;
+  }
+  
+  // Default fallback - if eligibility is not set or unknown, be restrictive
+  return false;
+};
+
 /**
  * Dashboard Component - Optimized for single API call
  * 
@@ -86,9 +104,9 @@ const ElectionCard = React.memo(({ election, getVoteButtonInfo, handleElectionCl
                 {role.charAt(0).toUpperCase() + role.slice(1)}
               </span>
             ))}
-            {election.isPublic && (
+            {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
               <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                Eligible Voter
+                {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
               </span>
             )}
           </div>
@@ -280,9 +298,8 @@ const Dashboard = ({ userEmail }) => {
       return { buttonText, buttonStyle, isDisabled };
     }
     
-    // Check if user can vote based on election type and user roles
-    const canVote = election.isPublic || 
-                   (election.userRoles && election.userRoles.includes('voter'));
+    // Check if user can vote based on election eligibility and user roles
+    const canVote = canUserVoteInElection(election);
     
     if (canVote) {
       buttonText = "Vote Now";
@@ -482,10 +499,10 @@ const Dashboard = ({ userEmail }) => {
                             {role.charAt(0).toUpperCase() + role.slice(1)}
                           </span>
                         ))}
-                        {/* Show eligible voter status for public elections */}
-                        {election.isPublic && (
-                          <span className="inline-flex items-center px-2.py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Eligible Voter (Public)
+                        {/* Show eligible voter status */}
+                        {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                            {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
                           </span>
                         )}
                       </div>
@@ -591,10 +608,10 @@ const Dashboard = ({ userEmail }) => {
                             {role.charAt(0).toUpperCase() + role.slice(1)}
                           </span>
                         ))}
-                        {/* Show eligible voter status for public elections */}
-                        {election.isPublic && (
+                        {/* Show eligible voter status */}
+                        {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
                           <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Eligible Voter (Public)
+                            {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
                           </span>
                         )}
                       </div>
@@ -683,10 +700,10 @@ const Dashboard = ({ userEmail }) => {
                           {role.charAt(0).toUpperCase() + role.slice(1)}
                         </span>
                       ))}
-                      {/* Show eligible voter status for public elections */}
-                      {election.isPublic && (
+                      {/* Show eligible voter status */}
+                      {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
                         <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                          Eligible Voter (Public)
+                          {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
                         </span>
                       )}
                     </div>
