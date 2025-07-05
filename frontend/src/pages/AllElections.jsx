@@ -110,9 +110,9 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
                 {role.charAt(0).toUpperCase() + role.slice(1)}
               </span>
             ))}
-            {election.isPublic && (
+            {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
               <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                Eligible Voter (Public)
+                {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
               </span>
             )}
           </div>
@@ -143,19 +143,18 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
         
         <div className="flex-shrink-0 ml-4">
           {status === "ongoing" && (
-            <button 
-              className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                election.hasVoted 
-                  ? 'text-gray-700 bg-gray-200 cursor-not-allowed'
-                  : ((election.userRoles?.includes('voter') || election.isPublic) 
-                      ? 'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' 
-                      : 'text-gray-700 bg-gray-200 hover:bg-gray-300 focus:ring-gray-500')
-              }`}
-              onClick={handleActionClick}
-              disabled={election.hasVoted && ((election.userRoles?.includes('voter') || election.isPublic))}
-            >
-              {((election.userRoles?.includes('voter') || election.isPublic) && !election.hasVoted) ? 'Vote Now' : 
-               election.hasVoted ? 'Already Voted' : 'View Election'}
+            <button                          className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                            election.hasVoted 
+                              ? 'text-gray-700 bg-gray-200 cursor-not-allowed'
+                              : (canUserVoteInElection(election) 
+                                  ? 'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' 
+                                  : 'text-gray-700 bg-gray-200 hover:bg-gray-300 focus:ring-gray-500')
+                          }`}
+                          onClick={handleActionClick}
+                          disabled={election.hasVoted && canUserVoteInElection(election)}
+                        >
+                          {(canUserVoteInElection(election) && !election.hasVoted) ? 'Vote Now' : 
+                           election.hasVoted ? 'Already Voted' : 'View Election'}
             </button>
           )}
           {status === "upcoming" && (
@@ -262,6 +261,20 @@ const AllElections = () => {
     }
   }, []);
 
+  // Check if user can vote in the election based on eligibility criteria
+  const canUserVoteInElection = useCallback((election) => {
+    // If user is explicitly listed as voter, they can vote
+    if (election.userRoles?.includes('voter')) {
+      return true;
+    }
+    // If election eligibility is 'unlisted', anyone can vote
+    if (election.eligibility === 'unlisted') {
+      return true;
+    }
+    // For 'listed' eligibility, only users in voter role can vote
+    return false;
+  }, []);
+
   // Memoized filtered elections with progressive loading
   const { filteredElections, hasMore } = useMemo(() => {
     const now = new Date();
@@ -271,8 +284,8 @@ const AllElections = () => {
     if (["voter", "admin", "guardian"].includes(filter)) {
       filtered = elections.filter((election) => {
         if (filter === "voter") {
-          // User can vote if they are explicitly listed as voter OR if election is public
-          return (election.userRoles && election.userRoles.includes(filter)) || election.isPublic;
+          // User can vote if they are explicitly listed as voter OR if election eligibility is 'unlisted'
+          return canUserVoteInElection(election);
         } else {
           // For admin and guardian, check explicit roles only
           return election.userRoles && election.userRoles.includes(filter);
@@ -331,7 +344,7 @@ const AllElections = () => {
       completed: elections.filter(e => new Date(e.endingTime) <= now).length,
       public: elections.filter(e => e.isPublic === true).length,
       private: elections.filter(e => e.isPublic === false).length,
-      voter: elections.filter(e => (e.userRoles?.includes('voter')) || e.isPublic).length,
+      voter: elections.filter(e => canUserVoteInElection(e)).length,
       admin: elections.filter(e => e.userRoles?.includes('admin')).length,
       guardian: elections.filter(e => e.userRoles?.includes('guardian')).length,
     };
@@ -491,10 +504,10 @@ const AllElections = () => {
                             {role.charAt(0).toUpperCase() + role.slice(1)}
                           </span>
                         ))}
-                        {/* Show eligible voter status for public elections */}
-                        {election.isPublic && (
+                        {/* Show eligible voter status */}
+                        {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
                           <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
-                            Eligible Voter (Public)
+                            {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
                           </span>
                         )}
                       </div>
@@ -529,7 +542,7 @@ const AllElections = () => {
                           className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                             election.hasVoted 
                               ? 'text-gray-700 bg-gray-200 cursor-not-allowed'
-                              : ((election.userRoles?.includes('voter') || election.isPublic) 
+                              : (canUserVoteInElection(election) 
                                   ? 'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' 
                                   : 'text-gray-700 bg-gray-200 hover:bg-gray-300 focus:ring-gray-500')
                           }`}
@@ -537,10 +550,10 @@ const AllElections = () => {
                             e.stopPropagation();
                             handleElectionClick(election.electionId);
                           }}
-                          disabled={election.hasVoted && ((election.userRoles?.includes('voter') || election.isPublic))}
+                          disabled={election.hasVoted && canUserVoteInElection(election)}
                         >
                           {/* Show Vote Now only if user is eligible and hasn't voted yet */}
-                          {((election.userRoles?.includes('voter') || election.isPublic) && !election.hasVoted) ? 'Vote Now' : 
+                          {(canUserVoteInElection(election) && !election.hasVoted) ? 'Vote Now' : 
                            election.hasVoted ? 'Already Voted' : 'View Election'}
                         </button>
                       )}

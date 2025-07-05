@@ -314,7 +314,7 @@ export default function ElectionPage() {
 
   const canUserVote = () => {
     const status = getElectionStatus();
-    return status === 'Active' && eligibilityData?.canVote;
+    return status === 'Active' && eligibilityData?.eligible;
   };
 
   const canUserManageGuardian = () => {
@@ -382,7 +382,7 @@ export default function ElectionPage() {
       setEligibilityData(data);
     } catch (err) {
       console.error('Failed to check eligibility:', err);
-      setEligibilityData({ canVote: false, reason: 'Failed to check eligibility' });
+      setEligibilityData({ eligible: false, reason: 'Failed to check eligibility' });
     } finally {
       setCheckingEligibility(false);
     }
@@ -745,7 +745,7 @@ export default function ElectionPage() {
                 <FiLoader className="h-8 w-8 animate-spin text-blue-600 mx-auto mb-4" />
                 <p className="text-gray-600">Checking your eligibility...</p>
               </div>
-            ) : !eligibilityData?.canVote ? (
+            ) : !eligibilityData?.eligible ? (
               <div className="text-center py-8">
                 <FiX className="h-12 w-12 text-red-400 mx-auto mb-4" />
                 <h4 className="text-lg font-semibold text-gray-700 mb-2">Cannot Vote</h4>

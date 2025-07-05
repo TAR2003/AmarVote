@@ -38,6 +38,9 @@ public class OptimizedElectionResponse {
     // Indicates if the election is public (no allowed voters) or private (has allowed voters)
     private Boolean isPublic;
     
+    // Election eligibility criteria
+    private String eligibility; // "listed" or "unlisted"
+    
     // Indicates if the current user has already voted in this election
     private Boolean hasVoted;
     
@@ -68,6 +71,7 @@ public class OptimizedElectionResponse {
         String profilePic = (String) result[i++];
         String adminEmail = (String) result[i++];
         String privacy = (String) result[i++];
+        String eligibility = (String) result[i++];
         String adminName = (String) result[i++];
         Boolean isAdmin = (Boolean) result[i++];
         Boolean isGuardian = (Boolean) result[i++];
@@ -105,6 +109,7 @@ public class OptimizedElectionResponse {
                 .createdAt(createdAt)
                 .userRoles(userRoles)
                 .isPublic(isPublic)
+                .eligibility(eligibility)
                 .hasVoted(hasVoted)
                 .build();
     }

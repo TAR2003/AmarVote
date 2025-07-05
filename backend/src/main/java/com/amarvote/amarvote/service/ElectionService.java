@@ -101,6 +101,7 @@ public class ElectionService {
         election.setBaseHash(guardianResponse.commitment_hash());
         election.setAdminEmail(userEmail); // Set admin email from request
         election.setPrivacy(request.electionPrivacy()); // Set privacy field
+        election.setEligibility(request.electionEligibility()); // Set eligibility field
 
         // ✅ Save to DB to get generated ID
         election = electionRepository.save(election);
@@ -187,23 +188,26 @@ public class ElectionService {
 
         System.out.println("Election choices saved successfully.");
 
+        // Only save voters for "listed" eligibility elections
         List<String> voterEmails = request.voterEmails();
+        if ("listed".equals(request.electionEligibility()) && voterEmails != null && !voterEmails.isEmpty()) {
+            for (String email : voterEmails) {
+                Integer userId = userRepository.findByUserEmail(email)
+                        .orElseThrow(() -> new RuntimeException("User not found for voter email: " + email))
+                        .getUserId();
 
-        for (String email : voterEmails) {
-            Integer userId = userRepository.findByUserEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found for voter email: " + email))
-                    .getUserId();
+                AllowedVoter allowedVoter = AllowedVoter.builder()
+                        .electionId(election.getElectionId())
+                        .userId(userId)
+                        .hasVoted(false)
+                        .build();
 
-            AllowedVoter allowedVoter = AllowedVoter.builder()
-                    .electionId(election.getElectionId())
-                    .userId(userId)
-                    .hasVoted(false)
-                    .build();
-
-            allowedVoterRepository.save(allowedVoter);
+                allowedVoterRepository.save(allowedVoter);
+            }
+            System.out.println("Allowed voters saved successfully for listed election.");
+        } else {
+            System.out.println("No voters saved - election eligibility is 'unlisted' or no voter emails provided.");
         }
-
-        System.out.println("Allowed voters saved successfully.");
 
         return election;
     }
@@ -247,6 +251,7 @@ public class ElectionService {
                         .createdAt(opt.getCreatedAt())
                         .userRoles(opt.getUserRoles())
                         .isPublic(opt.getIsPublic())
+                        .eligibility(opt.getEligibility())
                         .hasVoted(opt.getHasVoted())
                         .build())
                 .collect(Collectors.toList());
@@ -355,6 +360,7 @@ public class ElectionService {
                 .createdAt(election.getCreatedAt())
                 .userRoles(userRoles)
                 .isPublic(isPublic)
+                .eligibility(election.getEligibility())
                 .hasVoted(hasVoted)
                 .build();
     }
@@ -491,6 +497,7 @@ public class ElectionService {
                 .electionChoices(electionChoices)
                 .userRoles(userRoles)
                 .isPublic(isPublic)
+                .eligibility(election.getEligibility())
                 .build();
     }
     

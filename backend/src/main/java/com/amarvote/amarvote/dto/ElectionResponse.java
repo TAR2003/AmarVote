@@ -33,6 +33,9 @@ public class ElectionResponse {
     // Indicates if the election is public (no allowed voters) or private (has allowed voters)
     private Boolean isPublic;
     
+    // Election eligibility criteria
+    private String eligibility; // "listed" or "unlisted"
+    
     // Indicates if the current user has already voted in this election
     private Boolean hasVoted;
 }

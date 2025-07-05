@@ -52,6 +52,9 @@ public class ElectionDetailResponse {
     // Indicates if the election is public (no allowed voters) or private (has allowed voters)
     private Boolean isPublic;
     
+    // Election eligibility criteria
+    private String eligibility; // "listed" or "unlisted"
+    
     @Data
     @NoArgsConstructor
     @AllArgsConstructor
