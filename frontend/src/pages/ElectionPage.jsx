@@ -637,6 +637,12 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
     return { canSubmit: true, reason: 'Ready to submit key' };
   };
 
+  const canUserViewVerification = () => {
+    // Only show verification tab if results are available
+    const processedResults = processElectionResults();
+    return processedResults !== null;
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -1577,24 +1583,39 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
         {/* Verification Tab */}
         {activeTab === 'verification' && (
           <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <FiEye className="h-5 w-5 mr-2" />
-              Election Verification
-            </h3>
-            
-            <div className="space-y-6">
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                <div className="flex items-center">
-                  <FiInfo className="h-5 w-5 text-blue-500 mr-2" />
-                  <div>
-                    <h4 className="font-medium text-blue-900">Cryptographic Verification</h4>
-                    <p className="text-sm text-blue-800 mt-1">
-                      This section displays cryptographic artifacts and proofs that can be used to verify the integrity of the election.
-                      All data shown below can be independently verified using ElectionGuard verification tools.
-                    </p>
-                  </div>
+            {!canUserViewVerification() ? (
+              <div className="text-center py-12">
+                <FiEye className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Verification Not Available</h3>
+                <p className="text-gray-600 mb-4">
+                  Election verification will be available after the results have been displayed.
+                </p>
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 inline-block">
+                  <p className="text-sm text-blue-800">
+                    <strong>Why?</strong> Verification artifacts are only generated after the election results have been computed and displayed.
+                  </p>
                 </div>
               </div>
+            ) : (
+              <>
+                <h3 className="text-lg font-semibold mb-4 flex items-center">
+                  <FiEye className="h-5 w-5 mr-2" />
+                  Election Verification
+                </h3>
+                
+                <div className="space-y-6">
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+                    <div className="flex items-center">
+                      <FiInfo className="h-5 w-5 text-blue-500 mr-2" />
+                      <div>
+                        <h4 className="font-medium text-blue-900">Cryptographic Verification</h4>
+                        <p className="text-sm text-blue-800 mt-1">
+                          This section displays cryptographic artifacts and proofs that can be used to verify the integrity of the election.
+                          All data shown below can be independently verified using ElectionGuard verification tools.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
 
               <DataDisplay
                 title="Joint Public Key"
@@ -1672,6 +1693,8 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 </div>
               </div>
             </div>
+            </>
+            )}
           </div>
         )}
 
