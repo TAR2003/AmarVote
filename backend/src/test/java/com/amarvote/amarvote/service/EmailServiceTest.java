@@ -83,10 +83,12 @@ class EmailServiceTest {
     void sendGuardianPrivateKeyEmail_WithValidInputs_ShouldSendEmail() throws Exception {
         // Arrange
         String electionTitle = "Presidential Election 2024";
+        String electionDescription = "A democratic election to choose our next president";
         String privateKey = "private-key-123456";
+        Long electionId = 1L;
 
         // Act
-        emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, privateKey);
+        emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, electionDescription, privateKey, electionId);
 
         // Assert
         verify(mailSender, times(1)).createMimeMessage();
@@ -103,10 +105,12 @@ class EmailServiceTest {
     void sendGuardianPrivateKeyEmail_WithSpecialCharactersInElectionTitle_ShouldHandleCorrectly() throws Exception {
         // Arrange
         String specialElectionTitle = "Election 2024: \"Test & Verify\"";
+        String electionDescription = "Special test election";
         String privateKey = "private-key-123";
+        Long electionId = 2L;
 
         // Act
-        emailService.sendGuardianPrivateKeyEmail(toEmail, specialElectionTitle, privateKey);
+        emailService.sendGuardianPrivateKeyEmail(toEmail, specialElectionTitle, electionDescription, privateKey, electionId);
 
         // Assert
         verify(mailSender, times(1)).send(mimeMessage);
@@ -153,13 +157,15 @@ void sendForgotPasswordEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntimeExce
 void sendGuardianPrivateKeyEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntimeException() throws Exception {
     // Arrange
     String electionTitle = "Presidential Election 2024";
+    String electionDescription = "A democratic election to choose our next president";
     String privateKey = "private-key-123";
+    Long electionId = 1L;
     doThrow(new RuntimeException("Failed to send HTML email", new MessagingException("Failed to send HTML email")))
         .when(mailSender).send(any(MimeMessage.class));
 
     // Act & Assert
     RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-        emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, privateKey);
+        emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, electionDescription, privateKey, electionId);
     });
 
     assertEquals("Failed to send HTML email", exception.getMessage());
@@ -201,12 +207,14 @@ void sendGuardianPrivateKeyEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntime
     void sendGuardianPrivateKeyEmail_WhenMailSenderCreateMimeMessageFails_ShouldThrowException() throws Exception {
         // Arrange
         String electionTitle = "Test Election";
+        String electionDescription = "A test election";
         String privateKey = "private-key-123";
+        Long electionId = 3L;
         when(mailSender.createMimeMessage()).thenThrow(new RuntimeException("Failed to create message"));
 
         // Act & Assert
         RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-            emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, privateKey);
+            emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, electionDescription, privateKey, electionId);
         });
 
         assertEquals("Failed to create message", exception.getMessage());
@@ -246,12 +254,14 @@ void sendGuardianPrivateKeyEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntime
     void sendGuardianPrivateKeyEmail_ConcurrentCalls_ShouldHandleCorrectly() throws Exception {
         // Arrange
         String electionTitle = "Test Election";
+        String electionDescription = "Test election description";
         String privateKey1 = "private-key-123";
         String privateKey2 = "private-key-456";
+        Long electionId = 4L;
 
         // Act
-        emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, privateKey1);
-        emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, privateKey2);
+        emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, electionDescription, privateKey1, electionId);
+        emailService.sendGuardianPrivateKeyEmail(toEmail, electionTitle, electionDescription, privateKey2, electionId);
 
         // Assert
         verify(mailSender, times(2)).send(mimeMessage);
@@ -276,10 +286,12 @@ void sendGuardianPrivateKeyEmail_WhenMessagingExceptionOccurs_ShouldThrowRuntime
     void sendGuardianPrivateKeyEmail_WithSpecialCharactersInBothParameters_ShouldHandleCorrectly() throws Exception {
         // Arrange
         String specialElectionTitle = "Election 2024: \"Test & Verify\" (Final)";
+        String specialElectionDescription = "Special test & verification election";
         String specialPrivateKey = "KEY$123\\d+.*[]{}()";
+        Long electionId = 5L;
 
         // Act
-        emailService.sendGuardianPrivateKeyEmail(toEmail, specialElectionTitle, specialPrivateKey);
+        emailService.sendGuardianPrivateKeyEmail(toEmail, specialElectionTitle, specialElectionDescription, specialPrivateKey, electionId);
 
         // Assert
         verify(mailSender, times(1)).send(mimeMessage);

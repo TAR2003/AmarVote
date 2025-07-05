@@ -42,9 +42,9 @@ public class EmailService {
         sendHtmlEmail(toEmail, subject, htmlContent);
     }
 
-    public void sendGuardianPrivateKeyEmail(String toEmail, String electionTitle, String privateKey) {
+    public void sendGuardianPrivateKeyEmail(String toEmail, String electionTitle, String electionDescription, String privateKey, Long electionId) {
         String subject = "🛡️ Your Guardian Private Key for Election: " + electionTitle;
-        String htmlContent = loadGuardianPrivateKeyTemplate(electionTitle, privateKey);
+        String htmlContent = loadGuardianPrivateKeyTemplate(electionTitle, electionDescription, privateKey, electionId);
         sendHtmlEmail(toEmail, subject, htmlContent);
     }
 
@@ -82,12 +82,14 @@ public class EmailService {
         }
     }
 
-    private String loadGuardianPrivateKeyTemplate(String electionTitle, String privateKey) {
+    private String loadGuardianPrivateKeyTemplate(String electionTitle, String electionDescription, String privateKey, Long electionId) {
         try {
             ClassPathResource resource = new ClassPathResource("templates/GuardianPrivateKeyEmail.html");
             String html = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
             html = html.replace("{{ELECTION_TITLE}}", electionTitle);
+            html = html.replace("{{ELECTION_DESCRIPTION}}", electionDescription != null ? electionDescription : "");
             html = html.replace("{{PRIVATE_KEY}}", privateKey);
+            html = html.replace("{{ELECTION_ID}}", electionId.toString());
             return html;
         } catch (IOException e) {
             throw new RuntimeException("Failed to load guardian private key email template", e);
