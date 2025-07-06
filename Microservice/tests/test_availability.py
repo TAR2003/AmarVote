@@ -1,7 +1,13 @@
 import pytest
 import json
+import sys
+import os
 from typing import Dict, Any
-from Microservice.api import app
+
+# Add the parent directory to the path so we can import from Microservice
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
+from api import app
 
 @pytest.fixture
 def client():

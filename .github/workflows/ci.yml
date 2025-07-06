@@ -98,10 +98,30 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-cov
 
-      - name: Run component tests
+      - name: Verify test setup
         run: |
-          pytest test_components.py -v --cov=.
+          python -c "import sys; print('Python path:', sys.path)"
+          python -c "import api; print('API module imported successfully')"
+          ls -la tests/
+
+      - name: Set Python path and run tests
+        run: |
+          export PYTHONPATH="${PYTHONPATH}:$(pwd)/.."
+          python -m pytest tests/ -v --cov=. --cov-report=term-missing --cov-report=xml --tb=short
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        continue-on-error: false
+
+      - name: Generate coverage report
+        run: |
+          python -m coverage report
+          python -m coverage html
+        if: always()
           
       - name: Upload coverage to Codecov (optional)
         uses: codecov/codecov-action@v4
         if: success()
+        with:
+          file: ./coverage.xml
+          flags: microservice
+          name: microservice-coverage

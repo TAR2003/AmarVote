@@ -1,12 +1,17 @@
 import pytest
 import json
 import hashlib
+import sys
+import os
 from typing import Dict, Any, List, Tuple
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 
+# Add the parent directory to the path so we can import from Microservice
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+
 # Import the API and its components
-from Microservice.api import (
+from api import (
     app,
     # Utility functions
     compute_ballot_shares,
