@@ -7,6 +7,7 @@ from datetime import datetime
 import uuid
 from collections import defaultdict
 import hashlib
+import json
 from electionguard.ballot import (
     BallotBoxState,
     CiphertextBallot,
@@ -56,7 +57,7 @@ from electionguard.utils import get_optional
 from electionguard.election_polynomial import ElectionPolynomial, Coefficient, SecretCoefficient, PublicCommitment
 from electionguard.schnorr import SchnorrProof
 from electionguard.elgamal import ElGamalKeyPair, ElGamalPublicKey, ElGamalSecretKey
-from electionguard.group import *
+from electionguard.hash import hash_elems
 from electionguard.decryption_share import DecryptionShare
 from electionguard.decryption import compute_decryption_share, compute_decryption_share_for_ballot
 
@@ -110,9 +111,32 @@ def compute_ballot_shares(
 
 
 def generate_ballot_hash(ballot: Any) -> str:
-    """Generate a SHA-256 hash for the ballot (works for both encrypted and decrypted ballots)."""
-    ballot_bytes = to_raw(ballot).encode('utf-8')
-    return hashlib.sha256(ballot_bytes).hexdigest()
+    """Generate a cryptographic hash for the ballot using ElectionGuard's built-in hash function."""
+    if hasattr(ballot, 'crypto_hash'):
+        # Use ElectionGuard's built-in crypto_hash method if available
+        return ballot.crypto_hash.to_hex()
+    else:
+        # Fallback to serialization-based hashing for other objects
+        ballot_bytes = to_raw(ballot).encode('utf-8')
+        return hashlib.sha256(ballot_bytes).hexdigest()
+
+def generate_ballot_hash_electionguard(ballot: Any) -> str:
+    """Generate a cryptographic hash using ElectionGuard's hash_elems function."""
+    if hasattr(ballot, 'object_id') and hasattr(ballot, 'crypto_hash'):
+        # Use the ballot's built-in crypto_hash which is computed using ElectionGuard's hash_elems
+        return ballot.crypto_hash.to_hex()
+    else:
+        # For other objects, serialize and hash using ElectionGuard's hash_elems
+        serialized = to_raw(ballot)
+        hash_result = hash_elems(serialized)
+        return hash_result.to_hex()
+
+def generate_ballot_hash_from_serialized(serialized_ballot: Dict) -> str:
+    """Generate a SHA-256 hash from a serialized ballot dictionary."""
+    import json
+    # Convert dict to JSON string with consistent ordering
+    ballot_json = json.dumps(serialized_ballot, sort_keys=True)
+    return hashlib.sha256(ballot_json.encode('utf-8')).hexdigest()
 
 def create_election_manifest(
     party_names: List[str], 
@@ -384,16 +408,19 @@ def api_create_encrypted_ballot():
         )
         
         if encrypted_ballot:
-            # Generate and store hash for the ballot
-            ballot_hash = generate_ballot_hash(encrypted_ballot)
+            # Generate and store hash for the ballot using ElectionGuard's native hash
+            ballot_hash = generate_ballot_hash_electionguard(encrypted_ballot)
             ballot_hashes[encrypted_ballot.object_id] = ballot_hash
             
+            # Serialize the ballot for response
+            serialized_ballot = to_raw(encrypted_ballot)
+            
             # Store the encrypted ballot (optional)
-            election_data['encrypted_ballots'].append(to_raw(encrypted_ballot))
+            election_data['encrypted_ballots'].append(serialized_ballot)
             
             response = {
                 'status': 'success',
-                'encrypted_ballot': to_raw(encrypted_ballot),
+                'encrypted_ballot': serialized_ballot,
                 'ballot_hash': ballot_hash
             }
             return jsonify(response), 200
@@ -517,9 +544,11 @@ def tally_encrypted_ballots(
     # Submit ballots - cast all ballots and ensure their hashes are stored
     submitted_ballots = []
     for i, ballot in enumerate(encrypted_ballots):
-        # Ensure ballot hash is stored before submission
+        # Ensure ballot hash is stored before submission using ElectionGuard's native hash
         if ballot.object_id not in ballot_hashes:
-            ballot_hashes[ballot.object_id] = generate_ballot_hash(ballot)
+            # Generate hash using ElectionGuard's native hash function
+            ballot_hash = generate_ballot_hash_electionguard(ballot)
+            ballot_hashes[ballot.object_id] = ballot_hash
             
         # Cast all ballots
         submitted = ballot_box.cast(ballot)
@@ -895,8 +924,9 @@ def ensure_ballot_hashes_populated(submitted_ballots: List[SubmittedBallot]) -> 
     """Ensure that all submitted ballots have their hashes stored in the global ballot_hashes dictionary."""
     for ballot in submitted_ballots:
         if ballot.object_id not in ballot_hashes:
-            # Generate and store the hash for this ballot
-            ballot_hashes[ballot.object_id] = generate_ballot_hash(ballot)
+            # Generate and store the hash for this ballot using ElectionGuard's native hash
+            # Note: This should rarely be called as hashes should be stored during encryption/tally
+            ballot_hashes[ballot.object_id] = generate_ballot_hash_electionguard(ballot)
 
 def clear_ballot_hashes() -> None:
     """Clear all stored ballot hashes. Useful for resetting state between elections."""
@@ -909,6 +939,43 @@ def api_clear_ballot_hashes():
     try:
         clear_ballot_hashes()
         return jsonify({'status': 'success', 'message': 'Ballot hashes cleared'}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
+
+@app.route('/get_ballot_hashes', methods=['POST'])
+def api_get_ballot_hashes():
+    """API endpoint to get ballot hashes from a list of encrypted ballots."""
+    try:
+        data = request.json
+        encrypted_ballots = data['encrypted_ballots']
+        
+        if not encrypted_ballots:
+            return jsonify({'status': 'error', 'message': 'No encrypted ballots provided'}), 400
+        
+        ballot_hash_list = []
+        
+        for encrypted_ballot_json in encrypted_ballots:
+            # Deserialize the encrypted ballot to get the object
+            encrypted_ballot = from_raw(CiphertextBallot, encrypted_ballot_json)
+            
+            # Generate hash using ElectionGuard's native hash function
+            ballot_hash = generate_ballot_hash_electionguard(encrypted_ballot)
+            
+            # Store the hash in global storage (optional, for consistency)
+            ballot_hashes[encrypted_ballot.object_id] = ballot_hash
+            
+            # Add to result list
+            ballot_hash_list.append({
+                'object_id': encrypted_ballot.object_id,
+                'ballot_hash': ballot_hash
+            })
+        
+        response = {
+            'status': 'success',
+            'ballot_hashes': ballot_hash_list
+        }
+        return jsonify(response), 200
+    
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
 

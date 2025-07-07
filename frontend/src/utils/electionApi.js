@@ -227,4 +227,59 @@ export const electionApi = {
       throw error;
     }
   },
+
+  /**
+   * Verify a vote using tracking code and hash
+   */
+  async verifyVote(electionId, verificationData) {
+    try {
+      const response = await fetch('/api/verify-vote', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          election_id: electionId,
+          tracking_code: verificationData.tracking_code,
+          hash_code: verificationData.hash_code
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error verifying vote:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get ballots in tally for verification
+   */
+  async getBallotsInTally(electionId) {
+    try {
+      const response = await fetch(`/api/ballots-in-tally/${electionId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error getting ballots in tally:', error);
+      throw error;
+    }
+  },
 };
