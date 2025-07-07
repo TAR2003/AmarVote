@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
 import { electionApi } from '../utils/electionApi';
 import { timezoneUtils } from '../utils/timezoneUtils';
@@ -60,11 +60,13 @@ const subMenus = [
   { name: 'Voting Booth', key: 'voting', icon: FiCheckCircle },
   { name: 'Guardian Keys', key: 'guardian', icon: FiShield },
   { name: 'Results', key: 'results', icon: FiTrendingUp },
+  { name: 'Ballots in Tally', key: 'ballots', icon: FiDatabase },
+  { name: 'Verify Your Vote', key: 'verify', icon: FiHash },
   { name: 'Verification', key: 'verification', icon: FiEye },
 ];
 
 // Timer Component
-const ElectionTimer = ({ startTime, endTime, status }) => {
+const ElectionTimer = ({ startTime, endTime }) => {
   const [timeInfo, setTimeInfo] = useState({ 
     timeLeft: '', 
     progress: 0, 
@@ -239,6 +241,779 @@ const DataDisplay = ({ title, data, type = 'json' }) => {
 // Constants for chart colors
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
+// Ballots in Tally Section Component
+const BallotsInTallySection = ({ resultsData }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [filteredBallots, setFilteredBallots] = useState([]);
+  const [sortBy, setSortBy] = useState('ballot_id'); // ballot_id, status, verification
+  const [sortOrder, setSortOrder] = useState('asc'); // asc, desc
+  const [hasError, setHasError] = useState(false);
+  const [errorMessage, setErrorMessage] = useState('');
+
+  // Extract and deduplicate ballots from results data using useMemo
+  const ballots = useMemo(() => {
+    try {
+      // Check if the required data structure exists
+      if (!resultsData?.verification) {
+        setHasError(true);
+        setErrorMessage('Verification data is missing in the results');
+        return [];
+      }
+      
+      const extractedBallots = resultsData?.verification?.ballots || [];
+      
+      if (!Array.isArray(extractedBallots)) {
+        setHasError(true);
+        setErrorMessage('Expected ballots to be an array, but got a different type');
+        return [];
+      }
+      
+      // Remove duplicates based on ballot_id (tracking code)
+      const uniqueBallots = extractedBallots.filter((ballot, index, self) => 
+        index === self.findIndex(b => b.ballot_id === ballot.ballot_id)
+      );
+      
+      // Only show deduplication logs if there actually was deduplication
+      if (uniqueBallots.length < extractedBallots.length) {
+        console.log('🔍 Ballot deduplication removed', 
+          extractedBallots.length - uniqueBallots.length, 
+          'duplicate ballots. Original:', extractedBallots.length, 
+          'Unique:', uniqueBallots.length);
+      }
+      
+      return uniqueBallots;
+    } catch (error) {
+      console.error('Error processing ballot data:', error);
+      setHasError(true);
+      setErrorMessage('Error processing ballot data: ' + error.message);
+      return [];
+    }
+  }, [resultsData]);
+
+  useEffect(() => {
+    let filtered = [...ballots]; // Use already deduplicated ballots
+    
+    // Apply search filter
+    if (searchTerm) {
+      filtered = filtered.filter(ballot => 
+        ballot.ballot_id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (ballot.initial_hash && ballot.initial_hash.toLowerCase().includes(searchTerm.toLowerCase())) ||
+        (ballot.decrypted_hash && ballot.decrypted_hash.toLowerCase().includes(searchTerm.toLowerCase()))
+      );
+    }
+    
+    // Apply sorting
+    filtered.sort((a, b) => {
+      let aValue = a[sortBy] || '';
+      let bValue = b[sortBy] || '';
+      
+      if (typeof aValue === 'string') {
+        aValue = aValue.toLowerCase();
+        bValue = bValue.toLowerCase();
+      }
+      
+      if (sortOrder === 'asc') {
+        return aValue < bValue ? -1 : aValue > bValue ? 1 : 0;
+      } else {
+        return aValue > bValue ? -1 : aValue < bValue ? 1 : 0;
+      }
+    });
+    
+    setFilteredBallots(filtered);
+  }, [searchTerm, ballots, sortBy, sortOrder]);
+
+  const downloadBallotInfo = (ballot) => {
+    const ballotData = {
+      tracking_code: ballot.ballot_id,
+      hash_code: ballot.initial_hash,
+      decrypted_hash: ballot.decrypted_hash,
+      status: ballot.status,
+      verification: ballot.verification,
+      timestamp: new Date().toISOString(),
+      election_id: resultsData?.election?.scope_id || 'unknown',
+      ballot_selections: ballot.selections || []
+    };
+    
+    const blob = new Blob([JSON.stringify(ballotData, null, 2)], { type: 'application/json' });
+    saveAs(blob, `ballot_${ballot.ballot_id}_verification.json`);
+  };
+
+  const downloadAllBallotsCSV = () => {
+    const csvHeaders = ['Tracking Code', 'Hash Code', 'Decrypted Hash', 'Status', 'Verification'];
+    const csvRows = ballots.map(ballot => [
+      ballot.ballot_id,
+      ballot.initial_hash || 'N/A',
+      ballot.decrypted_hash || 'N/A',
+      ballot.status,
+      ballot.verification
+    ]);
+    
+    const csvContent = [csvHeaders, ...csvRows]
+      .map(row => row.map(field => `"${field}"`).join(','))
+      .join('\n');
+    
+    const blob = new Blob([csvContent], { type: 'text/csv' });
+    saveAs(blob, `all_ballots_verification_${new Date().toISOString().split('T')[0]}.csv`);
+  };
+
+  const getVerificationStatus = (ballot) => {
+    const status = ballot.verification;
+    switch (status) {
+      case 'success':
+        return { text: 'Verified', color: 'green', icon: FiCheck, bgColor: 'bg-green-100', textColor: 'text-green-800', borderColor: 'border-green-200' };
+      case 'failed':
+        return { text: 'Failed', color: 'red', icon: FiX, bgColor: 'bg-red-100', textColor: 'text-red-800', borderColor: 'border-red-200' };
+      case 'no_initial_hash':
+        return { text: 'No Hash', color: 'yellow', icon: FiAlertCircle, bgColor: 'bg-yellow-100', textColor: 'text-yellow-800', borderColor: 'border-yellow-200' };
+      default:
+        return { text: 'Unknown', color: 'gray', icon: FiInfo, bgColor: 'bg-gray-100', textColor: 'text-gray-800', borderColor: 'border-gray-200' };
+    }
+  };
+
+  const getStatusCounts = () => {
+    const counts = { success: 0, failed: 0, no_initial_hash: 0, cast: 0, spoiled: 0 };
+    ballots.forEach(ballot => {
+      counts[ballot.verification] = (counts[ballot.verification] || 0) + 1;
+      counts[ballot.status] = (counts[ballot.status] || 0) + 1;
+    });
+    return counts;
+  };
+
+  const statusCounts = getStatusCounts();
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold flex items-center">
+          <FiDatabase className="h-5 w-5 mr-2" />
+          Ballots in Tally ({ballots.length} total)
+        </h3>
+        
+        <button
+          onClick={downloadAllBallotsCSV}
+          className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors"
+          disabled={ballots.length === 0}
+        >
+          <FiDownload className="h-4 w-4" />
+          <span>Download All CSV</span>
+        </button>
+      </div>
+
+      {/* Statistics Cards */}
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-green-800">{statusCounts.success || 0}</div>
+          <div className="text-sm text-green-600">Verified</div>
+        </div>
+        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-red-800">{statusCounts.failed || 0}</div>
+          <div className="text-sm text-red-600">Failed</div>
+        </div>
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-blue-800">{statusCounts.cast || 0}</div>
+          <div className="text-sm text-blue-600">Cast</div>
+        </div>
+        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-orange-800">{statusCounts.spoiled || 0}</div>
+          <div className="text-sm text-orange-600">Spoiled</div>
+        </div>
+        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-purple-800">{ballots.length}</div>
+          <div className="text-sm text-purple-600">Total</div>
+        </div>
+      </div>
+
+      {/* Search and Sort Controls */}
+      <div className="flex flex-col md:flex-row gap-4 mb-6">
+        <div className="relative flex-1">
+          <input
+            type="text"
+            placeholder="Search by tracking code, hash code, or verification status..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          />
+          <FiHash className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+        </div>
+        
+        <div className="flex gap-2">
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value)}
+            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+          >
+            <option value="ballot_id">Sort by Tracking Code</option>
+            <option value="status">Sort by Status</option>
+            <option value="verification">Sort by Verification</option>
+          </select>
+          
+          <button
+            onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
+          >
+            {sortOrder === 'asc' ? '↑' : '↓'}
+          </button>
+        </div>
+      </div>
+
+      {searchTerm && (
+        <div className="mb-4 text-sm text-gray-600">
+          Showing {filteredBallots.length} of {ballots.length} ballots
+        </div>
+      )}
+
+      {/* Ballots Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {filteredBallots.map((ballot, index) => {
+          const statusInfo = getVerificationStatus(ballot);
+          const StatusIcon = statusInfo.icon;
+          
+          return (
+            <div 
+              key={ballot.ballot_id} 
+              className={`bg-white border-2 ${statusInfo.borderColor} rounded-lg p-4 hover:shadow-lg transition-all duration-200 hover:scale-[1.02]`}
+            >
+              <div className="flex items-start justify-between mb-3">
+                <div className="flex items-center">
+                  <div className={`${statusInfo.bgColor} rounded-full p-2 mr-3`}>
+                    <FiFileText className={`h-4 w-4 ${statusInfo.textColor}`} />
+                  </div>
+                  <div>
+                    <h4 className="font-medium text-gray-900">Ballot #{index + 1}</h4>
+                    <div className={`flex items-center mt-1 ${statusInfo.textColor}`}>
+                      <StatusIcon className="h-3 w-3 mr-1" />
+                      <span className="text-xs font-medium">{statusInfo.text}</span>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  onClick={() => downloadBallotInfo(ballot)}
+                  className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50"
+                  title="Download ballot verification details"
+                >
+                  <FiDownload className="h-4 w-4" />
+                </button>
+              </div>
+              
+              <div className="space-y-3 text-xs">
+                <div>
+                  <span className="text-gray-500 font-medium">Tracking Code:</span>
+                  <div className="font-mono text-gray-900 bg-gray-50 px-2 py-1 rounded mt-1 break-all text-xs border">
+                    {ballot.ballot_id}
+                  </div>
+                </div>
+                <div>
+                  <span className="text-gray-500 font-medium">Initial Hash:</span>
+                  <div className="font-mono text-gray-900 bg-gray-50 px-2 py-1 rounded mt-1 break-all text-xs border">
+                    {ballot.initial_hash || 'N/A'}
+                  </div>
+                </div>
+                {ballot.decrypted_hash && ballot.decrypted_hash !== ballot.initial_hash && (
+                  <div>
+                    <span className="text-gray-500 font-medium">Decrypted Hash:</span>
+                    <div className="font-mono text-gray-900 bg-gray-50 px-2 py-1 rounded mt-1 break-all text-xs border">
+                      {ballot.decrypted_hash}
+                    </div>
+                  </div>
+                )}
+                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                  <div>
+                    <span className="text-gray-500 font-medium">Status:</span>
+                    <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
+                      ballot.status === 'cast' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                    }`}>
+                      {ballot.status}
+                    </span>
+                  </div>
+                  <div className={`px-2 py-1 rounded text-xs font-medium ${statusInfo.bgColor} ${statusInfo.textColor}`}>
+                    {statusInfo.text}
+                  </div>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {filteredBallots.length === 0 && searchTerm && (
+        <div className="text-center py-12">
+          <FiHash className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Ballots Found</h3>
+          <p className="text-gray-500">No ballots match your search criteria. Try a different search term.</p>
+        </div>
+      )}
+
+      {ballots.length === 0 && !hasError && (
+        <div className="text-center py-12">
+          <FiDatabase className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-gray-900 mb-2">No Ballots Available</h3>
+          <p className="text-gray-500">Ballot verification data will be available after the election results are computed.</p>
+        </div>
+      )}
+      
+      {hasError && (
+        <div className="text-center py-12">
+          <FiAlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-red-600 mb-2">Error Loading Ballots</h3>
+          <p className="text-gray-700">{errorMessage}</p>
+          <p className="text-gray-500 mt-4">Please refresh the page or contact support if this issue persists.</p>
+        </div>
+      )}
+    </div>
+  );
+};
+
+// Verify Vote Section Component
+const VerifyVoteSection = ({ electionId, resultsData }) => {
+  const [verificationFile, setVerificationFile] = useState(null);
+  const [verificationResult, setVerificationResult] = useState(null);
+  const [verifyingVote, setVerifyingVote] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
+  const [manualInput, setManualInput] = useState({ tracking_code: '', hash_code: '' });
+  const [inputMethod, setInputMethod] = useState('file'); // 'file' or 'manual'
+
+  const handleFileUpload = (file) => {
+    if (file && (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.json'))) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        try {
+          const content = e.target.result;
+          
+          // First try to parse as JSON in case it's a JSON file
+          try {
+            const jsonData = JSON.parse(content);
+            // Check if this is a valid vote receipt JSON format
+            if (jsonData.tracking_code && jsonData.hash_code) {
+              setVerificationFile(jsonData);
+              verifyVoteData(jsonData);
+              return;
+            } else if (jsonData.ballot_id && (jsonData.initial_hash || jsonData.hash)) {
+              // Alternative format that might be used
+              const data = {
+                tracking_code: jsonData.ballot_id,
+                hash_code: jsonData.initial_hash || jsonData.hash
+              };
+              setVerificationFile(data);
+              verifyVoteData(data);
+              return;
+            }
+          } catch {
+            // Not JSON, continue with text parsing
+          }
+          
+          // Parse TXT vote receipt format - try different possible formats
+          const voteHashMatch = content.match(/Vote Hash:\s*([a-f0-9]+)/i) || 
+                                content.match(/Hash:\s*([a-f0-9]+)/i) ||
+                                content.match(/Hash Code:\s*([a-f0-9]+)/i);
+                                
+          const trackingCodeMatch = content.match(/Tracking Code:\s*([a-f0-9]+)/i) || 
+                                   content.match(/Ballot ID:\s*([a-f0-9]+)/i) ||
+                                   content.match(/Ballot Tracking ID:\s*([a-f0-9]+)/i);
+          
+          if (voteHashMatch && trackingCodeMatch) {
+            const data = {
+              tracking_code: trackingCodeMatch[1],
+              hash_code: voteHashMatch[1]
+            };
+            setVerificationFile(data);
+            verifyVoteData(data);
+          } else {
+            toast.error('File must contain both a hash code and tracking code');
+          }
+        } catch (error) {
+          toast.error('Failed to read vote receipt file: ' + error.message);
+        }
+      };
+      reader.readAsText(file);
+    } else {
+      toast.error('Please upload a valid TXT or JSON vote receipt file');
+    }
+  };
+
+  const handleFileDrop = (e) => {
+    e.preventDefault();
+    setDragOver(false);
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleFileUpload(files[0]);
+    }
+  };
+
+  const handleFileSelect = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      handleFileUpload(file);
+    }
+  };
+
+  const handleManualVerification = () => {
+    if (!manualInput.tracking_code.trim() || !manualInput.hash_code.trim()) {
+      toast.error('Please enter both tracking code and hash code');
+      return;
+    }
+    
+    const data = {
+      tracking_code: manualInput.tracking_code.trim(),
+      hash_code: manualInput.hash_code.trim()
+    };
+    
+    setVerificationFile(data);
+    verifyVoteData(data);
+  };
+
+  const verifyVoteData = async (data) => {
+    try {
+      setVerifyingVote(true);
+      setVerificationResult(null);
+      
+      // First check if we have ballot data locally (faster verification)
+      if (resultsData?.verification?.ballots) {
+        const localResult = verifyVoteLocally(data, resultsData.verification.ballots);
+        setVerificationResult(localResult);
+      } else {
+        // Fallback to API verification
+        const result = await electionApi.verifyVote(electionId, data);
+        setVerificationResult(result);
+      }
+    } catch (error) {
+      setVerificationResult({
+        status: 'error',
+        message: 'Failed to verify vote: ' + error.message
+      });
+    } finally {
+      setVerifyingVote(false);
+    }
+  };
+
+  const verifyVoteLocally = (data, ballots) => {
+    const { tracking_code, hash_code } = data;
+    
+    // Make sure ballots is valid
+    if (!Array.isArray(ballots)) {
+      return {
+        status: 'error',
+        message: 'Error: Ballot data is not available or in incorrect format',
+        found_ballot: false,
+        error_details: 'Ballots is not an array'
+      };
+    }
+    
+    // Find ballot by tracking code
+    const foundBallot = ballots.find(ballot => ballot.ballot_id === tracking_code);
+    
+    if (!foundBallot) {
+      return {
+        status: 'not_found',
+        message: 'Tracking code not found in the tally',
+        found_ballot: false
+      };
+    }
+    
+    // Check hash match
+    const hashMatches = foundBallot.initial_hash === hash_code || 
+                       foundBallot.decrypted_hash === hash_code;
+    
+    if (hashMatches) {
+      return {
+        status: 'verified',
+        message: 'Vote verified successfully',
+        found_ballot: true,
+        ballot_info: foundBallot
+      };
+    } else {
+      return {
+        status: 'corrupted',
+        message: 'Hash mismatch detected - possible tampering',
+        found_ballot: true,
+        ballot_info: foundBallot,
+        expected_hash: foundBallot.initial_hash,
+        provided_hash: hash_code
+      };
+    }
+  };
+
+  const getVerificationStatusDisplay = () => {
+    if (!verificationResult) return null;
+
+    const { status, message } = verificationResult;
+    
+    switch (status) {
+      case 'verified':
+        return {
+          icon: FiCheck,
+          color: 'green',
+          title: 'Vote Verified Successfully! ✅',
+          description: 'Your vote was found and verified in the tally. Both tracking code and hash match perfectly.',
+        };
+      case 'corrupted':
+        return {
+          icon: FiAlertCircle,
+          color: 'yellow',
+          title: 'Vote Found but Hash Mismatch ⚠️',
+          description: 'Your tracking code was found, but the hash doesn\'t match. This may indicate tampering or data corruption.',
+        };
+      case 'not_found':
+        return {
+          icon: FiX,
+          color: 'red',
+          title: 'Vote Not Found ❌',
+          description: 'Your tracking code was not found in the final tally. Your vote may not have been counted.',
+        };
+      case 'error':
+        return {
+          icon: FiAlertCircle,
+          color: 'red',
+          title: 'Verification Error',
+          description: message || 'An error occurred during verification.',
+        };
+      default:
+        return null;
+    }
+  };
+
+  const statusDisplay = getVerificationStatusDisplay();
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-6">
+        <h3 className="text-lg font-semibold flex items-center">
+          <FiHash className="h-5 w-5 mr-2" />
+          Verify Your Vote
+        </h3>
+        
+        <div className="flex space-x-2">
+          <button
+            onClick={() => setInputMethod('file')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              inputMethod === 'file' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Upload File
+          </button>
+          <button
+            onClick={() => setInputMethod('manual')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              inputMethod === 'manual' 
+                ? 'bg-blue-600 text-white' 
+                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+            }`}
+          >
+            Manual Entry
+          </button>
+        </div>
+      </div>
+
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+        <div className="flex items-center">
+          <FiInfo className="h-5 w-5 text-blue-500 mr-2" />
+          <div>
+            <h4 className="font-medium text-blue-900">How to Verify Your Vote</h4>
+            <p className="text-sm text-blue-800 mt-1">
+              Use either method below to verify that your vote was counted correctly in the final tally.
+              You need both your tracking code and hash code from your vote receipt.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {inputMethod === 'file' ? (
+        /* File Upload Method */
+        <div
+          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors mb-6 ${
+            dragOver
+              ? 'border-blue-400 bg-blue-50'
+              : 'border-gray-300 hover:border-gray-400'
+          }`}
+          onDragOver={(e) => {
+            e.preventDefault();
+            setDragOver(true);
+          }}
+          onDragLeave={() => setDragOver(false)}
+          onDrop={handleFileDrop}
+        >
+          <input
+            type="file"
+            accept=".txt,.json"
+            onChange={handleFileSelect}
+            className="hidden"
+            id="verification-file"
+          />
+          <label htmlFor="verification-file" className="cursor-pointer">
+            <FiFileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
+            <p className="text-lg font-medium text-gray-900 mb-2">
+              Upload Your Vote Receipt
+            </p>
+            <p className="text-gray-600 mb-4">
+              Drag and drop your vote receipt file here (.txt or .json), or click to browse
+            </p>
+            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+              Choose File
+            </button>
+          </label>
+        </div>
+      ) : (
+        /* Manual Input Method */
+        <div className="bg-white border rounded-lg p-6 mb-6">
+          <h4 className="font-medium text-gray-900 mb-4">Enter Verification Details</h4>
+          
+          <div className="space-y-4">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Tracking Code
+              </label>
+              <input
+                type="text"
+                value={manualInput.tracking_code}
+                onChange={(e) => setManualInput(prev => ({ ...prev, tracking_code: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                placeholder="Enter your tracking code..."
+              />
+            </div>
+            
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">
+                Hash Code
+              </label>
+              <input
+                type="text"
+                value={manualInput.hash_code}
+                onChange={(e) => setManualInput(prev => ({ ...prev, hash_code: e.target.value }))}
+                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
+                placeholder="Enter your hash code..."
+              />
+            </div>
+            
+            <button
+              onClick={handleManualVerification}
+              disabled={verifyingVote || !manualInput.tracking_code.trim() || !manualInput.hash_code.trim()}
+              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            >
+              {verifyingVote ? 'Verifying...' : 'Verify Vote'}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Verification in Progress */}
+      {verifyingVote && (
+        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-center">
+            <FiLoader className="h-5 w-5 text-yellow-600 mr-2 animate-spin" />
+            <span className="text-yellow-800">Verifying your vote...</span>
+          </div>
+        </div>
+      )}
+
+      {/* Verification Result */}
+      {statusDisplay && (
+        <div className={`mb-6 p-6 bg-${statusDisplay.color}-50 border border-${statusDisplay.color}-200 rounded-lg`}>
+          <div className="flex items-start">
+            <statusDisplay.icon className={`h-6 w-6 text-${statusDisplay.color}-600 mr-3 mt-1 flex-shrink-0`} />
+            <div className="flex-1">
+              <h4 className={`font-medium text-${statusDisplay.color}-900 mb-2`}>
+                {statusDisplay.title}
+              </h4>
+              <p className={`text-${statusDisplay.color}-800 mb-4`}>
+                {statusDisplay.description}
+              </p>
+              
+              {verificationFile && (
+                <div className="bg-white rounded-lg p-4 border shadow-sm">
+                  <h5 className="font-medium text-gray-900 mb-3">Verification Details</h5>
+                  <div className="text-sm space-y-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center">
+                      <span className="text-gray-500 font-medium min-w-[120px]">Tracking Code:</span>
+                      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs break-all">
+                        {verificationFile.tracking_code}
+                      </span>
+                    </div>
+                    <div className="flex flex-col sm:flex-row sm:items-center">
+                      <span className="text-gray-500 font-medium min-w-[120px]">Hash Code:</span>
+                      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs break-all">
+                        {verificationFile.hash_code}
+                      </span>
+                    </div>
+                    {verificationResult.found_ballot && (
+                      <div className="flex flex-col sm:flex-row sm:items-center">
+                        <span className="text-gray-500 font-medium min-w-[120px]">Found in Tally:</span>
+                        <span className="text-green-600 font-medium">✓ Yes</span>
+                      </div>
+                    )}
+                    {verificationResult.ballot_info && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <span className="text-gray-500 font-medium">Ballot Status:</span>
+                        <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${
+                          verificationResult.ballot_info.status === 'cast' 
+                            ? 'bg-blue-100 text-blue-800' 
+                            : 'bg-orange-100 text-orange-800'
+                        }`}>
+                          {verificationResult.ballot_info.status}
+                        </span>
+                      </div>
+                    )}
+                    {verificationResult.expected_hash && verificationResult.provided_hash && (
+                      <div className="mt-3 pt-3 border-t border-gray-200">
+                        <div className="text-xs text-red-600">
+                          <div>Expected: {verificationResult.expected_hash}</div>
+                          <div>Provided: {verificationResult.provided_hash}</div>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Instructions */}
+      <div className="bg-gray-50 rounded-lg p-4">
+        <h4 className="font-medium text-gray-900 mb-3">Understanding Verification Results</h4>
+        <div className="text-sm text-gray-700 space-y-2">
+          <div className="flex items-start">
+            <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
+              <FiCheck className="h-3 w-3 text-green-600" />
+            </div>
+            <div>
+              <span className="font-medium">Verified:</span>
+              <span className="ml-1">Your vote was found and the hash matches perfectly. Your vote was counted correctly.</span>
+            </div>
+          </div>
+          <div className="flex items-start">
+            <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
+              <FiAlertCircle className="h-3 w-3 text-yellow-600" />
+            </div>
+            <div>
+              <span className="font-medium">Hash Mismatch:</span>
+              <span className="ml-1">Vote found but hash doesn't match. This may indicate tampering or data corruption.</span>
+            </div>
+          </div>
+          <div className="flex items-start">
+            <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
+              <FiX className="h-3 w-3 text-red-600" />
+            </div>
+            <div>
+              <span className="font-medium">Not Found:</span>
+              <span className="ml-1">Your tracking code was not found in the final tally. Your vote may not have been counted.</span>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
+          <p className="text-sm text-blue-800">
+            <strong>Note:</strong> This verification system provides cryptographic proof that your vote was counted correctly. 
+            The verification is performed against the official election tally and cannot be tampered with.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
 export default function ElectionPage() {
   const { id } = useParams();
   const [activeTab, setActiveTab] = useState('info');
@@ -251,7 +1026,6 @@ export default function ElectionPage() {
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voteResult, setVoteResult] = useState(null);
-  const [hasVoted, setHasVoted] = useState(false);
   const [voteError, setVoteError] = useState(null);
   
   // Eligibility state
@@ -266,11 +1040,12 @@ export default function ElectionPage() {
   
   // Results state
   const [resultsData, setResultsData] = useState(null);
+  const [rawVerificationData, setRawVerificationData] = useState(null); // Store raw API response for ballots
   const [loadingResults, setLoadingResults] = useState(false);
   const [combiningDecryptions, setCombiningDecryptions] = useState(false);
   
   // Tally creation state
-  const [tallyCreated, setTallyCreated] = useState(false);
+  // const [tallyCreated, setTallyCreated] = useState(false);
   const [creatingTally, setCreatingTally] = useState(false);
 
   // Load election data and optionally create tally
@@ -283,9 +1058,7 @@ export default function ElectionPage() {
           setError('You are not authorized to view this election or the election does not exist.');
         } else {
           setElectionData(data);
-          // Check if user has already voted
-          const currentUser = data.voters?.find(voter => voter.isCurrentUser);
-          setHasVoted(currentUser?.hasVoted || false);
+          // Check if user has already voted - this info is now handled through eligibilityData
           
           // Auto-create tally if election has ended and tally doesn't exist yet
           const electionStatus = getElectionStatusFromData(data);
@@ -313,7 +1086,7 @@ export default function ElectionPage() {
       setCreatingTally(true);
       const tallyResponse = await electionApi.createTally(electionId);
       console.log('Tally creation response:', tallyResponse);
-      setTallyCreated(true);
+      // setTallyCreated(true);  // Commented out as not used currently
     } catch (err) {
       console.error('Failed to create tally:', err);
       // Don't show error to user as this is automatic
@@ -349,51 +1122,55 @@ export default function ElectionPage() {
     checkEligibility();
   }, [activeTab, id, eligibilityData, checkingEligibility]);
 
-  // Load results when switching to results tab
-  useEffect(() => {
-    if (activeTab === 'results' && canUserViewResults() && !resultsData && !loadingResults) {
-      loadElectionResults();
-    }
-  }, [activeTab]);
+  // Define functions first
+  const getElectionStatus = useCallback(() => {
+    if (!electionData) return 'Unknown';
+    
+    const now = new Date();
+    const startDate = new Date(electionData.startingTime);
+    const endDate = new Date(electionData.endingTime);
+    
+    if (now < startDate) return 'Upcoming';
+    if (now > endDate) return 'Ended';
+    return 'Active';
+  }, [electionData]);
 
-  const loadElectionResults = async () => {
-    setLoadingResults(true);
-    try {
-      // Check if we need to combine partial decryptions first
-      const totalBallots = electionData?.voters?.filter(v => v.hasVoted).length || 0;
-      const totalVotesInChoices = electionData?.electionChoices?.reduce((sum, choice) => sum + (choice.totalVotes || 0), 0) || 0;
+  const canUserViewResults = useCallback(() => {
+    return electionData?.userRoles?.includes('admin') || 
+           electionData?.userRoles?.includes('guardian') ||
+           getElectionStatus() === 'Ended';
+  }, [electionData, getElectionStatus]);
+
+  const processElectionResults = useCallback((apiResponseData = null) => {
+    // Use provided data or fall back to existing resultsData
+    const dataToProcess = apiResponseData || resultsData;
+    
+    // If we have resultsData from combine-decryption, use that as it's more accurate
+    if (dataToProcess?.results?.candidates) {
+      const candidates = dataToProcess.results.candidates;
+      const totalVotes = Object.values(candidates).reduce((sum, candidate) => sum + parseInt(candidate.votes || 0), 0);
       
-      if (totalVotesInChoices !== totalBallots && totalBallots > 0) {
-        // Need to combine partial decryptions
-        await combinePartialDecryptions();
-      }
-      
-      // For now, use the data from electionData
-      const processedResults = processElectionResults();
-      setResultsData(processedResults);
-    } catch (err) {
-      console.error('Error loading results:', err);
-    } finally {
-      setLoadingResults(false);
-    }
-  };
+      const chartData = Object.entries(candidates).map(([name, data]) => ({
+        name: name,
+        votes: parseInt(data.votes || 0),
+        percentage: parseFloat(data.percentage || 0),
+        party: name // You might want to map this to actual party names if available
+      }));
 
-  const combinePartialDecryptions = async () => {
-    setCombiningDecryptions(true);
-    try {
-      const response = await electionApi.combinePartialDecryptions(id);
-      console.log('Combined partial decryptions:', response);
-      // Refresh election data to get updated results
-      const updatedData = await electionApi.getElectionById(id);
-      setElectionData(updatedData);
-    } catch (err) {
-      console.error('Error combining partial decryptions:', err);
-    } finally {
-      setCombiningDecryptions(false);
+      return {
+        totalVotes,
+        totalEligibleVoters: electionData?.voters?.length || 0,
+        totalVotedUsers: dataToProcess.results.total_valid_ballots || dataToProcess.results.total_ballots_cast || 0,
+        turnoutRate: electionData?.voters?.length > 0 ? 
+          ((dataToProcess.results.total_valid_ballots || 0) / electionData.voters.length * 100).toFixed(1) : 0,
+        chartData,
+        choices: chartData,
+        // Include verification data
+        verification: dataToProcess.verification || null
+      };
     }
-  };
-
-  const processElectionResults = () => {
+    
+    // Fallback to electionData if resultsData is not available
     if (!electionData?.electionChoices) return null;
     
     const totalVotes = electionData.electionChoices.reduce((sum, choice) => sum + (choice.totalVotes || 0), 0);
@@ -413,9 +1190,92 @@ export default function ElectionPage() {
       totalVotedUsers,
       turnoutRate: totalEligibleVoters > 0 ? (totalVotedUsers / totalEligibleVoters * 100).toFixed(1) : 0,
       chartData,
-      choices: electionData.electionChoices
+      choices: electionData.electionChoices,
+      verification: null
     };
-  };
+  }, [resultsData, electionData]);
+
+  const combinePartialDecryptions = useCallback(async () => {
+    setCombiningDecryptions(true);
+    try {
+      const response = await electionApi.combinePartialDecryptions(id);
+      console.log('Combined partial decryptions');
+      
+      // Store the decryption results for ballot verification
+      // The response.results contains the complete election results including verification.ballots
+      if (response.results) {
+        // Store raw verification data separately for ballots
+        setRawVerificationData(response.results);
+        
+        // Log a summary of the extracted ballot data
+        if (response.results?.verification?.ballots && response.results.verification.ballots.length > 0) {
+          console.log(`✅ Successfully extracted ${response.results.verification.ballots.length} ballots from API response`);
+          
+          // Log a summary of ballot verification statuses
+          const statusCounts = {};
+          response.results.verification.ballots.forEach(ballot => {
+            statusCounts[ballot.verification] = (statusCounts[ballot.verification] || 0) + 1;
+          });
+          console.log('Ballot verification status summary:', statusCounts);
+        } else {
+          console.log('⚠️ No ballots found in API response');
+        }
+        
+        // Process and set the results data for charts and statistics
+        const processedResults = processElectionResults(response.results);
+        setResultsData(processedResults);
+      }
+      
+      // Refresh election data to get updated results
+      const updatedData = await electionApi.getElectionById(id);
+      setElectionData(updatedData);
+      
+      toast.success('Partial decryptions combined successfully!');
+    } catch (err) {
+      console.error('Error combining partial decryptions:', err);
+      toast.error('Failed to combine partial decryptions: ' + err.message);
+    } finally {
+      setCombiningDecryptions(false);
+    }
+  }, [id, processElectionResults]);
+
+  const loadElectionResults = useCallback(async () => {
+    setLoadingResults(true);
+    try {
+      // Check if we need to combine partial decryptions first
+      const totalBallots = electionData?.voters?.filter(v => v.hasVoted).length || 0;
+      const totalVotesInChoices = electionData?.electionChoices?.reduce((sum, choice) => sum + (choice.totalVotes || 0), 0) || 0;
+      
+      if (totalVotesInChoices !== totalBallots && totalBallots > 0) {
+        // Need to combine partial decryptions to get the latest results
+        await combinePartialDecryptions();
+        // resultsData and rawVerificationData will be set in combinePartialDecryptions()
+      } else {
+        // If no decryption needed, we still need to try to get the combined data
+        // to ensure ballot verification data is available
+        console.log('Attempting to combine partial decryptions to get ballot data...');
+        await combinePartialDecryptions();
+      }
+    } catch (err) {
+      console.error('Error loading results:', err);
+      // Fallback to electionData if combine decryption fails
+      const processedResults = processElectionResults();
+      setResultsData(processedResults);
+      // Note: rawVerificationData will remain null in this fallback case
+    } finally {
+      setLoadingResults(false);
+    }
+  }, [electionData, combinePartialDecryptions, processElectionResults]);
+
+  // Load results when switching to results, ballots, or verify tabs
+  useEffect(() => {
+    const tabsRequiringResults = ['results', 'ballots', 'verify'];
+    if (tabsRequiringResults.includes(activeTab) && canUserViewResults() && !resultsData && !loadingResults) {
+      loadElectionResults();
+    }
+  }, [activeTab, resultsData, loadingResults, loadElectionResults, canUserViewResults]);
+
+
 
   const handleVoteSubmit = (e) => {
     e.preventDefault();
@@ -445,7 +1305,6 @@ export default function ElectionPage() {
       };
       
       setVoteResult(voteResultWithCandidate);
-      setHasVoted(true);
       setSelectedCandidate('');
       setShowConfirmModal(false);
       
@@ -496,23 +1355,49 @@ export default function ElectionPage() {
     navigator.clipboard.writeText(text);
   };
 
-  const saveVoteDetails = () => {
-    const details = `
+  const saveVoteDetails = (format = 'txt') => {
+    if (format === 'txt') {
+      // Standard TXT format for vote receipts
+      const txtDetails = `
 Election: ${electionData.electionTitle}
 Vote Hash: ${voteResult.hashCode}
 Tracking Code: ${voteResult.trackingCode}
 Date: ${timezoneUtils.formatForDisplay(new Date().toISOString())}
 Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
-    `.trim();
-    
-    const blob = new Blob([details], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = `vote-receipt-${id}.txt`;
-    a.click();
-    URL.revokeObjectURL(url);
+      `.trim();
+      
+      const blob = new Blob([txtDetails], { type: 'text/plain' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vote-receipt-${voteResult.trackingCode}.txt`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } else if (format === 'json') {
+      // JSON format for technical users
+      const jsonDetails = {
+        election: electionData.electionTitle,
+        election_id: electionData.id,
+        tracking_code: voteResult.trackingCode,
+        hash_code: voteResult.hashCode,
+        date: new Date().toISOString(),
+        candidate: voteResult.votedCandidate?.optionTitle || 'Unknown',
+        party: voteResult.votedCandidate?.partyName || 'N/A'
+      };
+      
+      const blob = new Blob([JSON.stringify(jsonDetails, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `vote-receipt-${voteResult.trackingCode}.json`;
+      document.body.appendChild(a);
+      a.click();
+      URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }
   };
 
   const downloadResultsPDF = () => {
@@ -531,7 +1416,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
     doc.setFontSize(12);
     doc.text('Results:', 20, yPosition);
     
-    resultsData.chartData.forEach((item, index) => {
+    resultsData.chartData.forEach((item) => {
       yPosition += 20;
       doc.text(`${item.name}: ${item.votes} votes (${item.percentage}%)`, 30, yPosition);
     });
@@ -560,18 +1445,6 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
     return timezoneUtils.formatForDisplay(dateString);
   };
 
-  const getElectionStatus = () => {
-    if (!electionData) return 'Unknown';
-    
-    const now = new Date();
-    const startDate = new Date(electionData.startingTime);
-    const endDate = new Date(electionData.endingTime);
-    
-    if (now < startDate) return 'Upcoming';
-    if (now > endDate) return 'Ended';
-    return 'Active';
-  };
-
   const getElectionStatusFromData = (data) => {
     if (!data) return 'Unknown';
     
@@ -593,10 +1466,10 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
     }
   };
 
-  const canUserVote = () => {
-    // Check if user can vote based on the new eligibility field
-    return canUserVoteInElection(electionData) && getElectionStatus() === 'Active' && !hasVoted;
-  };
+  // const canUserVote = () => {
+  //   // Check if user can vote based on the new eligibility field
+  //   return canUserVoteInElection(electionData) && getElectionStatus() === 'Active' && !hasVoted;
+  // };
 
   // Helper function to determine if user can vote in an election based on eligibility
   const canUserVoteInElection = (election) => {
@@ -627,12 +1500,6 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
     );
     
     return currentUserIsGuardian;
-  };
-
-  const canUserViewResults = () => {
-    return electionData?.userRoles?.includes('admin') || 
-           electionData?.userRoles?.includes('guardian') ||
-           getElectionStatus() === 'Ended';
   };
 
   const canSubmitGuardianKey = () => {
@@ -948,13 +1815,22 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={saveVoteDetails}
-                      className="mt-4 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-                    >
-                      <FiSave className="h-4 w-4" />
-                      <span>Save Vote Receipt</span>
-                    </button>
+                    <div className="mt-4 flex space-x-3">
+                      <button
+                        onClick={() => saveVoteDetails('txt')}
+                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
+                      >
+                        <FiSave className="h-4 w-4" />
+                        <span>Save as TXT</span>
+                      </button>
+                      <button
+                        onClick={() => saveVoteDetails('json')}
+                        className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 flex items-center space-x-2"
+                      >
+                        <FiFileText className="h-4 w-4" />
+                        <span>Save as JSON</span>
+                      </button>
+                    </div>
                   </div>
                   
                   <div className="text-xs text-blue-700 bg-blue-100 p-3 rounded">
@@ -1599,6 +2475,53 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 })()}
 
               </div>
+            )}
+          </div>
+        )}
+
+        {/* Ballots in Tally Tab */}
+        {activeTab === 'ballots' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            {!canUserViewVerification() ? (
+              <div className="text-center py-12">
+                <FiDatabase className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Ballots Not Available</h3>
+                <p className="text-gray-600 mb-4">
+                  Ballot information will be available after the election results have been computed.
+                </p>
+              </div>
+            ) : loadingResults ? (
+              <div className="text-center py-12">
+                <FiLoader className="h-16 w-16 text-blue-500 mx-auto mb-4 animate-spin" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Ballot Data</h3>
+                <p className="text-gray-600 mb-4">
+                  Retrieving ballot information from the election results...
+                </p>
+              </div>
+            ) : (
+              <>
+                {/* Render the ballots in tally section */}
+                <BallotsInTallySection 
+                  resultsData={rawVerificationData}
+                />
+              </>
+            )}
+          </div>
+        )}
+
+        {/* Verify Your Vote Tab */}
+        {activeTab === 'verify' && (
+          <div className="bg-white rounded-lg shadow p-6">
+            {!canUserViewVerification() ? (
+              <div className="text-center py-12">
+                <FiHash className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">Vote Verification Not Available</h3>
+                <p className="text-gray-600 mb-4">
+                  Vote verification will be available after the election results have been computed.
+                </p>
+              </div>
+            ) : (
+              <VerifyVoteSection electionId={id} resultsData={rawVerificationData} />
             )}
           </div>
         )}
