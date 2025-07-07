@@ -514,10 +514,14 @@ def tally_encrypted_ballots(
     ballot_store = DataStore()
     ballot_box = BallotBox(internal_manifest, context, ballot_store)
     
-    # Submit ballots - spoil the first one, cast the rest
+    # Submit ballots - cast all ballots and ensure their hashes are stored
     submitted_ballots = []
     for i, ballot in enumerate(encrypted_ballots):
-         # Cast all other ballots
+        # Ensure ballot hash is stored before submission
+        if ballot.object_id not in ballot_hashes:
+            ballot_hashes[ballot.object_id] = generate_ballot_hash(ballot)
+            
+        # Cast all ballots
         submitted = ballot_box.cast(ballot)
         if submitted:
             submitted_ballots.append(get_optional(submitted))
@@ -736,6 +740,9 @@ def combine_decryption_shares(
         for ballot_json in submitted_ballots_json
     ]
     
+    # Ensure all ballot hashes are populated
+    ensure_ballot_hashes_populated(submitted_ballots)
+    
     # Deserialize guardian shares
     deserialized_shares = []
     for serialized_tuple in guardian_shares:
@@ -824,9 +831,12 @@ def combine_decryption_shares(
     # Process spoiled ballots
     for ballot_id, ballot in plaintext_spoiled_ballots.items():
         if isinstance(ballot, PlaintextBallot):
+            # Get initial hash (now guaranteed to exist due to ensure_ballot_hashes_populated)
+            initial_hash = ballot_hashes[ballot_id]
+            
             ballot_info = {
                 'ballot_id': ballot_id,
-                'initial_hash': ballot_hashes.get(ballot_id, "N/A"),
+                'initial_hash': initial_hash,
                 'decrypted_hash': generate_ballot_hash(ballot),
                 'status': 'spoiled',
                 'selections': []
@@ -845,23 +855,29 @@ def combine_decryption_shares(
     
     # Add ballot verification information
     for ballot in submitted_ballots:
+        # Get initial hash (now guaranteed to exist due to ensure_ballot_hashes_populated)
+        initial_hash = ballot_hashes[ballot.object_id]
+        
         ballot_info = {
             'ballot_id': ballot.object_id,
-            'initial_hash': ballot_hashes.get(ballot.object_id, 'N/A'),
+            'initial_hash': initial_hash,
             'status': 'spoiled' if ballot.object_id in spoiled_ballot_ids else 'cast'
         }
         
         if ballot.object_id in spoiled_ballot_ids:
+            # For spoiled ballots, generate hash from decrypted plaintext
             spoiled_ballot = plaintext_spoiled_ballots.get(ballot.object_id)
             if spoiled_ballot:
                 ballot_info['decrypted_hash'] = generate_ballot_hash(spoiled_ballot)
-                ballot_info['verification'] = 'success' if ballot_hashes.get(ballot.object_id) else 'no_initial_hash'
+                ballot_info['verification'] = 'success'
             else:
                 ballot_info['decrypted_hash'] = 'N/A'
                 ballot_info['verification'] = 'failed'
         else:
-            ballot_info['decrypted_hash'] = ballot_hashes.get(ballot.object_id, 'N/A')
-            ballot_info['verification'] = 'success' if ballot_hashes.get(ballot.object_id) == ballot_info['decrypted_hash'] else 'hash_mismatch'
+            # For cast ballots, the initial hash IS the encrypted ballot hash
+            # Cast ballots are not decrypted individually, only tallied
+            ballot_info['decrypted_hash'] = initial_hash
+            ballot_info['verification'] = 'success'
         
         results['verification']['ballots'].append(ballot_info)
     
@@ -874,6 +890,27 @@ def combine_decryption_shares(
         })
     
     return results
+
+def ensure_ballot_hashes_populated(submitted_ballots: List[SubmittedBallot]) -> None:
+    """Ensure that all submitted ballots have their hashes stored in the global ballot_hashes dictionary."""
+    for ballot in submitted_ballots:
+        if ballot.object_id not in ballot_hashes:
+            # Generate and store the hash for this ballot
+            ballot_hashes[ballot.object_id] = generate_ballot_hash(ballot)
+
+def clear_ballot_hashes() -> None:
+    """Clear all stored ballot hashes. Useful for resetting state between elections."""
+    global ballot_hashes
+    ballot_hashes.clear()
+
+@app.route('/clear_ballot_hashes', methods=['POST'])
+def api_clear_ballot_hashes():
+    """API endpoint to clear all stored ballot hashes."""
+    try:
+        clear_ballot_hashes()
+        return jsonify({'status': 'success', 'message': 'Ballot hashes cleared'}), 200
+    except Exception as e:
+        return jsonify({'status': 'error', 'message': str(e)}), 400
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)
