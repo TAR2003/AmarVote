@@ -63,6 +63,8 @@ CREATE TABLE IF NOT EXISTS guardians (
     proof TEXT,
     guardian_decryption_key TEXT, -- Added guardian_decryption_key field
     tally_share TEXT, -- Added tally_share field
+    ballot_share TEXT, -- Added ballot_share field
+    key_backup TEXT, -- Added key_backup field
     PRIMARY KEY (election_id, user_id),
     CONSTRAINT unique_sequence_order UNIQUE (election_id, sequence_order),
     CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE,
@@ -111,6 +113,18 @@ CREATE TABLE IF NOT EXISTS submitted_ballots (
     cipher_text TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS compensated_decryptions (
+    election_id INTEGER NOT NULL,
+    compensating_guardian_sequence INTEGER NOT NULL,
+    missing_guardian_sequence INTEGER NOT NULL,
+    compensated_tally_share TEXT NOT NULL,
+    compensated_ballot_share TEXT NOT NULL,
+    PRIMARY KEY (election_id, compensating_guardian_sequence, missing_guardian_sequence),
+    CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE,
+    CONSTRAINT fk_compensating_guardian FOREIGN KEY (election_id, compensating_guardian_sequence) REFERENCES guardians(election_id, sequence_order) ON DELETE CASCADE,
+    CONSTRAINT fk_missing_guardian FOREIGN KEY (election_id, missing_guardian_sequence) REFERENCES guardians(election_id, sequence_order) ON DELETE CASCADE
 );
 
 -- Decryption Table
@@ -191,6 +205,8 @@ CREATE TABLE IF NOT EXISTS signup_verification (
 
 
 -- Create indexes
+CREATE INDEX IF NOT EXISTS idx_compensated_decryptions_pk 
+ON compensated_decryptions(election_id, compensating_guardian_sequence, missing_guardian_sequence);
 CREATE INDEX IF NOT EXISTS idx_ballots_election ON ballots(election_id);
 CREATE INDEX IF NOT EXISTS idx_ballots_tracking ON ballots(tracking_code);
 CREATE INDEX IF NOT EXISTS idx_voters_election ON allowed_voters(election_id);

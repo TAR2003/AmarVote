@@ -32,3 +32,6 @@ secretstorage
 twine 
 typish 
 gunicorn
+cryptography
+python-dotenv
+pqcrypto
