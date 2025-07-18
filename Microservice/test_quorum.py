@@ -209,6 +209,31 @@ def test_quorum_election_workflow():
     # 7. Combine all shares to get final results
     print("\n🔹 STEP 7: Combining shares to get final results")
     
+    # Prepare separate string arrays for available guardian shares
+    available_guardian_ids_list = []
+    available_guardian_public_keys = []
+    available_tally_shares = []
+    available_ballot_shares = []
+    
+    for guardian_id, share_data in available_guardian_shares.items():
+        available_guardian_ids_list.append(guardian_id)
+        available_guardian_public_keys.append(share_data['guardian_public_key'])
+        available_tally_shares.append(share_data['tally_share'])
+        available_ballot_shares.append(share_data['ballot_shares'])
+    
+    # Prepare separate string arrays for compensated shares
+    missing_guardian_ids_list = []
+    compensating_guardian_ids_list = []
+    compensated_tally_shares = []
+    compensated_ballot_shares = []
+    
+    for missing_guardian_id, compensating_data in compensated_shares.items():
+        for available_guardian_id, comp_data in compensating_data.items():
+            missing_guardian_ids_list.append(missing_guardian_id)
+            compensating_guardian_ids_list.append(available_guardian_id)
+            compensated_tally_shares.append(comp_data['compensated_tally_share'])
+            compensated_ballot_shares.append(comp_data['compensated_ballot_shares'])
+    
     combine_request = {
         "party_names": setup_data['party_names'],
         "candidate_names": setup_data['candidate_names'],
@@ -217,8 +242,16 @@ def test_quorum_election_workflow():
         "ciphertext_tally": ciphertext_tally,  # String
         "submitted_ballots": submitted_ballots,  # List of strings
         "guardian_data": guardian_data,  # List of strings
-        "available_guardian_shares": available_guardian_shares,  # Dict with string values
-        "compensated_shares": compensated_shares,  # Dict with string values
+        # Available guardian shares as separate arrays
+        "available_guardian_ids": available_guardian_ids_list,
+        "available_guardian_public_keys": available_guardian_public_keys,
+        "available_tally_shares": available_tally_shares,
+        "available_ballot_shares": available_ballot_shares,
+        # Compensated shares as separate arrays
+        "missing_guardian_ids": missing_guardian_ids_list,
+        "compensating_guardian_ids": compensating_guardian_ids_list,
+        "compensated_tally_shares": compensated_tally_shares,
+        "compensated_ballot_shares": compensated_ballot_shares,
         "quorum": quorum,
         "number_of_guardians": number_of_guardians
     }
