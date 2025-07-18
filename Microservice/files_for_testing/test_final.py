@@ -24,7 +24,7 @@ def test_election_workflow():
     joint_public_key = setup_result['joint_public_key']
     commitment_hash = setup_result['commitment_hash']
     manifest = setup_result['manifest']
-    guardian_data = setup_result['guardian_data']
+    guardian_data = [json.loads(g) if isinstance(g, str) else g for g in setup_result['guardian_data']]
     
     print(f"✅ Set up {number_of_guardians} guardians with quorum={quorum}")
     
@@ -63,7 +63,7 @@ def test_election_workflow():
     ballot_hashes.append(ballot_result['ballot_hash'])
 
     for i in range(len(encrypted_ballots)):
-        enc = json.loads(encrypted_ballots[i])
+        enc = json.loads(encrypted_ballots[i]) if isinstance(encrypted_ballots[i], str) else encrypted_ballots[i]
         print(f"🔐 Ballot ID: {enc['object_id']}, Encrypted Hash: {ballot_hashes[i]}")
     
     # 2. Create encrypted tally
@@ -77,8 +77,8 @@ def test_election_workflow():
     tally_response = requests.post(f"{BASE_URL}/create_encrypted_tally", json=tally_data)
     assert tally_response.status_code == 200, "Tally creation failed"
     tally_result = tally_response.json()
-    ciphertext_tally = tally_result['ciphertext_tally']
-    submitted_ballots = tally_result['submitted_ballots']
+    ciphertext_tally = json.loads(tally_result['ciphertext_tally']) if isinstance(tally_result['ciphertext_tally'], str) else tally_result['ciphertext_tally']
+    submitted_ballots = [json.loads(b) if isinstance(b, str) else b for b in tally_result['submitted_ballots']]
     print(f"✅ Tally created with {len(submitted_ballots)} ballots")
     
     # 3. Calculate partial decryption shares for all guardians
@@ -88,25 +88,22 @@ def test_election_workflow():
     for guardian in guardian_data:
         partial_request = {
             "guardian_id": guardian['id'],
-            "guardian_data": guardian_data,
+            "guardian_data": [json.dumps(g) for g in guardian_data],
             "party_names": setup_data['party_names'],
             "candidate_names": setup_data['candidate_names'],
-            "ciphertext_tally": ciphertext_tally,
-            "submitted_ballots": submitted_ballots,
+            "ciphertext_tally": json.dumps(ciphertext_tally),
+            "submitted_ballots": [json.dumps(b) for b in submitted_ballots],
             "joint_public_key": joint_public_key,
             "commitment_hash": commitment_hash
         }
-        
         partial_response = requests.post(f"{BASE_URL}/create_partial_decryption", json=partial_request)
         assert partial_response.status_code == 200, f"Partial decryption failed for guardian {guardian['id']}: {partial_response.text}"
-        
         partial_result = partial_response.json()
         available_guardian_shares[guardian['id']] = {
             'guardian_public_key': partial_result['guardian_public_key'],
             'tally_share': partial_result['tally_share'],
             'ballot_shares': partial_result['ballot_shares']
         }
-        
         print(f"✅ Guardian {guardian['id']} computed decryption shares")
     
     # Since we have all guardians available, no compensated shares needed
@@ -119,9 +116,9 @@ def test_election_workflow():
         "candidate_names": setup_data['candidate_names'],
         "joint_public_key": joint_public_key,
         "commitment_hash": commitment_hash,
-        "ciphertext_tally": ciphertext_tally,
-        "submitted_ballots": submitted_ballots,
-        "guardian_data": guardian_data,
+        "ciphertext_tally": json.dumps(ciphertext_tally),
+        "submitted_ballots": [json.dumps(b) for b in submitted_ballots],
+        "guardian_data": [json.dumps(g) for g in guardian_data],
         "available_guardian_shares": available_guardian_shares,
         "compensated_shares": compensated_shares,
         "quorum": quorum
