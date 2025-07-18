@@ -11,6 +11,22 @@ from collections import defaultdict
 # API Base URL
 BASE_URL = "http://localhost:5000"
 
+
+def print_json(data, str_):
+    with open("a.txt", "w") as f:
+        print(f"\n---------------\nData: {str_}", file=f)
+        for key, value in data.items():
+            if isinstance(value, list):
+                if not value:
+                    value_type = "list (empty)"
+                else:
+                    value_type = f"list of ({type(value[0]).__name__})"
+            else:
+                value_type = type(value).__name__
+            print(f"{key}: {value_type}", file=f)
+        print(f"End of {str_}\n------------------\n\n", file=f)
+
+
 def deserialize_list_of_strings_to_list_of_dicts(data):
     """Convert List[str] to List[dict]"""
     if isinstance(data, list) and data and isinstance(data[0], str):
@@ -46,9 +62,9 @@ def test_quorum_election_workflow():
     manifest = setup_result['manifest']
     # Deserialize the lists of strings back to lists of dicts
     guardian_data = deserialize_list_of_strings_to_list_of_dicts(setup_result['guardian_data'])
-    private_keys = deserialize_list_of_strings_to_list_of_dicts(setup_result['private_keys'])
-    public_keys = deserialize_list_of_strings_to_list_of_dicts(setup_result['public_keys'])
-    polynomials = deserialize_list_of_strings_to_list_of_dicts(setup_result['polynomials'])
+    private_keys = (setup_result['private_keys'])
+    public_keys = (setup_result['public_keys'])
+    polynomials = (setup_result['polynomials'])
     number_of_guardians = setup_result['number_of_guardians']
     quorum = setup_result['quorum']
     
@@ -137,17 +153,18 @@ def test_quorum_election_workflow():
             "joint_public_key": joint_public_key,
             "commitment_hash": commitment_hash
         }
-        
+        # print_json(partial_request, "create_partial_decryption_initial")
         partial_response = requests.post(f"{BASE_URL}/create_partial_decryption", json=partial_request)
         assert partial_response.status_code == 200, f"Partial decryption failed for guardian {guardian['id']}: {partial_response.text}"
         
         partial_result = partial_response.json()
+        # print_json(partial_result, "create_partial_decryption_result")
         available_guardian_shares[guardian['id']] = {
             'guardian_public_key': partial_result['guardian_public_key'],
             'tally_share': partial_result['tally_share'],
             'ballot_shares': json.loads(partial_result['ballot_shares']) if isinstance(partial_result['ballot_shares'], str) else partial_result['ballot_shares']
         }
-        
+        print_json(partial_result, "create_partial_decryption_result")
         print(f"✅ Guardian {guardian['id']} computed decryption shares")
     
     # 6. Compute compensated decryption shares for missing guardians
