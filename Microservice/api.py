@@ -578,30 +578,44 @@ def api_combine_decryption_shares():
         except Exception as e:
             raise ValueError(f"Error deserializing guardian_data: {e}")
 
-        # Process available guardian shares - deserialize nested JSON strings
+        # Reconstruct available_guardian_shares from separate arrays
         available_guardian_shares = {}
-        raw_available_shares = data.get('available_guardian_shares', {})
-        for guardian_id, share_data in raw_available_shares.items():
+        available_guardian_ids_list = data.get('available_guardian_ids', [])
+        available_guardian_public_keys = data.get('available_guardian_public_keys', [])
+        available_tally_shares = data.get('available_tally_shares', [])
+        available_ballot_shares = data.get('available_ballot_shares', [])
+        
+        for i, guardian_id in enumerate(available_guardian_ids_list):
             try:
                 available_guardian_shares[guardian_id] = {
-                    'guardian_public_key': share_data['guardian_public_key'],
-                    'tally_share': share_data['tally_share'],
-                    'ballot_shares': deserialize_string_to_dict(share_data['ballot_shares']) if isinstance(share_data['ballot_shares'], str) else share_data['ballot_shares']
+                    'guardian_public_key': available_guardian_public_keys[i],
+                    'tally_share': available_tally_shares[i],
+                    'ballot_shares': deserialize_string_to_dict(available_ballot_shares[i]) if isinstance(available_ballot_shares[i], str) else available_ballot_shares[i]
                 }
             except Exception as e:
-                raise ValueError(f"Error deserializing available_guardian_shares for {guardian_id}: {e}")
+                raise ValueError(f"Error reconstructing available_guardian_shares for {guardian_id}: {e}")
         
-        # Process compensated shares - deserialize nested JSON strings
-        # The frontend sends compensated shares for ALL guardians, but we only use the missing ones
+        # Reconstruct compensated_shares from separate arrays
         all_compensated_shares = {}
-        raw_compensated_shares = data.get('compensated_shares', {})
-        for guardian_id, compensating_guardians in raw_compensated_shares.items():
-            all_compensated_shares[guardian_id] = {}
-            for available_guardian_id, comp_data in compensating_guardians.items():
-                all_compensated_shares[guardian_id][available_guardian_id] = {
-                    'compensated_tally_share': comp_data['compensated_tally_share'],
-                    'compensated_ballot_shares': deserialize_string_to_dict(comp_data['compensated_ballot_shares']) if isinstance(comp_data['compensated_ballot_shares'], str) else comp_data['compensated_ballot_shares']
+        missing_guardian_ids_list = data.get('missing_guardian_ids', [])
+        compensating_guardian_ids_list = data.get('compensating_guardian_ids', [])
+        compensated_tally_shares = data.get('compensated_tally_shares', [])
+        compensated_ballot_shares = data.get('compensated_ballot_shares', [])
+        
+        for i in range(len(missing_guardian_ids_list)):
+            try:
+                missing_guardian_id = missing_guardian_ids_list[i]
+                compensating_guardian_id = compensating_guardian_ids_list[i]
+                
+                if missing_guardian_id not in all_compensated_shares:
+                    all_compensated_shares[missing_guardian_id] = {}
+                
+                all_compensated_shares[missing_guardian_id][compensating_guardian_id] = {
+                    'compensated_tally_share': compensated_tally_shares[i],
+                    'compensated_ballot_shares': deserialize_string_to_dict(compensated_ballot_shares[i]) if isinstance(compensated_ballot_shares[i], str) else compensated_ballot_shares[i]
                 }
+            except Exception as e:
+                raise ValueError(f"Error reconstructing compensated_shares: {e}")
         
         # Get the required quorum with safe int conversion
         quorum = safe_int_conversion(data.get('quorum', len(guardian_data)))
