@@ -23,6 +23,7 @@ import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.model.User;
 import com.amarvote.amarvote.repository.AllowedVoterRepository;
+import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
@@ -56,6 +57,9 @@ public class ElectionService {
 
     @Autowired
     private AllowedVoterRepository allowedVoterRepository;
+
+    @Autowired
+    private BallotRepository ballotRepository;
 
     @Transactional
     public Election createElection(ElectionCreationRequest request, String jwtToken, String userEmail) {
@@ -628,6 +632,259 @@ public class ElectionService {
             return objectMapper.readValue(response, ElectionGuardianSetupResponse.class);
         } catch (Exception e) {
             throw new RuntimeException("Failed to call ElectionGuard service", e);
+        }
+    }
+
+
+    /**
+     * Get safe election information for chatbot responses
+     * Only returns non-sensitive public information
+     */
+    public String getPublicElectionInfo(String query) {
+        try {
+            // Check if user is asking for the most recent election
+            String lowerQuery = query.toLowerCase();
+            if (lowerQuery.contains("recent") || lowerQuery.contains("latest") || 
+                lowerQuery.contains("most recent") || lowerQuery.contains("newest")) {
+                return getMostRecentElectionInfo();
+            }
+            
+            // Only get public completed elections to ensure privacy
+            List<Election> publicElections = electionRepository.findPublicCompletedElections();
+            
+            if (publicElections.isEmpty()) {
+                return "No completed public elections found with results available.";
+            }
+            
+            StringBuilder result = new StringBuilder();
+            result.append("📊 **Public Election Results**\n\n");
+            
+            for (Election election : publicElections) {
+                result.append("🗳️ **").append(election.getElectionTitle()).append("**\n");
+                if (election.getElectionDescription() != null && !election.getElectionDescription().isEmpty()) {
+                    result.append("Description: ").append(election.getElectionDescription()).append("\n");
+                }
+                
+                // Get election choices (candidates/options) with vote counts
+                List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
+                if (!choices.isEmpty()) {
+                    // Sort by vote count (descending)
+                    choices.sort((a, b) -> Integer.compare(b.getTotalVotes(), a.getTotalVotes()));
+                    
+                    int totalVotes = choices.stream().mapToInt(ElectionChoice::getTotalVotes).sum();
+                    
+                    result.append("**Results:**\n");
+                    for (int i = 0; i < choices.size(); i++) {
+                        ElectionChoice choice = choices.get(i);
+                        result.append((i + 1)).append(". ").append(choice.getOptionTitle());
+                        if (choice.getPartyName() != null && !choice.getPartyName().isEmpty()) {
+                            result.append(" (").append(choice.getPartyName()).append(")");
+                        }
+                        result.append(": **").append(choice.getTotalVotes()).append(" votes**");
+                        
+                        if (totalVotes > 0) {
+                            double percentage = (choice.getTotalVotes() * 100.0) / totalVotes;
+                            result.append(" (").append(String.format("%.1f", percentage)).append("%)");
+                            
+                            // Mark the winner
+                            if (i == 0 && choice.getTotalVotes() > 0) {
+                                result.append(" 🏆 **WINNER**");
+                            }
+                        }
+                        result.append("\n");
+                    }
+                    
+                    if (totalVotes > 0) {
+                        result.append("Total Votes: ").append(totalVotes).append("\n");
+                    }
+                }
+                result.append("\n");
+            }
+            
+            return result.toString();
+            
+        } catch (Exception e) {
+            return "Sorry, I'm having trouble accessing election information right now.";
+        }
+    }
+    
+    /**
+     * Get information about the most recent public election with validation
+     */
+    private String getMostRecentElectionInfo() {
+        try {
+            List<Election> recentElections = electionRepository.findMostRecentPublicCompletedElection(
+                org.springframework.data.domain.PageRequest.of(0, 1));
+            
+            if (recentElections.isEmpty()) {
+                return "No completed public elections found with results available.";
+            }
+            
+            Election election = recentElections.get(0);
+            
+            // Validate election completeness by comparing vote counts with ballot counts
+            if (!isElectionComplete(election)) {
+                return "The most recent election is still being tallied. Results will be available once all votes are processed.";
+            }
+            
+            StringBuilder result = new StringBuilder();
+            
+            result.append("🗳️ **Most Recent Public Election:**\n\n");
+            result.append("**").append(election.getElectionTitle()).append("**\n");
+            
+            if (election.getElectionDescription() != null && !election.getElectionDescription().isEmpty()) {
+                result.append("Description: ").append(election.getElectionDescription()).append("\n");
+            }
+            
+            // Get election choices (candidates/options) with vote counts
+            List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
+            if (!choices.isEmpty()) {
+                result.append("\n**Results:**\n");
+                
+                // Sort by vote count (descending) to show winner first
+                choices.sort((a, b) -> Integer.compare(b.getTotalVotes(), a.getTotalVotes()));
+                
+                int totalVotes = choices.stream().mapToInt(ElectionChoice::getTotalVotes).sum();
+                
+                for (int i = 0; i < choices.size(); i++) {
+                    ElectionChoice choice = choices.get(i);
+                    result.append((i + 1)).append(". ").append(choice.getOptionTitle());
+                    if (choice.getPartyName() != null && !choice.getPartyName().isEmpty()) {
+                        result.append(" (").append(choice.getPartyName()).append(")");
+                    }
+                    result.append(": **").append(choice.getTotalVotes()).append(" votes**");
+                    
+                    if (totalVotes > 0) {
+                        double percentage = (choice.getTotalVotes() * 100.0) / totalVotes;
+                        result.append(" (").append(String.format("%.1f", percentage)).append("%)");
+                        
+                        // Mark the winner
+                        if (i == 0 && choice.getTotalVotes() > 0) {
+                            result.append(" 🏆 **WINNER**");
+                        }
+                    }
+                    result.append("\n");
+                }
+                
+                if (totalVotes > 0) {
+                    result.append("Total Votes: ").append(totalVotes).append("\n");
+                }
+                
+                // Add winner summary
+                if (!choices.isEmpty() && choices.get(0).getTotalVotes() > 0) {
+                    ElectionChoice winner = choices.get(0);
+                    result.append("\n🎉 **").append(winner.getOptionTitle()).append("**");
+                    if (winner.getPartyName() != null && !winner.getPartyName().isEmpty()) {
+                        result.append(" (").append(winner.getPartyName()).append(")");
+                    }
+                    result.append(" won the election!");
+                    
+                    if (totalVotes > 0) {
+                        double winnerPercentage = (winner.getTotalVotes() * 100.0) / totalVotes;
+                        result.append(" They received ").append(winner.getTotalVotes())
+                              .append(" votes (").append(String.format("%.1f", winnerPercentage)).append("% of total votes).");
+                    }
+                }
+            }
+            
+            return result.toString();
+            
+        } catch (Exception e) {
+            return "Sorry, I'm having trouble accessing the most recent election information right now.";
+        }
+    }
+    
+    /**
+     * Check if an election is complete by validating that total votes equals ballot count
+     */
+    private boolean isElectionComplete(Election election) {
+        try {
+            // Get total votes from election choices
+            List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
+            int totalVotes = choices.stream().mapToInt(ElectionChoice::getTotalVotes).sum();
+            
+            // Get ballot count for the election
+            long ballotCount = ballotRepository.countByElectionId(election.getElectionId());
+            
+            // Election is complete if total votes equals ballot count
+            // Also require that election status is 'decrypted' for public results
+            return totalVotes == ballotCount && "decrypted".equals(election.getStatus());
+            
+        } catch (Exception e) {
+            // If we can't validate, assume incomplete to be safe
+            return false;
+        }
+    }
+
+    /**
+     * Search for specific election by title or partial match
+     */
+    public String getSpecificElectionInfo(String electionQuery) {
+        try {
+            // If query is "all" or similar, just return all elections
+            String lowerQuery = electionQuery.toLowerCase().trim();
+            if (lowerQuery.equals("all") || lowerQuery.equals("all elections") || 
+                lowerQuery.equals("elections") || lowerQuery.isEmpty()) {
+                return getPublicElectionInfo("");
+            }
+            
+            // Only search in public completed elections
+            List<Election> matchingElections = electionRepository.findPublicCompletedElections().stream()
+                .filter(e -> e.getElectionTitle().toLowerCase().contains(lowerQuery))
+                .collect(Collectors.toList());
+            
+            if (matchingElections.isEmpty()) {
+                return "No public elections found with the title containing '" + electionQuery + "'.\n\n" + getPublicElectionInfo("");
+            }
+            
+            StringBuilder result = new StringBuilder();
+            result.append("🔍 **Search Results for '").append(electionQuery).append("'**\n\n");
+            
+            for (Election election : matchingElections) {
+                result.append("🗳️ **").append(election.getElectionTitle()).append("**\n");
+                if (election.getElectionDescription() != null && !election.getElectionDescription().isEmpty()) {
+                    result.append("Description: ").append(election.getElectionDescription()).append("\n");
+                }
+                
+                // Get detailed results
+                List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
+                if (!choices.isEmpty()) {
+                    // Sort by vote count (descending)
+                    choices.sort((a, b) -> Integer.compare(b.getTotalVotes(), a.getTotalVotes()));
+                    
+                    int totalVotes = choices.stream().mapToInt(ElectionChoice::getTotalVotes).sum();
+                    
+                    result.append("**Final Results:**\n");
+                    for (int i = 0; i < choices.size(); i++) {
+                        ElectionChoice choice = choices.get(i);
+                        result.append((i + 1)).append(". ").append(choice.getOptionTitle());
+                        if (choice.getPartyName() != null && !choice.getPartyName().isEmpty()) {
+                            result.append(" (").append(choice.getPartyName()).append(")");
+                        }
+                        result.append(": **").append(choice.getTotalVotes()).append(" votes**");
+                        if (totalVotes > 0) {
+                            double percentage = (choice.getTotalVotes() * 100.0) / totalVotes;
+                            result.append(" (").append(String.format("%.1f", percentage)).append("%)");
+                            
+                            // Mark the winner
+                            if (i == 0 && choice.getTotalVotes() > 0) {
+                                result.append(" 🏆 **WINNER**");
+                            }
+                        }
+                        result.append("\n");
+                    }
+                    
+                    if (totalVotes > 0) {
+                        result.append("Total Votes: ").append(totalVotes).append("\n");
+                    }
+                }
+                result.append("\n");
+            }
+            
+            return result.toString();
+            
+        } catch (Exception e) {
+            return "Sorry, I'm having trouble accessing election information right now.";
         }
     }
 }
