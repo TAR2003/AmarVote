@@ -2,6 +2,7 @@ package com.amarvote.amarvote.repository;
 
 import java.util.List;
 
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -106,4 +107,16 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
            "JOIN User u ON g.userId = u.userId " +
            "WHERE u.userEmail = :userEmail")
     List<Election> findElectionsByGuardian(@Param("userEmail") String userEmail);
+    
+    // Find elections by status
+    @Query("SELECT e FROM Election e WHERE e.status = :status")
+    List<Election> findByStatus(@Param("status") String status);
+    
+    // Find public completed/decrypted elections for chatbot
+    @Query("SELECT e FROM Election e WHERE e.status IN ('completed', 'decrypted') AND e.privacy = 'public' ORDER BY e.endingTime DESC")
+    List<Election> findPublicCompletedElections();
+    
+    // Find the most recent public completed/decrypted election
+    @Query("SELECT e FROM Election e WHERE e.status IN ('completed', 'decrypted') AND e.privacy = 'public' ORDER BY e.endingTime DESC")
+    List<Election> findMostRecentPublicCompletedElection(Pageable pageable);
 }
