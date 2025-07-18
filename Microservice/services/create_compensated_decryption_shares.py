@@ -169,11 +169,25 @@ def create_compensated_decryption_service(
         raise ValueError(f"No backup found for missing guardian {missing_guardian_id} in available guardian {available_guardian_id}")
     
     # Create election public keys
-    available_guardian_public_key = from_raw(ElectionPublicKey, available_guardian_info['election_public_key'])
-    missing_guardian_public_key = from_raw(ElectionPublicKey, missing_guardian_info['election_public_key'])
+    # Handle election_public_key data - check if it's already a dict or needs JSON parsing
+    available_election_public_key_data = available_guardian_info['election_public_key']
+    if isinstance(available_election_public_key_data, dict):
+        available_guardian_public_key = from_raw(ElectionPublicKey, json.dumps(available_election_public_key_data))
+    else:
+        available_guardian_public_key = from_raw(ElectionPublicKey, available_election_public_key_data)
+        
+    missing_election_public_key_data = missing_guardian_info['election_public_key']
+    if isinstance(missing_election_public_key_data, dict):
+        missing_guardian_public_key = from_raw(ElectionPublicKey, json.dumps(missing_election_public_key_data))
+    else:
+        missing_guardian_public_key = from_raw(ElectionPublicKey, missing_election_public_key_data)
     
     # Decrypt the backup to get the coordinate
-    backup = from_raw(ElectionPartialKeyBackup, backup_data)
+    # Handle backup data - check if it's already a dict or needs JSON parsing
+    if isinstance(backup_data, dict):
+        backup = from_raw(ElectionPartialKeyBackup, json.dumps(backup_data))
+    else:
+        backup = from_raw(ElectionPartialKeyBackup, backup_data)
     
     # Find the private key and polynomial for the available guardian
     available_private_key_info = None
@@ -206,7 +220,15 @@ def create_compensated_decryption_service(
         raise ValueError(f"Missing public key data for available guardian {available_guardian_id}")
     
     available_public_key = int_to_p(int(available_public_key_info['public_key']))
-    available_polynomial = from_raw(ElectionPolynomial, available_polynomial_info['polynomial'])
+    
+    # Handle polynomial data - check if it's already a dict or needs JSON parsing
+    polynomial_data = available_polynomial_info['polynomial']
+    if isinstance(polynomial_data, dict):
+        # Already deserialized, convert back to JSON string for from_raw
+        available_polynomial = from_raw(ElectionPolynomial, json.dumps(polynomial_data))
+    else:
+        # It's a JSON string, use directly
+        available_polynomial = from_raw(ElectionPolynomial, polynomial_data)
     
     available_election_key = ElectionKeyPair(
         owner_id=available_guardian_id,
@@ -237,10 +259,12 @@ def create_compensated_decryption_service(
     # Build the election context
     internal_manifest, context = get_optional(election_builder.build())
     ciphertext_tally = raw_to_ciphertext_tally_func(ciphertext_tally_json, manifest=manifest)
-    submitted_ballots = [
-        from_raw(SubmittedBallot, ballot_json)
-        for ballot_json in submitted_ballots_json
-    ]
+    submitted_ballots = []
+    for ballot_json in submitted_ballots_json:
+        if isinstance(ballot_json, dict):
+            submitted_ballots.append(from_raw(SubmittedBallot, json.dumps(ballot_json)))
+        else:
+            submitted_ballots.append(from_raw(SubmittedBallot, ballot_json))
 
     # Compute compensated shares
     compensated_tally_share = compute_compensated_decryption_share(

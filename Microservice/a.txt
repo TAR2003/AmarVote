@@ -1,11 +1,18 @@
 
 ---------------
-Data: create_partial_decryption_result
-ballot_shares: str
-guardian_public_key: str
-status: str
-tally_share: str
-End of create_partial_decryption_result
+Data: combine_decryption_shares
+party_names: list of (str)
+candidate_names: list of (str)
+joint_public_key: str
+commitment_hash: str
+ciphertext_tally: str
+submitted_ballots: list of (str)
+guardian_data: list of (str)
+available_guardian_shares: dict
+compensated_shares: dict
+quorum: int
+number_of_guardians: int
+End of combine_decryption_shares
 ------------------
 
 

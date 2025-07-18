@@ -56,15 +56,15 @@ def test_quorum_election_workflow():
     print(f"✅ Joint public key: {setup_result['joint_public_key'][:20]}...")
     print(f"✅ Commitment hash: {setup_result['commitment_hash'][:20]}...")
     
-    # Extract setup data
+    # Extract setup data - all complex data received as strings
     joint_public_key = setup_result['joint_public_key']
     commitment_hash = setup_result['commitment_hash']
-    manifest = setup_result['manifest']
-    # Deserialize the lists of strings back to lists of dicts
-    guardian_data = deserialize_list_of_strings_to_list_of_dicts(setup_result['guardian_data'])
-    private_keys = (setup_result['private_keys'])
-    public_keys = (setup_result['public_keys'])
-    polynomials = (setup_result['polynomials'])
+    manifest = setup_result['manifest']  # Already a string
+    # These are already strings from the API
+    guardian_data = setup_result['guardian_data']  # List of strings
+    private_keys = setup_result['private_keys']    # List of strings
+    public_keys = setup_result['public_keys']      # List of strings
+    polynomials = setup_result['polynomials']      # List of strings
     number_of_guardians = setup_result['number_of_guardians']
     quorum = setup_result['quorum']
     
@@ -80,7 +80,7 @@ def test_quorum_election_workflow():
     candidates = setup_data['candidate_names']
     ballot_data = []
     
-    for i in range(3):  # Create 10 ballots
+    for i in range(3):  # Create 3 ballots
         chosen_candidate = random.choice(candidates)
         ballot_request = {
             "party_names": setup_data['party_names'],
@@ -88,7 +88,9 @@ def test_quorum_election_workflow():
             "candidate_name": chosen_candidate,
             "ballot_id": f"ballot-{i+1}",
             "joint_public_key": joint_public_key,
-            "commitment_hash": commitment_hash
+            "commitment_hash": commitment_hash,
+            "number_of_guardians": number_of_guardians,
+            "quorum": quorum
         }
         
         ballot_response = requests.post(f"{BASE_URL}/create_encrypted_ballot", json=ballot_request)
@@ -107,31 +109,43 @@ def test_quorum_election_workflow():
         "candidate_names": setup_data['candidate_names'],
         "joint_public_key": joint_public_key,
         "commitment_hash": commitment_hash,
-        "encrypted_ballots": ballot_data
+        "encrypted_ballots": ballot_data,
+        "number_of_guardians": number_of_guardians,
+        "quorum": quorum
     }
     
     tally_response = requests.post(f"{BASE_URL}/create_encrypted_tally", json=tally_request)
     assert tally_response.status_code == 200, f"Tally creation failed: {tally_response.text}"
     
     tally_result = tally_response.json()
-    ciphertext_tally = tally_result['ciphertext_tally']
-    submitted_ballots = tally_result['submitted_ballots']
+    ciphertext_tally = tally_result['ciphertext_tally']  # This is now a string
+    submitted_ballots = tally_result['submitted_ballots']  # This is now a list of strings
     
     print(f"✅ Tally created with {len(submitted_ballots)} ballots")
     
     # 4. Demonstrate quorum decryption - only use 3 out of 5 guardians
     print("\n🔹 STEP 4: Demonstrating quorum decryption (3 out of 5 guardians)")
     
-    # Randomly select 3 guardians out of 5 to participate
-    available_guardians = random.sample(guardian_data, quorum)
-    missing_guardians = [g for g in guardian_data if g not in available_guardians]
+    # For frontend, we only work with guardian IDs and sequence numbers
+    # Parse guardian data to get IDs and sequence orders
+    guardian_info = []
+    for guardian_str in guardian_data:
+        guardian_dict = json.loads(guardian_str)
+        guardian_info.append({
+            'id': guardian_dict['id'],
+            'sequence_order': guardian_dict['sequence_order']
+        })
     
-    print(f"✅ Selected {len(available_guardians)} available guardians:")
-    for g in available_guardians:
+    # Randomly select 3 guardians out of 5 to participate
+    available_guardian_info = random.sample(guardian_info, quorum)
+    missing_guardian_info = [g for g in guardian_info if g not in available_guardian_info]
+    
+    print(f"✅ Selected {len(available_guardian_info)} available guardians:")
+    for g in available_guardian_info:
         print(f"   - Guardian {g['id']} (sequence {g['sequence_order']})")
     
-    print(f"✅ Missing {len(missing_guardians)} guardians (will be compensated):")
-    for g in missing_guardians:
+    print(f"✅ Missing {len(missing_guardian_info)} guardians (will be compensated):")
+    for g in missing_guardian_info:
         print(f"   - Guardian {g['id']} (sequence {g['sequence_order']})")
     
     # 5. Compute decryption shares for available guardians
@@ -139,68 +153,74 @@ def test_quorum_election_workflow():
     
     available_guardian_shares = {}
     
-    for guardian in available_guardians:
+    for guardian_item in available_guardian_info:
         partial_request = {
-            "guardian_id": guardian['id'],
-            "guardian_data": guardian_data,
-            "private_keys": private_keys,
-            "public_keys": public_keys,
-            "polynomials": polynomials,
+            "guardian_id": guardian_item['id'],
+            "guardian_data": guardian_data,  # List of strings
+            "private_keys": private_keys,    # List of strings
+            "public_keys": public_keys,      # List of strings
+            "polynomials": polynomials,      # List of strings
             "party_names": setup_data['party_names'],
             "candidate_names": setup_data['candidate_names'],
-            "ciphertext_tally": ciphertext_tally,
-            "submitted_ballots": submitted_ballots,
+            "ciphertext_tally": ciphertext_tally,  # String
+            "submitted_ballots": submitted_ballots,  # List of strings
             "joint_public_key": joint_public_key,
-            "commitment_hash": commitment_hash
+            "commitment_hash": commitment_hash,
+            "number_of_guardians": number_of_guardians,
+            "quorum": quorum
         }
-        # print_json(partial_request, "create_partial_decryption_initial")
+        
         partial_response = requests.post(f"{BASE_URL}/create_partial_decryption", json=partial_request)
-        assert partial_response.status_code == 200, f"Partial decryption failed for guardian {guardian['id']}: {partial_response.text}"
+        assert partial_response.status_code == 200, f"Partial decryption failed for guardian {guardian_item['id']}: {partial_response.text}"
         
         partial_result = partial_response.json()
-        # print_json(partial_result, "create_partial_decryption_result")
-        available_guardian_shares[guardian['id']] = {
+        available_guardian_shares[guardian_item['id']] = {
             'guardian_public_key': partial_result['guardian_public_key'],
             'tally_share': partial_result['tally_share'],
-            'ballot_shares': json.loads(partial_result['ballot_shares']) if isinstance(partial_result['ballot_shares'], str) else partial_result['ballot_shares']
+            'ballot_shares': partial_result['ballot_shares']  # Keep as string
         }
-        print_json(partial_result, "create_partial_decryption_result")
-        print(f"✅ Guardian {guardian['id']} computed decryption shares")
+        print(f"✅ Guardian {guardian_item['id']} computed decryption shares")
     
-    # 6. Compute compensated decryption shares for missing guardians
-    print("\n🔹 STEP 6: Computing compensated decryption shares for missing guardians")
+    # 6. Compute compensated decryption shares for MISSING guardians only
+    # The backend will filter to only use the ones needed
+    print("\n🔹 STEP 6: Computing compensated decryption shares for MISSING guardians")
     
     compensated_shares = {}
     
-    for missing_guardian in missing_guardians:
-        compensated_shares[missing_guardian['id']] = {}
+    # Compute compensated shares ONLY for actually missing guardians
+    for missing_guardian_item in missing_guardian_info:
+        compensated_shares[missing_guardian_item['id']] = {}
         
-        for available_guardian in available_guardians:
+        for available_guardian_item in available_guardian_info:
             compensated_request = {
-                "available_guardian_id": available_guardian['id'],
-                "missing_guardian_id": missing_guardian['id'],
-                "guardian_data": guardian_data,
-                "private_keys": private_keys,
-                "public_keys": public_keys,
-                "polynomials": polynomials,
+                "available_guardian_id": available_guardian_item['id'],
+                "missing_guardian_id": missing_guardian_item['id'],  # This is actually missing
+                "guardian_data": guardian_data,  # List of strings
+                "private_keys": private_keys,    # List of strings
+                "public_keys": public_keys,      # List of strings
+                "polynomials": polynomials,      # List of strings
                 "party_names": setup_data['party_names'],
                 "candidate_names": setup_data['candidate_names'],
-                "ciphertext_tally": ciphertext_tally,
-                "submitted_ballots": submitted_ballots,
+                "ciphertext_tally": ciphertext_tally,  # String
+                "submitted_ballots": submitted_ballots,  # List of strings
                 "joint_public_key": joint_public_key,
-                "commitment_hash": commitment_hash
+                "commitment_hash": commitment_hash,
+                "number_of_guardians": number_of_guardians,
+                "quorum": quorum
             }
             
             compensated_response = requests.post(f"{BASE_URL}/create_compensated_decryption", json=compensated_request)
             assert compensated_response.status_code == 200, f"Compensated decryption failed: {compensated_response.text}"
             
             compensated_result = compensated_response.json()
-            compensated_shares[missing_guardian['id']][available_guardian['id']] = {
+            compensated_shares[missing_guardian_item['id']][available_guardian_item['id']] = {
                 'compensated_tally_share': compensated_result['compensated_tally_share'],
-                'compensated_ballot_shares': json.loads(compensated_result['compensated_ballot_shares']) if isinstance(compensated_result['compensated_ballot_shares'], str) else compensated_result['compensated_ballot_shares']
+                'compensated_ballot_shares': compensated_result['compensated_ballot_shares']  # Keep as string
             }
             
-            print(f"✅ Guardian {available_guardian['id']} computed compensated shares for missing guardian {missing_guardian['id']}")
+            print(f"✅ Guardian {available_guardian_item['id']} computed compensated shares for missing guardian {missing_guardian_item['id']}")
+    
+    print(f"✅ Computed compensated shares for {len(missing_guardian_info)} missing guardians")
     
     # 7. Combine all shares to get final results
     print("\n🔹 STEP 7: Combining shares to get final results")
@@ -210,19 +230,22 @@ def test_quorum_election_workflow():
         "candidate_names": setup_data['candidate_names'],
         "joint_public_key": joint_public_key,
         "commitment_hash": commitment_hash,
-        "ciphertext_tally": ciphertext_tally,
-        "submitted_ballots": submitted_ballots,
-        "guardian_data": guardian_data,
-        "available_guardian_shares": available_guardian_shares,
-        "compensated_shares": compensated_shares,
-        "quorum": quorum
+        "ciphertext_tally": ciphertext_tally,  # String
+        "submitted_ballots": submitted_ballots,  # List of strings
+        "guardian_data": guardian_data,  # List of strings
+        "available_guardian_shares": available_guardian_shares,  # Dict with string values
+        "compensated_shares": compensated_shares,  # Dict with string values
+        "quorum": quorum,
+        "number_of_guardians": number_of_guardians
     }
+    print_json(combine_request, "combine_decryption_shares")
     
     combine_response = requests.post(f"{BASE_URL}/combine_decryption_shares", json=combine_request)
     assert combine_response.status_code == 200, f"Share combination failed: {combine_response.text}"
     
     combine_result = combine_response.json()
-    results = combine_result['results']
+    results_str = combine_result['results']  # This is now a string
+    results = json.loads(results_str)  # Parse it back to dict for display
     
     print(f"✅ Successfully decrypted election with {quorum} out of {number_of_guardians} guardians")
     
