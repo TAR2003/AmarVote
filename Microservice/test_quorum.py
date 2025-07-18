@@ -26,13 +26,6 @@ def print_json(data, str_):
             print(f"{key}: {value_type}", file=f)
         print(f"End of {str_}\n------------------\n\n", file=f)
 
-
-def deserialize_list_of_strings_to_list_of_dicts(data):
-    """Convert List[str] to List[dict]"""
-    if isinstance(data, list) and data and isinstance(data[0], str):
-        return [json.loads(item) for item in data]
-    return data
-
 def test_quorum_election_workflow():
     """Test the complete election workflow with quorum-based decryption."""
     print("=" * 80)
@@ -126,36 +119,27 @@ def test_quorum_election_workflow():
     # 4. Demonstrate quorum decryption - only use 3 out of 5 guardians
     print("\n🔹 STEP 4: Demonstrating quorum decryption (3 out of 5 guardians)")
     
-    # For frontend, we only work with guardian IDs and sequence numbers
-    # Parse guardian data to get IDs and sequence orders
-    guardian_info = []
-    for guardian_str in guardian_data:
-        guardian_dict = json.loads(guardian_str)
-        guardian_info.append({
-            'id': guardian_dict['id'],
-            'sequence_order': guardian_dict['sequence_order']
-        })
+    # For frontend, we work with guardian IDs as strings - first 3 are available, rest are missing
+    # Guardian IDs are "1", "2", "3", "4", "5" - we'll use first 3 as available
+    available_guardian_ids = ["1", "2", "3"]  # First 3 guardians are available
+    missing_guardian_ids = ["4", "5"]        # Last 2 guardians are missing
     
-    # Randomly select 3 guardians out of 5 to participate
-    available_guardian_info = random.sample(guardian_info, quorum)
-    missing_guardian_info = [g for g in guardian_info if g not in available_guardian_info]
+    print(f"✅ Selected {len(available_guardian_ids)} available guardians:")
+    for guardian_id in available_guardian_ids:
+        print(f"   - Guardian {guardian_id}")
     
-    print(f"✅ Selected {len(available_guardian_info)} available guardians:")
-    for g in available_guardian_info:
-        print(f"   - Guardian {g['id']} (sequence {g['sequence_order']})")
-    
-    print(f"✅ Missing {len(missing_guardian_info)} guardians (will be compensated):")
-    for g in missing_guardian_info:
-        print(f"   - Guardian {g['id']} (sequence {g['sequence_order']})")
+    print(f"✅ Missing {len(missing_guardian_ids)} guardians (will be compensated):")
+    for guardian_id in missing_guardian_ids:
+        print(f"   - Guardian {guardian_id}")
     
     # 5. Compute decryption shares for available guardians
     print("\n🔹 STEP 5: Computing decryption shares for available guardians")
     
     available_guardian_shares = {}
     
-    for guardian_item in available_guardian_info:
+    for guardian_id in available_guardian_ids:
         partial_request = {
-            "guardian_id": guardian_item['id'],
+            "guardian_id": guardian_id,
             "guardian_data": guardian_data,  # List of strings
             "private_keys": private_keys,    # List of strings
             "public_keys": public_keys,      # List of strings
@@ -171,15 +155,15 @@ def test_quorum_election_workflow():
         }
         
         partial_response = requests.post(f"{BASE_URL}/create_partial_decryption", json=partial_request)
-        assert partial_response.status_code == 200, f"Partial decryption failed for guardian {guardian_item['id']}: {partial_response.text}"
+        assert partial_response.status_code == 200, f"Partial decryption failed for guardian {guardian_id}: {partial_response.text}"
         
         partial_result = partial_response.json()
-        available_guardian_shares[guardian_item['id']] = {
+        available_guardian_shares[guardian_id] = {
             'guardian_public_key': partial_result['guardian_public_key'],
             'tally_share': partial_result['tally_share'],
             'ballot_shares': partial_result['ballot_shares']  # Keep as string
         }
-        print(f"✅ Guardian {guardian_item['id']} computed decryption shares")
+        print(f"✅ Guardian {guardian_id} computed decryption shares")
     
     # 6. Compute compensated decryption shares for MISSING guardians only
     # The backend will filter to only use the ones needed
@@ -188,13 +172,13 @@ def test_quorum_election_workflow():
     compensated_shares = {}
     
     # Compute compensated shares ONLY for actually missing guardians
-    for missing_guardian_item in missing_guardian_info:
-        compensated_shares[missing_guardian_item['id']] = {}
+    for missing_guardian_id in missing_guardian_ids:
+        compensated_shares[missing_guardian_id] = {}
         
-        for available_guardian_item in available_guardian_info:
+        for available_guardian_id in available_guardian_ids:
             compensated_request = {
-                "available_guardian_id": available_guardian_item['id'],
-                "missing_guardian_id": missing_guardian_item['id'],  # This is actually missing
+                "available_guardian_id": available_guardian_id,
+                "missing_guardian_id": missing_guardian_id,  # This is actually missing
                 "guardian_data": guardian_data,  # List of strings
                 "private_keys": private_keys,    # List of strings
                 "public_keys": public_keys,      # List of strings
@@ -213,14 +197,14 @@ def test_quorum_election_workflow():
             assert compensated_response.status_code == 200, f"Compensated decryption failed: {compensated_response.text}"
             
             compensated_result = compensated_response.json()
-            compensated_shares[missing_guardian_item['id']][available_guardian_item['id']] = {
+            compensated_shares[missing_guardian_id][available_guardian_id] = {
                 'compensated_tally_share': compensated_result['compensated_tally_share'],
                 'compensated_ballot_shares': compensated_result['compensated_ballot_shares']  # Keep as string
             }
             
-            print(f"✅ Guardian {available_guardian_item['id']} computed compensated shares for missing guardian {missing_guardian_item['id']}")
+            print(f"✅ Guardian {available_guardian_id} computed compensated shares for missing guardian {missing_guardian_id}")
     
-    print(f"✅ Computed compensated shares for {len(missing_guardian_info)} missing guardians")
+    print(f"✅ Computed compensated shares for {len(missing_guardian_ids)} missing guardians")
     
     # 7. Combine all shares to get final results
     print("\n🔹 STEP 7: Combining shares to get final results")
@@ -327,17 +311,17 @@ def test_different_quorum_scenarios():
         print(f"✅ Ballot created successfully")
         
         # Test with minimum quorum (should work)
-        guardian_data = deserialize_list_of_strings_to_list_of_dicts(setup_result['guardian_data'])
-        available_guardians = random.sample(guardian_data, test_case['quorum'])
-        missing_guardians = [g for g in guardian_data if g not in available_guardians]
+        # For this test, we'll use first N guardians as available where N = quorum
+        available_guardian_ids = [str(i+1) for i in range(test_case['quorum'])]
+        missing_guardian_ids = [str(i+1) for i in range(test_case['quorum'], test_case['guardians'])]
         
-        print(f"✅ Selected {len(available_guardians)} available guardians (minimum quorum)")
-        print(f"✅ {len(missing_guardians)} guardians will be compensated")
+        print(f"✅ Selected {len(available_guardian_ids)} available guardians (minimum quorum)")
+        print(f"✅ {len(missing_guardian_ids)} guardians will be compensated")
         
         # Test with less than quorum (should fail gracefully)
         if test_case['quorum'] > 1:
-            insufficient_guardians = available_guardians[:-1]  # Remove one guardian
-            print(f"🔍 Testing with {len(insufficient_guardians)} guardians (less than quorum)")
+            insufficient_guardian_count = len(available_guardian_ids) - 1  # Remove one guardian
+            print(f"🔍 Testing with {insufficient_guardian_count} guardians (less than quorum)")
             # This would require additional error handling in the API
             print(f"✅ Insufficient guardians scenario identified")
     
