@@ -96,7 +96,30 @@ def print_json(data, str_):
             print(f"{key}: {value_type}", file=f)
         print(f"End of {str_}\n------------------\n\n", file=f)
 
+# Helper functions for serialization/deserialization
+def serialize_dict_to_string(data):
+    """Convert dict to JSON string"""
+    if isinstance(data, dict):
+        return json.dumps(data)
+    return data
 
+def deserialize_string_to_dict(data):
+    """Convert JSON string to dict"""
+    if isinstance(data, str):
+        return json.loads(data)
+    return data
+
+def serialize_list_of_dicts_to_list_of_strings(data):
+    """Convert List[dict] to List[str]"""
+    if isinstance(data, list) and data and isinstance(data[0], dict):
+        return [json.dumps(item) for item in data]
+    return data
+
+def deserialize_list_of_strings_to_list_of_dicts(data):
+    """Convert List[str] to List[dict]"""
+    if isinstance(data, list) and data and isinstance(data[0], str):
+        return [json.loads(item) for item in data]
+    return data
 
 # Global storage for election data
 election_data = {
@@ -182,15 +205,16 @@ def api_setup_guardians():
         election_data['number_of_guardians'] = result['number_of_guardians']
         election_data['quorum'] = result['quorum']
         
+        # Convert response dicts to strings
         response = {
             'status': 'success',
             'joint_public_key': result['joint_public_key'],
             'commitment_hash': result['commitment_hash'],
             'manifest': to_raw(election_data['manifest']),
-            'guardian_data': result['guardian_data'],
-            'private_keys': result['private_keys'],
-            'public_keys': result['public_keys'],
-            'polynomials': result['polynomials'],
+            'guardian_data': serialize_list_of_dicts_to_list_of_strings(result['guardian_data']),
+            'private_keys': serialize_list_of_dicts_to_list_of_strings(result['private_keys']),
+            'public_keys': serialize_list_of_dicts_to_list_of_strings(result['public_keys']),
+            'polynomials': serialize_list_of_dicts_to_list_of_strings(result['polynomials']),
             'number_of_guardians': result['number_of_guardians'],
             'quorum': result['quorum']
         }
@@ -253,8 +277,6 @@ def api_create_encrypted_ballot():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
-
-
 @app.route('/health', methods=['GET'])
 def api_health_check():
     """API endpoint for health check."""
@@ -295,7 +317,7 @@ def api_create_encrypted_tally():
         
         response = {
             'status': 'success',
-            'ciphertext_tally': result['ciphertext_tally'],
+            'ciphertext_tally': serialize_dict_to_string(result['ciphertext_tally']),
             'submitted_ballots': result['submitted_ballots']
         }
         print_json(response, "create_encrypted_tally_response")
@@ -306,26 +328,25 @@ def api_create_encrypted_tally():
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
 
-
-
 @app.route('/create_partial_decryption', methods=['POST'])
 def api_create_partial_decryption():
     """API endpoint to compute decryption shares for a single guardian."""
     try:
         data = request.json
         guardian_id = data['guardian_id']
-        guardian_data = data['guardian_data']
-        private_keys = data['private_keys']
-        public_keys = data['public_keys']
-        polynomials = data['polynomials']
+        # Deserialize list of dicts from list of strings
+        guardian_data = deserialize_list_of_strings_to_list_of_dicts(data['guardian_data'])
+        private_keys = deserialize_list_of_strings_to_list_of_dicts(data['private_keys'])
+        public_keys = deserialize_list_of_strings_to_list_of_dicts(data['public_keys'])
+        polynomials = deserialize_list_of_strings_to_list_of_dicts(data['polynomials'])
         party_names = data['party_names']
         candidate_names = data['candidate_names']
-        ciphertext_tally_json = data['ciphertext_tally']
+        # Deserialize dict from string
+        ciphertext_tally_json = deserialize_string_to_dict(data['ciphertext_tally'])
         submitted_ballots_json = data['submitted_ballots']
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
         
-
         print_json(data, "create_partial_decryption")
         # Get election data
         number_of_guardians = election_data.get('number_of_guardians', len(guardian_data))
@@ -355,7 +376,7 @@ def api_create_partial_decryption():
             'status': 'success',
             'guardian_public_key': result['guardian_public_key'],
             'tally_share': result['tally_share'],
-            'ballot_shares': result['ballot_shares']
+            'ballot_shares': serialize_dict_to_string(result['ballot_shares'])
         }
         print_json(response, "create_partial_decryption_response")
         return jsonify(response), 200
@@ -373,13 +394,15 @@ def api_create_compensated_decryption():
         data = request.json
         available_guardian_id = data['available_guardian_id']
         missing_guardian_id = data['missing_guardian_id']
-        guardian_data = data['guardian_data']
-        private_keys = data['private_keys']
-        public_keys = data['public_keys']
-        polynomials = data['polynomials']
+        # Deserialize list of dicts from list of strings
+        guardian_data = deserialize_list_of_strings_to_list_of_dicts(data['guardian_data'])
+        private_keys = deserialize_list_of_strings_to_list_of_dicts(data['private_keys'])
+        public_keys = deserialize_list_of_strings_to_list_of_dicts(data['public_keys'])
+        polynomials = deserialize_list_of_strings_to_list_of_dicts(data['polynomials'])
         party_names = data['party_names']
         candidate_names = data['candidate_names']
-        ciphertext_tally_json = data['ciphertext_tally']
+        # Deserialize dict from string
+        ciphertext_tally_json = deserialize_string_to_dict(data['ciphertext_tally'])
         submitted_ballots_json = data['submitted_ballots']
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
@@ -414,7 +437,7 @@ def api_create_compensated_decryption():
         response = {
             'status': 'success',
             'compensated_tally_share': result['compensated_tally_share'],
-            'compensated_ballot_shares': result['compensated_ballot_shares']
+            'compensated_ballot_shares': serialize_dict_to_string(result['compensated_ballot_shares'])
         }
         print_json(response, "create_compensated_decryption_response")  
         return jsonify(response), 200
@@ -423,8 +446,6 @@ def api_create_compensated_decryption():
         return jsonify({'status': 'error', 'message': str(e)}), 400
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
-
-
 
 @app.route('/combine_decryption_shares', methods=['POST'])
 def api_combine_decryption_shares():
@@ -436,15 +457,17 @@ def api_combine_decryption_shares():
         candidate_names = data['candidate_names']
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
-        ciphertext_tally_json = data['ciphertext_tally']
+        # Deserialize dict from string
+        ciphertext_tally_json = deserialize_string_to_dict(data['ciphertext_tally'])
         submitted_ballots_json = data['submitted_ballots']
-        guardian_data = data['guardian_data']
+        # Deserialize list of dicts from list of strings
+        guardian_data = deserialize_list_of_strings_to_list_of_dicts(data['guardian_data'])
         
         print_json(data, "combine_decryption_shares")
-        # Regular decryption shares from available guardians
+        # Regular decryption shares from available guardians - keep as dict
         available_guardian_shares = data.get('available_guardian_shares', {})
         
-        # Compensated decryption shares for missing guardians
+        # Compensated decryption shares for missing guardians - keep as dict
         compensated_shares = data.get('compensated_shares', {})
         
         # Get the required quorum
@@ -480,12 +503,6 @@ def api_combine_decryption_shares():
         return jsonify({'status': 'error', 'message': str(e)}), 400
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
-
-
-
-
-
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

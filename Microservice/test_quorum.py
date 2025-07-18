@@ -11,6 +11,12 @@ from collections import defaultdict
 # API Base URL
 BASE_URL = "http://localhost:5000"
 
+def deserialize_list_of_strings_to_list_of_dicts(data):
+    """Convert List[str] to List[dict]"""
+    if isinstance(data, list) and data and isinstance(data[0], str):
+        return [json.loads(item) for item in data]
+    return data
+
 def test_quorum_election_workflow():
     """Test the complete election workflow with quorum-based decryption."""
     print("=" * 80)
@@ -38,10 +44,11 @@ def test_quorum_election_workflow():
     joint_public_key = setup_result['joint_public_key']
     commitment_hash = setup_result['commitment_hash']
     manifest = setup_result['manifest']
-    guardian_data = setup_result['guardian_data']
-    private_keys = setup_result['private_keys']
-    public_keys = setup_result['public_keys']
-    polynomials = setup_result['polynomials']
+    # Deserialize the lists of strings back to lists of dicts
+    guardian_data = deserialize_list_of_strings_to_list_of_dicts(setup_result['guardian_data'])
+    private_keys = deserialize_list_of_strings_to_list_of_dicts(setup_result['private_keys'])
+    public_keys = deserialize_list_of_strings_to_list_of_dicts(setup_result['public_keys'])
+    polynomials = deserialize_list_of_strings_to_list_of_dicts(setup_result['polynomials'])
     number_of_guardians = setup_result['number_of_guardians']
     quorum = setup_result['quorum']
     
@@ -138,7 +145,7 @@ def test_quorum_election_workflow():
         available_guardian_shares[guardian['id']] = {
             'guardian_public_key': partial_result['guardian_public_key'],
             'tally_share': partial_result['tally_share'],
-            'ballot_shares': partial_result['ballot_shares']
+            'ballot_shares': json.loads(partial_result['ballot_shares']) if isinstance(partial_result['ballot_shares'], str) else partial_result['ballot_shares']
         }
         
         print(f"✅ Guardian {guardian['id']} computed decryption shares")
@@ -173,7 +180,7 @@ def test_quorum_election_workflow():
             compensated_result = compensated_response.json()
             compensated_shares[missing_guardian['id']][available_guardian['id']] = {
                 'compensated_tally_share': compensated_result['compensated_tally_share'],
-                'compensated_ballot_shares': compensated_result['compensated_ballot_shares']
+                'compensated_ballot_shares': json.loads(compensated_result['compensated_ballot_shares']) if isinstance(compensated_result['compensated_ballot_shares'], str) else compensated_result['compensated_ballot_shares']
             }
             
             print(f"✅ Guardian {available_guardian['id']} computed compensated shares for missing guardian {missing_guardian['id']}")
@@ -280,7 +287,7 @@ def test_different_quorum_scenarios():
         print(f"✅ Ballot created successfully")
         
         # Test with minimum quorum (should work)
-        guardian_data = setup_result['guardian_data']
+        guardian_data = deserialize_list_of_strings_to_list_of_dicts(setup_result['guardian_data'])
         available_guardians = random.sample(guardian_data, test_case['quorum'])
         missing_guardians = [g for g in guardian_data if g not in available_guardians]
         
