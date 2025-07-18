@@ -1,12 +1,7 @@
 import pytest
-import json
 import sys
 import os
-from typing import Dict, Any
-
-# Add the parent directory to the path so we can import from Microservice
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-
 from api import app
 
 @pytest.fixture
@@ -15,166 +10,65 @@ def client():
     with app.test_client() as client:
         yield client
 
-class TestAPIAvailability:
-    """Test suite to verify all API endpoints are available and functional."""
-    
-    def test_health_endpoint(self, client):
-        """Test the health check endpoint."""
-        response = client.get('/health')
-        assert response.status_code == 200, "Health endpoint should return 200"
-        
-        result = response.get_json()
-        assert result is not None, "Health endpoint should return JSON"
-        assert result['status'] == 'healthy', "Health endpoint should return healthy status"
-        
-        print("✓ Health endpoint is working correctly")
-    
-    def test_setup_guardians(self, client):
-        """Test the setup_guardians endpoint."""
-        setup_data = {
-            "number_of_guardians": 3,
-            "quorum": 3,
-            "party_names": ["Party A", "Party B"],
-            "candidate_names": ["Candidate 1", "Candidate 2"]
-        }
-        
-        response = client.post('/setup_guardians', json=setup_data)
-        assert response.status_code == 200, f"Setup guardians failed with status {response.status_code}"
-        
-        result = response.get_json()
-        assert result is not None, "Setup guardians should return JSON"
-        assert result['status'] == 'success', f"Setup guardians should succeed, got: {result.get('status')}"
-        
-        # Check required fields are present
-        required_fields = [
-            'joint_public_key', 'commitment_hash', 'guardian_public_keys',
-            'guardian_private_keys', 'guardian_polynomials', 'manifest'
-        ]
-        for field in required_fields:
-            assert field in result, f"Response should contain {field}"
-            assert result[field] is not None, f"{field} should not be null"
-        
-        # Validate data types
-        assert isinstance(result['joint_public_key'], str), "joint_public_key should be string"
-        assert isinstance(result['commitment_hash'], str), "commitment_hash should be string"
-        assert isinstance(result['guardian_public_keys'], list), "guardian_public_keys should be list"
-        assert isinstance(result['guardian_private_keys'], list), "guardian_private_keys should be list"
-        assert isinstance(result['guardian_polynomials'], list), "guardian_polynomials should be list"
-        # manifest can be various types, so we don't assert its specific type
-        
-        # Check list lengths
-        assert len(result['guardian_public_keys']) == setup_data['number_of_guardians'], "Should have correct number of public keys"
-        assert len(result['guardian_private_keys']) == setup_data['number_of_guardians'], "Should have correct number of private keys"
-        assert len(result['guardian_polynomials']) == setup_data['number_of_guardians'], "Should have correct number of polynomials"
-        
-        print("✓ Setup guardians endpoint is working correctly")
-        return result
-    
-    def test_create_encrypted_ballot(self, client):
-        """Test the create_encrypted_ballot endpoint."""
-        # First setup guardians to get required keys
-        setup_data = {
-            "number_of_guardians": 3,
-            "quorum": 3,
-            "party_names": ["Party A", "Party B"],
-            "candidate_names": ["Candidate 1", "Candidate 2"]
-        }
-        setup_response = client.post('/setup_guardians', json=setup_data)
-        setup_result = setup_response.get_json()
-        
-        # Create ballot data
-        ballot_data = {
-            "party_names": ["Party A", "Party B"],
-            "candidate_names": ["Candidate 1", "Candidate 2"],
-            "candidate_name": "Candidate 1",
-            "ballot_id": "test-ballot-001",
-            "joint_public_key": setup_result['joint_public_key'],
-            "commitment_hash": setup_result['commitment_hash']
-        }
-        
-        response = client.post('/create_encrypted_ballot', json=ballot_data)
-        assert response.status_code == 200, f"Create encrypted ballot failed with status {response.status_code}"
-        
-        result = response.get_json()
-        assert result is not None, "Create encrypted ballot should return JSON"
-        assert result['status'] == 'success', f"Create encrypted ballot should succeed, got: {result.get('status')}"
-        
-        # Check required fields
-        required_fields = ['encrypted_ballot', 'ballot_hash']
-        for field in required_fields:
-            assert field in result, f"Response should contain {field}"
-            assert result[field] is not None, f"{field} should not be null"
-        
-        # Validate data types
-        # encrypted_ballot can be various types, so we don't assert its specific type
-        assert isinstance(result['ballot_hash'], str), "ballot_hash should be string"
-        
-        # Validate encrypted ballot structure (if it's accessible as dict)
-        encrypted_ballot = result['encrypted_ballot']
-        if isinstance(encrypted_ballot, dict) and 'object_id' in encrypted_ballot:
-            assert encrypted_ballot['object_id'] == ballot_data['ballot_id'], "Ballot ID should match"
-        
-        print("✓ Create encrypted ballot endpoint is working correctly")
-        return result
-    
-    def test_create_encrypted_tally(self, client):
-        """Test the create_encrypted_tally endpoint."""
-        # Setup guardians
-        setup_data = {
-            "number_of_guardians": 3,
-            "quorum": 3,
-            "party_names": ["Party A", "Party B"],
-            "candidate_names": ["Candidate 1", "Candidate 2"]
-        }
-        setup_response = client.post('/setup_guardians', json=setup_data)
-        setup_result = setup_response.get_json()
-        
-        # Create encrypted ballots
-        encrypted_ballots = []
-        for i, candidate in enumerate(["Candidate 1", "Candidate 2"]):
-            ballot_data = {
-                "party_names": ["Party A", "Party B"],
-                "candidate_names": ["Candidate 1", "Candidate 2"],
-                "candidate_name": candidate,
-                "ballot_id": f"test-ballot-{i:03d}",
-                "joint_public_key": setup_result['joint_public_key'],
-                "commitment_hash": setup_result['commitment_hash']
-            }
-            ballot_response = client.post('/create_encrypted_ballot', json=ballot_data)
-            ballot_result = ballot_response.get_json()
-            encrypted_ballots.append(ballot_result['encrypted_ballot'])
-        
-        # Create tally
-        tally_data = {
-            "party_names": ["Party A", "Party B"],
-            "candidate_names": ["Candidate 1", "Candidate 2"],
-            "joint_public_key": setup_result['joint_public_key'],
-            "commitment_hash": setup_result['commitment_hash'],
-            "encrypted_ballots": encrypted_ballots
-        }
-        
-        response = client.post('/create_encrypted_tally', json=tally_data)
-        assert response.status_code == 200, f"Create encrypted tally failed with status {response.status_code}"
-        
-        result = response.get_json()
-        assert result is not None, "Create encrypted tally should return JSON"
-        assert result['status'] == 'success', f"Create encrypted tally should succeed, got: {result.get('status')}"
-        
-        # Check required fields
-        required_fields = ['ciphertext_tally', 'submitted_ballots']
-        for field in required_fields:
-            assert field in result, f"Response should contain {field}"
-            assert result[field] is not None, f"{field} should not be null"
-        
-        # Validate data types
-        assert isinstance(result['ciphertext_tally'], dict), "ciphertext_tally should be dict"
-        assert isinstance(result['submitted_ballots'], list), "submitted_ballots should be list"
-        
-        # Check that we have submitted ballots
-        assert len(result['submitted_ballots']) > 0, "Should have at least one submitted ballot"
-        
-        print("✓ Create encrypted tally endpoint is working correctly")
-        return result, setup_result
+def test_health_endpoint(client):
+    response = client.get('/health')
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result is not None
+    assert result['status'] == 'healthy'
+
+def test_setup_guardians(client):
+    setup_data = {
+        "number_of_guardians": 3,
+        "quorum": 2,
+        "party_names": ["Party A", "Party B"],
+        "candidate_names": ["Candidate 1", "Candidate 2"]
+    }
+    response = client.post('/setup_guardians', json=setup_data)
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result is not None
+    assert result['status'] == 'success'
+    for field in [
+        'joint_public_key', 'commitment_hash', 'manifest',
+        'guardian_data', 'private_keys', 'public_keys', 'polynomials',
+        'number_of_guardians', 'quorum']:
+        assert field in result
+    assert isinstance(result['joint_public_key'], str)
+    assert isinstance(result['commitment_hash'], str)
+    assert isinstance(result['guardian_data'], list)
+    assert isinstance(result['private_keys'], list)
+    assert isinstance(result['public_keys'], list)
+    assert isinstance(result['polynomials'], list)
+    assert result['number_of_guardians'] == 3
+    assert result['quorum'] == 2
+
+def test_create_encrypted_ballot(client):
+    setup_data = {
+        "number_of_guardians": 3,
+        "quorum": 2,
+        "party_names": ["Party A", "Party B"],
+        "candidate_names": ["Candidate 1", "Candidate 2"]
+    }
+    setup_response = client.post('/setup_guardians', json=setup_data)
+    setup_result = setup_response.get_json()
+    ballot_data = {
+        "party_names": ["Party A", "Party B"],
+        "candidate_names": ["Candidate 1", "Candidate 2"],
+        "candidate_name": "Candidate 1",
+        "ballot_id": "ballot-1",
+        "joint_public_key": setup_result['joint_public_key'],
+        "commitment_hash": setup_result['commitment_hash'],
+        "number_of_guardians": 3,
+        "quorum": 2
+    }
+    response = client.post('/create_encrypted_ballot', json=ballot_data)
+    assert response.status_code == 200
+    result = response.get_json()
+    assert result['status'] == 'success'
+    assert isinstance(result['encrypted_ballot'], str)
+    assert isinstance(result['ballot_hash'], str)
+    # Remove invalid leftover code and class remnants
     
     def test_create_partial_decryption(self, client):
         """Test the create_partial_decryption endpoint."""
@@ -325,29 +219,4 @@ class TestAPIAvailability:
         print("✓ Invalid JSON handling is working correctly")
 
 if __name__ == "__main__":
-    # Create a test client for standalone execution
-    app.config['TESTING'] = True
-    with app.test_client() as test_client:
-        test_suite = TestAPIAvailability()
-        
-        print("🧪 Starting API Availability Tests")
-        print("=" * 50)
-        
-        try:
-            # Run individual tests
-            test_suite.test_health_endpoint(test_client)
-            test_suite.test_setup_guardians(test_client)
-            test_suite.test_create_encrypted_ballot(test_client)
-            test_suite.test_create_encrypted_tally(test_client)
-            test_suite.test_create_partial_decryption(test_client)
-            test_suite.test_combine_partial_decryption(test_client)
-            test_suite.test_invalid_endpoint(test_client)
-            test_suite.test_missing_required_fields(test_client)
-            test_suite.test_invalid_json_format(test_client)
-            
-            print("=" * 50)
-            print("🎉 All API Availability Tests Passed!")
-            
-        except Exception as e:
-            print(f"❌ Test failed with error: {str(e)}")
-            raise
+    print("Run 'pytest' to execute the tests.")

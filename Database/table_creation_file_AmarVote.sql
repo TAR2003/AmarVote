@@ -30,7 +30,7 @@ CREATE TABLE IF NOT EXISTS elections (
     status TEXT NOT NULL DEFAULT 'draft', -- Changed from election_status enum
     starting_time TIMESTAMP WITH TIME ZONE NOT NULL,
     ending_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    encrypted_tally JSONB,
+    encrypted_tally TEXT,
     base_hash TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     profile_pic TEXT,
@@ -59,7 +59,7 @@ CREATE TABLE IF NOT EXISTS guardians (
     guardian_polynomial TEXT NOT NULL,
     sequence_order INTEGER NOT NULL CHECK (sequence_order > 0),
     decrypted_or_not BOOLEAN NOT NULL DEFAULT FALSE,
-    partial_decrypted_tally JSONB,
+    partial_decrypted_tally TEXT,
     proof TEXT,
     guardian_decryption_key TEXT, -- Added guardian_decryption_key field
     tally_share TEXT, -- Added tally_share field

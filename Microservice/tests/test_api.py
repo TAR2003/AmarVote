@@ -16,14 +16,53 @@ def client():
 def test_health_check(client):
     response = client.get('/health')
     assert response.status_code == 200
-    # Updated to handle both dict and Response object cases
-    if hasattr(response, 'json'):
-        data = response.json if callable(response.json) else response.json
-    else:
-        data = response.get_json()
+    data = response.get_json()
     assert data['status'] == 'healthy'
 
-# Add more endpoint tests as needed, e.g.:
-# def test_setup_guardians(client):
-#     response = client.post('/setup_guardians', json={...})
-#     assert response.status_code == 200
+def test_setup_guardians(client):
+    payload = {
+        "number_of_guardians": 3,
+        "quorum": 2,
+        "party_names": ["Party A", "Party B"],
+        "candidate_names": ["Candidate 1", "Candidate 2"]
+    }
+    response = client.post('/setup_guardians', json=payload)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['status'] == 'success'
+    assert isinstance(data['joint_public_key'], str)
+    assert isinstance(data['commitment_hash'], str)
+    assert isinstance(data['manifest'], str)
+    assert isinstance(data['guardian_data'], list)
+    assert isinstance(data['private_keys'], list)
+    assert isinstance(data['public_keys'], list)
+    assert isinstance(data['polynomials'], list)
+    assert data['number_of_guardians'] == 3
+    assert data['quorum'] == 2
+
+def test_create_encrypted_ballot(client):
+    # First, setup guardians to get required keys
+    setup_payload = {
+        "number_of_guardians": 3,
+        "quorum": 2,
+        "party_names": ["Party A", "Party B"],
+        "candidate_names": ["Candidate 1", "Candidate 2"]
+    }
+    setup_response = client.post('/setup_guardians', json=setup_payload)
+    setup_data = setup_response.get_json()
+    ballot_payload = {
+        "party_names": ["Party A", "Party B"],
+        "candidate_names": ["Candidate 1", "Candidate 2"],
+        "candidate_name": "Candidate 1",
+        "ballot_id": "ballot-1",
+        "joint_public_key": setup_data['joint_public_key'],
+        "commitment_hash": setup_data['commitment_hash'],
+        "number_of_guardians": 3,
+        "quorum": 2
+    }
+    response = client.post('/create_encrypted_ballot', json=ballot_payload)
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['status'] == 'success'
+    assert isinstance(data['encrypted_ballot'], str)
+    assert isinstance(data['ballot_hash'], str)
