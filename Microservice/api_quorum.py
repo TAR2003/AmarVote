@@ -406,13 +406,14 @@ def api_setup_guardians():
         
         # Prepare guardian data including backups for quorum decryption
         guardian_data = []
+        private_keys = []
+        public_keys = []
+        polynomials = []
+        
         for guardian in guardians:
             guardian_info = {
                 'id': guardian.id,
                 'sequence_order': guardian.sequence_order,
-                'public_key': str(int(guardian._election_keys.key_pair.public_key)),
-                'private_key': str(int(guardian._election_keys.key_pair.secret_key)),
-                'polynomial': to_raw(guardian._election_keys.polynomial),
                 'election_public_key': to_raw(guardian.share_key()),
                 'backups': {}
             }
@@ -425,6 +426,20 @@ def api_setup_guardians():
                         guardian_info['backups'][other_guardian.id] = to_raw(backup)
             
             guardian_data.append(guardian_info)
+            
+            # Store separate keys and polynomials
+            private_keys.append({
+                'guardian_id': guardian.id,
+                'private_key': str(int(guardian._election_keys.key_pair.secret_key))
+            })
+            public_keys.append({
+                'guardian_id': guardian.id,
+                'public_key': str(int(guardian._election_keys.key_pair.public_key))
+            })
+            polynomials.append({
+                'guardian_id': guardian.id,
+                'polynomial': to_raw(guardian._election_keys.polynomial)
+            })
         
         response = {
             'status': 'success',
@@ -432,6 +447,9 @@ def api_setup_guardians():
             'commitment_hash': election_data['commitment_hash'],
             'manifest': to_raw(election_data['manifest']),
             'guardian_data': guardian_data,
+            'private_keys': private_keys,
+            'public_keys': public_keys,
+            'polynomials': polynomials,
             'number_of_guardians': number_of_guardians,
             'quorum': quorum
         }
@@ -632,6 +650,9 @@ def api_create_partial_decryption():
         data = request.json
         guardian_id = data['guardian_id']
         guardian_data = data['guardian_data']
+        private_keys = data['private_keys']
+        public_keys = data['public_keys']
+        polynomials = data['polynomials']
         party_names = data['party_names']
         candidate_names = data['candidate_names']
         ciphertext_tally_json = data['ciphertext_tally']
@@ -648,6 +669,9 @@ def api_create_partial_decryption():
             candidate_names=candidate_names,
             guardian_id=guardian_id,
             guardian_data=guardian_data,
+            private_keys=private_keys,
+            public_keys=public_keys,
+            polynomials=polynomials,
             ciphertext_tally_json=ciphertext_tally_json,
             submitted_ballots_json=submitted_ballots_json,
             joint_public_key_json=joint_public_key_int,
@@ -669,7 +693,10 @@ def compute_guardian_decryption_shares(
     party_names,
     candidate_names,
     guardian_id: str,
-    guardian_data: Dict,
+    guardian_data: List[Dict],
+    private_keys: List[Dict],
+    public_keys: List[Dict],
+    polynomials: List[Dict],
     ciphertext_tally_json,
     submitted_ballots_json,
     joint_public_key_json,
@@ -686,10 +713,33 @@ def compute_guardian_decryption_shares(
     if not guardian_info:
         raise ValueError(f"Guardian {guardian_id} not found in guardian data")
     
+    # Find the private key, public key, and polynomial for this guardian
+    private_key_info = None
+    public_key_info = None
+    polynomial_info = None
+    
+    for pk in private_keys:
+        if pk['guardian_id'] == guardian_id:
+            private_key_info = pk
+            break
+            
+    for pk in public_keys:
+        if pk['guardian_id'] == guardian_id:
+            public_key_info = pk
+            break
+            
+    for p in polynomials:
+        if p['guardian_id'] == guardian_id:
+            polynomial_info = p
+            break
+    
+    if not private_key_info or not public_key_info or not polynomial_info:
+        raise ValueError(f"Missing key or polynomial data for guardian {guardian_id}")
+    
     # Convert inputs to proper types
-    public_key = int_to_p(int(guardian_info['public_key']))
-    private_key = int_to_q(int(guardian_info['private_key']))
-    polynomial = from_raw(ElectionPolynomial, guardian_info['polynomial'])
+    public_key = int_to_p(int(public_key_info['public_key']))
+    private_key = int_to_q(int(private_key_info['private_key']))
+    polynomial = from_raw(ElectionPolynomial, polynomial_info['polynomial'])
     
     # Create election key pair for this guardian
     election_key = ElectionKeyPair(
@@ -752,6 +802,9 @@ def api_create_compensated_decryption():
         available_guardian_id = data['available_guardian_id']
         missing_guardian_id = data['missing_guardian_id']
         guardian_data = data['guardian_data']
+        private_keys = data['private_keys']
+        public_keys = data['public_keys']
+        polynomials = data['polynomials']
         party_names = data['party_names']
         candidate_names = data['candidate_names']
         ciphertext_tally_json = data['ciphertext_tally']
@@ -769,6 +822,9 @@ def api_create_compensated_decryption():
             available_guardian_id=available_guardian_id,
             missing_guardian_id=missing_guardian_id,
             guardian_data=guardian_data,
+            private_keys=private_keys,
+            public_keys=public_keys,
+            polynomials=polynomials,
             ciphertext_tally_json=ciphertext_tally_json,
             submitted_ballots_json=submitted_ballots_json,
             joint_public_key_json=joint_public_key_int,
@@ -791,6 +847,9 @@ def compute_compensated_guardian_decryption_shares(
     available_guardian_id: str,
     missing_guardian_id: str,
     guardian_data: List[Dict],
+    private_keys: List[Dict],
+    public_keys: List[Dict],
+    polynomials: List[Dict],
     ciphertext_tally_json,
     submitted_ballots_json,
     joint_public_key_json,
@@ -825,10 +884,38 @@ def compute_compensated_guardian_decryption_shares(
     from electionguard.key_ceremony import ElectionPartialKeyBackup
     backup = from_raw(ElectionPartialKeyBackup, backup_data)
     
+    # Find the private key and polynomial for the available guardian
+    available_private_key_info = None
+    available_polynomial_info = None
+    
+    for pk in private_keys:
+        if pk['guardian_id'] == available_guardian_id:
+            available_private_key_info = pk
+            break
+            
+    for p in polynomials:
+        if p['guardian_id'] == available_guardian_id:
+            available_polynomial_info = p
+            break
+    
+    if not available_private_key_info or not available_polynomial_info:
+        raise ValueError(f"Missing key or polynomial data for available guardian {available_guardian_id}")
+    
     # Create available guardian's election key pair to decrypt backup
-    available_private_key = int_to_q(int(available_guardian_info['private_key']))
-    available_public_key = int_to_p(int(available_guardian_info['public_key']))
-    available_polynomial = from_raw(ElectionPolynomial, available_guardian_info['polynomial'])
+    available_private_key = int_to_q(int(available_private_key_info['private_key']))
+    
+    # Find the public key for the available guardian
+    available_public_key_info = None
+    for pk in public_keys:
+        if pk['guardian_id'] == available_guardian_id:
+            available_public_key_info = pk
+            break
+    
+    if not available_public_key_info:
+        raise ValueError(f"Missing public key data for available guardian {available_guardian_id}")
+    
+    available_public_key = int_to_p(int(available_public_key_info['public_key']))
+    available_polynomial = from_raw(ElectionPolynomial, available_polynomial_info['polynomial'])
     
     available_election_key = ElectionKeyPair(
         owner_id=available_guardian_id,

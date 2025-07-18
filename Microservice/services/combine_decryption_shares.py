@@ -331,10 +331,12 @@ def combine_decryption_shares_service(
     for missing_guardian_id in compensated_shares.keys():
         guardian_info = next((gd for gd in guardian_data if gd['id'] == missing_guardian_id), None)
         if guardian_info:
+            # Get the public key from election_public_key
+            missing_guardian_public_key = from_raw(ElectionPublicKey, guardian_info['election_public_key'])
             results['verification']['guardians'].append({
                 'id': missing_guardian_id,
                 'sequence_order': str(guardian_info['sequence_order']),
-                'public_key': guardian_info['public_key'],
+                'public_key': str(missing_guardian_public_key.key),
                 'status': 'missing (compensated)'
             })
     

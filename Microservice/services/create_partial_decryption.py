@@ -82,6 +82,9 @@ def create_partial_decryption_service(
     candidate_names: List[str],
     guardian_id: str,
     guardian_data: List[Dict],
+    private_keys: List[Dict],
+    public_keys: List[Dict],
+    polynomials: List[Dict],
     ciphertext_tally_json: Dict,
     submitted_ballots_json: List[Dict],
     joint_public_key: str,
@@ -100,6 +103,9 @@ def create_partial_decryption_service(
         candidate_names: List of candidate names
         guardian_id: ID of the guardian to compute shares for
         guardian_data: List of all guardian data
+        private_keys: List of private key data for guardians
+        public_keys: List of public key data for guardians
+        polynomials: List of polynomial data for guardians
         ciphertext_tally_json: Serialized ciphertext tally
         submitted_ballots_json: List of serialized submitted ballots
         joint_public_key: Joint public key as string
@@ -125,6 +131,9 @@ def create_partial_decryption_service(
         candidate_names,
         guardian_id,
         guardian_data,
+        private_keys,
+        public_keys,
+        polynomials,
         ciphertext_tally_json,
         submitted_ballots_json,
         joint_public_key_int,
@@ -148,6 +157,9 @@ def compute_guardian_decryption_shares(
     candidate_names: List[str],
     guardian_id: str,
     guardian_data: List[Dict],
+    private_keys: List[Dict],
+    public_keys: List[Dict],
+    polynomials: List[Dict],
     ciphertext_tally_json: Dict,
     submitted_ballots_json: List[Dict],
     joint_public_key_json: int,
@@ -166,6 +178,9 @@ def compute_guardian_decryption_shares(
         candidate_names: List of candidate names
         guardian_id: ID of the guardian to compute shares for
         guardian_data: List of all guardian data
+        private_keys: List of private key data for guardians
+        public_keys: List of public key data for guardians
+        polynomials: List of polynomial data for guardians
         ciphertext_tally_json: Serialized ciphertext tally
         submitted_ballots_json: List of serialized submitted ballots
         joint_public_key_json: Joint public key as integer
@@ -192,10 +207,33 @@ def compute_guardian_decryption_shares(
     if not guardian_info:
         raise ValueError(f"Guardian {guardian_id} not found in guardian data")
     
+    # Find the private key, public key, and polynomial for this guardian
+    private_key_info = None
+    public_key_info = None
+    polynomial_info = None
+    
+    for pk in private_keys:
+        if pk['guardian_id'] == guardian_id:
+            private_key_info = pk
+            break
+            
+    for pk in public_keys:
+        if pk['guardian_id'] == guardian_id:
+            public_key_info = pk
+            break
+            
+    for p in polynomials:
+        if p['guardian_id'] == guardian_id:
+            polynomial_info = p
+            break
+    
+    if not private_key_info or not public_key_info or not polynomial_info:
+        raise ValueError(f"Missing key or polynomial data for guardian {guardian_id}")
+    
     # Convert inputs to proper types
-    public_key = int_to_p(int(guardian_info['public_key']))
-    private_key = int_to_q(int(guardian_info['private_key']))
-    polynomial = from_raw(ElectionPolynomial, guardian_info['polynomial'])
+    public_key = int_to_p(int(public_key_info['public_key']))
+    private_key = int_to_q(int(private_key_info['private_key']))
+    polynomial = from_raw(ElectionPolynomial, polynomial_info['polynomial'])
     
     # Create election key pair for this guardian
     election_key = ElectionKeyPair(
