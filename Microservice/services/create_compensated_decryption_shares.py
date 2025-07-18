@@ -102,10 +102,11 @@ def create_compensated_decryption_service(
     candidate_names: List[str],
     available_guardian_id: str,
     missing_guardian_id: str,
-    guardian_data: List[Dict],
-    private_keys: List[Dict],
-    public_keys: List[Dict],
-    polynomials: List[Dict],
+    available_guardian_data: Dict,
+    missing_guardian_data: Dict,
+    available_private_key: Dict,
+    available_public_key: Dict,
+    available_polynomial: Dict,
     ciphertext_tally_json: Dict,
     submitted_ballots_json: List[Dict],
     joint_public_key: str,
@@ -124,10 +125,11 @@ def create_compensated_decryption_service(
         candidate_names: List of candidate names
         available_guardian_id: ID of the available guardian
         missing_guardian_id: ID of the missing guardian
-        guardian_data: List of guardian data
-        private_keys: List of private key data for guardians
-        public_keys: List of public key data for guardians
-        polynomials: List of polynomial data for guardians
+        available_guardian_data: Guardian data for the available guardian
+        missing_guardian_data: Guardian data for the missing guardian
+        available_private_key: Private key data for the available guardian
+        available_public_key: Public key data for the available guardian
+        available_polynomial: Polynomial data for the available guardian
         ciphertext_tally_json: Serialized ciphertext tally
         submitted_ballots_json: List of serialized submitted ballots
         joint_public_key: Joint public key as string
@@ -148,35 +150,20 @@ def create_compensated_decryption_service(
     joint_public_key_int = int(joint_public_key)
     commitment_hash_int = int(commitment_hash)
     
-    # Find the available and missing guardian data
-    available_guardian_info = None
-    missing_guardian_info = None
-    
-    for gd in guardian_data:
-        if gd['id'] == available_guardian_id:
-            available_guardian_info = gd
-        elif gd['id'] == missing_guardian_id:
-            missing_guardian_info = gd
-    
-    if not available_guardian_info:
-        raise ValueError(f"Available guardian {available_guardian_id} not found in guardian data")
-    if not missing_guardian_info:
-        raise ValueError(f"Missing guardian {missing_guardian_id} not found in guardian data")
-    
     # Get the backup for the missing guardian from the available guardian
-    backup_data = available_guardian_info.get('backups', {}).get(missing_guardian_id)
+    backup_data = available_guardian_data.get('backups', {}).get(missing_guardian_id)
     if not backup_data:
         raise ValueError(f"No backup found for missing guardian {missing_guardian_id} in available guardian {available_guardian_id}")
     
     # Create election public keys
     # Handle election_public_key data - check if it's already a dict or needs JSON parsing
-    available_election_public_key_data = available_guardian_info['election_public_key']
+    available_election_public_key_data = available_guardian_data['election_public_key']
     if isinstance(available_election_public_key_data, dict):
         available_guardian_public_key = from_raw(ElectionPublicKey, json.dumps(available_election_public_key_data))
     else:
         available_guardian_public_key = from_raw(ElectionPublicKey, available_election_public_key_data)
         
-    missing_election_public_key_data = missing_guardian_info['election_public_key']
+    missing_election_public_key_data = missing_guardian_data['election_public_key']
     if isinstance(missing_election_public_key_data, dict):
         missing_guardian_public_key = from_raw(ElectionPublicKey, json.dumps(missing_election_public_key_data))
     else:
@@ -190,36 +177,22 @@ def create_compensated_decryption_service(
         backup = from_raw(ElectionPartialKeyBackup, backup_data)
     
     # Find the private key and polynomial for the available guardian
-    available_private_key_info = None
-    available_polynomial_info = None
-    
-    for pk in private_keys:
-        if pk['guardian_id'] == available_guardian_id:
-            available_private_key_info = pk
-            break
-            
-    for p in polynomials:
-        if p['guardian_id'] == available_guardian_id:
-            available_polynomial_info = p
-            break
+    available_private_key_info = available_private_key
+    available_polynomial_info = available_polynomial
     
     if not available_private_key_info or not available_polynomial_info:
         raise ValueError(f"Missing key or polynomial data for available guardian {available_guardian_id}")
     
     # Create available guardian's election key pair to decrypt backup
-    available_private_key = int_to_q(int(available_private_key_info['private_key']))
+    available_private_key_element = int_to_q(int(available_private_key_info['private_key']))
     
     # Find the public key for the available guardian
-    available_public_key_info = None
-    for pk in public_keys:
-        if pk['guardian_id'] == available_guardian_id:
-            available_public_key_info = pk
-            break
+    available_public_key_info = available_public_key
     
     if not available_public_key_info:
         raise ValueError(f"Missing public key data for available guardian {available_guardian_id}")
     
-    available_public_key = int_to_p(int(available_public_key_info['public_key']))
+    available_public_key_element = int_to_p(int(available_public_key_info['public_key']))
     
     # Handle polynomial data - check if it's already a dict or needs JSON parsing
     polynomial_data = available_polynomial_info['polynomial']
@@ -232,8 +205,8 @@ def create_compensated_decryption_service(
     
     available_election_key = ElectionKeyPair(
         owner_id=available_guardian_id,
-        sequence_order=available_guardian_info['sequence_order'],
-        key_pair=ElGamalKeyPair(available_private_key, available_public_key),
+        sequence_order=available_guardian_data['sequence_order'],
+        key_pair=ElGamalKeyPair(available_private_key_element, available_public_key_element),
         polynomial=available_polynomial
     )
     

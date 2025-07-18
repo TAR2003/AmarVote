@@ -12,6 +12,48 @@ from collections import defaultdict
 BASE_URL = "http://localhost:5000"
 
 
+def find_guardian_data(guardian_id: str, guardian_data_list: List[str], private_keys_list: List[str], public_keys_list: List[str], polynomials_list: List[str]) -> Tuple[str, str, str, str]:
+    """Find the data for a specific guardian from the lists."""
+    import json
+    
+    # Find guardian data
+    guardian_data_str = None
+    for gd_str in guardian_data_list:
+        gd = json.loads(gd_str)
+        if gd['id'] == guardian_id:
+            guardian_data_str = gd_str
+            break
+    
+    # Find private key
+    private_key_str = None
+    for pk_str in private_keys_list:
+        pk = json.loads(pk_str)
+        if pk['guardian_id'] == guardian_id:
+            private_key_str = pk_str
+            break
+    
+    # Find public key
+    public_key_str = None
+    for pk_str in public_keys_list:
+        pk = json.loads(pk_str)
+        if pk['guardian_id'] == guardian_id:
+            public_key_str = pk_str
+            break
+    
+    # Find polynomial
+    polynomial_str = None
+    for p_str in polynomials_list:
+        p = json.loads(p_str)
+        if p['guardian_id'] == guardian_id:
+            polynomial_str = p_str
+            break
+    
+    if not all([guardian_data_str, private_key_str, public_key_str, polynomial_str]):
+        raise ValueError(f"Missing data for guardian {guardian_id}")
+    
+    return guardian_data_str, private_key_str, public_key_str, polynomial_str
+
+
 def print_json(data, str_):
     with open("a.txt", "w") as f:
         print(f"\n---------------\nData: {str_}", file=f)
@@ -31,8 +73,9 @@ def test_quorum_election_workflow():
     print("=" * 80)
     print("TESTING QUORUM-BASED ELECTION WORKFLOW")
     print("=" * 80)
-    
-    # 1. Setup Guardians with quorum
+    # FOLLOW the steps in the comments to ensure clarity
+
+    # 1. Setup Guardians with quorum number first
     print("\n🔹 STEP 1: Setting up guardians with quorum support")
     setup_data = {
         "number_of_guardians": 5,
@@ -60,6 +103,11 @@ def test_quorum_election_workflow():
     polynomials = setup_result['polynomials']      # List of strings
     number_of_guardians = setup_result['number_of_guardians']
     quorum = setup_result['quorum']
+
+    # Print the guardian_data[4] element to guardian_data.json
+    with open("guardian_data.json", "w") as f:
+        json.dump(json.loads(guardian_data[4]), f, indent=2)
+    print(f"✅ guardian_data[4] written to guardian_data.json")
     
     print(f"✅ Guardian data prepared for {len(guardian_data)} guardians")
     print(f"✅ Private keys for {len(private_keys)} guardians")
@@ -138,12 +186,17 @@ def test_quorum_election_workflow():
     available_guardian_shares = {}
     
     for guardian_id in available_guardian_ids:
+        # Extract the specific guardian's data
+        guardian_data_str, private_key_str, public_key_str, polynomial_str = find_guardian_data(
+            guardian_id, guardian_data, private_keys, public_keys, polynomials
+        )
+        
         partial_request = {
             "guardian_id": guardian_id,
-            "guardian_data": guardian_data,  # List of strings
-            "private_keys": private_keys,    # List of strings
-            "public_keys": public_keys,      # List of strings
-            "polynomials": polynomials,      # List of strings
+            "guardian_data": guardian_data_str,  # Single guardian data string
+            "private_key": private_key_str,      # Single private key string
+            "public_key": public_key_str,        # Single public key string
+            "polynomial": polynomial_str,        # Single polynomial string
             "party_names": setup_data['party_names'],
             "candidate_names": setup_data['candidate_names'],
             "ciphertext_tally": ciphertext_tally,  # String
@@ -176,13 +229,24 @@ def test_quorum_election_workflow():
         compensated_shares[missing_guardian_id] = {}
         
         for available_guardian_id in available_guardian_ids:
+            # Extract the available guardian's data
+            available_guardian_data_str, available_private_key_str, available_public_key_str, available_polynomial_str = find_guardian_data(
+                available_guardian_id, guardian_data, private_keys, public_keys, polynomials
+            )
+            
+            # Extract the missing guardian's data (we still need it for backup info)
+            missing_guardian_data_str, _, _, _ = find_guardian_data(
+                missing_guardian_id, guardian_data, private_keys, public_keys, polynomials
+            )
+            
             compensated_request = {
                 "available_guardian_id": available_guardian_id,
                 "missing_guardian_id": missing_guardian_id,  # This is actually missing
-                "guardian_data": guardian_data,  # List of strings
-                "private_keys": private_keys,    # List of strings
-                "public_keys": public_keys,      # List of strings
-                "polynomials": polynomials,      # List of strings
+                "available_guardian_data": available_guardian_data_str,  # Single guardian data string
+                "missing_guardian_data": missing_guardian_data_str,      # Single guardian data string
+                "available_private_key": available_private_key_str,      # Single private key string
+                "available_public_key": available_public_key_str,        # Single public key string
+                "available_polynomial": available_polynomial_str,        # Single polynomial string
                 "party_names": setup_data['party_names'],
                 "candidate_names": setup_data['candidate_names'],
                 "ciphertext_tally": ciphertext_tally,  # String
@@ -192,6 +256,9 @@ def test_quorum_election_workflow():
                 "number_of_guardians": number_of_guardians,
                 "quorum": quorum
             }
+            with open("compensated_request.json", "w") as f:
+                json.dump(json.loads(compensated_request["missing_guardian_data"]), f, indent=2)
+
             
             compensated_response = requests.post(f"{BASE_URL}/create_compensated_decryption", json=compensated_request)
             assert compensated_response.status_code == 200, f"Compensated decryption failed: {compensated_response.text}"

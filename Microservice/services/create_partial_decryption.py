@@ -81,10 +81,10 @@ def create_partial_decryption_service(
     party_names: List[str],
     candidate_names: List[str],
     guardian_id: str,
-    guardian_data: List[Dict],
-    private_keys: List[Dict],
-    public_keys: List[Dict],
-    polynomials: List[Dict],
+    guardian_data: Dict,
+    private_key: Dict,
+    public_key: Dict,
+    polynomial: Dict,
     ciphertext_tally_json: Dict,
     submitted_ballots_json: List[Dict],
     joint_public_key: str,
@@ -102,10 +102,10 @@ def create_partial_decryption_service(
         party_names: List of party names
         candidate_names: List of candidate names
         guardian_id: ID of the guardian to compute shares for
-        guardian_data: List of all guardian data
-        private_keys: List of private key data for guardians
-        public_keys: List of public key data for guardians
-        polynomials: List of polynomial data for guardians
+        guardian_data: Single guardian data dictionary
+        private_key: Single private key data dictionary for the guardian
+        public_key: Single public key data dictionary for the guardian
+        polynomial: Single polynomial data dictionary for the guardian
         ciphertext_tally_json: Serialized ciphertext tally
         submitted_ballots_json: List of serialized submitted ballots
         joint_public_key: Joint public key as string
@@ -120,7 +120,7 @@ def create_partial_decryption_service(
         Dictionary containing the decryption shares
         
     Raises:
-        ValueError: If guardian not found
+        ValueError: If guardian data is invalid
     """
     # Convert string inputs to integers for internal processing
     joint_public_key_int = int(joint_public_key)
@@ -131,9 +131,9 @@ def create_partial_decryption_service(
         candidate_names,
         guardian_id,
         guardian_data,
-        private_keys,
-        public_keys,
-        polynomials,
+        private_key,
+        public_key,
+        polynomial,
         ciphertext_tally_json,
         submitted_ballots_json,
         joint_public_key_int,
@@ -156,10 +156,10 @@ def compute_guardian_decryption_shares(
     party_names: List[str],
     candidate_names: List[str],
     guardian_id: str,
-    guardian_data: List[Dict],
-    private_keys: List[Dict],
-    public_keys: List[Dict],
-    polynomials: List[Dict],
+    guardian_data: Dict,
+    private_key: Dict,
+    public_key: Dict,
+    polynomial: Dict,
     ciphertext_tally_json: Dict,
     submitted_ballots_json: List[Dict],
     joint_public_key_json: int,
@@ -177,10 +177,10 @@ def compute_guardian_decryption_shares(
         party_names: List of party names
         candidate_names: List of candidate names
         guardian_id: ID of the guardian to compute shares for
-        guardian_data: List of all guardian data
-        private_keys: List of private key data for guardians
-        public_keys: List of public key data for guardians
-        polynomials: List of polynomial data for guardians
+        guardian_data: Single guardian data dictionary
+        private_key: Single private key data dictionary for the guardian
+        public_key: Single public key data dictionary for the guardian
+        polynomial: Single polynomial data dictionary for the guardian
         ciphertext_tally_json: Serialized ciphertext tally
         submitted_ballots_json: List of serialized submitted ballots
         joint_public_key_json: Joint public key as integer
@@ -195,60 +195,31 @@ def compute_guardian_decryption_shares(
         Dictionary containing the decryption shares
         
     Raises:
-        ValueError: If guardian not found
+        ValueError: If guardian data is invalid
     """
-    # Find the guardian data for this guardian
-    guardian_info = None
-    for gd in guardian_data:
-        if gd['id'] == guardian_id:
-            guardian_info = gd
-            break
-    
-    if not guardian_info:
-        raise ValueError(f"Guardian {guardian_id} not found in guardian data")
-    
-    # Find the private key, public key, and polynomial for this guardian
-    private_key_info = None
-    public_key_info = None
-    polynomial_info = None
-    
-    for pk in private_keys:
-        if pk['guardian_id'] == guardian_id:
-            private_key_info = pk
-            break
-            
-    for pk in public_keys:
-        if pk['guardian_id'] == guardian_id:
-            public_key_info = pk
-            break
-            
-    for p in polynomials:
-        if p['guardian_id'] == guardian_id:
-            polynomial_info = p
-            break
-    
-    if not private_key_info or not public_key_info or not polynomial_info:
-        raise ValueError(f"Missing key or polynomial data for guardian {guardian_id}")
+    # Validate that guardian_id matches the guardian_data
+    if guardian_data['id'] != guardian_id:
+        raise ValueError(f"Guardian ID mismatch: expected {guardian_id}, got {guardian_data['id']}")
     
     # Convert inputs to proper types
-    public_key = int_to_p(int(public_key_info['public_key']))
-    private_key = int_to_q(int(private_key_info['private_key']))
+    public_key_value = int_to_p(int(public_key['public_key']))
+    private_key_value = int_to_q(int(private_key['private_key']))
     
     # Handle polynomial data - check if it's already a dict or needs JSON parsing
-    polynomial_data = polynomial_info['polynomial']
+    polynomial_data = polynomial['polynomial']
     if isinstance(polynomial_data, dict):
         # Already deserialized, convert back to JSON string for from_raw
-        polynomial = from_raw(ElectionPolynomial, json.dumps(polynomial_data))
+        polynomial_obj = from_raw(ElectionPolynomial, json.dumps(polynomial_data))
     else:
         # It's a JSON string, use directly
-        polynomial = from_raw(ElectionPolynomial, polynomial_data)
+        polynomial_obj = from_raw(ElectionPolynomial, polynomial_data)
     
     # Create election key pair for this guardian
     election_key = ElectionKeyPair(
         owner_id=guardian_id,
-        sequence_order=guardian_info['sequence_order'],
-        key_pair=ElGamalKeyPair(private_key, public_key),
-        polynomial=polynomial
+        sequence_order=guardian_data['sequence_order'],
+        key_pair=ElGamalKeyPair(private_key_value, public_key_value),
+        polynomial=polynomial_obj
     )
     
     manifest = create_election_manifest_func(party_names, candidate_names)
