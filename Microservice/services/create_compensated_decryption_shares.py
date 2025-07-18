@@ -103,6 +103,9 @@ def create_compensated_decryption_service(
     available_guardian_id: str,
     missing_guardian_id: str,
     guardian_data: List[Dict],
+    private_keys: List[Dict],
+    public_keys: List[Dict],
+    polynomials: List[Dict],
     ciphertext_tally_json: Dict,
     submitted_ballots_json: List[Dict],
     joint_public_key: str,
@@ -122,6 +125,9 @@ def create_compensated_decryption_service(
         available_guardian_id: ID of the available guardian
         missing_guardian_id: ID of the missing guardian
         guardian_data: List of guardian data
+        private_keys: List of private key data for guardians
+        public_keys: List of public key data for guardians
+        polynomials: List of polynomial data for guardians
         ciphertext_tally_json: Serialized ciphertext tally
         submitted_ballots_json: List of serialized submitted ballots
         joint_public_key: Joint public key as string
@@ -169,10 +175,38 @@ def create_compensated_decryption_service(
     # Decrypt the backup to get the coordinate
     backup = from_raw(ElectionPartialKeyBackup, backup_data)
     
+    # Find the private key and polynomial for the available guardian
+    available_private_key_info = None
+    available_polynomial_info = None
+    
+    for pk in private_keys:
+        if pk['guardian_id'] == available_guardian_id:
+            available_private_key_info = pk
+            break
+            
+    for p in polynomials:
+        if p['guardian_id'] == available_guardian_id:
+            available_polynomial_info = p
+            break
+    
+    if not available_private_key_info or not available_polynomial_info:
+        raise ValueError(f"Missing key or polynomial data for available guardian {available_guardian_id}")
+    
     # Create available guardian's election key pair to decrypt backup
-    available_private_key = int_to_q(int(available_guardian_info['private_key']))
-    available_public_key = int_to_p(int(available_guardian_info['public_key']))
-    available_polynomial = from_raw(ElectionPolynomial, available_guardian_info['polynomial'])
+    available_private_key = int_to_q(int(available_private_key_info['private_key']))
+    
+    # Find the public key for the available guardian
+    available_public_key_info = None
+    for pk in public_keys:
+        if pk['guardian_id'] == available_guardian_id:
+            available_public_key_info = pk
+            break
+    
+    if not available_public_key_info:
+        raise ValueError(f"Missing public key data for available guardian {available_guardian_id}")
+    
+    available_public_key = int_to_p(int(available_public_key_info['public_key']))
+    available_polynomial = from_raw(ElectionPolynomial, available_polynomial_info['polynomial'])
     
     available_election_key = ElectionKeyPair(
         owner_id=available_guardian_id,

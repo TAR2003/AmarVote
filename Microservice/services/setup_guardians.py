@@ -171,13 +171,14 @@ def setup_guardians_service(
     
     # Prepare guardian data including backups for quorum decryption
     guardian_data = []
+    private_keys = []
+    public_keys = []
+    polynomials = []
+    
     for guardian in guardians:
         guardian_info = {
             'id': guardian.id,
             'sequence_order': guardian.sequence_order,
-            'public_key': str(int(guardian._election_keys.key_pair.public_key)),
-            'private_key': str(int(guardian._election_keys.key_pair.secret_key)),
-            'polynomial': to_raw(guardian._election_keys.polynomial),
             'election_public_key': to_raw(guardian.share_key()),
             'backups': {}
         }
@@ -190,12 +191,29 @@ def setup_guardians_service(
                     guardian_info['backups'][other_guardian.id] = to_raw(backup)
         
         guardian_data.append(guardian_info)
+        
+        # Store separate keys and polynomials
+        private_keys.append({
+            'guardian_id': guardian.id,
+            'private_key': str(int(guardian._election_keys.key_pair.secret_key))
+        })
+        public_keys.append({
+            'guardian_id': guardian.id,
+            'public_key': str(int(guardian._election_keys.key_pair.public_key))
+        })
+        polynomials.append({
+            'guardian_id': guardian.id,
+            'polynomial': to_raw(guardian._election_keys.polynomial)
+        })
     
     return {
         'guardians': guardians,
         'joint_public_key': str(int(joint_key.joint_public_key)),
         'commitment_hash': str(int(joint_key.commitment_hash)),
         'guardian_data': guardian_data,
+        'private_keys': private_keys,
+        'public_keys': public_keys,
+        'polynomials': polynomials,
         'number_of_guardians': number_of_guardians,
         'quorum': quorum
     }

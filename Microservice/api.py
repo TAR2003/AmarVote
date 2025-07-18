@@ -82,6 +82,20 @@ from services.create_encrypted_tally import ciphertext_tally_to_raw, raw_to_ciph
 
 app = Flask(__name__)
 
+def print_json(data, str_):
+    with open("APIformat.txt", "a") as f:
+        print(f"\n---------------\nData: {str_}", file=f)
+        for key, value in data.items():
+            if isinstance(value, list):
+                if not value:
+                    value_type = "list (empty)"
+                else:
+                    value_type = f"list of ({type(value[0]).__name__})"
+            else:
+                value_type = type(value).__name__
+            print(f"{key}: {value_type}", file=f)
+        print(f"End of {str_}\n------------------\n\n", file=f)
+
 
 
 # Global storage for election data
@@ -151,6 +165,7 @@ def api_setup_guardians():
         party_names = data['party_names']
         candidate_names = data['candidate_names']
         
+        print_json(data, "setup_guardians")
         # Call service function
         result = setup_guardians_service(
             number_of_guardians,
@@ -173,9 +188,13 @@ def api_setup_guardians():
             'commitment_hash': result['commitment_hash'],
             'manifest': to_raw(election_data['manifest']),
             'guardian_data': result['guardian_data'],
+            'private_keys': result['private_keys'],
+            'public_keys': result['public_keys'],
+            'polynomials': result['polynomials'],
             'number_of_guardians': result['number_of_guardians'],
             'quorum': result['quorum']
         }
+        print_json(response, "setup_guardians_response")
         
         return jsonify(response), 200
     
@@ -196,6 +215,7 @@ def api_create_encrypted_ballot():
         joint_public_key = data['joint_public_key']  # Expecting string
         commitment_hash = data['commitment_hash']    # Expecting string
         
+        print_json(data, "create_encrypted_ballot")
         # Get election data
         number_of_guardians = election_data.get('number_of_guardians', 1)
         quorum = election_data.get('quorum', 1)
@@ -225,6 +245,7 @@ def api_create_encrypted_ballot():
             'encrypted_ballot': result['encrypted_ballot'],
             'ballot_hash': result['ballot_hash']
         }
+        print_json(response, "create_encrypted_ballot_response")
         return jsonify(response), 200
     
     except ValueError as e:
@@ -250,6 +271,7 @@ def api_create_encrypted_tally():
         commitment_hash = data['commitment_hash']    # Expecting string
         encrypted_ballots = data['encrypted_ballots'] # From request
         
+        print_json(data, "create_encrypted_tally")
         # Get election data
         number_of_guardians = election_data.get('number_of_guardians', 1)
         quorum = election_data.get('quorum', 1)
@@ -276,6 +298,7 @@ def api_create_encrypted_tally():
             'ciphertext_tally': result['ciphertext_tally'],
             'submitted_ballots': result['submitted_ballots']
         }
+        print_json(response, "create_encrypted_tally_response")
         return jsonify(response), 200
     
     except ValueError as e:
@@ -292,6 +315,9 @@ def api_create_partial_decryption():
         data = request.json
         guardian_id = data['guardian_id']
         guardian_data = data['guardian_data']
+        private_keys = data['private_keys']
+        public_keys = data['public_keys']
+        polynomials = data['polynomials']
         party_names = data['party_names']
         candidate_names = data['candidate_names']
         ciphertext_tally_json = data['ciphertext_tally']
@@ -299,6 +325,8 @@ def api_create_partial_decryption():
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
         
+
+        print_json(data, "create_partial_decryption")
         # Get election data
         number_of_guardians = election_data.get('number_of_guardians', len(guardian_data))
         quorum = election_data.get('quorum', len(guardian_data))
@@ -309,6 +337,9 @@ def api_create_partial_decryption():
             candidate_names,
             guardian_id,
             guardian_data,
+            private_keys,
+            public_keys,
+            polynomials,
             ciphertext_tally_json,
             submitted_ballots_json,
             joint_public_key,
@@ -326,6 +357,7 @@ def api_create_partial_decryption():
             'tally_share': result['tally_share'],
             'ballot_shares': result['ballot_shares']
         }
+        print_json(response, "create_partial_decryption_response")
         return jsonify(response), 200
     
     except ValueError as e:
@@ -342,6 +374,9 @@ def api_create_compensated_decryption():
         available_guardian_id = data['available_guardian_id']
         missing_guardian_id = data['missing_guardian_id']
         guardian_data = data['guardian_data']
+        private_keys = data['private_keys']
+        public_keys = data['public_keys']
+        polynomials = data['polynomials']
         party_names = data['party_names']
         candidate_names = data['candidate_names']
         ciphertext_tally_json = data['ciphertext_tally']
@@ -349,6 +384,7 @@ def api_create_compensated_decryption():
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
         
+        print_json(data, "create_compensated_decryption")
         # Get election data
         number_of_guardians = election_data.get('number_of_guardians', len(guardian_data))
         quorum = election_data.get('quorum', len(guardian_data))
@@ -360,6 +396,9 @@ def api_create_compensated_decryption():
             available_guardian_id,
             missing_guardian_id,
             guardian_data,
+            private_keys,
+            public_keys,
+            polynomials,
             ciphertext_tally_json,
             submitted_ballots_json,
             joint_public_key,
@@ -377,6 +416,7 @@ def api_create_compensated_decryption():
             'compensated_tally_share': result['compensated_tally_share'],
             'compensated_ballot_shares': result['compensated_ballot_shares']
         }
+        print_json(response, "create_compensated_decryption_response")  
         return jsonify(response), 200
     
     except ValueError as e:
@@ -400,6 +440,7 @@ def api_combine_decryption_shares():
         submitted_ballots_json = data['submitted_ballots']
         guardian_data = data['guardian_data']
         
+        print_json(data, "combine_decryption_shares")
         # Regular decryption shares from available guardians
         available_guardian_shares = data.get('available_guardian_shares', {})
         
@@ -432,6 +473,7 @@ def api_combine_decryption_shares():
             'status': 'success',
             'results': results
         }
+        print_json(response, "combine_decryption_shares_response")
         return jsonify(response), 200
     
     except ValueError as e:
