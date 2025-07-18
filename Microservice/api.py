@@ -334,6 +334,7 @@ def api_create_partial_decryption():
     try:
         data = request.json
         guardian_id = data['guardian_id']
+        print_json(data, "create_partial_decryption")
         # Deserialize list of dicts from list of strings
         guardian_data = deserialize_list_of_strings_to_list_of_dicts(data['guardian_data'])
         private_keys = deserialize_list_of_strings_to_list_of_dicts(data['private_keys'])
@@ -342,12 +343,13 @@ def api_create_partial_decryption():
         party_names = data['party_names']
         candidate_names = data['candidate_names']
         # Deserialize dict from string
+        
         ciphertext_tally_json = deserialize_string_to_dict(data['ciphertext_tally'])
         submitted_ballots_json = data['submitted_ballots']
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
         
-        print_json(data, "create_partial_decryption")
+        
         # Get election data
         number_of_guardians = election_data.get('number_of_guardians', len(guardian_data))
         quorum = election_data.get('quorum', len(guardian_data))
@@ -394,6 +396,7 @@ def api_create_compensated_decryption():
         data = request.json
         available_guardian_id = data['available_guardian_id']
         missing_guardian_id = data['missing_guardian_id']
+        print_json(data, "create_compensated_decryption")
         # Deserialize list of dicts from list of strings
         guardian_data = deserialize_list_of_strings_to_list_of_dicts(data['guardian_data'])
         private_keys = deserialize_list_of_strings_to_list_of_dicts(data['private_keys'])
@@ -402,12 +405,13 @@ def api_create_compensated_decryption():
         party_names = data['party_names']
         candidate_names = data['candidate_names']
         # Deserialize dict from string
+        
+        
         ciphertext_tally_json = deserialize_string_to_dict(data['ciphertext_tally'])
         submitted_ballots_json = data['submitted_ballots']
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
         
-        print_json(data, "create_compensated_decryption")
         # Get election data
         number_of_guardians = election_data.get('number_of_guardians', len(guardian_data))
         quorum = election_data.get('quorum', len(guardian_data))
@@ -457,13 +461,14 @@ def api_combine_decryption_shares():
         candidate_names = data['candidate_names']
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
+        print_json(data, "combine_decryption_shares")
         # Deserialize dict from string
         ciphertext_tally_json = deserialize_string_to_dict(data['ciphertext_tally'])
         submitted_ballots_json = data['submitted_ballots']
-        # Deserialize list of dicts from list of strings
-        guardian_data = deserialize_list_of_strings_to_list_of_dicts(data['guardian_data'])
+        # Deserialize list of dicts from list of string
         
-        print_json(data, "combine_decryption_shares")
+        guardian_data = deserialize_list_of_strings_to_list_of_dicts(data['guardian_data'])
+
         # Regular decryption shares from available guardians - keep as dict
         available_guardian_shares = data.get('available_guardian_shares', {})
         
