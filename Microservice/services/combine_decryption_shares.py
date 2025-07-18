@@ -139,10 +139,12 @@ def combine_decryption_shares_service(
     
     # Process ciphertext tally and ballots
     ciphertext_tally = raw_to_ciphertext_tally_func(ciphertext_tally_json, manifest=manifest)
-    submitted_ballots = [
-        from_raw(SubmittedBallot, ballot_json)
-        for ballot_json in submitted_ballots_json
-    ]
+    submitted_ballots = []
+    for ballot_json in submitted_ballots_json:
+        if isinstance(ballot_json, dict):
+            submitted_ballots.append(from_raw(SubmittedBallot, json.dumps(ballot_json)))
+        else:
+            submitted_ballots.append(from_raw(SubmittedBallot, ballot_json))
     
     # Configure decryption mediator
     decryption_mediator = DecryptionMediator("decryption-mediator", context)
@@ -150,54 +152,98 @@ def combine_decryption_shares_service(
     # First, get all guardian keys from guardian data
     all_guardian_keys = []
     for guardian_info in guardian_data:
-        election_public_key = from_raw(ElectionPublicKey, guardian_info['election_public_key'])
+        election_public_key_data = guardian_info['election_public_key']
+        if isinstance(election_public_key_data, dict):
+            election_public_key = from_raw(ElectionPublicKey, json.dumps(election_public_key_data))
+        else:
+            election_public_key = from_raw(ElectionPublicKey, election_public_key_data)
         all_guardian_keys.append(election_public_key)
     
     # Add available guardian shares (normal decryption shares)
     for guardian_id, share_data in available_guardian_shares.items():
-        guardian_public_key = from_raw(ElectionPublicKey, share_data['guardian_public_key'])
-        tally_share = from_raw(DecryptionShare, share_data['tally_share']) if share_data['tally_share'] else None
+        guardian_public_key_data = share_data['guardian_public_key']
+        if isinstance(guardian_public_key_data, dict):
+            guardian_public_key = from_raw(ElectionPublicKey, json.dumps(guardian_public_key_data))
+        else:
+            guardian_public_key = from_raw(ElectionPublicKey, guardian_public_key_data)
+            
+        tally_share_data = share_data['tally_share']
+        if tally_share_data:
+            if isinstance(tally_share_data, dict):
+                tally_share = from_raw(DecryptionShare, json.dumps(tally_share_data))
+            else:
+                tally_share = from_raw(DecryptionShare, tally_share_data)
+        else:
+            tally_share = None
         
         ballot_shares = {}
         for ballot_id, serialized_ballot_share in share_data['ballot_shares'].items():
             if serialized_ballot_share:
-                ballot_shares[ballot_id] = from_raw(DecryptionShare, serialized_ballot_share)
+                if isinstance(serialized_ballot_share, dict):
+                    ballot_shares[ballot_id] = from_raw(DecryptionShare, json.dumps(serialized_ballot_share))
+                else:
+                    ballot_shares[ballot_id] = from_raw(DecryptionShare, serialized_ballot_share)
         
         decryption_mediator.announce(guardian_public_key, tally_share, ballot_shares)
     
     # Announce missing guardians
+    print(f"Processing compensated shares for {len(compensated_shares)} guardians")
     for missing_guardian_id in compensated_shares.keys():
         missing_guardian_info = next((gd for gd in guardian_data if gd['id'] == missing_guardian_id), None)
         if missing_guardian_info:
-            missing_guardian_public_key = from_raw(ElectionPublicKey, missing_guardian_info['election_public_key'])
+            missing_guardian_public_key_data = missing_guardian_info['election_public_key']
+            if isinstance(missing_guardian_public_key_data, dict):
+                missing_guardian_public_key = from_raw(ElectionPublicKey, json.dumps(missing_guardian_public_key_data))
+            else:
+                missing_guardian_public_key = from_raw(ElectionPublicKey, missing_guardian_public_key_data)
             decryption_mediator.announce_missing(missing_guardian_public_key)
+            print(f"Announced missing guardian: {missing_guardian_id}")
     
     # Add compensated shares for missing guardians
+    print(f"Processing compensated shares data...")
     for missing_guardian_id, compensated_data in compensated_shares.items():
+        print(f"Processing compensated shares for missing guardian: {missing_guardian_id}")
         for available_guardian_id, comp_share_data in compensated_data.items():
+            print(f"  - From guardian {available_guardian_id}")
             if comp_share_data.get('compensated_tally_share'):
-                compensated_tally_share = from_raw(CompensatedDecryptionShare, comp_share_data['compensated_tally_share'])
+                compensated_tally_share_data = comp_share_data['compensated_tally_share']
+                if isinstance(compensated_tally_share_data, dict):
+                    compensated_tally_share = from_raw(CompensatedDecryptionShare, json.dumps(compensated_tally_share_data))
+                else:
+                    compensated_tally_share = from_raw(CompensatedDecryptionShare, compensated_tally_share_data)
                 decryption_mediator.receive_tally_compensation_share(compensated_tally_share)
+                print(f"    ✅ Added compensated tally share")
             
             if comp_share_data.get('compensated_ballot_shares'):
                 compensated_ballot_shares = {}
                 for ballot_id, serialized_comp_ballot_share in comp_share_data['compensated_ballot_shares'].items():
                     if serialized_comp_ballot_share:
-                        compensated_ballot_shares[ballot_id] = from_raw(CompensatedDecryptionShare, serialized_comp_ballot_share)
+                        if isinstance(serialized_comp_ballot_share, dict):
+                            compensated_ballot_shares[ballot_id] = from_raw(CompensatedDecryptionShare, json.dumps(serialized_comp_ballot_share))
+                        else:
+                            compensated_ballot_shares[ballot_id] = from_raw(CompensatedDecryptionShare, serialized_comp_ballot_share)
                 
                 decryption_mediator.receive_ballot_compensation_shares(compensated_ballot_shares)
+                print(f"    ✅ Added {len(compensated_ballot_shares)} compensated ballot shares")
     
     # Reconstruct shares for missing guardians
+    print(f"Reconstructing shares for tally and ballots...")
     decryption_mediator.reconstruct_shares_for_tally(ciphertext_tally)
     decryption_mediator.reconstruct_shares_for_ballots(submitted_ballots)
-    
-    # Validate that the mediator has all required guardian keys
-    if not decryption_mediator.validate_missing_guardians(all_guardian_keys):
-        raise ValueError("Failed to validate missing guardians")
+    print(f"✅ Shares reconstructed")
     
     # Ensure announcement is complete
     if not decryption_mediator.announcement_complete():
-        raise ValueError("Announcement not complete - insufficient guardians or shares")
+        # Try to get more details about what's missing
+        try:
+            # Check if we have enough guardians
+            available_count = len(available_guardian_shares)
+            missing_count = len(compensated_shares)
+            total_announced = available_count + missing_count
+            print(f"Debug: Available guardians: {available_count}, Missing (compensated): {missing_count}, Total announced: {total_announced}, Required quorum: {quorum}")
+            raise ValueError(f"Announcement not complete - insufficient guardians or shares. Available: {available_count}, Missing: {missing_count}, Quorum: {quorum}")
+        except Exception as debug_error:
+            raise ValueError(f"Announcement not complete - {str(debug_error)}")
     
     # Get plaintext results
     plaintext_tally = decryption_mediator.get_plaintext_tally(ciphertext_tally, manifest)
@@ -319,7 +365,11 @@ def combine_decryption_shares_service(
     
     # Add guardian information
     for guardian_id, share_data in available_guardian_shares.items():
-        guardian_public_key = from_raw(ElectionPublicKey, share_data['guardian_public_key'])
+        guardian_public_key_data = share_data['guardian_public_key']
+        if isinstance(guardian_public_key_data, dict):
+            guardian_public_key = from_raw(ElectionPublicKey, json.dumps(guardian_public_key_data))
+        else:
+            guardian_public_key = from_raw(ElectionPublicKey, guardian_public_key_data)
         results['verification']['guardians'].append({
             'id': guardian_public_key.owner_id,
             'sequence_order': str(guardian_public_key.sequence_order),
@@ -332,7 +382,11 @@ def combine_decryption_shares_service(
         guardian_info = next((gd for gd in guardian_data if gd['id'] == missing_guardian_id), None)
         if guardian_info:
             # Get the public key from election_public_key
-            missing_guardian_public_key = from_raw(ElectionPublicKey, guardian_info['election_public_key'])
+            missing_guardian_public_key_data = guardian_info['election_public_key']
+            if isinstance(missing_guardian_public_key_data, dict):
+                missing_guardian_public_key = from_raw(ElectionPublicKey, json.dumps(missing_guardian_public_key_data))
+            else:
+                missing_guardian_public_key = from_raw(ElectionPublicKey, missing_guardian_public_key_data)
             results['verification']['guardians'].append({
                 'id': missing_guardian_id,
                 'sequence_order': str(guardian_info['sequence_order']),

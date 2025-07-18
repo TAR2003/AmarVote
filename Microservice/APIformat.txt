@@ -35,6 +35,8 @@ candidate_name: str
 ballot_id: str
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_encrypted_ballot
 ------------------
 
@@ -58,6 +60,8 @@ candidate_name: str
 ballot_id: str
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_encrypted_ballot
 ------------------
 
@@ -81,6 +85,8 @@ candidate_name: str
 ballot_id: str
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_encrypted_ballot
 ------------------
 
@@ -103,6 +109,8 @@ candidate_names: list of (str)
 joint_public_key: str
 commitment_hash: str
 encrypted_ballots: list of (str)
+number_of_guardians: int
+quorum: int
 End of create_encrypted_tally
 ------------------
 
@@ -121,7 +129,7 @@ End of create_encrypted_tally_response
 ---------------
 Data: create_partial_decryption
 guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -131,6 +139,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_partial_decryption
 ------------------
 
@@ -150,7 +160,7 @@ End of create_partial_decryption_response
 ---------------
 Data: create_partial_decryption
 guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -160,6 +170,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_partial_decryption
 ------------------
 
@@ -179,7 +191,7 @@ End of create_partial_decryption_response
 ---------------
 Data: create_partial_decryption
 guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -189,6 +201,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_partial_decryption
 ------------------
 
@@ -209,7 +223,7 @@ End of create_partial_decryption_response
 Data: create_compensated_decryption
 available_guardian_id: str
 missing_guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -219,6 +233,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_compensated_decryption
 ------------------
 
@@ -238,7 +254,7 @@ End of create_compensated_decryption_response
 Data: create_compensated_decryption
 available_guardian_id: str
 missing_guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -248,6 +264,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_compensated_decryption
 ------------------
 
@@ -267,7 +285,7 @@ End of create_compensated_decryption_response
 Data: create_compensated_decryption
 available_guardian_id: str
 missing_guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -277,6 +295,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_compensated_decryption
 ------------------
 
@@ -296,7 +316,7 @@ End of create_compensated_decryption_response
 Data: create_compensated_decryption
 available_guardian_id: str
 missing_guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -306,6 +326,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_compensated_decryption
 ------------------
 
@@ -325,7 +347,7 @@ End of create_compensated_decryption_response
 Data: create_compensated_decryption
 available_guardian_id: str
 missing_guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -335,6 +357,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_compensated_decryption
 ------------------
 
@@ -354,7 +378,7 @@ End of create_compensated_decryption_response
 Data: create_compensated_decryption
 available_guardian_id: str
 missing_guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -364,6 +388,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_compensated_decryption
 ------------------
 
@@ -387,10 +413,11 @@ joint_public_key: str
 commitment_hash: str
 ciphertext_tally: str
 submitted_ballots: list of (str)
-guardian_data: list of (dict)
+guardian_data: list of (str)
 available_guardian_shares: dict
 compensated_shares: dict
 quorum: int
+number_of_guardians: int
 End of combine_decryption_shares
 ------------------
 
@@ -399,7 +426,7 @@ End of combine_decryption_shares
 ---------------
 Data: combine_decryption_shares_response
 status: str
-results: dict
+results: str
 End of combine_decryption_shares_response
 ------------------
 
@@ -441,6 +468,8 @@ candidate_name: str
 ballot_id: str
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_encrypted_ballot
 ------------------
 
@@ -464,6 +493,8 @@ candidate_name: str
 ballot_id: str
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_encrypted_ballot
 ------------------
 
@@ -487,6 +518,8 @@ candidate_name: str
 ballot_id: str
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_encrypted_ballot
 ------------------
 
@@ -509,6 +542,8 @@ candidate_names: list of (str)
 joint_public_key: str
 commitment_hash: str
 encrypted_ballots: list of (str)
+number_of_guardians: int
+quorum: int
 End of create_encrypted_tally
 ------------------
 
@@ -527,7 +562,7 @@ End of create_encrypted_tally_response
 ---------------
 Data: create_partial_decryption
 guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -537,6 +572,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_partial_decryption
 ------------------
 
@@ -556,7 +593,7 @@ End of create_partial_decryption_response
 ---------------
 Data: create_partial_decryption
 guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -566,6 +603,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_partial_decryption
 ------------------
 
@@ -585,7 +624,7 @@ End of create_partial_decryption_response
 ---------------
 Data: create_partial_decryption
 guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -595,6 +634,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_partial_decryption
 ------------------
 
@@ -615,7 +656,7 @@ End of create_partial_decryption_response
 Data: create_compensated_decryption
 available_guardian_id: str
 missing_guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -625,6 +666,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_compensated_decryption
 ------------------
 
@@ -644,7 +687,7 @@ End of create_compensated_decryption_response
 Data: create_compensated_decryption
 available_guardian_id: str
 missing_guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -654,6 +697,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_compensated_decryption
 ------------------
 
@@ -673,7 +718,7 @@ End of create_compensated_decryption_response
 Data: create_compensated_decryption
 available_guardian_id: str
 missing_guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -683,6 +728,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_compensated_decryption
 ------------------
 
@@ -702,7 +749,7 @@ End of create_compensated_decryption_response
 Data: create_compensated_decryption
 available_guardian_id: str
 missing_guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -712,6 +759,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_compensated_decryption
 ------------------
 
@@ -731,7 +780,7 @@ End of create_compensated_decryption_response
 Data: create_compensated_decryption
 available_guardian_id: str
 missing_guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -741,6 +790,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_compensated_decryption
 ------------------
 
@@ -760,7 +811,7 @@ End of create_compensated_decryption_response
 Data: create_compensated_decryption
 available_guardian_id: str
 missing_guardian_id: str
-guardian_data: list of (dict)
+guardian_data: list of (str)
 private_keys: list of (str)
 public_keys: list of (str)
 polynomials: list of (str)
@@ -770,6 +821,8 @@ ciphertext_tally: str
 submitted_ballots: list of (str)
 joint_public_key: str
 commitment_hash: str
+number_of_guardians: int
+quorum: int
 End of create_compensated_decryption
 ------------------
 
@@ -793,10 +846,11 @@ joint_public_key: str
 commitment_hash: str
 ciphertext_tally: str
 submitted_ballots: list of (str)
-guardian_data: list of (dict)
+guardian_data: list of (str)
 available_guardian_shares: dict
 compensated_shares: dict
 quorum: int
+number_of_guardians: int
 End of combine_decryption_shares
 ------------------
 
@@ -805,7 +859,7 @@ End of combine_decryption_shares
 ---------------
 Data: combine_decryption_shares_response
 status: str
-results: dict
+results: str
 End of combine_decryption_shares_response
 ------------------
 

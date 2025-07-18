@@ -118,7 +118,15 @@ def compute_guardian_decryption_shares(
     # Convert inputs to proper types
     public_key = int_to_p(int(guardian_info['public_key']))
     private_key = int_to_q(int(guardian_info['private_key']))
-    polynomial = from_raw(ElectionPolynomial, guardian_info['polynomial'])
+    
+    # Handle polynomial data - check if it's already a dict or needs JSON parsing
+    polynomial_data = guardian_info['polynomial']
+    if isinstance(polynomial_data, dict):
+        # Already deserialized, convert back to JSON string for from_raw
+        polynomial = from_raw(ElectionPolynomial, json.dumps(polynomial_data))
+    else:
+        # It's a JSON string, use directly
+        polynomial = from_raw(ElectionPolynomial, polynomial_data)
     
     # Create election key pair for this guardian
     election_key = ElectionKeyPair(
@@ -149,10 +157,12 @@ def compute_guardian_decryption_shares(
     # Build the election context
     internal_manifest, context = get_optional(election_builder.build())
     ciphertext_tally = raw_to_ciphertext_tally_func(ciphertext_tally_json, manifest=manifest)
-    submitted_ballots = [
-        from_raw(SubmittedBallot, ballot_json)
-        for ballot_json in submitted_ballots_json
-    ]
+    submitted_ballots = []
+    for ballot_json in submitted_ballots_json:
+        if isinstance(ballot_json, dict):
+            submitted_ballots.append(from_raw(SubmittedBallot, json.dumps(ballot_json)))
+        else:
+            submitted_ballots.append(from_raw(SubmittedBallot, ballot_json))
 
     # Compute shares
     guardian_public_key = election_key.share()
