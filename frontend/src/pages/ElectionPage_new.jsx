@@ -444,13 +444,22 @@ export default function ElectionPage() {
     setCombiningDecryptions(true);
     try {
       await electionApi.combinePartialDecryptions(id);
-      toast.success('Partial decryptions combined successfully!');
+      toast.success('🎉 Election results successfully decrypted! The final tallies are now available.', {
+        duration: 5000
+      });
       
       // Refresh results after combination
       await fetchResults();
+      // Also refresh election data to update status
+      await fetchElectionData();
     } catch (err) {
       console.error('Failed to combine partial decryptions:', err);
-      toast.error('Failed to combine partial decryptions: ' + err.message);
+      const errorMessage = err.message || 'Unknown error occurred';
+      if (errorMessage.includes('Quorum not met')) {
+        toast.error('❌ ' + errorMessage, { duration: 8000 });
+      } else {
+        toast.error('Failed to combine partial decryptions: ' + errorMessage);
+      }
     } finally {
       setCombiningDecryptions(false);
     }
@@ -1000,34 +1009,51 @@ export default function ElectionPage() {
                   const totalBallots = processedResults.totalVotedUsers;
                   const totalVotesInChoices = processedResults.totalVotes;
                   const needsDecryption = totalVotesInChoices !== totalBallots && totalBallots > 0;
-                  const allGuardiansSubmitted = electionData.guardians?.every(g => g.decryptedOrNot) || false;
+                  
+                  // ✅ Fixed: Check if quorum is met instead of requiring all guardians
+                  const guardiansSubmitted = electionData.guardians?.filter(g => g.decryptedOrNot).length || 0;
+                  const electionQuorum = electionData.electionQuorum || electionData.guardians?.length || 0;
+                  const quorumMet = guardiansSubmitted >= electionQuorum;
 
                   return (
                     <>
-                      {needsDecryption && !allGuardiansSubmitted && (
+                      {needsDecryption && !quorumMet && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
                           <div className="flex items-center">
                             <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
                             <div>
                               <h4 className="font-medium text-yellow-900">Waiting for Guardian Keys</h4>
                               <p className="text-sm text-yellow-800">
-                                Final results are not yet available. Guardians need to submit their partial decryption keys.
-                                ({electionData.guardians?.filter(g => g.decryptedOrNot).length || 0} of {electionData.guardians?.length || 0} submitted)
+                                Final results are not yet available. Need at least {electionQuorum} guardians to submit their partial decryption keys.
+                                ({guardiansSubmitted} of {electionQuorum} required submitted)
                               </p>
                             </div>
                           </div>
                         </div>
                       )}
 
-                      {needsDecryption && allGuardiansSubmitted && (
+                      {needsDecryption && quorumMet && (
                         <div className="text-center mb-6">
-                          <button
-                            onClick={combinePartialDecryptions}
-                            disabled={combiningDecryptions}
-                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {combiningDecryptions ? 'Combining...' : 'Combine Partial Decryptions'}
-                          </button>
+                          <div className="space-x-4">
+                            <button
+                              onClick={combinePartialDecryptions}
+                              disabled={combiningDecryptions}
+                              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {combiningDecryptions ? 'Combining...' : 'Combine Partial Decryptions'}
+                            </button>
+                            <button
+                              onClick={() => window.location.reload()}
+                              disabled={combiningDecryptions}
+                              className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center"
+                            >
+                              <FiRefreshCw className="h-4 w-4 mr-2" />
+                              Refresh Status
+                            </button>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-2">
+                            ✅ Quorum met! {guardiansSubmitted} out of {electionQuorum} required guardians have submitted keys. Click "Combine Partial Decryptions" to decrypt results.
+                          </p>
                         </div>
                       )}
 

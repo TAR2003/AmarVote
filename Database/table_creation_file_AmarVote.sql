@@ -38,7 +38,8 @@ CREATE TABLE IF NOT EXISTS elections (
 	privacy TEXT,
     eligibility TEXT,
     CONSTRAINT valid_election_times CHECK (ending_time > starting_time),
-    CONSTRAINT valid_status CHECK (status IN ('draft', 'active', 'completed', 'decrypted'))
+    CONSTRAINT valid_status CHECK (status IN ('draft', 'active', 'completed', 'decrypted')),
+    CONSTRAINT valid_quorum CHECK (election_quorum <= number_of_guardians AND election_quorum > 0)
 );
 
 -- Allowed Voters Table
@@ -124,7 +125,8 @@ CREATE TABLE IF NOT EXISTS compensated_decryptions (
     PRIMARY KEY (election_id, compensating_guardian_sequence, missing_guardian_sequence),
     CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE,
     CONSTRAINT fk_compensating_guardian FOREIGN KEY (election_id, compensating_guardian_sequence) REFERENCES guardians(election_id, sequence_order) ON DELETE CASCADE,
-    CONSTRAINT fk_missing_guardian FOREIGN KEY (election_id, missing_guardian_sequence) REFERENCES guardians(election_id, sequence_order) ON DELETE CASCADE
+    CONSTRAINT fk_missing_guardian FOREIGN KEY (election_id, missing_guardian_sequence) REFERENCES guardians(election_id, sequence_order) ON DELETE CASCADE,
+    CONSTRAINT check_different_guardians CHECK (compensating_guardian_sequence != missing_guardian_sequence)
 );
 
 -- Decryption Table

@@ -4,8 +4,9 @@ import lombok.Builder;
 
 @Builder
 public record ElectionGuardPartialDecryptionResponse(
-    Object ballot_shares,  // Changed from String to Object to handle JSON dictionary
+    String ballot_shares,  // ✅ JSON string - NOT raw JSON object
     String guardian_public_key,
     String status,
-    String tally_share
+    String tally_share  // ✅ JSON string - NOT raw JSON object
 ) {}
+

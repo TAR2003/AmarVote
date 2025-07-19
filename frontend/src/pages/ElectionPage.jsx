@@ -1230,10 +1230,17 @@ export default function ElectionPage() {
       const updatedData = await electionApi.getElectionById(id);
       setElectionData(updatedData);
       
-      toast.success('Partial decryptions combined successfully!');
+      toast.success('🎉 Election results successfully decrypted! The final tallies are now available.', {
+        duration: 5000
+      });
     } catch (err) {
       console.error('Error combining partial decryptions:', err);
-      toast.error('Failed to combine partial decryptions: ' + err.message);
+      const errorMessage = err.message || 'Unknown error occurred';
+      if (errorMessage.includes('Quorum not met')) {
+        toast.error('❌ ' + errorMessage, { duration: 8000 });
+      } else {
+        toast.error('Failed to combine partial decryptions: ' + errorMessage);
+      }
     } finally {
       setCombiningDecryptions(false);
     }
@@ -1242,30 +1249,24 @@ export default function ElectionPage() {
   const loadElectionResults = useCallback(async () => {
     setLoadingResults(true);
     try {
-      // Check if we need to combine partial decryptions first
-      const totalBallots = electionData?.voters?.filter(v => v.hasVoted).length || 0;
-      const totalVotesInChoices = electionData?.electionChoices?.reduce((sum, choice) => sum + (choice.totalVotes || 0), 0) || 0;
+      // Simply load the current election data and process it
+      // Don't automatically combine decryptions - let users click the button manually
+      const processedResults = processElectionResults();
+      setResultsData(processedResults);
       
-      if (totalVotesInChoices !== totalBallots && totalBallots > 0) {
-        // Need to combine partial decryptions to get the latest results
-        await combinePartialDecryptions();
-        // resultsData and rawVerificationData will be set in combinePartialDecryptions()
-      } else {
-        // If no decryption needed, we still need to try to get the combined data
-        // to ensure ballot verification data is available
-        console.log('Attempting to combine partial decryptions to get ballot data...');
-        await combinePartialDecryptions();
+      // Check if we have stored verification data, if not, try to get it from existing results
+      if (!rawVerificationData && electionData?.status === 'decrypted') {
+        console.log('Election is decrypted but no verification data cached. User should click "Combine Results" if needed.');
       }
     } catch (err) {
       console.error('Error loading results:', err);
-      // Fallback to electionData if combine decryption fails
+      // Fallback to electionData if processing fails
       const processedResults = processElectionResults();
       setResultsData(processedResults);
-      // Note: rawVerificationData will remain null in this fallback case
     } finally {
       setLoadingResults(false);
     }
-  }, [electionData, combinePartialDecryptions, processElectionResults]);
+  }, [electionData, processElectionResults, rawVerificationData]);
 
   // Load results when switching to results, ballots, or verify tabs
   useEffect(() => {
@@ -2227,12 +2228,30 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                         }}
                       ></div>
                     </div>
-                    {electionData.allGuardiansSubmitted && (
-                      <div className="mt-2 flex items-center text-green-600">
-                        <FiCheck className="h-4 w-4 mr-1" />
-                        <span className="text-sm font-medium">All guardians have submitted their keys</span>
-                      </div>
-                    )}
+                    {(() => {
+                      const guardiansSubmitted = electionData.guardiansSubmitted || 0;
+                      const totalGuardians = electionData.totalGuardians || 0;
+                      const electionQuorum = electionData.electionQuorum || totalGuardians || 0;
+                      const quorumMet = guardiansSubmitted >= electionQuorum;
+                      const allGuardiansSubmitted = guardiansSubmitted >= totalGuardians && totalGuardians > 0;
+                      
+                      if (allGuardiansSubmitted) {
+                        return (
+                          <div className="mt-2 flex items-center text-green-600">
+                            <FiCheck className="h-4 w-4 mr-1" />
+                            <span className="text-sm font-medium">All guardians have submitted their keys ({guardiansSubmitted}/{totalGuardians})</span>
+                          </div>
+                        );
+                      } else if (quorumMet) {
+                        return (
+                          <div className="mt-2 flex items-center text-blue-600">
+                            <FiCheck className="h-4 w-4 mr-1" />
+                            <span className="text-sm font-medium">Quorum met! Ready to decrypt ({guardiansSubmitted}/{electionQuorum} required)</span>
+                          </div>
+                        );
+                      }
+                      return null;
+                    })()}
                   </div>
                   
                   <div className="space-y-2">
@@ -2305,34 +2324,51 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                   const totalBallots = processedResults.totalVotedUsers;
                   const totalVotesInChoices = processedResults.totalVotes;
                   const needsDecryption = totalVotesInChoices !== totalBallots && totalBallots > 0;
-                  const allGuardiansSubmitted = electionData.allGuardiansSubmitted || false;
+                  
+                  // ✅ Fixed: Check if quorum is met instead of requiring all guardians
+                  const guardiansSubmitted = electionData.guardiansSubmitted || 0;
+                  const electionQuorum = electionData.electionQuorum || electionData.totalGuardians || 0;
+                  const quorumMet = guardiansSubmitted >= electionQuorum;
 
                   return (
                     <>
-                      {needsDecryption && !allGuardiansSubmitted && (
+                      {needsDecryption && !quorumMet && (
                         <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
                           <div className="flex items-center">
                             <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
                             <div>
                               <h4 className="font-medium text-yellow-900">Waiting for Guardian Keys</h4>
                               <p className="text-sm text-yellow-800">
-                                Final results are not yet available. Guardians need to submit their partial decryption keys.
-                                ({electionData.guardiansSubmitted || 0} of {electionData.totalGuardians || 0} submitted)
+                                Final results are not yet available. Need at least {electionQuorum} guardians to submit their partial decryption keys.
+                                ({guardiansSubmitted} of {electionQuorum} required submitted)
                               </p>
                             </div>
                           </div>
                         </div>
                       )}
 
-                      {needsDecryption && allGuardiansSubmitted && (
+                      {needsDecryption && quorumMet && (
                         <div className="text-center mb-6">
-                          <button
-                            onClick={combinePartialDecryptions}
-                            disabled={combiningDecryptions}
-                            className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                          >
-                            {combiningDecryptions ? 'Combining...' : 'Combine Partial Decryptions'}
-                          </button>
+                          <div className="space-x-4">
+                            <button
+                              onClick={combinePartialDecryptions}
+                              disabled={combiningDecryptions}
+                              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              {combiningDecryptions ? 'Combining...' : 'Combine Partial Decryptions'}
+                            </button>
+                            <button
+                              onClick={() => window.location.reload()}
+                              disabled={combiningDecryptions}
+                              className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center"
+                            >
+                              <FiRefreshCw className="h-4 w-4 mr-2" />
+                              Refresh Status
+                            </button>
+                          </div>
+                          <p className="text-sm text-gray-600 mt-2">
+                            ✅ Quorum met! {guardiansSubmitted} out of {electionQuorum} required guardians have submitted keys. Click "Combine Partial Decryptions" to decrypt results.
+                          </p>
                         </div>
                       )}
 

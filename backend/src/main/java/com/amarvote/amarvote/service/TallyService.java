@@ -21,6 +21,7 @@ import com.amarvote.amarvote.model.SubmittedBallot;
 import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
+import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -39,6 +40,9 @@ public class TallyService {
     
     @Autowired
     private ElectionChoiceRepository electionChoiceRepository;
+    
+    @Autowired
+    private GuardianRepository guardianRepository;
     
     @Autowired
     private SubmittedBallotRepository submittedBallotRepository;
@@ -135,7 +139,9 @@ public class TallyService {
                 candidateNames, 
                 election.getJointPublicKey(), 
                 election.getBaseHash(), 
-                encryptedBallots
+                encryptedBallots,
+                election.getElectionQuorum(),
+                guardianRepository.findByElectionId(election.getElectionId()).size()
             );
             
             if (!"success".equals(guardResponse.getStatus())) {
@@ -145,37 +151,49 @@ public class TallyService {
                     .build();
             }
             
-            // Update election with encrypted tally (save ciphertext_tally as JSONB string)
-            String ciphertextTallyJson = null;
-            if (guardResponse.getCiphertext_tally() != null) {
-                try {
-                    ciphertextTallyJson = objectMapper.writeValueAsString(guardResponse.getCiphertext_tally());
-                } catch (Exception e) {
-                    System.err.println("Failed to serialize ciphertext_tally: " + e.getMessage());
-                    return CreateTallyResponse.builder()
-                        .success(false)
-                        .message("Failed to serialize encrypted tally")
-                        .build();
-                }
-            }
+            // ✅ Fixed: Store ciphertext_tally directly as string (no double serialization)
+            String ciphertextTallyJson = guardResponse.getCiphertext_tally(); // Store directly
             
             election.setEncryptedTally(ciphertextTallyJson);
             electionRepository.save(election);
             
             // Save submitted_ballots from ElectionGuard response
             if (guardResponse.getSubmitted_ballots() != null && guardResponse.getSubmitted_ballots().length > 0) {
-                System.out.println("Saving " + guardResponse.getSubmitted_ballots().length + " submitted ballots for election: " + request.getElection_id());
+                System.out.println("Processing " + guardResponse.getSubmitted_ballots().length + " submitted ballots for election: " + request.getElection_id());
+                
+                int savedCount = 0;
+                int duplicateCount = 0;
+                int errorCount = 0;
                 
                 for (String submittedBallotCipherText : guardResponse.getSubmitted_ballots()) {
-                    SubmittedBallot submittedBallot = SubmittedBallot.builder()
-                        .electionId(request.getElection_id())
-                        .cipherText(submittedBallotCipherText)
-                        .build();
-                    
-                    submittedBallotRepository.save(submittedBallot);
+                    try {
+                        // Check if this ballot already exists to prevent duplicates
+                        if (!submittedBallotRepository.existsByElectionIdAndCipherText(request.getElection_id(), submittedBallotCipherText)) {
+                            SubmittedBallot submittedBallot = SubmittedBallot.builder()
+                                .electionId(request.getElection_id())
+                                .cipherText(submittedBallotCipherText)
+                                .build();
+                            
+                            submittedBallotRepository.save(submittedBallot);
+                            savedCount++;
+                        } else {
+                            duplicateCount++;
+                            System.out.println("Skipping duplicate submitted ballot for election: " + request.getElection_id());
+                        }
+                    } catch (org.springframework.dao.DataIntegrityViolationException e) {
+                        // Handle database constraint violations (like unique constraint violations)
+                        duplicateCount++;
+                        System.out.println("Database prevented duplicate ballot insertion for election: " + request.getElection_id() + " - " + e.getMessage());
+                    } catch (Exception e) {
+                        // Handle other unexpected errors
+                        errorCount++;
+                        System.err.println("Error saving submitted ballot for election " + request.getElection_id() + ": " + e.getMessage());
+                    }
                 }
                 
-                System.out.println("Successfully saved submitted ballots for election: " + request.getElection_id());
+                System.out.println("Successfully saved " + savedCount + " new submitted ballots for election: " + request.getElection_id() + 
+                                 (duplicateCount > 0 ? " (skipped " + duplicateCount + " duplicates)" : "") +
+                                 (errorCount > 0 ? " (errors: " + errorCount + ")" : ""));
             } else {
                 System.out.println("No submitted ballots received from ElectionGuard for election: " + request.getElection_id());
             }
@@ -199,7 +217,8 @@ public class TallyService {
     
     private ElectionGuardTallyResponse callElectionGuardTallyService(
             List<String> partyNames, List<String> candidateNames, 
-            String jointPublicKey, String commitmentHash, List<String> encryptedBallots) {
+            String jointPublicKey, String commitmentHash, List<String> encryptedBallots,
+            int quorum, int numberOfGuardians) {
         
         try {
             String url = "/create_encrypted_tally";
@@ -210,6 +229,8 @@ public class TallyService {
                 .joint_public_key(jointPublicKey)
                 .commitment_hash(commitmentHash)
                 .encrypted_ballots(encryptedBallots)
+                .number_of_guardians(numberOfGuardians)
+                .quorum(quorum)
                 .build();
 
             System.out.println("Calling ElectionGuard tally service at: " + url);
@@ -234,6 +255,41 @@ public class TallyService {
         } catch (Exception e) {
             System.err.println("Failed to call ElectionGuard tally service: " + e.getMessage());
             throw new RuntimeException("Failed to call ElectionGuard service", e);
+        }
+    }
+
+    /**
+     * Utility method to remove duplicate submitted ballots for an election
+     * This can be called if duplicates are found in the database
+     */
+    @Transactional
+    public void removeDuplicateSubmittedBallots(Integer electionId) {
+        try {
+            List<SubmittedBallot> allBallots = submittedBallotRepository.findByElectionId(electionId.longValue());
+            
+            // Group by cipher_text and keep only the first occurrence (earliest created)
+            List<SubmittedBallot> ballotsToDelete = allBallots.stream()
+                .collect(Collectors.groupingBy(SubmittedBallot::getCipherText))
+                .values()
+                .stream()
+                .filter(group -> group.size() > 1) // Only groups with duplicates
+                .flatMap(group -> {
+                    // Sort by ID (assuming lower ID means earlier creation) and skip the first
+                    return group.stream()
+                            .sorted((a, b) -> a.getSubmittedBallotId().compareTo(b.getSubmittedBallotId()))
+                            .skip(1);
+                })
+                .collect(Collectors.toList());
+            
+            if (!ballotsToDelete.isEmpty()) {
+                submittedBallotRepository.deleteAll(ballotsToDelete);
+                System.out.println("Removed " + ballotsToDelete.size() + " duplicate submitted ballots for election: " + electionId);
+            } else {
+                System.out.println("No duplicate submitted ballots found for election: " + electionId);
+            }
+        } catch (Exception e) {
+            System.err.println("Error removing duplicate submitted ballots for election " + electionId + ": " + e.getMessage());
+            throw new RuntimeException("Failed to remove duplicate submitted ballots", e);
         }
     }
 }

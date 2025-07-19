@@ -10,17 +10,17 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 @Builder
 public class ElectionGuardTallyResponse {
-    private Object ciphertext_tally; // Changed to Object to handle JSON
+    private String ciphertext_tally; // ✅ JSON string - NOT raw JSON object
     private String status;
-    private String[] submitted_ballots;
+    private String[] submitted_ballots;  // ✅ JSON strings in array
     private String message;
     private boolean success;
     
     // Keep the old field for backward compatibility
-    private String encrypted_tally;
+    private String encrypted_tally;  // ✅ JSON string - NOT raw JSON object
     
-    // Convenience method to get ciphertext_tally as Object for JSON storage
-    public Object getEncrypted_tally() {
+    // ✅ Fixed: Return ciphertext_tally directly as string
+    public String getCiphertext_tally() {
         return ciphertext_tally != null ? ciphertext_tally : encrypted_tally;
     }
 }

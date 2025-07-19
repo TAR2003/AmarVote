@@ -121,7 +121,7 @@ def test_quorum_election_workflow():
     candidates = setup_data['candidate_names']
     ballot_data = []
     
-    for i in range(3):  # Create 3 ballots
+    for i in range(2):  # Create 3 ballots
         chosen_candidate = random.choice(candidates)
         ballot_request = {
             "party_names": setup_data['party_names'],

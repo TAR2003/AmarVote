@@ -34,4 +34,16 @@ public interface GuardianRepository extends JpaRepository<Guardian, Long> {
            "WHERE g.electionId = :electionId " +
            "ORDER BY g.sequenceOrder")
     List<Object[]> findGuardiansWithUserDetailsByElectionId(@Param("electionId") Long electionId);
+    
+    // Find guardian by election ID and sequence order
+    @Query("SELECT g FROM Guardian g WHERE g.electionId = :electionId AND g.sequenceOrder = :sequenceOrder")
+    Guardian findByElectionIdAndSequenceOrder(@Param("electionId") Long electionId, @Param("sequenceOrder") Integer sequenceOrder);
+    
+    // Count guardians who have completed partial decryption for an election
+    @Query("SELECT COUNT(g) FROM Guardian g WHERE g.electionId = :electionId AND g.decryptedOrNot = true")
+    int countDecryptedGuardiansByElectionId(@Param("electionId") Long electionId);
+    
+    // Find all guardians who have completed partial decryption for an election
+    @Query("SELECT g FROM Guardian g WHERE g.electionId = :electionId AND g.decryptedOrNot = true ORDER BY g.sequenceOrder")
+    List<Guardian> findDecryptedGuardiansByElectionId(@Param("electionId") Long electionId);
 }

@@ -25,6 +25,7 @@ const CreateElection = () => {
         electionEligibility: "listed",
         voterEmails: [],
         guardianNumber: "3",
+        quorumNumber: "3",
         guardianEmails: [],
         candidateNames: [""],
         partyNames: [""],
@@ -61,7 +62,20 @@ const CreateElection = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        setForm((prev) => ({ ...prev, [name]: value }));
+        
+        // If guardian number changes, auto-adjust quorum to be no more than the new guardian number
+        if (name === 'guardianNumber') {
+            const guardianCount = parseInt(value);
+            const currentQuorum = parseInt(form.quorumNumber);
+            
+            setForm((prev) => ({ 
+                ...prev, 
+                [name]: value,
+                quorumNumber: currentQuorum > guardianCount ? guardianCount.toString() : prev.quorumNumber
+            }));
+        } else {
+            setForm((prev) => ({ ...prev, [name]: value }));
+        }
     };
 
     // Handle CSV upload for voter emails
@@ -498,6 +512,35 @@ const CreateElection = () => {
                             <option value="7">7 Guardians</option>
                             <option value="9">9 Guardians</option>
                         </select>
+                    </div>
+                    
+                    <div className="mb-4">
+                        <label className="block text-gray-700 font-medium mb-2">
+                            Quorum Threshold <span className="text-red-500">*</span>
+                        </label>
+                        <select
+                            name="quorumNumber"
+                            value={form.quorumNumber}
+                            onChange={handleChange}
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                        >
+                            {(() => {
+                                const guardianCount = parseInt(form.guardianNumber);
+                                const options = [];
+                                for (let i = 1; i <= guardianCount; i++) {
+                                    options.push(
+                                        <option key={i} value={i.toString()}>
+                                            {i} out of {guardianCount} guardians
+                                        </option>
+                                    );
+                                }
+                                return options;
+                            })()}
+                        </select>
+                        <p className="text-sm text-gray-600 mt-1">
+                            Minimum number of guardians needed to decrypt the election results. 
+                            This enables fault tolerance - if some guardians are unavailable, the election can still be decrypted.
+                        </p>
                     </div>
                     
                     <div className="mb-4">

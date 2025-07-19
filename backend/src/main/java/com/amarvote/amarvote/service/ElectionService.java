@@ -79,7 +79,7 @@ public class ElectionService {
         // Call ElectionGuard microservice
         ElectionGuardianSetupRequest guardianRequest = new ElectionGuardianSetupRequest(
                 Integer.parseInt(request.guardianNumber()),
-                Integer.parseInt(request.guardianNumber()),
+                Integer.parseInt(request.quorumNumber()),
                 request.partyNames(),
                 request.candidateNames()
         );
@@ -108,7 +108,13 @@ public class ElectionService {
 
         // Validate guardian email and private key count
         List<String> guardianEmails = request.guardianEmails();
-        List<String> guardianPrivateKeys = guardianResponse.guardian_private_keys();
+        List<String> guardianPrivateKeys = guardianResponse.private_keys();
+        
+        // Add null checks
+        if (guardianPrivateKeys == null) {
+            throw new RuntimeException("ElectionGuard service did not return guardian private keys");
+        }
+        
         if (guardianEmails.size() != guardianPrivateKeys.size()) {
             throw new IllegalArgumentException("Guardian emails and private keys count must match");
         }
@@ -133,8 +139,21 @@ public class ElectionService {
         System.out.println("Email sent to guardians with their private keys.");
 
         // Now save Guardian objects
-        List<String> guardianPublicKeys = guardianResponse.guardian_public_keys();
-        List<String> guardianPolynomials = guardianResponse.guardian_polynomials();
+        List<String> guardianPublicKeys = guardianResponse.public_keys();
+        List<String> guardianPolynomials = guardianResponse.polynomials();
+        List<String> guardianDataList = guardianResponse.guardian_data(); // ✅ Fixed: Now expects strings
+
+        // Add null checks for guardian data
+        if (guardianPublicKeys == null) {
+            throw new RuntimeException("ElectionGuard service did not return guardian public keys");
+        }
+        if (guardianPolynomials == null) {
+            throw new RuntimeException("ElectionGuard service did not return guardian polynomials");
+        }
+        
+        if (guardianPublicKeys.size() != guardianEmails.size() || guardianPolynomials.size() != guardianEmails.size()) {
+            throw new IllegalArgumentException("Guardian data arrays size mismatch");
+        }
 
         for (int i = 0; i < guardianEmails.size(); i++) {
             String email = guardianEmails.get(i);
@@ -142,9 +161,12 @@ public class ElectionService {
             Integer userId = userRepository.findByUserEmail(email)
                     .orElseThrow(() -> new RuntimeException("User not found for email: " + email))
                     .getUserId();
-            // System.out.println("id pabo");
-            int id = election.getElectionId().intValue();
-            // System.out.println("id paise");
+
+            // ✅ Fixed: Store guardian data directly as string (no double serialization)
+            String guardianDataJson = null;
+            if (guardianDataList != null && i < guardianDataList.size()) {
+                guardianDataJson = guardianDataList.get(i); // Store directly as string
+            }
 
             Guardian guardian = Guardian.builder()
                     .electionId(election.getElectionId()) // Now safely use
@@ -155,6 +177,7 @@ public class ElectionService {
                     .decryptedOrNot(false)
                     .partialDecryptedTally(null)
                     .proof(null)
+                    .keyBackup(guardianDataJson)  // ✅ Fixed: Store string directly
                     .build();
 
             guardianRepository.save(guardian);

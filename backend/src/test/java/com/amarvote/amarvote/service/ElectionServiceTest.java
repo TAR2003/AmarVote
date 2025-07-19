@@ -151,6 +151,7 @@ class ElectionServiceTest {
                 Arrays.asList("pic1.jpg", "pic2.jpg"),
                 Arrays.asList("party1.jpg", "party2.jpg"),
                 "3",
+                "2",
                 Arrays.asList("guardian1@test.com", "guardian2@test.com", "guardian3@test.com"),
                 "public",
                 "listed",
@@ -197,6 +198,7 @@ class ElectionServiceTest {
                 Arrays.asList("pic1.jpg"),                         // Only 1 picture for 2 candidates
                 Arrays.asList("party1.jpg", "party2.jpg"),
                 "3",
+                "2",
                 Arrays.asList("guardian1@test.com", "guardian2@test.com", "guardian3@test.com"),
                 "public",
                 "listed",
@@ -233,6 +235,7 @@ class ElectionServiceTest {
                 Arrays.asList("pic1.jpg", "pic2.jpg"),
                 Arrays.asList("party1.jpg"),                       // Only 1 picture for 2 parties
                 "3",
+                "2",
                 Arrays.asList("guardian1@test.com", "guardian2@test.com", "guardian3@test.com"),
                 "public",
                 "listed",
