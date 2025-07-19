@@ -37,7 +37,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/session", "/api/password/forgot-password", "/api/password/create-password", "/api/verify/send-code", "/api/verify/verify-code", "/api/test-deepseek", "/api/health", "/api/chat", "/api/chat/**").permitAll() // Allow public access to these endpoints
+                .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/session", "/api/password/forgot-password", "/api/password/create-password", "/api/verify/send-code", "/api/verify/verify-code", "/api/test-deepseek", "/api/health", "/api/chatbot/**").permitAll() // Allow public access to these endpoints
                 .anyRequest().authenticated())
                 // .httpBasic(httpBasic -> {}) // Lambda DSL syntax
                 .sessionManagement(session -> session

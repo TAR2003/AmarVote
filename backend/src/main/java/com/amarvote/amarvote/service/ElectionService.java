@@ -887,4 +887,67 @@ public class ElectionService {
             return "Sorry, I'm having trouble accessing election information right now.";
         }
     }
+    
+    /**
+     * Get election start time information for a specific election
+     */
+    public String getElectionStartTimeInfo(String electionName) {
+        try {
+            // Find election by title (case-insensitive search)
+            List<Election> elections = electionRepository.findAll();
+            Election targetElection = null;
+            
+            for (Election election : elections) {
+                if (election.getElectionTitle().toLowerCase().contains(electionName.toLowerCase())) {
+                    // Check if it's public (privacy = "public")
+                    if ("public".equalsIgnoreCase(election.getPrivacy())) {
+                        targetElection = election;
+                        break;
+                    }
+                }
+            }
+            
+            if (targetElection == null) {
+                return "Election '" + electionName + "' not found or not accessible. " +
+                        "Please check the election name or ensure it's a public election.";
+            }
+            
+            StringBuilder result = new StringBuilder();
+            result.append("📅 **Election Schedule: ").append(targetElection.getElectionTitle()).append("**\n\n");
+            
+            if (targetElection.getElectionDescription() != null && !targetElection.getElectionDescription().isEmpty()) {
+                result.append("**Description:** ").append(targetElection.getElectionDescription()).append("\n\n");
+            }
+            
+            // Format start and end times
+            if (targetElection.getStartingTime() != null) {
+                result.append("⏰ **Start Time:** ").append(targetElection.getStartingTime().toString()).append("\n");
+            } else {
+                result.append("⏰ **Start Time:** Not specified\n");
+            }
+            
+            if (targetElection.getEndingTime() != null) {
+                result.append("⏰ **End Time:** ").append(targetElection.getEndingTime().toString()).append("\n");
+            } else {
+                result.append("⏰ **End Time:** Not specified\n");
+            }
+            
+            // Add status information
+            java.time.Instant now = java.time.Instant.now();
+            if (targetElection.getStartingTime() != null) {
+                if (targetElection.getStartingTime().isAfter(now)) {
+                    result.append("\n🔔 **Status:** Election has not started yet\n");
+                } else if (targetElection.getEndingTime() != null && targetElection.getEndingTime().isBefore(now)) {
+                    result.append("\n✅ **Status:** Election has ended\n");
+                } else {
+                    result.append("\n🗳️ **Status:** Election is currently active\n");
+                }
+            }
+            
+            return result.toString();
+            
+        } catch (Exception e) {
+            return "Sorry, I'm having trouble accessing election schedule information right now.";
+        }
+    }
 }

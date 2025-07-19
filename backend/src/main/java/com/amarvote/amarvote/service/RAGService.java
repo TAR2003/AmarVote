@@ -2,6 +2,7 @@ package com.amarvote.amarvote.service;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
@@ -27,8 +28,9 @@ public class RAGService {
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     
-    public RAGService() {
-        this.restTemplate = new RestTemplate();
+    @Autowired
+    public RAGService(RestTemplate restTemplate) {
+        this.restTemplate = restTemplate;
         this.objectMapper = new ObjectMapper();
     }
     
