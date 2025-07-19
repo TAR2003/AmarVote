@@ -34,6 +34,19 @@ def initialize_rag():
             }
         ]
         
+        # For local development, check local paths if Docker paths don't exist
+        for doc in documents:
+            if not os.path.exists(doc["path"]):
+                # Try local path alternatives
+                if "EG_Spec_2_1.pdf" in doc["path"]:
+                    local_path = "./EG_Spec_2_1.pdf"
+                    if os.path.exists(local_path):
+                        doc["path"] = local_path
+                elif "AmarVote_User_Guide.md" in doc["path"]:
+                    local_path = "./AmarVote_User_Guide.md"
+                    if os.path.exists(local_path):
+                        doc["path"] = local_path
+        
         processed_count = 0
         for doc in documents:
             if os.path.exists(doc["path"]):

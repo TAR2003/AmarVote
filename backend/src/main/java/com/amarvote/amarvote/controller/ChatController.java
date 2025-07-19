@@ -8,6 +8,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.http.client.reactive.ReactorClientHttpConnector;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -24,7 +25,9 @@ import com.amarvote.amarvote.service.RAGService;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import io.netty.channel.ChannelOption;
 import reactor.core.publisher.Mono;
+import reactor.netty.http.client.HttpClient;
 
 @RestController
 @RequestMapping("/api")
@@ -42,7 +45,18 @@ public class ChatController {
     @Autowired
     private ElectionService electionService;
 
-    private final WebClient webClient = WebClient.builder().build();
+    private final WebClient webClient;
+
+    public ChatController() {
+        // Configure HttpClient with timeouts
+        HttpClient httpClient = HttpClient.create()
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000) // 30 seconds connect timeout
+                .responseTimeout(java.time.Duration.ofSeconds(120)); // 120 seconds response timeout
+
+        this.webClient = WebClient.builder()
+                .clientConnector(new ReactorClientHttpConnector(httpClient))
+                .build();
+    }
 
     @GetMapping("/test-deepseek")
     public Mono<String> testDeepSeek() {
@@ -72,6 +86,7 @@ public class ChatController {
     @PostMapping("/chat")
     public Mono<String> chat(@RequestBody UserChatRequest request) {
         String userMessage = request.getUserMessage();
+        String sessionId = request.getSessionId();
         
         // First, check if the query is related to voting/elections at all
         if (!isVotingOrElectionRelated(userMessage)) {
@@ -90,14 +105,14 @@ public class ChatController {
         
         switch (intent) {
             case ELECTION_RESULTS:
-                return handleElectionResultChat(userMessage);
+                return handleElectionResultChat(userMessage, sessionId);
             case ELECTIONGUARD_TECHNICAL:
-                return handleElectionGuardChat(userMessage);
+                return handleElectionGuardChat(userMessage, sessionId);
             case AMARVOTE_PLATFORM_USAGE:
-                return handleAmarVotePlatformChat(userMessage);
+                return handleAmarVotePlatformChat(userMessage, sessionId);
             case GENERAL_ELECTORAL:
             default:
-                return handleGeneralChat(userMessage);
+                return handleGeneralChat(userMessage, sessionId);
         }
     }
     
@@ -114,6 +129,27 @@ public class ChatController {
      */
     private ChatIntent classifyIntent(String userMessage) {
         String lowerMessage = userMessage.toLowerCase().trim();
+        
+        // Check for follow-up phrases that should use the previous context
+        // These should be handled by GENERAL_ELECTORAL to maintain session context
+        String[] followUpPhrases = {
+            "yes.*want.*more", "yes.*want.*deeper", "yes.*want.*dive", "yes.*tell.*more",
+            "want.*dive.*deeper", "want.*more.*detail", "want.*know.*more",
+            "tell.*more.*about", "explain.*more.*about", "more.*about.*that",
+            "dive.*deeper.*into", "go.*deeper.*into", "elaborate.*on.*that",
+            "yes", "yeah", "yep", "sure", "ok", "okay", "continue", "tell me more", 
+            "more", "go on", "please", "tell me", "explain", "details", "more details",
+            "more info", "more information", "elaborate", "expand", "deeper", "dive deeper"
+        };
+        
+        // Check for follow-up patterns first - route to GENERAL_ELECTORAL for session context
+        for (String phrase : followUpPhrases) {
+            if (lowerMessage.equals(phrase) || lowerMessage.equals(phrase + ".") || 
+                lowerMessage.equals(phrase + "!") || lowerMessage.equals(phrase + "?") ||
+                lowerMessage.matches(".*" + phrase + ".*")) {
+                return ChatIntent.GENERAL_ELECTORAL; // Use general handler to maintain session context
+            }
+        }
         
         // 1. Check for election results intent first (most specific)
         if (isElectionResultQuery(lowerMessage)) {
@@ -204,10 +240,10 @@ public class ChatController {
 
     @PostMapping("/chat/electionguard")
     public Mono<String> chatWithElectionGuardContext(@RequestBody UserChatRequest request) {
-        return handleElectionGuardChat(request.getUserMessage());
+        return handleElectionGuardChat(request.getUserMessage(), request.getSessionId());
     }
 
-    private Mono<String> handleElectionGuardChat(String userMessage) {
+    private Mono<String> handleElectionGuardChat(String userMessage, String sessionId) {
         // Check if the query is related to ElectionGuard
         if (!ragService.isElectionGuardRelated(userMessage)) {
             return Mono.just("I'm specialized in answering questions about ElectionGuard. " +
@@ -215,50 +251,61 @@ public class ChatController {
                     "ballot encryption, verification, or related topics.");
         }
 
-        // Get relevant context from RAG service
-        RAGResponse ragResponse = ragService.getRelevantContext(userMessage);
-        
-        if (!ragResponse.isSuccess()) {
-            return Mono.just("I'm sorry, I'm having trouble accessing the ElectionGuard documentation right now. " +
-                    "Please try again later.");
-        }
-
-        // Try multiple search strategies for better context
-        String enhancedContext = getEnhancedContext(userMessage, ragResponse.getContext());
-        
-        // Create enhanced prompt with context
-        String enhancedPrompt = createEnhancedPrompt(userMessage, enhancedContext);
-        
-        // Create chat messages
-        List<ChatMessage> messages = new ArrayList<>();
-        messages.add(new ChatMessage("system", 
-                "You are an ElectionGuard expert. Answer questions naturally and directly. " +
-                "Use any provided technical information, and supplement with your knowledge when needed. " +
-                "Don't mention sources or documentation - just explain the concepts clearly."));
-        messages.add(new ChatMessage("user", enhancedPrompt));
-
-        ChatRequest chatRequest = new ChatRequest("deepseek/deepseek-chat-v3-0324:free", messages);
-
-        return webClient.post()
-                .uri(apiUrl)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
-                .header("HTTP-Referer", "https://amarvote2025.me")
-                .header("X-Title", "AmarVote-ElectionGuard-Chat")
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(chatRequest)
-                .retrieve()
-                .bodyToMono(String.class)
-                .map(json -> {
-                    try {
-                        ObjectMapper mapper = new ObjectMapper();
-                        JsonNode root = mapper.readTree(json);
-                        String response = root.get("choices").get(0).get("message").get("content").asText();
-                        
-                        // Post-process to remove meta-commentary
-                        return cleanResponse(response);
-                    } catch (Exception e) {
-                        return "Failed to parse response: " + e.getMessage();
+        // Get relevant context from RAG service asynchronously
+        return Mono.fromCallable(() -> ragService.getRelevantContext(userMessage))
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                .flatMap(ragResponse -> {
+                    if (!ragResponse.isSuccess()) {
+                        return Mono.just("I'm sorry, I'm having trouble accessing the ElectionGuard documentation right now. " +
+                                "Please try again later.");
                     }
+
+                    // Try multiple search strategies for better context
+                    String enhancedContext = getEnhancedContext(userMessage, ragResponse.getContext());
+                    
+                    // Create enhanced prompt with context
+                    String enhancedPrompt = createEnhancedPrompt(userMessage, enhancedContext);
+                    
+                    // Create chat messages with session awareness
+                    List<ChatMessage> messages = new ArrayList<>();
+                    
+                    // Add system message with session-aware instructions
+                    String systemMessage = "You are an ElectionGuard expert. Answer questions naturally and directly. " +
+                            "Use any provided technical information, and supplement with your knowledge when needed. " +
+                            "Don't mention sources or documentation - just explain the concepts clearly.";
+                    
+                    // If we have a sessionId, add session context to system message
+                    if (sessionId != null && !sessionId.isEmpty()) {
+                        systemMessage += " This is part of an ongoing conversation (Session: " + sessionId + "). " +
+                                "Remember the context from previous questions in this session and provide detailed follow-up responses.";
+                    }
+                    
+                    messages.add(new ChatMessage("system", systemMessage));
+                    messages.add(new ChatMessage("user", enhancedPrompt));
+
+                    ChatRequest chatRequest = new ChatRequest("deepseek/deepseek-chat-v3-0324:free", messages);
+
+                    return webClient.post()
+                            .uri(apiUrl)
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                            .header("HTTP-Referer", "https://amarvote2025.me")
+                            .header("X-Title", "AmarVote-ElectionGuard-Chat-" + (sessionId != null ? sessionId : "default"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(chatRequest)
+                            .retrieve()
+                            .bodyToMono(String.class)
+                            .map(json -> {
+                                try {
+                                    ObjectMapper mapper = new ObjectMapper();
+                                    JsonNode root = mapper.readTree(json);
+                                    String response = root.get("choices").get(0).get("message").get("content").asText();
+                                    
+                                    // Post-process to remove meta-commentary
+                                    return cleanResponse(response);
+                                } catch (Exception e) {
+                                    return "Failed to parse response: " + e.getMessage();
+                                }
+                            });
                 });
     }
 
@@ -463,8 +510,13 @@ public class ChatController {
             "how to verify",
             "steps.*vote",
             "steps.*create",
+            "steps.*creating.*election",
+            "steps.*of.*creating",
+            "process.*creating.*election",
+            "create.*election.*process",
             "voting process",
             "election setup",
+            "election creation",
             "account.*create",
             "sign up",
             "register.*account",
@@ -489,7 +541,9 @@ public class ChatController {
         String[] platformKeywords = {
             "amarvote platform", "platform features", "user guide", 
             "voting interface", "election dashboard", "ballot tracking",
-            "vote verification", "account management", "voter registration"
+            "vote verification", "account management", "voter registration",
+            "create election", "creating election", "election creation",
+            "steps to create", "how to create election"
         };
         
         for (String keyword : platformKeywords) {
@@ -501,53 +555,64 @@ public class ChatController {
         return false;
     }
 
-    private Mono<String> handleAmarVotePlatformChat(String userMessage) {
-        // Get relevant context from AmarVote user guide
-        RAGResponse ragResponse = ragService.getAmarVotePlatformContext(userMessage);
-        
-        if (!ragResponse.isSuccess()) {
-            return Mono.just("I'm sorry, I'm having trouble accessing the AmarVote user guide right now. " +
-                    "Please try again later or contact support for assistance.");
-        }
-
-        // Create enhanced prompt with platform context
-        String enhancedPrompt = String.format(
-                "Here's information from the AmarVote User Guide:\n%s\n\n" +
-                "Question: %s",
-                ragResponse.getContext(), userMessage
-        );
-        
-        // Create chat messages
-        List<ChatMessage> messages = new ArrayList<>();
-        messages.add(new ChatMessage("system", 
-                "You are AmarVote's helpful platform assistant. Answer questions about using the AmarVote platform " +
-                "based on the provided user guide information. Be specific, step-by-step, and user-friendly. " +
-                "Focus on practical instructions for creating elections, voting, verification, and platform features."));
-        messages.add(new ChatMessage("user", enhancedPrompt));
-
-        ChatRequest chatRequest = new ChatRequest("deepseek/deepseek-chat-v3-0324:free", messages);
-
-        return webClient.post()
-                .uri(apiUrl)
-                .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
-                .header("HTTP-Referer", "https://amarvote2025.me")
-                .header("X-Title", "AmarVote-Platform-Chat")
-                .contentType(MediaType.APPLICATION_JSON)
-                .bodyValue(chatRequest)
-                .retrieve()
-                .bodyToMono(String.class)
-                .map(json -> {
-                    try {
-                        ObjectMapper mapper = new ObjectMapper();
-                        JsonNode root = mapper.readTree(json);
-                        return root.get("choices").get(0).get("message").get("content").asText();
-                    } catch (Exception e) {
-                        return "Failed to parse response: " + e.getMessage();
+    private Mono<String> handleAmarVotePlatformChat(String userMessage, String sessionId) {
+        // Get relevant context from AmarVote user guide asynchronously
+        return Mono.fromCallable(() -> ragService.getAmarVotePlatformContext(userMessage))
+                .subscribeOn(reactor.core.scheduler.Schedulers.boundedElastic())
+                .flatMap(ragResponse -> {
+                    if (!ragResponse.isSuccess()) {
+                        return Mono.just("I'm sorry, I'm having trouble accessing the AmarVote user guide right now. " +
+                                "Please try again later or contact support for assistance.");
                     }
+
+                    // Create enhanced prompt with platform context
+                    String enhancedPrompt = String.format(
+                            "Here's information from the AmarVote User Guide:\n%s\n\n" +
+                            "Question: %s",
+                            ragResponse.getContext(), userMessage
+                    );
+                    
+                    // Create chat messages with session awareness
+                    List<ChatMessage> messages = new ArrayList<>();
+                    
+                    // Add system message with session-aware instructions
+                    String systemMessage = "You are AmarVote's helpful platform assistant. Answer questions about using the AmarVote platform " +
+                            "based on the provided user guide information. Be specific, step-by-step, and user-friendly. " +
+                            "Focus on practical instructions for creating elections, voting, verification, and platform features.";
+                    
+                    // If we have a sessionId, add session context to system message
+                    if (sessionId != null && !sessionId.isEmpty()) {
+                        systemMessage += " This is part of an ongoing conversation (Session: " + sessionId + "). " +
+                                "Remember the context from previous questions in this session and provide detailed follow-up responses.";
+                    }
+                    
+                    messages.add(new ChatMessage("system", systemMessage));
+                    messages.add(new ChatMessage("user", enhancedPrompt));
+
+                    ChatRequest chatRequest = new ChatRequest("deepseek/deepseek-chat-v3-0324:free", messages);
+
+                    return webClient.post()
+                            .uri(apiUrl)
+                            .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
+                            .header("HTTP-Referer", "https://amarvote2025.me")
+                            .header("X-Title", "AmarVote-Platform-Chat-" + (sessionId != null ? sessionId : "default"))
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .bodyValue(chatRequest)
+                            .retrieve()
+                            .bodyToMono(String.class)
+                            .map(json -> {
+                                try {
+                                    ObjectMapper mapper = new ObjectMapper();
+                                    JsonNode root = mapper.readTree(json);
+                                    return root.get("choices").get(0).get("message").get("content").asText();
+                                } catch (Exception e) {
+                                    return "Failed to parse response: " + e.getMessage();
+                                }
+                            });
                 });
     }
 
-    private Mono<String> handleElectionResultChat(String userMessage) {
+    private Mono<String> handleElectionResultChat(String userMessage, String sessionId) {
         // Extract election information and provide results directly
         return getElectionInfo(userMessage)
             .map(electionInfo -> {
@@ -570,13 +635,28 @@ public class ChatController {
         String[] followUpResponses = {
             "yes", "yeah", "yep", "sure", "ok", "okay", "continue", "tell me more", 
             "more", "go on", "please", "tell me", "explain", "details", "more details",
-            "more info", "more information", "elaborate", "expand"
+            "more info", "more information", "elaborate", "expand", "deeper", "dive deeper"
         };
         
+        // Check for exact matches first
         for (String response : followUpResponses) {
             if (lowerMessage.equals(response) || lowerMessage.equals(response + ".") || 
                 lowerMessage.equals(response + "!") || lowerMessage.equals(response + "?")) {
                 return true; // Treat follow-up responses as voting-related to continue conversation
+            }
+        }
+        
+        // Check for follow-up phrases that contain these terms
+        String[] followUpPhrases = {
+            "yes.*want.*more", "yes.*want.*deeper", "yes.*want.*dive", "yes.*tell.*more",
+            "want.*dive.*deeper", "want.*more.*detail", "want.*know.*more",
+            "tell.*more.*about", "explain.*more.*about", "more.*about.*that",
+            "dive.*deeper.*into", "go.*deeper.*into", "elaborate.*on.*that"
+        };
+        
+        for (String phrase : followUpPhrases) {
+            if (lowerMessage.matches(".*" + phrase + ".*")) {
+                return true;
             }
         }
         
@@ -675,17 +755,26 @@ public class ChatController {
                 "• International voting practices";
     }
 
-    private Mono<String> handleGeneralChat(String userMessage) {
+    private Mono<String> handleGeneralChat(String userMessage, String sessionId) {
         String lowerMessage = userMessage.toLowerCase().trim();
         
         // Check if this is a follow-up response asking for more details
         String[] followUpResponses = {
             "yes", "yeah", "yep", "sure", "ok", "okay", "continue", "tell me more", 
             "more", "go on", "please", "tell me", "explain", "details", "more details",
-            "more info", "more information", "elaborate", "expand"
+            "more info", "more information", "elaborate", "expand", "deeper", "dive deeper"
+        };
+        
+        String[] followUpPhrases = {
+            "yes.*want.*more", "yes.*want.*deeper", "yes.*want.*dive", "yes.*tell.*more",
+            "want.*dive.*deeper", "want.*more.*detail", "want.*know.*more",
+            "tell.*more.*about", "explain.*more.*about", "more.*about.*that",
+            "dive.*deeper.*into", "go.*deeper.*into", "elaborate.*on.*that"
         };
         
         boolean isFollowUp = false;
+        
+        // Check for exact follow-up matches
         for (String response : followUpResponses) {
             if (lowerMessage.equals(response) || lowerMessage.equals(response + ".") || 
                 lowerMessage.equals(response + "!") || lowerMessage.equals(response + "?")) {
@@ -694,22 +783,43 @@ public class ChatController {
             }
         }
         
+        // Check for follow-up phrase patterns
+        if (!isFollowUp) {
+            for (String phrase : followUpPhrases) {
+                if (lowerMessage.matches(".*" + phrase + ".*")) {
+                    isFollowUp = true;
+                    break;
+                }
+            }
+        }
+        
         // If it's a follow-up, provide more detailed voting information
         if (isFollowUp) {
             return Mono.just(getDetailedVotingInformation());
         }
         
-        ChatMessage systemMessage = new ChatMessage("system", 
-                "You are AmarVote's AI Assistant, specialized exclusively in voting and election topics. " +
+        // Create chat messages with session awareness
+        List<ChatMessage> messages = new ArrayList<>();
+        
+        // Add system message with session-aware instructions
+        String systemMessage = "You are AmarVote's AI Assistant, specialized exclusively in voting and election topics. " +
                 "You MUST only answer questions about: voting systems, electoral processes, election types, " +
                 "voting methods, democracy, election administration, ballot design, election security, " +
                 "the AmarVote platform features, and ElectionGuard technology. " +
                 "Provide comprehensive, helpful responses about voting and election topics. " +
-                "Be encouraging and offer to provide more specific details if the user wants to learn more.");
+                "Be encouraging and offer to provide more specific details if the user wants to learn more.";
+        
+        // If we have a sessionId, add session context to system message
+        if (sessionId != null && !sessionId.isEmpty()) {
+            systemMessage += " This is part of an ongoing conversation. " +
+                    "Remember the context from previous questions in this session and provide detailed follow-up responses. " +
+                    "If the user is asking for more details or wants to dive deeper, continue from the previous topic discussed. " +
+                    "DO NOT mention the session ID or any technical session details in your response.";
+        }
+        
         ChatMessage userMsg = new ChatMessage("user", userMessage);
         
-        List<ChatMessage> messages = new ArrayList<>();
-        messages.add(systemMessage);
+        messages.add(new ChatMessage("system", systemMessage));
         messages.add(userMsg);
 
         ChatRequest chatRequest = new ChatRequest("deepseek/deepseek-chat-v3-0324:free", messages);
@@ -718,7 +828,7 @@ public class ChatController {
                 .uri(apiUrl)
                 .header(HttpHeaders.AUTHORIZATION, "Bearer " + apiKey)
                 .header("HTTP-Referer", "https://amarvote2025.me")
-                .header("X-Title", "AmarVote-General-Chat")
+                .header("X-Title", "AmarVote-General-Chat-" + (sessionId != null ? sessionId : "default"))
                 .contentType(MediaType.APPLICATION_JSON)
                 .bodyValue(chatRequest)
                 .retrieve()
