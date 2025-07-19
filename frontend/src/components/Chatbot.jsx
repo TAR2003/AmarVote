@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import ReactMarkdown from 'react-markdown';
 import { 
   FiMessageCircle, 
   FiSend, 
@@ -28,9 +29,20 @@ const Chatbot = () => {
   const [showSuggestions, setShowSuggestions] = useState(true);
   const [showMenu, setShowMenu] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
+  const [sessionId, setSessionId] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const menuRef = useRef(null);
+
+  // Generate a unique session ID when component mounts
+  useEffect(() => {
+    const generateSessionId = () => {
+      const timestamp = Date.now();
+      const randomString = Math.random().toString(36).substr(2, 9);
+      return `session_${timestamp}_${randomString}`;
+    };
+    setSessionId(generateSessionId());
+  }, []);
 
   const suggestedQuestions = [
     "How does ElectionGuard ensure vote privacy?",
@@ -47,7 +59,6 @@ const Chatbot = () => {
 
   useEffect(() => {
     scrollToBottom();
-    // Set new message indicator when chat is closed and a bot message is added
     if (!isOpen && messages.length > 1 && messages[messages.length - 1].type === 'bot') {
       setHasNewMessage(true);
     }
@@ -56,7 +67,7 @@ const Chatbot = () => {
   useEffect(() => {
     if (isOpen && inputRef.current) {
       inputRef.current.focus();
-      setHasNewMessage(false); // Clear new message indicator when chat is opened
+      setHasNewMessage(false);
     }
   }, [isOpen]);
 
@@ -66,29 +77,25 @@ const Chatbot = () => {
         setShowMenu(false);
       }
     };
-
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   const clearChat = () => {
-    setMessages([
-      {
-        id: 1,
-        type: 'bot',
-        content: "Hello! I'm AmarVote AI Assistant. I can help you with questions about our voting platform, ElectionGuard technology, and election results. How can I assist you today?",
-        timestamp: new Date()
-      }
-    ]);
+    setMessages([{
+      id: 1,
+      type: 'bot',
+      content: "Hello! I'm AmarVote AI Assistant. I can help you with questions about our voting platform, ElectionGuard technology, and election results. How can I assist you today?",
+      timestamp: new Date()
+    }]);
     setShowSuggestions(true);
     setShowMenu(false);
+    setSessionId(`session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`);
   };
 
   const handleSendMessage = async (messageText = null) => {
     const messageToSend = messageText || inputMessage;
-    
-    // Ensure messageToSend is a string and not empty
-    if (!messageToSend || typeof messageToSend !== 'string' || !messageToSend.trim() || isLoading) return;
+    if (!messageToSend?.trim() || isLoading || !sessionId) return;
 
     const userMessage = {
       id: Date.now(),
@@ -103,7 +110,6 @@ const Chatbot = () => {
     setShowSuggestions(false);
 
     try {
-      // Use the same authentication pattern as other API calls
       const getCsrfToken = () => {
         const cookies = document.cookie.split('; ');
         const csrfCookie = cookies.find(cookie => cookie.startsWith('XSRF-TOKEN='));
@@ -111,45 +117,38 @@ const Chatbot = () => {
       };
 
       const headers = {
-        'Content-Type': 'application/json'
+        'Content-Type': 'application/json',
+        'X-XSRF-TOKEN': getCsrfToken() || ''
       };
 
-      // Add CSRF token (required for authenticated endpoints)
-      const csrfToken = getCsrfToken();
-      if (csrfToken) {
-        headers['X-XSRF-TOKEN'] = csrfToken;
-      }
-
-      const response = await fetch('/api/chat', {
+      const response = await fetch('/api/chatbot/chat', {
         method: 'POST',
-        headers: headers,
-        credentials: 'include', // This ensures cookies (including session) are sent
-        body: JSON.stringify({ userMessage: messageToSend })
+        headers,
+        credentials: 'include',
+        body: JSON.stringify({ 
+          userMessage: messageToSend,
+          sessionId 
+        })
       });
 
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
+      if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
       const responseText = await response.text();
-
-      const botMessage = {
+      console.log(responseText);
+      setMessages(prev => [...prev, {
         id: Date.now() + 1,
         type: 'bot',
         content: responseText,
         timestamp: new Date()
-      };
-
-      setMessages(prev => [...prev, botMessage]);
+      }]);
     } catch (error) {
       console.error('Chat error:', error);
-      const errorMessage = {
+      setMessages(prev => [...prev, {
         id: Date.now() + 1,
         type: 'bot',
         content: "I'm sorry, I'm having trouble responding right now. Please try again later.",
         timestamp: new Date()
-      };
-      setMessages(prev => [...prev, errorMessage]);
+      }]);
     } finally {
       setIsLoading(false);
     }
@@ -160,35 +159,6 @@ const Chatbot = () => {
       e.preventDefault();
       handleSendMessage();
     }
-  };
-
-  const formatMessage = (content) => {
-    // Replace **text** with bold formatting
-    let formatted = content.replace(/\*\*(.*?)\*\*/g, '<strong class="font-semibold text-blue-700">$1</strong>');
-    
-    // Handle numbered lists with bold headings
-    formatted = formatted.replace(/(\d+)\.\s\*\*(.*?)\*\*:\s*/g, '<div class="mb-3"><strong class="font-semibold text-blue-700">$1. $2:</strong> ');
-    
-    // Handle bullet points and sub-bullet points
-    formatted = formatted.replace(/^-\s+/gm, '<div class="ml-4 mb-1">• ');
-    formatted = formatted.replace(/^\s+\-\s+/gm, '<div class="ml-8 mb-1">◦ ');
-    
-    // Close div tags for bullet points
-    formatted = formatted.replace(/(<div class="ml-[48]+ mb-1">[^<]+)/g, '$1</div>');
-    
-    // Handle line breaks and paragraphs
-    formatted = formatted.replace(/\n\n+/g, '</p><p class="mt-4">');
-    formatted = formatted.replace(/\n/g, '<br>');
-    
-    // Wrap in paragraph if not already wrapped
-    if (!formatted.includes('<p>') && !formatted.includes('<div class="mb-')) {
-      formatted = `<p class="leading-relaxed">${formatted}</p>`;
-    }
-    
-    // Clean up any unclosed divs
-    formatted = formatted.replace(/<\/div>\s*<br>/g, '</div>');
-    
-    return formatted;
   };
 
   const formatTimestamp = (timestamp) => {
@@ -215,14 +185,31 @@ const Chatbot = () => {
             : 'bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100'
         }`}>
           {message.type === 'bot' ? (
-            <div 
-              className="text-sm leading-relaxed"
-              dangerouslySetInnerHTML={{ __html: formatMessage(message.content) }}
-              style={{
-                wordBreak: 'break-word',
-                lineHeight: '1.6'
-              }}
-            />
+            <div className="prose prose-sm prose-blue max-w-none">
+              <ReactMarkdown
+                components={{
+                  h1: ({node, ...props}) => <h1 className="text-xl font-bold mt-4 mb-3 text-blue-800 border-b border-blue-200 pb-2" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-lg font-bold mt-4 mb-3 text-blue-700" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-base font-semibold mt-3 mb-2 text-blue-600" {...props} />,
+                  h4: ({node, ...props}) => <h4 className="text-sm font-semibold mt-2 mb-1 text-blue-600" {...props} />,
+                  p: ({node, ...props}) => <p className="mb-3 leading-relaxed text-gray-800" {...props} />,
+                  ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-3 space-y-1" {...props} />,
+                  ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-3 space-y-1" {...props} />,
+                  li: ({node, ...props}) => <li className="mb-1 text-gray-800" {...props} />,
+                  strong: ({node, ...props}) => <strong className="font-semibold text-blue-700" {...props} />,
+                  em: ({node, ...props}) => <em className="italic text-gray-700" {...props} />,
+                  a: ({node, ...props}) => <a className="text-blue-600 hover:underline font-medium" target="_blank" rel="noopener" {...props} />,
+                  hr: ({node, ...props}) => <hr className="my-4 border-gray-300" {...props} />,
+                  blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-200 pl-4 py-2 my-3 bg-blue-50 text-gray-700 italic" {...props} />,
+                  code: ({node, inline, ...props}) => 
+                    inline ? 
+                      <code className="bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-sm font-mono" {...props} /> : 
+                      <pre className="bg-gray-100 p-3 rounded-md text-sm font-mono my-2 overflow-x-auto border border-gray-200" {...props} />
+                }}
+              >
+                {message.content}
+              </ReactMarkdown>
+            </div>
           ) : (
             <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
           )}
@@ -285,7 +272,12 @@ const Chatbot = () => {
             </div>
             <div>
               <h3 className="font-semibold">AmarVote AI Assistant</h3>
-              <p className="text-blue-100 text-xs">Online</p>
+              <p className="text-blue-100 text-xs">
+                {messages.length > 1 ? 'Conversation Active' : 'Online'}
+                {sessionId && messages.length > 1 && (
+                  <span className="ml-1 opacity-70">• Session Active</span>
+                )}
+              </p>
             </div>
           </div>
           
@@ -312,9 +304,10 @@ const Chatbot = () => {
                   <button
                     onClick={clearChat}
                     className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    title="Start a new conversation session"
                   >
                     <FiRefreshCw className="w-3 h-3" />
-                    Clear Chat
+                    New Session
                   </button>
                 </div>
               )}
@@ -384,14 +377,14 @@ const Chatbot = () => {
               value={inputMessage}
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
-              placeholder="Type your message..."
+              placeholder={sessionId ? "Continue the conversation..." : "Type your message..."}
               className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm max-h-20 min-h-[40px]"
               rows="1"
-              disabled={isLoading}
+              disabled={isLoading || !sessionId}
             />
             <button
               onClick={() => handleSendMessage()}
-              disabled={!inputMessage.trim() || isLoading}
+              disabled={!inputMessage.trim() || isLoading || !sessionId}
               className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               aria-label="Send message"
             >
@@ -401,7 +394,14 @@ const Chatbot = () => {
           
           <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
             <span>Press Enter to send</span>
-            <span>Powered by AI</span>
+            <span className="flex items-center gap-1">
+              {sessionId && (
+                <span className="text-green-600">
+                  • Session Active
+                </span>
+              )}
+              <span>Powered by AI</span>
+            </span>
           </div>
         </div>
       </div>
