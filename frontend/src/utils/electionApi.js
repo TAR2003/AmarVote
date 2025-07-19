@@ -172,9 +172,9 @@ export const electionApi = {
   },
 
   /**
-   * Submit guardian partial decryption key
+   * Submit guardian partial decryption credentials
    */
-  async submitGuardianKey(electionId, guardianKey) {
+  async submitGuardianKey(electionId, encryptedCredentials) {
     try {
       const response = await fetch('/api/create-partial-decryption', {
         method: 'POST',
@@ -184,7 +184,7 @@ export const electionApi = {
         },
         body: JSON.stringify({
           election_id: electionId,
-          key: guardianKey
+          encrypted_data: encryptedCredentials
         }),
       });
 
@@ -195,7 +195,7 @@ export const electionApi = {
       const data = await response.json();
       return data;
     } catch (error) {
-      console.error('Error submitting guardian key:', error);
+      console.error('Error submitting guardian credentials:', error);
       throw error;
     }
   },

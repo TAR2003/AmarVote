@@ -417,26 +417,44 @@ export default function ElectionPage() {
 
   const handleGuardianKeySubmit = async (e) => {
     e.preventDefault();
+    if (!guardianKey.trim()) return;
+    
     setIsSubmittingKey(true);
     setKeySubmissionError(null);
     setKeySubmissionResult(null);
     
     try {
-      const result = await electionApi.submitGuardianKey(id, {
-        guardianKey: guardianKey.trim()
-      });
+      const result = await electionApi.submitGuardianKey(id, guardianKey);
       
-      setKeySubmissionResult(result);
-      setGuardianKey('');
-      toast.success('Guardian key submitted successfully!');
-      
-      // Refresh election data to update guardian status
-      await fetchElectionData();
+      if (result.success) {
+        setKeySubmissionResult(result);
+        setGuardianKey('');
+        
+        // Refresh election data to update guardian status
+        await fetchElectionData();
+      } else {
+        setKeySubmissionError(result.message || 'Failed to submit guardian credentials');
+      }
     } catch (err) {
-      setKeySubmissionError(err.message || 'Failed to submit guardian key');
-      toast.error('Failed to submit guardian key');
+      setKeySubmissionError(err.message || 'Failed to submit guardian credentials');
     } finally {
       setIsSubmittingKey(false);
+    }
+  };
+
+  const handleCredentialFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      setGuardianKey('');
+      return;
+    }
+
+    try {
+      const fileContent = await file.text();
+      setGuardianKey(fileContent.trim());
+    } catch (error) {
+      setKeySubmissionError(`Failed to read credential file: ${error.message}`);
+      setGuardianKey('');
     }
   };
 
@@ -788,7 +806,7 @@ export default function ElectionPage() {
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center">
               <FiShield className="h-5 w-5 mr-2" />
-              Guardian Key Submission
+              Guardian Credential Submission
             </h3>
             {!canUserManageGuardian() ? (
               <div className="text-center py-8">
@@ -811,12 +829,12 @@ export default function ElectionPage() {
                   <div className="p-4 bg-green-50 rounded-lg">
                     <h4 className="font-medium text-green-900 mb-2">Decryption Status</h4>
                     <p className="text-sm text-green-800">
-                      {electionData.guardians?.filter(g => g.decryptedOrNot).length || 0} of {electionData.guardians?.length || 0} guardians have submitted keys
+                      {electionData.guardians?.filter(g => g.decryptedOrNot).length || 0} of {electionData.guardians?.length || 0} guardians have submitted credentials
                     </p>
                   </div>
                 </div>
 
-                {/* Key Submission Form */}
+                {/* Credential Submission Form */}
                 {(() => {
                   const submitStatus = canSubmitGuardianKey();
                   
@@ -825,7 +843,7 @@ export default function ElectionPage() {
                       <div className="border border-green-200 rounded-lg p-6">
                         <h4 className="font-medium text-green-900 mb-4 flex items-center">
                           <FiKey className="h-5 w-5 mr-2" />
-                          Submit Your Guardian Key
+                          Submit Your Guardian Credentials
                         </h4>
                         
                         {keySubmissionResult && (
@@ -847,7 +865,7 @@ export default function ElectionPage() {
                             <div className="flex items-center">
                               <FiAlertCircle className="h-5 w-5 text-red-500 mr-2" />
                               <div>
-                                <h5 className="font-medium text-red-900">Key Submission Failed</h5>
+                                <h5 className="font-medium text-red-900">Credential Submission Failed</h5>
                                 <p className="text-sm text-red-800 mt-1">{keySubmissionError}</p>
                               </div>
                             </div>
@@ -857,19 +875,23 @@ export default function ElectionPage() {
                         <form onSubmit={handleGuardianKeySubmit} className="space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Guardian Private Key
+                              Guardian Credential File
                             </label>
-                            <textarea
-                              value={guardianKey}
-                              onChange={(e) => setGuardianKey(e.target.value)}
-                              placeholder="Enter your guardian private key here..."
-                              rows={4}
+                            <input
+                              type="file"
+                              accept=".txt"
+                              onChange={handleCredentialFileChange}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                               required
                             />
                             <p className="text-sm text-gray-600 mt-1">
-                              Enter the private key that was provided to you during the key ceremony.
+                              Upload the credentials.txt file that was sent to you via email after guardian assignment.
                             </p>
+                            {guardianKey && (
+                              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                                <p className="text-sm text-green-800">✓ Credential file loaded successfully</p>
+                              </div>
+                            )}
                           </div>
                           
                           <div className="flex justify-center">
@@ -888,7 +910,7 @@ export default function ElectionPage() {
                                   <span>Submitting...</span>
                                 </div>
                               ) : (
-                                'Submit Guardian Key'
+                                'Submit Guardian Credentials'
                               )}
                             </button>
                           </div>
@@ -900,13 +922,13 @@ export default function ElectionPage() {
                       <div className="border border-yellow-200 rounded-lg p-6">
                         <div className="flex items-center mb-4">
                           <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
-                          <h4 className="font-medium text-yellow-900">Key Submission Not Available</h4>
+                          <h4 className="font-medium text-yellow-900">Credential Submission Not Available</h4>
                         </div>
                         <p className="text-yellow-800 mb-4">{submitStatus.reason}</p>
                         
                         {submitStatus.reason === 'Election has not ended yet' && (
                           <p className="text-sm text-yellow-700">
-                            You will be able to submit your guardian key after the election ends on {formatDate(electionData.endingTime)}.
+                            You will be able to submit your guardian credentials after the election ends on {formatDate(electionData.endingTime)}.
                           </p>
                         )}
                         

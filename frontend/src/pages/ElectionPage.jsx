@@ -1395,12 +1395,28 @@ export default function ElectionPage() {
         const updatedData = await electionApi.getElectionById(id);
         setElectionData(updatedData);
       } else {
-        setKeySubmissionError(result.message || 'Failed to submit guardian key');
+        setKeySubmissionError(result.message || 'Failed to submit guardian credentials');
       }
     } catch (err) {
-      setKeySubmissionError(err.message || 'Failed to submit guardian key');
+      setKeySubmissionError(err.message || 'Failed to submit guardian credentials');
     } finally {
       setIsSubmittingKey(false);
+    }
+  };
+
+  const handleCredentialFileChange = async (e) => {
+    const file = e.target.files[0];
+    if (!file) {
+      setGuardianKey('');
+      return;
+    }
+
+    try {
+      const fileContent = await file.text();
+      setGuardianKey(fileContent.trim());
+    } catch (error) {
+      setKeySubmissionError(`Failed to read credential file: ${error.message}`);
+      setGuardianKey('');
     }
   };
 
@@ -1572,7 +1588,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
       return { canSubmit: false, reason: 'Partial decryption already submitted' };
     }
     
-    return { canSubmit: true, reason: 'Ready to submit key' };
+    return { canSubmit: true, reason: 'Ready to submit credentials' };
   };
 
   const canUserViewVerification = () => {
@@ -2126,7 +2142,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
           <div className="bg-white rounded-lg shadow p-6">
             <h3 className="text-lg font-semibold mb-4 flex items-center">
               <FiShield className="h-5 w-5 mr-2" />
-              Guardian Key Submission
+              Guardian Credential Submission
             </h3>
             {!canUserManageGuardian() ? (
               <div className="text-center py-8">
@@ -2163,7 +2179,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                       <div className="border border-green-200 rounded-lg p-6">
                         <h4 className="font-medium text-green-900 mb-4 flex items-center">
                           <FiKey className="h-5 w-5 mr-2" />
-                          Submit Your Guardian Key
+                          Submit Your Guardian Credentials
                         </h4>
                         
                         {keySubmissionResult && (
@@ -2171,9 +2187,9 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                             <div className="flex items-center">
                               <FiCheckCircle className="h-5 w-5 text-green-500 mr-2" />
                               <div>
-                                <h5 className="font-medium text-green-900">Partial Decryption Successful</h5>
+                                <h5 className="font-medium text-green-900">Credentials Submitted Successfully</h5>
                                 <p className="text-sm text-green-800 mt-1">
-                                  {keySubmissionResult.message || "Your key has been verified and partial decryption has been completed."}
+                                  {keySubmissionResult.message || "Your credentials have been verified and partial decryption has been completed."}
                                 </p>
                               </div>
                             </div>
@@ -2185,7 +2201,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                             <div className="flex items-center">
                               <FiAlertCircle className="h-5 w-5 text-red-500 mr-2" />
                               <div>
-                                <h5 className="font-medium text-red-900">Key Submission Failed</h5>
+                                <h5 className="font-medium text-red-900">Credential Submission Failed</h5>
                                 <p className="text-sm text-red-800 mt-1">{keySubmissionError}</p>
                               </div>
                             </div>
@@ -2195,19 +2211,23 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                         <form onSubmit={handleGuardianKeySubmit} className="space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Guardian Private Key
+                              Guardian Credential File
                             </label>
-                            <textarea
-                              value={guardianKey}
-                              onChange={(e) => setGuardianKey(e.target.value)}
-                              placeholder="Enter your guardian private key here..."
-                              rows={4}
+                            <input
+                              type="file"
+                              accept=".txt"
+                              onChange={handleCredentialFileChange}
                               className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
                               required
                             />
                             <p className="text-sm text-gray-600 mt-1">
-                              Enter the private key that was provided to you during the key ceremony.
+                              Upload the credentials.txt file that was sent to you via email after guardian assignment.
                             </p>
+                            {guardianKey && (
+                              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
+                                <p className="text-sm text-green-800">✓ Credential file loaded successfully</p>
+                              </div>
+                            )}
                           </div>
                           
                           <div className="flex justify-center">
@@ -2226,7 +2246,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                                   <span>Submitting...</span>
                                 </div>
                               ) : (
-                                'Submit Guardian Key'
+                                'Submit Guardian Credentials'
                               )}
                             </button>
                           </div>
