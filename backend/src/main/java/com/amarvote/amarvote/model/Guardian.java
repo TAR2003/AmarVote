@@ -55,4 +55,7 @@ public class Guardian {
 
     @Column(name = "key_backup", columnDefinition = "TEXT")
     private String keyBackup; // Added key_backup field (guardian_data)
+
+    @Column(name = "credentials", columnDefinition = "TEXT")
+    private String credentials;
 }
