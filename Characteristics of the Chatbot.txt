@@ -1,0 +1,42 @@
+Characteristics of the Chatbot:
+
+1. If an user asks the following type of questions then the RAG system will extract information from the amarvote_userguide.md file
+  a. Can you kindly tell me about how to create an election 
+  b. Can you kindly tell me about how to cast a vote in an election
+  c. Can you kindly tell me about how to see the result of an election
+  d. Can you kindly tell me about how to verify that my vote has been counted in the final result
+
+Again I'm saying point to be noted it's not necessary that the questions will be exactly the same as I've stated rather the questions will express the same meaning as the given ones.
+
+2. If an user asks the following type of questions then the RAG system will extract the information from the electionguard specification pdf document named as EG_spec_2_1
+  a. Can you kindly tell me what is electionguard
+  b. Can you kindly tell me how the electionguard is working
+  c. Can you kindly tell me what does guardian mean
+  d. Can you kindly tell me about the key ceremony
+  e. Can you kindly tell me how the ballots are encrypted
+  f. Can you kindly tell me about the encryption algorithms
+  g. Can you kindly tell me how the decryptions are happening
+  h. Can you kindly tell me how the partial decryption happening
+  i. Can you kindly tell me what does partial decryption mean
+  j. Can you kindly tell me about zero knowledge proofs
+  k. Can you kindly tell me about why do we need the verification and how the ballot verification will be done.
+
+So as you can see anything related to the terminology that are present in electionguard will be answered from the eg_spec_2_1 document. There can be other questions also elated to the electionguard document. 
+
+3. If an user asks the following type of questions like:
+ a. Can you kindly show me the result of the most recent election or most latest election(current query implementation is correct)
+ b. Can you kindly show me the results of all the elections
+ for b num que kindly make sure the fact that at most 5 public elections result can be shown
+ c. Can you kindly tell me the result of "abc" election. (here you have to remember that only public elections and the election where is in the voter list result can be shown other that that the chatbot should deny it)
+ d. Can you kindly tell me when the "abc" election will start? (same as before)
+
+For getting information about any field u can see the create table sql file under the database folder so that you can create the query for the user question.
+
+Again questions can be different but they will have same meaning
+
+4. Other than these 3 types if an user asks general query related to an election then we will use general chat of deepseek no rag system will be used. but we also have to be careful about giving user a proper response for any irrelevant queries other than election and we also can not answer any question whose answer can guide an user to illegal activity.
+
+Our current implementation has been a lot complex. Kindly keep the session method that is currently implemented so that the chatbot can remember the context of the conversation.
+
+Other than that kindly reform the chatbot as our current implementation seems to be more hardcoded and the logic has been very messed up. So I gave you a proper pathway to what to do and what not do. kindly make the chatbot work. and kindly make ensure that the response that is shown to the user is rendered correctly that means the # and *'s. And also make sure that the chatbot is aware of the context of the conversation
+
