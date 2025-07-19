@@ -20,6 +20,7 @@ import CreateElection from "./pages/CreateElection";
 import ElectionPage from "./pages/ElectionPage";
 import AllElections from "./pages/AllElections";
 import LoadingScreen from "./pages/Loading";
+import Chatbot from "./components/Chatbot";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -128,6 +129,9 @@ function App() {
           {/* Add other authenticated routes here */}
         </Route>
       </Routes>
+      
+      {/* Show chatbot only for authenticated users */}
+      {isAuthenticated && <Chatbot />}
     </Router>
   );
 }

@@ -15,6 +15,7 @@ services:
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
+      - RAG_SERVICE_URL=http://rag-service:5001
     volumes:
       - maven_repo:/root/.m2
     networks:
@@ -50,8 +51,25 @@ services:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
 
+  rag-service:
+    build: ./rag-service
+    container_name: rag_service
+    ports:
+      - "5001:5001"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.50
+    environment:
+      - FLASK_ENV=production
+      - FLASK_DEBUG=False
+      - RAG_SERVICE_PORT=5001
+    volumes:
+      - ./backend/src/main/resources/pdf:/app/data  # Mount PDF directory
+      - rag_vectorstore:/app/vectorstore  # Persist vector store
+
 volumes:
   maven_repo:
+  rag_vectorstore:
 
 networks:
   election_net:
