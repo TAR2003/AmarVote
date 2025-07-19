@@ -17,4 +17,6 @@ public class ElectionGuardTallyRequest {
     private String joint_public_key;
     private String commitment_hash;
     private List<String> encrypted_ballots;
+    private int number_of_guardians;
+    private int quorum;
 }

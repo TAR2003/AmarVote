@@ -19,4 +19,6 @@ public class ElectionGuardBallotRequest {
     private String ballot_id;
     private String joint_public_key;
     private String commitment_hash;
+    private int number_of_guardians;
+    private int quorum;
 }

@@ -25,6 +25,7 @@ import com.amarvote.amarvote.repository.AllowedVoterRepository;
 import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
+import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.UserRepository;
 import com.amarvote.amarvote.utils.VoterIdGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -50,6 +51,9 @@ public class BallotService {
     
     @Autowired
     private ElectionChoiceRepository electionChoiceRepository;
+    
+    @Autowired
+    private GuardianRepository guardianRepository;
     
     @Autowired
     private WebClient webClient;
@@ -155,7 +159,9 @@ public class BallotService {
             // 9. Call ElectionGuard service
             ElectionGuardBallotResponse guardResponse = callElectionGuardService(
                 partyNames, candidateNames, request.getSelectedCandidate(), 
-                ballotHashId, election.getJointPublicKey(), election.getBaseHash()
+                ballotHashId, election.getJointPublicKey(), election.getBaseHash(),
+                election.getElectionQuorum(),
+                guardianRepository.findByElectionId(election.getElectionId()).size()
             );
 
             if (guardResponse == null || !"success".equals(guardResponse.getStatus())) {
@@ -363,7 +369,8 @@ public class BallotService {
 
     private ElectionGuardBallotResponse callElectionGuardService(
             List<String> partyNames, List<String> candidateNames, String selectedCandidate,
-            String ballotId, String jointPublicKey, String commitmentHash) {
+            String ballotId, String jointPublicKey, String commitmentHash,
+            int quorum, int numberOfGuardians) {
         
         try {
             String url = "/create_encrypted_ballot";
@@ -375,6 +382,8 @@ public class BallotService {
                 .ballot_id(ballotId)
                 .joint_public_key(jointPublicKey)
                 .commitment_hash(commitmentHash)
+                .number_of_guardians(numberOfGuardians)
+                .quorum(quorum)
                 .build();
 
             System.out.println("Calling ElectionGuard ballot service at: " + url);

@@ -394,4 +394,6 @@ def combine_decryption_shares_service(
                 'status': 'missing (compensated)'
             })
     
+    
+    
     return results

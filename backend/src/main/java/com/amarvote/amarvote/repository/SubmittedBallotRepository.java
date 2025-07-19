@@ -21,4 +21,7 @@ public interface SubmittedBallotRepository extends JpaRepository<SubmittedBallot
     
     // Delete all submitted ballots for a specific election
     void deleteByElectionId(Long electionId);
+    
+    // Check if a submitted ballot already exists for the given election and cipher text
+    boolean existsByElectionIdAndCipherText(Long electionId, String cipherText);
 }

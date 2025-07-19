@@ -5,8 +5,6 @@ package com.amarvote.amarvote.model;
 import java.time.Instant;
 
 import org.hibernate.annotations.CreationTimestamp;
-import org.hibernate.annotations.JdbcTypeCode;
-import org.hibernate.type.SqlTypes;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
@@ -64,8 +62,7 @@ public class Election {
     @Column(name = "ending_time", nullable = false)
     private Instant endingTime;
 
-    @Column(name = "encrypted_tally", columnDefinition = "JSONB")
-    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "encrypted_tally", columnDefinition = "TEXT")
     private String encryptedTally;
 
     @Column(name = "base_hash", columnDefinition = "TEXT")

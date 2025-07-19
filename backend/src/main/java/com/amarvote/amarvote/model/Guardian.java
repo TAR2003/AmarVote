@@ -49,4 +49,10 @@ public class Guardian {
 
     @Column(name = "tally_share", columnDefinition = "TEXT")
     private String tallyShare; // Added tally_share field
+
+    @Column(name = "ballot_share", columnDefinition = "TEXT")
+    private String ballotShare; // Added ballot_share field
+
+    @Column(name = "key_backup", columnDefinition = "TEXT")
+    private String keyBackup; // Added key_backup field (guardian_data)
 }
