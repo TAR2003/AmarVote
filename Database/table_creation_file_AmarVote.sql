@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS guardians (
     tally_share TEXT, -- Added tally_share field
     ballot_share TEXT, -- Added ballot_share field
     key_backup TEXT, -- Added key_backup field
+    credentails TEXT, -- Added credentials field
     PRIMARY KEY (election_id, user_id),
     CONSTRAINT unique_sequence_order UNIQUE (election_id, sequence_order),
     CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE,

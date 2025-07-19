@@ -1067,6 +1067,47 @@ export default function ElectionPage() {
             console.log('Election has ended - creating tally automatically');
             await createTallyForElection(id);
           }
+
+          // Auto-combine decryptions if election has ended and quorum is met
+          if (electionStatus === 'Ended') {
+            const guardiansSubmitted = data.guardiansSubmitted || 0;
+            const electionQuorum = data.electionQuorum || data.totalGuardians || 0;
+            const quorumMet = guardiansSubmitted >= electionQuorum;
+            
+            if (quorumMet) {
+              console.log('🔄 Auto-combining decryptions on page load: Election ended and quorum met');
+              console.log(`Guardians status: ${guardiansSubmitted}/${electionQuorum} required have submitted keys`);
+              
+              // Call combine partial decryptions to fill ballot lists
+              try {
+                setCombiningDecryptions(true);
+                const response = await electionApi.combinePartialDecryptions(id);
+                console.log('Auto-combined partial decryptions successfully');
+                
+                  // Store the decryption results for ballot verification
+                if (response.results) {
+                  setRawVerificationData(response.results);
+                  
+                  // Log ballot data summary
+                  if (response.results?.verification?.ballots && response.results.verification.ballots.length > 0) {
+                    console.log(`✅ Auto-loaded ${response.results.verification.ballots.length} ballots with tracking codes and hashes`);
+                  }
+                  
+                  // Process and set the results data for charts and statistics
+                  // Note: We'll set this in a later useEffect when processElectionResults is available
+                  // For now, just store the raw data
+                }
+                
+              } catch (combineErr) {
+                console.warn('Auto-combine decryptions failed during page load:', combineErr.message);
+                // Don't show error to user as this is automatic - they can manually combine later
+              } finally {
+                setCombiningDecryptions(false);
+              }
+            } else {
+              console.log(`⏳ Quorum not yet met: ${guardiansSubmitted}/${electionQuorum} guardians have submitted keys`);
+            }
+          }
         }
       } catch (err) {
         setError('Failed to load election data: ' + err.message);
@@ -1194,6 +1235,17 @@ export default function ElectionPage() {
       verification: null
     };
   }, [resultsData, electionData]);
+
+  // Process raw verification data when it becomes available
+  useEffect(() => {
+    if (rawVerificationData && !resultsData) {
+      const processedResults = processElectionResults(rawVerificationData);
+      if (processedResults) {
+        setResultsData(processedResults);
+        console.log('✅ Processed election results from auto-combined data');
+      }
+    }
+  }, [rawVerificationData, resultsData, processElectionResults]);
 
   const combinePartialDecryptions = useCallback(async () => {
     setCombiningDecryptions(true);
@@ -2526,22 +2578,51 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                   Ballot information will be available after the election results have been computed.
                 </p>
               </div>
-            ) : loadingResults ? (
+            ) : loadingResults || combiningDecryptions ? (
               <div className="text-center py-12">
                 <FiLoader className="h-16 w-16 text-blue-500 mx-auto mb-4 animate-spin" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Loading Ballot Data</h3>
+                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+                  {combiningDecryptions ? '🔄 Combining Decryptions' : 'Loading Ballot Data'}
+                </h3>
                 <p className="text-gray-600 mb-4">
-                  Retrieving ballot information from the election results...
+                  {combiningDecryptions 
+                    ? 'Combining guardian keys to retrieve ballot hashes and tracking codes...'
+                    : 'Retrieving ballot information from the election results...'
+                  }
                 </p>
               </div>
-            ) : (
-              <>
-                {/* Render the ballots in tally section */}
-                <BallotsInTallySection 
-                  resultsData={rawVerificationData}
-                />
-              </>
-            )}
+            ) : (() => {
+              const ballots = rawVerificationData?.verification?.ballots || [];
+              const guardiansSubmitted = electionData.guardiansSubmitted || 0;
+              const electionQuorum = electionData.electionQuorum || electionData.totalGuardians || 0;
+              const quorumMet = guardiansSubmitted >= electionQuorum;
+              
+              if (ballots.length === 0 && !quorumMet) {
+                return (
+                  <div className="text-center py-12">
+                    <FiShield className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">⏳ Waiting for Guardians</h3>
+                    <p className="text-gray-600 mb-4">
+                      Not enough guardians have submitted their decryption keys yet.
+                    </p>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 inline-block">
+                      <p className="text-sm text-yellow-800">
+                        <strong>Status:</strong> {guardiansSubmitted} of {electionQuorum} required guardians have submitted keys.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+              
+              return (
+                <>
+                  {/* Render the ballots in tally section */}
+                  <BallotsInTallySection 
+                    resultsData={rawVerificationData}
+                  />
+                </>
+              );
+            })()}
           </div>
         )}
 
@@ -2556,9 +2637,39 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                   Vote verification will be available after the election results have been computed.
                 </p>
               </div>
-            ) : (
-              <VerifyVoteSection electionId={id} resultsData={rawVerificationData} />
-            )}
+            ) : combiningDecryptions ? (
+              <div className="text-center py-12">
+                <FiLoader className="h-16 w-16 text-blue-500 mx-auto mb-4 animate-spin" />
+                <h3 className="text-lg font-semibold text-blue-900 mb-2">🔄 Combining Decryptions</h3>
+                <p className="text-gray-600 mb-4">
+                  Combining guardian keys to enable vote verification...
+                </p>
+              </div>
+            ) : (() => {
+              const ballots = rawVerificationData?.verification?.ballots || [];
+              const guardiansSubmitted = electionData.guardiansSubmitted || 0;
+              const electionQuorum = electionData.electionQuorum || electionData.totalGuardians || 0;
+              const quorumMet = guardiansSubmitted >= electionQuorum;
+              
+              if (ballots.length === 0 && !quorumMet) {
+                return (
+                  <div className="text-center py-12">
+                    <FiShield className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+                    <h3 className="text-lg font-semibold text-gray-900 mb-2">⏳ Waiting for Guardians</h3>
+                    <p className="text-gray-600 mb-4">
+                      Vote verification requires ballot hashes, but not enough guardians have submitted their decryption keys yet.
+                    </p>
+                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 inline-block">
+                      <p className="text-sm text-yellow-800">
+                        <strong>Status:</strong> {guardiansSubmitted} of {electionQuorum} required guardians have submitted keys.
+                      </p>
+                    </div>
+                  </div>
+                );
+              }
+              
+              return <VerifyVoteSection electionId={id} resultsData={rawVerificationData} />;
+            })()}
           </div>
         )}
 
