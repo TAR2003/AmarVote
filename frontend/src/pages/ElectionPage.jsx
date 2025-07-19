@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useCallback, useMemo } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { electionApi } from '../utils/electionApi';
 import { timezoneUtils } from '../utils/timezoneUtils';
 import toast from 'react-hot-toast';
@@ -56,13 +56,13 @@ import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 
 const subMenus = [
-  { name: 'Election Info', key: 'info', icon: FiInfo },
-  { name: 'Voting Booth', key: 'voting', icon: FiCheckCircle },
-  { name: 'Guardian Keys', key: 'guardian', icon: FiShield },
-  { name: 'Results', key: 'results', icon: FiTrendingUp },
-  { name: 'Ballots in Tally', key: 'ballots', icon: FiDatabase },
-  { name: 'Verify Your Vote', key: 'verify', icon: FiHash },
-  { name: 'Verification', key: 'verification', icon: FiEye },
+  { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
+  { name: 'Voting Booth', key: 'voting', path: 'voting-booth', icon: FiCheckCircle },
+  { name: 'Guardian Keys', key: 'guardian', path: 'guardian-keys', icon: FiShield },
+  { name: 'Results', key: 'results', path: 'results', icon: FiTrendingUp },
+  { name: 'Ballots in Tally', key: 'ballots', path: 'ballots-in-tally', icon: FiDatabase },
+  { name: 'Verify Your Vote', key: 'verify', path: 'verify-vote', icon: FiHash },
+  { name: 'Verification', key: 'verification', path: 'verification', icon: FiEye },
 ];
 
 // Timer Component
@@ -1016,7 +1016,46 @@ const VerifyVoteSection = ({ electionId, resultsData }) => {
 
 export default function ElectionPage() {
   const { id } = useParams();
-  const [activeTab, setActiveTab] = useState('info');
+  const navigate = useNavigate();
+  const location = useLocation();
+  
+  // Extract tab from URL path (e.g., '/election-page/1/voting-booth' -> 'voting-booth')
+  const getTabFromPath = useCallback(() => {
+    const pathSegments = location.pathname.split('/');
+    const tabPath = pathSegments[pathSegments.length - 1];
+    
+    // If the last segment is just the ID, show default tab (info)
+    if (tabPath === id) {
+      return 'info';
+    }
+    
+    // Find the tab that matches the path
+    const matchedTab = subMenus.find(tab => tab.path === tabPath);
+    return matchedTab ? matchedTab.key : 'info';
+  }, [location.pathname, id]);
+
+  const [activeTab, setActiveTab] = useState(getTabFromPath);
+  
+  // Update URL when tab changes
+  const handleTabClick = (tabKey) => {
+    setActiveTab(tabKey);
+    const selectedTab = subMenus.find(tab => tab.key === tabKey);
+    if (selectedTab) {
+      const newPath = selectedTab.path 
+        ? `/election-page/${id}/${selectedTab.path}`
+        : `/election-page/${id}`;
+      navigate(newPath);
+    }
+  };
+
+  // Update active tab when URL changes (e.g., browser back/forward)
+  useEffect(() => {
+    const tabFromPath = getTabFromPath();
+    if (tabFromPath !== activeTab) {
+      setActiveTab(tabFromPath);
+    }
+  }, [location.pathname]); // Remove activeTab from dependency to prevent infinite loop
+
   const [selectedCandidate, setSelectedCandidate] = useState('');
   const [electionData, setElectionData] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -1679,7 +1718,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
               return (
                 <button
                   key={menu.key}
-                  onClick={() => setActiveTab(menu.key)}
+                  onClick={() => handleTabClick(menu.key)}
                   className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${
                     activeTab === menu.key
                       ? 'border-blue-500 text-blue-600'

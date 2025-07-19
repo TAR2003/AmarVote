@@ -24,8 +24,8 @@ const CreateElection = () => {
         electionPrivacy: "public",
         electionEligibility: "listed",
         voterEmails: [],
-        guardianNumber: "3",
-        quorumNumber: "3",
+        guardianNumber: "",
+        quorumNumber: "",
         guardianEmails: [],
         candidateNames: [""],
         partyNames: [""],
@@ -65,14 +65,26 @@ const CreateElection = () => {
         
         // If guardian number changes, auto-adjust quorum to be no more than the new guardian number
         if (name === 'guardianNumber') {
-            const guardianCount = parseInt(value);
-            const currentQuorum = parseInt(form.quorumNumber);
+            const guardianCount = parseInt(value) || 0;
+            const currentQuorum = parseInt(form.quorumNumber) || 0;
             
             setForm((prev) => ({ 
                 ...prev, 
                 [name]: value,
-                quorumNumber: currentQuorum > guardianCount ? guardianCount.toString() : prev.quorumNumber
+                // If current quorum is greater than new guardian count, reset quorum to guardian count
+                // If guardian count is 0, reset quorum to empty
+                quorumNumber: guardianCount === 0 ? "" : (currentQuorum > guardianCount ? guardianCount.toString() : prev.quorumNumber)
             }));
+        } else if (name === 'quorumNumber') {
+            // Validate quorum number
+            const quorumCount = parseInt(value) || 0;
+            const guardianCount = parseInt(form.guardianNumber) || 0;
+            
+            // Only allow valid quorum values
+            if (value === "" || (quorumCount > 0 && quorumCount <= guardianCount)) {
+                setForm((prev) => ({ ...prev, [name]: value }));
+            }
+            // If invalid, don't update the form
         } else {
             setForm((prev) => ({ ...prev, [name]: value }));
         }
@@ -218,8 +230,27 @@ const CreateElection = () => {
             return;
         }
 
-        if (form.guardianEmails.length === 0 || form.guardianEmails.length < parseInt(form.guardianNumber)) {
-            setError(`At least ${form.guardianNumber} guardian emails are required`);
+        // Enhanced guardian and quorum validation
+        const guardianCount = parseInt(form.guardianNumber) || 0;
+        const quorumCount = parseInt(form.quorumNumber) || 0;
+        
+        if (guardianCount <= 0) {
+            setError("Number of guardians must be at least 1");
+            return;
+        }
+        
+        if (quorumCount <= 0) {
+            setError("Quorum number must be at least 1");
+            return;
+        }
+        
+        if (quorumCount > guardianCount) {
+            setError(`Quorum number (${quorumCount}) cannot be greater than the number of guardians (${guardianCount})`);
+            return;
+        }
+
+        if (form.guardianEmails.length === 0 || form.guardianEmails.length < guardianCount) {
+            setError(`At least ${guardianCount} guardian emails are required`);
             return;
         }
 
@@ -501,46 +532,70 @@ const CreateElection = () => {
                         <label className="block text-gray-700 font-medium mb-2">
                             Number of Guardians <span className="text-red-500">*</span>
                         </label>
-                        <select
+                        <input
+                            type="number"
                             name="guardianNumber"
                             value={form.guardianNumber}
                             onChange={handleChange}
+                            min="1"
+                            max="20"
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            <option value="3">3 Guardians</option>
-                            <option value="5">5 Guardians</option>
-                            <option value="7">7 Guardians</option>
-                            <option value="9">9 Guardians</option>
-                        </select>
+                            placeholder="Enter number of guardians (1-20)"
+                        />
+                        <p className="text-sm text-gray-600 mt-1">
+                            Choose any number of guardians between 1 and 20. More guardians provide better security through distributed key management.
+                        </p>
                     </div>
                     
                     <div className="mb-4">
                         <label className="block text-gray-700 font-medium mb-2">
                             Quorum Threshold <span className="text-red-500">*</span>
                         </label>
-                        <select
+                        <input
+                            type="number"
                             name="quorumNumber"
                             value={form.quorumNumber}
                             onChange={handleChange}
+                            min="1"
+                            max={form.guardianNumber}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                        >
-                            {(() => {
-                                const guardianCount = parseInt(form.guardianNumber);
-                                const options = [];
-                                for (let i = 1; i <= guardianCount; i++) {
-                                    options.push(
-                                        <option key={i} value={i.toString()}>
-                                            {i} out of {guardianCount} guardians
-                                        </option>
-                                    );
-                                }
-                                return options;
-                            })()}
-                        </select>
+                            placeholder={`Enter quorum (1-${form.guardianNumber})`}
+                        />
                         <p className="text-sm text-gray-600 mt-1">
-                            Minimum number of guardians needed to decrypt the election results. 
+                            Minimum number of guardians needed to decrypt the election results (must be ≤ {form.guardianNumber}). 
                             This enables fault tolerance - if some guardians are unavailable, the election can still be decrypted.
                         </p>
+                        {/* Validation message */}
+                        {(() => {
+                            const guardianCount = parseInt(form.guardianNumber) || 0;
+                            const quorumCount = parseInt(form.quorumNumber) || 0;
+                            
+                            if (quorumCount > guardianCount && guardianCount > 0) {
+                                return (
+                                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                                        ⚠️ Quorum cannot be greater than the number of guardians ({guardianCount})
+                                    </div>
+                                );
+                            }
+                            
+                            if (quorumCount <= 0 && guardianCount > 0) {
+                                return (
+                                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                                        ⚠️ Quorum must be at least 1
+                                    </div>
+                                );
+                            }
+                            
+                            if (quorumCount > 0 && guardianCount > 0 && quorumCount <= guardianCount) {
+                                return (
+                                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
+                                        ✓ Valid quorum: {quorumCount} out of {guardianCount} guardians required
+                                    </div>
+                                );
+                            }
+                            
+                            return null;
+                        })()}
                     </div>
                     
                     <div className="mb-4">
