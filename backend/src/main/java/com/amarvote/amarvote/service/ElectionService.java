@@ -1,7 +1,10 @@
 package com.amarvote.amarvote.service;
 
+import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -47,6 +50,9 @@ public class ElectionService {
 
     @Autowired
     private UserRepository userRepository;
+
+    @Autowired
+    private ElectionGuardCryptoService cryptoService;
 
     @Autowired
     private GuardianRepository guardianRepository;
@@ -119,7 +125,9 @@ public class ElectionService {
             throw new IllegalArgumentException("Guardian emails and private keys count must match");
         }
 
-        // Send private key emails
+        // Encrypt private keys and send credential files via email
+        Map<String, String> guardianCredentials = new HashMap<>(); // Store credentials temporarily
+        
         for (int i = 0; i < guardianEmails.size(); i++) {
             String email = guardianEmails.get(i);
             String privateKey = guardianPrivateKeys.get(i);
@@ -128,7 +136,27 @@ public class ElectionService {
                 throw new RuntimeException("User not found for email: " + email);
             }
 
-            emailService.sendGuardianPrivateKeyEmail(email, election.getElectionTitle(), election.getElectionDescription(), privateKey, election.getElectionId());
+            try {
+                // Encrypt the guardian's private key using ElectionGuard microservice
+                System.out.println("Encrypting private key for guardian: " + email);
+                ElectionGuardCryptoService.EncryptionResult encryptionResult = cryptoService.encryptPrivateKey(privateKey);
+                
+                // Create credential file with encrypted data
+                Path credentialFile = cryptoService.createCredentialFile(email, election.getElectionId(), encryptionResult.getEncryptedData());
+                
+                // Send email with credential file attachment instead of plain private key
+                emailService.sendGuardianCredentialEmail(email, election.getElectionTitle(), election.getElectionDescription(), 
+                    credentialFile, election.getElectionId());
+                
+                // Store credentials for later saving in guardian record
+                guardianCredentials.put(email, encryptionResult.getCredentials());
+                
+                System.out.println("✅ Successfully encrypted and sent credentials for guardian: " + email);
+                
+            } catch (Exception e) {
+                System.err.println("❌ Failed to encrypt private key for guardian " + email + ": " + e.getMessage());
+                throw new RuntimeException("Failed to encrypt guardian private key for " + email, e);
+            }
         }
 
         System.out.println("Guardian Private Keys:");
@@ -178,6 +206,7 @@ public class ElectionService {
                     .partialDecryptedTally(null)
                     .proof(null)
                     .keyBackup(guardianDataJson)  // ✅ Fixed: Store string directly
+                    .credentials(guardianCredentials.get(email))  // ✅ Store encryption credentials
                     .build();
 
             guardianRepository.save(guardian);

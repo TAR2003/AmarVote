@@ -50,6 +50,7 @@ public class PartialDecryptionService {
     private final SubmittedBallotRepository submittedBallotRepository;
     private final CompensatedDecryptionRepository compensatedDecryptionRepository;
     private final ObjectMapper objectMapper;
+    private final ElectionGuardCryptoService cryptoService;
     
     @Autowired
     private WebClient webClient;
@@ -113,11 +114,33 @@ public class PartialDecryptionService {
                     .build();
             }
 
-            // 8. Call ElectionGuard microservice
+            // 8. ✅ NEW: Decrypt the encrypted_data from request using guardian's credentials
+            String guardianCredentials = guardian.getCredentials();
+            if (guardianCredentials == null || guardianCredentials.trim().isEmpty()) {
+                return CreatePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("Guardian credentials not found. Please contact the administrator.")
+                    .build();
+            }
+
+            String decryptedPrivateKey;
+            try {
+                System.out.println("Decrypting guardian credentials...");
+                decryptedPrivateKey = cryptoService.decryptPrivateKey(request.encrypted_data(), guardianCredentials);
+                System.out.println("Successfully decrypted guardian private key");
+            } catch (Exception e) {
+                System.err.println("Failed to decrypt guardian credentials: " + e.getMessage());
+                return CreatePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("Failed to decrypt guardian credentials. Please ensure you uploaded the correct credential file.")
+                    .build();
+            }
+
+            // 9. Call ElectionGuard microservice
             ElectionGuardPartialDecryptionRequest guardRequest = ElectionGuardPartialDecryptionRequest.builder()
                 .guardian_id(String.valueOf(guardian.getSequenceOrder()))
                 .guardian_data(guardian.getKeyBackup())
-                .private_key(request.key())
+                .private_key(decryptedPrivateKey)
                 .public_key(guardian.getGuardianPublicKey())
                 .polynomial(guardian.getGuardianPolynomial())
                 .party_names(partyNames)
@@ -136,15 +159,15 @@ public class PartialDecryptionService {
 
             System.out.println("Received response from ElectionGuard service:-- the response is: " + guardResponse);
 
-            // 9. Check if tally_share is null (invalid key)
+            // 10. Check if tally_share is null (invalid key)
             if (guardResponse.tally_share() == null) {
                 return CreatePartialDecryptionResponse.builder()
                     .success(false)
-                    .message("The key you provided was not right, please provide the right key")
+                    .message("The credentials you provided were not right, please provide the right credential file")
                     .build();
             }
 
-            // 10. Update guardian record with response data
+            // 11. Update guardian record with response data
             // ✅ Fixed: Store ballot_shares directly as string (no double serialization)
             System.out.println("Now we are moving to save ballot shares");
             String ballotSharesJson = guardResponse.ballot_shares(); // Store directly
@@ -159,8 +182,8 @@ public class PartialDecryptionService {
             guardianRepository.save(guardian);
             System.out.println("saving done ---");
 
-            // 11. Create compensated decryption shares for ALL other guardians
-            createCompensatedDecryptionShares(election, guardian, request.key());
+            // 12. Create compensated decryption shares for ALL other guardians
+            createCompensatedDecryptionShares(election, guardian, decryptedPrivateKey);
 
             return CreatePartialDecryptionResponse.builder()
                 .success(true)

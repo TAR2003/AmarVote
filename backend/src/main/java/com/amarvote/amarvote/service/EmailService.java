@@ -3,10 +3,12 @@ package com.amarvote.amarvote.service;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
+import org.springframework.core.io.FileSystemResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
@@ -46,6 +48,41 @@ public class EmailService {
         String subject = "🛡️ Your Guardian Private Key for Election: " + electionTitle;
         String htmlContent = loadGuardianPrivateKeyTemplate(electionTitle, electionDescription, privateKey, electionId);
         sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    /**
+     * Send guardian credential file via email with secure attachment
+     * @param toEmail Guardian's email address
+     * @param electionTitle Election title
+     * @param electionDescription Election description  
+     * @param credentialFilePath Path to the credential file containing encrypted data
+     * @param electionId Election ID
+     */
+    public void sendGuardianCredentialEmail(String toEmail, String electionTitle, String electionDescription, Path credentialFilePath, Long electionId) {
+        String subject = "🛡️ Your Guardian Credentials for Election: " + electionTitle;
+        String htmlContent = loadGuardianCredentialTemplate(electionTitle, electionDescription, electionId);
+        
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8"); // Enable multipart for attachments
+            
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true); // Enable HTML
+            helper.setFrom(fromEmail);
+            
+            // Attach the credential file
+            FileSystemResource file = new FileSystemResource(credentialFilePath.toFile());
+            helper.addAttachment("credentials.txt", file);
+            
+            mailSender.send(message);
+            
+            System.out.println("✅ Guardian credential email sent successfully to: " + toEmail);
+            
+        } catch (MessagingException e) {
+            System.err.println("❌ Failed to send guardian credential email to " + toEmail + ": " + e.getMessage());
+            throw new RuntimeException("Failed to send guardian credential email", e);
+        }
     }
 
     private void sendHtmlEmail(String toEmail, String subject, String htmlContent) {
@@ -93,6 +130,19 @@ public class EmailService {
             return html;
         } catch (IOException e) {
             throw new RuntimeException("Failed to load guardian private key email template", e);
+        }
+    }
+
+    private String loadGuardianCredentialTemplate(String electionTitle, String electionDescription, Long electionId) {
+        try {
+            ClassPathResource resource = new ClassPathResource("templates/GuardianCredentialEmail.html");
+            String html = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+            html = html.replace("{{ELECTION_TITLE}}", electionTitle);
+            html = html.replace("{{ELECTION_DESCRIPTION}}", electionDescription != null ? electionDescription : "");
+            html = html.replace("{{ELECTION_ID}}", electionId.toString());
+            return html;
+        } catch (IOException e) {
+            throw new RuntimeException("Failed to load guardian credential email template", e);
         }
     }
 }
