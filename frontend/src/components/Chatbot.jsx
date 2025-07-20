@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
+import rehypeRaw from 'rehype-raw';
+import remarkHtml from 'remark-html';
 import { 
   FiMessageCircle, 
   FiSend, 
@@ -187,6 +189,8 @@ const Chatbot = () => {
           {message.type === 'bot' ? (
             <div className="prose prose-sm prose-blue max-w-none">
               <ReactMarkdown
+                rehypePlugins={[rehypeRaw]}
+                remarkPlugins={[remarkHtml]}
                 components={{
                   h1: ({node, ...props}) => <h1 className="text-xl font-bold mt-4 mb-3 text-blue-800 border-b border-blue-200 pb-2" {...props} />,
                   h2: ({node, ...props}) => <h2 className="text-lg font-bold mt-4 mb-3 text-blue-700" {...props} />,
@@ -204,10 +208,36 @@ const Chatbot = () => {
                   code: ({node, inline, ...props}) => 
                     inline ? 
                       <code className="bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-sm font-mono" {...props} /> : 
-                      <pre className="bg-gray-100 p-3 rounded-md text-sm font-mono my-2 overflow-x-auto border border-gray-200" {...props} />
+                      <pre className="bg-gray-100 p-3 rounded-md text-sm font-mono my-2 overflow-x-auto border border-gray-200" {...props} />,
+                  // Add support for subscript and superscript
+                  sub: ({node, ...props}) => <sub className="text-xs" {...props} />,
+                  sup: ({node, ...props}) => <sup className="text-xs" {...props} />,
                 }}
               >
-                {message.content}
+                {/* Convert LaTeX-style Greek letters and underscore notation to proper HTML */}
+                {message.content
+                  .replace(/\\kappa/g, 'κ')
+                  .replace(/\\zeta/g, 'ζ')
+                  .replace(/\\gamma/g, 'γ')
+                  .replace(/\\alpha/g, 'α')
+                  .replace(/\\beta/g, 'β')
+                  .replace(/\\delta/g, 'δ')
+                  .replace(/\\epsilon/g, 'ε')
+                  .replace(/\\theta/g, 'θ')
+                  .replace(/\\lambda/g, 'λ')
+                  .replace(/\\mu/g, 'μ')
+                  .replace(/\\pi/g, 'π')
+                  .replace(/\\sigma/g, 'σ')
+                  .replace(/\\tau/g, 'τ')
+                  .replace(/\\phi/g, 'φ')
+                  .replace(/\\omega/g, 'ω')
+                  // Convert underscore notation to HTML subscripts
+                  .replace(/([a-zA-Zκζγαβδεθλμπστφω])_\{([^}]+)\}/g, '$1<sub>$2</sub>')
+                  .replace(/([a-zA-Zκζγαβδεθλμπστφω])_([a-zA-Z0-9κζγαβδεθλμπστφω])/g, '$1<sub>$2</sub>')
+                  // Convert caret notation to HTML superscripts  
+                  .replace(/([a-zA-Zκζγαβδεθλμπστφω])\^\{([^}]+)\}/g, '$1<sup>$2</sup>')
+                  .replace(/([a-zA-Zκζγαβδεθλμπστφω])\^([a-zA-Z0-9])/g, '$1<sup>$2</sup>')
+                }
               </ReactMarkdown>
             </div>
           ) : (
