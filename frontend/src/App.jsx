@@ -21,6 +21,8 @@ import ElectionPage from "./pages/ElectionPage";
 import AllElections from "./pages/AllElections";
 import LoadingScreen from "./pages/Loading";
 import Chatbot from "./components/Chatbot";
+import About from "./pages/About";
+import Features from "./pages/Features";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -69,6 +71,8 @@ function App() {
         <Route path="/hello" element={<Hello />} />
         <Route path="/" element={<Home />} />
         <Route path="/how-it-works" element={<HowItWorks />} />
+        <Route path="/about" element={<About />} />
+        <Route path="/features" element={<Features />} />
         <Route
           path="/login"
           element={
