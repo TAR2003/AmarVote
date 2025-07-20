@@ -32,6 +32,14 @@ public class JWTFilter extends OncePerRequestFilter {
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
 
+        String requestPath = request.getRequestURI();
+        
+        // Skip JWT processing for public routes
+        if (isPublicRoute(requestPath)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
         String jwtToken = null;
         String userEmail = null;
 
@@ -83,5 +91,27 @@ public class JWTFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+    
+    private boolean isPublicRoute(String requestPath) {
+        String[] publicPaths = {
+            "/api/auth/register",
+            "/api/auth/login", 
+            "/api/auth/session",
+            "/api/password/forgot-password",
+            "/api/password/create-password",
+            "/api/verify/send-code",
+            "/api/verify/verify-code",
+            "/api/test-deepseek",
+            "/api/health",
+            "/api/chatbot/"
+        };
+        
+        for (String path : publicPaths) {
+            if (requestPath.startsWith(path)) {
+                return true;
+            }
+        }
+        return false;
     }
 }
