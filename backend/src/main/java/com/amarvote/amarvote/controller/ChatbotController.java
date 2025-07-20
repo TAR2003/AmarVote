@@ -190,7 +190,7 @@ public class ChatbotController {
     private boolean isElectionGuardQuery(String message) {
         // ElectionGuard-specific terms from the requirements
         String[] electionGuardTerms = {
-            "electionguard", "guardian", "trustee", "key ceremony",
+            "electionguard", "guardian", "trustee", "key ceremony", "quorum",
             "ballot.*encrypt", "encryption.*algorithm", "decrypt", "partial.*decrypt",
             "zero.*knowledge.*proof", "chaum.*pedersen", "elgamal",
             "homomorphic.*encryption", "cryptographic", "verification.*ballot"
@@ -479,7 +479,15 @@ public class ChatbotController {
                 - Use proper indentation for sub-items
                 - Make sure all markdown syntax is correct and will render properly
                 
-                Provide clear, well-formatted responses using proper markdown. \
+                MATHEMATICAL NOTATION INSTRUCTIONS:
+                - For subscripts, use HTML tags: κ<sub>i</sub>, ζ<sub>i</sub>, a<sub>i,j</sub>
+                - For superscripts, use HTML tags: x<sup>2</sup>, a<sup>n</sup>
+                - Use actual Greek letters: κ, ζ, γ, α, β, δ, ε, θ, λ, μ, π, σ, τ, φ, ω
+                - Do NOT use underscore notation like κ_i or a_{i,j}
+                - Do NOT use caret notation like x^2
+                - Always use proper HTML subscript/superscript tags for mathematical expressions
+                
+                Provide clear, well-formatted responses using proper markdown and HTML mathematical notation. \
                 Be helpful, accurate, and focused on the user's question.""";
         
         messages.add(new ChatMessage("system", fullSystemPrompt));
