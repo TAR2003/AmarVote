@@ -201,7 +201,10 @@ public class ChatbotController {
             "what.*electionguard", "how.*electionguard.*work", "what.*guardian.*mean",
             "what.*key.*ceremony", "how.*ballot.*encrypt", "how.*decrypt",
             "what.*partial.*decrypt", "what.*zero.*knowledge.*proof",
-            "why.*verification", "how.*ballot.*verification"
+            "why.*verification", "how.*ballot.*verification","tell.*encrypt", 
+            "tell.*encryption", "explain.*encryption", "encryption.*technique", "what.*encryption.*technique",
+            "say.*encryption", "know.*encryption"
+
         };
         
         return containsAnyTerm(message, electionGuardTerms) ||
@@ -549,7 +552,7 @@ public class ChatbotController {
      * Extract election name from message (looking for quoted strings)
      */
     private String extractElectionName(String message) {
-        // Look for quoted election names
+        // Look for quoted election names (both single and double quotes)
         if (message.contains("\"")) {
             int start = message.indexOf("\"");
             int end = message.indexOf("\"", start + 1);
@@ -557,6 +560,31 @@ public class ChatbotController {
                 return message.substring(start + 1, end);
             }
         }
+        
+        if (message.contains("'")) {
+            int start = message.indexOf("'");
+            int end = message.indexOf("'", start + 1);
+            if (end > start) {
+                return message.substring(start + 1, end);
+            }
+        }
+        
+        // Look for patterns like "election named X", "election called X", etc.
+        String[] patterns = {
+            "election\\s+named\\s+([\\w\\s]+?)(?:\\s|$|\\?|\\.|,)",
+            "election\\s+called\\s+([\\w\\s]+?)(?:\\s|$|\\?|\\.|,)",
+            "election\\s+titled\\s+([\\w\\s]+?)(?:\\s|$|\\?|\\.|,)",
+            "for\\s+election\\s+([\\w\\s]+?)(?:\\s|$|\\?|\\.|,)"
+        };
+        
+        for (String pattern : patterns) {
+            java.util.regex.Pattern p = java.util.regex.Pattern.compile(pattern, java.util.regex.Pattern.CASE_INSENSITIVE);
+            java.util.regex.Matcher m = p.matcher(message);
+            if (m.find()) {
+                return m.group(1).trim();
+            }
+        }
+        
         return null;
     }
 

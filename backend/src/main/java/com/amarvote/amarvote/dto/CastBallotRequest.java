@@ -18,4 +18,17 @@ public class CastBallotRequest {
     
     @NotBlank(message = "Selected candidate is required")
     private String selectedCandidate;
+    
+    // Bot detection data (optional)
+    private BotDetectionData botDetection;
+    
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    @Builder
+    public static class BotDetectionData {
+        private Boolean isBot;
+        private String requestId;
+        private String timestamp;
+    }
 }

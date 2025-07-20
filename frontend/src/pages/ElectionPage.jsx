@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { electionApi } from '../utils/electionApi';
 import { timezoneUtils } from '../utils/timezoneUtils';
 import toast from 'react-hot-toast';
+import { load } from '@fingerprintjs/botd';
 import { 
   FiCalendar, 
   FiClock, 
@@ -1067,6 +1068,15 @@ export default function ElectionPage() {
   const [voteResult, setVoteResult] = useState(null);
   const [voteError, setVoteError] = useState(null);
   
+  // Bot detection state
+  const [botDetection, setBotDetection] = useState({ 
+    loading: true, 
+    isBot: false, 
+    error: null,
+    requestId: null,
+    timestamp: null
+  });
+  
   // Eligibility state
   const [eligibilityData, setEligibilityData] = useState(null);
   const [checkingEligibility, setCheckingEligibility] = useState(false);
@@ -1159,6 +1169,52 @@ export default function ElectionPage() {
       fetchElectionData();
     }
   }, [id]);
+
+  // Initialize bot detection on component mount
+  useEffect(() => {
+    console.log('🚀 [BOT DETECTION] Initializing bot detection for voting...');
+    
+    const initBotDetection = async () => {
+      try {
+        console.log('📡 [BOT DETECTION] Loading botD library...');
+        const botd = await load();
+        console.log('✅ [BOT DETECTION] BotD library loaded successfully');
+        
+        console.log('🔍 [BOT DETECTION] Running bot detection analysis...');
+        const result = await botd.detect();
+        
+        console.log('📊 [BOT DETECTION] Detection completed. Full result:', result);
+        console.log(`🤖 [BOT DETECTION] Is Bot: ${result.bot}`);
+        console.log(`📈 [BOT DETECTION] Request ID: ${result.requestId || 'Not available'}`);
+        
+        setBotDetection({
+          loading: false,
+          isBot: result.bot,
+          error: null,
+          requestId: result.requestId,
+          timestamp: new Date().toISOString()
+        });
+        
+        if (result.bot) {
+          console.warn('🚨 [BOT DETECTION] Bot detected during page load');
+        } else {
+          console.log('✅ [BOT DETECTION] Human user detected during page load');
+        }
+        
+      } catch (error) {
+        console.error('❌ [BOT DETECTION] Failed to initialize bot detection:', error);
+        setBotDetection({
+          loading: false,
+          isBot: false, // Default to false on error to not block legitimate users
+          error: error.message,
+          requestId: null,
+          timestamp: new Date().toISOString()
+        });
+      }
+    };
+
+    initBotDetection();
+  }, []); // Run once on component mount
 
   // Create tally function
   const createTallyForElection = async (electionId) => {
@@ -1379,15 +1435,50 @@ export default function ElectionPage() {
     setIsSubmitting(true);
     setVoteError(null);
     
+    console.log('🔍 [VOTING] Performing fresh bot detection before vote...');
+    
+    // Perform fresh bot detection before voting
+    let freshBotDetection = null;
+    try {
+      const botd = await load();
+      const result = await botd.detect();
+      
+      freshBotDetection = {
+        isBot: result.bot,
+        requestId: result.requestId,
+        timestamp: new Date().toISOString()
+      };
+      
+      console.log('🤖 [VOTING] Fresh bot detection result:', {
+        isBot: result.bot,
+        requestId: result.requestId
+      });
+      
+      if (result.bot) {
+        console.warn('🚨 [VOTING] Bot detected during vote attempt');
+        setVoteError('Security check failed. Automated voting is not allowed.');
+        setIsSubmitting(false);
+        return;
+      }
+      
+      console.log('✅ [VOTING] Fresh bot check passed');
+    } catch (error) {
+      console.error('⚠️ [VOTING] Fresh bot detection failed:', error);
+      // Continue with voting but without bot detection data
+      // This prevents legitimate users from being blocked due to technical issues
+    }
+    
     try {
       const selectedChoice = electionData.electionChoices.find(
         choice => choice.choiceId.toString() === selectedCandidate
       );
       
+      console.log('📤 [VOTING] Sending vote request with bot detection data...');
       const result = await electionApi.castBallot(
         id,
         selectedChoice.choiceId,
-        selectedChoice.optionTitle
+        selectedChoice.optionTitle,
+        freshBotDetection // Pass fresh bot detection data
       );
       
       // Store the voted candidate information with the result
@@ -1400,6 +1491,8 @@ export default function ElectionPage() {
       setSelectedCandidate('');
       setShowConfirmModal(false);
       
+      console.log('✅ [VOTING] Vote cast successfully');
+      
       // Update eligibility data to reflect that user has voted
       setEligibilityData(prev => ({
         ...prev,
@@ -1409,6 +1502,7 @@ export default function ElectionPage() {
         reason: 'Already voted'
       }));
     } catch (err) {
+      console.error('❌ [VOTING] Vote casting failed:', err);
       setVoteError(err.message);
     } finally {
       setIsSubmitting(false);
@@ -1887,6 +1981,69 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
               </div>
             )}
             
+            {/* Bot Detection Status */}
+            {activeTab === 'voting' && (
+              <div className={`border rounded-lg p-4 mb-6 ${
+                botDetection.loading 
+                  ? 'bg-gray-50 border-gray-200'
+                  : botDetection.error 
+                    ? 'bg-yellow-50 border-yellow-200'
+                    : botDetection.isBot 
+                      ? 'bg-red-50 border-red-200'
+                      : 'bg-green-50 border-green-200'
+              }`}>
+                <div className="flex items-center">
+                  {botDetection.loading ? (
+                    <FiLoader className="h-5 w-5 text-gray-500 mr-3 animate-spin" />
+                  ) : botDetection.error ? (
+                    <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-3" />
+                  ) : botDetection.isBot ? (
+                    <FiX className="h-5 w-5 text-red-500 mr-3" />
+                  ) : (
+                    <FiCheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                  )}
+                  <div>
+                    <h4 className={`font-medium ${
+                      botDetection.loading 
+                        ? 'text-gray-900'
+                        : botDetection.error 
+                          ? 'text-yellow-900'
+                          : botDetection.isBot 
+                            ? 'text-red-900'
+                            : 'text-green-900'
+                    }`}>
+                      {botDetection.loading 
+                        ? 'Running Security Check...'
+                        : botDetection.error 
+                          ? 'Security Check Warning'
+                          : botDetection.isBot 
+                            ? 'Security Check Failed'
+                            : 'Security Check Passed'
+                      }
+                    </h4>
+                    <p className={`text-xs ${
+                      botDetection.loading 
+                        ? 'text-gray-600'
+                        : botDetection.error 
+                          ? 'text-yellow-800'
+                          : botDetection.isBot 
+                            ? 'text-red-800'
+                            : 'text-green-800'
+                    }`}>
+                      {botDetection.loading 
+                        ? 'Verifying that you are not a bot...'
+                        : botDetection.error 
+                          ? `Security check encountered an issue: ${botDetection.error}`
+                          : botDetection.isBot 
+                            ? 'Automated access detected. Human verification required.'
+                            : 'Human user verified. You may proceed with voting.'
+                      }
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+            
             {/* Vote Success Result */}
             {voteResult && (
               <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
@@ -1996,9 +2153,44 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
               </div>
             )}
             
-            {/* Voting Form - Only Enabled if Eligible */}
+            {/* Voting Form - Only Enabled if Eligible and Bot Check Passed */}
             {!checkingEligibility && eligibilityData?.eligible && !voteResult && (
               <div className="max-w-2xl">
+                {/* Show warning if bot detection is still loading or failed */}
+                {(botDetection.loading || botDetection.isBot) && (
+                  <div className={`border rounded-lg p-4 mb-6 ${
+                    botDetection.loading 
+                      ? 'bg-blue-50 border-blue-200'
+                      : 'bg-red-50 border-red-200'
+                  }`}>
+                    <div className="flex items-center">
+                      {botDetection.loading ? (
+                        <FiLoader className="h-5 w-5 text-blue-500 mr-3 animate-spin" />
+                      ) : (
+                        <FiAlertCircle className="h-5 w-5 text-red-500 mr-3" />
+                      )}
+                      <div>
+                        <h4 className={`font-medium ${
+                          botDetection.loading ? 'text-blue-900' : 'text-red-900'
+                        }`}>
+                          {botDetection.loading 
+                            ? 'Please Wait - Security Check in Progress'
+                            : 'Voting Blocked - Security Check Failed'
+                          }
+                        </h4>
+                        <p className={`text-sm ${
+                          botDetection.loading ? 'text-blue-800' : 'text-red-800'
+                        }`}>
+                          {botDetection.loading 
+                            ? 'Voting will be enabled once the security check completes.'
+                            : 'Automated access detected. Please refresh the page and try again.'
+                          }
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+                
                 <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
                   <div className="flex items-center">
                     <FiInfo className="h-5 w-5 text-yellow-600 mr-2" />
@@ -2061,9 +2253,9 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                   <div className="flex justify-center">
                     <button
                       type="submit"
-                      disabled={!selectedCandidate || isSubmitting}
+                      disabled={!selectedCandidate || isSubmitting || botDetection.loading || botDetection.isBot}
                       className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${
-                        !selectedCandidate || isSubmitting
+                        !selectedCandidate || isSubmitting || botDetection.loading || botDetection.isBot
                           ? 'bg-gray-400 cursor-not-allowed'
                           : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
                       }`}
@@ -2072,6 +2264,16 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                         <div className="flex items-center space-x-2">
                           <FiLoader className="h-4 w-4 animate-spin" />
                           <span>Casting Vote...</span>
+                        </div>
+                      ) : botDetection.loading ? (
+                        <div className="flex items-center space-x-2">
+                          <FiLoader className="h-4 w-4 animate-spin" />
+                          <span>Security Check...</span>
+                        </div>
+                      ) : botDetection.isBot ? (
+                        <div className="flex items-center space-x-2">
+                          <FiX className="h-4 w-4" />
+                          <span>Voting Blocked</span>
                         </div>
                       ) : (
                         'Cast Vote'
