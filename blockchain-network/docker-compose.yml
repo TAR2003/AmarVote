@@ -1,0 +1,142 @@
+version: '2.4'
+
+volumes:
+  orderer.amarvote.com:
+  peer0.org1.amarvote.com:
+  peer1.org1.amarvote.com:
+
+networks:
+  amarvote_blockchain:
+    name: amarvote_blockchain
+
+services:
+  orderer.amarvote.com:
+    container_name: orderer.amarvote.com
+    image: hyperledger/fabric-orderer:2.4.7
+    environment:
+      - FABRIC_LOGGING_SPEC=INFO
+      - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+      - ORDERER_GENERAL_GENESISMETHOD=file
+      - ORDERER_GENERAL_GENESISFILE=/var/hyperledger/orderer/orderer.genesis.block
+      - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
+      - ORDERER_GENERAL_LOCALMSPDIR=/var/hyperledger/orderer/msp
+      - ORDERER_OPERATIONS_LISTENADDRESS=0.0.0.0:17050
+      - ORDERER_GENERAL_TLS_ENABLED=true
+      - ORDERER_GENERAL_TLS_PRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+      - ORDERER_GENERAL_TLS_CERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+      - ORDERER_GENERAL_TLS_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+      - ORDERER_GENERAL_CLUSTER_CLIENTCERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+      - ORDERER_GENERAL_CLUSTER_CLIENTPRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+      - ORDERER_GENERAL_CLUSTER_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric
+    command: orderer
+    volumes:
+      - ./artifacts/channel/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
+      - ./artifacts/channel/crypto-config/ordererOrganizations/amarvote.com/orderers/orderer.amarvote.com/msp:/var/hyperledger/orderer/msp
+      - ./artifacts/channel/crypto-config/ordererOrganizations/amarvote.com/orderers/orderer.amarvote.com/tls/:/var/hyperledger/orderer/tls
+      - orderer.amarvote.com:/var/hyperledger/production/orderer
+    ports:
+      - 7050:7050
+      - 17050:17050
+    networks:
+      - amarvote_blockchain
+
+  peer0.org1.amarvote.com:
+    container_name: peer0.org1.amarvote.com
+    image: hyperledger/fabric-peer:2.4.7
+    environment:
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=amarvote_blockchain
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_PROFILE_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_PEER_ID=peer0.org1.amarvote.com
+      - CORE_PEER_ADDRESS=peer0.org1.amarvote.com:7051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:7051
+      - CORE_PEER_CHAINCODEADDRESS=peer0.org1.amarvote.com:7052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:7052
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer1.org1.amarvote.com:8051
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.org1.amarvote.com:7051
+      - CORE_PEER_LOCALMSPID=Org1MSP
+      - CORE_OPERATIONS_LISTENADDRESS=0.0.0.0:17051
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./artifacts/channel/crypto-config/peerOrganizations/org1.amarvote.com/peers/peer0.org1.amarvote.com/msp:/etc/hyperledger/fabric/msp
+      - ./artifacts/channel/crypto-config/peerOrganizations/org1.amarvote.com/peers/peer0.org1.amarvote.com/tls:/etc/hyperledger/fabric/tls
+      - peer0.org1.amarvote.com:/var/hyperledger/production
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: peer node start
+    ports:
+      - 7051:7051
+      - 17051:17051
+    networks:
+      - amarvote_blockchain
+
+  peer1.org1.amarvote.com:
+    container_name: peer1.org1.amarvote.com
+    image: hyperledger/fabric-peer:2.4.7
+    environment:
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=amarvote_blockchain
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_PROFILE_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_PEER_ID=peer1.org1.amarvote.com
+      - CORE_PEER_ADDRESS=peer1.org1.amarvote.com:8051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:8051
+      - CORE_PEER_CHAINCODEADDRESS=peer1.org1.amarvote.com:8052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:8052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer1.org1.amarvote.com:8051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.org1.amarvote.com:7051
+      - CORE_PEER_LOCALMSPID=Org1MSP
+      - CORE_OPERATIONS_LISTENADDRESS=0.0.0.0:17052
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./artifacts/channel/crypto-config/peerOrganizations/org1.amarvote.com/peers/peer1.org1.amarvote.com/msp:/etc/hyperledger/fabric/msp
+      - ./artifacts/channel/crypto-config/peerOrganizations/org1.amarvote.com/peers/peer1.org1.amarvote.com/tls:/etc/hyperledger/fabric/tls
+      - peer1.org1.amarvote.com:/var/hyperledger/production
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: peer node start
+    ports:
+      - 8051:8051
+      - 17052:17052
+    networks:
+      - amarvote_blockchain
+
+  cli:
+    container_name: cli
+    image: hyperledger/fabric-tools:2.4.7
+    tty: true
+    stdin_open: true
+    environment:
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_ID=cli
+      - CORE_PEER_ADDRESS=peer0.org1.amarvote.com:7051
+      - CORE_PEER_LOCALMSPID=Org1MSP
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.amarvote.com/peers/peer0.org1.amarvote.com/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.amarvote.com/peers/peer0.org1.amarvote.com/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.amarvote.com/peers/peer0.org1.amarvote.com/tls/ca.crt
+      - CORE_PEER_MSPCONFIGPATH=/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/peerOrganizations/org1.amarvote.com/users/Admin@org1.amarvote.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: /bin/bash
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./chaincode/:/opt/gopath/src/github.com/chaincode
+      - ./artifacts/channel/crypto-config:/opt/gopath/src/github.com/hyperledger/fabric/peer/crypto/
+      - ./artifacts/channel:/opt/gopath/src/github.com/hyperledger/fabric/peer/channel-artifacts/
+      - ./scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+    depends_on:
+      - orderer.amarvote.com
+      - peer0.org1.amarvote.com
+      - peer1.org1.amarvote.com
+    networks:
+      - amarvote_blockchain

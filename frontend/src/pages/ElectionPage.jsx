@@ -3,6 +3,8 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { electionApi } from '../utils/electionApi';
 import { timezoneUtils } from '../utils/timezoneUtils';
 import toast from 'react-hot-toast';
+import { load } from '@fingerprintjs/botd';
+import BlockchainVerification from '../components/BlockchainVerification';
 import { 
   FiCalendar, 
   FiClock, 
@@ -242,7 +244,7 @@ const DataDisplay = ({ title, data, type = 'json' }) => {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
 // Ballots in Tally Section Component
-const BallotsInTallySection = ({ resultsData }) => {
+const BallotsInTallySection = ({ resultsData, electionId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredBallots, setFilteredBallots] = useState([]);
   const [sortBy, setSortBy] = useState('ballot_id'); // ballot_id, status, verification
@@ -531,6 +533,12 @@ const BallotsInTallySection = ({ resultsData }) => {
                   </div>
                 </div>
               </div>
+              
+              {/* Blockchain Verification Component */}
+              <BlockchainVerification 
+                ballot={ballot} 
+                electionId={electionId} 
+              />
             </div>
           );
         })}
@@ -2678,6 +2686,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                   {/* Render the ballots in tally section */}
                   <BallotsInTallySection 
                     resultsData={rawVerificationData}
+                    electionId={id}
                   />
                 </>
               );

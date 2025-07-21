@@ -282,4 +282,35 @@ export const electionApi = {
       throw error;
     }
   },
+
+  /**
+   * Verify a ballot on blockchain using Hyperledger Fabric
+   */
+  async verifyBallotOnBlockchain(electionId, trackingCode, ballotHash) {
+    try {
+      const response = await fetch('/api/blockchain/verify-ballot', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          electionId: electionId,
+          trackingCode: trackingCode,
+          ballotHash: ballotHash,
+          timestamp: new Date().toISOString()
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error verifying ballot on blockchain:', error);
+      throw error;
+    }
+  },
 };
