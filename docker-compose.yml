@@ -25,19 +25,19 @@ services:
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev  # Make sure this matches your filename
+      dockerfile: Dockerfile.dev # Make sure this matches your filename
     container_name: amarvote_frontend
     ports:
-      - "5173:5173"  # Only expose Vite port
+      - "5173:5173" # Only expose Vite port
     networks:
       election_net:
         ipv4_address: 172.20.0.40
     depends_on:
       - backend
     volumes:
-      - ./frontend:/app  # Mount source code
-      - /app/node_modules  # Preserve node_modules
-      - ./frontend/certs:/app/certs  # Mount certificates
+      - ./frontend:/app # Mount source code
+      - /app/node_modules # Preserve node_modules
+      - ./frontend/certs:/app/certs # Mount certificates
 
   electionguard:
     build: ./Microservice
@@ -64,21 +64,27 @@ services:
       - FLASK_DEBUG=False
       - RAG_SERVICE_PORT=5001
     volumes:
-      - ./backend/src/main/resources/pdf:/app/data  # Mount PDF directory
-      - rag_vectorstore:/app/vectorstore  # Persist vector store
+      - ./backend/src/main/resources/pdf:/app/data # Mount PDF directory
+      - rag_vectorstore:/app/vectorstore # Persist vector store
 
   hardhat:
-    
-    image: hardhat-network
     build:
       context: ./blockchain
       dockerfile: Dockerfile.hardhat
     container_name: hardhat_node
     ports:
       - "8545:8545"
+    volumes:
+      - hardhat_chaindata:/app/chaindata
     networks:
       election_net:
         ipv4_address: 172.20.0.60
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8545" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   blockchain-microservice:
     build:
@@ -88,18 +94,28 @@ services:
       - "5002:5002"
     environment:
       - HARDHAT_URL=http://hardhat:8545
-      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}  # You'll need to deploy the contract and set this
-      - PRIVATE_KEY=${PRIVATE_KEY}  # Private key of an account with ETH in Hardhat
+      - DEPLOYER_PRIVATE_KEY=0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80
+      - VOTER1_PRIVATE_KEY=0x59c6995e998f97a5a0044966f0945389dc9e86dae88c7a8412f4603b6b78690d
+      - VOTER2_PRIVATE_KEY=0x5de4111afa1a4b94908f83103eb1f1706367c2e68ca870fc3fb9a804cdab365a
+      - TEST_ELECTION_ID=test_election_2024
     networks:
       election_net:
         ipv4_address: 172.20.0.70
     depends_on:
-      - hardhat
+      hardhat:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:5002/health" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
 
 volumes:
   maven_repo:
   rag_vectorstore:
   hardhat_chaindata:
+
 
 networks:
   election_net:
