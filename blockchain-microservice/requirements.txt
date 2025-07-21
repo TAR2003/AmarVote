@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+web3>=7.0.0
+python-dotenv

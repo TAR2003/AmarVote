@@ -67,9 +67,39 @@ services:
       - ./backend/src/main/resources/pdf:/app/data  # Mount PDF directory
       - rag_vectorstore:/app/vectorstore  # Persist vector store
 
+  hardhat:
+    
+    image: hardhat-network
+    build:
+      context: ./blockchain
+      dockerfile: Dockerfile.hardhat
+    container_name: hardhat_node
+    ports:
+      - "8545:8545"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.60
+
+  blockchain-microservice:
+    build:
+      context: ./blockchain-microservice
+    container_name: blockchain_microservice
+    ports:
+      - "5002:5002"
+    environment:
+      - HARDHAT_URL=http://hardhat:8545
+      - CONTRACT_ADDRESS=${CONTRACT_ADDRESS}  # You'll need to deploy the contract and set this
+      - PRIVATE_KEY=${PRIVATE_KEY}  # Private key of an account with ETH in Hardhat
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.70
+    depends_on:
+      - hardhat
+
 volumes:
   maven_repo:
   rag_vectorstore:
+  hardhat_chaindata:
 
 networks:
   election_net:
