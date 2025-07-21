@@ -1,0 +1,12 @@
+# blockchain/Dockerfile.hardhat
+FROM node:18
+
+WORKDIR /app
+
+COPY package*.json ./
+RUN npm install
+
+COPY . .
+
+# Start Hardhat node with unlocked accounts for development
+CMD ["npx", "hardhat", "node", "--hostname", "0.0.0.0"]
