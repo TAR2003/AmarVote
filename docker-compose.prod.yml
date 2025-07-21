@@ -1,10 +1,146 @@
 version: '3.8'
 
 services:
+  # Blockchain Infrastructure - Hyperledger Fabric Network
+  orderer.amarvote.com:
+    container_name: orderer.amarvote.com
+    image: hyperledger/fabric-orderer:2.4.7
+    environment:
+      - FABRIC_LOGGING_SPEC=INFO
+      - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
+      - ORDERER_GENERAL_GENESISMETHOD=file
+      - ORDERER_GENERAL_GENESISFILE=/var/hyperledger/orderer/orderer.genesis.block
+      - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
+      - ORDERER_GENERAL_LOCALMSPDIR=/var/hyperledger/orderer/msp
+      - ORDERER_OPERATIONS_LISTENADDRESS=0.0.0.0:17050
+      - ORDERER_GENERAL_TLS_ENABLED=true
+      - ORDERER_GENERAL_TLS_PRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+      - ORDERER_GENERAL_TLS_CERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+      - ORDERER_GENERAL_TLS_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+      - ORDERER_GENERAL_CLUSTER_CLIENTCERTIFICATE=/var/hyperledger/orderer/tls/server.crt
+      - ORDERER_GENERAL_CLUSTER_CLIENTPRIVATEKEY=/var/hyperledger/orderer/tls/server.key
+      - ORDERER_GENERAL_CLUSTER_ROOTCAS=[/var/hyperledger/orderer/tls/ca.crt]
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric
+    command: orderer
+    volumes:
+      - ./blockchain-network/artifacts/channel/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
+      - ./blockchain-network/artifacts/channel/crypto-config/ordererOrganizations/amarvote.com/orderers/orderer.amarvote.com/msp:/var/hyperledger/orderer/msp
+      - ./blockchain-network/artifacts/channel/crypto-config/ordererOrganizations/amarvote.com/orderers/orderer.amarvote.com/tls/:/var/hyperledger/orderer/tls
+      - orderer_data:/var/hyperledger/production/orderer
+    ports:
+      - "7050:7050"
+      - "17050:17050"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.60
+    restart: unless-stopped
+
+  peer0.org1.amarvote.com:
+    container_name: peer0.org1.amarvote.com
+    image: hyperledger/fabric-peer:2.4.7
+    environment:
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=amarvote_election_net
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_PROFILE_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_PEER_ID=peer0.org1.amarvote.com
+      - CORE_PEER_ADDRESS=peer0.org1.amarvote.com:7051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:7051
+      - CORE_PEER_CHAINCODEADDRESS=peer0.org1.amarvote.com:7052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:7052
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer1.org1.amarvote.com:8051
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.org1.amarvote.com:7051
+      - CORE_PEER_LOCALMSPID=Org1MSP
+      - CORE_OPERATIONS_LISTENADDRESS=0.0.0.0:17051
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./blockchain-network/artifacts/channel/crypto-config/peerOrganizations/org1.amarvote.com/peers/peer0.org1.amarvote.com/msp:/etc/hyperledger/fabric/msp
+      - ./blockchain-network/artifacts/channel/crypto-config/peerOrganizations/org1.amarvote.com/peers/peer0.org1.amarvote.com/tls:/etc/hyperledger/fabric/tls
+      - peer0_data:/var/hyperledger/production
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: peer node start
+    ports:
+      - "7051:7051"
+      - "17051:17051"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.61
+    depends_on:
+      - orderer.amarvote.com
+    restart: unless-stopped
+
+  peer1.org1.amarvote.com:
+    container_name: peer1.org1.amarvote.com
+    image: hyperledger/fabric-peer:2.4.7
+    environment:
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - CORE_VM_DOCKER_HOSTCONFIG_NETWORKMODE=amarvote_election_net
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_TLS_ENABLED=true
+      - CORE_PEER_PROFILE_ENABLED=true
+      - CORE_PEER_TLS_CERT_FILE=/etc/hyperledger/fabric/tls/server.crt
+      - CORE_PEER_TLS_KEY_FILE=/etc/hyperledger/fabric/tls/server.key
+      - CORE_PEER_TLS_ROOTCERT_FILE=/etc/hyperledger/fabric/tls/ca.crt
+      - CORE_PEER_ID=peer1.org1.amarvote.com
+      - CORE_PEER_ADDRESS=peer1.org1.amarvote.com:8051
+      - CORE_PEER_LISTENADDRESS=0.0.0.0:8051
+      - CORE_PEER_CHAINCODEADDRESS=peer1.org1.amarvote.com:8052
+      - CORE_PEER_CHAINCODELISTENADDRESS=0.0.0.0:8052
+      - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer1.org1.amarvote.com:8051
+      - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.org1.amarvote.com:7051
+      - CORE_PEER_LOCALMSPID=Org1MSP
+      - CORE_OPERATIONS_LISTENADDRESS=0.0.0.0:17052
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./blockchain-network/artifacts/channel/crypto-config/peerOrganizations/org1.amarvote.com/peers/peer1.org1.amarvote.com/msp:/etc/hyperledger/fabric/msp
+      - ./blockchain-network/artifacts/channel/crypto-config/peerOrganizations/org1.amarvote.com/peers/peer1.org1.amarvote.com/tls:/etc/hyperledger/fabric/tls
+      - peer1_data:/var/hyperledger/production
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: peer node start
+    ports:
+      - "8051:8051"
+      - "17052:17052"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.62
+    depends_on:
+      - orderer.amarvote.com
+    restart: unless-stopped
+
+  # Blockchain Gateway Service
+  blockchain-gateway:
+    build:
+      context: ./blockchain-gateway
+      dockerfile: Dockerfile
+    container_name: blockchain_gateway
+    environment:
+      - NODE_ENV=production
+      - FABRIC_NETWORK_NAME=mychannel
+      - FABRIC_CHAINCODE_NAME=ballot-verification
+      - FABRIC_MSP_ID=Org1MSP
+      - FABRIC_PEER_ENDPOINT=peer0.org1.amarvote.com:7051
+    ports:
+      - "3001:3001"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.63
+    depends_on:
+      - peer0.org1.amarvote.com
+      - peer1.org1.amarvote.com
+    volumes:
+      - ./blockchain-network/artifacts/channel/crypto-config:/app/crypto-config:ro
+      - blockchain_wallets:/app/wallets
+    restart: unless-stopped
+
+  # Application Services
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile.dev
+      dockerfile: Dockerfile
     container_name: amarvote_backend
     ports:
       - "8080:8080"
@@ -13,13 +149,17 @@ services:
       - SPRING_DATASOURCE_USERNAME=${NEON_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${NEON_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - SPRING_DEVTOOLS_RESTART_ENABLED=true
-      - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
+      - SPRING_PROFILES_ACTIVE=production
+      - BLOCKCHAIN_GATEWAY_URL=http://blockchain-gateway:3001
+      - BLOCKCHAIN_ENABLED=true
     volumes:
       - maven_repo:/root/.m2
     networks:
       election_net:
         ipv4_address: 172.20.0.30
+    depends_on:
+      - blockchain-gateway
+    restart: unless-stopped
 
   frontend:
     build:
@@ -68,6 +208,10 @@ services:
 volumes:
   maven_repo:
   rag_vectorstore:
+  orderer_data:
+  peer0_data:
+  peer1_data:
+  blockchain_wallets:
 
 networks:
   election_net:

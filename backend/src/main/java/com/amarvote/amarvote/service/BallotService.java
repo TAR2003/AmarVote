@@ -61,6 +61,9 @@ public class BallotService {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private BlockchainService blockchainService;
+
     @Transactional
     public CastBallotResponse castBallot(CastBallotRequest request, String userEmail) {
         try {
@@ -183,10 +186,17 @@ public class BallotService {
                 .build();
             ballotRepository.save(ballot);
 
-            // 11. Update voter status
+            // 11. Record ballot to blockchain asynchronously
+            blockchainService.recordBallotToBlockchain(
+                election.getElectionId(),
+                ballotHashId,
+                guardResponse.getBallot_hash()
+            );
+
+            // 12. Update voter status
             updateVoterStatus(user.getUserId(), election);
 
-            // 12. Return success response
+            // 13. Return success response
             return CastBallotResponse.builder()
                 .success(true)
                 .message("Ballot cast successfully")
