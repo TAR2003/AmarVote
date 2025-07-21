@@ -14,7 +14,6 @@
     "test:watch": "vitest --watch"
   },
   "dependencies": {
-    "@fingerprintjs/botd": "^1.9.1",
     "axios": "^1.9.0",
     "file-saver": "^2.0.5",
     "html2canvas": "^1.4.1",
