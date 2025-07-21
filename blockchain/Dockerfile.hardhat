@@ -8,5 +8,27 @@ RUN npm install
 
 COPY . .
 
-# Start Hardhat node with unlocked accounts for development
-CMD ["npx", "hardhat", "node", "--hostname", "0.0.0.0"]
+RUN npx hardhat compile
+
+# Create startup script
+RUN echo '#!/bin/bash\n\
+    echo "Starting Hardhat node..."\n\
+    npx hardhat node --hostname 0.0.0.0 &\n\
+    HARDHAT_PID=$!\n\
+    \n\
+    # Wait for Hardhat to start\n\
+    echo "Waiting for Hardhat node to start..."\n\
+    sleep 10\n\
+    \n\
+    # Deploy contracts\n\
+    echo "Deploying contracts..."\n\
+    npx hardhat run scripts/deploy.js --network localhost\n\
+    \n\
+    # Keep Hardhat running\n\
+    echo "Setup complete, keeping node running..."\n\
+    wait $HARDHAT_PID\n\
+    ' > /app/start.sh && chmod +x /app/start.sh
+
+EXPOSE 8545
+
+CMD ["/app/start.sh"]
