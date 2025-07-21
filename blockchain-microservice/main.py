@@ -30,6 +30,12 @@ account: LocalAccount = Account.from_key(private_key)
 
 # Load contract
 contract_address = os.getenv("CONTRACT_ADDRESS")
+if not contract_address:
+    raise RuntimeError("Contract address not configured in environment variables")
+
+# Ensure contract address is a valid checksum address
+contract_address = w3.to_checksum_address(contract_address)
+
 abi_path = os.path.join(os.path.dirname(__file__), "BallotTracker.json")
 
 with open(abi_path) as f:
@@ -39,8 +45,20 @@ print("Loaded contract ABI:")
 for entry in contract_abi:
     print(entry)
 
+# Verify Web3 connection
+if not w3.is_connected():
+    raise RuntimeError("Failed to connect to Hardhat node")
+
 contract = w3.eth.contract(address=contract_address, abi=contract_abi)
 print("Available contract functions:", list(contract.functions))
+
+# Test basic connectivity by getting record count
+try:
+    record_count = contract.functions.getRecordCount().call({'from': account.address})
+    print(f"Contract is accessible. Current record count: {record_count}")
+except Exception as e:
+    print(f"Warning: Contract accessibility test failed: {e}")
+    print("This might indicate deployment or connection issues")
 
 class BallotRecord(BaseModel):
     election_id: str
@@ -99,58 +117,151 @@ async def record_ballot(record: BallotRecord):
 async def verify_ballot(request: VerifyRequest):
     try:
         print(f"Calling verifyBallot with: election_id={request.election_id}, tracking_code={request.tracking_code}, ballot_hash={request.ballot_hash}")
+        
         # Check if function exists in contract
         if not hasattr(contract.functions, "verifyBallot"):
             raise HTTPException(status_code=500, detail="verifyBallot function not found in contract ABI.")
+        
+        # First check if Web3 is still connected
+        if not w3.is_connected():
+            raise HTTPException(status_code=500, detail="Connection to blockchain node lost.")
+        
+        # Verify contract is deployed and accessible
         try:
+            # Try a simple call first to ensure contract is accessible
+            record_count = contract.functions.getRecordCount().call({'from': account.address})
+            print(f"Contract is accessible. Record count: {record_count}")
+        except Exception as connectivity_error:
+            print(f"Contract connectivity test failed: {connectivity_error}")
+            raise HTTPException(status_code=500, detail=f"Contract not accessible: {str(connectivity_error)}")
+        
+        # First try the direct contract verifyBallot function with simpler call
+        try:
+            # Try without specifying gas limit first
             result = contract.functions.verifyBallot(
                 request.election_id,
                 request.tracking_code,
                 request.ballot_hash
             ).call()
+            print(f"verifyBallot result: {result}")
+            
+            if isinstance(result, (list, tuple)) and len(result) == 2:
+                verified, timestamp = result
+                if verified:
+                    return {
+                        "verified": True,
+                        "timestamp": timestamp,
+                        "election_id": request.election_id,
+                        "tracking_code": request.tracking_code,
+                        "ballot_hash": request.ballot_hash
+                    }
+                else:
+                    # Contract verified that ballot doesn't exist, return 404 as expected
+                    raise HTTPException(
+                        status_code=404, 
+                        detail="Ballot not found or verification failed. Please check your tracking code and ballot hash."
+                    )
         except Exception as contract_error:
             print(f"verifyBallot contract call error: {contract_error}")
-            raise HTTPException(status_code=404, detail="Ballot not found or verification failed. Please check your tracking code and ballot hash.")
-
-        print(f"verifyBallot result: {result}")
-        if not isinstance(result, (list, tuple)) or len(result) != 2:
-            raise HTTPException(status_code=500, detail="Unexpected contract return value.")
-        verified, timestamp = result
-        if not verified:
-            return {
-                "verified": False,
-                "message": "Ballot not verified. It may not exist or the hash does not match.",
-                "election_id": request.election_id,
-                "tracking_code": request.tracking_code,
-                "ballot_hash": request.ballot_hash
-            }
-        return {
-            "verified": True,
-            "timestamp": timestamp,
-            "election_id": request.election_id,
-            "tracking_code": request.tracking_code,
-            "ballot_hash": request.ballot_hash
-        }
-    except HTTPException as he:
-        raise he
+            # Contract call failed, try manual verification as fallback
+            
+        # Fallback: Manual verification by iterating through records
+        try:
+            record_count = contract.functions.getRecordCount().call({'from': account.address})
+            print(f"Attempting manual verification with {record_count} records")
+            
+            for i in range(record_count):
+                try:
+                    record = contract.functions.getBallotRecord(i).call({'from': account.address})
+                    election_id, tracking_code, ballot_hash, timestamp = record
+                    if (election_id == request.election_id and 
+                        tracking_code == request.tracking_code and 
+                        ballot_hash == request.ballot_hash):
+                        return {
+                            "verified": True,
+                            "timestamp": timestamp,
+                            "election_id": request.election_id,
+                            "tracking_code": request.tracking_code,
+                            "ballot_hash": request.ballot_hash
+                        }
+                except Exception as record_error:
+                    print(f"Error reading record {i}: {record_error}")
+                    continue
+            
+            # If we get here, ballot was not found through manual verification
+            raise HTTPException(
+                status_code=404, 
+                detail="Ballot not found or verification failed. Please check your tracking code and ballot hash."
+            )
+        except HTTPException:
+            # Re-raise HTTPException as is
+            raise
+        except Exception as fallback_error:
+            print(f"Fallback verification also failed: {fallback_error}")
+            raise HTTPException(status_code=500, detail=f"Verification system error: {str(fallback_error)}")
+            
+    except HTTPException:
+        # Re-raise HTTPException as is
+        raise
     except Exception as e:
         print(f"verifyBallot error: {e}")
-        raise HTTPException(status_code=400, detail=f"Verification failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Verification failed: {str(e)}")
 
 @app.get("/record-count")
 async def get_record_count():
     try:
-        count = contract.functions.getRecordCount().call()
+        count = contract.functions.getRecordCount().call({'from': account.address})
         return {"count": count}
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to get record count: {str(e)}")
 
+@app.get("/debug/records")
+async def get_all_records():
+    """Debug endpoint to list all records"""
+    try:
+        count = contract.functions.getRecordCount().call({'from': account.address})
+        records = []
+        for i in range(count):
+            try:
+                record = contract.functions.getBallotRecord(i).call({'from': account.address})
+                election_id, tracking_code, ballot_hash, timestamp = record
+                records.append({
+                    "index": i,
+                    "election_id": election_id,
+                    "tracking_code": tracking_code,
+                    "ballot_hash": ballot_hash,
+                    "timestamp": timestamp
+                })
+            except Exception as e:
+                records.append({
+                    "index": i,
+                    "error": str(e)
+                })
+        return {
+            "total_count": count,
+            "records": records
+        }
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to get records: {str(e)}")
+
 @app.get("/health")
 async def health_check():
-    return {
-        "status": "healthy",
-        "connected": w3.is_connected(),
-        "contract_initialized": contract_address is not None,
-        "latest_block": w3.eth.block_number,
-        "chain_id": w3.eth.chain_id
-    }
+    try:
+        # Test contract connectivity
+        record_count = contract.functions.getRecordCount().call({'from': account.address})
+        return {
+            "status": "healthy",
+            "connected": w3.is_connected(),
+            "contract_initialized": contract_address is not None,
+            "latest_block": w3.eth.block_number,
+            "chain_id": w3.eth.chain_id,
+            "contract_address": contract_address,
+            "record_count": record_count
+        }
+    except Exception as e:
+        return {
+            "status": "unhealthy",
+            "connected": w3.is_connected(),
+            "contract_initialized": contract_address is not None,
+            "error": str(e)
+        }
