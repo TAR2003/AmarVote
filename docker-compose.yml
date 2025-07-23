@@ -16,6 +16,8 @@ services:
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
       - RAG_SERVICE_URL=http://rag-service:5001
+      - BLOCKCHAIN_SERVICE_URL=http://voting-api:5002
+      - MASTER_KEY_PQ=${MASTER_KEY_PQ}
     volumes:
       - maven_repo:/root/.m2
     networks:
