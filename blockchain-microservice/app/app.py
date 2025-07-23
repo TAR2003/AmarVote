@@ -101,6 +101,87 @@ def health_check():
         'contract_address': contract_address
     })
 
+@app.route('/create-election', methods=['POST'])
+def create_election():
+    """Create a new election on the blockchain"""
+    
+    # Check if blockchain is initialized
+    if not w3 or not voting_contract or not owner_account:
+        return jsonify({
+            'status': 'error', 
+            'message': 'Blockchain not properly initialized'
+        }), 503
+    
+    # Validate request data
+    if not request.is_json:
+        return jsonify({
+            'status': 'error', 
+            'message': 'Request must be JSON'
+        }), 400
+    
+    data = request.get_json()
+    election_id = data.get('election_id')
+    
+    # Validate required fields
+    if not election_id:
+        return jsonify({
+            'status': 'error',
+            'message': 'Missing required field: election_id'
+        }), 400
+    
+    # Validate field type and length
+    if not isinstance(election_id, str) or len(election_id.strip()) == 0:
+        return jsonify({
+            'status': 'error',
+            'message': 'election_id must be a non-empty string'
+        }), 400
+    
+    try:
+        # Check if election already exists
+        exists = voting_contract.functions.checkElectionExists(election_id.strip()).call()
+        if exists:
+            return jsonify({
+                'status': 'error',
+                'message': 'Election already exists'
+            }), 400
+        
+        # Create election on blockchain
+        tx_hash = voting_contract.functions.createElection(
+            election_id.strip()
+        ).transact({'from': owner_account})
+        
+        # Wait for transaction confirmation
+        receipt = w3.eth.wait_for_transaction_receipt(tx_hash)
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Election created successfully',
+            'election_id': election_id.strip(),
+            'transaction_hash': tx_hash.hex(),
+            'block_number': receipt.blockNumber,
+            'timestamp': int(time.time())
+        }), 201
+        
+    except ValueError as e:
+        # Handle contract revert errors
+        error_msg = str(e)
+        if 'revert' in error_msg.lower():
+            return jsonify({
+                'status': 'error',
+                'message': f'Contract error: {error_msg}'
+            }), 400
+        else:
+            return jsonify({
+                'status': 'error',
+                'message': f'Transaction error: {error_msg}'
+            }), 500
+            
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Unexpected error: {str(e)}'
+        }), 500
+
 @app.route('/record-ballot', methods=['POST'])
 def record_ballot():
     """Record a ballot on the blockchain (backend only)"""
@@ -151,6 +232,14 @@ def record_ballot():
         }), 400
     
     try:
+        # Check if election exists
+        exists = voting_contract.functions.checkElectionExists(election_id.strip()).call()
+        if not exists:
+            return jsonify({
+                'status': 'error',
+                'message': 'Election does not exist. Please create the election first.'
+            }), 400
+        
         # Record ballot on blockchain
         tx_hash = voting_contract.functions.recordBallot(
             election_id.strip(), 
@@ -257,9 +346,9 @@ def verify_ballot():
             'message': f'Error verifying ballot: {str(e)}'
         }), 500
 
-@app.route('/ballot/<tracking_code>', methods=['GET'])
-def get_ballot_info(tracking_code):
-    """Get ballot information by tracking code (public endpoint)"""
+@app.route('/ballot/<election_id>/<tracking_code>', methods=['GET'])
+def get_ballot_info(election_id, tracking_code):
+    """Get ballot information by election ID and tracking code (public endpoint)"""
     
     # Check if blockchain is initialized
     if not w3 or not voting_contract:
@@ -267,6 +356,12 @@ def get_ballot_info(tracking_code):
             'status': 'error', 
             'message': 'Blockchain not properly initialized'
         }), 503
+    
+    if not election_id or len(election_id.strip()) == 0:
+        return jsonify({
+            'status': 'error',
+            'message': 'election_id must be a non-empty string'
+        }), 400
     
     if not tracking_code or len(tracking_code.strip()) == 0:
         return jsonify({
@@ -276,7 +371,8 @@ def get_ballot_info(tracking_code):
     
     try:
         # Get ballot information from blockchain
-        election_id, ballot_hash, timestamp, exists = voting_contract.functions.getBallotByTrackingCode(
+        election_id_result, ballot_hash, timestamp, exists = voting_contract.functions.getBallotByTrackingCode(
+            election_id.strip(),
             tracking_code.strip()
         ).call()
         
@@ -288,7 +384,7 @@ def get_ballot_info(tracking_code):
         
         result = {
             'exists': exists,
-            'election_id': election_id,
+            'election_id': election_id_result,
             'ballot_hash': ballot_hash,
             'timestamp': timestamp,
             'tracking_code': tracking_code.strip()
@@ -305,5 +401,62 @@ def get_ballot_info(tracking_code):
             'message': f'Error retrieving ballot: {str(e)}'
         }), 500
 
+@app.route('/get-logs/<election_id>', methods=['GET'])
+def get_election_logs(election_id):
+    """Get all logs for an election (public endpoint)"""
+    
+    # Check if blockchain is initialized
+    if not w3 or not voting_contract:
+        return jsonify({
+            'status': 'error', 
+            'message': 'Blockchain not properly initialized'
+        }), 503
+    
+    if not election_id or len(election_id.strip()) == 0:
+        return jsonify({
+            'status': 'error',
+            'message': 'election_id must be a non-empty string'
+        }), 400
+    
+    try:
+        # Check if election exists
+        exists = voting_contract.functions.checkElectionExists(election_id.strip()).call()
+        if not exists:
+            return jsonify({
+                'status': 'error',
+                'message': 'Election does not exist'
+            }), 404
+        
+        # Get election logs from blockchain
+        messages, timestamps = voting_contract.functions.getElectionLogs(
+            election_id.strip()
+        ).call()
+        
+        # Format logs
+        logs = []
+        for i in range(len(messages)):
+            logs.append({
+                'message': messages[i],
+                'timestamp': timestamps[i],
+                'formatted_time': time.strftime('%Y-%m-%d %H:%M:%S UTC', time.gmtime(timestamps[i]))
+            })
+        
+        result = {
+            'election_id': election_id.strip(),
+            'log_count': len(logs),
+            'logs': logs
+        }
+        
+        return jsonify({
+            'status': 'success',
+            'result': result
+        }), 200
+        
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': f'Error retrieving election logs: {str(e)}'
+        }), 500
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000)
+    app.run(host='0.0.0.0', port=5002)
