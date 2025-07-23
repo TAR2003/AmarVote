@@ -6,7 +6,8 @@
 **Status:** 🟢 FULLY OPERATIONAL  
 **Tests Passed:** 5/5 ✅
 
-### Test Details:
+### Test Details
+
 1. ✅ **Health Check**: System status verified - blockchain connected, contract loaded
 2. ✅ **Ballot Recording**: Successfully recorded ballot to blockchain with transaction hash
 3. ✅ **Ballot Verification**: Verified recorded ballot with correct timestamp
@@ -16,6 +17,7 @@
 ## 🚀 System Components
 
 ### Ganache Blockchain
+
 - **Status:** Running ✅
 - **Port:** 8545
 - **Network ID:** 1337
@@ -23,42 +25,172 @@
 - **Mnemonic:** abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
 
 ### Smart Contract  
+
 - **Status:** Deployed ✅
 - **Address:** 0x39529fdA4CbB4f8Bfca2858f9BfAeb28B904Adc0
 - **Contract:** VotingContract.sol (Solidity 0.8.19)
 - **Owner Account:** 0x9858EfFD232B4033E47d90003D41EC34EcaEda94
 
 ### Flask API
-- **Status:** Running ✅ 
-- **Port:** 5000
-- **Health Endpoint:** http://localhost:5000/health
+
+- **Status:** Running ✅
+- **Port:** 5002
+- **Health Endpoint:** <http://localhost:5002/health>
 - **Endpoints:** 4 total (health, record-ballot, verify-ballot, ballot info)
 
 ## 📋 API Endpoints (Tested & Working)
 
-### 1. Health Check ✅
+---
+
+### API Endpoints (Current)
+
+#### 1. Health Check
+
+**Request:**
+
 ```bash
-GET http://localhost:5000/health
-Response: {"blockchain":"connected","contract":"loaded","contract_address":"0x39529...","status":"healthy"}
+GET http://localhost:5002/health
 ```
 
-### 2. Record Ballot ✅
-```bash
-POST http://localhost:5000/record-ballot
-Body: {"election_id":"test-election-2024","tracking_code":"TRK123","ballot_hash":"abc123..."}
-Response: {"status":"success","message":"Ballot recorded successfully","transaction_hash":"0x6452...","block_number":5,"timestamp":1753202970}
+**Response:**
+
+```json
+{
+  "blockchain": "connected",
+  "contract": "loaded",
+  "contract_address": "0x39529fdA4CbB4f8Bfca2858f9BfAeb28B904Adc0"
+}
 ```
 
-### 3. Verify Ballot ✅
+#### 2. Create Election
+
+**Request:**
+
 ```bash
-GET http://localhost:5000/verify-ballot?election_id=test-election-2024&tracking_code=TRK123&ballot_hash=abc123...
-Response: {"status":"success","result":{"exists":true,"timestamp":1753202969,...}}
+POST http://localhost:5002/create-election
+Content-Type: application/json
+Body:
+{
+  "election_id": "test-election-2024"
+}
 ```
 
-### 4. Get Ballot Info ✅
+**Response:**
+
+```json
+{
+  "status": "success",
+  "message": "Election created successfully",
+  "election_id": "test-election-2024",
+  "transaction_hash": "0x6452a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0",
+  "block_number": 5,
+  "timestamp": 1753202970
+}
+```
+
+3. **Record Ballot**
+
+Request:
+
 ```bash
-GET http://localhost:5000/ballot/TRK123
-Response: {"status":"success","result":{"exists":true,"election_id":"test-election-2024",...}}
+POST http://localhost:5002/record-ballot
+Content-Type: application/json
+Body:
+{
+  "election_id": "test-election-2024",
+  "tracking_code": "TRK123",
+  "ballot_hash": "abc123def456"
+}
+```
+
+Response:
+
+```json
+{
+  "status": "success",
+  "message": "Ballot recorded successfully",
+  "transaction_hash": "0x6452a1b2c3d4e5f6a7b8c9d0e1f2a3b4c5d6e7f8a9b0c1d2e3f4a5b6c7d8e9f0",
+  "block_number": 6,
+  "timestamp": 1753202980
+}
+```
+
+4. **Verify Ballot**
+
+Request:
+
+```bash
+GET http://localhost:5002/verify-ballot?election_id=test-election-2024&tracking_code=TRK123&ballot_hash=abc123def456
+```
+
+Response:
+
+```json
+{
+  "status": "success",
+  "result": {
+    "exists": true,
+    "timestamp": 1753202980,
+    "election_id": "test-election-2024",
+    "tracking_code": "TRK123",
+    "ballot_hash": "abc123def456"
+  }
+}
+```
+
+5. **Get Ballot Info**
+
+Request:
+
+```bash
+GET http://localhost:5002/ballot/test-election-2024/TRK123
+```
+
+Response:
+
+```json
+{
+  "status": "success",
+  "result": {
+    "exists": true,
+    "election_id": "test-election-2024",
+    "ballot_hash": "abc123def456",
+    "timestamp": 1753202980,
+    "tracking_code": "TRK123"
+  }
+}
+```
+
+6. **Get Election Logs**
+
+Request:
+
+```bash
+GET http://localhost:5002/get-logs/test-election-2024
+```
+
+Response:
+
+```json
+{
+  "status": "success",
+  "result": {
+    "election_id": "test-election-2024",
+    "log_count": 2,
+    "logs": [
+      {
+        "message": "Election created",
+        "timestamp": 1753202970,
+        "formatted_time": "2025-07-22 12:02:50 UTC"
+      },
+      {
+        "message": "Ballot recorded",
+        "timestamp": 1753202980,
+        "formatted_time": "2025-07-22 12:03:00 UTC"
+      }
+    ]
+  }
+}
 ```
 
 ## 🔧 Start Commands (Verified Working)

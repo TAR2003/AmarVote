@@ -186,7 +186,7 @@ export default function Login({ setUserEmail }) {
                       Signing in...
                     </span>
                   ) : (
-                    "Sign in"
+                    "Log in"
                   )}
                 </button>
               </div>
