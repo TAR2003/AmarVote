@@ -282,4 +282,64 @@ export const electionApi = {
       throw error;
     }
   },
+
+  /**
+   * Get blockchain logs for an election
+   */
+  async getBlockchainLogs(electionId) {
+    try {
+      const response = await fetch(`/api/blockchain/logs/${electionId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        // If response is not JSON, fallback to text
+        const text = await response.text();
+        throw new Error(text || 'Unknown error (non-JSON response)');
+      }
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+      return data;
+    } catch (error) {
+      console.error('Error fetching blockchain logs:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Verify a ballot on the blockchain
+   */
+  async verifyBallotOnBlockchainAPI(electionId, trackingCode) {
+    try {
+      const response = await fetch(`/api/blockchain/ballot/${electionId}/${trackingCode}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      let data;
+      try {
+        data = await response.json();
+      } catch (jsonError) {
+        // If response is not JSON, fallback to text
+        const text = await response.text();
+        throw new Error(text || 'Unknown error (non-JSON response)');
+      }
+      if (!response.ok || !data.success) {
+        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      }
+      return data;
+    } catch (error) {
+      console.error('Error verifying ballot on blockchain:', error);
+      throw error;
+    }
+  },
 };
