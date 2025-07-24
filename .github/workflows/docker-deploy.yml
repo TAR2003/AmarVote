@@ -109,26 +109,24 @@ jobs:
 
       - name: Clean up existing deployment and volumes
         run: |
-          # Stop and remove containers
-          docker compose -f docker-compose.prod.yml down --remove-orphans --volumes || true
+          # Stop all containers
+          docker stop $(docker ps -aq) || true
           
-          # Remove existing volumes to avoid conflicts
-          docker volume rm $(docker volume ls -q | grep -E "maven_repo|rag_vectorstore|contract_artifacts|voting_data") || true
+          # Remove all containers
+          docker rm $(docker ps -aq) || true
           
-          # Clean up unused images and build cache
-          docker system prune -f || true
+          # Remove all volumes
+          docker volume rm $(docker volume ls -q) || true
+          
+          # Clean up everything
+          docker system prune -af --volumes || true
 
       - name: Deploy with docker-compose
         run: |
-          # Create volumes first
-          docker volume create maven_repo || true
-          docker volume create rag_vectorstore || true
-          docker volume create contract_artifacts || true
-          docker volume create voting_data || true
-          
-          # Build and start services
-          docker compose -f docker-compose.prod.yml build
-          docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
+          # Deploy with automatic volume recreation and no prompts
+          export COMPOSE_IGNORE_ORPHANS=1
+          echo "y" | docker compose -f docker-compose.prod.yml up -d --build --force-recreate --renew-anon-volumes || \
+          docker compose -f docker-compose.prod.yml up -d --build --force-recreate --renew-anon-volumes
 
       - name: Verify deployment
         run: |
