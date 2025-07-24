@@ -106,13 +106,29 @@ jobs:
           "sudo mkdir -p /opt/amarvote/{maven_repo,rag_vectorstore,contracts,voting_data} && \
           sudo chown -R ${{ secrets.AZURE_VM_USERNAME }}:${{ secrets.AZURE_VM_USERNAME }} /opt/amarvote && \
           sudo chmod -R 755 /opt/amarvote"
+
+      - name: Clean up existing deployment and volumes
+        run: |
+          # Stop and remove containers
+          docker compose -f docker-compose.prod.yml down --remove-orphans --volumes || true
           
+          # Remove existing volumes to avoid conflicts
+          docker volume rm $(docker volume ls -q | grep -E "maven_repo|rag_vectorstore|contract_artifacts|voting_data") || true
+          
+          # Clean up unused images and build cache
+          docker system prune -f || true
+
       - name: Deploy with docker-compose
         run: |
+          # Create volumes first
           docker volume create maven_repo || true
-          docker compose -f docker-compose.prod.yml down --remove-orphans || true
+          docker volume create rag_vectorstore || true
+          docker volume create contract_artifacts || true
+          docker volume create voting_data || true
+          
+          # Build and start services
           docker compose -f docker-compose.prod.yml build
-          docker compose -f docker-compose.prod.yml up -d --force-recreate
+          docker compose -f docker-compose.prod.yml up -d --force-recreate --remove-orphans
 
       - name: Verify deployment
         run: |
