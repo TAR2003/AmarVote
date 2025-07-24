@@ -405,9 +405,7 @@ public class ElectionController {
             BlockchainLogsResponse response = blockchainService.getElectionLogs(electionId);
             
             if (response.isSuccess()) {
-                System.out.println("✅ Successfully retrieved " + 
-                    (response.getResult() != null && response.getResult().getLogs() != null ? 
-                        response.getResult().getLogs().size() : 0) + 
+                System.out.println("✅ Successfully retrieved " +
                     " blockchain logs for election " + electionId);
                 return ResponseEntity.ok(response);
             } else {
