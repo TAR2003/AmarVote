@@ -14,7 +14,9 @@
 4. ✅ **Ballot Info Retrieval**: Retrieved ballot details by tracking code
 5. ✅ **Invalid Data Handling**: Properly handled non-existent ballot queries
 
-## 🚀 System Components
+
+
+## 🚀 System Components for the blockchain API
 
 ### Ganache Blockchain
 
