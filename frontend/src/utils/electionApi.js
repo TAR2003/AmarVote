@@ -222,7 +222,7 @@ export const electionApi = {
           election_id: electionId
         }),
       });
-
+      console.log('Combine partial decryptions response in the frontend:', response);
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }

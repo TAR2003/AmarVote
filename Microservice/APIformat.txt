@@ -1,0 +1,301 @@
+
+---------------
+Data: create_partial_decryption
+guardian_id: str
+guardian_data: str
+private_key: str
+public_key: str
+polynomial: str
+party_names: list of (str)
+candidate_names: list of (str)
+ciphertext_tally: str
+submitted_ballots: list of (str)
+joint_public_key: str
+commitment_hash: str
+number_of_guardians: int
+quorum: int
+End of create_partial_decryption
+------------------
+
+
+
+---------------
+Data: create_partial_decryption_response
+status: str
+guardian_public_key: str
+tally_share: str
+ballot_shares: str
+End of create_partial_decryption_response
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares
+party_names: list of (str)
+candidate_names: list of (str)
+joint_public_key: str
+commitment_hash: str
+ciphertext_tally: str
+submitted_ballots: list of (str)
+guardian_data: list of (str)
+available_guardian_ids: list of (str)
+available_guardian_public_keys: list of (str)
+available_tally_shares: list of (str)
+available_ballot_shares: list of (str)
+missing_guardian_ids: list (empty)
+compensating_guardian_ids: list (empty)
+compensated_tally_shares: list (empty)
+compensated_ballot_shares: list (empty)
+quorum: int
+number_of_guardians: int
+End of combine_decryption_shares
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares_response
+status: str
+results: str
+End of combine_decryption_shares_response
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares
+party_names: list of (str)
+candidate_names: list of (str)
+joint_public_key: str
+commitment_hash: str
+ciphertext_tally: str
+submitted_ballots: list of (str)
+guardian_data: list of (str)
+available_guardian_ids: list of (str)
+available_guardian_public_keys: list of (str)
+available_tally_shares: list of (str)
+available_ballot_shares: list of (str)
+missing_guardian_ids: list (empty)
+compensating_guardian_ids: list (empty)
+compensated_tally_shares: list (empty)
+compensated_ballot_shares: list (empty)
+quorum: int
+number_of_guardians: int
+End of combine_decryption_shares
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares_response
+status: str
+results: str
+End of combine_decryption_shares_response
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares
+party_names: list of (str)
+candidate_names: list of (str)
+joint_public_key: str
+commitment_hash: str
+ciphertext_tally: str
+submitted_ballots: list of (str)
+guardian_data: list of (str)
+available_guardian_ids: list of (str)
+available_guardian_public_keys: list of (str)
+available_tally_shares: list of (str)
+available_ballot_shares: list of (str)
+missing_guardian_ids: list (empty)
+compensating_guardian_ids: list (empty)
+compensated_tally_shares: list (empty)
+compensated_ballot_shares: list (empty)
+quorum: int
+number_of_guardians: int
+End of combine_decryption_shares
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares_response
+status: str
+results: str
+End of combine_decryption_shares_response
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares
+party_names: list of (str)
+candidate_names: list of (str)
+joint_public_key: str
+commitment_hash: str
+ciphertext_tally: str
+submitted_ballots: list of (str)
+guardian_data: list of (str)
+available_guardian_ids: list of (str)
+available_guardian_public_keys: list of (str)
+available_tally_shares: list of (str)
+available_ballot_shares: list of (str)
+missing_guardian_ids: list (empty)
+compensating_guardian_ids: list (empty)
+compensated_tally_shares: list (empty)
+compensated_ballot_shares: list (empty)
+quorum: int
+number_of_guardians: int
+End of combine_decryption_shares
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares_response
+status: str
+results: str
+End of combine_decryption_shares_response
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares
+party_names: list of (str)
+candidate_names: list of (str)
+joint_public_key: str
+commitment_hash: str
+ciphertext_tally: str
+submitted_ballots: list of (str)
+guardian_data: list of (str)
+available_guardian_ids: list of (str)
+available_guardian_public_keys: list of (str)
+available_tally_shares: list of (str)
+available_ballot_shares: list of (str)
+missing_guardian_ids: list (empty)
+compensating_guardian_ids: list (empty)
+compensated_tally_shares: list (empty)
+compensated_ballot_shares: list (empty)
+quorum: int
+number_of_guardians: int
+End of combine_decryption_shares
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares_response
+status: str
+results: str
+End of combine_decryption_shares_response
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares
+party_names: list of (str)
+candidate_names: list of (str)
+joint_public_key: str
+commitment_hash: str
+ciphertext_tally: str
+submitted_ballots: list of (str)
+guardian_data: list of (str)
+available_guardian_ids: list of (str)
+available_guardian_public_keys: list of (str)
+available_tally_shares: list of (str)
+available_ballot_shares: list of (str)
+missing_guardian_ids: list (empty)
+compensating_guardian_ids: list (empty)
+compensated_tally_shares: list (empty)
+compensated_ballot_shares: list (empty)
+quorum: int
+number_of_guardians: int
+End of combine_decryption_shares
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares
+party_names: list of (str)
+candidate_names: list of (str)
+joint_public_key: str
+commitment_hash: str
+ciphertext_tally: str
+submitted_ballots: list of (str)
+guardian_data: list of (str)
+available_guardian_ids: list of (str)
+available_guardian_public_keys: list of (str)
+available_tally_shares: list of (str)
+available_ballot_shares: list of (str)
+missing_guardian_ids: list (empty)
+compensating_guardian_ids: list (empty)
+compensated_tally_shares: list (empty)
+compensated_ballot_shares: list (empty)
+quorum: int
+number_of_guardians: int
+End of combine_decryption_shares
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares
+party_names: list of (str)
+candidate_names: list of (str)
+joint_public_key: str
+commitment_hash: str
+ciphertext_tally: str
+submitted_ballots: list of (str)
+guardian_data: list of (str)
+available_guardian_ids: list of (str)
+available_guardian_public_keys: list of (str)
+available_tally_shares: list of (str)
+available_ballot_shares: list of (str)
+missing_guardian_ids: list (empty)
+compensating_guardian_ids: list (empty)
+compensated_tally_shares: list (empty)
+compensated_ballot_shares: list (empty)
+quorum: int
+number_of_guardians: int
+End of combine_decryption_shares
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares
+party_names: list of (str)
+candidate_names: list of (str)
+joint_public_key: str
+commitment_hash: str
+ciphertext_tally: str
+submitted_ballots: list of (str)
+guardian_data: list of (str)
+available_guardian_ids: list of (str)
+available_guardian_public_keys: list of (str)
+available_tally_shares: list of (str)
+available_ballot_shares: list of (str)
+missing_guardian_ids: list (empty)
+compensating_guardian_ids: list (empty)
+compensated_tally_shares: list (empty)
+compensated_ballot_shares: list (empty)
+quorum: int
+number_of_guardians: int
+End of combine_decryption_shares
+------------------
+
+
+
+---------------
+Data: combine_decryption_shares_response
+status: str
+results: str
+End of combine_decryption_shares_response
+------------------
+
+
