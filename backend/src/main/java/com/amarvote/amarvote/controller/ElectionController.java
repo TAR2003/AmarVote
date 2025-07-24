@@ -3,6 +3,7 @@ package com.amarvote.amarvote.controller;
 // ElectionController.java
 
 import java.util.List;
+import java.util.Map;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -15,6 +16,8 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.amarvote.amarvote.dto.BlockchainBallotInfoResponse;
+import com.amarvote.amarvote.dto.BlockchainLogsResponse;
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
@@ -30,6 +33,7 @@ import com.amarvote.amarvote.dto.EligibilityCheckRequest;
 import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.service.BallotService;
+import com.amarvote.amarvote.service.BlockchainService;
 import com.amarvote.amarvote.service.ElectionService;
 import com.amarvote.amarvote.service.PartialDecryptionService;
 import com.amarvote.amarvote.service.TallyService;
@@ -48,6 +52,7 @@ public class ElectionController {
     private final BallotService ballotService;
     private final TallyService tallyService;
     private final PartialDecryptionService partialDecryptionService;
+    private final BlockchainService blockchainService;
 
     @PostMapping("/create-election")
     public ResponseEntity<Election> createElection(
@@ -351,6 +356,71 @@ public class ElectionController {
                     .success(false)
                     .message("Internal server error occurred: " + e.getMessage())
                     .build());
+        }
+    }
+
+    /**
+     * 🔗 Verify a ballot on the blockchain by election ID and tracking code
+     * This endpoint is public and can be used by voters to verify their ballots
+     */
+    @GetMapping("/blockchain/ballot/{electionId}/{trackingCode}")
+    public ResponseEntity<?> verifyBallotOnBlockchain(
+            @PathVariable String electionId,
+            @PathVariable String trackingCode) {
+        
+        try {
+            System.out.println("🔍 Verifying ballot on blockchain - Election: " + electionId + ", Tracking: " + trackingCode);
+            
+            BlockchainBallotInfoResponse response = blockchainService.getBallotInfo(electionId, trackingCode);
+            
+            if (response.isSuccess()) {
+                System.out.println("✅ Ballot verification successful for " + trackingCode);
+                return ResponseEntity.ok(response);
+            } else {
+                System.out.println("❌ Ballot verification failed for " + trackingCode + ": " + response.getMessage());
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Error during blockchain ballot verification: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of(
+                    "success", false,
+                    "message", "Error verifying ballot on blockchain: " + e.getMessage(),
+                    "exists", false
+                )
+            );
+        }
+    }
+
+    /**
+     * 🔗 Get election logs from blockchain
+     * This endpoint returns all blockchain logs for an election
+     */
+    @GetMapping("/blockchain/logs/{electionId}")
+    public ResponseEntity<?> getElectionLogsFromBlockchain(@PathVariable String electionId) {
+        
+        try {
+            System.out.println("📜 Retrieving blockchain logs for election: " + electionId);
+            
+            BlockchainLogsResponse response = blockchainService.getElectionLogs(electionId);
+            
+            if (response.isSuccess()) {
+                System.out.println("✅ Successfully retrieved " +
+                    " blockchain logs for election " + electionId);
+                return ResponseEntity.ok(response);
+            } else {
+                System.out.println("❌ Failed to retrieve blockchain logs for " + electionId + ": " + response.getMessage());
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Error retrieving blockchain logs: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of(
+                    "success", false,
+                    "message", "Error retrieving blockchain logs: " + e.getMessage(),
+                    "logs", List.of()
+                )
+            );
         }
     }
 }
