@@ -98,6 +98,15 @@ jobs:
           docker context create azure-vm-${{ github.run_id }} --docker "host=ssh://${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}"
           docker context use azure-vm-${{ github.run_id }}
 
+
+      - name: Create required directories
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+          ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+          "sudo mkdir -p /opt/amarvote/{maven_repo,rag_vectorstore,contracts,voting_data} && \
+          sudo chown -R ${{ secrets.AZURE_VM_USERNAME }}:${{ secrets.AZURE_VM_USERNAME }} /opt/amarvote && \
+          sudo chmod -R 755 /opt/amarvote"
+          
       - name: Deploy with docker-compose
         run: |
           docker volume create maven_repo || true
