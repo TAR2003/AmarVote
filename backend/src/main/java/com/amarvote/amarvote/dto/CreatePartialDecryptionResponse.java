@@ -6,4 +6,4 @@ import lombok.Builder;
 public record CreatePartialDecryptionResponse(
     boolean success,
     String message
-) {}
+) { }
