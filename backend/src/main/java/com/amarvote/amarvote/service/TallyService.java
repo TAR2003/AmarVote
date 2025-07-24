@@ -1,6 +1,7 @@
 package com.amarvote.amarvote.service;
 
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -119,6 +120,7 @@ public class TallyService {
                     .message("No election choices found for this election")
                     .build();
             }
+            electionChoices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             
             // Extract party names and candidate names
             List<String> partyNames = electionChoices.stream()

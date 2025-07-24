@@ -2,6 +2,7 @@ package com.amarvote.amarvote.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -200,6 +201,7 @@ public class BallotService {
                     .errorReason("Invalid candidate")
                     .build();
             }
+            choices.sort(Comparator.comparing(ElectionChoice::getOptionTitle));
 
             // 7. Generate ballot hash ID
             String ballotHashId = VoterIdGenerator.generateBallotHashId(user.getUserId(), election.getElectionId());

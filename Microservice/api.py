@@ -796,6 +796,9 @@ def api_combine_partial_decryption():
         print('called combine partial decryption at the microservice')
         data = request.json
         print_json(data, "combine_partial_decryption")
+        # Output the incoming data to a file named "record1.json"
+        with open("record1.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
         
         party_names = data['party_names']
         candidate_names = data['candidate_names']
@@ -890,7 +893,7 @@ def api_combine_decryption_shares():
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
         print_json(data, "combine_decryption_shares")
-        with open("combine_partial_decryptions_request.json", "w", encoding="utf-8") as f:
+        with open("combine_partial_decryptions_request1.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         # Deserialize dict from string with error context
         try:

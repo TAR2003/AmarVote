@@ -55,6 +55,7 @@ import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
+import ErrorBoundary from '../components/ErrorBoundary';
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -3231,10 +3232,17 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
               return (
                 <>
                   {/* Render the ballots in tally section */}
-                  <BallotsInTallySection 
-                    resultsData={rawVerificationData}
-                    id={id}
-                  />
+                  <ErrorBoundary
+                    title="Error loading ballot tally"
+                    message="There was a problem displaying the ballots. Please try refreshing the page."
+                    showDetails={true}
+                    onRetry={() => window.location.reload()}
+                  >
+                    <BallotsInTallySection 
+                      resultsData={rawVerificationData}
+                      id={id}
+                    />
+                  </ErrorBoundary>
                 </>
               );
             })()}

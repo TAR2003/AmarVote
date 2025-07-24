@@ -1,6 +1,7 @@
 package com.amarvote.amarvote.service;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -88,6 +89,7 @@ public class PartialDecryptionService {
 
             // 4. Get election choices for candidate names and party names
             List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(request.election_id());
+            choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             List<String> candidateNames = choices.stream()
                 .map(ElectionChoice::getOptionTitle)
                 .toList();
@@ -259,7 +261,7 @@ public class PartialDecryptionService {
                     .message("No election choices found for this election")
                     .build();
             }
-
+            electionChoices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             List<String> candidateNames = electionChoices.stream()
                 .map(ElectionChoice::getOptionTitle)
                 .collect(Collectors.toList());
@@ -626,6 +628,7 @@ public class PartialDecryptionService {
             // Build request to microservice
             // Get election choices for party and candidate names
             List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionId(election.getElectionId());
+            electionChoices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             List<String> candidateNames = electionChoices.stream()
                 .map(ElectionChoice::getOptionTitle)
                 .collect(Collectors.toList());
