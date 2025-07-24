@@ -84,18 +84,25 @@ export const electionApi = {
   /**
    * Cast a ballot for an election
    */
-  async castBallot(electionId, choiceId, optionTitle) {
+  async castBallot(electionId, choiceId, optionTitle, botDetectionData = null) {
     try {
+      const requestBody = {
+        electionId,
+        selectedCandidate: optionTitle
+      };
+
+      // Include bot detection data if provided
+      if (botDetectionData) {
+        requestBody.botDetection = botDetectionData;
+      }
+
       const response = await fetch('/api/cast-ballot', {
         method: 'POST',
         credentials: 'include',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          electionId,
-          selectedCandidate: optionTitle
-        }),
+        body: JSON.stringify(requestBody),
       });
 
       const data = await response.json();

@@ -1,5 +1,6 @@
 package com.amarvote.amarvote.service;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
@@ -68,6 +69,57 @@ public class BallotService {
     @Transactional
     public CastBallotResponse castBallot(CastBallotRequest request, String userEmail) {
         try {
+            // 0. Validate bot detection data
+            if (request.getBotDetection() != null) {
+                CastBallotRequest.BotDetectionData botData = request.getBotDetection();
+                
+                // Check if bot detection indicates this is a bot
+                if (botData.getIsBot() != null && botData.getIsBot()) {
+                    System.out.println("🚨 [BACKEND BOT DETECTION] Bot detected for user: " + userEmail + 
+                                     ", requestId: " + botData.getRequestId());
+                    return CastBallotResponse.builder()
+                        .success(false)
+                        .message("Security check failed. Automated voting is not allowed.")
+                        .errorReason("Bot detection failed")
+                        .build();
+                }
+                
+                // Check timestamp freshness (within last 5 minutes)
+                if (botData.getTimestamp() != null) {
+                    try {
+                        Instant botDetectionTime = Instant.parse(botData.getTimestamp());
+                        Instant now = Instant.now();
+                        Duration timeDiff = Duration.between(botDetectionTime, now);
+                        
+                        if (timeDiff.toMinutes() > 5) {
+                            System.out.println("⚠️ [BACKEND BOT DETECTION] Stale bot detection data for user: " + userEmail + 
+                                             ", age: " + timeDiff.toMinutes() + " minutes");
+                            return CastBallotResponse.builder()
+                                .success(false)
+                                .message("Security check expired. Please try again.")
+                                .errorReason("Stale bot detection data")
+                                .build();
+                        }
+                        
+                        System.out.println("✅ [BACKEND BOT DETECTION] Valid bot detection for user: " + userEmail + 
+                                         ", requestId: " + botData.getRequestId() + 
+                                         ", isBot: " + botData.getIsBot());
+                    } catch (Exception e) {
+                        System.out.println("⚠️ [BACKEND BOT DETECTION] Invalid timestamp format for user: " + userEmail);
+                    }
+                }
+            } else {
+                System.out.println("⚠️ [BACKEND BOT DETECTION] No bot detection data provided for user: " + userEmail);
+                // Uncomment the lines below to make bot detection mandatory
+                /*
+                return CastBallotResponse.builder()
+                    .success(false)
+                    .message("Security verification required. Please refresh the page and try again.")
+                    .errorReason("No bot detection data")
+                    .build();
+                */
+            }
+
             // 1. Find user by email
             Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
             if (!userOpt.isPresent()) {
