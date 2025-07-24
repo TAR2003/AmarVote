@@ -721,15 +721,16 @@ public class ElectionService {
                 return getMostRecentElectionInfo();
             }
             
-            // Only get public completed elections to ensure privacy
-            List<Election> publicElections = electionRepository.findPublicCompletedElections();
+            // Only get public completed elections to ensure privacy - limit to top 5 most recent
+            List<Election> publicElections = electionRepository.findMostRecentPublicCompletedElection(
+                org.springframework.data.domain.PageRequest.of(0, 5));
             
             if (publicElections.isEmpty()) {
                 return "No completed public elections found with results available.";
             }
             
             StringBuilder result = new StringBuilder();
-            result.append("📊 **Public Election Results**\n\n");
+            result.append("📊 **Recent Public Election Results (Top 5)**\n\n");
             
             for (Election election : publicElections) {
                 result.append("🗳️ **").append(election.getElectionTitle()).append("**\n");
@@ -906,7 +907,7 @@ public class ElectionService {
                 .collect(Collectors.toList());
             
             if (matchingElections.isEmpty()) {
-                return "No public elections found with the title containing '" + electionQuery + "'.\n\n" + getPublicElectionInfo("");
+                return "No public elections found with the title containing '" + electionQuery + "'. Please check the election name and try again.";
             }
             
             StringBuilder result = new StringBuilder();
