@@ -365,11 +365,42 @@ const BlockchainVerificationSection = ({ electionId }) => {
                       <div className="flex items-center space-x-4 text-xs text-gray-500">
                         <span className="flex items-center">
                           <FiClock className="h-3 w-3 mr-1" />
-                          {log.formatted_time || new Date(log.timestamp * 1000).toLocaleString()}
+                          {log.formatted_time ? (
+                            // If formatted_time is provided, convert it from GMT to local time
+                            (() => {
+                              try {
+                                // Parse the GMT time string and convert to local time
+                                const gmtDate = new Date(log.formatted_time.replace(' UTC', ' GMT'));
+                                return new Intl.DateTimeFormat('default', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  timeZoneName: 'short'
+                                }).format(gmtDate);
+                              } catch (e) {
+                                // Fallback to original formatted_time if parsing fails
+                                return log.formatted_time;
+                              }
+                            })()
+                          ) : (
+                            // If no formatted_time, use timestamp and convert to local time
+                            new Intl.DateTimeFormat('default', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              timeZoneName: 'short'
+                            }).format(new Date(log.timestamp * 1000))
+                          )}
                         </span>
                         <span className="flex items-center">
                           <FiHash className="h-3 w-3 mr-1" />
-                          Timestamp: {log.timestamp}
+                          Unix: {log.timestamp}
                         </span>
                       </div>
                     </div>
@@ -448,47 +479,37 @@ const BallotsInTallySection = ({ resultsData , id}) => {
     setBlockchainVerifying(prev => ({ ...prev, [trackingCode]: true }));
     
     try {
-      // console.log('🔗 Verifying ballot on blockchain:', { electionId, trackingCode });
-      // // console.log('🔗--- Blockchain logs response:', { electionId, trackingCode });
-      // const response = await fetch(`/api/blockchain/ballot/${electionId}/${trackingCode}`, {
-      //   method: 'GET',
-      //   headers: {
-      //     'Content-Type': 'application/json',
-      //   },
-      // });
-
       const data = await electionApi.verifyBallotOnBlockchainAPI(electionId, trackingCode);
 
       if (data.success) {
-        setBlockchainResults(prev => ({ 
-          ...prev, 
-          [trackingCode]: { 
-            success: true, 
-            data: data.result,
-            timestamp: new Date().toISOString()
-          } 
+        setBlockchainResults(prev => ({
+          ...prev,
+          [trackingCode]: {
+            ...data,
+            verificationTimestamp: new Date().toISOString(),
+          },
         }));
         toast.success(`✅ Ballot ${trackingCode} verified on blockchain successfully!`);
       } else {
-        setBlockchainResults(prev => ({ 
-          ...prev, 
-          [trackingCode]: { 
-            success: false, 
+        setBlockchainResults(prev => ({
+          ...prev,
+          [trackingCode]: {
+            success: false,
             error: data.message || 'Verification failed',
-            timestamp: new Date().toISOString()
-          } 
+            verificationTimestamp: new Date().toISOString(),
+          },
         }));
         toast.error(`❌ Blockchain verification failed: ${data.message || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('Blockchain verification error:', error);
-      setBlockchainResults(prev => ({ 
-        ...prev, 
-        [trackingCode]: { 
-          success: false, 
+      setBlockchainResults(prev => ({
+        ...prev,
+        [trackingCode]: {
+          success: false,
           error: error.message || 'Network error during verification',
-          timestamp: new Date().toISOString()
-        } 
+          verificationTimestamp: new Date().toISOString(),
+        },
       }));
       toast.error('Network error during blockchain verification');
     } finally {
@@ -499,33 +520,36 @@ const BallotsInTallySection = ({ resultsData , id}) => {
   // Extract and deduplicate ballots from results data using useMemo
   const ballots = useMemo(() => {
     try {
-      // Check if the required data structure exists
-      if (!resultsData?.verification) {
-        setHasError(true);
-        setErrorMessage('Verification data is missing in the results');
+      // More robust check for the nested structure
+      if (!resultsData || !resultsData.verification || !Array.isArray(resultsData.verification.ballots)) {
+        // We don't set an error here because it might just be loading
+        // The UI should handle the empty array case gracefully
+        if (resultsData && resultsData.verification && resultsData.verification.ballots) {
+          // Only log an error if the structure exists but `ballots` is not an array
+          setHasError(true);
+          setErrorMessage('Ballot data is not in the expected array format.');
+        }
         return [];
       }
       
-      const extractedBallots = resultsData?.verification?.ballots || [];
+      const extractedBallots = resultsData.verification.ballots;
       
-      if (!Array.isArray(extractedBallots)) {
-        setHasError(true);
-        setErrorMessage('Expected ballots to be an array, but got a different type');
-        return [];
-      }
-      
-      // Remove duplicates based on ballot_id (tracking code)
+      // Remove duplicates based on ballot_id (tracking code) and ensure items are valid
       const uniqueBallots = extractedBallots.filter((ballot, index, self) => 
-        index === self.findIndex(b => b.ballot_id === ballot.ballot_id)
+        ballot && typeof ballot === 'object' && ballot.ballot_id && // ensure ballot is a valid object
+        index === self.findIndex(b => b && b.ballot_id === ballot.ballot_id)
       );
       
-      // Only show deduplication logs if there actually was deduplication
       if (uniqueBallots.length < extractedBallots.length) {
         console.log('🔍 Ballot deduplication removed', 
           extractedBallots.length - uniqueBallots.length, 
-          'duplicate ballots. Original:', extractedBallots.length, 
+          'duplicate or invalid ballots. Original:', extractedBallots.length, 
           'Unique:', uniqueBallots.length);
       }
+      
+      // Clear error if data is now valid
+      setHasError(false);
+      setErrorMessage('');
       
       return uniqueBallots;
     } catch (error) {
@@ -830,7 +854,12 @@ const BallotsInTallySection = ({ resultsData , id}) => {
                           {blockchainResults[ballot.ballot_id].success ? '🔗 Blockchain Verified' : '⚠️ Verification Failed'}
                         </span>
                         <span className="text-gray-500 text-xs">
-                          {new Date(blockchainResults[ballot.ballot_id].timestamp).toLocaleTimeString()}
+                          {timezoneUtils.formatForDisplay(new Date(blockchainResults[ballot.ballot_id].timestamp * 1000).toISOString(), { 
+                            hour: '2-digit', 
+                            minute: '2-digit', 
+                            second: '2-digit',
+                            timeZoneName: 'short'
+                          })}
                         </span>
                       </div>
                       
@@ -839,6 +868,12 @@ const BallotsInTallySection = ({ resultsData , id}) => {
                           <div>✅ Ballot found on blockchain</div>
                           <div>✅ Hash validation successful</div>
                           <div>✅ Election context verified</div>
+                          <div className="flex items-center pt-1 text-xs text-gray-500">
+                            <FiClock className="h-3 w-3 mr-1" />
+                            {blockchainResults[ballot.ballot_id].data?.timestamp && (
+                              <span>{timezoneUtils.formatForDisplay(new Date(blockchainResults[ballot.ballot_id].data.timestamp * 1000).toISOString())}</span>
+                            )}
+                          </div>
                         </div>
                       ) : (
                         <div className="text-red-700">

@@ -295,17 +295,28 @@ export const electionApi = {
           'Content-Type': 'application/json',
         },
       });
-      let data;
-      try {
-        data = await response.json();
-      } catch (jsonError) {
-        // If response is not JSON, fallback to text
-        const text = await response.text();
-        throw new Error(text || 'Unknown error (non-JSON response)');
+
+      // Get response text for better error handling
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        // If there's an error, try to parse the response as JSON for a structured error message
+        try {
+          const errorData = JSON.parse(responseText);
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        } catch (e) {
+          // If parsing fails, throw the raw text as the error
+          throw new Error(responseText || `HTTP error! status: ${response.status}`);
+        }
       }
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+
+      // If response is OK, parse it as JSON
+      const data = JSON.parse(responseText);
+
+      if (!data.success) {
+        throw new Error(data.message || 'Operation failed');
       }
+
       return data;
     } catch (error) {
       console.error('Error fetching blockchain logs:', error);
@@ -325,16 +336,18 @@ export const electionApi = {
           'Content-Type': 'application/json',
         },
       });
-      let data;
-      try {
-        data = await response.json();
-      } catch (jsonError) {
-        // If response is not JSON, fallback to text
-        const text = await response.text();
-        throw new Error(text || 'Unknown error (non-JSON response)');
+      const responseText = await response.text();
+      if (!response.ok) {
+        try {
+          const errorData = JSON.parse(responseText);
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        } catch (e) {
+          throw new Error(responseText || `HTTP error! status: ${response.status}`);
+        }
       }
-      if (!response.ok || !data.success) {
-        throw new Error(data.message || `HTTP error! status: ${response.status}`);
+      const data = JSON.parse(responseText);
+      if (!data.success) {
+        throw new Error(data.message || 'Operation failed');
       }
       return data;
     } catch (error) {

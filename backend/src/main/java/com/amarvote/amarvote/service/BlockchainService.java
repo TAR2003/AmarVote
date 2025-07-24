@@ -223,33 +223,97 @@ public class BlockchainService {
      */
     public BlockchainLogsResponse getElectionLogs(String electionId) {
         try {
-            String url = blockchainServiceUrl + "/get-logs/" + electionId;
+            // Enhanced logging for debugging
+            logger.info("🔍 Attempting to retrieve blockchain logs for election: {}", electionId);
+            logger.info("🔗 Blockchain service URL configured as: {}", blockchainServiceUrl);
             
-            // Make request
+            if (blockchainServiceUrl == null || blockchainServiceUrl.trim().isEmpty()) {
+                logger.error("❌ Blockchain service URL is not configured! Check BLOCKCHAIN_SERVICE_URL environment variable.");
+                return BlockchainLogsResponse.builder()
+                    .success(false)
+                    .message("Blockchain service URL is not configured")
+                    .build();
+            }
+            
+            String url = blockchainServiceUrl + "/get-logs/" + electionId;
+            logger.info("📡 Making request to blockchain microservice: {}", url);
+            System.out.println("📡 Making request to blockchain microservice: " + url);
+
+            // Make request and get String first for better error handling
             ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
+            logger.info("📨 Received response from blockchain service - Status: {}, Body length: {}", 
+                       response.getStatusCode(), response.getBody() != null ? response.getBody().length() : 0);
+            System.out.println("📨 Received response from blockchain service - Status: " + response.getStatusCode() + 
+                               ", Body length: " + (response.getBody() != null ? response.getBody().length() : 0));
+            
+            if (response.getBody() == null || response.getBody().trim().isEmpty()) {
+                logger.error("❌ Empty response from blockchain service");
+                System.out.println("❌ Empty response from blockchain service");
+                return BlockchainLogsResponse.builder()
+                    .success(false)
+                    .message("Empty response from blockchain service")
+                    .build();
+            }
             
             // Parse response
             JsonNode responseNode = objectMapper.readTree(response.getBody());
+            logger.info("📋 Parsed blockchain response: status={}, message={}", 
+                       responseNode.path("status").asText("N/A"), 
+                       responseNode.path("message").asText("N/A"));
+            System.out.println("📋 Parsed blockchain response: status=" + 
+                               responseNode.path("status").asText("N/A") + 
+                               ", message=" + responseNode.path("message").asText("N/A"));
             
-            if ("success".equals(responseNode.get("status").asText())) {
-                logger.info("Successfully retrieved logs for election {}", electionId);
-                return objectMapper.treeToValue(responseNode, BlockchainLogsResponse.class);
+            if (responseNode != null && "success".equals(responseNode.path("status").asText())) {
+                logger.info("✅ Successfully retrieved logs for election {}", electionId);
+                System.out.println("✅ Successfully retrieved logs for election " + electionId);
+                
+                // Check if we have the expected structure
+                JsonNode resultNode = responseNode.path("result");
+                if (resultNode.isMissingNode()) {
+                    logger.error("❌ Missing 'result' field in blockchain response");
+                    System.out.println("❌ Missing 'result' field in blockchain response");
+                    return BlockchainLogsResponse.builder()
+                        .success(false)
+                        .message("Invalid response structure from blockchain service")
+                        .build();
+                }
+                
+                // The microservice response is deserialized into the DTO
+                BlockchainLogsResponse logsResponse = objectMapper.treeToValue(responseNode, BlockchainLogsResponse.class);
+                
+                // Log successful parsing details
+                if (logsResponse.getResult() != null) {
+                    logger.info("📊 Blockchain logs parsed successfully - Election: {}, Log count: {}", 
+                               logsResponse.getResult().getElection_id(), 
+                               logsResponse.getResult().getLog_count());
+                    System.out.println("📊 Blockchain logs parsed successfully - Election: " + 
+                                       logsResponse.getResult().getElection_id() + 
+                                       ", Log count: " + logsResponse.getResult().getLog_count());
+                } else {
+                    logger.warn("⚠️ Blockchain logs response has null result");
+                }
+                logsResponse.setSuccess(true);
+                logsResponse.setMessage("Successfully retrieved election logs");
+                return logsResponse;
             } else {
-                logger.error("Failed to retrieve logs for election {}: {}", electionId, responseNode.get("message").asText());
+                String message = responseNode != null ? responseNode.path("message").asText("Failed to retrieve election logs") : "Failed to retrieve election logs";
+                logger.error("❌ Failed to retrieve logs for election {}: {}", electionId, message);
+                System.out.println("❌ Failed to retrieve logs for election " + electionId + ": " + message);
                 return BlockchainLogsResponse.builder()
                     .success(false)
-                    .message(responseNode.has("message") ? responseNode.get("message").asText() : "Failed to retrieve election logs")
+                    .message(message)
                     .build();
             }
             
         } catch (ResourceAccessException e) {
-            logger.error("Blockchain service is not available: {}", e.getMessage());
+            logger.error("🚫 Blockchain service is not available at {}: {}", blockchainServiceUrl, e.getMessage());
             return BlockchainLogsResponse.builder()
                 .success(false)
-                .message("Blockchain service is currently unavailable")
+                .message("Blockchain service is currently unavailable: " + e.getMessage())
                 .build();
         } catch (Exception e) {
-            logger.error("Error retrieving logs for election {}: {}", electionId, e.getMessage());
+            logger.error("⚠️ Error retrieving logs for election {}: {}", electionId, e.getMessage(), e);
             return BlockchainLogsResponse.builder()
                 .success(false)
                 .message("Error retrieving election logs: " + e.getMessage())
