@@ -23,7 +23,6 @@ services:
       - election_net
     depends_on:
       - rag-service
-      - voting-api
 
   frontend:
     build:
@@ -72,81 +71,10 @@ services:
       - ./backend/src/main/resources/pdf:/app/data
       - rag_vectorstore:/app/vectorstore
 
-  ganache:
-    image: trufflesuite/ganache:latest
-    container_name: voting-ganache
-    ports:
-      - "8545:8545"
-    environment:
-      - GANACHE_ACCOUNTS=10
-      - GANACHE_DETERMINISTIC=true
-      - GANACHE_MNEMONIC=abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
-      - GANACHE_NETWORK_ID=1337
-      - GANACHE_GAS_LIMIT=6721975
-      - GANACHE_GAS_PRICE=20000000000
-    command: >
-      --host 0.0.0.0
-      --port 8545
-      --accounts 10
-      --mnemonic "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-      --networkId 1337
-      --gasLimit 6721975
-      --gasPrice 20000000000
-    healthcheck:
-      test: ["CMD-SHELL", "curl -X POST --data '{\"jsonrpc\":\"2.0\",\"method\":\"web3_clientVersion\",\"params\":[],\"id\":1}' http://localhost:8545 || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - election_net
-
-  blockchain-deployer:
-    build:
-      context: ./blockchain
-      dockerfile: Dockerfile
-    container_name: voting-blockchain-deployer
-    depends_on:
-      - ganache
-    environment:
-      - GANACHE_URL=http://ganache:8545
-      - NETWORK_ID=1337
-    volumes:
-      - contract-artifacts:/app/build
-    networks:
-      - election_net
-
-  voting-api:
-    build:
-      context: ./blockchain-microservice
-      dockerfile: Dockerfile
-    container_name: voting-api
-    ports:
-      - "5002:5002"
-    depends_on:
-      - ganache
-      - blockchain-deployer
-    environment:
-      - FLASK_ENV=production
-      - GANACHE_URL=http://ganache:8545
-      - NETWORK_ID=1337
-      - CONTRACT_ARTIFACTS_PATH=/app/contracts
-    volumes:
-      - contract-artifacts:/app/contracts:ro
-      - voting-data:/app/data
-    healthcheck:
-      test: ["CMD-SHELL", "curl -f http://localhost:5002/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-    networks:
-      - election_net
-
 
 volumes:
   maven_repo:
   rag_vectorstore:
-  contract-artifacts:
-  voting-data:
 
 networks:
   election_net:
