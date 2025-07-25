@@ -75,7 +75,6 @@ services:
   ganache:
     image: trufflesuite/ganache:latest
     container_name: voting-ganache
-    restart: unless-stopped
     ports:
       - "8545:8545"
     environment:
@@ -95,12 +94,10 @@ services:
       --gasPrice 20000000000
     healthcheck:
       test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8545 || exit 1"]
-      interval: 15s
-      timeout: 10s
-      retries: 10
-      start_period: 30s
+      interval: 10s
+      timeout: 5s
+      retries: 5
     networks:
-      - voting-network
       - election_net
 
   blockchain-deployer:
@@ -108,56 +105,48 @@ services:
       context: ./blockchain
       dockerfile: Dockerfile
     container_name: voting-blockchain-deployer
-    restart: on-failure
+    depends_on:
+      - ganache
     environment:
       - GANACHE_URL=http://ganache:8545
       - NETWORK_ID=1337
     volumes:
-      - contract_artifacts:/app/build
+      - contract-artifacts:/app/build
     networks:
       - election_net
-    depends_on:
-      ganache:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "test -f /app/build/VotingContract.json || exit 1"]
-      interval: 5s
-      timeout: 5s
-      retries: 10
 
   voting-api:
     build:
       context: ./blockchain-microservice
       dockerfile: Dockerfile
     container_name: voting-api
-    restart: unless-stopped
     ports:
       - "5002:5002"
+    depends_on:
+      - ganache
+      - blockchain-deployer
     environment:
       - FLASK_ENV=production
       - GANACHE_URL=http://ganache:8545
       - NETWORK_ID=1337
       - CONTRACT_ARTIFACTS_PATH=/app/contracts
     volumes:
-      - contract_artifacts:/app/contracts:ro
-      - voting_data:/app/data
-    depends_on:
-      blockchain-deployer:
-        condition: service_healthy
+      - contract-artifacts:/app/contracts:ro
+      - voting-data:/app/data
     healthcheck:
       test: ["CMD-SHELL", "curl -f http://localhost:5002/health || exit 1"]
       interval: 10s
       timeout: 5s
       retries: 5
     networks:
-      - voting-network
       - election_net
+
 
 volumes:
   maven_repo:
   rag_vectorstore:
-  contract_artifacts:
-  voting_data:
+  contract-artifacts:
+  voting-data:
 
 networks:
   election_net:
@@ -166,5 +155,3 @@ networks:
       config:
         - subnet: 172.20.0.0/24
           gateway: 172.20.0.1
-  voting-network:
-    driver: bridge

@@ -8,8 +8,6 @@ on:
     types:
       - completed
 
-
-
 jobs:
   deploy:
     if: ${{ github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.head_branch == 'main' }}
@@ -79,12 +77,6 @@ jobs:
                sudo chown -R ${{ secrets.AZURE_VM_USERNAME }}:${{ secrets.AZURE_VM_USERNAME }} /home/${{ secrets.AZURE_VM_USERNAME }}/app && \
                sudo chmod -R 755 /home/${{ secrets.AZURE_VM_USERNAME }}/app"
 
-      - name: Verify directory structure
-        run: |
-          ssh -o StrictHostKeyChecking=no \
-              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-              "ls -la /home/${{ secrets.AZURE_VM_USERNAME }}/app"
-
       - name: Copy files to VM
         run: |
           rsync -avz --delete \
@@ -93,49 +85,55 @@ jobs:
             --exclude='backend/logs' \
             ./ ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app/
 
-      - name: Set up Docker context
+      - name: Copy environment file
         run: |
-          docker context create azure-vm-${{ github.run_id }} --docker "host=ssh://${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}"
-          docker context use azure-vm-${{ github.run_id }}
+          echo "NEON_HOST=${{ secrets.NEON_HOST }}" > .env.prod
+          echo "NEON_PORT=${{ secrets.NEON_PORT }}" >> .env.prod
+          echo "NEON_DATABASE=${{ secrets.NEON_DATABASE }}" >> .env.prod
+          echo "NEON_USERNAME=${{ secrets.NEON_USERNAME }}" >> .env.prod
+          echo "NEON_PASSWORD=${{ secrets.NEON_PASSWORD }}" >> .env.prod
+          echo "MASTER_KEY_PQ=${{ secrets.MASTER_KEY_PQ }}" >> .env.prod
+          
+          scp .env.prod ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app/.env
 
-
-      - name: Create required directories
+      - name: Clean up and deploy
         run: |
           ssh -o StrictHostKeyChecking=no \
-          ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-          "sudo mkdir -p /opt/amarvote/{maven_repo,rag_vectorstore,contracts,voting_data} && \
-          sudo chown -R ${{ secrets.AZURE_VM_USERNAME }}:${{ secrets.AZURE_VM_USERNAME }} /opt/amarvote && \
-          sudo chmod -R 755 /opt/amarvote"
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+              "cd /home/${{ secrets.AZURE_VM_USERNAME }}/app && \
+               
+               # Stop and remove existing containers
+               docker compose -f docker-compose.prod.yml down --remove-orphans --volumes || true
+               
+               # Clean up system
+               docker system prune -af --volumes || true
+               
+               # Build and deploy
+               docker compose -f docker-compose.prod.yml up -d --build --force-recreate"
 
-      - name: Clean up existing deployment and volumes
+      - name: Monitor deployment
         run: |
-          # Stop all containers
-          docker stop $(docker ps -aq) || true
-          
-          # Remove all containers
-          docker rm $(docker ps -aq) || true
-          
-          # Remove all volumes
-          docker volume rm $(docker volume ls -q) || true
-          
-          # Clean up everything
-          docker system prune -af --volumes || true
-
-      - name: Deploy with docker-compose
-        run: |
-          # Deploy with automatic volume recreation and no prompts
-          export COMPOSE_IGNORE_ORPHANS=1
-          echo "y" | docker compose -f docker-compose.prod.yml up -d --build --force-recreate --renew-anon-volumes || \
-          docker compose -f docker-compose.prod.yml up -d --build --force-recreate --renew-anon-volumes
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+              "cd /home/${{ secrets.AZURE_VM_USERNAME }}/app && \
+               
+               echo 'Waiting for services to start...' && \
+               sleep 30 && \
+               
+               echo '=== Container Status ===' && \
+               docker compose -f docker-compose.prod.yml ps -a && \
+               
+               echo '=== Ganache Logs ===' && \
+               docker logs voting-ganache --tail 20 && \
+               
+               echo '=== Blockchain Deployer Logs ===' && \
+               docker logs voting-blockchain-deployer --tail 20 && \
+               
+               echo '=== Voting API Logs ===' && \
+               docker logs voting-api --tail 20"
 
       - name: Verify deployment
         run: |
-          docker compose -f docker-compose.prod.yml ps -a
-          sleep 10
-          curl -v http://${{ secrets.AZURE_VM_HOST }}
-
-      - name: Clean up
-        if: always()
-        run: |
-          docker context use default
-          docker context rm azure-vm-${{ github.run_id }} || true
+          sleep 60  # Give more time for all services to be ready
+          curl -v http://${{ secrets.AZURE_VM_HOST }} || echo "Frontend not ready yet"
+          curl -v http://${{ secrets.AZURE_VM_HOST }}:8080/actuator/health || echo "Backend not ready yet"
