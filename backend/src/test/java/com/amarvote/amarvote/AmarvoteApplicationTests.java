@@ -11,6 +11,7 @@ class AmarvoteApplicationTests {
     @Test
     void contextLoads() {
         // Just verify Spring context loads
+        // nothing to assert here
     }
     
 }
