@@ -8,7 +8,7 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_DATABASE}?sslmode=require
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_DATABASE}?sslmode=disable
       - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
@@ -71,10 +71,26 @@ services:
       - ./backend/src/main/resources/pdf:/app/data
       - rag_vectorstore:/app/vectorstore
 
+  postgres:
+    image: postgres:16
+    container_name: amarvote_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - election_net
+    ports:
+      - "5432:5432"
+
 
 volumes:
   maven_repo:
   rag_vectorstore:
+  postgres_data:
 
 networks:
   election_net:
