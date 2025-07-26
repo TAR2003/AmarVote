@@ -101,6 +101,14 @@ jobs:
       - name: Deploy with docker-compose
         run: |
           docker volume create maven_repo || true
+          docker stop electionguard_service || true
+          docker stop rag_service || true
+          docker stop amarvote_backend || true
+          docker stop amarvote_frontend || true
+          docker rm electionguard_service || true
+          docker rm rag_service || true
+          docker rm amarvote_backend || true
+          docker rm amarvote_frontend || true
           docker compose -f docker-compose.prod.yml down --remove-orphans || true
           docker compose -f docker-compose.prod.yml build
           docker compose -f docker-compose.prod.yml up -d --force-recreate
