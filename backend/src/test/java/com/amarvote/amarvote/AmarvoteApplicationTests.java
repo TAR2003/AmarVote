@@ -12,6 +12,7 @@ class AmarvoteApplicationTests {
     void contextLoads() {
         // Just verify Spring context loads
         // abc
+        
     }
     
 }

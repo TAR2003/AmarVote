@@ -105,6 +105,8 @@ jobs:
           docker stop rag_service || true
           docker stop amarvote_backend || true
           docker stop amarvote_frontend || true
+          docker stop amarvote_postgres || true
+          docker rm amarvote_postgres || true
           docker rm electionguard_service || true
           docker rm rag_service || true
           docker rm amarvote_backend || true
