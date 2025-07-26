@@ -13,6 +13,5 @@ class AmarvoteApplicationTests {
         // Just verify Spring context loads
         // abc
         
-    }
-    
+    }    
 }
