@@ -10,7 +10,7 @@ public class WebClientConfig {
     @Bean
     public WebClient webClient() {
         return WebClient.builder()
-                .baseUrl("http://host.docker.internal:5000") // Your Python service URL
+                .baseUrl("http://electionguard:5000") // Your Python service URL
                 .build();
     }
 }
