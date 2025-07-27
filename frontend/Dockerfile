@@ -1,23 +1,12 @@
 # Build stage
-FROM node:20-alpine AS build
+FROM node:18-alpine AS build
+
 WORKDIR /app
-
-# Copy package files
 COPY package*.json ./
-
-# Install dependencies step by step
-RUN npm cache clean --force
-RUN npm config set registry https://registry.npmjs.org/
-RUN npm install --production=false --no-audit --no-fund
-
-# Explicitly install vite if not present
-RUN npm list vite || npm install vite@latest
-
-# Copy source code
+RUN npm install
 COPY . .
-
-# Build using explicit vite path
-RUN ./node_modules/.bin/vite build
+# Add NODE_OPTIONS to increase memory limit
+RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
 
 # Production stage
 FROM nginx:alpine
@@ -28,7 +17,7 @@ RUN rm -rf /etc/nginx/conf.d/*
 # Copy custom nginx config
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Copy built files from build stage
+# Copy built files
 COPY --from=build /app/dist /usr/share/nginx/html
 
 # Set permissions for nginx
