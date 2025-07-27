@@ -1,42 +1,12 @@
 import React from "react";
-
-
 import { Link } from "react-router-dom";
+import Layout from "./Layout";
 
 function About() {
   return (
-    <div className="min-h-screen bg-gray-50">
-      {/* Navigation Bar */}
-      <nav className="fixed w-full bg-white shadow-sm z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center">
-              <Link to="/" className="flex-shrink-0 flex items-center">
-                <span className="text-2xl">🗳️</span>
-                <span className="ml-2 text-xl font-bold text-gray-900">AmarVote</span>
-              </Link>
-            </div>
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-center space-x-4">
-                <Link to="/features" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">Features</Link>
-                <Link to="/how-it-works" className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium">How It Works</Link>
-                <Link to="/about" className="text-blue-600 px-3 py-2 rounded-md text-sm font-medium">About</Link>
-              </div>
-            </div>
-            <div className="flex items-center space-x-4">
-              <Link to="/login">
-                <button className="px-4 py-2 text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition">Sign In</button>
-              </Link>
-              <Link to="/signup">
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition shadow-sm">Sign Up</button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      </nav>
-
+    <Layout>
       {/* Main Content */}
-      <div className="pt-24 pb-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
+      <div className="pt-8 pb-12 px-4 sm:px-6 lg:px-8 max-w-4xl mx-auto">
         <div className="bg-white rounded-xl shadow-lg p-8">
           <h1 className="text-4xl font-extrabold text-blue-700 mb-6 text-center">About AmarVote</h1>
           <p className="text-lg text-gray-700 mb-8 text-center">
@@ -165,7 +135,7 @@ function About() {
           </div>
         </div>
       </footer>
-    </div>
+    </Layout>
   );
 }
 
