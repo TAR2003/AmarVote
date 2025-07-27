@@ -1,18 +1,32 @@
 # Build stage
-FROM node:18-alpine AS build
+FROM node:20-alpine AS build
+
+# Install build dependencies
+RUN apk add --no-cache python3 make g++
+
 WORKDIR /app
+
+# Configure npm for better memory management
+RUN npm config set registry https://registry.npmjs.org/ && \
+    npm config set fetch-timeout 600000 && \
+    npm config set maxsockets 1
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies with explicit dev dependencies
-RUN npm install --production=false
+# Install dependencies with frozen lockfile
+RUN npm ci --include=dev --frozen-lockfile
 
 # Copy source code
 COPY . .
 
-# Build using npx to ensure vite is found
-RUN NODE_OPTIONS="--max-old-space-size=4096" npx vite build
+# Build with optimized settings
+RUN NODE_ENV=production \
+    NODE_OPTIONS="--max-old-space-size=2048 --optimize-for-size" \
+    npm run build
+
+# Verify build output
+RUN ls -la dist/ && echo "Build completed successfully"
 
 # Production stage
 FROM nginx:alpine
