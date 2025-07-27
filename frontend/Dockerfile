@@ -1,28 +1,18 @@
 # Build stage
 FROM node:20-alpine AS build
-
-# Install build dependencies with correct Alpine package names
-RUN apk update && apk add --no-cache \
-    python3 \
-    py3-pip \
-    make \
-    gcc \
-    g++ \
-    libc-dev
-
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
+# Install dependencies (including dev dependencies needed for build)
 RUN npm ci --include=dev
 
 # Copy source code
 COPY . .
 
-# Build the application
-RUN NODE_OPTIONS="--max-old-space-size=2048" npm run build
+# Build the application (try without memory limit first)
+RUN npm run build
 
 # Production stage
 FROM nginx:alpine
