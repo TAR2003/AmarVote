@@ -37,8 +37,7 @@ public class Guardian {
     @Column(name = "decrypted_or_not", nullable = false)
     private Boolean decryptedOrNot = false;
 
-     @Column(name = "partial_decrypted_tally", columnDefinition = "JSONB")
-    @JdbcTypeCode(SqlTypes.JSON)
+     @Column(name = "partial_decrypted_tally", columnDefinition = "TEXT")
     private String partialDecryptedTally;
 
     @Column(name = "proof", columnDefinition = "TEXT")

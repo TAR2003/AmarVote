@@ -255,13 +255,15 @@ public class PartialDecryptionService {
 
             // 3. Fetch election choices for candidate_names and party_names
             List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionId(request.election_id());
+            electionChoices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+            
             if (electionChoices.isEmpty()) {
                 return CombinePartialDecryptionResponse.builder()
                     .success(false)
                     .message("No election choices found for this election")
                     .build();
             }
-            electionChoices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+            
             List<String> candidateNames = electionChoices.stream()
                 .map(ElectionChoice::getOptionTitle)
                 .collect(Collectors.toList());

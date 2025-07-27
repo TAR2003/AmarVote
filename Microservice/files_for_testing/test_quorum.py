@@ -80,8 +80,8 @@ def test_quorum_election_workflow():
     setup_data = {
         "number_of_guardians": 5,
         "quorum": 3,  # Only 3 out of 5 guardians needed for decryption
-        "party_names": ["Democratic Party", "Republican Party", "Green Party"],
-        "candidate_names": ["Alice Johnson", "Bob Smith", "Carol Green"]
+        "party_names": ["Democratic Party", "Republican Party"],
+        "candidate_names": ["Alice Johnson", "Bob Smith"]
     }
     
     setup_response = requests.post(f"{BASE_URL}/setup_guardians", json=setup_data)
