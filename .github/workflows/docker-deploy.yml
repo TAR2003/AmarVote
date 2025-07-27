@@ -111,13 +111,13 @@ jobs:
           docker rm rag_service || true
           docker rm amarvote_backend || true
           docker rm amarvote_frontend || true
-          docker compose -f docker-compose.prod.yml down --remove-orphans || true
-          docker compose -f docker-compose.prod.yml build
-          docker compose -f docker-compose.prod.yml up -d --force-recreate
+          docker compose -f docker-compose.yml down --remove-orphans || true
+          docker compose -f docker-compose.yml build
+          docker compose -f docker-compose.yml up -d --force-recreate
 
       - name: Verify deployment
         run: |
-          docker compose -f docker-compose.prod.yml ps -a
+          docker compose -f docker-compose.yml ps -a
           sleep 10
           curl -v http://${{ secrets.AZURE_VM_HOST }}
 
