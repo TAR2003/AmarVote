@@ -3,7 +3,8 @@ FROM node:18-alpine AS build
 
 WORKDIR /app
 COPY package*.json ./
-RUN npm install
+# Install all dependencies including devDependencies for build
+RUN npm ci --include=dev
 COPY . .
 # Add NODE_OPTIONS to increase memory limit
 RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
