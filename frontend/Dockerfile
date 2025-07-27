@@ -6,7 +6,7 @@ COPY package*.json ./
 RUN npm install
 COPY . .
 # Add NODE_OPTIONS to increase memory limit
-RUN NODE_OPTIONS="--max-old-space-size=4096" npm run build
+RUN NODE_OPTIONS="--max-old-space-size=8192" npm run build
 
 # Production stage
 FROM nginx:alpine
