@@ -1,4 +1,4 @@
-name: Deploy to Azure VM in code
+name: Deploy to Azure VM
 
 on:
   push:
@@ -7,8 +7,6 @@ on:
     workflows: ["CI"]
     types:
       - completed
-
-
 
 jobs:
   deploy:
@@ -85,13 +83,41 @@ jobs:
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
               "ls -la /home/${{ secrets.AZURE_VM_USERNAME }}/app"
 
-      - name: Copy files to VM
+      - name: Copy files to VM and .env from blockchain folder
         run: |
+          # Copy main project files (excluding .env)
           rsync -avz --delete \
             --exclude='.git' \
             --exclude='node_modules' \
+            --exclude='.env' \
             --exclude='backend/logs' \
             ./ ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app/
+          
+          # Copy .env file from blockchain folder to app folder on the VM
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+              "cp /home/blockchain/.env /home/${{ secrets.AZURE_VM_USERNAME }}/app/.env"
+
+      - name: Verify .env file was copied
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+              "ls -la /home/${{ secrets.AZURE_VM_USERNAME }}/app/.env && \
+               echo 'First 5 lines of .env:' && \
+               head -5 /home/${{ secrets.AZURE_VM_USERNAME }}/app/.env"
+
+      - name: Copy .env from VM to GitHub runner for Docker context
+        run: |
+          # Copy .env file from VM to local runner for Docker context usage
+          scp -o StrictHostKeyChecking=no \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/blockchain/.env \
+              ./.env
+          
+          # Verify .env file exists locally
+          echo "Contents of current directory:"
+          ls -la
+          echo "First 5 lines of local .env:"
+          head -5 .env
 
       - name: Set up Docker context
         run: |
