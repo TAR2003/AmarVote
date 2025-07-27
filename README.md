@@ -9,6 +9,13 @@
 
 AmarVote is a revolutionary, cryptographically secure, end-to-end verifiable voting platform that combines **ElectionGuard technology**, **blockchain immutability**, and **post-quantum cryptography** to deliver the most secure digital voting experience possible.
 
+Youtube Demonstration link for features
+https://youtu.be/ixsvvl_7qVo
+
+Youtube dedmonstration link for infrastructure
+https://youtu.be/t8VOLdYIV40
+
+
 ## 🌟 Key Features
 
 ### 🔐 **Cryptographic Security**
