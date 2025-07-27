@@ -1,17 +1,25 @@
 import React from "react";
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 
 const Layout = ({ children }) => {
+  const location = useLocation();
+
+  const isActiveRoute = (path) => {
+    return location.pathname === path;
+  };
+
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       {/* Top Navigation Bar */}
-      <nav className="fixed w-full bg-white shadow-sm z-50">
+      <nav className="fixed w-full bg-white/95 backdrop-blur-lg shadow-lg border-b border-white/20 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             <div className="flex items-center">
-              <Link to="/" className="flex-shrink-0 flex items-center">
-                <span className="text-2xl">🗳️</span>
-                <span className="ml-2 text-xl font-bold text-gray-900">
+              <Link to="/" className="flex-shrink-0 flex items-center group">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
+                  <span className="text-white text-xl font-bold">🗳️</span>
+                </div>
+                <span className="ml-3 text-xl font-bold bg-gradient-to-r from-gray-900 to-blue-800 bg-clip-text text-transparent">
                   AmarVote
                 </span>
               </Link>
@@ -20,19 +28,28 @@ const Layout = ({ children }) => {
               <div className="ml-10 flex items-center space-x-4">
                 <Link
                   to="/features"
-                  className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium"
+                  className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${isActiveRoute('/features')
+                      ? 'text-blue-600 bg-blue-50/80'
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/80'
+                    }`}
                 >
                   Features
                 </Link>
                 <Link
                   to="/how-it-works"
-                  className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium"
+                  className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${isActiveRoute('/how-it-works')
+                      ? 'text-blue-600 bg-blue-50/80'
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/80'
+                    }`}
                 >
                   How It Works
                 </Link>
                 <Link
                   to="/about"
-                  className="text-gray-700 hover:text-blue-600 px-3 py-2 rounded-md text-sm font-medium"
+                  className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${isActiveRoute('/about')
+                      ? 'text-blue-600 bg-blue-50/80'
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/80'
+                    }`}
                 >
                   About
                 </Link>
@@ -40,12 +57,12 @@ const Layout = ({ children }) => {
             </div>
             <div className="flex items-center space-x-4">
               <Link to="/login">
-                <button className="px-4 py-2 text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition">
+                <button className="px-4 py-2 text-blue-600 border border-blue-600 rounded-2xl hover:bg-blue-50/80 transition-all duration-300 shadow-sm hover:shadow-md">
                   Sign In
                 </button>
               </Link>
               <Link to="/signup">
-                <button className="px-4 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition shadow-sm">
+                <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105">
                   Sign Up
                 </button>
               </Link>
@@ -58,7 +75,7 @@ const Layout = ({ children }) => {
       <main className="flex-grow pt-16">{children}</main>
 
       {/* Footer */}
-      <footer className="bg-gray-800">
+      <footer className="bg-gradient-to-r from-gray-900 via-gray-800 to-gray-900">
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
             <div>
@@ -69,7 +86,7 @@ const Layout = ({ children }) => {
                 <li>
                   <Link
                     to="/features"
-                    className="text-base text-gray-300 hover:text-white"
+                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
                   >
                     Features
                   </Link>
@@ -77,7 +94,7 @@ const Layout = ({ children }) => {
                 <li>
                   <Link
                     to="/security"
-                    className="text-base text-gray-300 hover:text-white"
+                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
                   >
                     Security
                   </Link>
@@ -92,7 +109,7 @@ const Layout = ({ children }) => {
                 <li>
                   <Link
                     to="/documentation"
-                    className="text-base text-gray-300 hover:text-white"
+                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
                   >
                     Documentation
                   </Link>
@@ -100,7 +117,7 @@ const Layout = ({ children }) => {
                 <li>
                   <Link
                     to="/faq"
-                    className="text-base text-gray-300 hover:text-white"
+                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
                   >
                     FAQ
                   </Link>
@@ -115,7 +132,7 @@ const Layout = ({ children }) => {
                 <li>
                   <Link
                     to="/about"
-                    className="text-base text-gray-300 hover:text-white"
+                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
                   >
                     About
                   </Link>
@@ -123,7 +140,7 @@ const Layout = ({ children }) => {
                 <li>
                   <Link
                     to="/contact"
-                    className="text-base text-gray-300 hover:text-white"
+                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
                   >
                     Contact
                   </Link>
@@ -138,7 +155,7 @@ const Layout = ({ children }) => {
                 <li>
                   <Link
                     to="/privacy"
-                    className="text-base text-gray-300 hover:text-white"
+                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
                   >
                     Privacy
                   </Link>
@@ -146,7 +163,7 @@ const Layout = ({ children }) => {
                 <li>
                   <Link
                     to="/terms"
-                    className="text-base text-gray-300 hover:text-white"
+                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
                   >
                     Terms
                   </Link>

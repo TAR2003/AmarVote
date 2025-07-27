@@ -4,13 +4,14 @@ import {
   FiHome,
   FiUsers,
   FiUser,
-  FiSettings,
   FiLogOut,
   FiSearch,
-  FiBell,
   FiBarChart2,
   FiCalendar,
   FiClock,
+  FiMenu,
+  FiX,
+  FiPlus,
 } from "react-icons/fi";
 import { fetchAllElections } from "../utils/api";
 
@@ -25,6 +26,11 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   const suggestionsRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  // Helper function to check if a route is active
+  const isActiveRoute = (path) => {
+    return location.pathname === path;
+  };
 
   // Load elections when component mounts
   useEffect(() => {
@@ -171,57 +177,75 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   }
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       {/* Top Navigation Bar */}
-      <header className="bg-white shadow-sm z-10">
+      <header className="bg-white/95 backdrop-blur-lg shadow-lg border-b border-white/20 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
             {/* Mobile menu button */}
             <div className="flex md:hidden">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-                className="inline-flex items-center justify-center p-2 rounded-md text-gray-500 hover:text-gray-600 hover:bg-gray-100 focus:outline-none"
+                className="inline-flex items-center justify-center p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
               >
-                <svg
-                  className="h-6 w-6"
-                  xmlns="http://www.w3.org/2000/svg"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  {mobileMenuOpen ? (
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M6 18L18 6M6 6l12 12"
-                    />
-                  ) : (
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      strokeWidth={2}
-                      d="M4 6h16M4 12h16M4 18h16"
-                    />
-                  )}
-                </svg>
+                {mobileMenuOpen ? (
+                  <FiX className="h-6 w-6" />
+                ) : (
+                  <FiMenu className="h-6 w-6" />
+                )}
               </button>
             </div>
 
             {/* Logo */}
             <div className="flex items-center">
-              <Link to="/dashboard" className="flex-shrink-0 flex items-center">
-                <div className="w-8 h-8 bg-blue-600 rounded-full flex items-center justify-center">
-                  <FiHome className="text-white" />
+              <Link to="/dashboard" className="flex-shrink-0 flex items-center group">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
+                  <span className="text-white text-xl font-bold">🗳️</span>
                 </div>
-                <span className="ml-2 text-xl font-bold text-gray-900 hidden sm:block">
+                <span className="ml-3 text-xl font-bold bg-gradient-to-r from-gray-900 to-blue-800 bg-clip-text text-transparent hidden sm:block">
                   AmarVote
                 </span>
               </Link>
             </div>
 
+            {/* Desktop Navigation Menu */}
+            <div className="hidden md:flex items-center space-x-2">
+              <Link
+                to="/dashboard"
+                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/dashboard')
+                    ? 'text-blue-700 bg-blue-50/80'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
+                  }`}
+              >
+                <FiHome className="h-4 w-4" />
+                <span>Dashboard</span>
+              </Link>
+
+              <Link
+                to="/all-elections"
+                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/all-elections')
+                    ? 'text-blue-700 bg-blue-50/80'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
+                  }`}
+              >
+                <FiBarChart2 className="h-4 w-4" />
+                <span>All Elections</span>
+              </Link>
+
+              <Link
+                to="/create-election"
+                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 ${isActiveRoute('/create-election')
+                    ? 'text-white bg-gradient-to-r from-green-600 to-emerald-700'
+                    : 'text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+                  }`}
+              >
+                <FiPlus className="h-4 w-4" />
+                <span>Create Election</span>
+              </Link>
+            </div>
+
             {/* Search Bar */}
-            <div className="flex-1 flex items-center justify-center px-2 lg:ml-6 lg:justify-end">
+            <div className="flex-1 flex items-center justify-center px-4 lg:ml-6 lg:justify-end">
               <div className="max-w-lg w-full lg:max-w-xs relative" ref={searchRef}>
                 <form onSubmit={handleSearchSubmit} className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
@@ -229,10 +253,10 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                   </div>
                   <input
                     type="text"
-                    placeholder="Search elections......"
+                    placeholder="Search elections..."
                     value={searchQuery}
                     onChange={handleSearchInputChange}
-                    className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-full leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all duration-200"
+                    className="block w-full pl-10 pr-4 py-2.5 border border-gray-200/80 rounded-2xl leading-5 bg-white/80 backdrop-blur-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 sm:text-sm transition-all duration-300 shadow-sm hover:shadow-md"
                   />
                 </form>
 
@@ -240,7 +264,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                 {showSuggestions && searchSuggestions.length > 0 && (
                   <div
                     ref={suggestionsRef}
-                    className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-80 overflow-y-auto"
+                    className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl max-h-80 overflow-y-auto"
                   >
                     {searchSuggestions.map((election) => {
                       const status = getElectionStatus(election);
@@ -248,7 +272,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                         <div
                           key={election.electionId}
                           onClick={() => handleElectionSelect(election.electionId)}
-                          className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
+                          className="p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
@@ -278,8 +302,8 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                                 {status.text}
                               </span>
                               <span className={`text-xs px-2 py-1 rounded-full mt-1 ${election.isPublic
-                                  ? 'bg-green-100 text-green-700'
-                                  : 'bg-orange-100 text-orange-700'
+                                ? 'bg-green-100 text-green-700'
+                                : 'bg-orange-100 text-orange-700'
                                 }`}>
                                 {election.isPublic ? 'Public' : 'Private'}
                               </span>
@@ -293,8 +317,8 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
                 {/* No Results Message */}
                 {showSuggestions && searchQuery.trim() && searchSuggestions.length === 0 && !isLoadingElections && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
-                    <div className="p-3 text-center text-gray-500 text-sm">
+                  <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl">
+                    <div className="p-4 text-center text-gray-500 text-sm">
                       No elections found matching "{searchQuery}"
                     </div>
                   </div>
@@ -302,8 +326,8 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
                 {/* Loading Message */}
                 {isLoadingElections && searchQuery.trim() && (
-                  <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
-                    <div className="p-3 text-center text-gray-500 text-sm">
+                  <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl">
+                    <div className="p-4 text-center text-gray-500 text-sm">
                       <FiSearch className="h-4 w-4 animate-spin mx-auto mb-1" />
                       Searching elections...
                     </div>
@@ -313,26 +337,33 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
             </div>
 
             {/* User menu */}
-            <div className="ml-4 flex items-center md:ml-6">
-              <button className="p-1 rounded-full text-gray-500 hover:text-gray-600 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                <FiBell className="h-6 w-6" />
-              </button>
-
-              <div className="ml-3 relative">
-                <div className="flex items-center space-x-2">
-                  <div className="flex flex-col items-end">
-                    <span className="text-sm font-medium text-gray-700 hidden sm:block">
-                      {userEmail}
-                    </span>
-                    <span className="text-xs text-gray-500 hidden sm:block">
-                      Admin
-                    </span>
-                  </div>
-                  <div className="w-8 h-8 bg-blue-100 rounded-full flex items-center justify-center">
-                    <FiUser className="text-blue-600" />
-                  </div>
+            <div className="ml-4 flex items-center space-x-3">
+              {/* Profile Section */}
+              <Link
+                to="/profile"
+                className="flex items-center space-x-3 p-2 rounded-2xl hover:bg-gray-100/80 transition-all duration-300 group"
+              >
+                <div className="hidden sm:flex flex-col items-end">
+                  <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+                    {userEmail?.split('@')[0] || 'User'}
+                  </span>
+                  <span className="text-xs text-gray-500">
+                    View Profile
+                  </span>
                 </div>
-              </div>
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300">
+                  <FiUser className="text-blue-600 h-5 w-5" />
+                </div>
+              </Link>
+
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50/80 transition-all duration-300 shadow-sm hover:shadow-md"
+              >
+                <FiLogOut className="h-4 w-4" />
+                <span className="hidden sm:block">Logout</span>
+              </button>
             </div>
           </div>
         </div>
@@ -340,8 +371,8 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white shadow-lg">
-          <div className="px-2 pt-2 pb-3 space-y-1 sm:px-3">
+        <div className="md:hidden bg-white/95 backdrop-blur-lg shadow-xl border-b border-white/20">
+          <div className="px-4 pt-2 pb-4 space-y-2">
             {/* Mobile Search Bar */}
             <div className="relative mb-4" ref={searchRef}>
               <form onSubmit={handleSearchSubmit} className="relative">
@@ -353,13 +384,13 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                   placeholder="Search elections..."
                   value={searchQuery}
                   onChange={handleSearchInputChange}
-                  className="block w-full pl-10 pr-3 py-2 border border-gray-300 rounded-lg leading-5 bg-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 sm:text-sm transition-all duration-200"
+                  className="block w-full pl-10 pr-3 py-2.5 border border-gray-200/80 rounded-2xl leading-5 bg-white/80 backdrop-blur-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 sm:text-sm transition-all duration-300"
                 />
               </form>
 
               {/* Mobile Search Suggestions Dropdown */}
               {showSuggestions && searchSuggestions.length > 0 && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
                   {searchSuggestions.map((election) => {
                     const status = getElectionStatus(election);
                     return (
@@ -404,7 +435,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
               {/* Mobile No Results Message */}
               {showSuggestions && searchQuery.trim() && searchSuggestions.length === 0 && !isLoadingElections && (
-                <div className="absolute z-50 w-full mt-1 bg-white border border-gray-200 rounded-lg shadow-lg">
+                <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl">
                   <div className="p-3 text-center text-gray-500 text-sm">
                     No elections found matching "{searchQuery}"
                   </div>
@@ -412,115 +443,75 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               )}
             </div>
 
+            {/* Mobile Navigation Links */}
             <Link
               to="/dashboard"
-              className="block px-3 py-2 rounded-md text-base font-medium text-blue-700 bg-blue-50"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium shadow-sm ${isActiveRoute('/dashboard')
+                  ? 'text-blue-700 bg-blue-50/80'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+                }`}
             >
-              Dashboard
+              <FiHome className="h-5 w-5" />
+              <span>Dashboard</span>
             </Link>
-            <Link
-              to="/create-election"
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-            >
-              Create Elections
-            </Link>
+
             <Link
               to="/all-elections"
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium ${isActiveRoute('/all-elections')
+                  ? 'text-blue-700 bg-blue-50/80'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+                }`}
             >
-              All Elections
+              <FiBarChart2 className="h-5 w-5" />
+              <span>All Elections</span>
             </Link>
+
+            <Link
+              to="/create-election"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium shadow-md ${isActiveRoute('/create-election')
+                  ? 'text-white bg-gradient-to-r from-green-600 to-emerald-700'
+                  : 'text-white bg-gradient-to-r from-green-500 to-emerald-600'
+                }`}
+            >
+              <FiPlus className="h-5 w-5" />
+              <span>Create Election</span>
+            </Link>
+
             <Link
               to="/profile"
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium ${isActiveRoute('/profile')
+                  ? 'text-blue-700 bg-blue-50/80'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+                }`}
             >
-              Profile
+              <FiUser className="h-5 w-5" />
+              <span>Profile</span>
             </Link>
-            <Link
-              to="/election-page"
-              className="block px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50"
-            >
-              Election Page
-            </Link>
+
             <button
-              onClick={handleLogout}
-              className="block w-full text-left px-3 py-2 rounded-md text-base font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50"
+              onClick={() => {
+                handleLogout();
+                setMobileMenuOpen(false);
+              }}
+              className="flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50/80 transition-all duration-300"
             >
-              Sign Out
+              <FiLogOut className="h-5 w-5" />
+              <span>Logout</span>
             </button>
           </div>
         </div>
       )}
 
-      <div className="flex flex-1 overflow-hidden">
-        {/* Sidebar */}
-        <div className="hidden md:flex md:flex-shrink-0">
-          <div className="flex flex-col w-64 border-r border-gray-200 bg-white">
-            <div className="h-0 flex-1 flex flex-col pt-5 pb-4 overflow-y-auto">
-              <nav className="flex-1 px-2 space-y-1">
-                <Link
-                  to="/dashboard"
-                  className="group flex items-center px-3 py-3 text-sm font-medium rounded-lg text-blue-700 bg-blue-50"
-                >
-                  <FiHome className="mr-3 h-5 w-5 text-blue-500" />
-                  Dashboard
-                </Link>
-                <Link
-                  to="/create-election"
-                  className="group flex items-center px-3 py-3 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors duration-200"
-                >
-                  <FiUsers className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
-                  Create Elections
-                </Link>
-                <Link
-                  to="/all-elections"
-                  className="group flex items-center px-3 py-3 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors duration-200"
-                >
-                  <FiBarChart2 className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
-                  All Elections
-                </Link>
-                <Link
-                  to="/profile"
-                  className="group flex items-center px-3 py-3 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors duration-200"
-                >
-                  <FiUser className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
-                  Profile
-                </Link>
-                <Link
-                  to="/settings"
-                  className="group flex items-center px-3 py-3 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors duration-200"
-                >
-                  <FiSettings className="mr-3 h-5 w-5 text-gray-400 group-hover:text-gray-500" />
-                  Settings
-                </Link>
-                <Link
-                  to="/election-page"
-                  className="group flex items-center px-3 py-3 text-sm font-medium rounded-lg text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-colors duration-200"
-                >
-                  <FiBarChart2 className="mr-3 h-5 w-5 text-gray-400 group-hover:text-blue-500" />
-                  Election Page
-                </Link>
-              </nav>
-            </div>
-            <div className="p-4 border-t border-gray-200">
-              <button
-                onClick={handleLogout}
-                className="w-full flex items-center justify-center px-4 py-2 border border-transparent rounded-lg shadow-sm text-sm font-medium text-white bg-red-600 hover:bg-red-700 transition-colors duration-200"
-              >
-                <FiLogOut className="mr-2 h-4 w-4" />
-                Sign Out
-              </button>
-            </div>
-          </div>
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto focus:outline-none">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+          <Outlet />
         </div>
-
-        {/* Main Content */}
-        <main className="flex-1 relative overflow-y-auto focus:outline-none bg-gradient-to-br from-gray-50 to-blue-50">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
-            <Outlet />
-          </div>
-        </main>
-      </div>
+      </main>
     </div>
   );
 };
