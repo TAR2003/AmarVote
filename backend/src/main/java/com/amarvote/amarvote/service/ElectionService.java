@@ -2,6 +2,7 @@ package com.amarvote.amarvote.service;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -538,6 +539,7 @@ public class ElectionService {
         // Get election choices
         List<ElectionDetailResponse.ElectionChoiceInfo> electionChoices = getElectionChoicesForElection(election.getElectionId());
         
+        
         // Get admin name
         String adminName = null;
         if (election.getAdminEmail() != null) {
@@ -658,7 +660,8 @@ public class ElectionService {
      */
     private List<ElectionDetailResponse.ElectionChoiceInfo> getElectionChoicesForElection(Long electionId) {
         List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(electionId);
-        
+        choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+
         return choices.stream()
                 .map(choice -> ElectionDetailResponse.ElectionChoiceInfo.builder()
                         .choiceId(choice.getChoiceId())
@@ -740,6 +743,8 @@ public class ElectionService {
                 
                 // Get election choices (candidates/options) with vote counts
                 List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
+                choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+
                 if (!choices.isEmpty()) {
                     // Sort by vote count (descending)
                     choices.sort((a, b) -> Integer.compare(b.getTotalVotes(), a.getTotalVotes()));
@@ -811,6 +816,7 @@ public class ElectionService {
             
             // Get election choices (candidates/options) with vote counts
             List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
+            choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             if (!choices.isEmpty()) {
                 result.append("\n**Results:**\n");
                 
@@ -874,6 +880,7 @@ public class ElectionService {
         try {
             // Get total votes from election choices
             List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
+            choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             int totalVotes = choices.stream().mapToInt(ElectionChoice::getTotalVotes).sum();
             
             // Get ballot count for the election
@@ -921,6 +928,7 @@ public class ElectionService {
                 
                 // Get detailed results
                 List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
+                choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
                 if (!choices.isEmpty()) {
                     // Sort by vote count (descending)
                     choices.sort((a, b) -> Integer.compare(b.getTotalVotes(), a.getTotalVotes()));

@@ -450,6 +450,9 @@ def api_create_encrypted_ballot():
         commitment_hash = data['commitment_hash']    # Expecting string
         
         print_json(data, "create_encrypted_ballot")
+        # Dump the request to a file named "create_encrypted_ballot_request.json"
+        with open("create_encrypted_ballot_request.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
         
         # Get election data with safe int conversion
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
@@ -480,6 +483,8 @@ def api_create_encrypted_ballot():
             'encrypted_ballot': result['encrypted_ballot'],
             'ballot_hash': result['ballot_hash']
         }
+        with open("create_encrypted_ballot_response.json", "w", encoding="utf-8") as f:
+            json.dump(response, f, ensure_ascii=False, indent=2)
 
         print_json(response, "create_encrypted_ballot_response")
         print('finished encryprting ballot at the microservice')
@@ -508,7 +513,11 @@ def api_create_encrypted_tally():
         encrypted_ballots = data['encrypted_ballots'] # List of encrypted ballot strings
         
         print_json(data, "create_encrypted_tally")
+        # Dump the request to a file named "create_encrypted_tally_request.json"
+        with open("create_encrypted_tally_request.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
         
+
         # Get election data with safe int conversion
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
         quorum = safe_int_conversion(data.get('quorum', 1))
@@ -535,6 +544,9 @@ def api_create_encrypted_tally():
             'ciphertext_tally': serialize_dict_to_string(result['ciphertext_tally']),
             'submitted_ballots': serialize_list_of_dicts_to_list_of_strings(result['submitted_ballots'])
         }
+        with open("create_encrypted_tally_response.json", "w", encoding="utf-8") as f:
+            json.dump(response, f, ensure_ascii=False, indent=2)
+
         print_json(response, "create_encrypted_tally_response")
         print('finished craeting encrypted tally for the microservice')
         return jsonify(response), 200
@@ -552,9 +564,9 @@ def api_create_partial_decryption():
         data = request.json
         guardian_id = data['guardian_id']
         print_json(data, "create_partial_decryption")
-        # Print the request body as JSON to a file named "partialdecryption_request.json"
+        # Print the request body as JSON to a file named "partial_decryption_request.json"
 
-        with open("partialdecryption_request1.json", "w", encoding="utf-8") as f:
+        with open("partial_decryption_request.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         
         # Deserialize single guardian data from string (if available)
@@ -628,6 +640,9 @@ def api_create_partial_decryption():
             'tally_share': result['tally_share'],
             'ballot_shares': serialize_dict_to_string(result['ballot_shares'])
         }
+        with open("partial_decryption_response.json", "w", encoding="utf-8") as f:
+            json.dump(response, f, ensure_ascii=False, indent=2)
+
         print_json(response, "create_partial_decryption_response")
         print('finished creating partial decryption at the microservice')
         return jsonify(response), 200
@@ -647,6 +662,9 @@ def api_create_compensated_decryption():
         available_guardian_id = data['available_guardian_id']
         missing_guardian_id = data['missing_guardian_id']
         print_json(data, "create_compensated_decryption")
+        # Dump the request to a file named "create_compensated_decryption_request.json"
+        with open("create_compensated_decryption_request.json", "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False, indent=2)
         
         # Deserialize single guardian data from strings
         try:
@@ -716,13 +734,14 @@ def api_create_compensated_decryption():
             raw_to_ciphertext_tally,
             compute_compensated_ballot_shares
         )
-        
+
         # Format response
         response = {
             'status': 'success',
             'compensated_tally_share': result['compensated_tally_share'],
             'compensated_ballot_shares': serialize_dict_to_string(result['compensated_ballot_shares'])
         }
+
         print_json(response, "create_compensated_decryption_response")  
         print('finished creating compensated decryption at the microservice')
         return jsonify(response), 200
@@ -893,7 +912,7 @@ def api_combine_decryption_shares():
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
         print_json(data, "combine_decryption_shares")
-        with open("combine_partial_decryptions_request1.json", "w", encoding="utf-8") as f:
+        with open("combine_partial_decryptions_request_error_denug.json", "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=2)
         # Deserialize dict from string with error context
         try:
