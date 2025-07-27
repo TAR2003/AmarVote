@@ -1,19 +1,23 @@
-# Build stage - using standard node instead of alpine
-FROM node:20-slim AS build
-
+# Build stage
+FROM node:20-alpine AS build
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies
-RUN npm ci --include=dev
+# Install dependencies step by step
+RUN npm cache clean --force
+RUN npm config set registry https://registry.npmjs.org/
+RUN npm install --production=false --no-audit --no-fund
+
+# Explicitly install vite if not present
+RUN npm list vite || npm install vite@latest
 
 # Copy source code
 COPY . .
 
-# Build the application
-RUN npm run build
+# Build using explicit vite path
+RUN ./node_modules/.bin/vite build
 
 # Production stage
 FROM nginx:alpine
