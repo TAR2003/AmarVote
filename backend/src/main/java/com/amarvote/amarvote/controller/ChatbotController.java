@@ -168,7 +168,7 @@ public class ChatbotController {
         String[] verificationPatterns = {
             "how.*verify.*vote", "verify.*vote.*counted", "check.*vote.*counted",
             "verification.*vote", "vote.*verification", "verify.*ballot",
-            "confirm.*vote", "validate.*vote"
+            "confirm.*vote", "validate.*vote", "tracking.*code", "track.*vote", "vote.*tracking"
         };
         
         // Patterns for seeing results
