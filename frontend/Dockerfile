@@ -1,17 +1,18 @@
-# Build stage
-FROM node:20-alpine AS build
+# Build stage - using standard node instead of alpine
+FROM node:20-slim AS build
+
 WORKDIR /app
 
 # Copy package files
 COPY package*.json ./
 
-# Install dependencies (including dev dependencies needed for build)
+# Install dependencies
 RUN npm ci --include=dev
 
 # Copy source code
 COPY . .
 
-# Build the application (try without memory limit first)
+# Build the application
 RUN npm run build
 
 # Production stage
