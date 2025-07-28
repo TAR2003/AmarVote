@@ -1,6 +1,5 @@
 package com.amarvote.amarvote;
 
-import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
 
 @SpringBootTest(properties = {
@@ -10,8 +9,8 @@ import org.springframework.boot.test.context.SpringBootTest;
 class AmarvoteApplicationTests {
     // @Test
     // void contextLoads() {
-    //     // Just verify Spring context loads
-    //     // abcdasd ef nobo
+        // // Just verify Spring context loads
+        /// / abcdasd ef nobo trying
         
     // }    
 }
