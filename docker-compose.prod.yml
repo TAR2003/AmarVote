@@ -20,6 +20,8 @@ services:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - JWT_SECRET=${JWT_SECRET}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - NEON_USERNAME=${NEON_USERNAME}
+      - NEON_PASSWORD=${NEON_PASSWORD}
     volumes:
       - maven_repo:/root/.m2
     networks:

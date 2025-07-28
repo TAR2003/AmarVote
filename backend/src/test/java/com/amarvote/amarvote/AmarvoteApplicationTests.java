@@ -10,7 +10,7 @@ class AmarvoteApplicationTests {
     // @Test
     // void contextLoads() {
         // // Just verify Spring context loads
-        /// / abcdasd ef nobo trying
+        /// / abcdasd ef nobo 
         
     // }    
 }
