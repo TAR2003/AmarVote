@@ -16,6 +16,9 @@ services:
       - RAG_SERVICE_URL=http://rag-service:5001
       - BLOCKCHAIN_SERVICE_URL=http://voting-api:5002
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
     volumes:
       - maven_repo:/root/.m2
     networks:
