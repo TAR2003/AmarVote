@@ -1,4 +1,19 @@
 services:
+  postgres:
+    image: postgres:16
+    container_name: postgres_db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${DB_DATABASE}
+      POSTGRES_USER: ${DB_USERNAME}
+      POSTGRES_PASSWORD: ${DB_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - election_net
+
   backend:
     build:
       context: ./backend
@@ -28,6 +43,7 @@ services:
     networks:
       - election_net
     depends_on:
+      - postgres
       - rag-service
 
   frontend:
@@ -76,22 +92,6 @@ services:
     volumes:
       - ./backend/src/main/resources/pdf:/app/data
       - rag_vectorstore:/app/vectorstore
-
-  postgres:
-    image: postgres:16
-    container_name: amarvote_postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${DB_DATABASE}
-      POSTGRES_USER: ${DB_USERNAME}
-      POSTGRES_PASSWORD: ${DB_PASSWORD}
-    volumes:
-      - postgres_data:/var/lib/postgresql/data
-    networks:
-      - election_net
-    ports:
-      - "5432:5432"
-
 
 volumes:
   maven_repo:
