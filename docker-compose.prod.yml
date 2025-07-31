@@ -5,17 +5,17 @@ services:
       dockerfile: Dockerfile.dev
     container_name: amarvote_backend
     restart: unless-stopped
-    network_mode: host
+    ports:
+      - "8080:8080"
     environment:
-      # Remove sslmode=require for local DB, add it only if you have SSL configured
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://localhost:5432/${DB_DATABASE}
+      # Use Docker bridge gateway to reach host
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://172.17.0.1:5432/${DB_DATABASE}
       - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
-      # With host network mode, use localhost for other services
-      - RAG_SERVICE_URL=http://localhost:5001
+      - RAG_SERVICE_URL=http://rag-service:5001
       - BLOCKCHAIN_SERVICE_URL=${VOTING_API_URL}
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
@@ -23,6 +23,8 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
     volumes:
       - maven_repo:/root/.m2
+    networks:
+      - election_net
     depends_on:
       - rag-service
 
@@ -49,7 +51,9 @@ services:
     restart: unless-stopped
     ports:
       - "5000:5000"
-    network_mode: host
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.10
     environment:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
@@ -60,7 +64,9 @@ services:
     restart: unless-stopped
     ports:
       - "5001:5001"
-    network_mode: host
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.50
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=False
@@ -72,7 +78,6 @@ services:
 volumes:
   maven_repo:
   rag_vectorstore:
-  
 
 networks:
   election_net:
