@@ -587,11 +587,8 @@ def api_create_partial_decryption():
         except Exception as e:
             raise ValueError(f"Error deserializing public_key: {e}")
             
-        try:
-            polynomial = deserialize_string_to_dict(data['polynomial'])
-        except Exception as e:
-            raise ValueError(f"Error deserializing polynomial: {e}")
-            
+        # Polynomial is no longer required from the request
+        # We'll create a minimal polynomial internally if needed
         party_names = data['party_names']
         candidate_names = data['candidate_names']
         
@@ -622,7 +619,7 @@ def api_create_partial_decryption():
             guardian_data,
             private_key,
             public_key,
-            polynomial,
+            None,  # polynomial no longer required
             ciphertext_tally_json,
             submitted_ballots_json,
             joint_public_key,

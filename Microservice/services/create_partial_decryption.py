@@ -61,7 +61,7 @@ from electionguard.tally import (
 )
 from electionguard.type import BallotId, GuardianId
 from electionguard.utils import get_optional
-from electionguard.election_polynomial import ElectionPolynomial, Coefficient, SecretCoefficient, PublicCommitment
+from electionguard.election_polynomial import ElectionPolynomial, Coefficient, SecretCoefficient, PublicCommitment, generate_polynomial
 from electionguard.schnorr import SchnorrProof
 from electionguard.elgamal import ElGamalKeyPair, ElGamalPublicKey, ElGamalSecretKey
 from electionguard.hash import hash_elems
@@ -84,7 +84,7 @@ def create_partial_decryption_service(
     guardian_data: Dict,
     private_key: Dict,
     public_key: Dict,
-    polynomial: Dict,
+    polynomial: Optional[Dict],
     ciphertext_tally_json: Dict,
     submitted_ballots_json: List[Dict],
     joint_public_key: str,
@@ -105,7 +105,7 @@ def create_partial_decryption_service(
         guardian_data: Single guardian data dictionary
         private_key: Single private key data dictionary for the guardian
         public_key: Single public key data dictionary for the guardian
-        polynomial: Single polynomial data dictionary for the guardian
+        polynomial: Optional polynomial data dictionary for the guardian (can be None)
         ciphertext_tally_json: Serialized ciphertext tally
         submitted_ballots_json: List of serialized submitted ballots
         joint_public_key: Joint public key as string
@@ -159,7 +159,7 @@ def compute_guardian_decryption_shares(
     guardian_data: Dict,
     private_key: Dict,
     public_key: Dict,
-    polynomial: Dict,
+    polynomial: Optional[Dict],
     ciphertext_tally_json: Dict,
     submitted_ballots_json: List[Dict],
     joint_public_key_json: int,
@@ -180,7 +180,7 @@ def compute_guardian_decryption_shares(
         guardian_data: Single guardian data dictionary
         private_key: Single private key data dictionary for the guardian
         public_key: Single public key data dictionary for the guardian
-        polynomial: Single polynomial data dictionary for the guardian
+        polynomial: Optional polynomial data dictionary for the guardian (can be None - will generate minimal polynomial)
         ciphertext_tally_json: Serialized ciphertext tally
         submitted_ballots_json: List of serialized submitted ballots
         joint_public_key_json: Joint public key as integer
@@ -196,6 +196,10 @@ def compute_guardian_decryption_shares(
         
     Raises:
         ValueError: If guardian data is invalid
+        
+    Note:
+        When polynomial is None, a minimal polynomial will be generated using the private key.
+        This is sufficient for partial decryption when all guardians are present.
     """
     # Validate that guardian_id matches the guardian_data
     if guardian_data['id'] != guardian_id:
@@ -205,14 +209,26 @@ def compute_guardian_decryption_shares(
     public_key_value = int_to_p(int(public_key['public_key']))
     private_key_value = int_to_q(int(private_key['private_key']))
     
-    # Handle polynomial data - check if it's already a dict or needs JSON parsing
-    polynomial_data = polynomial['polynomial']
-    if isinstance(polynomial_data, dict):
-        # Already deserialized, convert back to JSON string for from_raw
-        polynomial_obj = from_raw(ElectionPolynomial, json.dumps(polynomial_data))
+    # Handle polynomial data - create minimal polynomial if not provided
+    if polynomial is None:
+        # Create a minimal polynomial with the private key as the first coefficient
+        # This is sufficient for partial decryption when all guardians are present
+        polynomial_obj = generate_polynomial(quorum)
+        # Replace the first coefficient with the actual private key
+        polynomial_obj.coefficients[0] = Coefficient(
+            private_key_value,
+            public_key_value,
+            polynomial_obj.coefficients[0].proof  # Keep the existing proof structure
+        )
     else:
-        # It's a JSON string, use directly
-        polynomial_obj = from_raw(ElectionPolynomial, polynomial_data)
+        # Handle polynomial data - check if it's already a dict or needs JSON parsing
+        polynomial_data = polynomial['polynomial']
+        if isinstance(polynomial_data, dict):
+            # Already deserialized, convert back to JSON string for from_raw
+            polynomial_obj = from_raw(ElectionPolynomial, json.dumps(polynomial_data))
+        else:
+            # It's a JSON string, use directly
+            polynomial_obj = from_raw(ElectionPolynomial, polynomial_data)
     
     # Create election key pair for this guardian
     election_key = ElectionKeyPair(
