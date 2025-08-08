@@ -17,18 +17,22 @@ import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionResponse;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionResponse;
+import com.amarvote.amarvote.dto.CreateTallyRequest;
+import com.amarvote.amarvote.dto.CreateTallyResponse;
 import com.amarvote.amarvote.dto.ElectionGuardCombineDecryptionSharesRequest;
 import com.amarvote.amarvote.dto.ElectionGuardCombineDecryptionSharesResponse;
 import com.amarvote.amarvote.dto.ElectionGuardCompensatedDecryptionRequest;
 import com.amarvote.amarvote.dto.ElectionGuardCompensatedDecryptionResponse;
 import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionRequest;
 import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionResponse;
+import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.model.SubmittedBallot;
 import com.amarvote.amarvote.model.User;
+import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
@@ -48,10 +52,12 @@ public class PartialDecryptionService {
     private final GuardianRepository guardianRepository;
     private final ElectionRepository electionRepository;
     private final ElectionChoiceRepository electionChoiceRepository;
+    private final BallotRepository ballotRepository;
     private final SubmittedBallotRepository submittedBallotRepository;
     private final CompensatedDecryptionRepository compensatedDecryptionRepository;
     private final ObjectMapper objectMapper;
     private final ElectionGuardCryptoService cryptoService;
+    private final TallyService tallyService;
     
     @Autowired
     private WebClient webClient;
@@ -59,9 +65,13 @@ public class PartialDecryptionService {
     @Transactional
     public CreatePartialDecryptionResponse createPartialDecryption(CreatePartialDecryptionRequest request, String userEmail) {
         try {
+            System.out.println("=== Starting Partial Decryption Process ===");
+            System.out.println("Election ID: " + request.election_id() + ", User: " + userEmail);
+            
             // 1. Find user by email
             Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
             if (!userOpt.isPresent()) {
+                System.err.println("User not found: " + userEmail);
                 return CreatePartialDecryptionResponse.builder()
                     .success(false)
                     .message("User not found")
@@ -101,22 +111,133 @@ public class PartialDecryptionService {
             List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
             int numberOfGuardians = allGuardians.size();
 
-            // 6. Get submitted ballots for this election
+            // 7. Check if encrypted tally exists, create if needed
+            String ciphertextTallyString = election.getEncryptedTally();
+            System.out.println("=== TALLY CHECK PHASE ===");
+            System.out.println("Checking if encrypted tally exists for election " + request.election_id());
+            System.out.println("Encrypted tally value: " + (ciphertextTallyString == null ? "NULL" : 
+                (ciphertextTallyString.trim().isEmpty() ? "EMPTY_STRING" : "EXISTS (length: " + ciphertextTallyString.length() + ")")));
+            
+            if (ciphertextTallyString == null || ciphertextTallyString.trim().isEmpty()) {
+                System.out.println("❌ NO ENCRYPTED TALLY FOUND - INITIATING AUTO-CREATION PROCESS");
+                System.out.println("No encrypted tally found for election " + request.election_id() + ". Attempting to create tally automatically.");
+                
+                // Check if there are any ballots to create a tally from
+                System.out.println("=== CHECKING FOR SUBMITTED BALLOTS ===");
+                List<SubmittedBallot> submittedBallots = submittedBallotRepository.findByElectionId(request.election_id());
+                System.out.println("Found " + submittedBallots.size() + " submitted ballots for election " + request.election_id());
+                
+                // Also check the original Ballot table (ballots might not be moved to SubmittedBallot yet)
+                List<Ballot> originalBallots = ballotRepository.findByElectionId(request.election_id());
+                System.out.println("Found " + originalBallots.size() + " original ballots for election " + request.election_id());
+                
+                int totalBallots = submittedBallots.size() + originalBallots.size();
+                System.out.println("Total ballots found: " + totalBallots);
+                
+                if (totalBallots == 0) {
+                    System.err.println("❌ NO BALLOTS FOUND - CANNOT CREATE TALLY");
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Cannot proceed with partial decryption. No votes have been submitted for this election yet.")
+                        .build();
+                }
+                
+                System.out.println("✅ BALLOTS FOUND - PROCEEDING WITH AUTO-TALLY CREATION");
+                
+                // Check if admin email exists
+                System.out.println("=== CHECKING ADMIN EMAIL ===");
+                System.out.println("Election admin email: " + (election.getAdminEmail() == null ? "NULL" : election.getAdminEmail()));
+                if (election.getAdminEmail() == null || election.getAdminEmail().trim().isEmpty()) {
+                    System.err.println("❌ ADMIN EMAIL IS NULL/EMPTY - CANNOT CREATE TALLY");
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Cannot auto-create tally: Election admin email is not available.")
+                        .build();
+                }
+                
+                System.out.println("✅ Admin email found: " + election.getAdminEmail());
+                System.out.println("Auto-creating tally for election " + request.election_id() + " using admin email: " + election.getAdminEmail());
+                
+                // Auto-create the tally
+                System.out.println("=== PREPARING TALLY REQUEST ===");
+                CreateTallyRequest tallyRequest = CreateTallyRequest.builder()
+                    .election_id(request.election_id())
+                    .build();
+                
+                System.out.println("✅ Tally request prepared for election ID: " + tallyRequest.getElection_id());
+                System.out.println("🚀 CALLING TALLY SERVICE - createTally()");
+                
+                // Get the admin email from election to create tally
+                CreateTallyResponse tallyResponse;
+                try {
+                    // Use bypassEndTimeCheck=true since partial decryption should only happen after election ends
+                    // and we want to auto-create the tally in this case
+                    tallyResponse = tallyService.createTally(tallyRequest, election.getAdminEmail(), true);
+                    System.out.println("🔄 TallyService call completed");
+                } catch (Exception e) {
+                    System.err.println("❌ EXCEPTION in TallyService.createTally(): " + e.getMessage());
+                    e.printStackTrace();
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Failed to auto-create tally due to exception: " + e.getMessage())
+                        .build();
+                }
+                
+                System.out.println("=== TALLY SERVICE RESPONSE ===");
+                System.out.println("Tally service response: success=" + tallyResponse.isSuccess() + ", message=" + tallyResponse.getMessage());
+                
+                if (!tallyResponse.isSuccess()) {
+                    System.err.println("❌ TALLY CREATION FAILED: " + tallyResponse.getMessage());
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Failed to auto-create tally before partial decryption: " + tallyResponse.getMessage())
+                        .build();
+                }
+                
+                System.out.println("✅ TALLY CREATION SUCCESSFUL");
+                
+                // Refresh election data after tally creation
+                System.out.println("=== REFRESHING ELECTION DATA ===");
+                electionOpt = electionRepository.findById(request.election_id());
+                if (!electionOpt.isPresent()) {
+                    System.err.println("❌ ELECTION NOT FOUND AFTER TALLY CREATION");
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Election not found after tally creation")
+                        .build();
+                }
+                election = electionOpt.get();
+                ciphertextTallyString = election.getEncryptedTally();
+                
+                System.out.println("=== VERIFYING TALLY CREATION ===");
+                System.out.println("After refresh - Encrypted tally: " + (ciphertextTallyString == null ? "NULL" : 
+                    (ciphertextTallyString.trim().isEmpty() ? "EMPTY_STRING" : "EXISTS (length: " + ciphertextTallyString.length() + ")")));
+                
+                if (ciphertextTallyString == null || ciphertextTallyString.trim().isEmpty()) {
+                    System.err.println("❌ ENCRYPTED TALLY STILL NULL/EMPTY AFTER SUCCESSFUL CREATION");
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Failed to create encrypted tally automatically. The tally service succeeded but no encrypted tally was saved. Please try creating the tally manually first.")
+                        .build();
+                }
+                
+                System.out.println("✅ TALLY AUTO-CREATION COMPLETED SUCCESSFULLY");
+                System.out.println("Successfully auto-created encrypted tally for election " + request.election_id());
+                System.out.println("Encrypted tally length: " + ciphertextTallyString.length() + " characters");
+            } else {
+                System.out.println("✅ ENCRYPTED TALLY ALREADY EXISTS");
+                System.out.println("Encrypted tally already exists for election " + request.election_id() + " (length: " + ciphertextTallyString.length() + " characters)");
+            }
+            
+            System.out.println("=== TALLY CHECK PHASE COMPLETED - PROCEEDING WITH PARTIAL DECRYPTION ===");
+
+            // 8. Get submitted ballots for this election (refresh after potential tally creation)
             List<SubmittedBallot> submittedBallots = submittedBallotRepository.findByElectionId(request.election_id());
             List<String> ballotCipherTexts = submittedBallots.stream()
                 .map(SubmittedBallot::getCipherText)
                 .toList();
 
-            // 7. Get the encrypted tally as string (microservice expects string format)
-            String ciphertextTallyString = election.getEncryptedTally();
-            if (ciphertextTallyString == null || ciphertextTallyString.trim().isEmpty()) {
-                return CreatePartialDecryptionResponse.builder()
-                    .success(false)
-                    .message("Election tally has not been created yet")
-                    .build();
-            }
-
-            // 8. ✅ NEW: Decrypt the encrypted_data from request using guardian's credentials
+            // 9. ✅ NEW: Decrypt the encrypted_data from request using guardian's credentials
             String guardianCredentials = guardian.getCredentials();
             if (guardianCredentials == null || guardianCredentials.trim().isEmpty()) {
                 return CreatePartialDecryptionResponse.builder()
@@ -141,7 +262,7 @@ public class PartialDecryptionService {
                     .build();
             }
 
-            // 9. Call ElectionGuard microservice using decrypted polynomial
+            // 10. Call ElectionGuard microservice using decrypted polynomial
             ElectionGuardPartialDecryptionRequest guardRequest = ElectionGuardPartialDecryptionRequest.builder()
                 .guardian_id(String.valueOf(guardian.getSequenceOrder()))
                 .guardian_data(guardian.getKeyBackup())
@@ -164,7 +285,7 @@ public class PartialDecryptionService {
 
             System.out.println("Received response from ElectionGuard service:-- the response is: " + guardResponse);
 
-            // 10. Check if tally_share is null (invalid key)
+            // 11. Check if tally_share is null (invalid key)
             if (guardResponse.tally_share() == null) {
                 return CreatePartialDecryptionResponse.builder()
                     .success(false)
@@ -172,7 +293,7 @@ public class PartialDecryptionService {
                     .build();
             }
 
-            // 11. Update guardian record with response data
+            // 12. Update guardian record with response data
             // ✅ Fixed: Store ballot_shares directly as string (no double serialization)
             System.out.println("Now we are moving to save ballot shares");
             String ballotSharesJson = guardResponse.ballot_shares(); // Store directly
@@ -187,7 +308,7 @@ public class PartialDecryptionService {
             guardianRepository.save(guardian);
             System.out.println("saving done ---");
 
-            // 12. Create compensated decryption shares for ALL other guardians using decrypted polynomial
+            // 13. Create compensated decryption shares for ALL other guardians using decrypted polynomial
             createCompensatedDecryptionShares(election, guardian, decryptedPrivateKey, decryptedPolynomial);
 
             return CreatePartialDecryptionResponse.builder()
