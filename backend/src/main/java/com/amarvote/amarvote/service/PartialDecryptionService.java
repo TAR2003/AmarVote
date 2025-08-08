@@ -126,10 +126,13 @@ public class PartialDecryptionService {
             }
 
             String decryptedPrivateKey;
+            String decryptedPolynomial;
             try {
                 System.out.println("Decrypting guardian credentials...");
-                decryptedPrivateKey = cryptoService.decryptPrivateKey(request.encrypted_data(), guardianCredentials);
-                System.out.println("Successfully decrypted guardian private key");
+                ElectionGuardCryptoService.GuardianDecryptionResult decryptionResult = cryptoService.decryptGuardianData(request.encrypted_data(), guardianCredentials);
+                decryptedPrivateKey = decryptionResult.getPrivateKey();
+                decryptedPolynomial = decryptionResult.getPolynomial();
+                System.out.println("Successfully decrypted guardian private key and polynomial");
             } catch (Exception e) {
                 System.err.println("Failed to decrypt guardian credentials: " + e.getMessage());
                 return CreatePartialDecryptionResponse.builder()
@@ -138,13 +141,13 @@ public class PartialDecryptionService {
                     .build();
             }
 
-            // 9. Call ElectionGuard microservice
+            // 9. Call ElectionGuard microservice using decrypted polynomial
             ElectionGuardPartialDecryptionRequest guardRequest = ElectionGuardPartialDecryptionRequest.builder()
                 .guardian_id(String.valueOf(guardian.getSequenceOrder()))
                 .guardian_data(guardian.getKeyBackup())
                 .private_key(decryptedPrivateKey)
                 .public_key(guardian.getGuardianPublicKey())
-                .polynomial(guardian.getGuardianPolynomial())
+                .polynomial(decryptedPolynomial) // ✅ Use decrypted polynomial instead of stored one
                 .party_names(partyNames)
                 .candidate_names(candidateNames)
                 .ciphertext_tally(ciphertextTallyString)
@@ -184,8 +187,8 @@ public class PartialDecryptionService {
             guardianRepository.save(guardian);
             System.out.println("saving done ---");
 
-            // 12. Create compensated decryption shares for ALL other guardians
-            createCompensatedDecryptionShares(election, guardian, decryptedPrivateKey);
+            // 12. Create compensated decryption shares for ALL other guardians using decrypted polynomial
+            createCompensatedDecryptionShares(election, guardian, decryptedPrivateKey, decryptedPolynomial);
 
             return CreatePartialDecryptionResponse.builder()
                 .success(true)
@@ -524,7 +527,7 @@ public class PartialDecryptionService {
     /**
      * Creates compensated decryption shares for ALL other guardians using the available guardian
      */
-    private void createCompensatedDecryptionShares(Election election, Guardian availableGuardian, String availableGuardianPrivateKey) {
+    private void createCompensatedDecryptionShares(Election election, Guardian availableGuardian, String availableGuardianPrivateKey, String availableGuardianPolynomial) {
         try {
             System.out.println("Starting compensated decryption for election: " + election.getElectionId());
             
@@ -591,7 +594,7 @@ public class PartialDecryptionService {
                         );
                     
                     if (specificExists.isEmpty()) {
-                        createCompensatedShare(election, availableGuardian, otherGuardian, availableGuardianPrivateKey);
+                        createCompensatedShare(election, availableGuardian, otherGuardian, availableGuardianPrivateKey, availableGuardianPolynomial);
                         System.out.println("Created compensated share: Guardian " + availableGuardian.getSequenceOrder() + 
                                          " compensating for Guardian " + otherGuardian.getSequenceOrder());
                     } else {
@@ -610,10 +613,16 @@ public class PartialDecryptionService {
     /**
      * Creates a compensated decryption share for a specific other guardian using a compensating guardian
      */
-    private void createCompensatedShare(Election election, Guardian compensatingGuardian, Guardian otherGuardian, String compensatingGuardianPrivateKey) {
+    private void createCompensatedShare(Election election, Guardian compensatingGuardian, Guardian otherGuardian, String compensatingGuardianPrivateKey, String compensatingGuardianPolynomial) {
         try {
             System.out.println("Creating compensated share: compensating=" + compensatingGuardian.getSequenceOrder() + 
                              ", other=" + otherGuardian.getSequenceOrder());
+            
+            // Validate that polynomial is provided since Guardian table doesn't store it
+            if (compensatingGuardianPolynomial == null || compensatingGuardianPolynomial.trim().isEmpty()) {
+                System.err.println("Compensating guardian polynomial is required but not provided");
+                return;
+            }
             
             // Check if compensated share already exists
             boolean existsAlready = compensatedDecryptionRepository
@@ -653,7 +662,7 @@ public class PartialDecryptionService {
                 .missing_guardian_data(otherGuardian.getKeyBackup())       // Guardian data JSON
                 .available_private_key(compensatingGuardianPrivateKey)       // Private key from request
                 .available_public_key(compensatingGuardian.getGuardianPublicKey())   // Public key JSON
-                .available_polynomial(compensatingGuardian.getGuardianPolynomial())  // Polynomial JSON
+                .available_polynomial(compensatingGuardianPolynomial)  // ✅ Use decrypted polynomial only (no fallback to stored polynomial since it doesn't exist)
                 .party_names(partyNames)
                 .candidate_names(candidateNames)
                 .ciphertext_tally(election.getEncryptedTally()) // ✅ Fixed: Use correct field

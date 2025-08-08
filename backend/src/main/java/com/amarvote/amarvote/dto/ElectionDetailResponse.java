@@ -63,7 +63,6 @@ public class ElectionDetailResponse {
         private String userEmail;
         private String userName;
         private String guardianPublicKey;
-        private String guardianPolynomial;
         private Integer sequenceOrder;
         private Boolean decryptedOrNot;
         private String partialDecryptedTally;

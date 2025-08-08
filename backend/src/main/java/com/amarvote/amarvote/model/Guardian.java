@@ -28,9 +28,6 @@ public class Guardian {
     @Column(name = "guardian_public_key", nullable = false, columnDefinition = "TEXT")
     private String guardianPublicKey;
 
-    @Column(name = "guardian_polynomial", nullable = false, columnDefinition = "TEXT")
-    private String guardianPolynomial;
-
     @Column(name = "sequence_order", nullable = false)
     private Integer sequenceOrder;
 

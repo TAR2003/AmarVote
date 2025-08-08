@@ -150,26 +150,28 @@ public class ElectionService {
             throw new IllegalArgumentException("Guardian emails and private keys count must match");
         }
 
-        // Encrypt private keys and send credential files via email
+        // Encrypt guardian data (private key and polynomial together) and send credential files via email
         Map<String, String> guardianCredentials = new HashMap<>(); // Store credentials temporarily
         
         for (int i = 0; i < guardianEmails.size(); i++) {
             String email = guardianEmails.get(i);
             String privateKey = guardianPrivateKeys.get(i);
+            // Note: Polynomial will be retrieved from ElectionGuard response but not stored in Guardian table
+            String polynomial = guardianResponse.polynomials().get(i);
 
             if (!userRepository.existsByUserEmail(email)) {
                 throw new RuntimeException("User not found for email: " + email);
             }
 
             try {
-                // Encrypt the guardian's private key using ElectionGuard microservice
-                System.out.println("Encrypting private key for guardian: " + email);
-                ElectionGuardCryptoService.EncryptionResult encryptionResult = cryptoService.encryptPrivateKey(privateKey);
+                // Encrypt the guardian's private key and polynomial together using ElectionGuard microservice
+                System.out.println("Encrypting private key and polynomial for guardian: " + email);
+                ElectionGuardCryptoService.EncryptionResult encryptionResult = cryptoService.encryptGuardianData(privateKey, polynomial);
                 
                 // Create credential file with encrypted data
                 Path credentialFile = cryptoService.createCredentialFile(email, election.getElectionId(), encryptionResult.getEncryptedData());
                 
-                // Send email with credential file attachment instead of plain private key
+                // Send email with credential file attachment
                 emailService.sendGuardianCredentialEmail(email, election.getElectionTitle(), election.getElectionDescription(), 
                     credentialFile, election.getElectionId());
                 
@@ -179,8 +181,8 @@ public class ElectionService {
                 System.out.println("✅ Successfully encrypted and sent credentials for guardian: " + email);
                 
             } catch (Exception e) {
-                System.err.println("❌ Failed to encrypt private key for guardian " + email + ": " + e.getMessage());
-                throw new RuntimeException("Failed to encrypt guardian private key for " + email, e);
+                System.err.println("❌ Failed to encrypt guardian data for guardian " + email + ": " + e.getMessage());
+                throw new RuntimeException("Failed to encrypt guardian data for " + email, e);
             }
         }
 
@@ -193,18 +195,14 @@ public class ElectionService {
 
         // Now save Guardian objects
         List<String> guardianPublicKeys = guardianResponse.public_keys();
-        List<String> guardianPolynomials = guardianResponse.polynomials();
         List<String> guardianDataList = guardianResponse.guardian_data(); // ✅ Fixed: Now expects strings
 
         // Add null checks for guardian data
         if (guardianPublicKeys == null) {
             throw new RuntimeException("ElectionGuard service did not return guardian public keys");
         }
-        if (guardianPolynomials == null) {
-            throw new RuntimeException("ElectionGuard service did not return guardian polynomials");
-        }
         
-        if (guardianPublicKeys.size() != guardianEmails.size() || guardianPolynomials.size() != guardianEmails.size()) {
+        if (guardianPublicKeys.size() != guardianEmails.size()) {
             throw new IllegalArgumentException("Guardian data arrays size mismatch");
         }
 
@@ -225,7 +223,6 @@ public class ElectionService {
                     .electionId(election.getElectionId()) // Now safely use
                     .userId(userId)
                     .guardianPublicKey(guardianPublicKeys.get(i))
-                    .guardianPolynomial(guardianPolynomials.get(i))
                     .sequenceOrder(i + 1)
                     .decryptedOrNot(false)
                     .partialDecryptedTally(null)
@@ -623,7 +620,6 @@ public class ElectionService {
                             .userEmail(user.getUserEmail())
                             .userName(user.getUserName())
                             .guardianPublicKey(guardian.getGuardianPublicKey())
-                            .guardianPolynomial(guardian.getGuardianPolynomial())
                             .sequenceOrder(guardian.getSequenceOrder())
                             .decryptedOrNot(hasDecrypted)
                             .partialDecryptedTally(guardian.getPartialDecryptedTally())
