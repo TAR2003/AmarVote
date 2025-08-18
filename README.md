@@ -62,9 +62,9 @@ AmarVote is a cryptographically secure, end-to-end verifiable voting platform th
 │   (Port 5173)   │◄──►│  Backend         │◄──►│  Microservice       │
 │                 │    │  (Port 8080)     │    │  (Port 5000)        │
 └─────────────────┘    └──────────────────┘    └─────────────────────┘
-         │                       │                        │
-         │                       │                        │
-         ▼                       ▼                        ▼
+                     /           │                        │
+                    /            │                        │
+                   ▼             ▼                        ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
 │   RAG Service   │    │  PostgreSQL      │    │  Blockchain API     │
 │   (Port 5001)   │    │  Database        │    │  (Optional)         │
@@ -694,7 +694,7 @@ docker stack deploy -c docker-stack.yml amarvote
 
 ### **Hybrid Deployment**
 
-- **Database**: Cloud-hosted PostgreSQL (Neon)
+- **Database**: VM PostgreSQL
 - **Application**: On-premises containers
 - **Blockchain**: Local Ganache network
 - **CDN**: Cloud-based static asset delivery
