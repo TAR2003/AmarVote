@@ -76,18 +76,18 @@ AmarVote is a cryptographically secure, end-to-end verifiable voting platform th
 
 ### **Technology Stack**
 
-| Component | Technology | Version | Purpose |
-|-----------|------------|---------|---------|
-| **Frontend** | React + Vite | 19.1.0 | User interface and interaction |
-| **Backend** | Spring Boot | 3.5.0 | Core business logic and REST APIs |
-| **Security** | Spring Security | 6.x | Authentication and authorization |
-| **Database** | PostgreSQL | Latest | Data persistence (Neon Cloud) |
-| **Cryptography** | ElectionGuard | Python 3.12 | Vote encryption and verification |
-| **Post-Quantum** | pqcrypto (ML-KEM-1024) | Latest | Quantum-resistant encryption |
-| **Blockchain** | Ganache + Web3 | Latest | Immutable audit trail (optional) |
-| **Containerization** | Docker Compose | Latest | Service orchestration |
-| **Bot Detection** | FingerprintJS BotD | 1.9.1 | Anti-fraud protection |
-| **AI Assistant** | RAG System | Custom | Document-based help system |
+|     Component        |       Technology       |   Version   |            Purpose                |
+|----------------------|------------------------|-------------|-----------------------------------|
+| **Frontend**         | React + Vite           | 19.1.0      | User interface and interaction    |
+| **Backend**          | Spring Boot            | 3.5.0       | Core business logic and REST APIs |
+| **Security**         | Spring Security        | 6.x         | Authentication and authorization  |
+| **Database**         | PostgreSQL             | Latest      | Data persistence (Neon Cloud)     |
+| **Cryptography**     | ElectionGuard          | Python 3.12 | Vote encryption and verification  |
+| **Post-Quantum**     | pqcrypto (ML-KEM-1024) | Latest      | Quantum-resistant encryption      |
+| **Blockchain**       | Ganache + Web3         | Latest      | Immutable audit trail (optional)  |
+| **Containerization** | Docker Compose         | Latest      | Service orchestration             |
+| **Bot Detection**    | FingerprintJS BotD     | 1.9.1       | Anti-fraud protection             |
+| **AI Assistant**     | RAG System             | Custom      | Document-based help system        |
 
 ---
 
@@ -262,13 +262,13 @@ AmarVote/
 
 ### **🌐 Service Access Points**
 
-| Service | URL | Status | Purpose |
-|---------|-----|--------|---------|
-| **Frontend** | <http://localhost:5173> | ✅ Active | Main user interface |
-| **Backend API** | <http://localhost:8080> | ✅ Active | REST API endpoints |
-| **ElectionGuard** | <http://localhost:5000> | ✅ Active | Cryptographic services |
-| **RAG Service** | <http://localhost:5001> | 🏭 Prod Only | AI assistant |
-| **Blockchain API** | <http://localhost:5002> | ⚠️ Optional | Blockchain operations |
+|      Service       |           URL           |    Status     |        Purpose         |
+|--------------------|-------------------------|---------------|------------------------|
+| **Frontend**       | <http://localhost:5173> | ✅ Active    | Main user interface    |
+| **Backend API**    | <http://localhost:8080> | ✅ Active    | REST API endpoints     |
+| **ElectionGuard**  | <http://localhost:5000> | ✅ Active    | Cryptographic services |
+| **RAG Service**    | <http://localhost:5001> | 🏭 Prod Only | AI assistant           |
+| **Blockchain API** | <http://localhost:5002> | ⚠️ Optional  | Blockchain operations  |
 
 **Development Notes:**
 - RAG service is enabled in production but commented out in development
@@ -372,26 +372,26 @@ sequenceDiagram
 
 ```
 ┌─────────────────────────────────────────────────────────┐
-│                    User Interface Layer                  │
+│                    User Interface Layer                 │
 │  • Bot Detection  • Input Validation  • CSRF Protection │
 └─────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────┐
 │                   Application Layer                     │
-│  • JWT Authentication  • Role-based Access Control     │
-│  • API Rate Limiting  • Request Validation             │
+│  • JWT Authentication  • Role-based Access Control      │
+│  • API Rate Limiting  • Request Validation              │
 └─────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────┐
 │                 Cryptographic Layer                     │
-│  • ElectionGuard Encryption  • Post-Quantum Keys       │
-│  • Zero-Knowledge Proofs  • Threshold Cryptography     │
+│  • ElectionGuard Encryption  • Post-Quantum Keys        │
+│  • Zero-Knowledge Proofs  • Threshold Cryptography      │
 └─────────────────────────────────────────────────────────┘
                               │
 ┌─────────────────────────────────────────────────────────┐
 │                  Infrastructure Layer                   │
-│  • Docker Isolation  • Network Segmentation            │
-│  • Blockchain Immutability  • Database Encryption      │
+│  • Docker Isolation  • Network Segmentation             │
+│  • Blockchain Immutability  • Database Encryption       │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -531,12 +531,12 @@ docker-compose -f docker-compose.prod.yml logs -f
 
 ### **System Requirements**
 
-| Component | Minimum | Recommended | Production |
-|-----------|---------|-------------|------------|
-| **CPU** | 2 cores | 4 cores | 8+ cores |
-| **RAM** | 4GB | 8GB | 16+ GB |
-| **Storage** | 20GB | 50GB | 100+ GB |
-| **Network** | 10 Mbps | 100 Mbps | 1+ Gbps |
+| Component   | Minimum | Recommended | Production |
+|-------------|---------|-------------|------------|
+| **CPU**     | 2 cores |   4 cores   |  8+ cores  |
+| **RAM**     |    4GB  |      8GB    |    16+ GB  |
+| **Storage** |   20GB  |     50GB    |   100+ GB  |
+| **Network** | 10 Mbps |   100 Mbps  |   1+ Gbps  |
 
 ---
 
@@ -563,7 +563,7 @@ open target/site/jacoco/index.html
 ```
 
 **Test Coverage:**
-- **BallotService**: Comprehensive test suite covering vote casting, eligibility checks, and error handling
+- **BallotService**: Comprehensive test suite covering vote casting, eligibility checks and error handling
 - **Authentication**: JWT token validation and user management
 - **API Controllers**: REST endpoint testing with MockMvc
 - **Database**: JPA entity relationships and data integrity
@@ -624,12 +624,12 @@ python integration_tests.py
 
 ### **Quality Metrics**
 
-| Component | Test Coverage | Test Count | Status |
-|-----------|--------------|------------|---------|
-| **Backend** | 85%+ | 50+ tests | ✅ Comprehensive |
-| **Frontend** | 80%+ | 30+ tests | ✅ Good Coverage |
-| **ElectionGuard** | 70%+ | 25+ tests | ✅ Core Functions |
-| **Integration** | 90%+ | 15+ tests | ✅ Full Workflows |
+|     Component     | Test Coverage | Test Count |       Status       |
+|-------------------|---------------|------------|--------------------|
+| **Backend**       |     85%+      | 50+ tests  | ✅ Comprehensive  |
+| **Frontend**      |     80%+      | 30+ tests  | ✅ Good Coverage  |
+| **ElectionGuard** |     70%+      | 25+ tests  | ✅ Core Functions |
+| **Integration**   |     90%+      | 15+ tests  | ✅ Full Workflows |
 
 ### **Testing Best Practices**
 
@@ -929,14 +929,14 @@ POST /api/chat/query
 
 ### **Threat Model**
 
-| Threat | Mitigation | Status |
-|--------|------------|--------|
-| **Vote Buying** | Anonymous voting + ZK proofs | ✅ Implemented |
-| **Ballot Stuffing** | Bot detection + authentication | ✅ Implemented |
-| **Man-in-the-Middle** | End-to-end encryption | ✅ Implemented |
+|          Threat         |          Mitigation            |      Status     | 
+|-------------------------|--------------------------------|-----------------|
+| **Vote Buying**         | Anonymous voting + ZK proofs   | ✅ Implemented |
+| **Ballot Stuffing**     | Bot detection + authentication | ✅ Implemented |
+| **Man-in-the-Middle**   | End-to-end encryption          | ✅ Implemented |
 | **Database Compromise** | Encrypted storage + blockchain | ✅ Implemented |
-| **Quantum Attacks** | Post-quantum cryptography | ✅ Implemented |
-| **Insider Threats** | Threshold cryptography | ✅ Implemented |
+| **Quantum Attacks**     | Post-quantum cryptography      | ✅ Implemented |
+| **Insider Threats**     | Threshold cryptography         | ✅ Implemented |
 
 ### **Security Best Practices**
 
@@ -1107,12 +1107,12 @@ alerts:
 
 ### **Getting Help**
 
-| Channel | Purpose | Response Time |
-|---------|---------|---------------|
-| **GitHub Issues** | Bug reports and feature requests | 24-48 hours |
-| **Discord** | Real-time community chat | Immediate |
-| **Email** | Security issues and enterprise inquiries | 24 hours |
-| **Documentation** | Self-service help | Immediate |
+|      Channel      |                 Purpose                  | Response Time |
+|-------------------|------------------------------------------|---------------|
+| **GitHub Issues** | Bug reports and feature requests         |  24-48 hours  |
+| **Discord**       | Real-time community chat                 |  Immediate    |
+| **Email**         | Security issues and enterprise inquiries |  24 hours     |
+| **Documentation** | Self-service help                        |  Immediate    |
 
 ### **Community Resources**
 
@@ -1163,12 +1163,12 @@ For enterprise deployments and custom requirements:
 
 ### **Load Testing Results**
 
-| Metric | Small Election (100 voters) | Medium Election (10K voters) | Large Election (100K voters) |
-|--------|------------------------------|-------------------------------|------------------------------|
-| **Vote Processing** | 50 votes/sec | 200 votes/sec | 500 votes/sec |
-| **Peak Latency** | 150ms | 300ms | 800ms |
-| **Memory Usage** | 2GB | 8GB | 32GB |
-| **Storage Growth** | 100MB | 5GB | 50GB |
+|       Metric        | Small Election (100 voters)  | Medium Election (10K voters) | Large Election (100K voters) |
+|---------------------|------------------------------|------------------------------|------------------------------|
+| **Vote Processing** |        50 votes/sec          |          200 votes/sec       |         500 votes/sec        |
+| **Peak Latency**    |           150ms              |             300ms            |           800ms              |
+| **Memory Usage**    |             2GB              |               8GB            |            32GB              |
+| **Storage Growth**  |           100MB              |               5GB            |            50GB              |
 
 ### **Security Benchmarks**
 
@@ -1276,11 +1276,11 @@ The platform supports multiple deployment configurations:
 
 AmarVote implements multiple layers of security:
 - **Cryptographic**: ElectionGuard SDK with post-quantum enhancements
-- **Application**: JWT authentication, input validation, and comprehensive logging
+- **Application**: JWT authentication, input validation and comprehensive logging
 - **Infrastructure**: Docker isolation and network segmentation
 - **Verification**: Public bulletin board and independent audit capabilities
 
-Whether conducting organizational elections or large-scale democratic processes, AmarVote provides the security, transparency, and reliability needed to ensure democratic integrity in the digital age.
+Whether conducting organizational elections or large-scale democratic processes, AmarVote provides the security, transparency and reliability needed to ensure democratic integrity in the digital age.
 
 ---
 
