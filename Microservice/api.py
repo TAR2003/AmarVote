@@ -86,6 +86,12 @@ from electionguard.decryption import (
     compute_lagrange_coefficients_for_guardians as compute_lagrange_coeffs
 )
 from services.setup_guardians import setup_guardians_service
+from services.guardian_key_ceremony import (
+    init_guardian_ceremony_service,
+    submit_guardian_keys_service,
+    finalize_guardian_ceremony_service,
+    get_ceremony_status_service
+)
 from services.create_encrypted_ballot import create_encrypted_ballot_service
 from services.create_encrypted_tally import create_encrypted_tally_service
 from services.create_partial_decryption import create_partial_decryption_service
@@ -94,6 +100,10 @@ from services.combine_decryption_shares import combine_decryption_shares_service
 from services.create_partial_decryption_shares import compute_ballot_shares, compute_guardian_decryption_shares
 from services.create_encrypted_ballot import create_election_manifest, create_plaintext_ballot
 from services.create_encrypted_tally import ciphertext_tally_to_raw, raw_to_ciphertext_tally
+
+# Import ballot sanitization modules
+from ballot_sanitizer import prepare_ballot_for_publication, process_ballot_response
+from ballot_publisher import BallotPublisher
 
 # Import post-quantum cryptography (Kyber1024)
 try:
@@ -129,6 +139,9 @@ elif isinstance(MASTER_KEY, str):
 # Rate limiting storage (in production, use Redis/database)
 rate_limit_storage = {}
 
+# Initialize secure ballot publisher
+ballot_publisher = BallotPublisher()
+
 # Setup logging
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
@@ -146,6 +159,11 @@ def print_json(data, str_):
                 value_type = type(value).__name__
             print(f"{key}: {value_type}", file=f)
         print(f"End of {str_}\n------------------\n\n", file=f)
+
+def print_data(data, filename):
+    with open(filename, "w") as f:
+        json.dump(data, f, ensure_ascii=False, indent=4)
+
 
 # Helper functions for serialization/deserialization
 def serialize_dict_to_string(data):
@@ -397,7 +415,8 @@ def api_setup_guardians():
         candidate_names = data['candidate_names']
         
         print_json(data, "setup_guardians")
-        
+        print_data(data, "./io/setup_guardians_data.json")
+
         # Call service function
         result = setup_guardians_service(
             number_of_guardians,
@@ -428,6 +447,7 @@ def api_setup_guardians():
             'quorum': result['quorum']
         }
         print_json(response, "setup_guardians_response")
+        print_data(response, "./io/setup_guardians_response.json")
         print('Finished setup guardians call at the microservice')
         return jsonify(response), 200
     
@@ -438,7 +458,7 @@ def api_setup_guardians():
 
 @app.route('/create_encrypted_ballot', methods=['POST'])
 def api_create_encrypted_ballot():
-    """API endpoint to create and encrypt a ballot."""
+    """API endpoint to create and encrypt a ballot with secure publication."""
     try:
         print('create encrypted ballot call at the microservice')
         data = request.json
@@ -449,16 +469,19 @@ def api_create_encrypted_ballot():
         joint_public_key = data['joint_public_key']  # Expecting string
         commitment_hash = data['commitment_hash']    # Expecting string
         
-        print_json(data, "create_encrypted_ballot")
-        # Dump the request to a file named "create_encrypted_ballot_request.json"
-        with open("create_encrypted_ballot_request.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        # Get ballot status for secure publication (default to CAST for security)
+        ballot_status = data.get('ballot_status', 'CAST').upper()
+        if ballot_status not in ['CAST', 'AUDITED']:
+            ballot_status = 'CAST'  # Default to most secure option
         
+        print_json(data, "create_encrypted_ballot")
+        print_data(data, "./io/create_encrypted_ballot_request.json")
+
         # Get election data with safe int conversion
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
         quorum = safe_int_conversion(data.get('quorum', 1))
         
-        # Call service function
+        # Call service function to create the encrypted ballot
         result = create_encrypted_ballot_service(
             party_names,
             candidate_names,
@@ -478,16 +501,56 @@ def api_create_encrypted_ballot():
             election_data['encrypted_ballots'] = []
         election_data['encrypted_ballots'].append(result['encrypted_ballot'])
         
-        response = {
+        # Create the complete ballot response for sanitization
+        complete_ballot_response = {
             'status': 'success',
             'encrypted_ballot': result['encrypted_ballot'],
             'ballot_hash': result['ballot_hash']
         }
+        
+        # Apply secure ballot publication based on ballot status
+        try:
+            publication_result = ballot_publisher.publish_ballot(
+                ballot_id=ballot_id,
+                encrypted_ballot_response=json.dumps(complete_ballot_response),
+                ballot_status=ballot_status
+            )
+            
+            # Create the final response based on ballot status
+            response = {
+                'status': 'success',
+                'ballot_id': ballot_id,
+                'ballot_status': ballot_status,
+                'ballot_hash': publication_result['ballot_hash'],
+                'encrypted_ballot': publication_result['encrypted_ballot'],
+                'publication_status': publication_result['publication_status']
+            }
+            
+            # Add nonces only for audited ballots
+            if ballot_status == 'AUDITED' and 'ballot_nonces' in publication_result:
+                response['ballot_nonces'] = publication_result['ballot_nonces']
+                response['nonces_available'] = True
+            else:
+                response['nonces_available'] = False
+                
+        except Exception as sanitization_error:
+            print(f"Sanitization error: {sanitization_error}")
+            # Fallback to unsanitized response if sanitization fails
+            response = {
+                'status': 'success',
+                'encrypted_ballot': result['encrypted_ballot'],
+                'ballot_hash': result['ballot_hash'],
+                'warning': 'Ballot published without sanitization due to error',
+                'sanitization_error': str(sanitization_error)
+            }
+        
+        # Save the response to file for debugging
         with open("create_encrypted_ballot_response.json", "w", encoding="utf-8") as f:
             json.dump(response, f, ensure_ascii=False, indent=2)
 
         print_json(response, "create_encrypted_ballot_response")
-        print('finished encryprting ballot at the microservice')
+        print_data(response, "./io/create_encrypted_ballot_response.json")
+        print(f'finished encrypting ballot at the microservice - Status: {ballot_status}')
         return jsonify(response), 200
     
     except ValueError as e:
@@ -498,7 +561,97 @@ def api_create_encrypted_ballot():
 @app.route('/health', methods=['GET'])
 def api_health_check():
     """API endpoint for health check."""
-    return jsonify({'status': 'healthy'}), 200
+    stats = ballot_publisher.get_publication_stats()
+    return jsonify({
+        'status': 'healthy', 
+        'ballot_publication_stats': stats
+    }), 200
+
+@app.route('/ballots/<ballot_id>', methods=['GET'])
+def api_get_published_ballot(ballot_id):
+    """API endpoint to retrieve a published ballot (sanitized based on status)."""
+    try:
+        ballot = ballot_publisher.get_published_ballot(ballot_id)
+        if ballot:
+            return jsonify(ballot), 200
+        return jsonify({"error": "Ballot not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/ballots/<ballot_id>/nonces', methods=['GET'])
+def api_get_ballot_nonces(ballot_id):
+    """API endpoint to get nonces for a ballot (only available for audited ballots)."""
+    try:
+        nonces = ballot_publisher.get_ballot_nonces(ballot_id)
+        if nonces:
+            return jsonify({
+                "ballot_id": ballot_id, 
+                "nonces": nonces,
+                "status": "AUDITED",
+                "nonce_count": len(nonces)
+            }), 200
+        
+        # Check if ballot exists but is cast (no nonces available)
+        ballot = ballot_publisher.get_published_ballot(ballot_id)
+        if ballot and not ballot.get('nonces_available', False):
+            return jsonify({
+                "error": "Nonces not available for cast ballots", 
+                "ballot_status": "CAST",
+                "message": "Nonces are only available for audited ballots"
+            }), 403
+        
+        return jsonify({"error": "Ballot not found"}), 404
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/ballots', methods=['GET'])
+def api_list_published_ballots():
+    """API endpoint to list all published ballots with their publication status."""
+    try:
+        status_filter = request.args.get('status')  # Optional: 'CAST' or 'AUDITED'
+        ballots = ballot_publisher.list_published_ballots(status_filter)
+        
+        # Add summary statistics
+        stats = ballot_publisher.get_publication_stats()
+        
+        return jsonify({
+            "ballots": ballots,
+            "statistics": stats,
+            "filter_applied": status_filter
+        }), 200
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
+
+@app.route('/publish_ballot', methods=['POST'])
+def api_publish_existing_ballot():
+    """API endpoint to publish an already created encrypted ballot with specific status."""
+    try:
+        data = request.json
+        
+        ballot_id = data.get('ballot_id')
+        encrypted_ballot_response = data.get('encrypted_ballot_response')  
+        ballot_status = data.get('ballot_status', 'CAST').upper()
+        
+        if not all([ballot_id, encrypted_ballot_response]):
+            return jsonify({
+                "error": "Missing required fields", 
+                "required": ["ballot_id", "encrypted_ballot_response"],
+                "optional": ["ballot_status"]
+            }), 400
+        
+        if ballot_status not in ['CAST', 'AUDITED']:
+            ballot_status = 'CAST'  # Default to most secure
+        
+        result = ballot_publisher.publish_ballot(
+            ballot_id=ballot_id,
+            encrypted_ballot_response=encrypted_ballot_response,
+            ballot_status=ballot_status
+        )
+        
+        return jsonify(result), 200
+        
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 @app.route('/create_encrypted_tally', methods=['POST'])
 def api_create_encrypted_tally():
@@ -514,9 +667,7 @@ def api_create_encrypted_tally():
         
         print_json(data, "create_encrypted_tally")
         # Dump the request to a file named "create_encrypted_tally_request.json"
-        with open("create_encrypted_tally_request.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
+        print_data(data, "./io/create_encrypted_tally_request.json")
 
         # Get election data with safe int conversion
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
@@ -544,8 +695,7 @@ def api_create_encrypted_tally():
             'ciphertext_tally': serialize_dict_to_string(result['ciphertext_tally']),
             'submitted_ballots': serialize_list_of_dicts_to_list_of_strings(result['submitted_ballots'])
         }
-        with open("create_encrypted_tally_response.json", "w", encoding="utf-8") as f:
-            json.dump(response, f, ensure_ascii=False, indent=2)
+        print_data(response, "./io/create_encrypted_tally_response.json")
 
         print_json(response, "create_encrypted_tally_response")
         print('finished craeting encrypted tally for the microservice')
@@ -566,9 +716,8 @@ def api_create_partial_decryption():
         print_json(data, "create_partial_decryption")
         # Print the request body as JSON to a file named "partial_decryption_request.json"
 
-        with open("partial_decryption_request.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
+        print_data(data, "./io/partial_decryption_request.json")
+
         # Deserialize single guardian data from string (if available)
         guardian_data = None
         if data.get('guardian_data'):
@@ -637,8 +786,7 @@ def api_create_partial_decryption():
             'tally_share': result['tally_share'],
             'ballot_shares': serialize_dict_to_string(result['ballot_shares'])
         }
-        with open("partial_decryption_response.json", "w", encoding="utf-8") as f:
-            json.dump(response, f, ensure_ascii=False, indent=2)
+        print_data(response, "./io/create_partial_decryption_response.json")
 
         print_json(response, "create_partial_decryption_response")
         print('finished creating partial decryption at the microservice')
@@ -660,9 +808,8 @@ def api_create_compensated_decryption():
         missing_guardian_id = data['missing_guardian_id']
         print_json(data, "create_compensated_decryption")
         # Dump the request to a file named "create_compensated_decryption_request.json"
-        with open("create_compensated_decryption_request.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
+        print_data(data, "./io/create_compensated_decryption_request.json")
+
         # Deserialize single guardian data from strings
         try:
             available_guardian_data = deserialize_string_to_dict(data['available_guardian_data'])
@@ -738,8 +885,7 @@ def api_create_compensated_decryption():
             'compensated_tally_share': result['compensated_tally_share'],
             'compensated_ballot_shares': serialize_dict_to_string(result['compensated_ballot_shares'])
         }
-
-        print_json(response, "create_compensated_decryption_response")  
+        print_data(response, "./io/create_compensated_decryption_response.json")
         print('finished creating compensated decryption at the microservice')
         return jsonify(response), 200
     
@@ -747,154 +893,7 @@ def api_create_compensated_decryption():
         return jsonify({'status': 'error', 'message': str(e)}), 400
     except Exception as e:
         return jsonify({'status': 'error', 'message': str(e)}), 400
-            
-        party_names = data['party_names']
-        candidate_names = data['candidate_names']
         
-        # Deserialize dict from string with error context
-        try:
-            ciphertext_tally_json = deserialize_string_to_dict(data['ciphertext_tally'])
-        except Exception as e:
-            raise ValueError(f"Error deserializing ciphertext_tally: {e}")
-            
-        # Deserialize submitted_ballots from list of strings to list of dicts
-        try:
-            submitted_ballots_json = deserialize_list_of_strings_to_list_of_dicts(data['submitted_ballots'])
-        except Exception as e:
-            raise ValueError(f"Error deserializing submitted_ballots: {e}")
-        joint_public_key = data['joint_public_key']
-        commitment_hash = data['commitment_hash']
-        
-        # Get election data with safe int conversion
-        number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
-        quorum = safe_int_conversion(data.get('quorum', 1))
-        
-        # Call service function
-        result = create_compensated_decryption_service(
-            party_names,
-            candidate_names,
-            available_guardian_id,
-            missing_guardian_id,
-            available_guardian_data,
-            missing_guardian_data,
-            available_private_key,
-            available_public_key,
-            available_polynomial,
-            ciphertext_tally_json,
-            submitted_ballots_json,
-            joint_public_key,
-            commitment_hash,
-            number_of_guardians,
-            quorum,
-            create_election_manifest,
-            raw_to_ciphertext_tally,
-            compute_compensated_ballot_shares
-        )
-        
-        # Format response
-        response = {
-            'status': 'success',
-            'compensated_tally_share': result['compensated_tally_share'],
-            'compensated_ballot_shares': serialize_dict_to_string(result['compensated_ballot_shares'])
-        }
-        print_json(response, "create_compensated_decryption_response")  
-        return jsonify(response), 200
-    
-    except ValueError as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 400
-    except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 400
-
-@app.route('/combine_partial_decryption', methods=['POST'])
-def api_combine_partial_decryption():
-    """API endpoint to combine partial decryption shares (simplified version for when all guardians are present)."""
-    try:
-        print('called combine partial decryption at the microservice')
-        data = request.json
-        print_json(data, "combine_partial_decryption")
-        # Output the incoming data to a file named "record1.json"
-        with open("record1.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
-        
-        party_names = data['party_names']
-        candidate_names = data['candidate_names']
-        joint_public_key = data['joint_public_key']
-        commitment_hash = data['commitment_hash']
-        
-        # Deserialize ciphertext tally
-        try:
-            ciphertext_tally_json = deserialize_string_to_dict(data['ciphertext_tally'])
-        except Exception as e:
-            raise ValueError(f"Error deserializing ciphertext_tally: {e}")
-        
-        # Deserialize submitted ballots
-        try:
-            submitted_ballots_json = deserialize_list_of_strings_to_list_of_dicts(data['submitted_ballots'])
-        except Exception as e:
-            raise ValueError(f"Error deserializing submitted_ballots: {e}")
-        
-        guardian_public_keys = data['guardian_public_keys']
-        tally_shares = data['tally_shares']
-        ballot_shares = data['ballot_shares']
-        
-        # Get quorum and number of guardians
-        number_of_guardians = safe_int_conversion(data.get('number_of_guardians', len(guardian_public_keys)))
-        quorum = safe_int_conversion(data.get('quorum', number_of_guardians))
-        
-        # Convert the simplified format to the format expected by combine_decryption_shares_service
-        guardian_data = []
-        for i in range(len(guardian_public_keys)):
-            guardian_data.append({
-                'id': str(i + 1),
-                'sequence_order': i + 1
-            })
-        
-        # Build available guardian shares (assume all guardians are available)
-        available_guardian_shares = {}
-        for i in range(len(guardian_public_keys)):
-            guardian_id = str(i + 1)
-            available_guardian_shares[guardian_id] = {
-                'guardian_public_key': guardian_public_keys[i],
-                'tally_share': tally_shares[i],
-                'ballot_shares': ballot_shares[i] if isinstance(ballot_shares[i], dict) else deserialize_string_to_dict(ballot_shares[i])
-            }
-        
-        # No compensated shares needed since all guardians are present
-        all_compensated_shares = {}
-        
-        # Call the existing service function
-        results = combine_decryption_shares_service(
-            party_names,
-            candidate_names,
-            joint_public_key,
-            commitment_hash,
-            ciphertext_tally_json,
-            submitted_ballots_json,
-            guardian_data,
-            available_guardian_shares,
-            all_compensated_shares,
-            quorum,
-            number_of_guardians,
-            create_election_manifest,
-            raw_to_ciphertext_tally
-        )
-        
-        response = {
-            'status': 'success',
-            'results': results
-        }
-        
-        print_json(response, "combine_partial_decryption_response")
-        print('finished combine partial decryption at the microservice')
-        return jsonify(response), 200
-        
-    except Exception as e:
-        error_response = {
-            'status': 'error',
-            'message': str(e)
-        }
-        print_json(error_response, "combine_partial_decryption_error")
-        return jsonify(error_response), 500
 
 
 @app.route('/combine_decryption_shares', methods=['POST'])
@@ -909,8 +908,7 @@ def api_combine_decryption_shares():
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
         print_json(data, "combine_decryption_shares")
-        with open("combine_partial_decryptions_request_error_denug.json", "w", encoding="utf-8") as f:
-            json.dump(data, f, ensure_ascii=False, indent=2)
+        print_data(data, "./io/combine_decryption_shares_request.json")
         # Deserialize dict from string with error context
         try:
             ciphertext_tally_json = deserialize_string_to_dict(data['ciphertext_tally'])
@@ -1025,8 +1023,7 @@ def api_combine_decryption_shares():
             'results': serialize_dict_to_string(results)
         }
         print_json(response, "combine_decryption_shares_response")
-        with open("combine_decryption_response.json", "w", encoding="utf-8") as f:
-            json.dump(response, f, ensure_ascii=False, indent=2)
+        print_data(response, "./io/combine_decryption_shares_response.json")
         return jsonify(response), 200
     
     except ValueError as e:
