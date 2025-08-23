@@ -1032,7 +1032,7 @@ def api_combine_decryption_shares():
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/api/encrypt', methods=['POST'])
-@rate_limit(max_requests=10, window_minutes=1)
+# @rate_limit(max_requests=10, window_minutes=1)
 def encrypt_it():
     """
     Encrypt endpoint with quantum-resistant encryption and HMAC protection (optimized)
@@ -1132,7 +1132,7 @@ def encrypt_it():
         return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
 
 @app.route('/api/decrypt', methods=['POST'])
-@rate_limit(max_requests=10, window_minutes=1)
+# @rate_limit(max_requests=10, window_minutes=1)
 def decrypt_it():
     """
     Decrypt endpoint with HMAC verification and quantum-safe decryption (optimized)
