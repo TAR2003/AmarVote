@@ -44,25 +44,25 @@ public class BallotService {
 
     @Autowired
     private BallotRepository ballotRepository;
-    
+
     @Autowired
     private ElectionRepository electionRepository;
-    
+
     @Autowired
     private AllowedVoterRepository allowedVoterRepository;
-    
+
     @Autowired
     private UserRepository userRepository;
-    
+
     @Autowired
     private ElectionChoiceRepository electionChoiceRepository;
-    
+
     @Autowired
     private GuardianRepository guardianRepository;
-    
+
     @Autowired
     private WebClient webClient;
-    
+
     @Autowired
     private ObjectMapper objectMapper;
 
@@ -75,62 +75,65 @@ public class BallotService {
             // 0. Validate bot detection data
             if (request.getBotDetection() != null) {
                 CastBallotRequest.BotDetectionData botData = request.getBotDetection();
-                
+
                 // Check if bot detection indicates this is a bot
                 if (botData.getIsBot() != null && botData.getIsBot()) {
-                    System.out.println("🚨 [BACKEND BOT DETECTION] Bot detected for user: " + userEmail + 
-                                     ", requestId: " + botData.getRequestId());
+                    System.out.println("🚨 [BACKEND BOT DETECTION] Bot detected for user: " + userEmail +
+                            ", requestId: " + botData.getRequestId());
                     return CastBallotResponse.builder()
-                        .success(false)
-                        .message("Security check failed. Automated voting is not allowed.")
-                        .errorReason("Bot detection failed")
-                        .build();
+                            .success(false)
+                            .message("Security check failed. Automated voting is not allowed.")
+                            .errorReason("Bot detection failed")
+                            .build();
                 }
-                
+
                 // Check timestamp freshness (within last 5 minutes)
                 if (botData.getTimestamp() != null) {
                     try {
                         Instant botDetectionTime = Instant.parse(botData.getTimestamp());
                         Instant now = Instant.now();
                         Duration timeDiff = Duration.between(botDetectionTime, now);
-                        
+
                         if (timeDiff.toMinutes() > 5) {
-                            System.out.println("⚠️ [BACKEND BOT DETECTION] Stale bot detection data for user: " + userEmail + 
-                                             ", age: " + timeDiff.toMinutes() + " minutes");
+                            System.out.println(
+                                    "⚠️ [BACKEND BOT DETECTION] Stale bot detection data for user: " + userEmail +
+                                            ", age: " + timeDiff.toMinutes() + " minutes");
                             return CastBallotResponse.builder()
-                                .success(false)
-                                .message("Security check expired. Please try again.")
-                                .errorReason("Stale bot detection data")
-                                .build();
+                                    .success(false)
+                                    .message("Security check expired. Please try again.")
+                                    .errorReason("Stale bot detection data")
+                                    .build();
                         }
-                        
-                        System.out.println("✅ [BACKEND BOT DETECTION] Valid bot detection for user: " + userEmail + 
-                                         ", requestId: " + botData.getRequestId() + 
-                                         ", isBot: " + botData.getIsBot());
+
+                        System.out.println("✅ [BACKEND BOT DETECTION] Valid bot detection for user: " + userEmail +
+                                ", requestId: " + botData.getRequestId() +
+                                ", isBot: " + botData.getIsBot());
                     } catch (Exception e) {
-                        System.out.println("⚠️ [BACKEND BOT DETECTION] Invalid timestamp format for user: " + userEmail);
+                        System.out
+                                .println("⚠️ [BACKEND BOT DETECTION] Invalid timestamp format for user: " + userEmail);
                     }
                 }
             } else {
                 System.out.println("⚠️ [BACKEND BOT DETECTION] No bot detection data provided for user: " + userEmail);
                 // Uncomment the lines below to make bot detection mandatory
                 /*
-                return CastBallotResponse.builder()
-                    .success(false)
-                    .message("Security verification required. Please refresh the page and try again.")
-                    .errorReason("No bot detection data")
-                    .build();
-                */
+                 * return CastBallotResponse.builder()
+                 * .success(false)
+                 * .message("Security verification required. Please refresh the page and try again."
+                 * )
+                 * .errorReason("No bot detection data")
+                 * .build();
+                 */
             }
 
             // 1. Find user by email
             Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
             if (!userOpt.isPresent()) {
                 return CastBallotResponse.builder()
-                    .success(false)
-                    .message("User not found")
-                    .errorReason("Invalid user")
-                    .build();
+                        .success(false)
+                        .message("User not found")
+                        .errorReason("Invalid user")
+                        .build();
             }
             User user = userOpt.get();
 
@@ -138,10 +141,10 @@ public class BallotService {
             Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
             if (!electionOpt.isPresent()) {
                 return CastBallotResponse.builder()
-                    .success(false)
-                    .message("Election not found")
-                    .errorReason("Invalid election")
-                    .build();
+                        .success(false)
+                        .message("Election not found")
+                        .errorReason("Invalid election")
+                        .build();
             }
             Election election = electionOpt.get();
 
@@ -149,17 +152,17 @@ public class BallotService {
             Instant now = Instant.now();
             if (now.isBefore(election.getStartingTime())) {
                 return CastBallotResponse.builder()
-                    .success(false)
-                    .message("Election has not started yet")
-                    .errorReason("Election not active")
-                    .build();
+                        .success(false)
+                        .message("Election has not started yet")
+                        .errorReason("Election not active")
+                        .build();
             }
             if (now.isAfter(election.getEndingTime())) {
                 return CastBallotResponse.builder()
-                    .success(false)
-                    .message("Election has ended")
-                    .errorReason("Election ended")
-                    .build();
+                        .success(false)
+                        .message("Election has ended")
+                        .errorReason("Election ended")
+                        .build();
             }
 
             // 4. Check eligibility
@@ -167,7 +170,7 @@ public class BallotService {
             if (!isEligible) {
                 String errorMessage;
                 String errorReason;
-                
+
                 if ("listed".equals(election.getEligibility())) {
                     errorMessage = "You are not eligible to vote in this election. You are not in the allowed voters list.";
                     errorReason = "Not in voter list for listed election";
@@ -175,83 +178,80 @@ public class BallotService {
                     errorMessage = "You are not eligible to vote in this election due to unknown eligibility criteria.";
                     errorReason = "Unknown eligibility criteria";
                 }
-                
+
                 return CastBallotResponse.builder()
-                    .success(false)
-                    .message(errorMessage)
-                    .errorReason(errorReason)
-                    .build();
+                        .success(false)
+                        .message(errorMessage)
+                        .errorReason(errorReason)
+                        .build();
             }
 
             // 5. Check if user has already voted
             if (hasUserAlreadyVoted(user.getUserId(), election.getElectionId())) {
                 return CastBallotResponse.builder()
-                    .success(false)
-                    .message("You have already voted in this election")
-                    .errorReason("Already voted")
-                    .build();
+                        .success(false)
+                        .message("You have already voted in this election")
+                        .errorReason("Already voted")
+                        .build();
             }
 
             // 6. Validate candidate choice
             List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
-            
+
             choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             boolean isValidChoice = choices.stream()
-                .anyMatch(choice -> choice.getOptionTitle().equals(request.getSelectedCandidate()));
+                    .anyMatch(choice -> choice.getOptionTitle().equals(request.getSelectedCandidate()));
             if (!isValidChoice) {
                 return CastBallotResponse.builder()
-                    .success(false)
-                    .message("Invalid candidate selection")
-                    .errorReason("Invalid candidate")
-                    .build();
+                        .success(false)
+                        .message("Invalid candidate selection")
+                        .errorReason("Invalid candidate")
+                        .build();
             }
-            
 
             // 7. Generate ballot hash ID
             String ballotHashId = VoterIdGenerator.generateBallotHashId(user.getUserId(), election.getElectionId());
 
             // 8. Prepare data for ElectionGuard API
             List<String> partyNames = choices.stream()
-                .map(ElectionChoice::getPartyName)
-                .collect(Collectors.toList());
+                    .map(ElectionChoice::getPartyName)
+                    .collect(Collectors.toList());
             List<String> candidateNames = choices.stream()
-                .map(ElectionChoice::getOptionTitle)
-                .collect(Collectors.toList());
+                    .map(ElectionChoice::getOptionTitle)
+                    .collect(Collectors.toList());
 
             // 9. Call ElectionGuard service
             ElectionGuardBallotResponse guardResponse = callElectionGuardService(
-                partyNames, candidateNames, request.getSelectedCandidate(), 
-                ballotHashId, election.getJointPublicKey(), election.getBaseHash(),
-                election.getElectionQuorum(),
-                guardianRepository.findByElectionId(election.getElectionId()).size()
-            );
+                    partyNames, candidateNames, request.getSelectedCandidate(),
+                    ballotHashId, election.getJointPublicKey(), election.getBaseHash(),
+                    election.getElectionQuorum(),
+                    guardianRepository.findByElectionId(election.getElectionId()).size());
 
             if (guardResponse == null || !"success".equals(guardResponse.getStatus())) {
                 return CastBallotResponse.builder()
-                    .success(false)
-                    .message("Failed to encrypt ballot")
-                    .errorReason("Encryption failed")
-                    .build();
+                        .success(false)
+                        .message("Failed to encrypt ballot")
+                        .errorReason("Encryption failed")
+                        .build();
             }
 
             // 10. Save ballot to database
             Ballot ballot = Ballot.builder()
-                .electionId(election.getElectionId())
-                .status("cast")
-                .cipherText(guardResponse.getEncrypted_ballot())
-                .hashCode(guardResponse.getBallot_hash())
-                .trackingCode(ballotHashId)
-                .submissionTime(Instant.now())
-                .build();
+                    .electionId(election.getElectionId())
+                    .status("cast")
+                    .cipherText(guardResponse.getEncrypted_ballot())
+                    .hashCode(guardResponse.getBallot_hash())
+                    .trackingCode(ballotHashId)
+                    .submissionTime(Instant.now())
+                    .build();
             ballotRepository.save(ballot);
 
             // 🔗 Record ballot on blockchain
             try {
                 BlockchainRecordBallotResponse blockchainResponse = blockchainService.recordBallot(
-                    election.getElectionId().toString(), 
-                    ballotHashId, 
-                    guardResponse.getBallot_hash()
-                );
+                        election.getElectionId().toString(),
+                        ballotHashId,
+                        guardResponse.getBallot_hash());
                 if (blockchainResponse.isSuccess()) {
                     System.out.println("✅ Ballot " + ballotHashId + " successfully recorded on blockchain");
                     System.out.println("🔗 Transaction Hash: " + blockchainResponse.getTransactionHash());
@@ -270,24 +270,25 @@ public class BallotService {
 
             // 12. Return success response
             return CastBallotResponse.builder()
-                .success(true)
-                .message("Ballot cast successfully")
-                .hashCode(guardResponse.getBallot_hash())
-                .trackingCode(ballotHashId)
-                .build();
+                    .success(true)
+                    .message("Ballot cast successfully")
+                    .hashCode(guardResponse.getBallot_hash())
+                    .trackingCode(ballotHashId)
+                    .build();
 
         } catch (Exception e) {
             return CastBallotResponse.builder()
-                .success(false)
-                .message("An error occurred while casting the ballot")
-                .errorReason("Internal server error: " + e.getMessage())
-                .build();
+                    .success(false)
+                    .message("An error occurred while casting the ballot")
+                    .errorReason("Internal server error: " + e.getMessage())
+                    .build();
         }
     }
 
     /**
      * Check if a user is eligible to vote in a specific election
-     * Returns comprehensive eligibility information including reasons for ineligibility
+     * Returns comprehensive eligibility information including reasons for
+     * ineligibility
      */
     public EligibilityCheckResponse checkEligibility(EligibilityCheckRequest request, String userEmail) {
         try {
@@ -295,13 +296,13 @@ public class BallotService {
             Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
             if (!userOpt.isPresent()) {
                 return EligibilityCheckResponse.builder()
-                    .eligible(false)
-                    .message("User not found")
-                    .reason("User account not found")
-                    .hasVoted(false)
-                    .isElectionActive(false)
-                    .electionStatus("N/A")
-                    .build();
+                        .eligible(false)
+                        .message("User not found")
+                        .reason("User account not found")
+                        .hasVoted(false)
+                        .isElectionActive(false)
+                        .electionStatus("N/A")
+                        .build();
             }
             User user = userOpt.get();
 
@@ -309,13 +310,13 @@ public class BallotService {
             Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
             if (!electionOpt.isPresent()) {
                 return EligibilityCheckResponse.builder()
-                    .eligible(false)
-                    .message("Election not found")
-                    .reason("Election does not exist")
-                    .hasVoted(false)
-                    .isElectionActive(false)
-                    .electionStatus("Not Found")
-                    .build();
+                        .eligible(false)
+                        .message("Election not found")
+                        .reason("Election does not exist")
+                        .hasVoted(false)
+                        .isElectionActive(false)
+                        .electionStatus("Not Found")
+                        .build();
             }
             Election election = electionOpt.get();
 
@@ -323,7 +324,7 @@ public class BallotService {
             Instant now = Instant.now();
             String electionStatus;
             boolean isElectionActive = false;
-            
+
             if (now.isBefore(election.getStartingTime())) {
                 electionStatus = "Not Started";
             } else if (now.isAfter(election.getEndingTime())) {
@@ -371,30 +372,30 @@ public class BallotService {
             }
 
             return EligibilityCheckResponse.builder()
-                .eligible(overallEligible)
-                .message(message)
-                .reason(reason)
-                .hasVoted(hasVoted)
-                .isElectionActive(isElectionActive)
-                .electionStatus(electionStatus)
-                .build();
+                    .eligible(overallEligible)
+                    .message(message)
+                    .reason(reason)
+                    .hasVoted(hasVoted)
+                    .isElectionActive(isElectionActive)
+                    .electionStatus(electionStatus)
+                    .build();
 
         } catch (Exception e) {
             return EligibilityCheckResponse.builder()
-                .eligible(false)
-                .message("Error checking eligibility")
-                .reason("Internal server error: " + e.getMessage())
-                .hasVoted(false)
-                .isElectionActive(false)
-                .electionStatus("Error")
-                .build();
+                    .eligible(false)
+                    .message("Error checking eligibility")
+                    .reason("Internal server error: " + e.getMessage())
+                    .hasVoted(false)
+                    .isElectionActive(false)
+                    .electionStatus("Error")
+                    .build();
         }
     }
 
     private boolean checkVoterEligibility(Integer userId, Election election) {
         // Check eligibility type
         String eligibility = election.getEligibility();
-        
+
         if ("unlisted".equals(eligibility)) {
             // For unlisted elections, anyone can vote
             return true;
@@ -402,9 +403,9 @@ public class BallotService {
             // For listed elections, only users in the allowed voters list can vote
             List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
             return allowedVoters.stream()
-                .anyMatch(av -> av.getUserId().equals(userId));
+                    .anyMatch(av -> av.getUserId().equals(userId));
         }
-        
+
         // Default behavior for unknown eligibility types - deny access
         return false;
     }
@@ -414,15 +415,15 @@ public class BallotService {
      */
     public Map<String, Object> getBallotDetails(Long electionId, String trackingCode) {
         System.out.println("🔍 Searching for ballot details - Election: " + electionId + ", Tracking: " + trackingCode);
-        
+
         try {
             // Search in the ballots table first
             Optional<Ballot> ballotOpt = ballotRepository.findByElectionIdAndTrackingCode(electionId, trackingCode);
-            
+
             if (ballotOpt.isPresent()) {
                 Ballot ballot = ballotOpt.get();
                 System.out.println("✅ Ballot found in ballots table");
-                
+
                 Map<String, Object> ballotDetails = new HashMap<>();
                 ballotDetails.put("election_id", ballot.getElectionId());
                 ballotDetails.put("tracking_code", ballot.getTrackingCode());
@@ -431,7 +432,7 @@ public class BallotService {
                 ballotDetails.put("status", ballot.getStatus());
                 ballotDetails.put("submission_time", ballot.getSubmissionTime().toString());
                 ballotDetails.put("source", "ballots_table");
-                
+
                 return ballotDetails;
             } else {
                 System.out.println("❌ Ballot not found in ballots table for tracking code: " + trackingCode);
@@ -446,20 +447,20 @@ public class BallotService {
     private boolean hasUserAlreadyVoted(Integer userId, Long electionId) {
         // Check if user has an entry in allowed_voters table with hasVoted = true
         List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(electionId);
-        
+
         return allowedVoters.stream()
-            .anyMatch(av -> av.getUserId().equals(userId) && av.getHasVoted());
+                .anyMatch(av -> av.getUserId().equals(userId) && av.getHasVoted());
     }
 
     @Transactional
     private void updateVoterStatus(Integer userId, Election election) {
         List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
-        
+
         // Check if user already exists in allowed voters
         Optional<AllowedVoter> existingVoterOpt = allowedVoters.stream()
-            .filter(av -> av.getUserId().equals(userId))
-            .findFirst();
-        
+                .filter(av -> av.getUserId().equals(userId))
+                .findFirst();
+
         if (existingVoterOpt.isPresent()) {
             // User already exists in allowed voters, just update hasVoted status
             AllowedVoter existingVoter = existingVoterOpt.get();
@@ -470,15 +471,16 @@ public class BallotService {
             if ("unlisted".equals(election.getEligibility())) {
                 // For unlisted elections, add user to allowed voters with hasVoted = true
                 AllowedVoter newVoter = AllowedVoter.builder()
-                    .electionId(election.getElectionId())
-                    .userId(userId)
-                    .hasVoted(true)
-                    .build();
+                        .electionId(election.getElectionId())
+                        .userId(userId)
+                        .hasVoted(true)
+                        .build();
                 allowedVoterRepository.save(newVoter);
             } else {
                 // For listed elections, user should already be in the list
                 // This case shouldn't happen if eligibility check is working correctly
-                System.err.println("Warning: User " + userId + " not found in allowed voters for listed election " + election.getElectionId());
+                System.err.println("Warning: User " + userId + " not found in allowed voters for listed election "
+                        + election.getElectionId());
             }
         }
     }
@@ -487,35 +489,35 @@ public class BallotService {
             List<String> partyNames, List<String> candidateNames, String selectedCandidate,
             String ballotId, String jointPublicKey, String commitmentHash,
             int quorum, int numberOfGuardians) {
-        
+
         try {
             String url = "/create_encrypted_ballot";
-            
+
             ElectionGuardBallotRequest request = ElectionGuardBallotRequest.builder()
-                .party_names(partyNames)
-                .candidate_names(candidateNames)
-                .candidate_name(selectedCandidate)
-                .ballot_id(ballotId)
-                .joint_public_key(jointPublicKey)
-                .commitment_hash(commitmentHash)
-                .number_of_guardians(numberOfGuardians)
-                .quorum(quorum)
-                .build();
+                    .party_names(partyNames)
+                    .candidate_names(candidateNames)
+                    .candidate_name(selectedCandidate)
+                    .ballot_id(ballotId)
+                    .joint_public_key(jointPublicKey)
+                    .commitment_hash(commitmentHash)
+                    .number_of_guardians(numberOfGuardians)
+                    .quorum(quorum)
+                    .build();
 
             System.out.println("Calling ElectionGuard ballot service at: " + url);
             System.out.println("Sending request to ElectionGuard service: " + request);
-            
+
             String response = webClient.post()
-                .uri(url)
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block();
-            
+                    .uri(url)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
             System.out.println("Received response from ElectionGuard service: ");
-            
+
             if (response == null) {
                 throw new RuntimeException("Invalid response from ElectionGuard service");
             }

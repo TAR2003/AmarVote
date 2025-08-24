@@ -12,23 +12,23 @@ import com.amarvote.amarvote.model.Ballot;
 
 @Repository
 public interface BallotRepository extends JpaRepository<Ballot, Long> {
-    
+
     // Find ballots by election ID
     List<Ballot> findByElectionId(Long electionId);
-    
+
     // Find ballot by tracking code
     Optional<Ballot> findByTrackingCode(String trackingCode);
-    
+
     // Find ballot by election ID and tracking code
     Optional<Ballot> findByElectionIdAndTrackingCode(Long electionId, String trackingCode);
-    
+
     // Check if a ballot exists for a specific tracking code
     boolean existsByTrackingCode(String trackingCode);
-    
+
     // Count ballots for a specific election
     @Query("SELECT COUNT(b) FROM Ballot b WHERE b.electionId = :electionId")
     long countByElectionId(@Param("electionId") Long electionId);
-    
+
     // Find ballots by election ID and status
     List<Ballot> findByElectionIdAndStatus(Long electionId, String status);
 }
