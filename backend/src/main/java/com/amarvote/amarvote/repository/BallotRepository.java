@@ -19,6 +19,9 @@ public interface BallotRepository extends JpaRepository<Ballot, Long> {
     // Find ballot by tracking code
     Optional<Ballot> findByTrackingCode(String trackingCode);
     
+    // Find ballot by election ID and tracking code
+    Optional<Ballot> findByElectionIdAndTrackingCode(Long electionId, String trackingCode);
+    
     // Check if a ballot exists for a specific tracking code
     boolean existsByTrackingCode(String trackingCode);
     

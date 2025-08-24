@@ -423,4 +423,41 @@ public class ElectionController {
             );
         }
     }
+
+    /**
+     * Get ballot details including cipher text by election ID and tracking code
+     */
+    @GetMapping("/ballot-details/{electionId}/{trackingCode}")
+    public ResponseEntity<?> getBallotDetails(
+            @PathVariable Long electionId,
+            @PathVariable String trackingCode) {
+        
+        try {
+            System.out.println("🔍 Fetching ballot details - Election: " + electionId + ", Tracking: " + trackingCode);
+            
+            Map<String, Object> ballotDetails = ballotService.getBallotDetails(electionId, trackingCode);
+            
+            if (ballotDetails != null && !ballotDetails.isEmpty()) {
+                System.out.println("✅ Ballot details retrieved for " + trackingCode);
+                return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "ballot", ballotDetails
+                ));
+            } else {
+                System.out.println("❌ Ballot not found for " + trackingCode);
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "success", false,
+                    "message", "Ballot not found for the provided tracking code"
+                ));
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Error fetching ballot details: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(
+                Map.of(
+                    "success", false,
+                    "message", "Error fetching ballot details: " + e.getMessage()
+                )
+            );
+        }
+    }
 }

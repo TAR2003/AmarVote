@@ -3,7 +3,9 @@ package com.amarvote.amarvote.service;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Comparator;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
 
@@ -405,6 +407,40 @@ public class BallotService {
         
         // Default behavior for unknown eligibility types - deny access
         return false;
+    }
+
+    /**
+     * Get ballot details including cipher text by election ID and tracking code
+     */
+    public Map<String, Object> getBallotDetails(Long electionId, String trackingCode) {
+        System.out.println("🔍 Searching for ballot details - Election: " + electionId + ", Tracking: " + trackingCode);
+        
+        try {
+            // Search in the ballots table first
+            Optional<Ballot> ballotOpt = ballotRepository.findByElectionIdAndTrackingCode(electionId, trackingCode);
+            
+            if (ballotOpt.isPresent()) {
+                Ballot ballot = ballotOpt.get();
+                System.out.println("✅ Ballot found in ballots table");
+                
+                Map<String, Object> ballotDetails = new HashMap<>();
+                ballotDetails.put("election_id", ballot.getElectionId());
+                ballotDetails.put("tracking_code", ballot.getTrackingCode());
+                ballotDetails.put("hash_code", ballot.getHashCode());
+                ballotDetails.put("cipher_text", ballot.getCipherText());
+                ballotDetails.put("status", ballot.getStatus());
+                ballotDetails.put("submission_time", ballot.getSubmissionTime().toString());
+                ballotDetails.put("source", "ballots_table");
+                
+                return ballotDetails;
+            } else {
+                System.out.println("❌ Ballot not found in ballots table for tracking code: " + trackingCode);
+                return null;
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Error fetching ballot details: " + e.getMessage());
+            throw new RuntimeException("Error fetching ballot details", e);
+        }
     }
 
     private boolean hasUserAlreadyVoted(Integer userId, Long electionId) {

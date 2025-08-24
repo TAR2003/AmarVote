@@ -594,20 +594,61 @@ const BallotsInTallySection = ({ resultsData , id}) => {
     setFilteredBallots(filtered);
   }, [searchTerm, ballots, sortBy, sortOrder]);
 
-  const downloadBallotInfo = (ballot) => {
-    const ballotData = {
-      tracking_code: ballot.ballot_id,
-      hash_code: ballot.initial_hash,
-      decrypted_hash: ballot.decrypted_hash,
-      status: ballot.status,
-      verification: ballot.verification,
-      timestamp: new Date().toISOString(),
-      election_id: resultsData?.election?.scope_id || 'unknown',
-      ballot_selections: ballot.selections || []
-    };
-    
-    const blob = new Blob([JSON.stringify(ballotData, null, 2)], { type: 'application/json' });
-    saveAs(blob, `ballot_${ballot.ballot_id}_verification.json`);
+  const downloadBallotInfo = async (ballot) => {
+    try {
+      // Fetch cipher text from backend using the new API
+      const ballotDetailsResponse = await electionApi.getBallotDetails(id, ballot.ballot_id);
+      
+      let ballotData;
+      if (ballotDetailsResponse && ballotDetailsResponse.success && ballotDetailsResponse.ballot) {
+        // Include cipher text from backend
+        ballotData = {
+          tracking_code: ballot.ballot_id,
+          hash_code: ballot.initial_hash,
+          decrypted_hash: ballot.decrypted_hash,
+          cipher_text: ballotDetailsResponse.ballot.cipher_text, // Added cipher text
+          status: ballot.status,
+          verification: ballot.verification,
+          timestamp: new Date().toISOString(),
+          election_id: resultsData?.election?.scope_id || 'unknown',
+          ballot_selections: ballot.selections || []
+        };
+      } else {
+        // Fallback to original data without cipher text
+        ballotData = {
+          tracking_code: ballot.ballot_id,
+          hash_code: ballot.initial_hash,
+          decrypted_hash: ballot.decrypted_hash,
+          cipher_text: "Not available", // Indicate cipher text is not available
+          status: ballot.status,
+          verification: ballot.verification,
+          timestamp: new Date().toISOString(),
+          election_id: resultsData?.election?.scope_id || 'unknown',
+          ballot_selections: ballot.selections || []
+        };
+        console.warn('Could not fetch cipher text for ballot:', ballot.ballot_id);
+      }
+      
+      const blob = new Blob([JSON.stringify(ballotData, null, 2)], { type: 'application/json' });
+      saveAs(blob, `ballot_${ballot.ballot_id}_verification.json`);
+    } catch (error) {
+      console.error('Error downloading ballot info:', error);
+      // Fallback to original data without cipher text in case of error
+      const ballotData = {
+        tracking_code: ballot.ballot_id,
+        hash_code: ballot.initial_hash,
+        decrypted_hash: ballot.decrypted_hash,
+        cipher_text: "Error fetching cipher text",
+        status: ballot.status,
+        verification: ballot.verification,
+        timestamp: new Date().toISOString(),
+        election_id: resultsData?.election?.scope_id || 'unknown',
+        ballot_selections: ballot.selections || []
+      };
+      
+      const blob = new Blob([JSON.stringify(ballotData, null, 2)], { type: 'application/json' });
+      saveAs(blob, `ballot_${ballot.ballot_id}_verification.json`);
+    }
   };
 
   const downloadAllBallotsCSV = () => {

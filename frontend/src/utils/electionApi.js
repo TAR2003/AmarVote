@@ -362,4 +362,29 @@ export const electionApi = {
       throw error;
     }
   },
+
+  /**
+   * Get ballot details including cipher text by election ID and tracking code
+   */
+  async getBallotDetails(electionId, trackingCode) {
+    try {
+      const response = await fetch(`/api/ballot-details/${electionId}/${trackingCode}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error getting ballot details:', error);
+      throw error;
+    }
+  },
 };
