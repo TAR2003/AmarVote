@@ -9,13 +9,14 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-public class ElectionGuardBallotResponse {
+public class CreateEncryptedBallotResponse {
     
-    private String ballot_hash;
+    private boolean success;
+    private String message;
+    private String errorReason;
     private String encrypted_ballot;
-    private String encrypted_ballot_with_nonce;  // New field for Benaloh challenge
+    private String encrypted_ballot_with_nonce;
+    private String ballot_hash;
+    private String ballot_tracking_code;
     private String ballot_id;
-    private String ballot_status;
-    private String publication_status;
-    private String status;
 }

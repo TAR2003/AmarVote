@@ -119,6 +119,110 @@ export const electionApi = {
   },
 
   /**
+   * Create an encrypted ballot without casting it
+   */
+  async createEncryptedBallot(electionId, choiceId, optionTitle, botDetectionData = null) {
+    try {
+      const requestBody = {
+        electionId,
+        selectedCandidate: optionTitle
+      };
+
+      // Include bot detection data if provided
+      if (botDetectionData) {
+        requestBody.botDetection = botDetectionData;
+      }
+
+      const response = await fetch('/api/create-encrypted-ballot', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error creating encrypted ballot:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Cast a pre-encrypted ballot
+   */
+  async castEncryptedBallot(electionId, encrypted_ballot, ballot_hash, ballot_tracking_code) {
+    try {
+      const requestBody = {
+        electionId,
+        encrypted_ballot,
+        ballot_hash,
+        ballot_tracking_code
+      };
+
+      const response = await fetch('/api/cast-encrypted-ballot', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error casting encrypted ballot:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Perform Benaloh challenge on an encrypted ballot
+   */
+  async performBenalohChallenge(electionId, encrypted_ballot_with_nonce, candidate_name) {
+    try {
+      const requestBody = {
+        electionId,
+        encrypted_ballot_with_nonce,
+        candidate_name
+      };
+
+      const response = await fetch('/api/benaloh-challenge', {
+        method: 'POST',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(requestBody),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || `HTTP error! status: ${response.status}`);
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error performing Benaloh challenge:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Check if user is eligible to vote in a specific election
    * Returns an object with the following properties:
    * - canVote: boolean indicating if the user can vote in this election

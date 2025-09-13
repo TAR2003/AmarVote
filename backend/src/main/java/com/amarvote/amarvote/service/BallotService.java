@@ -17,8 +17,15 @@ import org.springframework.web.reactive.function.client.WebClient;
 import com.amarvote.amarvote.dto.BlockchainRecordBallotResponse;
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
+import com.amarvote.amarvote.dto.CastEncryptedBallotRequest;
+import com.amarvote.amarvote.dto.CreateEncryptedBallotRequest;
+import com.amarvote.amarvote.dto.CreateEncryptedBallotResponse;
+import com.amarvote.amarvote.dto.BenalohChallengeRequest;
+import com.amarvote.amarvote.dto.BenalohChallengeResponse;
 import com.amarvote.amarvote.dto.ElectionGuardBallotRequest;
 import com.amarvote.amarvote.dto.ElectionGuardBallotResponse;
+import com.amarvote.amarvote.dto.ElectionGuardBenalohRequest;
+import com.amarvote.amarvote.dto.ElectionGuardBenalohResponse;
 import com.amarvote.amarvote.dto.EligibilityCheckRequest;
 import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.model.AllowedVoter;
@@ -526,6 +533,436 @@ public class BallotService {
         } catch (Exception e) {
             System.err.println("Failed to call ElectionGuard service: " + e.getMessage());
             throw new RuntimeException("Failed to call ElectionGuard service", e);
+        }
+    }
+
+    /**
+     * Create encrypted ballot without casting - for challenge/cast flow
+     */
+    @Transactional
+    public CreateEncryptedBallotResponse createEncryptedBallot(CreateEncryptedBallotRequest request, String userEmail) {
+        try {
+            // 0. Validate bot detection data (same as castBallot method)
+            if (request.getBotDetection() != null) {
+                CastBallotRequest.BotDetectionData botData = request.getBotDetection();
+
+                if (botData.getIsBot() != null && botData.getIsBot()) {
+                    System.out.println("🚨 [BACKEND BOT DETECTION] Bot detected for user: " + userEmail +
+                            ", requestId: " + botData.getRequestId());
+                    return CreateEncryptedBallotResponse.builder()
+                            .success(false)
+                            .message("Security check failed. Automated voting is not allowed.")
+                            .errorReason("Bot detection failed")
+                            .build();
+                }
+
+                if (botData.getTimestamp() != null) {
+                    try {
+                        Instant botDetectionTime = Instant.parse(botData.getTimestamp());
+                        Instant now = Instant.now();
+                        Duration timeDiff = Duration.between(botDetectionTime, now);
+
+                        if (timeDiff.toMinutes() > 5) {
+                            System.out.println(
+                                    "⚠️ [BACKEND BOT DETECTION] Stale bot detection data for user: " + userEmail +
+                                            ", age: " + timeDiff.toMinutes() + " minutes");
+                            return CreateEncryptedBallotResponse.builder()
+                                    .success(false)
+                                    .message("Security check expired. Please try again.")
+                                    .errorReason("Stale bot detection data")
+                                    .build();
+                        }
+
+                        System.out.println("✅ [BACKEND BOT DETECTION] Valid bot detection for user: " + userEmail +
+                                ", requestId: " + botData.getRequestId());
+
+                    } catch (Exception e) {
+                        System.err.println("⚠️ [BACKEND BOT DETECTION] Error parsing bot detection timestamp: " + e.getMessage());
+                        return CreateEncryptedBallotResponse.builder()
+                                .success(false)
+                                .message("Invalid security check data. Please try again.")
+                                .errorReason("Invalid bot detection timestamp")
+                                .build();
+                    }
+                }
+            }
+
+            // 1. Find user
+            Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
+            if (!userOpt.isPresent()) {
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("User not found")
+                        .errorReason("Invalid user")
+                        .build();
+            }
+            User user = userOpt.get();
+
+            // 2. Find election
+            Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
+            if (!electionOpt.isPresent()) {
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("Election not found")
+                        .errorReason("Invalid election")
+                        .build();
+            }
+            Election election = electionOpt.get();
+
+            // 3. Check if election is active
+            Instant now = Instant.now();
+            if (now.isBefore(election.getStartingTime())) {
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("Election has not started yet")
+                        .errorReason("Election not active")
+                        .build();
+            }
+            if (now.isAfter(election.getEndingTime())) {
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("Election has ended")
+                        .errorReason("Election ended")
+                        .build();
+            }
+
+            // 4. Check eligibility
+            boolean isEligible = checkVoterEligibility(user.getUserId(), election);
+            if (!isEligible) {
+                String errorMessage;
+                String errorReason;
+
+                if ("listed".equals(election.getEligibility())) {
+                    errorMessage = "You are not eligible to vote in this election. You are not in the allowed voters list.";
+                    errorReason = "Not in voter list for listed election";
+                } else {
+                    errorMessage = "You are not eligible to vote in this election due to unknown eligibility criteria.";
+                    errorReason = "Unknown eligibility criteria";
+                }
+
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message(errorMessage)
+                        .errorReason(errorReason)
+                        .build();
+            }
+
+            // 5. Check if user has already voted
+            if (hasUserAlreadyVoted(user.getUserId(), election.getElectionId())) {
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("You have already voted in this election")
+                        .errorReason("Already voted")
+                        .build();
+            }
+
+            // 6. Validate candidate choice
+            List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
+            choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+            boolean isValidChoice = choices.stream()
+                    .anyMatch(choice -> choice.getOptionTitle().equals(request.getSelectedCandidate()));
+            if (!isValidChoice) {
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("Invalid candidate selection")
+                        .errorReason("Invalid candidate")
+                        .build();
+            }
+
+            // 7. Generate ballot hash ID
+            String ballotHashId = VoterIdGenerator.generateBallotHashId(user.getUserId(), election.getElectionId());
+
+            // 8. Prepare data for ElectionGuard API
+            List<String> partyNames = choices.stream()
+                    .map(ElectionChoice::getPartyName)
+                    .collect(Collectors.toList());
+            List<String> candidateNames = choices.stream()
+                    .map(ElectionChoice::getOptionTitle)
+                    .collect(Collectors.toList());
+
+            // 9. Call ElectionGuard service
+            ElectionGuardBallotResponse guardResponse = callElectionGuardService(
+                    partyNames, candidateNames, request.getSelectedCandidate(),
+                    ballotHashId, election.getJointPublicKey(), election.getBaseHash(),
+                    election.getElectionQuorum(),
+                    guardianRepository.findByElectionId(election.getElectionId()).size());
+
+            if (guardResponse == null || !"success".equals(guardResponse.getStatus())) {
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("Failed to encrypt ballot")
+                        .errorReason("Encryption failed")
+                        .build();
+            }
+
+            // 10. Return encrypted ballot details (do not save to database yet)
+            return CreateEncryptedBallotResponse.builder()
+                    .success(true)
+                    .message("Encrypted ballot created successfully")
+                    .encrypted_ballot(guardResponse.getEncrypted_ballot())
+                    .encrypted_ballot_with_nonce(guardResponse.getEncrypted_ballot_with_nonce())
+                    .ballot_hash(guardResponse.getBallot_hash())
+                    .ballot_tracking_code(ballotHashId)
+                    .ballot_id(guardResponse.getBallot_id())
+                    .build();
+
+        } catch (Exception e) {
+            return CreateEncryptedBallotResponse.builder()
+                    .success(false)
+                    .message("An error occurred while creating the encrypted ballot")
+                    .errorReason("Internal server error: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    /**
+     * Perform Benaloh challenge verification
+     */
+    @Transactional
+    public BenalohChallengeResponse performBenalohChallenge(BenalohChallengeRequest request, String userEmail) {
+        try {
+            // 1. Find user
+            Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
+            if (!userOpt.isPresent()) {
+                return BenalohChallengeResponse.builder()
+                        .success(false)
+                        .message("User not found")
+                        .errorReason("Invalid user")
+                        .build();
+            }
+            User user = userOpt.get();
+
+            // 2. Find election
+            Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
+            if (!electionOpt.isPresent()) {
+                return BenalohChallengeResponse.builder()
+                        .success(false)
+                        .message("Election not found")
+                        .errorReason("Invalid election")
+                        .build();
+            }
+            Election election = electionOpt.get();
+
+            // 3. Validate candidate choice
+            List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
+            choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+            boolean isValidChoice = choices.stream()
+                    .anyMatch(choice -> choice.getOptionTitle().equals(request.getCandidate_name()));
+            if (!isValidChoice) {
+                return BenalohChallengeResponse.builder()
+                        .success(false)
+                        .message("Invalid candidate selection for verification")
+                        .errorReason("Invalid candidate")
+                        .build();
+            }
+
+            // 4. Prepare data for ElectionGuard Benaloh challenge API
+            List<String> partyNames = choices.stream()
+                    .map(ElectionChoice::getPartyName)
+                    .collect(Collectors.toList());
+            List<String> candidateNames = choices.stream()
+                    .map(ElectionChoice::getOptionTitle)
+                    .collect(Collectors.toList());
+
+            String ballotId = "challenge-" + user.getUserId() + "-" + election.getElectionId() + "-" + System.currentTimeMillis();
+
+            // 5. Call ElectionGuard Benaloh challenge service
+            ElectionGuardBenalohResponse guardResponse = callElectionGuardBenalohService(
+                    partyNames, candidateNames, request.getCandidate_name(),
+                    ballotId, election.getJointPublicKey(), election.getBaseHash(),
+                    election.getElectionQuorum(),
+                    guardianRepository.findByElectionId(election.getElectionId()).size(),
+                    request.getEncrypted_ballot_with_nonce());
+
+            if (guardResponse == null || !"success".equals(guardResponse.getStatus())) {
+                return BenalohChallengeResponse.builder()
+                        .success(false)
+                        .message("Failed to perform Benaloh challenge")
+                        .errorReason("Challenge verification failed")
+                        .build();
+            }
+
+            // 6. Return challenge result
+            String message;
+            if (guardResponse.isMatch()) {
+                message = "✅ Ballot verification successful! The encrypted ballot was created with your selected choice: " + guardResponse.getVerified_candidate();
+            } else {
+                message = "❌ WARNING: Ballot verification failed! The encrypted ballot does NOT match your selected choice. " +
+                         "This indicates a potential security issue. Please contact the election administrators immediately.";
+            }
+
+            return BenalohChallengeResponse.builder()
+                    .success(true)
+                    .message(message)
+                    .match(guardResponse.isMatch())
+                    .verified_candidate(guardResponse.getVerified_candidate())
+                    .expected_candidate(guardResponse.getExpected_candidate())
+                    .ballot_id(guardResponse.getBallot_id())
+                    .build();
+
+        } catch (Exception e) {
+            return BenalohChallengeResponse.builder()
+                    .success(false)
+                    .message("An error occurred during Benaloh challenge verification")
+                    .errorReason("Internal server error: " + e.getMessage())
+                    .build();
+        }
+    }
+
+    private ElectionGuardBenalohResponse callElectionGuardBenalohService(
+            List<String> partyNames, List<String> candidateNames, String selectedCandidate,
+            String ballotId, String jointPublicKey, String commitmentHash,
+            int quorum, int numberOfGuardians, String encryptedBallotWithNonce) {
+
+        try {
+            String url = "/benaloh_challenge";
+
+            ElectionGuardBenalohRequest request = ElectionGuardBenalohRequest.builder()
+                    .party_names(partyNames)
+                    .candidate_names(candidateNames)
+                    .candidate_name(selectedCandidate)
+                    .ballot_id(ballotId)
+                    .joint_public_key(jointPublicKey)
+                    .commitment_hash(commitmentHash)
+                    .number_of_guardians(numberOfGuardians)
+                    .quorum(quorum)
+                    .encrypted_ballot_with_nonce(encryptedBallotWithNonce)
+                    .build();
+
+            System.out.println("Calling ElectionGuard Benaloh challenge service at: " + url);
+            System.out.println("Sending request to ElectionGuard Benaloh service: " + request);
+
+            String response = webClient.post()
+                    .uri(url)
+                    .contentType(MediaType.APPLICATION_JSON)
+                    .accept(MediaType.APPLICATION_JSON)
+                    .bodyValue(request)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            System.out.println("Received response from ElectionGuard Benaloh service: ");
+
+            if (response == null) {
+                throw new RuntimeException("Invalid response from ElectionGuard Benaloh service");
+            }
+
+            return objectMapper.readValue(response, ElectionGuardBenalohResponse.class);
+        } catch (Exception e) {
+            System.err.println("Failed to call ElectionGuard Benaloh service: " + e.getMessage());
+            throw new RuntimeException("Failed to call ElectionGuard Benaloh service", e);
+        }
+    }
+
+    /**
+     * Cast a pre-encrypted ballot
+     */
+    @Transactional
+    public CastBallotResponse castEncryptedBallot(CastEncryptedBallotRequest request, String userEmail) {
+        try {
+            // 1. Find user
+            Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
+            if (!userOpt.isPresent()) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("User not found")
+                        .errorReason("Invalid user")
+                        .build();
+            }
+            User user = userOpt.get();
+
+            // 2. Find election
+            Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
+            if (!electionOpt.isPresent()) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("Election not found")
+                        .errorReason("Invalid election")
+                        .build();
+            }
+            Election election = electionOpt.get();
+
+            // 3. Check if election is active
+            Instant now = Instant.now();
+            if (now.isBefore(election.getStartingTime())) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("Election has not started yet")
+                        .errorReason("Election not active")
+                        .build();
+            }
+            if (now.isAfter(election.getEndingTime())) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("Election has ended")
+                        .errorReason("Election ended")
+                        .build();
+            }
+
+            // 4. Check eligibility
+            boolean isEligible = checkVoterEligibility(user.getUserId(), election);
+            if (!isEligible) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("You are not eligible to vote in this election")
+                        .errorReason("Not eligible")
+                        .build();
+            }
+
+            // 5. Check if user has already voted
+            if (hasUserAlreadyVoted(user.getUserId(), election.getElectionId())) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("You have already voted in this election")
+                        .errorReason("Already voted")
+                        .build();
+            }
+
+            // 6. Save ballot to database
+            Ballot ballot = Ballot.builder()
+                    .electionId(election.getElectionId())
+                    .status("cast")
+                    .cipherText(request.getEncrypted_ballot())
+                    .hashCode(request.getBallot_hash())
+                    .trackingCode(request.getBallot_tracking_code())
+                    .submissionTime(Instant.now())
+                    .build();
+            ballotRepository.save(ballot);
+
+            // 7. Record ballot on blockchain
+            try {
+                BlockchainRecordBallotResponse blockchainResponse = blockchainService.recordBallot(
+                        election.getElectionId().toString(),
+                        request.getBallot_tracking_code(),
+                        request.getBallot_hash());
+                if (blockchainResponse.isSuccess()) {
+                    System.out.println("✅ Ballot " + request.getBallot_tracking_code() + " successfully recorded on blockchain");
+                    System.out.println("🔗 Transaction Hash: " + blockchainResponse.getTransactionHash());
+                    System.out.println("📦 Block Number: " + blockchainResponse.getBlockNumber());
+                } else {
+                    System.err.println("⚠️ Failed to record ballot on blockchain: " + blockchainResponse.getMessage());
+                }
+            } catch (Exception e) {
+                System.err.println("⚠️ Error calling blockchain service: " + e.getMessage());
+            }
+
+            // 8. Update voter status
+            updateVoterStatus(user.getUserId(), election);
+
+            // 9. Return success response
+            return CastBallotResponse.builder()
+                    .success(true)
+                    .message("Ballot cast successfully")
+                    .hashCode(request.getBallot_hash())
+                    .trackingCode(request.getBallot_tracking_code())
+                    .build();
+
+        } catch (Exception e) {
+            return CastBallotResponse.builder()
+                    .success(false)
+                    .message("An error occurred while casting the ballot")
+                    .errorReason("Internal server error: " + e.getMessage())
+                    .build();
         }
     }
 }

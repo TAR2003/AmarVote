@@ -18,10 +18,15 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.amarvote.amarvote.dto.BlockchainBallotInfoResponse;
 import com.amarvote.amarvote.dto.BlockchainLogsResponse;
+import com.amarvote.amarvote.dto.BenalohChallengeRequest;
+import com.amarvote.amarvote.dto.BenalohChallengeResponse;
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
+import com.amarvote.amarvote.dto.CastEncryptedBallotRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionResponse;
+import com.amarvote.amarvote.dto.CreateEncryptedBallotRequest;
+import com.amarvote.amarvote.dto.CreateEncryptedBallotResponse;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionResponse;
 import com.amarvote.amarvote.dto.CreateTallyRequest;
@@ -188,6 +193,134 @@ public class ElectionController {
 
         try {
             CastBallotResponse response = ballotService.castBallot(request, userEmail);
+
+            if (response.isSuccess()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(CastBallotResponse.builder()
+                            .success(false)
+                            .message("Internal server error occurred")
+                            .errorReason("Server error: " + e.getMessage())
+                            .build());
+        }
+    }
+
+    @PostMapping(value = "/create-encrypted-ballot", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<CreateEncryptedBallotResponse> createEncryptedBallot(
+            @Valid @RequestBody CreateEncryptedBallotRequest request,
+            HttpServletRequest httpRequest) {
+
+        // Get user email from request attributes (set by JWTFilter)
+        String userEmail = (String) httpRequest.getAttribute("userEmail");
+        System.out.println("Creating encrypted ballot for election ID: " + request.getElectionId() + " by user: " + userEmail);
+
+        // Alternative: Get user email from Spring Security context
+        if (userEmail == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+        }
+
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(CreateEncryptedBallotResponse.builder()
+                            .success(false)
+                            .message("User authentication required")
+                            .build());
+        }
+
+        try {
+            CreateEncryptedBallotResponse response = ballotService.createEncryptedBallot(request, userEmail);
+
+            if (response.isSuccess()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(CreateEncryptedBallotResponse.builder()
+                            .success(false)
+                            .message("Internal server error occurred")
+                            .build());
+        }
+    }
+
+    @PostMapping(value = "/benaloh-challenge", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<BenalohChallengeResponse> performBenalohChallenge(
+            @Valid @RequestBody BenalohChallengeRequest request,
+            HttpServletRequest httpRequest) {
+
+        // Get user email from request attributes (set by JWTFilter)
+        String userEmail = (String) httpRequest.getAttribute("userEmail");
+        System.out.println("Performing Benaloh challenge for election ID: " + request.getElectionId() + " by user: " + userEmail);
+
+        // Alternative: Get user email from Spring Security context
+        if (userEmail == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+        }
+
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(BenalohChallengeResponse.builder()
+                            .success(false)
+                            .message("User authentication required")
+                            .build());
+        }
+
+        try {
+            BenalohChallengeResponse response = ballotService.performBenalohChallenge(request, userEmail);
+
+            if (response.isSuccess()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(BenalohChallengeResponse.builder()
+                            .success(false)
+                            .message("Internal server error occurred")
+                            .build());
+        }
+    }
+
+    @PostMapping(value = "/cast-encrypted-ballot", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<CastBallotResponse> castEncryptedBallot(
+            @Valid @RequestBody CastEncryptedBallotRequest request,
+            HttpServletRequest httpRequest) {
+
+        // Get user email from request attributes (set by JWTFilter)
+        String userEmail = (String) httpRequest.getAttribute("userEmail");
+        System.out.println("Casting encrypted ballot for election ID: " + request.getElectionId() + " by user: " + userEmail);
+
+        // Alternative: Get user email from Spring Security context
+        if (userEmail == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+        }
+
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(CastBallotResponse.builder()
+                            .success(false)
+                            .message("User authentication required")
+                            .errorReason("Unauthorized")
+                            .build());
+        }
+
+        try {
+            CastBallotResponse response = ballotService.castEncryptedBallot(request, userEmail);
 
             if (response.isSuccess()) {
                 return ResponseEntity.ok(response);

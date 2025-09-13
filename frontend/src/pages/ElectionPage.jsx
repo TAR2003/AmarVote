@@ -1454,6 +1454,12 @@ export default function ElectionPage() {
   const [voteResult, setVoteResult] = useState(null);
   const [voteError, setVoteError] = useState(null);
 
+  // Encrypted ballot workflow state
+  const [encryptedBallotData, setEncryptedBallotData] = useState(null);
+  const [showBallotActions, setShowBallotActions] = useState(false);
+  const [challengeResult, setChallengeResult] = useState(null);
+  const [ballotChallenged, setBallotChallenged] = useState(false);
+
   // Bot detection state
   const [botDetection, setBotDetection] = useState({
     loading: true,
@@ -1811,10 +1817,201 @@ export default function ElectionPage() {
 
 
 
-  const handleVoteSubmit = (e) => {
+  const handleVoteSubmit = async (e) => {
     e.preventDefault();
     if (!selectedCandidate) return;
-    setShowConfirmModal(true);
+    
+    // Instead of showing confirmation modal, create encrypted ballot
+    await handleCreateEncryptedBallot();
+  };
+
+  const handleCreateEncryptedBallot = async () => {
+    setIsSubmitting(true);
+    setVoteError(null);
+
+    console.log('🔍 [ENCRYPTED BALLOT] Performing fresh bot detection before creating encrypted ballot...');
+
+    // Perform fresh bot detection before creating encrypted ballot
+    let freshBotDetection = null;
+    try {
+      const botd = await load();
+      const result = await botd.detect();
+
+      freshBotDetection = {
+        isBot: result.bot,
+        requestId: result.requestId,
+        timestamp: new Date().toISOString()
+      };
+
+      console.log('🤖 [ENCRYPTED BALLOT] Fresh bot detection result:', {
+        isBot: result.bot,
+        requestId: result.requestId
+      });
+
+      console.log('✅ [ENCRYPTED BALLOT] Fresh bot check passed');
+    } catch (error) {
+      console.error('⚠️ [ENCRYPTED BALLOT] Fresh bot detection failed:', error);
+      // Continue with creation but without bot detection data
+    }
+
+    try {
+      const selectedChoice = electionData.electionChoices.find(
+        choice => choice.choiceId.toString() === selectedCandidate
+      );
+
+      console.log('📤 [ENCRYPTED BALLOT] Creating encrypted ballot...');
+      const result = await electionApi.createEncryptedBallot(
+        id,
+        selectedChoice.choiceId,
+        selectedChoice.optionTitle,
+        freshBotDetection
+      );
+
+      // Store encrypted ballot data
+      setEncryptedBallotData(result);
+      setShowBallotActions(true);
+      setSelectedCandidate(''); // Reset selection
+
+      console.log('✅ [ENCRYPTED BALLOT] Encrypted ballot created successfully');
+
+    } catch (err) {
+      console.error('❌ [ENCRYPTED BALLOT] Ballot creation failed:', err);
+      setVoteError(err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Helper function to download file content
+  const downloadFile = (content, filename, displayName) => {
+    try {
+      const blob = new Blob([content], { type: 'text/plain' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+      toast.success(`${displayName} downloaded successfully!`);
+    } catch (error) {
+      console.error(`Error downloading ${displayName}:`, error);
+      toast.error(`Failed to download ${displayName}`);
+    }
+  };
+
+  // Download ballot info as JSON
+  const downloadBallotInfo = () => {
+    try {
+      const ballotInfo = {
+        ballot_hash: encryptedBallotData.ballot_hash,
+        ballot_tracking_code: encryptedBallotData.ballot_tracking_code,
+        election_id: id,
+        candidate: encryptedBallotData.candidate || 'Selected Candidate',
+        created_at: new Date().toISOString(),
+        file_info: {
+          encrypted_ballot: 'encrypted_ballot.txt',
+          encrypted_ballot_with_nonce: 'encrypted_ballot_with_nonce.txt'
+        }
+      };
+      
+      const content = JSON.stringify(ballotInfo, null, 2);
+      downloadFile(content, 'ballot_info.json', 'Ballot Info');
+    } catch (error) {
+      console.error('Error creating ballot info:', error);
+      toast.error('Failed to create ballot info');
+    }
+  };
+
+  // Handle casting the encrypted ballot
+  const handleCastEncryptedBallot = async () => {
+    if (!encryptedBallotData || ballotChallenged) return;
+    
+    setIsSubmitting(true);
+    setVoteError(null);
+
+    try {
+      console.log('📤 [CAST ENCRYPTED] Casting encrypted ballot...');
+      const result = await electionApi.castEncryptedBallot(
+        id,
+        encryptedBallotData.encrypted_ballot,
+        encryptedBallotData.ballot_hash,
+        encryptedBallotData.ballot_tracking_code
+      );
+
+      // Store the cast result with encrypted ballot info
+      const castResultWithBallot = {
+        ...result,
+        encryptedBallotData
+      };
+
+      setVoteResult(castResultWithBallot);
+      setShowBallotActions(false); // Hide ballot actions
+      setEncryptedBallotData(null); // Clear encrypted ballot data
+
+      console.log('✅ [CAST ENCRYPTED] Encrypted ballot cast successfully');
+
+      // Update eligibility data to reflect that user has voted
+      setEligibilityData(prev => ({
+        ...prev,
+        eligible: false,
+        hasVoted: true,
+        message: 'You have already voted in this election',
+        reason: 'Already voted'
+      }));
+
+      toast.success('Vote cast successfully!');
+
+    } catch (err) {
+      console.error('❌ [CAST ENCRYPTED] Casting failed:', err);
+      setVoteError(err.message);
+      toast.error('Failed to cast vote: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  // Handle Benaloh challenge
+  const handleBenalohChallenge = async () => {
+    if (!encryptedBallotData || ballotChallenged) return;
+    
+    setIsSubmitting(true);
+    setChallengeResult(null);
+
+    try {
+      console.log('🔍 [BENALOH CHALLENGE] Performing challenge...');
+      
+      // Find the selected candidate name
+      const selectedChoice = electionData.electionChoices.find(
+        choice => choice.choiceId.toString() === encryptedBallotData.candidate_choice_id
+      );
+      const candidateName = selectedChoice ? selectedChoice.optionTitle : 'Unknown Candidate';
+
+      const result = await electionApi.performBenalohChallenge(
+        id,
+        encryptedBallotData.encrypted_ballot_with_nonce,
+        candidateName
+      );
+
+      setChallengeResult(result);
+      setBallotChallenged(true); // Mark ballot as challenged
+
+      console.log('✅ [BENALOH CHALLENGE] Challenge completed:', result);
+
+      if (result.verification_passed) {
+        toast.success('Challenge verification passed! The ballot is valid.');
+      } else {
+        toast.error('Challenge verification failed! Please check your ballot.');
+      }
+
+    } catch (err) {
+      console.error('❌ [BENALOH CHALLENGE] Challenge failed:', err);
+      toast.error('Failed to perform challenge: ' + err.message);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleConfirmVote = async () => {
@@ -2573,7 +2770,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                     <div>
                       <h4 className="font-medium text-yellow-900">Voting Instructions</h4>
                       <p className="text-sm text-yellow-800 mt-1">
-                        Select one candidate from the list below and click "Cast Vote" to submit your ballot.
+                        Select one candidate from the list below and click "Create Encrypted Ballot" to generate your encrypted ballot files.
                         You can only vote once in this election.
                       </p>
                     </div>
@@ -2637,7 +2834,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                       {isSubmitting ? (
                         <div className="flex items-center space-x-2">
                           <FiLoader className="h-4 w-4 animate-spin" />
-                          <span>Casting Vote...</span>
+                          <span>Creating Ballot...</span>
                         </div>
                       ) : botDetection.loading ? (
                         <div className="flex items-center space-x-2">
@@ -2650,11 +2847,156 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                           <span>Voting Blocked</span>
                         </div>
                       ) : (
-                        'Cast Vote'
+                        'Create Encrypted Ballot'
                       )}
                     </button>
                   </div>
                 </form>
+              </div>
+            )}
+
+            {/* Encrypted Ballot Actions - Show after encrypted ballot is created */}
+            {showBallotActions && encryptedBallotData && (
+              <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
+                <div className="text-center mb-6">
+                  <FiCheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
+                  <h3 className="text-xl font-semibold text-green-700 mb-2">
+                    Encrypted Ballot Created Successfully!
+                  </h3>
+                  <p className="text-green-600 mb-4">
+                    Your vote has been encrypted and is ready. You can now download the ballot files and choose to either cast your vote or challenge it for verification.
+                  </p>
+                </div>
+
+                {/* Download Files Section */}
+                <div className="bg-white rounded-lg p-4 mb-6 border">
+                  <h4 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
+                    <FiDownload className="mr-2" />
+                    Download Ballot Files
+                  </h4>
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    {/* Encrypted Ballot */}
+                    <button
+                      onClick={() => downloadFile(encryptedBallotData.encrypted_ballot, 'encrypted_ballot.txt', 'Encrypted Ballot')}
+                      className="flex items-center justify-center p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
+                    >
+                      <FiFileText className="mr-2 text-blue-600" />
+                      <span className="text-blue-700 font-medium">Encrypted Ballot</span>
+                    </button>
+
+                    {/* Encrypted Ballot with Nonce */}
+                    <button
+                      onClick={() => downloadFile(encryptedBallotData.encrypted_ballot_with_nonce, 'encrypted_ballot_with_nonce.txt', 'Encrypted Ballot with Nonce')}
+                      className="flex items-center justify-center p-3 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
+                    >
+                      <FiKey className="mr-2 text-purple-600" />
+                      <span className="text-purple-700 font-medium">Ballot with Nonce</span>
+                    </button>
+
+                    {/* Ballot Info */}
+                    <button
+                      onClick={() => downloadBallotInfo()}
+                      className="flex items-center justify-center p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
+                    >
+                      <FiInfo className="mr-2 text-gray-600" />
+                      <span className="text-gray-700 font-medium">Ballot Info</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Action Buttons */}
+                <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                  <button
+                    onClick={() => handleCastEncryptedBallot()}
+                    disabled={isSubmitting || ballotChallenged}
+                    className={`flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-colors ${
+                      ballotChallenged 
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : isSubmitting
+                          ? 'bg-blue-400 text-white cursor-not-allowed'
+                          : 'bg-blue-600 text-white hover:bg-blue-700'
+                    }`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <FiLoader className="mr-2 h-4 w-4 animate-spin" />
+                        Casting Vote...
+                      </>
+                    ) : (
+                      <>
+                        <FiCheck className="mr-2 h-4 w-4" />
+                        Cast Vote
+                      </>
+                    )}
+                  </button>
+
+                  <button
+                    onClick={() => handleBenalohChallenge()}
+                    disabled={isSubmitting || ballotChallenged}
+                    className={`flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-colors ${
+                      ballotChallenged
+                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                        : isSubmitting
+                          ? 'bg-orange-400 text-white cursor-not-allowed'
+                          : 'bg-orange-600 text-white hover:bg-orange-700'
+                    }`}
+                  >
+                    {isSubmitting ? (
+                      <>
+                        <FiLoader className="mr-2 h-4 w-4 animate-spin" />
+                        Challenging...
+                      </>
+                    ) : (
+                      <>
+                        <FiShield className="mr-2 h-4 w-4" />
+                        Challenge Vote
+                      </>
+                    )}
+                  </button>
+                </div>
+
+                {ballotChallenged && (
+                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                    <p className="text-yellow-700 text-sm text-center">
+                      <FiAlertCircle className="inline mr-1" />
+                      This ballot has been challenged and cannot be cast. Please create a new ballot to vote.
+                    </p>
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* Challenge Result Display */}
+            {challengeResult && (
+              <div className={`border rounded-lg p-6 mb-6 ${
+                challengeResult.verification_passed ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+              }`}>
+                <div className="text-center">
+                  <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
+                    challengeResult.verification_passed ? 'bg-green-100' : 'bg-red-100'
+                  }`}>
+                    {challengeResult.verification_passed ? (
+                      <FiCheckCircle className="w-8 h-8 text-green-600" />
+                    ) : (
+                      <FiX className="w-8 h-8 text-red-600" />
+                    )}
+                  </div>
+                  <h3 className={`text-xl font-semibold mb-2 ${
+                    challengeResult.verification_passed ? 'text-green-700' : 'text-red-700'
+                  }`}>
+                    {challengeResult.verification_passed ? 'Challenge Verification Passed!' : 'Challenge Verification Failed!'}
+                  </h3>
+                  <p className={`mb-4 ${
+                    challengeResult.verification_passed ? 'text-green-600' : 'text-red-600'
+                  }`}>
+                    {challengeResult.message}
+                  </p>
+                  {challengeResult.detailed_message && (
+                    <div className="text-sm text-gray-600 bg-white rounded-lg p-3 border">
+                      {challengeResult.detailed_message}
+                    </div>
+                  )}
+                </div>
               </div>
             )}
 
