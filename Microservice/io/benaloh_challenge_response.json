@@ -1,0 +1,8 @@
+{
+    "ballot_id": "ballot-2",
+    "expected_candidate": null,
+    "match": true,
+    "message": "Ballot choice matches expected candidate: Bob Smith",
+    "status": "success",
+    "verified_candidate": "Bob Smith"
+}
