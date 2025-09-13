@@ -157,7 +157,7 @@ public class TallyService {
             
             // Fetch election choices
             System.out.println("=== FETCHING ELECTION CHOICES ===");
-            List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionId(request.getElection_id());
+            List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(request.getElection_id());
             System.out.println("Found " + electionChoices.size() + " election choices");
             
             if (electionChoices.isEmpty()) {
@@ -167,7 +167,7 @@ public class TallyService {
                     .message("No election choices found for this election")
                     .build();
             }
-            electionChoices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+            // electionChoices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             
             // Extract party names and candidate names
             List<String> partyNames = electionChoices.stream()

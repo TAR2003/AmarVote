@@ -338,7 +338,7 @@ class ElectionServiceTest {
         when(userRepository.findByUserEmail(userEmail)).thenReturn(Optional.of(mockUser));
         when(guardianRepository.findGuardiansWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
         when(allowedVoterRepository.findAllowedVotersWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
-        when(electionChoiceRepository.findByElectionId(electionId)).thenReturn(Arrays.asList());
+        when(electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(electionId)).thenReturn(Arrays.asList());
         when(allowedVoterRepository.findByElectionIdAndUserEmail(electionId, userEmail)).thenReturn(Arrays.asList());
         when(guardianRepository.findByElectionIdAndUserEmail(electionId, userEmail)).thenReturn(Arrays.asList());
 
@@ -443,7 +443,7 @@ class ElectionServiceTest {
         when(userRepository.findByUserEmail("admin@test.com")).thenReturn(Optional.of(mockUser));
         when(guardianRepository.findGuardiansWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
         when(allowedVoterRepository.findAllowedVotersWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
-        when(electionChoiceRepository.findByElectionId(electionId)).thenReturn(Arrays.asList());
+        when(electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(electionId)).thenReturn(Arrays.asList());
 
         // When: Any user requests public election details
         ElectionDetailResponse result = electionService.getElectionById(electionId, userEmail);
@@ -487,7 +487,7 @@ class ElectionServiceTest {
         when(userRepository.findByUserEmail("admin@test.com")).thenReturn(Optional.of(mockUser));
         when(guardianRepository.findGuardiansWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
         when(allowedVoterRepository.findAllowedVotersWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
-        when(electionChoiceRepository.findByElectionId(electionId)).thenReturn(Arrays.asList());
+        when(electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(electionId)).thenReturn(Arrays.asList());
         when(allowedVoterRepository.findByElectionIdAndUserEmail(electionId, userEmail)).thenReturn(Arrays.asList());
 
         // When: Guardian requests election details
@@ -533,7 +533,7 @@ class ElectionServiceTest {
         when(userRepository.findByUserEmail("admin@test.com")).thenReturn(Optional.of(mockUser));
         when(guardianRepository.findGuardiansWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
         when(allowedVoterRepository.findAllowedVotersWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
-        when(electionChoiceRepository.findByElectionId(electionId)).thenReturn(Arrays.asList());
+        when(electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(electionId)).thenReturn(Arrays.asList());
 
         // When: Allowed voter requests election details
         ElectionDetailResponse result = electionService.getElectionById(electionId, userEmail);
@@ -673,7 +673,7 @@ class ElectionServiceTest {
         when(userRepository.findByUserEmail(userEmail)).thenReturn(Optional.of(mockUser));
         when(guardianRepository.findGuardiansWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
         when(allowedVoterRepository.findAllowedVotersWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
-        when(electionChoiceRepository.findByElectionId(electionId)).thenReturn(Arrays.asList());
+        when(electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(electionId)).thenReturn(Arrays.asList());
 
         // When: Request election details for multi-role user
         ElectionDetailResponse result = electionService.getElectionById(electionId, userEmail);
@@ -753,7 +753,7 @@ class ElectionServiceTest {
         when(userRepository.findByUserEmail(userEmail)).thenReturn(Optional.of(mockUser));
         when(guardianRepository.findGuardiansWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
         when(allowedVoterRepository.findAllowedVotersWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
-        when(electionChoiceRepository.findByElectionId(electionId)).thenReturn(Arrays.asList(choice1, choice2));
+        when(electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(electionId)).thenReturn(Arrays.asList(choice1, choice2));
         when(allowedVoterRepository.findByElectionIdAndUserEmail(electionId, userEmail)).thenReturn(Arrays.asList());
         when(guardianRepository.findByElectionIdAndUserEmail(electionId, userEmail)).thenReturn(Arrays.asList());
 
@@ -766,7 +766,7 @@ class ElectionServiceTest {
         assertEquals("Candidate 1", result.getElectionChoices().get(0).getOptionTitle());
         assertEquals("Candidate 2", result.getElectionChoices().get(1).getOptionTitle());
         
-        verify(electionChoiceRepository, times(1)).findByElectionId(electionId);
+        verify(electionChoiceRepository, times(1)).findByElectionIdOrderByChoiceIdAsc(electionId);
     }
 
     /**
@@ -805,7 +805,7 @@ class ElectionServiceTest {
         when(guardianRepository.findGuardiansWithUserDetailsByElectionId(electionId))
                 .thenReturn(Arrays.asList(guardianData1, guardianData2));
         when(allowedVoterRepository.findAllowedVotersWithUserDetailsByElectionId(electionId)).thenReturn(Arrays.asList());
-        when(electionChoiceRepository.findByElectionId(electionId)).thenReturn(Arrays.asList());
+        when(electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(electionId)).thenReturn(Arrays.asList());
         when(allowedVoterRepository.findByElectionIdAndUserEmail(electionId, userEmail)).thenReturn(Arrays.asList());
         when(guardianRepository.findByElectionIdAndUserEmail(electionId, userEmail)).thenReturn(Arrays.asList());
 

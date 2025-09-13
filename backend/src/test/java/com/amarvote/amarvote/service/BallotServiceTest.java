@@ -293,7 +293,7 @@ class BallotServiceTest {
         assertEquals("You are not eligible to vote in this election. You are not in the allowed voters list.", response.getMessage());
         assertEquals("Not in voter list for listed election", response.getErrorReason());
         
-        verify(electionChoiceRepository, never()).findByElectionId(anyLong());
+        verify(electionChoiceRepository, never()).findByElectionIdOrderByChoiceIdAsc(anyLong());
         verify(ballotRepository, never()).save(any());
     }
 
@@ -332,7 +332,7 @@ class BallotServiceTest {
         assertEquals("You have already voted in this election", response.getMessage());
         assertEquals("Already voted", response.getErrorReason());
         
-        verify(electionChoiceRepository, never()).findByElectionId(anyLong());
+        verify(electionChoiceRepository, never()).findByElectionIdOrderByChoiceIdAsc(anyLong());
         verify(ballotRepository, never()).save(any());
     }
 
@@ -346,7 +346,7 @@ class BallotServiceTest {
         when(userRepository.findByUserEmail("test@example.com")).thenReturn(Optional.of(testUser));
         when(electionRepository.findById(1L)).thenReturn(Optional.of(testElection));
         when(allowedVoterRepository.findByElectionId(1L)).thenReturn(Arrays.asList(testAllowedVoter));
-        when(electionChoiceRepository.findByElectionId(1L)).thenReturn(Arrays.asList(testChoice));
+        when(electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(1L)).thenReturn(Arrays.asList(testChoice));
         
         // Request with invalid candidate
         CastBallotRequest invalidRequest = CastBallotRequest.builder()

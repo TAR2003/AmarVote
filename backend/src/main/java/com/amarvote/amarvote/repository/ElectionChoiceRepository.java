@@ -11,6 +11,6 @@ import com.amarvote.amarvote.model.ElectionChoice;
 public interface ElectionChoiceRepository extends JpaRepository<ElectionChoice, Long> {
     
     // Get all election choices for a specific election
-    List<ElectionChoice> findByElectionId(Long electionId);
+    List<ElectionChoice> findByElectionIdOrderByChoiceIdAsc(Long electionId);
 }
 

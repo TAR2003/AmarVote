@@ -203,9 +203,9 @@ public class BallotService {
             }
 
             // 6. Validate candidate choice
-            List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
+            List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
 
-            choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+            // choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             boolean isValidChoice = choices.stream()
                     .anyMatch(choice -> choice.getOptionTitle().equals(request.getSelectedCandidate()));
             if (!isValidChoice) {
@@ -657,8 +657,8 @@ public class BallotService {
             }
 
             // 6. Validate candidate choice
-            List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
-            choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+            List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
+            // choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             boolean isValidChoice = choices.stream()
                     .anyMatch(choice -> choice.getOptionTitle().equals(request.getSelectedCandidate()));
             if (!isValidChoice) {
@@ -753,8 +753,8 @@ public class BallotService {
 
             // 3. Validate candidate choice
             System.out.println("🔍 [BENALOH] Fetching election choices...");
-            List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
-            choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+            List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
+            // choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             System.out.println("🔍 [BENALOH] Found " + choices.size() + " choices");
             
             for (ElectionChoice choice : choices) {

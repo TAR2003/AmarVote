@@ -98,8 +98,8 @@ public class PartialDecryptionService {
             Election election = electionOpt.get();
 
             // 4. Get election choices for candidate names and party names
-            List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(request.election_id());
-            choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+            List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(request.election_id());
+            // choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             List<String> candidateNames = choices.stream()
                 .map(ElectionChoice::getOptionTitle)
                 .toList();
@@ -378,8 +378,8 @@ public class PartialDecryptionService {
             }
 
             // 3. Fetch election choices for candidate_names and party_names
-            List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionId(request.election_id());
-            electionChoices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+            List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(request.election_id());
+            // electionChoices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             
             if (electionChoices.isEmpty()) {
                 return CombinePartialDecryptionResponse.builder()
@@ -759,8 +759,8 @@ public class PartialDecryptionService {
             
             // Build request to microservice
             // Get election choices for party and candidate names
-            List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionId(election.getElectionId());
-            electionChoices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+            List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
+            // electionChoices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             List<String> candidateNames = electionChoices.stream()
                 .map(ElectionChoice::getOptionTitle)
                 .collect(Collectors.toList());
