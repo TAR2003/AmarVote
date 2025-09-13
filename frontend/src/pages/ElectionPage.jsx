@@ -2984,25 +2984,25 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
             {/* Challenge Result Display */}
             {challengeResult && (
               <div className={`border rounded-lg p-6 mb-6 ${
-                challengeResult.verification_passed ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
+                challengeResult.match ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
               }`}>
                 <div className="text-center">
                   <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
-                    challengeResult.verification_passed ? 'bg-green-100' : 'bg-red-100'
+                    challengeResult.match ? 'bg-green-100' : 'bg-red-100'
                   }`}>
-                    {challengeResult.verification_passed ? (
+                    {challengeResult.match ? (
                       <FiCheckCircle className="w-8 h-8 text-green-600" />
                     ) : (
                       <FiX className="w-8 h-8 text-red-600" />
                     )}
                   </div>
                   <h3 className={`text-xl font-semibold mb-2 ${
-                    challengeResult.verification_passed ? 'text-green-700' : 'text-red-700'
+                    challengeResult.match ? 'text-green-700' : 'text-red-700'
                   }`}>
-                    {challengeResult.verification_passed ? 'Challenge Verification Passed!' : 'Challenge Verification Failed!'}
+                    {challengeResult.match ? 'Challenge Verification Passed!' : 'Challenge Verification Failed!'}
                   </h3>
                   <p className={`mb-4 ${
-                    challengeResult.verification_passed ? 'text-green-600' : 'text-red-600'
+                    challengeResult.match ? 'text-green-600' : 'text-red-600'
                   }`}>
                     {challengeResult.message}
                   </p>
