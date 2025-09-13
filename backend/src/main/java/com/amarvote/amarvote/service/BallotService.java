@@ -14,14 +14,14 @@ import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import com.amarvote.amarvote.dto.BenalohChallengeRequest;
+import com.amarvote.amarvote.dto.BenalohChallengeResponse;
 import com.amarvote.amarvote.dto.BlockchainRecordBallotResponse;
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
 import com.amarvote.amarvote.dto.CastEncryptedBallotRequest;
 import com.amarvote.amarvote.dto.CreateEncryptedBallotRequest;
 import com.amarvote.amarvote.dto.CreateEncryptedBallotResponse;
-import com.amarvote.amarvote.dto.BenalohChallengeRequest;
-import com.amarvote.amarvote.dto.BenalohChallengeResponse;
 import com.amarvote.amarvote.dto.ElectionGuardBallotRequest;
 import com.amarvote.amarvote.dto.ElectionGuardBallotResponse;
 import com.amarvote.amarvote.dto.ElectionGuardBenalohRequest;
@@ -721,9 +721,14 @@ public class BallotService {
     @Transactional
     public BenalohChallengeResponse performBenalohChallenge(BenalohChallengeRequest request, String userEmail) {
         try {
+            System.out.println("🔍 [BENALOH] Starting Benaloh challenge for user: " + userEmail);
+            System.out.println("🔍 [BENALOH] Request data: electionId=" + request.getElectionId() + 
+                              ", candidate=" + request.getCandidate_name());
+
             // 1. Find user
             Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
             if (!userOpt.isPresent()) {
+                System.out.println("❌ [BENALOH] User not found");
                 return BenalohChallengeResponse.builder()
                         .success(false)
                         .message("User not found")
@@ -731,10 +736,12 @@ public class BallotService {
                         .build();
             }
             User user = userOpt.get();
+            System.out.println("✅ [BENALOH] User found: " + user.getUserId());
 
             // 2. Find election
             Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
             if (!electionOpt.isPresent()) {
+                System.out.println("❌ [BENALOH] Election not found");
                 return BenalohChallengeResponse.builder()
                         .success(false)
                         .message("Election not found")
@@ -742,13 +749,24 @@ public class BallotService {
                         .build();
             }
             Election election = electionOpt.get();
+            System.out.println("✅ [BENALOH] Election found: " + election.getElectionTitle());
 
             // 3. Validate candidate choice
+            System.out.println("🔍 [BENALOH] Fetching election choices...");
             List<ElectionChoice> choices = electionChoiceRepository.findByElectionId(election.getElectionId());
             choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
+            System.out.println("🔍 [BENALOH] Found " + choices.size() + " choices");
+            
+            for (ElectionChoice choice : choices) {
+                System.out.println("🔍 [BENALOH] Choice: " + choice.getOptionTitle());
+            }
+            
             boolean isValidChoice = choices.stream()
                     .anyMatch(choice -> choice.getOptionTitle().equals(request.getCandidate_name()));
+            System.out.println("🔍 [BENALOH] Is valid choice: " + isValidChoice + " for candidate: " + request.getCandidate_name());
+            
             if (!isValidChoice) {
+                System.out.println("❌ [BENALOH] Invalid candidate selection");
                 return BenalohChallengeResponse.builder()
                         .success(false)
                         .message("Invalid candidate selection for verification")
@@ -757,6 +775,7 @@ public class BallotService {
             }
 
             // 4. Prepare data for ElectionGuard Benaloh challenge API
+            System.out.println("🔍 [BENALOH] Preparing data for microservice call...");
             List<String> partyNames = choices.stream()
                     .map(ElectionChoice::getPartyName)
                     .collect(Collectors.toList());
@@ -765,14 +784,19 @@ public class BallotService {
                     .collect(Collectors.toList());
 
             String ballotId = "challenge-" + user.getUserId() + "-" + election.getElectionId() + "-" + System.currentTimeMillis();
+            System.out.println("🔍 [BENALOH] Ballot ID: " + ballotId);
+            System.out.println("🔍 [BENALOH] Party names: " + partyNames);
+            System.out.println("🔍 [BENALOH] Candidate names: " + candidateNames);
 
             // 5. Call ElectionGuard Benaloh challenge service
+            System.out.println("📞 [BENALOH] Calling ElectionGuard Benaloh service...");
             ElectionGuardBenalohResponse guardResponse = callElectionGuardBenalohService(
                     partyNames, candidateNames, request.getCandidate_name(),
                     ballotId, election.getJointPublicKey(), election.getBaseHash(),
                     election.getElectionQuorum(),
                     guardianRepository.findByElectionId(election.getElectionId()).size(),
                     request.getEncrypted_ballot_with_nonce());
+            System.out.println("📞 [BENALOH] Received response from ElectionGuard service");
 
             if (guardResponse == null || !"success".equals(guardResponse.getStatus())) {
                 return BenalohChallengeResponse.builder()
@@ -815,7 +839,9 @@ public class BallotService {
             int quorum, int numberOfGuardians, String encryptedBallotWithNonce) {
 
         try {
+            System.out.println("🌐 [BENALOH API] Starting microservice call...");
             String url = "/benaloh_challenge";
+            System.out.println("🌐 [BENALOH API] URL: " + url);
 
             ElectionGuardBenalohRequest request = ElectionGuardBenalohRequest.builder()
                     .party_names(partyNames)
@@ -829,9 +855,11 @@ public class BallotService {
                     .encrypted_ballot_with_nonce(encryptedBallotWithNonce)
                     .build();
 
+            System.out.println("🌐 [BENALOH API] Request built successfully");
             System.out.println("Calling ElectionGuard Benaloh challenge service at: " + url);
             System.out.println("Sending request to ElectionGuard Benaloh service: " + request);
 
+            System.out.println("🌐 [BENALOH API] Making WebClient call...");
             String response = webClient.post()
                     .uri(url)
                     .contentType(MediaType.APPLICATION_JSON)

@@ -1459,6 +1459,10 @@ export default function ElectionPage() {
   const [showBallotActions, setShowBallotActions] = useState(false);
   const [challengeResult, setChallengeResult] = useState(null);
   const [ballotChallenged, setBallotChallenged] = useState(false);
+  const [isCasting, setIsCasting] = useState(false);
+  const [isChallenging, setIsChallenging] = useState(false);
+  const [showChallengeModal, setShowChallengeModal] = useState(false);
+  const [challengeCandidateChoice, setChallengeCandidateChoice] = useState('');
 
   // Bot detection state
   const [botDetection, setBotDetection] = useState({
@@ -1929,7 +1933,7 @@ export default function ElectionPage() {
   const handleCastEncryptedBallot = async () => {
     if (!encryptedBallotData || ballotChallenged) return;
     
-    setIsSubmitting(true);
+    setIsCasting(true);
     setVoteError(null);
 
     try {
@@ -1969,7 +1973,7 @@ export default function ElectionPage() {
       setVoteError(err.message);
       toast.error('Failed to cast vote: ' + err.message);
     } finally {
-      setIsSubmitting(false);
+      setIsCasting(false);
     }
   };
 
@@ -1977,17 +1981,27 @@ export default function ElectionPage() {
   const handleBenalohChallenge = async () => {
     if (!encryptedBallotData || ballotChallenged) return;
     
-    setIsSubmitting(true);
+    // Instead of performing challenge directly, show candidate selection modal
+    setShowChallengeModal(true);
+  };
+
+  const handleConfirmChallenge = async () => {
+    if (!challengeCandidateChoice) return;
+    
+    setIsChallenging(true);
     setChallengeResult(null);
+    setShowChallengeModal(false);
 
     try {
       console.log('🔍 [BENALOH CHALLENGE] Performing challenge...');
       
       // Find the selected candidate name
       const selectedChoice = electionData.electionChoices.find(
-        choice => choice.choiceId.toString() === encryptedBallotData.candidate_choice_id
+        choice => choice.choiceId.toString() === challengeCandidateChoice
       );
       const candidateName = selectedChoice ? selectedChoice.optionTitle : 'Unknown Candidate';
+      
+      console.log('🔍 [BENALOH CHALLENGE] Challenge candidate:', candidateName);
 
       const result = await electionApi.performBenalohChallenge(
         id,
@@ -1997,20 +2011,21 @@ export default function ElectionPage() {
 
       setChallengeResult(result);
       setBallotChallenged(true); // Mark ballot as challenged
+      setShowBallotActions(false); // Hide actions after challenge
 
       console.log('✅ [BENALOH CHALLENGE] Challenge completed:', result);
 
-      if (result.verification_passed) {
-        toast.success('Challenge verification passed! The ballot is valid.');
+      if (result.match) {
+        toast.success(`✅ Challenge verification passed! The ballot was encrypted for: ${result.verified_candidate}`);
       } else {
-        toast.error('Challenge verification failed! Please check your ballot.');
+        toast.error(`❌ Challenge verification failed! Expected: ${result.expected_candidate}, but found: ${result.verified_candidate}`);
       }
 
     } catch (err) {
       console.error('❌ [BENALOH CHALLENGE] Challenge failed:', err);
       toast.error('Failed to perform challenge: ' + err.message);
     } finally {
-      setIsSubmitting(false);
+      setIsChallenging(false);
     }
   };
 
@@ -2908,16 +2923,16 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 <div className="flex flex-col sm:flex-row gap-4 justify-center">
                   <button
                     onClick={() => handleCastEncryptedBallot()}
-                    disabled={isSubmitting || ballotChallenged}
+                    disabled={isCasting || ballotChallenged}
                     className={`flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-colors ${
                       ballotChallenged 
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : isSubmitting
+                        : isCasting
                           ? 'bg-blue-400 text-white cursor-not-allowed'
                           : 'bg-blue-600 text-white hover:bg-blue-700'
                     }`}
                   >
-                    {isSubmitting ? (
+                    {isCasting ? (
                       <>
                         <FiLoader className="mr-2 h-4 w-4 animate-spin" />
                         Casting Vote...
@@ -2932,16 +2947,16 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
                   <button
                     onClick={() => handleBenalohChallenge()}
-                    disabled={isSubmitting || ballotChallenged}
+                    disabled={isChallenging || ballotChallenged}
                     className={`flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-colors ${
                       ballotChallenged
                         ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : isSubmitting
+                        : isChallenging
                           ? 'bg-orange-400 text-white cursor-not-allowed'
                           : 'bg-orange-600 text-white hover:bg-orange-700'
                     }`}
                   >
-                    {isSubmitting ? (
+                    {isChallenging ? (
                       <>
                         <FiLoader className="mr-2 h-4 w-4 animate-spin" />
                         Challenging...
@@ -3087,6 +3102,93 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                     </div>
                   ) : (
                     'Confirm Vote'
+                  )}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Benaloh Challenge Modal */}
+        {showChallengeModal && (
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
+              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
+                <FiShield className="h-5 w-5 mr-2" />
+                Challenge Ballot Verification
+              </h3>
+              
+              <div className="mb-4">
+                <p className="text-sm text-gray-600 mb-4">
+                  Select the candidate you want to verify against your encrypted ballot. 
+                  This will check if your ballot was encrypted with the correct choice.
+                </p>
+                
+                <div className="space-y-3">
+                  {electionData && electionData.electionChoices && electionData.electionChoices.map((choice) => (
+                    <div 
+                      key={choice.choiceId} 
+                      className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                        challengeCandidateChoice === choice.choiceId.toString()
+                          ? 'border-blue-500 bg-blue-50'
+                          : 'border-gray-200 hover:border-gray-300'
+                      }`}
+                      onClick={() => setChallengeCandidateChoice(choice.choiceId.toString())}
+                    >
+                      <input
+                        type="radio"
+                        name="challengeCandidate"
+                        value={choice.choiceId.toString()}
+                        checked={challengeCandidateChoice === choice.choiceId.toString()}
+                        onChange={(e) => setChallengeCandidateChoice(e.target.value)}
+                        className="mr-3"
+                      />
+                      <div className="flex-1">
+                        <div className="font-medium text-gray-900">{choice.optionTitle}</div>
+                        <div className="text-sm text-gray-500">{choice.partyName}</div>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <div className="flex items-start">
+                    <FiAlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 mr-2" />
+                    <div className="text-sm text-yellow-800">
+                      <strong>Important:</strong> After challenging your ballot, it cannot be cast. 
+                      Challenge is only for verification purposes.
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex space-x-3">
+                <button
+                  onClick={() => {
+                    setShowChallengeModal(false);
+                    setChallengeCandidateChoice('');
+                  }}
+                  disabled={isChallenging}
+                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleConfirmChallenge}
+                  disabled={!challengeCandidateChoice || isChallenging}
+                  className={`flex-1 py-2 px-4 rounded-lg font-medium text-white transition-colors ${
+                    !challengeCandidateChoice || isChallenging
+                      ? 'bg-gray-400 cursor-not-allowed'
+                      : 'bg-orange-600 hover:bg-orange-700'
+                  }`}
+                >
+                  {isChallenging ? (
+                    <div className="flex items-center justify-center space-x-2">
+                      <FiLoader className="h-4 w-4 animate-spin" />
+                      <span>Challenging...</span>
+                    </div>
+                  ) : (
+                    'Challenge Ballot'
                   )}
                 </button>
               </div>
