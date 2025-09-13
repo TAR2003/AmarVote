@@ -1830,8 +1830,15 @@ export default function ElectionPage() {
   };
 
   const handleCreateEncryptedBallot = async () => {
-    setIsSubmitting(true);
+    // Clear all previous states when creating a new encrypted ballot
+    setEncryptedBallotData(null);
+    setShowBallotActions(false);
+    setChallengeResult(null);
+    setBallotChallenged(false);
+    setVoteResult(null);
     setVoteError(null);
+    
+    setIsSubmitting(true);
 
     console.log('🔍 [ENCRYPTED BALLOT] Performing fresh bot detection before creating encrypted ballot...');
 
