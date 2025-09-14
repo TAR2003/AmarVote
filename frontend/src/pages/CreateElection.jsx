@@ -14,10 +14,10 @@ const CreateElection = () => {
     const [emailSuggestions, setEmailSuggestions] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
     const suggestionsRef = useRef(null);
-    
+
     // User database for email suggestions fetched from backend
     const [allUsers, setAllUsers] = useState([]);
-    
+
     const [form, setForm] = useState({
         electionTitle: "",
         electionDescription: "",
@@ -48,11 +48,11 @@ const CreateElection = () => {
             document.removeEventListener("mousedown", handleClickOutside);
         };
     }, []);
-    
+
     // Add debounce function for search optimization
     const debounce = (func, delay) => {
         let debounceTimer;
-        return function() {
+        return function () {
             const context = this;
             const args = arguments;
             clearTimeout(debounceTimer);
@@ -62,14 +62,14 @@ const CreateElection = () => {
 
     const handleChange = (e) => {
         const { name, value } = e.target;
-        
+
         // If guardian number changes, auto-adjust quorum to be no more than the new guardian number
         if (name === 'guardianNumber') {
             const guardianCount = parseInt(value) || 0;
             const currentQuorum = parseInt(form.quorumNumber) || 0;
-            
-            setForm((prev) => ({ 
-                ...prev, 
+
+            setForm((prev) => ({
+                ...prev,
                 [name]: value,
                 // If current quorum is greater than new guardian count, reset quorum to guardian count
                 // If guardian count is 0, reset quorum to empty
@@ -79,7 +79,7 @@ const CreateElection = () => {
             // Validate quorum number
             const quorumCount = parseInt(value) || 0;
             const guardianCount = parseInt(form.guardianNumber) || 0;
-            
+
             // Only allow valid quorum values
             if (value === "" || (quorumCount > 0 && quorumCount <= guardianCount)) {
                 setForm((prev) => ({ ...prev, [name]: value }));
@@ -94,7 +94,7 @@ const CreateElection = () => {
     const handleVoterCSVUpload = (e) => {
         const file = e.target.files[0];
         if (!file) return;
-        
+
         const reader = new FileReader();
         reader.onload = (event) => {
             const text = event.target.result;
@@ -104,14 +104,14 @@ const CreateElection = () => {
                 .map(line => line.split(',').map(email => email.trim()))
                 .flat()
                 .filter(email => email.length > 0 && email.includes('@'));
-                
+
             // Deduplicate emails
             emails = [...new Set(emails)];
             setForm((prev) => ({ ...prev, voterEmails: emails }));
-            
+
             // Show success message
             setSuccess(`Successfully uploaded ${emails.length} voter emails`);
-            
+
             // Clear success message after 3 seconds
             setTimeout(() => {
                 setSuccess("");
@@ -127,10 +127,10 @@ const CreateElection = () => {
                 setEmailSuggestions([]);
                 return;
             }
-            
+
             try {
                 const users = await userApi.searchUsers(query);
-                
+
                 // Map the response to match our expected format and filter out already selected emails
                 const mappedUsers = users.map(user => ({
                     email: user.email,
@@ -138,7 +138,7 @@ const CreateElection = () => {
                     userId: user.userId,
                     profilePic: user.profilePic
                 })).filter(user => !form.guardianEmails.includes(user.email));
-                
+
                 setEmailSuggestions(mappedUsers);
             } catch (error) {
                 console.error("Error searching for users:", error);
@@ -189,6 +189,12 @@ const CreateElection = () => {
     };
 
     const removeCandidate = (index) => {
+        // Prevent removing if it would result in less than 2 candidates
+        if (form.candidateNames.length <= 2) {
+            setError("At least 2 candidates are required. Cannot remove more candidates.");
+            return;
+        }
+
         setForm(prev => ({
             ...prev,
             candidateNames: prev.candidateNames.filter((_, i) => i !== index),
@@ -206,12 +212,78 @@ const CreateElection = () => {
         });
     };
 
+    // Helper function to check for duplicates in candidate names
+    const getCandidateNameValidation = (index, name) => {
+        if (!name || name.trim() === '') return { isValid: true, message: '' };
+
+        const trimmedName = name.trim().toLowerCase();
+        const duplicateIndex = form.candidateNames.findIndex((candidateName, i) =>
+            i !== index && candidateName.trim().toLowerCase() === trimmedName
+        );
+
+        if (duplicateIndex !== -1) {
+            return {
+                isValid: false,
+                message: `Duplicate candidate name with Candidate ${duplicateIndex + 1}`
+            };
+        }
+
+        return { isValid: true, message: '' };
+    };
+
+    // Helper function to check for duplicates in party names
+    const getPartyNameValidation = (index, name) => {
+        if (!name || name.trim() === '') return { isValid: true, message: '' };
+
+        const trimmedName = name.trim().toLowerCase();
+        const duplicateIndex = form.partyNames.findIndex((partyName, i) =>
+            i !== index && partyName.trim().toLowerCase() === trimmedName
+        );
+
+        if (duplicateIndex !== -1) {
+            return {
+                isValid: false,
+                message: `Duplicate party name with Candidate ${duplicateIndex + 1}`
+            };
+        }
+
+        return { isValid: true, message: '' };
+    };
+
+    // Check if there are any duplicate names
+    const hasDuplicateNames = () => {
+        const candidateNamesLower = form.candidateNames
+            .filter(name => name.trim() !== '')
+            .map(name => name.trim().toLowerCase());
+        const partyNamesLower = form.partyNames
+            .filter(name => name.trim() !== '')
+            .map(name => name.trim().toLowerCase());
+
+        const hasDuplicateCandidates = candidateNamesLower.length !== new Set(candidateNamesLower).size;
+        const hasDuplicateParties = partyNamesLower.length !== new Set(partyNamesLower).size;
+
+        return hasDuplicateCandidates || hasDuplicateParties;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
-        
+
         // Validate form
         if (form.candidateNames.some(name => !name) || form.partyNames.some(name => !name)) {
             setError("All candidate and party names are required");
+            return;
+        }
+
+        // Check minimum candidate count
+        const validCandidateNames = form.candidateNames.filter(name => name.trim() !== '');
+        if (validCandidateNames.length < 2) {
+            setError("At least 2 candidates are required for an election");
+            return;
+        }
+
+        // Check for duplicate names
+        if (hasDuplicateNames()) {
+            setError("Candidate names and party names must be unique. Please remove any duplicate names.");
             return;
         }
 
@@ -233,17 +305,17 @@ const CreateElection = () => {
         // Enhanced guardian and quorum validation
         const guardianCount = parseInt(form.guardianNumber) || 0;
         const quorumCount = parseInt(form.quorumNumber) || 0;
-        
+
         if (guardianCount <= 0) {
             setError("Number of guardians must be at least 1");
             return;
         }
-        
+
         if (quorumCount <= 0) {
             setError("Quorum number must be at least 1");
             return;
         }
-        
+
         if (quorumCount > guardianCount) {
             setError(`Quorum number (${quorumCount}) cannot be greater than the number of guardians (${guardianCount})`);
             return;
@@ -273,7 +345,7 @@ const CreateElection = () => {
 
             const response = await electionApi.createElection(electionData);
             setSuccess("Election created successfully!");
-            
+
             // Redirect to election details page after a short delay
             setTimeout(() => {
                 navigate(`/election-page/${response.electionId}`);
@@ -288,13 +360,13 @@ const CreateElection = () => {
 
     // Render Email Tags Component
     const renderEmailTag = (email, onRemove) => (
-        <div 
-            key={email} 
+        <div
+            key={email}
             className="bg-blue-100 text-blue-800 px-2 py-1 rounded-md inline-flex items-center mr-2 mb-2"
         >
             <span className="mr-1">{email}</span>
-            <button 
-                type="button" 
+            <button
+                type="button"
                 onClick={() => onRemove(email)}
                 className="text-blue-500 hover:text-blue-700"
             >
@@ -305,20 +377,20 @@ const CreateElection = () => {
 
     // Render Email Suggestions Dropdown
     const renderEmailSuggestions = () => (
-        <div 
-            ref={suggestionsRef} 
+        <div
+            ref={suggestionsRef}
             className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto"
         >
             {emailSuggestions.map((user) => (
-                <div 
-                    key={user.email} 
+                <div
+                    key={user.email}
                     className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
                     onClick={() => addGuardianEmail(user.email)}
                 >
                     {user.profilePic ? (
-                        <img 
-                            src={user.profilePic} 
-                            alt={user.name} 
+                        <img
+                            src={user.profilePic}
+                            alt={user.name}
                             className="w-8 h-8 rounded-full mr-2"
                         />
                     ) : (
@@ -341,24 +413,24 @@ const CreateElection = () => {
     return (
         <div className="max-w-4xl mx-auto p-6">
             <h1 className="text-3xl font-bold mb-6 text-gray-800">Create New Election</h1>
-            
+
             {error && (
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                     {error}
                 </div>
             )}
-            
+
             {success && (
                 <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
                     {success}
                 </div>
             )}
-            
+
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Basic Election Information */}
                 <div className="bg-white p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-semibold mb-4 text-gray-700">Basic Information</h2>
-                    
+
                     <div className="mb-4">
                         <label className="block text-gray-700 font-medium mb-2">
                             Election Title <span className="text-red-500">*</span>
@@ -372,7 +444,7 @@ const CreateElection = () => {
                             required
                         />
                     </div>
-                    
+
                     <div className="mb-4">
                         <label className="block text-gray-700 font-medium mb-2">
                             Election Description
@@ -384,7 +456,7 @@ const CreateElection = () => {
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
                         />
                     </div>
-                    
+
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-gray-700 font-medium mb-2">
@@ -402,7 +474,7 @@ const CreateElection = () => {
                                 required
                             />
                         </div>
-                        
+
                         <div>
                             <label className="block text-gray-700 font-medium mb-2">
                                 End Time <span className="text-red-500">*</span>
@@ -422,11 +494,11 @@ const CreateElection = () => {
                         </div>
                     </div>
                 </div>
-                
+
                 {/* Election Privacy Settings */}
                 <div className="bg-white p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-semibold mb-4 text-gray-700">Privacy Settings</h2>
-                    
+
                     <div className="mb-4">
                         <label className="block text-gray-700 font-medium mb-2">Election Privacy</label>
                         <div className="flex space-x-4">
@@ -441,7 +513,7 @@ const CreateElection = () => {
                                 />
                                 <span className="ml-2 text-gray-700">Public</span>
                             </label>
-                            
+
                             <label className="inline-flex items-center">
                                 <input
                                     type="radio"
@@ -455,7 +527,7 @@ const CreateElection = () => {
                             </label>
                         </div>
                     </div>
-                    
+
                     <div className="mb-4">
                         <label className="block text-gray-700 font-medium mb-2">Voter Eligibility</label>
                         <div className="flex space-x-4">
@@ -470,7 +542,7 @@ const CreateElection = () => {
                                 />
                                 <span className="ml-2 text-gray-700">Listed Voters Only</span>
                             </label>
-                            
+
                             <label className="inline-flex items-center">
                                 <input
                                     type="radio"
@@ -484,14 +556,14 @@ const CreateElection = () => {
                             </label>
                         </div>
                     </div>
-                    
+
                     {(form.electionPrivacy === "private" || form.electionEligibility === "listed") && (
                         <div className="mb-4">
                             <label className="block text-gray-700 font-medium mb-2">
-                                Voter Emails 
+                                Voter Emails
                                 {form.electionPrivacy === "private" && <span className="text-red-500">*</span>}
                             </label>
-                            
+
                             <div className="mb-2">
                                 <label className="inline-block px-4 py-2 bg-blue-500 text-white rounded-md cursor-pointer hover:bg-blue-600">
                                     <span>Upload CSV</span>
@@ -504,7 +576,7 @@ const CreateElection = () => {
                                 </label>
                                 <span className="text-gray-500 text-sm ml-2">Upload a CSV/TXT file with one email per line or comma-separated</span>
                             </div>
-                            
+
                             <div className="border border-gray-300 rounded-md p-3 min-h-[100px] max-h-[200px] overflow-auto">
                                 <div className="flex flex-wrap">
                                     {form.voterEmails.length > 0 ? (
@@ -514,7 +586,7 @@ const CreateElection = () => {
                                     )}
                                 </div>
                             </div>
-                            
+
                             {form.voterEmails.length > 0 && (
                                 <div className="mt-2 text-sm text-gray-500">
                                     {form.voterEmails.length} email{form.voterEmails.length !== 1 ? 's' : ''} added
@@ -523,11 +595,11 @@ const CreateElection = () => {
                         </div>
                     )}
                 </div>
-                
+
                 {/* Guardian Settings */}
                 <div className="bg-white p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-semibold mb-4 text-gray-700">Guardian Settings</h2>
-                    
+
                     <div className="mb-4">
                         <label className="block text-gray-700 font-medium mb-2">
                             Number of Guardians <span className="text-red-500">*</span>
@@ -546,7 +618,7 @@ const CreateElection = () => {
                             Choose any number of guardians between 1 and 20. More guardians provide better security through distributed key management.
                         </p>
                     </div>
-                    
+
                     <div className="mb-4">
                         <label className="block text-gray-700 font-medium mb-2">
                             Quorum Threshold <span className="text-red-500">*</span>
@@ -562,14 +634,14 @@ const CreateElection = () => {
                             placeholder={`Enter quorum (1-${form.guardianNumber})`}
                         />
                         <p className="text-sm text-gray-600 mt-1">
-                            Minimum number of guardians needed to decrypt the election results (must be ≤ {form.guardianNumber}). 
+                            Minimum number of guardians needed to decrypt the election results (must be ≤ {form.guardianNumber}).
                             This enables fault tolerance - if some guardians are unavailable, the election can still be decrypted.
                         </p>
                         {/* Validation message */}
                         {(() => {
                             const guardianCount = parseInt(form.guardianNumber) || 0;
                             const quorumCount = parseInt(form.quorumNumber) || 0;
-                            
+
                             if (quorumCount > guardianCount && guardianCount > 0) {
                                 return (
                                     <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
@@ -577,7 +649,7 @@ const CreateElection = () => {
                                     </div>
                                 );
                             }
-                            
+
                             if (quorumCount <= 0 && guardianCount > 0) {
                                 return (
                                     <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
@@ -585,7 +657,7 @@ const CreateElection = () => {
                                     </div>
                                 );
                             }
-                            
+
                             if (quorumCount > 0 && guardianCount > 0 && quorumCount <= guardianCount) {
                                 return (
                                     <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
@@ -593,16 +665,16 @@ const CreateElection = () => {
                                     </div>
                                 );
                             }
-                            
+
                             return null;
                         })()}
                     </div>
-                    
+
                     <div className="mb-4">
                         <label className="block text-gray-700 font-medium mb-2">
                             Guardian Emails <span className="text-red-500">*</span>
                         </label>
-                        
+
                         <div className="relative mb-2">
                             <input
                                 type="text"
@@ -611,10 +683,10 @@ const CreateElection = () => {
                                 placeholder="Type to search for users..."
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
-                            
+
                             {emailSuggestions.length > 0 && renderEmailSuggestions()}
                         </div>
-                        
+
                         <div className="border border-gray-300 rounded-md p-3 min-h-[100px]">
                             <div className="flex flex-wrap">
                                 {form.guardianEmails.length > 0 ? (
@@ -624,91 +696,136 @@ const CreateElection = () => {
                                 )}
                             </div>
                         </div>
-                        
+
                         <div className="mt-2 text-sm text-gray-500">
                             {form.guardianEmails.length} of {form.guardianNumber} guardians added
                         </div>
                     </div>
                 </div>
-                
+
                 {/* Candidate Information */}
                 <div className="bg-white p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-semibold mb-4 text-gray-700">Candidates</h2>
-                    
-                    {form.candidateNames.map((name, index) => (
-                        <div key={index} className="mb-6 p-4 border border-gray-200 rounded-md">
-                            <div className="flex justify-between mb-2">
-                                <h3 className="font-medium">Candidate {index + 1}</h3>
-                                
-                                {index > 0 && (
-                                    <button
-                                        type="button"
-                                        onClick={() => removeCandidate(index)}
-                                        className="text-red-500 hover:text-red-700"
-                                    >
-                                        Remove
-                                    </button>
-                                )}
+
+                    {form.candidateNames.map((name, index) => {
+                        const candidateValidation = getCandidateNameValidation(index, name);
+                        const partyValidation = getPartyNameValidation(index, form.partyNames[index]);
+
+                        return (
+                            <div key={index} className="mb-6 p-4 border border-gray-200 rounded-md">
+                                <div className="flex justify-between mb-2">
+                                    <h3 className="font-medium">Candidate {index + 1}</h3>
+
+                                    {index > 0 && (
+                                        <button
+                                            type="button"
+                                            onClick={() => removeCandidate(index)}
+                                            disabled={form.candidateNames.length <= 2}
+                                            className={`${form.candidateNames.length <= 2
+                                                    ? 'text-gray-400 cursor-not-allowed'
+                                                    : 'text-red-500 hover:text-red-700'
+                                                }`}
+                                            title={form.candidateNames.length <= 2 ? 'At least 2 candidates are required' : 'Remove candidate'}
+                                        >
+                                            Remove
+                                        </button>
+                                    )}
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                    <div>
+                                        <label className="block text-gray-700 text-sm font-medium mb-1">
+                                            Candidate Name <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={name}
+                                            onChange={(e) => handleCandidateChange(index, 'candidateNames', e.target.value)}
+                                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${!candidateValidation.isValid
+                                                    ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-500'
+                                                    : 'border-gray-300 focus:ring-blue-500'
+                                                }`}
+                                            required
+                                        />
+                                        {!candidateValidation.isValid && (
+                                            <p className="mt-1 text-sm text-red-600 flex items-center">
+                                                <span className="mr-1">⚠️</span>
+                                                {candidateValidation.message}
+                                            </p>
+                                        )}
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 text-sm font-medium mb-1">
+                                            Party Name <span className="text-red-500">*</span>
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={form.partyNames[index]}
+                                            onChange={(e) => handleCandidateChange(index, 'partyNames', e.target.value)}
+                                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${!partyValidation.isValid
+                                                    ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-500'
+                                                    : 'border-gray-300 focus:ring-blue-500'
+                                                }`}
+                                            required
+                                        />
+                                        {!partyValidation.isValid && (
+                                            <p className="mt-1 text-sm text-red-600 flex items-center">
+                                                <span className="mr-1">⚠️</span>
+                                                {partyValidation.message}
+                                            </p>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                                    <div>
+                                        <label className="block text-gray-700 text-sm font-medium mb-1">
+                                            Candidate Picture URL
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={form.candidatePictures[index]}
+                                            onChange={(e) => handleCandidateChange(index, 'candidatePictures', e.target.value)}
+                                            placeholder="https://example.com/image.jpg"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+
+                                    <div>
+                                        <label className="block text-gray-700 text-sm font-medium mb-1">
+                                            Party Logo URL
+                                        </label>
+                                        <input
+                                            type="text"
+                                            value={form.partyPictures[index]}
+                                            onChange={(e) => handleCandidateChange(index, 'partyPictures', e.target.value)}
+                                            placeholder="https://example.com/logo.jpg"
+                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        />
+                                    </div>
+                                </div>
                             </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                <div>
-                                    <label className="block text-gray-700 text-sm font-medium mb-1">
-                                        Candidate Name <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={name}
-                                        onChange={(e) => handleCandidateChange(index, 'candidateNames', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    />
-                                </div>
-                                
-                                <div>
-                                    <label className="block text-gray-700 text-sm font-medium mb-1">
-                                        Party Name <span className="text-red-500">*</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={form.partyNames[index]}
-                                        onChange={(e) => handleCandidateChange(index, 'partyNames', e.target.value)}
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                        required
-                                    />
-                                </div>
-                            </div>
-                            
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
-                                <div>
-                                    <label className="block text-gray-700 text-sm font-medium mb-1">
-                                        Candidate Picture URL
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={form.candidatePictures[index]}
-                                        onChange={(e) => handleCandidateChange(index, 'candidatePictures', e.target.value)}
-                                        placeholder="https://example.com/image.jpg"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
-                                </div>
-                                
-                                <div>
-                                    <label className="block text-gray-700 text-sm font-medium mb-1">
-                                        Party Logo URL
-                                    </label>
-                                    <input
-                                        type="text"
-                                        value={form.partyPictures[index]}
-                                        onChange={(e) => handleCandidateChange(index, 'partyPictures', e.target.value)}
-                                        placeholder="https://example.com/logo.jpg"
-                                        className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                    />
+                        )
+                    })}
+
+                    {/* Validation Summary */}
+                    {(form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()) && (
+                        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
+                            <div className="flex items-center">
+                                <span className="text-yellow-600 mr-2">⚠️</span>
+                                <div className="text-yellow-800">
+                                    {form.candidateNames.filter(name => name.trim() !== '').length < 2 && (
+                                        <p className="text-sm">• At least 2 candidates are required to create an election</p>
+                                    )}
+                                    {hasDuplicateNames() && (
+                                        <p className="text-sm">• Remove duplicate candidate or party names before proceeding</p>
+                                    )}
                                 </div>
                             </div>
                         </div>
-                    ))}
-                    
+                    )}
+
                     <button
                         type="button"
                         onClick={addCandidate}
@@ -717,7 +834,7 @@ const CreateElection = () => {
                         + Add Another Candidate
                     </button>
                 </div>
-                
+
                 <div className="flex justify-between">
                     <button
                         type="button"
@@ -726,13 +843,14 @@ const CreateElection = () => {
                     >
                         Cancel
                     </button>
-                    
+
                     <button
                         type="submit"
-                        disabled={isSubmitting}
-                        className={`px-6 py-3 bg-blue-500 text-white rounded-md hover:bg-blue-600 ${
-                            isSubmitting ? 'opacity-50 cursor-not-allowed' : ''
-                        }`}
+                        disabled={isSubmitting || form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()}
+                        className={`px-6 py-3 text-white rounded-md ${isSubmitting || form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-blue-500 hover:bg-blue-600'
+                            }`}
                     >
                         {isSubmitting ? 'Creating...' : 'Create Election'}
                     </button>

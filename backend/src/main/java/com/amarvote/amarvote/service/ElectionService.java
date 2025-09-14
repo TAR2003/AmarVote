@@ -80,6 +80,43 @@ public class ElectionService {
         System.out.println("Received User Email: " + userEmail);
         System.out.println("========================================");
 
+        // Validate minimum candidate count
+        if (request.candidateNames().size() < 2) {
+            throw new IllegalArgumentException("At least 2 candidates are required for an election");
+        }
+
+        if (request.partyNames().size() < 2) {
+            throw new IllegalArgumentException("At least 2 party names are required for an election");
+        }
+
+        // Validate candidate names are unique (case-insensitive)
+        java.util.Set<String> uniqueCandidateNames = new java.util.HashSet<>();
+        for (String candidateName : request.candidateNames()) {
+            if (candidateName == null || candidateName.trim().isEmpty()) {
+                throw new IllegalArgumentException("Candidate names cannot be empty");
+            }
+            String trimmedName = candidateName.trim().toLowerCase();
+            if (uniqueCandidateNames.contains(trimmedName)) {
+                throw new IllegalArgumentException(
+                        "Candidate names must be unique - duplicate name found: " + candidateName.trim());
+            }
+            uniqueCandidateNames.add(trimmedName);
+        }
+
+        // Validate party names are unique (case-insensitive)
+        java.util.Set<String> uniquePartyNames = new java.util.HashSet<>();
+        for (String partyName : request.partyNames()) {
+            if (partyName == null || partyName.trim().isEmpty()) {
+                throw new IllegalArgumentException("Party names cannot be empty");
+            }
+            String trimmedName = partyName.trim().toLowerCase();
+            if (uniquePartyNames.contains(trimmedName)) {
+                throw new IllegalArgumentException(
+                        "Party names must be unique - duplicate name found: " + partyName.trim());
+            }
+            uniquePartyNames.add(trimmedName);
+        }
+
         // Validate candidate pictures and party pictures match names
         if (request.candidatePictures() != null
                 && request.candidatePictures().size() != request.candidateNames().size()) {
@@ -96,8 +133,7 @@ public class ElectionService {
                 Integer.parseInt(request.guardianNumber()),
                 Integer.parseInt(request.quorumNumber()),
                 request.partyNames(),
-                request.candidateNames()
-        );
+                request.candidateNames());
 
         ElectionGuardianSetupResponse guardianResponse = callElectionGuardService(guardianRequest);
 
@@ -123,7 +159,8 @@ public class ElectionService {
 
         // 🔗 Create election on blockchain
         try {
-            BlockchainElectionResponse blockchainResponse = blockchainService.createElection(election.getElectionId().toString());
+            BlockchainElectionResponse blockchainResponse = blockchainService
+                    .createElection(election.getElectionId().toString());
             if (blockchainResponse.isSuccess()) {
                 System.out.println("✅ Election " + election.getElectionId() + " successfully created on blockchain");
                 System.out.println("🔗 Transaction Hash: " + blockchainResponse.getTransactionHash());
@@ -140,23 +177,25 @@ public class ElectionService {
         // Validate guardian email and private key count
         List<String> guardianEmails = request.guardianEmails();
         List<String> guardianPrivateKeys = guardianResponse.private_keys();
-        
+
         // Add null checks
         if (guardianPrivateKeys == null) {
             throw new RuntimeException("ElectionGuard service did not return guardian private keys");
         }
-        
+
         if (guardianEmails.size() != guardianPrivateKeys.size()) {
             throw new IllegalArgumentException("Guardian emails and private keys count must match");
         }
 
-        // Encrypt guardian data (private key and polynomial together) and send credential files via email
+        // Encrypt guardian data (private key and polynomial together) and send
+        // credential files via email
         Map<String, String> guardianCredentials = new HashMap<>(); // Store credentials temporarily
-        
+
         for (int i = 0; i < guardianEmails.size(); i++) {
             String email = guardianEmails.get(i);
             String privateKey = guardianPrivateKeys.get(i);
-            // Note: Polynomial will be retrieved from ElectionGuard response but not stored in Guardian table
+            // Note: Polynomial will be retrieved from ElectionGuard response but not stored
+            // in Guardian table
             String polynomial = guardianResponse.polynomials().get(i);
 
             if (!userRepository.existsByUserEmail(email)) {
@@ -164,22 +203,26 @@ public class ElectionService {
             }
 
             try {
-                // Encrypt the guardian's private key and polynomial together using ElectionGuard microservice
+                // Encrypt the guardian's private key and polynomial together using
+                // ElectionGuard microservice
                 System.out.println("Encrypting private key and polynomial for guardian: " + email);
-                ElectionGuardCryptoService.EncryptionResult encryptionResult = cryptoService.encryptGuardianData(privateKey, polynomial);
-                
+                ElectionGuardCryptoService.EncryptionResult encryptionResult = cryptoService
+                        .encryptGuardianData(privateKey, polynomial);
+
                 // Create credential file with encrypted data
-                Path credentialFile = cryptoService.createCredentialFile(email, election.getElectionId(), encryptionResult.getEncryptedData());
-                
+                Path credentialFile = cryptoService.createCredentialFile(email, election.getElectionId(),
+                        encryptionResult.getEncryptedData());
+
                 // Send email with credential file attachment
-                emailService.sendGuardianCredentialEmail(email, election.getElectionTitle(), election.getElectionDescription(), 
-                    credentialFile, election.getElectionId());
-                
+                emailService.sendGuardianCredentialEmail(email, election.getElectionTitle(),
+                        election.getElectionDescription(),
+                        credentialFile, election.getElectionId());
+
                 // Store credentials for later saving in guardian record
                 guardianCredentials.put(email, encryptionResult.getCredentials());
-                
+
                 System.out.println("✅ Successfully encrypted and sent credentials for guardian: " + email);
-                
+
             } catch (Exception e) {
                 System.err.println("❌ Failed to encrypt guardian data for guardian " + email + ": " + e.getMessage());
                 throw new RuntimeException("Failed to encrypt guardian data for " + email, e);
@@ -188,7 +231,8 @@ public class ElectionService {
 
         System.out.println("Guardian Private Keys:");
         for (int i = 0; i < guardianPrivateKeys.size(); i++) {
-            System.out.printf("Guardian %d (%s) Private Key: %s%n", i + 1, guardianEmails.get(i), guardianPrivateKeys.get(i));
+            System.out.printf("Guardian %d (%s) Private Key: %s%n", i + 1, guardianEmails.get(i),
+                    guardianPrivateKeys.get(i));
         }
 
         System.out.println("Email sent to guardians with their private keys.");
@@ -201,7 +245,7 @@ public class ElectionService {
         if (guardianPublicKeys == null) {
             throw new RuntimeException("ElectionGuard service did not return guardian public keys");
         }
-        
+
         if (guardianPublicKeys.size() != guardianEmails.size()) {
             throw new IllegalArgumentException("Guardian data arrays size mismatch");
         }
@@ -227,8 +271,8 @@ public class ElectionService {
                     .decryptedOrNot(false)
                     .partialDecryptedTally(null)
                     .proof(null)
-                    .keyBackup(guardianDataJson)  // ✅ Fixed: Store string directly
-                    .credentials(guardianCredentials.get(email))  // ✅ Store encryption credentials
+                    .keyBackup(guardianDataJson) // ✅ Fixed: Store string directly
+                    .credentials(guardianCredentials.get(email)) // ✅ Store encryption credentials
                     .build();
 
             guardianRepository.save(guardian);
@@ -244,7 +288,8 @@ public class ElectionService {
         for (int i = 0; i < candidateNames.size(); i++) {
             String candidateName = candidateNames.get(i);
             String partyName = (i < partyNames.size()) ? partyNames.get(i) : null;
-            String candidatePic = (candidatePictures != null && i < candidatePictures.size()) ? candidatePictures.get(i) : null;
+            String candidatePic = (candidatePictures != null && i < candidatePictures.size()) ? candidatePictures.get(i)
+                    : null;
             String partyPic = (partyPictures != null && i < partyPictures.size()) ? partyPictures.get(i) : null;
 
             ElectionChoice choice = ElectionChoice.builder()
@@ -293,20 +338,21 @@ public class ElectionService {
      * 2. All elections where the user is the admin (admin_email matches)
      * 3. All elections where the user is a guardian
      * 
-     * Optimized implementation to retrieve all required election data in a single query
+     * Optimized implementation to retrieve all required election data in a single
+     * query
      * to avoid N+1 query problems when fetching hundreds of elections.
      */
     public List<ElectionResponse> getAllAccessibleElections(String userEmail) {
         System.out.println("Fetching optimized accessible elections for user: " + userEmail);
         long startTime = System.currentTimeMillis();
-        
+
         List<Object[]> queryResults = electionRepository.findOptimizedAccessibleElectionsWithDetails(userEmail);
-        
+
         // Convert query results to DTOs
         List<OptimizedElectionResponse> optimizedResponses = queryResults.stream()
                 .map(OptimizedElectionResponse::fromQueryResult)
                 .collect(Collectors.toList());
-        
+
         // Convert to ElectionResponse for backward compatibility
         List<ElectionResponse> responses = optimizedResponses.stream()
                 .map(opt -> ElectionResponse.builder()
@@ -329,11 +375,11 @@ public class ElectionService {
                         .hasVoted(opt.getHasVoted())
                         .build())
                 .collect(Collectors.toList());
-        
+
         long endTime = System.currentTimeMillis();
-        System.out.println("Found " + responses.size() + " accessible elections for user: " + userEmail + 
+        System.out.println("Found " + responses.size() + " accessible elections for user: " + userEmail +
                 " in " + (endTime - startTime) + "ms");
-        
+
         return responses;
     }
 
@@ -371,44 +417,46 @@ public class ElectionService {
      * Convert Election entity to ElectionResponse DTO with user roles
      * 
      * NOTE: This method is now primarily used for individual election fetches.
-     * For fetching multiple elections (like in getAllAccessibleElections), 
-     * we use a more optimized approach with batch fetching to avoid N+1 query problems.
+     * For fetching multiple elections (like in getAllAccessibleElections),
+     * we use a more optimized approach with batch fetching to avoid N+1 query
+     * problems.
      * 
      * @see #getAllAccessibleElections(String)
      */
     private ElectionResponse convertToElectionResponse(Election election, String userEmail) {
         // Determine user roles for this election
         List<String> userRoles = new ArrayList<>();
-        
+
         // Check if user is admin
         if (election.getAdminEmail() != null && election.getAdminEmail().equals(userEmail)) {
             userRoles.add("admin");
         }
-        
+
         // Check if user is in allowed voters
-        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
+        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(),
+                userEmail);
         if (!allowedVoters.isEmpty()) {
             userRoles.add("voter");
         }
-        
+
         // Check if user is guardian
         List<Guardian> guardians = guardianRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
         if (!guardians.isEmpty()) {
             userRoles.add("guardian");
         }
-        
+
         // Determine if election is public or private based on privacy field
         boolean isPublic = "public".equals(election.getPrivacy());
-        
+
         // Check if user has already voted in this election
         boolean hasVoted = false;
         Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
         if (userOpt.isPresent()) {
             List<AllowedVoter> allAllowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
             hasVoted = allAllowedVoters.stream()
-                .anyMatch(av -> av.getUserId().equals(userOpt.get().getUserId()) && av.getHasVoted());
+                    .anyMatch(av -> av.getUserId().equals(userOpt.get().getUserId()) && av.getHasVoted());
         }
-        
+
         // Get admin name
         String adminName = null;
         if (election.getAdminEmail() != null) {
@@ -417,7 +465,7 @@ public class ElectionService {
                 adminName = adminUser.get().getUserName();
             }
         }
-        
+
         return ElectionResponse.builder()
                 .electionId(election.getElectionId())
                 .electionTitle(election.getElectionTitle())
@@ -449,33 +497,33 @@ public class ElectionService {
      * 4. Election is public (no allowed voters)
      * 
      * @param electionId The ID of the election to retrieve
-     * @param userEmail The email of the user requesting the election
+     * @param userEmail  The email of the user requesting the election
      * @return ElectionDetailResponse if authorized, null if not authorized
      */
     public ElectionDetailResponse getElectionById(Long electionId, String userEmail) {
         System.out.println("Fetching election details for ID: " + electionId + " by user: " + userEmail);
-        
+
         // First, check if the election exists
         Optional<Election> electionOpt = electionRepository.findById(electionId);
         if (!electionOpt.isPresent()) {
             System.out.println("Election not found: " + electionId);
             return null;
         }
-        
+
         Election election = electionOpt.get();
-        
+
         // Check if user is authorized to view this election
         if (!isUserAuthorizedToViewElection(election, userEmail)) {
             System.out.println("User " + userEmail + " is not authorized to view election " + electionId);
             return null;
         }
-        
+
         System.out.println("User " + userEmail + " is authorized to view election " + electionId);
-        
+
         // Build the detailed response
         return buildElectionDetailResponse(election, userEmail);
     }
-    
+
     /**
      * Check if user is authorized to view the election
      */
@@ -485,58 +533,60 @@ public class ElectionService {
             System.out.println("User is admin of election " + election.getElectionId());
             return true;
         }
-        
+
         // Check if user is a guardian
         List<Guardian> guardians = guardianRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
         if (!guardians.isEmpty()) {
             System.out.println("User is guardian of election " + election.getElectionId());
             return true;
         }
-        
+
         // Check if user is a voter
-        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
+        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(),
+                userEmail);
         if (!allowedVoters.isEmpty()) {
             System.out.println("User is voter of election " + election.getElectionId());
             return true;
         }
-        
+
         // Check if election is public (privacy = 'public')
         if ("public".equals(election.getPrivacy())) {
             System.out.println("Election " + election.getElectionId() + " is public");
             return true;
         }
-        
+
         System.out.println("User is not authorized to view election " + election.getElectionId());
         return false;
     }
-    
+
     /**
      * Build detailed election response with all related information
      */
     private ElectionDetailResponse buildElectionDetailResponse(Election election, String userEmail) {
         // Get user roles for this election
         List<String> userRoles = getUserRolesForElection(election, userEmail);
-        
+
         // Check if election is public based on privacy field
         Boolean isPublic = "public".equals(election.getPrivacy());
-        
+
         // Get guardians with user details
-        List<ElectionDetailResponse.GuardianInfo> guardians = getGuardianInfoForElection(election.getElectionId(), userEmail);
-        
+        List<ElectionDetailResponse.GuardianInfo> guardians = getGuardianInfoForElection(election.getElectionId(),
+                userEmail);
+
         // Calculate guardian progress
         int totalGuardians = guardians.size();
         int guardiansSubmitted = (int) guardians.stream()
                 .filter(guardian -> guardian.getDecryptedOrNot() != null && guardian.getDecryptedOrNot())
                 .count();
         boolean allGuardiansSubmitted = totalGuardians > 0 && guardiansSubmitted == totalGuardians;
-        
+
         // Get voters with user details
         List<ElectionDetailResponse.VoterInfo> voters = getVoterInfoForElection(election.getElectionId(), userEmail);
-        
+
         // Get election choices
-        List<ElectionDetailResponse.ElectionChoiceInfo> electionChoices = getElectionChoicesForElection(election.getElectionId());
-        
-        
+        List<ElectionDetailResponse.ElectionChoiceInfo> electionChoices = getElectionChoicesForElection(
+                election.getElectionId());
+
         // Get admin name
         String adminName = null;
         if (election.getAdminEmail() != null) {
@@ -545,7 +595,7 @@ public class ElectionService {
                 adminName = adminUser.get().getUserName();
             }
         }
-        
+
         return ElectionDetailResponse.builder()
                 .electionId(election.getElectionId())
                 .electionTitle(election.getElectionTitle())
@@ -575,47 +625,50 @@ public class ElectionService {
                 .eligibility(election.getEligibility())
                 .build();
     }
-    
+
     /**
      * Get user roles for a specific election
      */
     private List<String> getUserRolesForElection(Election election, String userEmail) {
         List<String> userRoles = new ArrayList<>();
-        
+
         // Check if user is admin
         if (election.getAdminEmail() != null && election.getAdminEmail().equals(userEmail)) {
             userRoles.add("admin");
         }
-        
+
         // Check if user is in allowed voters
-        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
+        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(),
+                userEmail);
         if (!allowedVoters.isEmpty()) {
             userRoles.add("voter");
         }
-        
+
         // Check if user is guardian
         List<Guardian> guardians = guardianRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
         if (!guardians.isEmpty()) {
             userRoles.add("guardian");
         }
-        
+
         return userRoles;
     }
-    
+
     /**
      * Get guardian information for an election
      */
-    private List<ElectionDetailResponse.GuardianInfo> getGuardianInfoForElection(Long electionId, String currentUserEmail) {
+    private List<ElectionDetailResponse.GuardianInfo> getGuardianInfoForElection(Long electionId,
+            String currentUserEmail) {
         List<Object[]> guardianData = guardianRepository.findGuardiansWithUserDetailsByElectionId(electionId);
-        
+
         return guardianData.stream()
                 .map(data -> {
                     Guardian guardian = (Guardian) data[0];
                     User user = (User) data[1];
-                    
+
                     // Calculate decryption status based on tallyShare field
-                    boolean hasDecrypted = guardian.getTallyShare() != null && !guardian.getTallyShare().trim().isEmpty();
-                    
+                    boolean hasDecrypted = guardian.getTallyShare() != null
+                            && !guardian.getTallyShare().trim().isEmpty();
+
                     return ElectionDetailResponse.GuardianInfo.builder()
                             .userEmail(user.getUserEmail())
                             .userName(user.getUserName())
@@ -629,18 +682,18 @@ public class ElectionService {
                 })
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * Get voter information for an election
      */
     private List<ElectionDetailResponse.VoterInfo> getVoterInfoForElection(Long electionId, String currentUserEmail) {
         List<Object[]> voterData = allowedVoterRepository.findAllowedVotersWithUserDetailsByElectionId(electionId);
-        
+
         return voterData.stream()
                 .map(data -> {
                     AllowedVoter allowedVoter = (AllowedVoter) data[0];
                     User user = (User) data[1];
-                    
+
                     return ElectionDetailResponse.VoterInfo.builder()
                             .userEmail(user.getUserEmail())
                             .userName(user.getUserName())
@@ -650,7 +703,7 @@ public class ElectionService {
                 })
                 .collect(Collectors.toList());
     }
-    
+
     /**
      * Get election choices for an election
      */
@@ -676,17 +729,20 @@ public class ElectionService {
             String url = "/setup_guardians";
             // System.out.println("Trying to connect to backend...");
             // String response = webClient.get()
-            //     .uri("http://host.docker.internal:5000/health") // 👈 Use host.docker.internal
-            //     .retrieve()
-            //     .bodyToMono(String.class)
-            //     .block();
+            // .uri("http://host.docker.internal:5000/health") // 👈 Use
+            // host.docker.internal
+            // .retrieve()
+            // .bodyToMono(String.class)
+            // .block();
             // return "Backend response: " + response;
             System.out.println("Calling ElectionGuard service at: " + url);
             // HttpHeaders headers = new HttpHeaders();
             // headers.setContentType(MediaType.APPLICATION_JSON);
 
-            // HttpEntity<ElectionGuardianSetupRequest> entity = new HttpEntity<>(request, headers);
-            // ResponseEntity<String> response = restTemplate.postForEntity(url, entity, String.class);
+            // HttpEntity<ElectionGuardianSetupRequest> entity = new HttpEntity<>(request,
+            // headers);
+            // ResponseEntity<String> response = restTemplate.postForEntity(url, entity,
+            // String.class);
             // System.out.println("Sending request to ElectionGuard service: " + request);
             String response = webClient.post()
                     .uri(url)
@@ -696,7 +752,8 @@ public class ElectionService {
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
-            // System.out.println("Received response from ElectionGuard service: " + response);
+            // System.out.println("Received response from ElectionGuard service: " +
+            // response);
             if (response == null) {
                 throw new RuntimeException("Invalid response from ElectionGuard service");
             }
@@ -706,7 +763,6 @@ public class ElectionService {
         }
     }
 
-
     /**
      * Get safe election information for chatbot responses
      * Only returns non-sensitive public information
@@ -715,38 +771,40 @@ public class ElectionService {
         try {
             // Check if user is asking for the most recent election
             String lowerQuery = query.toLowerCase();
-            if (lowerQuery.contains("recent") || lowerQuery.contains("latest") || 
-                lowerQuery.contains("most recent") || lowerQuery.contains("newest")) {
+            if (lowerQuery.contains("recent") || lowerQuery.contains("latest") ||
+                    lowerQuery.contains("most recent") || lowerQuery.contains("newest")) {
                 return getMostRecentElectionInfo();
             }
-            
-            // Only get public completed elections to ensure privacy - limit to top 5 most recent
+
+            // Only get public completed elections to ensure privacy - limit to top 5 most
+            // recent
             List<Election> publicElections = electionRepository.findMostRecentPublicCompletedElection(
-                org.springframework.data.domain.PageRequest.of(0, 5));
-            
+                    org.springframework.data.domain.PageRequest.of(0, 5));
+
             if (publicElections.isEmpty()) {
                 return "No completed public elections found with results available.";
             }
-            
+
             StringBuilder result = new StringBuilder();
             result.append("📊 **Recent Public Election Results (Top 5)**\n\n");
-            
+
             for (Election election : publicElections) {
                 result.append("🗳️ **").append(election.getElectionTitle()).append("**\n");
                 if (election.getElectionDescription() != null && !election.getElectionDescription().isEmpty()) {
                     result.append("Description: ").append(election.getElectionDescription()).append("\n");
                 }
-                
+
                 // Get election choices (candidates/options) with vote counts
-                List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
+                List<ElectionChoice> choices = electionChoiceRepository
+                        .findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
                 // choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
 
                 if (!choices.isEmpty()) {
                     // Sort by vote count (descending)
                     choices.sort((a, b) -> Integer.compare(b.getTotalVotes(), a.getTotalVotes()));
-                    
+
                     int totalVotes = choices.stream().mapToInt(ElectionChoice::getTotalVotes).sum();
-                    
+
                     result.append("**Results:**\n");
                     for (int i = 0; i < choices.size(); i++) {
                         ElectionChoice choice = choices.get(i);
@@ -755,11 +813,11 @@ public class ElectionService {
                             result.append(" (").append(choice.getPartyName()).append(")");
                         }
                         result.append(": **").append(choice.getTotalVotes()).append(" votes**");
-                        
+
                         if (totalVotes > 0) {
                             double percentage = (choice.getTotalVotes() * 100.0) / totalVotes;
                             result.append(" (").append(String.format("%.1f", percentage)).append("%)");
-                            
+
                             // Mark the winner
                             if (i == 0 && choice.getTotalVotes() > 0) {
                                 result.append(" 🏆 **WINNER**");
@@ -767,60 +825,61 @@ public class ElectionService {
                         }
                         result.append("\n");
                     }
-                    
+
                     if (totalVotes > 0) {
                         result.append("Total Votes: ").append(totalVotes).append("\n");
                     }
                 }
                 result.append("\n");
             }
-            
+
             return result.toString();
-            
+
         } catch (Exception e) {
             return "Sorry, I'm having trouble accessing election information right now.";
         }
     }
-    
+
     /**
      * Get information about the most recent public election with validation
      */
     private String getMostRecentElectionInfo() {
         try {
             List<Election> recentElections = electionRepository.findMostRecentPublicCompletedElection(
-                org.springframework.data.domain.PageRequest.of(0, 1));
-            
+                    org.springframework.data.domain.PageRequest.of(0, 1));
+
             if (recentElections.isEmpty()) {
                 return "No completed public elections found with results available.";
             }
-            
+
             Election election = recentElections.get(0);
-            
+
             // Validate election completeness by comparing vote counts with ballot counts
             if (!isElectionComplete(election)) {
                 return "The most recent election is still being tallied. Results will be available once all votes are processed.";
             }
-            
+
             StringBuilder result = new StringBuilder();
-            
+
             result.append("🗳️ **Most Recent Public Election:**\n\n");
             result.append("**").append(election.getElectionTitle()).append("**\n");
-            
+
             if (election.getElectionDescription() != null && !election.getElectionDescription().isEmpty()) {
                 result.append("Description: ").append(election.getElectionDescription()).append("\n");
             }
-            
+
             // Get election choices (candidates/options) with vote counts
-            List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
+            List<ElectionChoice> choices = electionChoiceRepository
+                    .findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
             // choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             if (!choices.isEmpty()) {
                 result.append("\n**Results:**\n");
-                
+
                 // Sort by vote count (descending) to show winner first
                 choices.sort((a, b) -> Integer.compare(b.getTotalVotes(), a.getTotalVotes()));
-                
+
                 int totalVotes = choices.stream().mapToInt(ElectionChoice::getTotalVotes).sum();
-                
+
                 for (int i = 0; i < choices.size(); i++) {
                     ElectionChoice choice = choices.get(i);
                     result.append((i + 1)).append(". ").append(choice.getOptionTitle());
@@ -828,11 +887,11 @@ public class ElectionService {
                         result.append(" (").append(choice.getPartyName()).append(")");
                     }
                     result.append(": **").append(choice.getTotalVotes()).append(" votes**");
-                    
+
                     if (totalVotes > 0) {
                         double percentage = (choice.getTotalVotes() * 100.0) / totalVotes;
                         result.append(" (").append(String.format("%.1f", percentage)).append("%)");
-                        
+
                         // Mark the winner
                         if (i == 0 && choice.getTotalVotes() > 0) {
                             result.append(" 🏆 **WINNER**");
@@ -840,11 +899,11 @@ public class ElectionService {
                     }
                     result.append("\n");
                 }
-                
+
                 if (totalVotes > 0) {
                     result.append("Total Votes: ").append(totalVotes).append("\n");
                 }
-                
+
                 // Add winner summary
                 if (!choices.isEmpty() && choices.get(0).getTotalVotes() > 0) {
                     ElectionChoice winner = choices.get(0);
@@ -853,39 +912,42 @@ public class ElectionService {
                         result.append(" (").append(winner.getPartyName()).append(")");
                     }
                     result.append(" won the election!");
-                    
+
                     if (totalVotes > 0) {
                         double winnerPercentage = (winner.getTotalVotes() * 100.0) / totalVotes;
                         result.append(" They received ").append(winner.getTotalVotes())
-                              .append(" votes (").append(String.format("%.1f", winnerPercentage)).append("% of total votes).");
+                                .append(" votes (").append(String.format("%.1f", winnerPercentage))
+                                .append("% of total votes).");
                     }
                 }
             }
-            
+
             return result.toString();
-            
+
         } catch (Exception e) {
             return "Sorry, I'm having trouble accessing the most recent election information right now.";
         }
     }
-    
+
     /**
-     * Check if an election is complete by validating that total votes equals ballot count
+     * Check if an election is complete by validating that total votes equals ballot
+     * count
      */
     private boolean isElectionComplete(Election election) {
         try {
             // Get total votes from election choices
-            List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
+            List<ElectionChoice> choices = electionChoiceRepository
+                    .findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
             // choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             int totalVotes = choices.stream().mapToInt(ElectionChoice::getTotalVotes).sum();
-            
+
             // Get ballot count for the election
             long ballotCount = ballotRepository.countByElectionId(election.getElectionId());
-            
+
             // Election is complete if total votes equals ballot count
             // Also require that election status is 'decrypted' for public results
             return totalVotes == ballotCount && "decrypted".equals(election.getStatus());
-            
+
         } catch (Exception e) {
             // If we can't validate, assume incomplete to be safe
             return false;
@@ -899,38 +961,40 @@ public class ElectionService {
         try {
             // If query is "all" or similar, just return all elections
             String lowerQuery = electionQuery.toLowerCase().trim();
-            if (lowerQuery.equals("all") || lowerQuery.equals("all elections") || 
-                lowerQuery.equals("elections") || lowerQuery.isEmpty()) {
+            if (lowerQuery.equals("all") || lowerQuery.equals("all elections") ||
+                    lowerQuery.equals("elections") || lowerQuery.isEmpty()) {
                 return getPublicElectionInfo("");
             }
-            
+
             // Only search in public completed elections
             List<Election> matchingElections = electionRepository.findPublicCompletedElections().stream()
-                .filter(e -> e.getElectionTitle().toLowerCase().contains(lowerQuery))
-                .collect(Collectors.toList());
-            
+                    .filter(e -> e.getElectionTitle().toLowerCase().contains(lowerQuery))
+                    .collect(Collectors.toList());
+
             if (matchingElections.isEmpty()) {
-                return "No public elections found with the title containing '" + electionQuery + "'. Please check the election name and try again.";
+                return "No public elections found with the title containing '" + electionQuery
+                        + "'. Please check the election name and try again.";
             }
-            
+
             StringBuilder result = new StringBuilder();
             result.append("🔍 **Search Results for '").append(electionQuery).append("'**\n\n");
-            
+
             for (Election election : matchingElections) {
                 result.append("🗳️ **").append(election.getElectionTitle()).append("**\n");
                 if (election.getElectionDescription() != null && !election.getElectionDescription().isEmpty()) {
                     result.append("Description: ").append(election.getElectionDescription()).append("\n");
                 }
-                
+
                 // Get detailed results
-                List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
+                List<ElectionChoice> choices = electionChoiceRepository
+                        .findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
                 // choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
                 if (!choices.isEmpty()) {
                     // Sort by vote count (descending)
                     choices.sort((a, b) -> Integer.compare(b.getTotalVotes(), a.getTotalVotes()));
-                    
+
                     int totalVotes = choices.stream().mapToInt(ElectionChoice::getTotalVotes).sum();
-                    
+
                     result.append("**Final Results:**\n");
                     for (int i = 0; i < choices.size(); i++) {
                         ElectionChoice choice = choices.get(i);
@@ -942,7 +1006,7 @@ public class ElectionService {
                         if (totalVotes > 0) {
                             double percentage = (choice.getTotalVotes() * 100.0) / totalVotes;
                             result.append(" (").append(String.format("%.1f", percentage)).append("%)");
-                            
+
                             // Mark the winner
                             if (i == 0 && choice.getTotalVotes() > 0) {
                                 result.append(" 🏆 **WINNER**");
@@ -950,21 +1014,21 @@ public class ElectionService {
                         }
                         result.append("\n");
                     }
-                    
+
                     if (totalVotes > 0) {
                         result.append("Total Votes: ").append(totalVotes).append("\n");
                     }
                 }
                 result.append("\n");
             }
-            
+
             return result.toString();
-            
+
         } catch (Exception e) {
             return "Sorry, I'm having trouble accessing election information right now.";
         }
     }
-    
+
     /**
      * Get election start time information for a specific election
      */
@@ -973,7 +1037,7 @@ public class ElectionService {
             // Find election by title (case-insensitive search)
             List<Election> elections = electionRepository.findAll();
             Election targetElection = null;
-            
+
             for (Election election : elections) {
                 if (election.getElectionTitle().toLowerCase().contains(electionName.toLowerCase())) {
                     // Check if it's public (privacy = "public")
@@ -983,32 +1047,32 @@ public class ElectionService {
                     }
                 }
             }
-            
+
             if (targetElection == null) {
                 return "Election '" + electionName + "' not found or not accessible. " +
                         "Please check the election name or ensure it's a public election.";
             }
-            
+
             StringBuilder result = new StringBuilder();
             result.append("📅 **Election Schedule: ").append(targetElection.getElectionTitle()).append("**\n\n");
-            
+
             if (targetElection.getElectionDescription() != null && !targetElection.getElectionDescription().isEmpty()) {
                 result.append("**Description:** ").append(targetElection.getElectionDescription()).append("\n\n");
             }
-            
+
             // Format start and end times
             if (targetElection.getStartingTime() != null) {
                 result.append("⏰ **Start Time:** ").append(targetElection.getStartingTime().toString()).append("\n");
             } else {
                 result.append("⏰ **Start Time:** Not specified\n");
             }
-            
+
             if (targetElection.getEndingTime() != null) {
                 result.append("⏰ **End Time:** ").append(targetElection.getEndingTime().toString()).append("\n");
             } else {
                 result.append("⏰ **End Time:** Not specified\n");
             }
-            
+
             // Add status information
             java.time.Instant now = java.time.Instant.now();
             if (targetElection.getStartingTime() != null) {
@@ -1020,9 +1084,9 @@ public class ElectionService {
                     result.append("\n🗳️ **Status:** Election is currently active\n");
                 }
             }
-            
+
             return result.toString();
-            
+
         } catch (Exception e) {
             return "Sorry, I'm having trouble accessing election schedule information right now.";
         }
