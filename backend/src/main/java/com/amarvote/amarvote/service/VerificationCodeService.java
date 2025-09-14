@@ -62,6 +62,12 @@ public class VerificationCodeService {
         }
     }
 
+    //delete all verification codes for a specific email
+    @Transactional
+    public void deleteCodesByEmail(String email) {
+        codeRepository.deleteByEmail(email);
+    }
+
     @Transactional
     public void deleteExpiredCodes() {
         OffsetDateTime now = OffsetDateTime.now();

@@ -28,11 +28,9 @@ public class VerificationController {
 
    @PostMapping("/send-code")
     public ResponseEntity<String> sendVerificationCode(@RequestBody @Valid VerificationCodeRequest request) {
-        //check if the verification code already exists for the email
-        if (codeService.validateCodeForEmail(request.getEmail(), null)) {
-            //delete the existing code before creating a new one
-            codeService.deleteCode(request.getEmail());
-        }
+        //delete any existing verification codes for the email before creating a new one
+        codeService.deleteCodesByEmail(request.getEmail());
+        
         VerificationCode verificationCode = codeService.createCodeForEmail(request.getEmail());
         emailService.sendSignupVerificationEmail(request.getEmail(), verificationCode.getCode());
         return ResponseEntity.ok("Verification code sent to " + request.getEmail());

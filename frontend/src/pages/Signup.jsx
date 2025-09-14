@@ -12,7 +12,7 @@ export default function Signup({ setUserEmail }) {
     email: "",
     password: "",
     confirmPassword: "",
-    profilePic: "",
+    profilePic: "https://picsum.photos/400",
   });
 
   const [errors, setErrors] = useState({});
@@ -90,23 +90,12 @@ export default function Signup({ setUserEmail }) {
   const isPasswordValid = passwordPattern.test(formData.password);
   const doPasswordsMatch = formData.password === formData.confirmPassword;
 
-  const isValidURL = (url) => {
-    try {
-      if (!url) return true;
-      const parsed = new URL(url);
-      return ["http:", "https:"].includes(parsed.protocol);
-    } catch {
-      return false;
-    }
-  };
-
   const isFormReadyForVerification = () => {
     return (
       formData.userName.trim() &&
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) &&
       isPasswordValid &&
-      doPasswordsMatch &&
-      isValidURL(formData.profilePic)
+      doPasswordsMatch
     );
   };
 
@@ -213,13 +202,6 @@ export default function Signup({ setUserEmail }) {
     }
     console.log('✅ [REGISTRATION] Final bot check passed');
     
-    if (!isValidURL(formData.profilePic)) {
-      console.log('❌ [REGISTRATION] BLOCKED: Invalid profile picture URL');
-      setErrors((prev) => ({ ...prev, profilePic: "Invalid URL for profile picture." }));
-      return;
-    }
-    console.log('✅ [REGISTRATION] Profile picture URL validation passed');
-
     console.log('📤 [REGISTRATION] All checks passed - submitting registration to server');
     setLoading(true);
     
@@ -361,18 +343,6 @@ export default function Signup({ setUserEmail }) {
             <p className={doPasswordsMatch ? "text-green-600 text-sm" : "text-red-500 text-sm"}>
               {doPasswordsMatch ? "✓ Passwords match" : "✗ Passwords do not match"}
             </p>
-
-            <input
-              type="url"
-              name="profilePic"
-              placeholder="Profile Picture URL (optional)"
-              value={formData.profilePic}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
-            />
-            {errors.profilePic && (
-              <p className="text-red-500 text-sm">{errors.profilePic}</p>
-            )}
 
             {!codeSent && (
               <button
