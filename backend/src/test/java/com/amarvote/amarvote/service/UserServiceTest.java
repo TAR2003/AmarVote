@@ -67,7 +67,6 @@ class UserServiceTest {
         validRegisterRequest.setEmail("test@example.com");
         validRegisterRequest.setPassword("Password123!");
         validRegisterRequest.setConfirmPassword("Password123!");
-        validRegisterRequest.setNid("1234567890");
         validRegisterRequest.setProfilePic("profile.jpg");
 
         // Setup mock user
@@ -76,7 +75,6 @@ class UserServiceTest {
         mockUser.setUserName("testuser");
         mockUser.setUserEmail("test@example.com");
         mockUser.setPasswordHash("$2a$12$hashedPassword");
-        mockUser.setNid("1234567890");
         mockUser.setVerified(false);
         mockUser.setCreatedAt(OffsetDateTime.now());
         mockUser.setProfilePic("profile.jpg");

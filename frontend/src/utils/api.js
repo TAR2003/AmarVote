@@ -174,7 +174,7 @@ export async function getUserProfile() {
 
 /**
  * Update user profile
- * @param {Object} profileData - Profile data to update (userName, profilePic, nid)
+ * @param {Object} profileData - Profile data to update (userName, profilePic)
  * @returns {Promise<Object>} Updated profile data
  */
 export async function updateUserProfile(profileData) {

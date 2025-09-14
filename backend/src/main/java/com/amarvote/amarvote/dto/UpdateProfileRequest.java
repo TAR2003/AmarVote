@@ -1,7 +1,6 @@
 package com.amarvote.amarvote.dto;
 
 import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
 
 /**
@@ -13,19 +12,15 @@ public class UpdateProfileRequest {
     private String userName;
     
     private String profilePic;
-    
-    @Pattern(regexp = "^[0-9]{10,17}$", message = "NID must be a numeric value between 10-17 digits")
-    private String nid;
 
     // Default constructor
     public UpdateProfileRequest() {
     }
 
     // Constructor with fields
-    public UpdateProfileRequest(String userName, String profilePic, String nid) {
+    public UpdateProfileRequest(String userName, String profilePic) {
         this.userName = userName;
         this.profilePic = profilePic;
-        this.nid = nid;
     }
 
     // Getters and setters
@@ -43,13 +38,5 @@ public class UpdateProfileRequest {
 
     public void setProfilePic(String profilePic) {
         this.profilePic = profilePic;
-    }
-
-    public String getNid() {
-        return nid;
-    }
-
-    public void setNid(String nid) {
-        this.nid = nid;
     }
 }

@@ -12,7 +12,6 @@ export default function Signup({ setUserEmail }) {
     email: "",
     password: "",
     confirmPassword: "",
-    nid: "",
     profilePic: "",
   });
 
@@ -107,7 +106,6 @@ export default function Signup({ setUserEmail }) {
       /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email) &&
       isPasswordValid &&
       doPasswordsMatch &&
-      formData.nid.trim() &&
       isValidURL(formData.profilePic)
     );
   };
@@ -363,16 +361,6 @@ export default function Signup({ setUserEmail }) {
             <p className={doPasswordsMatch ? "text-green-600 text-sm" : "text-red-500 text-sm"}>
               {doPasswordsMatch ? "✓ Passwords match" : "✗ Passwords do not match"}
             </p>
-
-            <input
-              type="text"
-              name="nid"
-              placeholder="National ID"
-              value={formData.nid}
-              onChange={handleChange}
-              className="w-full border p-2 rounded"
-              required
-            />
 
             <input
               type="url"

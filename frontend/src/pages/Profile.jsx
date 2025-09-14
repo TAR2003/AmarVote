@@ -9,7 +9,6 @@ const Profile = () => {
   const [user, setUser] = useState({
     userName: "",
     userEmail: "",
-    nid: "",
     profilePic: "",
     isVerified: false
   });
@@ -93,7 +92,6 @@ const Profile = () => {
       // Create request object with only the fields that can be updated
       const updateData = {
         userName: tempUser.userName,
-        nid: tempUser.nid || "",
         profilePic: tempUser.profilePic || null
       };
       
@@ -340,24 +338,6 @@ const Profile = () => {
                     <FiMail /> Email Address
                   </label>
                   <p className="text-lg">{user.userEmail}</p>
-                </div>
-
-                {/* NID Field */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    National ID (NID)
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="nid"
-                      value={tempUser.nid || ""}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  ) : (
-                    <p className="text-gray-700">{user.nid || "Not provided"}</p>
-                  )}
                 </div>
 
                 {/* Verification Status */}

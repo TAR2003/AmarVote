@@ -12,7 +12,6 @@ CREATE TABLE IF NOT EXISTS users (
     salt TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     last_login TIMESTAMP WITH TIME ZONE,
-    NID TEXT NOT NULL,
     profile_pic TEXT,
     CONSTRAINT unique_user_email UNIQUE (user_email)
 );

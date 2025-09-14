@@ -36,9 +36,6 @@ public class User {
     @Column(name = "last_login")
     private OffsetDateTime lastLogin;
 
-    @Column(name = "nid")
-    private String nid; // Added missing field
-
     @Column(name = "profile_pic")
     private String profilePic; // Added missing field
 
@@ -103,14 +100,6 @@ public class User {
         this.lastLogin = lastLogin;
     }
 
-    public String getNid() {
-        return nid;
-    }
-
-    public void setNid(String nid) {
-        this.nid = nid;
-    }
-
     public String getProfilePic() {
         return profilePic;
     }
@@ -126,11 +115,9 @@ public class User {
                 ", userEmail='" + userEmail + '\'' +
                 ", isVerified=" + isVerified +
                 ", userName='" + userName + '\'' +
-                ", nid='" + nid + '\'' +
                 ", profilePic='" + profilePic + '\'' +
                 ", createdAt=" + createdAt +
                 ", lastLogin=" + lastLogin +
-                ", nid=" + nid +
                 ", profilePic='" + profilePic + '\'' +
                 '}';
     }

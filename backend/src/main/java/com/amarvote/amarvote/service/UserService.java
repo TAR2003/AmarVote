@@ -51,7 +51,6 @@ public class UserService {
         user.setUserEmail(request.getEmail());
         user.setVerified(false);
         user.setPasswordHash(encoder.encode(request.getPassword()));
-        user.setNid(request.getNid());
         user.setCreatedAt(OffsetDateTime.now());
 
         // check if profilePic is provided, if not set to null
@@ -120,7 +119,6 @@ public class UserService {
                         user.getUserId(),
                         user.getUserEmail(),
                         user.getUserName(),
-                        user.getNid(),
                         user.getProfilePic(),
                         user.isVerified()
                 ));
@@ -141,10 +139,6 @@ public class UserService {
                         user.setUserName(request.getUserName());
                     }
                     
-                    if (request.getNid() != null) {
-                        user.setNid(request.getNid());
-                    }
-                    
                     if (request.getProfilePic() != null) {
                         user.setProfilePic(request.getProfilePic());
                     }
@@ -155,7 +149,6 @@ public class UserService {
                             user.getUserId(),
                             user.getUserEmail(),
                             user.getUserName(),
-                            user.getNid(),
                             user.getProfilePic(),
                             user.isVerified()
                     );
