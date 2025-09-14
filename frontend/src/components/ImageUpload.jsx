@@ -7,7 +7,6 @@ const ImageUpload = ({
   uploadType = 'profile', // 'profile', 'candidate', 'party', 'election'
   className = '',
   disabled = false,
-  maxSize = null, // No size limit
   acceptedFormats = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg', 'image/bmp', 'image/tiff', 'image/svg+xml']
 }) => {
   const [dragActive, setDragActive] = useState(false);
@@ -245,9 +244,9 @@ const ImageUpload = ({
               Drag and drop an image here, or click to browse
             </div>
             <div className="flex items-center justify-center space-x-4 text-xs text-gray-400">
-              <span>Formats: {acceptedFormats.map(f => f.split('/')[1].toUpperCase()).join(', ')}</span>
+              <span>Formats: All image formats</span>
               <span>•</span>
-              <span>Max size: {(maxSize / 1024 / 1024).toFixed(1)}MB</span>
+              <span>Max size: 10MB</span>
             </div>
             
             {dragActive && (
