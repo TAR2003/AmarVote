@@ -1124,7 +1124,7 @@ def encrypt_it():
     try:
         # Input validation (optimized)
         private_key = data['private_key']
-        if not isinstance(private_key, str) or len(private_key) > 5000:
+        if not isinstance(private_key, str) or len(private_key) > 100000:
             return jsonify({'error': 'Invalid private key format or size'}), 400
 
         # Generate optimized password and salt
