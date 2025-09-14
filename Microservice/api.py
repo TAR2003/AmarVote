@@ -126,7 +126,7 @@ SCRYPT_R = 8
 SCRYPT_P = 1
 AES_KEY_LENGTH = 32
 PASSWORD_LENGTH = 32  # Reduced for speed (still 256-bit entropy)
-MAX_PAYLOAD_SIZE = 20 * 1024 * 1024  # 20MB limit for multiple guardians with large polynomial data
+MAX_PAYLOAD_SIZE = 1 * 1024 * 1024  # 20MB limit for multiple guardians with large polynomial data
 
 # Master key - MUST be stored securely in production (HSM, Key Vault, etc.)
 MASTER_KEY = os.environ.get('MASTER_KEY_PQ')
