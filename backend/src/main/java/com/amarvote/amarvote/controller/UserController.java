@@ -13,7 +13,9 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
 import com.amarvote.amarvote.dto.LoginRequest;
 import com.amarvote.amarvote.dto.LoginResponse;
@@ -22,6 +24,7 @@ import com.amarvote.amarvote.dto.RegisterResponse;
 import com.amarvote.amarvote.dto.UpdatePasswordRequest;
 import com.amarvote.amarvote.dto.UpdateProfileRequest;
 import com.amarvote.amarvote.dto.UserSession;
+import com.amarvote.amarvote.service.CloudinaryService;
 import com.amarvote.amarvote.service.UserService;
 
 import jakarta.servlet.http.Cookie;
@@ -34,6 +37,9 @@ public class UserController {
 
     @Autowired
     private UserService userService;
+    
+    @Autowired
+    private CloudinaryService cloudinaryService;
     
     @GetMapping("/profile")
     public ResponseEntity<?> getUserProfile() {
@@ -162,6 +168,41 @@ public class UserController {
         UserSession session = new UserSession(userDetails.getUsername());
 
         return ResponseEntity.ok(session);
+    }
+
+    @PostMapping("/profile/upload-picture")
+    public ResponseEntity<?> uploadProfilePicture(@RequestParam("file") MultipartFile file) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        
+        if (authentication == null || !authentication.isAuthenticated() 
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No active session");
+        }
+        
+        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+        String email = userDetails.getUsername();
+        
+        try {
+            System.out.println("Received profile image upload request. File: " + file.getOriginalFilename() + 
+                             ", Size: " + file.getSize() + ", Content-Type: " + file.getContentType() + 
+                             ", User: " + email);
+                             
+            // Upload image to Cloudinary
+            String imageUrl = cloudinaryService.uploadImage(file, CloudinaryService.ImageType.PROFILE);
+            
+            System.out.println("Successfully uploaded profile image to: " + imageUrl);
+            
+            // Update user profile with new image URL
+            return userService.updateProfilePicture(email, imageUrl)
+                    .map(profile -> ResponseEntity.ok(Map.of("message", "Profile picture updated successfully", 
+                                                           "imageUrl", imageUrl, "user", profile)))
+                    .orElse(ResponseEntity.notFound().build());
+        } catch (Exception e) {
+            System.err.println("Error uploading profile image: " + e.getMessage());
+            e.printStackTrace();
+            
+            return ResponseEntity.badRequest().body(Map.of("error", "Failed to upload image: " + e.getMessage()));
+        }
     }
 
 }

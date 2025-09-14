@@ -211,3 +211,223 @@ export async function updateUserPassword(passwordData) {
     throw error;
   }
 }
+
+/**
+ * Upload profile picture
+ * @param {File} file - Image file to upload
+ * @returns {Promise<Object>} Upload response with image URL
+ */
+export async function uploadProfilePicture(file) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const csrfToken = getCsrfToken();
+    const headers = {};
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+    }
+
+    const response = await fetch('/api/auth/profile/upload-picture', {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to upload image');
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Error uploading profile picture:', error);
+    throw error;
+  }
+}
+
+/**
+ * Upload candidate picture
+ * @param {File} file - Image file to upload
+ * @param {string} candidateName - Name of the candidate
+ * @returns {Promise<Object>} Upload response with image URL
+ */
+export async function uploadCandidateImage(file, candidateName) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('candidateName', candidateName);
+
+    const csrfToken = getCsrfToken();
+    const headers = {};
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+    }
+
+    const response = await fetch('/api/upload-candidate-image', {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to upload candidate image');
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Error uploading candidate image:', error);
+    throw error;
+  }
+}
+
+/**
+ * Upload party picture
+ * @param {File} file - Image file to upload
+ * @param {string} partyName - Name of the party
+ * @returns {Promise<Object>} Upload response with image URL
+ */
+export async function uploadPartyImage(file, partyName) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('partyName', partyName);
+
+    const csrfToken = getCsrfToken();
+    const headers = {};
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+    }
+
+    const response = await fetch('/api/upload-party-image', {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.error || 'Failed to upload party image');
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Error uploading party image:', error);
+    throw error;
+  }
+}
+
+/**
+ * Upload election picture
+ * @param {File} file - Image file to upload
+ * @param {number} electionId - Election ID
+ * @returns {Promise<Object>} Upload response with image URL
+ */
+export async function uploadElectionPicture(file, electionId) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('electionId', electionId.toString());
+
+    const csrfToken = getCsrfToken();
+    const headers = {};
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+    }
+
+    const response = await fetch('/api/images/election', {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to upload image');
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Error uploading election picture:', error);
+    throw error;
+  }
+}
+
+/**
+ * Upload candidate picture
+ * @param {File} file - Image file to upload
+ * @param {number} choiceId - Election choice ID
+ * @returns {Promise<Object>} Upload response with image URL
+ */
+export async function uploadCandidatePicture(file, choiceId) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('choiceId', choiceId.toString());
+
+    const csrfToken = getCsrfToken();
+    const headers = {};
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+    }
+
+    const response = await fetch('/api/images/candidate', {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to upload image');
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Error uploading candidate picture:', error);
+    throw error;
+  }
+}
+
+/**
+ * Upload party picture
+ * @param {File} file - Image file to upload
+ * @param {number} choiceId - Election choice ID
+ * @returns {Promise<Object>} Upload response with image URL
+ */
+export async function uploadPartyPicture(file, choiceId) {
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    formData.append('choiceId', choiceId.toString());
+
+    const csrfToken = getCsrfToken();
+    const headers = {};
+    if (csrfToken) {
+      headers['X-XSRF-TOKEN'] = csrfToken;
+    }
+
+    const response = await fetch('/api/images/party', {
+      method: 'POST',
+      credentials: 'include',
+      headers,
+      body: formData,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      throw new Error(errorData.message || 'Failed to upload image');
+    }
+
+    return response.json();
+  } catch (error) {
+    console.error('Error uploading party picture:', error);
+    throw error;
+  }
+}

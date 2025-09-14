@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { FiUser, FiMail, FiLock, FiEdit, FiSave, FiX, FiAlertCircle } from "react-icons/fi";
-import { getUserProfile, updateUserProfile, updateUserPassword } from "../utils/api";
+import { getUserProfile, updateUserProfile, updateUserPassword, uploadProfilePicture } from "../utils/api";
+import ImageUpload from "../components/ImageUpload";
 
 const Profile = () => {
   const [loading, setLoading] = useState(true);
@@ -166,6 +167,23 @@ const Profile = () => {
     });
   };
 
+  const handleProfilePictureUpload = async (file) => {
+    try {
+      setError(null);
+      const response = await uploadProfilePicture(file);
+      
+      // Update the user state with the new image URL
+      const updatedUser = { ...user, profilePic: response.imageUrl };
+      setUser(updatedUser);
+      setTempUser(updatedUser);
+      
+      setSuccessMessage('Profile picture updated successfully!');
+    } catch (err) {
+      console.error('Failed to upload profile picture:', err);
+      throw err; // Re-throw to let ImageUpload component handle the error display
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
       {loading && !isEditing && (
@@ -249,73 +267,38 @@ const Profile = () => {
         {/* Profile Content */}
         {!loading || isEditing ? (
           <div className="p-6">
-            <div className="flex flex-col md:flex-row gap-8">
-              {/* Avatar Section */}
-              <div className="flex-shrink-0">
-                <div className="relative group">
-                  <img
-                    className="w-32 h-32 rounded-full object-cover border-4 border-white shadow"
-                    src={isEditing ? (tempUser.profilePic || "/default-avatar.png") : (user.profilePic || "/default-avatar.png")}
-                    alt="Profile"
-                    onError={(e) => {
-                      // Set to local default avatar to avoid external requests
-                      e.target.src = "/default-avatar.png";
-                      // Prevent infinite loop if default image also fails
-                      e.onerror = null;
-                    }}
+            <div className="flex flex-col lg:flex-row gap-8">
+              {/* Profile Picture Section */}
+              <div className="lg:w-1/3">
+                {isEditing ? (
+                  <ImageUpload
+                    onImageUpload={handleProfilePictureUpload}
+                    currentImage={user.profilePic}
+                    uploadType="profile"
+                    className="mb-4"
                   />
-                  {isEditing && (
-                    <div className="absolute bottom-0 right-0">
-                      <input
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        id="profilePicUpload"
-                        onChange={(e) => {
-                          const file = e.target.files[0];
-                          if (!file) return;
-                          
-                          // File size validation (max 1MB)
-                          if (file.size > 1024 * 1024) {
-                            setError("Image size must be less than 1MB");
-                            return;
-                          }
-                          
-                          const reader = new FileReader();
-                          reader.onloadend = () => {
-                            const base64String = reader.result;
-                            console.log("Image loaded as base64");
-                            setTempUser({
-                              ...tempUser,
-                              profilePic: base64String
-                            });
-                          };
-                          reader.readAsDataURL(file);
-                        }}
-                      />
-                      <label htmlFor="profilePicUpload" className="bg-blue-600 text-white p-2 rounded-full hover:bg-blue-700 transition cursor-pointer">
-                        <FiEdit />
-                      </label>
-                    </div>
-                  )}
-                </div>
-                {isEditing && (
-                  <div className="mt-2 text-center">
-                    <button
-                      type="button"
-                      className="text-xs text-gray-500 hover:text-red-600"
-                      onClick={() => setTempUser({...tempUser, profilePic: null})}
-                    >
-                      Remove photo
-                    </button>
+                ) : (
+                  <div className="text-center">
+                    <img
+                      className="w-48 h-48 mx-auto rounded-full object-cover border-4 border-white shadow-lg"
+                      src={user.profilePic || "/default-avatar.png"}
+                      alt="Profile"
+                      onError={(e) => {
+                        e.target.src = "/default-avatar.png";
+                        e.onerror = null;
+                      }}
+                    />
+                    <h2 className="mt-4 text-xl font-semibold text-gray-900">{user.userName}</h2>
+                    <p className="text-gray-500">{user.userEmail}</p>
                   </div>
                 )}
               </div>
 
               {/* Profile Details */}
-              <div className="flex-1 space-y-6">
-                {/* Name Field */}
-                <div>
+              <div className="lg:w-2/3">
+                <div className="space-y-6">
+                  {/* Name Field */}
+                  <div>
                   <label className="block text-sm font-medium text-gray-500 mb-1">
                     Full Name
                   </label>
@@ -407,6 +390,7 @@ const Profile = () => {
                     </div>
                   </div>
                 )}
+                </div>
               </div>
             </div>
           </div>

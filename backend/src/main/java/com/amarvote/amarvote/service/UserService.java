@@ -154,4 +154,27 @@ public class UserService {
                     );
                 });
     }
+
+    /**
+     * Update user's profile picture
+     * @param email User's email
+     * @param imageUrl New profile picture URL
+     * @return Updated UserProfileDTO
+     */
+    @Transactional
+    public Optional<UserProfileDTO> updateProfilePicture(String email, String imageUrl) {
+        return userRepository.findByUserEmail(email)
+                .map(user -> {
+                    user.setProfilePic(imageUrl);
+                    userRepository.save(user);
+                    
+                    return new UserProfileDTO(
+                            user.getUserId(),
+                            user.getUserEmail(),
+                            user.getUserName(),
+                            user.getProfilePic(),
+                            user.isVerified()
+                    );
+                });
+    }
 }

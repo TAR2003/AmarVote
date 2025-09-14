@@ -14,12 +14,14 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.multipart.MultipartFile;
 
-import com.amarvote.amarvote.dto.BlockchainBallotInfoResponse;
-import com.amarvote.amarvote.dto.BlockchainLogsResponse;
 import com.amarvote.amarvote.dto.BenalohChallengeRequest;
 import com.amarvote.amarvote.dto.BenalohChallengeResponse;
+import com.amarvote.amarvote.dto.BlockchainBallotInfoResponse;
+import com.amarvote.amarvote.dto.BlockchainLogsResponse;
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
 import com.amarvote.amarvote.dto.CastEncryptedBallotRequest;
@@ -39,6 +41,7 @@ import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.service.BallotService;
 import com.amarvote.amarvote.service.BlockchainService;
+import com.amarvote.amarvote.service.CloudinaryService;
 import com.amarvote.amarvote.service.ElectionService;
 import com.amarvote.amarvote.service.PartialDecryptionService;
 import com.amarvote.amarvote.service.TallyService;
@@ -56,6 +59,7 @@ public class ElectionController {
     private final TallyService tallyService;
     private final PartialDecryptionService partialDecryptionService;
     private final BlockchainService blockchainService;
+    private final CloudinaryService cloudinaryService;
 
     @PostMapping("/create-election")
     public ResponseEntity<Election> createElection(
@@ -587,6 +591,66 @@ public class ElectionController {
                     Map.of(
                             "success", false,
                             "message", "Error fetching ballot details: " + e.getMessage()));
+        }
+    }
+
+    @PostMapping("/upload-candidate-image")
+    public ResponseEntity<?> uploadCandidateImage(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("candidateName") String candidateName) {
+        
+        try {
+            System.out.println("Received candidate image upload request. File: " + file.getOriginalFilename() + 
+                             ", Size: " + file.getSize() + ", Content-Type: " + file.getContentType() + 
+                             ", Candidate: " + candidateName);
+                             
+            String imageUrl = cloudinaryService.uploadImage(file, CloudinaryService.ImageType.CANDIDATE);
+            
+            System.out.println("Successfully uploaded candidate image to: " + imageUrl);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Candidate image uploaded successfully",
+                "imageUrl", imageUrl
+            ));
+        } catch (Exception e) {
+            System.err.println("Error uploading candidate image: " + e.getMessage());
+            e.printStackTrace();
+            
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", "Failed to upload candidate image: " + e.getMessage()
+            ));
+        }
+    }
+
+    @PostMapping("/upload-party-image")
+    public ResponseEntity<?> uploadPartyImage(
+            @RequestParam("file") MultipartFile file,
+            @RequestParam("partyName") String partyName) {
+        
+        try {
+            System.out.println("Received party image upload request. File: " + file.getOriginalFilename() + 
+                             ", Size: " + file.getSize() + ", Content-Type: " + file.getContentType() + 
+                             ", Party: " + partyName);
+                             
+            String imageUrl = cloudinaryService.uploadImage(file, CloudinaryService.ImageType.PARTY);
+            
+            System.out.println("Successfully uploaded party image to: " + imageUrl);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "message", "Party image uploaded successfully",
+                "imageUrl", imageUrl
+            ));
+        } catch (Exception e) {
+            System.err.println("Error uploading party image: " + e.getMessage());
+            e.printStackTrace();
+            
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", "Failed to upload party image: " + e.getMessage()
+            ));
         }
     }
 }

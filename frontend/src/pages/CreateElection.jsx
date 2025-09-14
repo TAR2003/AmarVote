@@ -2,9 +2,11 @@ import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { electionApi } from "../utils/electionApi";
 import { userApi } from "../utils/userApi";
+import { uploadCandidateImage, uploadPartyImage } from "../utils/api";
 import { timezoneUtils } from "../utils/timezoneUtils";
 import DatePicker from "react-datepicker";
 import "react-datepicker/dist/react-datepicker.css";
+import ImageUpload from "../components/ImageUpload";
 
 const CreateElection = () => {
     const navigate = useNavigate();
@@ -34,6 +36,66 @@ const CreateElection = () => {
         startingTime: null,
         endingTime: null
     });
+
+    // Store temporary image files for upload after election creation
+    const [pendingImages, setPendingImages] = useState({
+        candidateFiles: [],
+        partyFiles: [],
+        electionFile: null
+    });
+
+    // Track image URLs for preview
+    const [candidateImages, setCandidateImages] = useState([]);
+
+    // Handle image changes for candidates and parties
+    const handleImageChange = async (type, index, file) => {
+        try {
+            let imageUrl = '';
+            
+            if (type === 'candidate') {
+                const candidateName = form.candidateNames[index] || `candidate_${index}`;
+                const response = await uploadCandidateImage(file, candidateName);
+                imageUrl = response.imageUrl;
+            } else if (type === 'party') {
+                const partyName = form.partyNames[index] || `party_${index}`;
+                const response = await uploadPartyImage(file, partyName);
+                imageUrl = response.imageUrl;
+            }
+
+            setCandidateImages(prev => {
+                const updated = [...prev];
+                if (!updated[index]) {
+                    updated[index] = {};
+                }
+                
+                if (type === 'candidate') {
+                    updated[index].candidatePic = imageUrl;
+                } else if (type === 'party') {
+                    updated[index].partyPic = imageUrl;
+                }
+                
+                return updated;
+            });
+            
+            // Also update the form state for backward compatibility
+            if (type === 'candidate') {
+                setForm(prev => {
+                    const updatedPictures = [...prev.candidatePictures];
+                    updatedPictures[index] = imageUrl;
+                    return { ...prev, candidatePictures: updatedPictures };
+                });
+            } else if (type === 'party') {
+                setForm(prev => {
+                    const updatedPictures = [...prev.partyPictures];
+                    updatedPictures[index] = imageUrl;
+                    return { ...prev, partyPictures: updatedPictures };
+                });
+            }
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            // You can set an error state here if needed
+        }
+    };
 
     useEffect(() => {
         // Close suggestion dropdown when clicking outside
@@ -186,6 +248,12 @@ const CreateElection = () => {
             candidatePictures: [...prev.candidatePictures, ""],
             partyPictures: [...prev.partyPictures, ""]
         }));
+        setPendingImages(prev => ({
+            ...prev,
+            candidateFiles: [...prev.candidateFiles, null],
+            partyFiles: [...prev.partyFiles, null]
+        }));
+        setCandidateImages(prev => [...prev, { candidatePic: "", partyPic: "" }]);
     };
 
     const removeCandidate = (index) => {
@@ -202,6 +270,7 @@ const CreateElection = () => {
             candidatePictures: prev.candidatePictures.filter((_, i) => i !== index),
             partyPictures: prev.partyPictures.filter((_, i) => i !== index)
         }));
+        setCandidateImages(prev => prev.filter((_, i) => i !== index));
     };
 
     const handleCandidateChange = (index, field, value) => {
@@ -781,27 +850,25 @@ const CreateElection = () => {
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
                                     <div>
                                         <label className="block text-gray-700 text-sm font-medium mb-1">
-                                            Candidate Picture URL
+                                            Candidate Picture
                                         </label>
-                                        <input
-                                            type="text"
-                                            value={form.candidatePictures[index]}
-                                            onChange={(e) => handleCandidateChange(index, 'candidatePictures', e.target.value)}
-                                            placeholder="https://example.com/image.jpg"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        <ImageUpload
+                                            currentImage={candidateImages[index]?.candidatePic}
+                                            onImageUpload={(file) => handleImageChange('candidate', index, file)}
+                                            uploadType="candidate"
+                                            placeholder="Upload candidate picture"
                                         />
                                     </div>
 
                                     <div>
                                         <label className="block text-gray-700 text-sm font-medium mb-1">
-                                            Party Logo URL
+                                            Party Logo
                                         </label>
-                                        <input
-                                            type="text"
-                                            value={form.partyPictures[index]}
-                                            onChange={(e) => handleCandidateChange(index, 'partyPictures', e.target.value)}
-                                            placeholder="https://example.com/logo.jpg"
-                                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                        <ImageUpload
+                                            currentImage={candidateImages[index]?.partyPic}
+                                            onImageUpload={(file) => handleImageChange('party', index, file)}
+                                            uploadType="party"
+                                            placeholder="Upload party logo"
                                         />
                                     </div>
                                 </div>
