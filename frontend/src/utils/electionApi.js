@@ -491,4 +491,54 @@ export const electionApi = {
       throw error;
     }
   },
+
+  /**
+   * Get guardian information for verification tab
+   */
+  async getElectionGuardians(electionId) {
+    try {
+      const response = await fetch(`/api/election/${electionId}/guardians`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching election guardians:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get compensated decryption information for verification tab
+   */
+  async getElectionCompensatedDecryptions(electionId) {
+    try {
+      const response = await fetch(`/api/election/${electionId}/compensated-decryptions`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      const data = await response.json();
+      return data;
+    } catch (error) {
+      console.error('Error fetching compensated decryptions:', error);
+      throw error;
+    }
+  },
 };

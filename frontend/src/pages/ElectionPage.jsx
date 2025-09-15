@@ -56,6 +56,8 @@ import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import ErrorBoundary from '../components/ErrorBoundary';
+import GuardianDataDisplay from '../components/GuardianDataDisplay';
+import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -3823,30 +3825,6 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                     data={electionData.manifestHash || "Not available"}
                   />
 
-                  {electionData.guardians && electionData.guardians.length > 0 && (
-                    <div className="space-y-4">
-                      <h4 className="font-medium text-gray-900">Guardian Information</h4>
-                      {electionData.guardians.map((guardian, index) => (
-                        <div key={guardian.userEmail} className="space-y-3">
-                          <DataDisplay
-                            title={`Guardian ${index + 1} Public Key (${guardian.userName})`}
-                            data={guardian.guardianPublicKey || "Not available"}
-                            type="text"
-                          />
-                          <DataDisplay
-                            title={`Guardian ${index + 1} Polynomial`}
-                            data={guardian.guardianPolynomial || "Not available"}
-                          />
-                          <DataDisplay
-                            title={`Guardian ${index + 1} Decryption Status`}
-                            data={guardian.decryptedOrNot ? "Submitted" : "Pending"}
-                            type="text"
-                          />
-                        </div>
-                      ))}
-                    </div>
-                  )}
-
                   <DataDisplay
                     title="Encrypted Tally"
                     data={electionData.encryptedTally || "Not available"}
@@ -3865,6 +3843,12 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                       data={electionData.cryptographicProofs}
                     />
                   )}
+
+                  {/* Enhanced Guardian Information Display */}
+                  <GuardianDataDisplay electionId={id} />
+
+                  {/* Compensated Decryption Display */}
+                  <CompensatedDecryptionDisplay electionId={id} />
 
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h4 className="font-medium text-gray-900 mb-3">Verification Instructions</h4>

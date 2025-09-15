@@ -2,7 +2,6 @@ package com.amarvote.amarvote.service;
 
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -13,22 +12,24 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
-import org.springframework.web.reactive.function.client.WebClient; // Fixed: Use Spring's HttpHeaders, not Netty's
+import org.springframework.web.reactive.function.client.WebClient;
 
-import com.amarvote.amarvote.dto.BlockchainElectionResponse;
-import com.amarvote.amarvote.dto.ElectionCreationRequest; // Added: For setting content type
-import com.amarvote.amarvote.dto.ElectionDetailResponse; // Added: For handling HTTP responses
-import com.amarvote.amarvote.dto.ElectionGuardianSetupRequest;
+import com.amarvote.amarvote.dto.BlockchainElectionResponse; // Fixed: Use Spring's HttpHeaders, not Netty's
+import com.amarvote.amarvote.dto.ElectionCreationRequest;
+import com.amarvote.amarvote.dto.ElectionDetailResponse; // Added: For setting content type
+import com.amarvote.amarvote.dto.ElectionGuardianSetupRequest; // Added: For handling HTTP responses
 import com.amarvote.amarvote.dto.ElectionGuardianSetupResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.dto.OptimizedElectionResponse;
 import com.amarvote.amarvote.model.AllowedVoter;
+import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.model.User;
 import com.amarvote.amarvote.repository.AllowedVoterRepository;
 import com.amarvote.amarvote.repository.BallotRepository;
+import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
@@ -68,6 +69,9 @@ public class ElectionService {
 
     @Autowired
     private BallotRepository ballotRepository;
+
+    @Autowired
+    private CompensatedDecryptionRepository compensatedDecryptionRepository;
 
     @Autowired
     private BlockchainService blockchainService;
@@ -1089,6 +1093,94 @@ public class ElectionService {
 
         } catch (Exception e) {
             return "Sorry, I'm having trouble accessing election schedule information right now.";
+        }
+    }
+
+    /**
+     * Get guardian information for verification tab, excluding sensitive credentials
+     */
+    public List<Map<String, Object>> getGuardiansForVerification(Long electionId) {
+        try {
+            List<Guardian> guardians = guardianRepository.findByElectionId(electionId);
+            
+            return guardians.stream().map(guardian -> {
+                Map<String, Object> guardianData = new HashMap<>();
+                guardianData.put("id", guardian.getId());
+                guardianData.put("electionId", guardian.getElectionId());
+                guardianData.put("userId", guardian.getUserId());
+                guardianData.put("sequenceOrder", guardian.getSequenceOrder());
+                guardianData.put("guardianPublicKey", guardian.getGuardianPublicKey());
+                guardianData.put("decryptedOrNot", guardian.getDecryptedOrNot());
+                guardianData.put("partialDecryptedTally", guardian.getPartialDecryptedTally());
+                guardianData.put("guardianDecryptionKey", guardian.getGuardianDecryptionKey());
+                guardianData.put("tallyShare", guardian.getTallyShare());
+                guardianData.put("keyBackup", guardian.getKeyBackup());
+                // Intentionally exclude sensitive credentials field
+                // guardianData.put("credentials", guardian.getCredentials());
+                // Removed: ballotShare and proof fields as they're not needed for verification table
+                
+                // Add user information if available
+                Optional<User> userOpt = userRepository.findById(guardian.getUserId());
+                if (userOpt.isPresent()) {
+                    User user = userOpt.get();
+                    guardianData.put("userEmail", user.getUserEmail());
+                    guardianData.put("userName", user.getUserName());
+                }
+                
+                return guardianData;
+            }).collect(Collectors.toList());
+            
+        } catch (Exception e) {
+            System.err.println("Error retrieving guardians for verification: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to retrieve guardian information", e);
+        }
+    }
+
+    /**
+     * Get compensated decryption information for verification tab
+     */
+    public List<Map<String, Object>> getCompensatedDecryptionsForVerification(Long electionId) {
+        try {
+            List<CompensatedDecryption> compensatedDecryptions = compensatedDecryptionRepository.findByElectionId(electionId);
+            
+            return compensatedDecryptions.stream().map(cd -> {
+                Map<String, Object> cdData = new HashMap<>();
+                cdData.put("electionId", cd.getElectionId());
+                cdData.put("compensatingGuardianSequence", cd.getCompensatingGuardianSequence());
+                cdData.put("missingGuardianSequence", cd.getMissingGuardianSequence());
+                cdData.put("compensatedTallyShare", cd.getCompensatedTallyShare());
+                cdData.put("compensatedBallotShare", cd.getCompensatedBallotShare());
+                
+                // Add guardian information for better understanding
+                Guardian compensatingGuardian = guardianRepository
+                    .findByElectionIdAndSequenceOrder(electionId, cd.getCompensatingGuardianSequence());
+                Guardian missingGuardian = guardianRepository
+                    .findByElectionIdAndSequenceOrder(electionId, cd.getMissingGuardianSequence());
+                
+                if (compensatingGuardian != null) {
+                    Optional<User> compensatingUser = userRepository.findById(compensatingGuardian.getUserId());
+                    if (compensatingUser.isPresent()) {
+                        cdData.put("compensatingGuardianEmail", compensatingUser.get().getUserEmail());
+                        cdData.put("compensatingGuardianName", compensatingUser.get().getUserName());
+                    }
+                }
+                
+                if (missingGuardian != null) {
+                    Optional<User> missingUser = userRepository.findById(missingGuardian.getUserId());
+                    if (missingUser.isPresent()) {
+                        cdData.put("missingGuardianEmail", missingUser.get().getUserEmail());
+                        cdData.put("missingGuardianName", missingUser.get().getUserName());
+                    }
+                }
+                
+                return cdData;
+            }).collect(Collectors.toList());
+            
+        } catch (Exception e) {
+            System.err.println("Error retrieving compensated decryptions for verification: " + e.getMessage());
+            e.printStackTrace();
+            throw new RuntimeException("Failed to retrieve compensated decryption information", e);
         }
     }
 }

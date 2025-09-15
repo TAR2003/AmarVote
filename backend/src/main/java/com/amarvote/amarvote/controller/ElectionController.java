@@ -653,4 +653,47 @@ public class ElectionController {
             ));
         }
     }
+
+    /**
+     * Get guardians information for verification tab
+     * Excludes sensitive credentials field
+     */
+    @GetMapping("/election/{id}/guardians")
+    public ResponseEntity<?> getElectionGuardians(@PathVariable Long id) {
+        try {
+            // Get guardians for this election excluding sensitive credentials
+            List<Map<String, Object>> guardians = electionService.getGuardiansForVerification(id);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "guardians", guardians
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "error", "Failed to retrieve guardian information: " + e.getMessage()
+            ));
+        }
+    }
+
+    /**
+     * Get compensated decryptions information for verification tab
+     */
+    @GetMapping("/election/{id}/compensated-decryptions")
+    public ResponseEntity<?> getElectionCompensatedDecryptions(@PathVariable Long id) {
+        try {
+            // Get compensated decryptions for this election
+            List<Map<String, Object>> compensatedDecryptions = electionService.getCompensatedDecryptionsForVerification(id);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "compensatedDecryptions", compensatedDecryptions
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "error", "Failed to retrieve compensated decryption information: " + e.getMessage()
+            ));
+        }
+    }
 }
