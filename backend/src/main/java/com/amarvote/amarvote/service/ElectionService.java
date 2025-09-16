@@ -755,7 +755,7 @@ public class ElectionService {
                     .bodyValue(request)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .block();
+                    .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
             // System.out.println("Received response from ElectionGuard service: " +
             // response);
             if (response == null) {

@@ -1,7 +1,6 @@
 package com.amarvote.amarvote.service;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -341,7 +340,7 @@ public class PartialDecryptionService {
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(String.class)
-                .block();
+                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
             
             System.out.println("Received response from ElectionGuard service: " + response);
             
@@ -837,7 +836,7 @@ public class PartialDecryptionService {
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(String.class)
-                .block();
+                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
             
             if (response == null) {
                 throw new RuntimeException("Invalid response from ElectionGuard service");
@@ -869,7 +868,7 @@ public class PartialDecryptionService {
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(String.class)
-                .block();
+                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
             
             System.out.println("Received response from ElectionGuard service: " + response);
 

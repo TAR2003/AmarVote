@@ -46,7 +46,7 @@ public class ElectionGuardCryptoService {
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(String.class)
-                .block();
+                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
             
             if (response == null) {
                 throw new RuntimeException("No response from ElectionGuard encryption service");
@@ -98,7 +98,7 @@ public class ElectionGuardCryptoService {
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(String.class)
-                .block();
+                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
             
             if (response == null) {
                 throw new RuntimeException("No response from ElectionGuard encryption service");
@@ -152,7 +152,7 @@ public class ElectionGuardCryptoService {
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(String.class)
-                .block();
+                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
             
             if (response == null) {
                 throw new RuntimeException("No response from ElectionGuard decryption service");
@@ -210,7 +210,7 @@ public class ElectionGuardCryptoService {
                 .bodyValue(requestBody)
                 .retrieve()
                 .bodyToMono(String.class)
-                .block();
+                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
             
             if (response == null) {
                 throw new RuntimeException("No response from ElectionGuard decryption service");

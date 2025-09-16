@@ -2,7 +2,6 @@ package com.amarvote.amarvote.service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -521,7 +520,7 @@ public class BallotService {
                     .bodyValue(request)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .block();
+                    .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
 
             System.out.println("Received response from ElectionGuard service: ");
 
@@ -867,7 +866,7 @@ public class BallotService {
                     .bodyValue(request)
                     .retrieve()
                     .bodyToMono(String.class)
-                    .block();
+                    .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
 
             System.out.println("Received response from ElectionGuard Benaloh service: ");
 

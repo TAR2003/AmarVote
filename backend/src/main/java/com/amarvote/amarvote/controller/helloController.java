@@ -57,7 +57,7 @@ public class helloController {
                 .uri("/health") // 👈 Use host.docker.internal
                 .retrieve()
                 .bodyToMono(String.class)
-                .block();
+                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
         return "Backend response: " + response;
     }
 }

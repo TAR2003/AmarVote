@@ -2,7 +2,6 @@ package com.amarvote.amarvote.service;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -321,7 +320,7 @@ public class TallyService {
                 .bodyValue(request)
                 .retrieve()
                 .bodyToMono(String.class)
-                .block();
+                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
             
             System.out.println("✅ Received response from ElectionGuard tally service");
             System.out.println("Response received (length: " + (response != null ? response.length() : 0) + " chars)");

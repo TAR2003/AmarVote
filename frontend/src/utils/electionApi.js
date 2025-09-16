@@ -44,20 +44,9 @@ export const electionApi = {
    */
   async getElectionById(electionId) {
     try {
-      const response = await fetch(`/api/election/${electionId}`, {
+      return await apiRequest(`/election/${electionId}`, {
         method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error fetching election details:', error);
       throw error;
@@ -166,23 +155,12 @@ export const electionApi = {
    */
   async checkEligibility(electionId) {
     try {
-      const response = await fetch('/api/eligibility', {
+      return await apiRequest('/eligibility', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           electionId
         }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error checking eligibility:', error);
       throw error;
@@ -229,23 +207,12 @@ export const electionApi = {
    */
   async combinePartialDecryptions(electionId) {
     try {
-      const response = await fetch('/api/combine-partial-decryption', {
+      return await apiRequest('/combine-partial-decryption', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           election_id: electionId
         }),
-      });
-      console.log('Combine partial decryptions response in the frontend:', response);
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error combining partial decryptions:', error);
       throw error;
@@ -257,25 +224,14 @@ export const electionApi = {
    */
   async verifyVote(electionId, verificationData) {
     try {
-      const response = await fetch('/api/verify-vote', {
+      return await apiRequest('/verify-vote', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           election_id: electionId,
           tracking_code: verificationData.tracking_code,
           hash_code: verificationData.hash_code
         }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error verifying vote:', error);
       throw error;
