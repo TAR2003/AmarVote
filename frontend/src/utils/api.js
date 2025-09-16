@@ -1,6 +1,9 @@
 // API utilities for making requests to the backend
 const API_BASE_URL = '/api';
 
+// Default timeout for API requests (5 minutes)
+const DEFAULT_TIMEOUT = 5 * 60 * 1000; // 300,000ms = 5 minutes
+
 // Get CSRF token from cookie
 function getCsrfToken() {
   const cookies = document.cookie.split('; ');
@@ -9,12 +12,26 @@ function getCsrfToken() {
 }
 
 /**
- * Make an authenticated API request
+ * Create a timeout promise for API requests
+ * @param {number} timeoutMs - Timeout in milliseconds
+ * @returns {Promise} Promise that rejects after timeout
+ */
+function createTimeoutPromise(timeoutMs) {
+  return new Promise((_, reject) => {
+    setTimeout(() => {
+      reject(new Error(`Request timeout after ${timeoutMs}ms`));
+    }, timeoutMs);
+  });
+}
+
+/**
+ * Make an authenticated API request with timeout support
  * @param {string} endpoint - API endpoint
  * @param {Object} options - Fetch options
+ * @param {number} timeout - Timeout in milliseconds (default: 5 minutes)
  * @returns {Promise} Response promise
  */
-export async function apiRequest(endpoint, options = {}) {
+export async function apiRequest(endpoint, options = {}, timeout = DEFAULT_TIMEOUT) {
   const url = `${API_BASE_URL}${endpoint}`;
   
   // Include CSRF token for non-GET requests
@@ -37,13 +54,18 @@ export async function apiRequest(endpoint, options = {}) {
   };
   
   try {
-    const response = await fetch(url, { ...defaultOptions, ...options });
+    // Create fetch promise with timeout
+    const fetchPromise = fetch(url, { ...defaultOptions, ...options });
+    const timeoutPromise = createTimeoutPromise(timeout);
+    
+    // Race between fetch and timeout
+    const response = await Promise.race([fetchPromise, timeoutPromise]);
     
     if (!response.ok) {
       let errorData;
       try {
         errorData = await response.json();
-      } catch (e) {
+      } catch {
         errorData = {};
       }
       

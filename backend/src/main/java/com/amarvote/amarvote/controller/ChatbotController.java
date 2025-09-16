@@ -61,10 +61,10 @@ public class ChatbotController {
     private final Map<String, ConversationSession> sessionStore = new ConcurrentHashMap<>();
 
     public ChatbotController() {
-        // Configure HttpClient with timeouts
+        // Configure HttpClient with timeouts (5 minutes for long operations)
         HttpClient httpClient = HttpClient.create()
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000)
-                .responseTimeout(java.time.Duration.ofSeconds(120));
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 300000) // 5 minutes
+                .responseTimeout(java.time.Duration.ofSeconds(300)); // 5 minutes
 
         this.webClient = WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))

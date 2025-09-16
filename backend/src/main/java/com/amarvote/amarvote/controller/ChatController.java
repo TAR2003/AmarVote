@@ -48,10 +48,10 @@ public class ChatController {
     private final WebClient webClient;
 
     public ChatController() {
-        // Configure HttpClient with timeouts
+        // Configure HttpClient with timeouts (5 minutes for long operations)
         HttpClient httpClient = HttpClient.create()
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000) // 30 seconds connect timeout
-                .responseTimeout(java.time.Duration.ofSeconds(120)); // 120 seconds response timeout
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 300000) // 5 minutes connect timeout
+                .responseTimeout(java.time.Duration.ofSeconds(300)); // 5 minutes response timeout
 
         this.webClient = WebClient.builder()
                 .clientConnector(new ReactorClientHttpConnector(httpClient))

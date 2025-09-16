@@ -1,4 +1,9 @@
 // API utility functions for election-related operations
+import { apiRequest } from './api.js';
+
+// Extended timeout for computationally intensive operations (5 minutes)
+const EXTENDED_TIMEOUT = 5 * 60 * 1000; // 300,000ms = 5 minutes
+
 export const electionApi = {
   /**
    * Fetch all elections accessible to the current user
@@ -9,20 +14,9 @@ export const electionApi = {
    */
   async getAllElections() {
     try {
-      const response = await fetch('/api/all-elections', {
+      return await apiRequest('/all-elections', {
         method: 'GET',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error fetching elections:', error);
       throw error;
@@ -34,21 +28,10 @@ export const electionApi = {
    */
   async createElection(electionData) {
     try {
-      const response = await fetch('/api/create-election', {
+      return await apiRequest('/create-election', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(electionData),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error creating election:', error);
       throw error;
@@ -96,22 +79,10 @@ export const electionApi = {
         requestBody.botDetection = botDetectionData;
       }
 
-      const response = await fetch('/api/cast-ballot', {
+      return await apiRequest('/cast-ballot', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
-      }
-
-      return data;
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error casting ballot:', error);
       throw error;
@@ -133,22 +104,10 @@ export const electionApi = {
         requestBody.botDetection = botDetectionData;
       }
 
-      const response = await fetch('/api/create-encrypted-ballot', {
+      return await apiRequest('/create-encrypted-ballot', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
-      }
-
-      return data;
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error creating encrypted ballot:', error);
       throw error;
@@ -167,22 +126,10 @@ export const electionApi = {
         ballot_tracking_code
       };
 
-      const response = await fetch('/api/cast-encrypted-ballot', {
+      return await apiRequest('/cast-encrypted-ballot', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
-      }
-
-      return data;
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error casting encrypted ballot:', error);
       throw error;
@@ -200,22 +147,10 @@ export const electionApi = {
         candidate_name
       };
 
-      const response = await fetch('/api/benaloh-challenge', {
+      return await apiRequest('/benaloh-challenge', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify(requestBody),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || `HTTP error! status: ${response.status}`);
-      }
-
-      return data;
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error performing Benaloh challenge:', error);
       throw error;
@@ -259,23 +194,12 @@ export const electionApi = {
    */
   async createTally(electionId) {
     try {
-      const response = await fetch('/api/create-tally', {
+      return await apiRequest('/create-tally', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           election_id: electionId
         }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error creating tally:', error);
       throw error;
@@ -287,24 +211,13 @@ export const electionApi = {
    */
   async submitGuardianKey(electionId, encryptedCredentials) {
     try {
-      const response = await fetch('/api/create-partial-decryption', {
+      return await apiRequest('/create-partial-decryption', {
         method: 'POST',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
         body: JSON.stringify({
           election_id: electionId,
           encrypted_data: encryptedCredentials
         }),
-      });
-
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
-
-      const data = await response.json();
-      return data;
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error submitting guardian credentials:', error);
       throw error;

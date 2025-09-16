@@ -17,6 +17,8 @@ export default defineConfig({
         target: "http://backend:8080",
         changeOrigin: true,
         secure: false,
+        timeout: 300000, // 5 minutes
+        proxyTimeout: 300000, // 5 minutes
       },
     },
   },
