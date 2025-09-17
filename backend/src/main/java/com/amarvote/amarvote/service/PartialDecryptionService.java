@@ -668,61 +668,30 @@ public class PartialDecryptionService {
                 return;
             }
             
+            // ✅ FIXED: Each guardian should calculate compensated shares for ALL other guardians
             // For each OTHER guardian, create compensated share using the current guardian
             // (who just submitted their key and whose private key we have)
             for (Guardian otherGuardian : otherGuardians) {
-                // Get all existing compensated shares for this other guardian
-                List<CompensatedDecryption> existingShares = compensatedDecryptionRepository
-                    .findByElectionIdAndMissingGuardianSequence(
+                // Check if compensated share from this specific guardian already exists
+                List<CompensatedDecryption> specificExists = compensatedDecryptionRepository
+                    .findByElectionIdAndCompensatingGuardianSequenceAndMissingGuardianSequence(
                         election.getElectionId(), 
+                        availableGuardian.getSequenceOrder(), 
                         otherGuardian.getSequenceOrder()
                     );
                 
-                boolean shouldCreateShare = false;
-                
-                if (existingShares.isEmpty()) {
-                    // No compensated share exists for this other guardian - create one
-                    shouldCreateShare = true;
-                    System.out.println("No compensated share exists for guardian " + otherGuardian.getSequenceOrder() + 
-                                     " - creating one from guardian " + availableGuardian.getSequenceOrder());
+                if (specificExists.isEmpty()) {
+                    // Create compensated share from this guardian for the other guardian
+                    createCompensatedShare(election, availableGuardian, otherGuardian, availableGuardianPrivateKey, availableGuardianPolynomial);
+                    System.out.println("✅ Created compensated share: Guardian " + availableGuardian.getSequenceOrder() + 
+                                     " compensating for Guardian " + otherGuardian.getSequenceOrder());
                 } else {
-                    // Check if current guardian has lower sequence order than existing compensating guardians
-                    int lowestExistingCompensatingSequence = existingShares.stream()
-                        .mapToInt(CompensatedDecryption::getCompensatingGuardianSequence)
-                        .min()
-                        .orElse(Integer.MAX_VALUE);
-                    
-                    if (availableGuardian.getSequenceOrder() < lowestExistingCompensatingSequence) {
-                        // Current guardian has lower sequence order - replace with its compensated share
-                        shouldCreateShare = true;
-                        System.out.println("Guardian " + availableGuardian.getSequenceOrder() + 
-                                         " has lower sequence order than existing compensating guardians (" + 
-                                         lowestExistingCompensatingSequence + ") - creating compensated share");
-                    } else {
-                        System.out.println("Compensated share already exists from guardian with lower/equal sequence order for guardian " + 
-                                         otherGuardian.getSequenceOrder() + " - skipping");
-                    }
-                }
-                
-                if (shouldCreateShare) {
-                    // Only create compensated share if it doesn't already exist from this specific guardian
-                    List<CompensatedDecryption> specificExists = compensatedDecryptionRepository
-                        .findByElectionIdAndCompensatingGuardianSequenceAndMissingGuardianSequence(
-                            election.getElectionId(), 
-                            availableGuardian.getSequenceOrder(), 
-                            otherGuardian.getSequenceOrder()
-                        );
-                    
-                    if (specificExists.isEmpty()) {
-                        createCompensatedShare(election, availableGuardian, otherGuardian, availableGuardianPrivateKey, availableGuardianPolynomial);
-                        System.out.println("Created compensated share: Guardian " + availableGuardian.getSequenceOrder() + 
-                                         " compensating for Guardian " + otherGuardian.getSequenceOrder());
-                    } else {
-                        System.out.println("Compensated share already exists: Guardian " + availableGuardian.getSequenceOrder() + 
-                                         " compensating for Guardian " + otherGuardian.getSequenceOrder());
-                    }
+                    System.out.println("⏭️ Compensated share already exists: Guardian " + availableGuardian.getSequenceOrder() + 
+                                     " compensating for Guardian " + otherGuardian.getSequenceOrder());
                 }
             }
+            
+            System.out.println("✅ Completed compensated decryption shares creation for Guardian " + availableGuardian.getSequenceOrder());
             
         } catch (Exception e) {
             System.err.println("Error creating compensated decryption shares: " + e.getMessage());
