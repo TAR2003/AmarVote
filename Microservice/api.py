@@ -1068,7 +1068,34 @@ def api_combine_decryption_shares():
         excluded_guardians = set(all_compensated_shares.keys()) - missing_guardian_ids
         if excluded_guardians:
             print(f"Excluding compensated shares for available guardians: {sorted(excluded_guardians)}")
-        
+        print(f"Before calling the combine decryption shares service")
+        # Export the normalized parsed request to the IO folder for debugging/consumption by other services
+        try:
+            export_payload = {
+                'party_names': party_names,
+                'candidate_names': candidate_names,
+                'joint_public_key': joint_public_key,
+                'commitment_hash': commitment_hash,
+                'ciphertext_tally': ciphertext_tally_json,
+                'submitted_ballots': submitted_ballots_json,
+                'guardian_data': guardian_data,
+                'available_guardian_shares': available_guardian_shares,
+                'filtered_compensated_shares': filtered_compensated_shares,
+                'quorum': quorum,
+                'number_of_guardians': number_of_guardians,
+                'available_guardian_ids': list(available_guardian_ids),
+                'missing_guardian_ids': list(missing_guardian_ids)
+            }
+            # Write into the Microservice/io folder relative to this file
+            base_dir = os.path.dirname(os.path.realpath(__file__))
+            io_dir = os.path.join(base_dir, 'io')
+            os.makedirs(io_dir, exist_ok=True)
+            export_path = os.path.join(io_dir, 'combine_decryption_shares_export.json')
+            with open(export_path, 'w', encoding='utf-8') as ef:
+                json.dump(export_payload, ef, ensure_ascii=False, indent=2)
+            print(f"Exported combine_decryption_shares request to {export_path}")
+        except Exception as export_err:
+            print(f"Warning: Failed to export combine_decryption_shares request: {export_err}")
         # Call service function
         results = combine_decryption_shares_service(
             party_names,
@@ -1086,6 +1113,8 @@ def api_combine_decryption_shares():
             generate_ballot_hash,
             generate_ballot_hash_electionguard
         )
+        print('After the results have come in hands')
+
         
         # Format response - ensure all nested dicts are serialized to strings
         response = {
