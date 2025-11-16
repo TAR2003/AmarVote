@@ -1,3 +1,5 @@
+version: "3.9"
+
 services:
   backend:
     build:
@@ -8,7 +10,6 @@ services:
     expose:
       - "8080"
     environment:
-      # Use Docker bridge gateway to reach host
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${NEON_HOST}:${NEON_PORT}/${NEON_DATABASE}
       - SPRING_DATASOURCE_USERNAME=${NEON_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${NEON_PASSWORD}
@@ -40,8 +41,7 @@ services:
     ports:
       - "80:80"
     networks:
-      election_net:
-        ipv4_address: 172.20.0.40
+      - election_net
     depends_on:
       - backend
 
@@ -52,8 +52,7 @@ services:
     expose:
       - "5000"
     networks:
-      election_net:
-        ipv4_address: 172.20.0.10
+      - election_net
     environment:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
@@ -65,8 +64,7 @@ services:
     expose:
       - "5001"
     networks:
-      election_net:
-        ipv4_address: 172.20.0.50
+      - election_net
     environment:
       - FLASK_ENV=production
       - FLASK_DEBUG=False
