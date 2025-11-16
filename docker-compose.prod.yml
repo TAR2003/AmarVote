@@ -5,8 +5,8 @@ services:
       dockerfile: Dockerfile.dev
     container_name: amarvote_backend
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    expose:
+      - "8080"
     environment:
       # Use Docker bridge gateway to reach host
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${NEON_HOST}:${NEON_PORT}/${NEON_DATABASE}
@@ -49,8 +49,8 @@ services:
     build: ./Microservice
     container_name: electionguard_service
     restart: unless-stopped
-    ports:
-      - "5000:5000"
+    expose:
+      - "5000"
     networks:
       election_net:
         ipv4_address: 172.20.0.10
@@ -62,8 +62,8 @@ services:
     build: ./rag-service
     container_name: rag_service
     restart: unless-stopped
-    ports:
-      - "5001:5001"
+    expose:
+      - "5001"
     networks:
       election_net:
         ipv4_address: 172.20.0.50
