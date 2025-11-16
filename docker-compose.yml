@@ -43,7 +43,6 @@ services:
     volumes:
       - ./frontend:/app
       - /app/node_modules
-      - ./frontend/certs:/app/certs
 
   electionguard:
     build: ./Microservice
