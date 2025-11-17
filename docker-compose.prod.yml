@@ -56,6 +56,17 @@ services:
     environment:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
+      # Tells the image's Gunicorn runner to use these args if it reads this var
+      - GUNICORN_CMD_ARGS=--bind=0.0.0.0:5000 --workers=2 --timeout=3600 --worker-class=gevent --worker-connections=1000
+    # optional: if the Docker image doesn't use GUNICORN_CMD_ARGS, force the command:
+    command: >
+      gunicorn api:app
+      --bind 0.0.0.0:5000
+      --workers 2
+      --timeout 3600
+      --worker-class gevent
+      --worker-connections 1000
+
 
   rag-service:
     build: ./rag-service
