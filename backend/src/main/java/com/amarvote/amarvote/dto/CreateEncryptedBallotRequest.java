@@ -16,4 +16,10 @@ public class CreateEncryptedBallotRequest {
     private Long electionId;
     private String selectedCandidate;
     private BotDetectionData botDetection;
+    
+    /**
+     * Padding field to ensure constant packet size regardless of candidate name length.
+     * This prevents traffic analysis attacks that could infer voting patterns from packet sizes.
+     */
+    private String padding;
 }

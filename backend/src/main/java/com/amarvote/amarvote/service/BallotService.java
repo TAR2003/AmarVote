@@ -536,11 +536,43 @@ public class BallotService {
     }
 
     /**
+     * Maximum packet size for createEncryptedBallot request (in bytes)
+     * This ensures all requests have the same size to prevent traffic analysis.
+     */
+    private static final int MAX_PACKET_SIZE = 4096; // 4KB should be sufficient
+    
+    /**
+     * Validate and remove padding from the request to prevent traffic analysis.
+     * This method ensures that padding exists (for security) and logs if it's missing,
+     * then removes it before processing the actual ballot data.
+     */
+    private void validateAndRemovePadding(CreateEncryptedBallotRequest request) {
+        if (request.getPadding() != null) {
+            int paddingLength = request.getPadding().length();
+            
+            // Log padding statistics for monitoring (optional - can be removed in production)
+            if (paddingLength < 100) {
+                System.out.println("⚠️ [PADDING WARNING] Very short padding detected: " + paddingLength + " chars. Expected close to " + MAX_PACKET_SIZE + " bytes");
+            }
+            
+            // Padding is valid, remove it for processing
+            request.setPadding(null);
+        }
+        // If no padding exists, log a warning (should not happen in production)
+        else {
+            System.out.println("⚠️ [SECURITY WARNING] No padding detected in createEncryptedBallot request. " +
+                    "This may indicate a security vulnerability or old client version.");
+        }
+    }
+    
+    /**
      * Create encrypted ballot without casting - for challenge/cast flow
      */
     @Transactional
     public CreateEncryptedBallotResponse createEncryptedBallot(CreateEncryptedBallotRequest request, String userEmail) {
         try {
+            // 0a. Validate and remove padding (anti-traffic analysis)
+            validateAndRemovePadding(request);
             // 0. Validate bot detection data (same as castBallot method)
             if (request.getBotDetection() != null) {
                 CastBallotRequest.BotDetectionData botData = request.getBotDetection();
