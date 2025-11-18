@@ -6,6 +6,7 @@ import java.util.List;
 import java.util.Map;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -45,6 +46,8 @@ import com.amarvote.amarvote.service.CloudinaryService;
 import com.amarvote.amarvote.service.ElectionService;
 import com.amarvote.amarvote.service.PartialDecryptionService;
 import com.amarvote.amarvote.service.TallyService;
+import com.amarvote.amarvote.util.BallotPaddingUtil;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
@@ -60,6 +63,7 @@ public class ElectionController {
     private final PartialDecryptionService partialDecryptionService;
     private final BlockchainService blockchainService;
     private final CloudinaryService cloudinaryService;
+    private final ObjectMapper objectMapper;
 
     @PostMapping("/create-election")
     public ResponseEntity<Election> createElection(
@@ -213,15 +217,16 @@ public class ElectionController {
         }
     }
 
-    @PostMapping(value = "/create-encrypted-ballot", consumes = "application/json", produces = "application/json")
+    @PostMapping(value = "/create-encrypted-ballot", 
+                 consumes = MediaType.APPLICATION_OCTET_STREAM_VALUE,
+                 produces = MediaType.APPLICATION_JSON_VALUE)
     public ResponseEntity<CreateEncryptedBallotResponse> createEncryptedBallot(
-            @Valid @RequestBody CreateEncryptedBallotRequest request,
+            @RequestBody byte[] paddedData,
             HttpServletRequest httpRequest) {
 
         // Get user email from request attributes (set by JWTFilter)
         String userEmail = (String) httpRequest.getAttribute("userEmail");
-        System.out.println("Creating encrypted ballot for election ID: " + request.getElectionId() + " by user: " + userEmail);
-
+        
         // Alternative: Get user email from Spring Security context
         if (userEmail == null) {
             Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
@@ -239,14 +244,51 @@ public class ElectionController {
         }
 
         try {
+            // Log received payload size for security monitoring
+            System.out.println("🔒 [SECURE BALLOT] Received fixed-size payload: " + paddedData.length + " bytes");
+            
+            // Validate payload size matches expected constant size
+            if (!BallotPaddingUtil.validateSize(paddedData, BallotPaddingUtil.TARGET_SIZE)) {
+                System.out.println("⚠️ [SECURE BALLOT] WARNING: Payload size mismatch - potential security issue");
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(CreateEncryptedBallotResponse.builder()
+                                .success(false)
+                                .message("Invalid payload size")
+                                .build());
+            }
+
+            // Log padding statistics for monitoring
+            System.out.println("📊 [SECURE BALLOT] " + BallotPaddingUtil.getPaddingStats(paddedData));
+
+            // Remove PKCS#7 padding to extract original JSON payload
+            String jsonPayload = BallotPaddingUtil.parseJsonFromPaddedData(paddedData);
+            
+            System.out.println("✅ [SECURE BALLOT] Successfully extracted ballot data");
+
+            // Parse JSON to CreateEncryptedBallotRequest
+            CreateEncryptedBallotRequest request = objectMapper.readValue(jsonPayload, CreateEncryptedBallotRequest.class);
+            
+            System.out.println("Creating encrypted ballot for election ID: " + request.getElectionId() + " by user: " + userEmail);
+
+            // Process the ballot request
             CreateEncryptedBallotResponse response = ballotService.createEncryptedBallot(request, userEmail);
 
             if (response.isSuccess()) {
+                System.out.println("✅ [SECURE BALLOT] Ballot created successfully");
                 return ResponseEntity.ok(response);
             } else {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
             }
+        } catch (IllegalArgumentException e) {
+            // Padding validation errors
+            System.out.println("❌ [SECURE BALLOT] Padding validation failed: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(CreateEncryptedBallotResponse.builder()
+                            .success(false)
+                            .message("Invalid request format: " + e.getMessage())
+                            .build());
         } catch (Exception e) {
+            System.out.println("❌ [SECURE BALLOT] Internal error: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(CreateEncryptedBallotResponse.builder()
                             .success(false)

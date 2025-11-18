@@ -1,51 +1,9 @@
 // API utility functions for election-related operations
 import { apiRequest } from './api.js';
+import { prepareBallotForTransmission, TARGET_SIZE } from './ballotPadding.js';
 
 // Extended timeout for computationally intensive operations (5 minutes)
 const EXTENDED_TIMEOUT = 5 * 60 * 1000; // 300,000ms = 5 minutes
-
-/**
- * Target packet size for createEncryptedBallot requests (in bytes)
- * This ensures all requests have the same size to prevent traffic analysis attacks
- * that could infer voting patterns from packet size variations.
- */
-const TARGET_PACKET_SIZE = 4096; // 4KB
-
-/**
- * Add deterministic padding to ensure constant packet size
- * Prevents traffic analysis attacks by making all createEncryptedBallot requests
- * the same size regardless of candidate name length.
- * 
- * @param {Object} requestBody - The original request body
- * @returns {Object} - Request body with padding added
- */
-function addConstantSizePadding(requestBody) {
-  // Serialize the original request to measure its size
-  const originalJson = JSON.stringify(requestBody);
-  const originalSize = new Blob([originalJson]).size;
-  
-  // Calculate how much padding we need
-  // We need to account for the padding field itself in JSON: ,"padding":"..."
-  const paddingFieldOverhead = ',"padding":""'.length;
-  const availableSpace = TARGET_PACKET_SIZE - originalSize - paddingFieldOverhead;
-  
-  if (availableSpace <= 0) {
-    console.warn('⚠️ Request size exceeds target packet size, using minimal padding');
-    // Use a small padding to maintain consistent structure
-    requestBody.padding = 'X'.repeat(10);
-  } else {
-    // Generate deterministic padding using a repeating pattern
-    // Using 'X' for better compression resistance than spaces
-    requestBody.padding = 'X'.repeat(availableSpace);
-  }
-  
-  // Log the final size for debugging (remove in production)
-  const finalJson = JSON.stringify(requestBody);
-  const finalSize = new Blob([finalJson]).size;
-  console.log(`📦 [PACKET PADDING] Original: ${originalSize}B, Final: ${finalSize}B, Target: ${TARGET_PACKET_SIZE}B`);
-  
-  return requestBody;
-}
 
 export const electionApi = {
   /**
@@ -123,6 +81,7 @@ export const electionApi = {
 
   /**
    * Create an encrypted ballot without casting it
+   * Uses PKCS#7 padding to ensure constant packet size (17520 bytes)
    */
   async createEncryptedBallot(electionId, choiceId, optionTitle, botDetectionData = null) {
     try {
@@ -136,15 +95,33 @@ export const electionApi = {
         requestBody.botDetection = botDetectionData;
       }
 
-      // Add padding to ensure constant packet size (anti-traffic analysis)
-      const paddedRequest = addConstantSizePadding(requestBody);
+      // Apply PKCS#7 padding to create fixed-size payload (17520 bytes)
+      const paddedPayload = prepareBallotForTransmission(requestBody, TARGET_SIZE);
 
-      return await apiRequest('/create-encrypted-ballot', {
+      console.log(`🔒 [CREATE BALLOT] Sending ${paddedPayload.length} byte fixed-size encrypted ballot`);
+
+      // Send as binary with explicit content type
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/create-encrypted-ballot`, {
         method: 'POST',
-        body: JSON.stringify(paddedRequest),
-      }, EXTENDED_TIMEOUT);
+        headers: {
+          'Content-Type': 'application/octet-stream',
+          'Content-Length': paddedPayload.length.toString(),
+          // Include auth token if available
+          ...(localStorage.getItem('token') && {
+            'Authorization': `Bearer ${localStorage.getItem('token')}`
+          })
+        },
+        body: paddedPayload,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`HTTP ${response.status}: ${errorText}`);
+      }
+
+      return await response.json();
     } catch (error) {
-      console.error('Error creating encrypted ballot:', error);
+      console.error('❌ [CREATE BALLOT] Error creating encrypted ballot:', error);
       throw error;
     }
   },
