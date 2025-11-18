@@ -169,6 +169,9 @@ AmarVote/
 
 ## 🚀 Quick Start Guide
 
+> **New!** 🎉 Complete automated setup with blockchain - just one command!  
+> See [AUTOMATED_SETUP.md](AUTOMATED_SETUP.md) for details.
+
 ### **Prerequisites**
 
 - Docker and Docker Compose
@@ -207,24 +210,30 @@ AmarVote/
    DEEPSEEK_API_KEY=your-deepseek-api-key
    ```
 
-3. **Start Core Services (Development)**
+3. **🚀 Start Everything with One Command**
 
    ```bash
-   # Start core services (frontend, backend, electionguard)
-   docker-compose up -d
+   # Automated setup - builds everything including blockchain!
+   docker-compose up --build
+   ```
+   
+   This single command automatically:
+   - ✅ Builds all Docker images
+   - ✅ Generates Hyperledger Fabric crypto materials
+   - ✅ Deploys blockchain network and chaincode
+   - ✅ Starts all services (frontend, backend, blockchain, databases)
+   - ✅ Initializes blockchain API with admin enrollment
+   
+   **No additional commands needed!** See [AUTOMATED_SETUP.md](AUTOMATED_SETUP.md) for details.
+
+4. **Alternative: Start Core Services Only (Without Blockchain)**
+
+   ```bash
+   # Start only frontend, backend, electionguard (no blockchain)
+   docker-compose up -d frontend backend electionguard
    
    # Check service status
    docker-compose ps
-   ```
-
-4. **Start All Services (Production)**
-
-   ```bash
-   # Start all services including RAG
-   docker-compose -f docker-compose.prod.yml up -d
-   
-   # Verify all services are running
-   docker-compose -f docker-compose.prod.yml ps
    ```
 
 5. **Verify Installation**
@@ -235,6 +244,9 @@ AmarVote/
    
    # Test the backend API
    curl http://localhost:8080/actuator/health
+   
+   # Test blockchain API (if started)
+   curl http://localhost:3000/api/health
    ```
 
 ### **🌐 Service Access Points**
@@ -244,10 +256,13 @@ AmarVote/
 | **Frontend**       | <http://localhost:5173> | ✅ Active    | Main user interface    |
 | **Backend API**    | <http://localhost:8080> | ✅ Active    | REST API endpoints     |
 | **ElectionGuard**  | <http://localhost:5000> | ✅ Active    | Cryptographic services |
+| **Blockchain API** | <http://localhost:3000> | ✅ Active    | Hyperledger Fabric gateway |
+| **CouchDB**        | <http://localhost:5984> | ✅ Active    | Blockchain state DB (admin/adminpw) |
 | **RAG Service**    | <http://localhost:5001> | 🏭 Prod Only | AI assistant           |
 
 **Development Notes:**
 - RAG service is enabled in production but commented out in development
+- Blockchain services automatically initialized on startup
 - All services use custom Docker bridge network (172.20.0.0/24)
 
 ---

@@ -1,0 +1,15 @@
+OrdererOrgs:
+  - Name: Orderer
+    Domain: amarvote.com
+    EnableNodeOUs: true
+    Specs:
+      - Hostname: orderer
+    
+PeerOrgs:
+  - Name: AmarVoteOrg
+    Domain: amarvote.com
+    EnableNodeOUs: true
+    Template:
+      Count: 1
+    Users:
+      Count: 1

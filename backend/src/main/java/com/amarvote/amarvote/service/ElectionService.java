@@ -72,6 +72,9 @@ public class ElectionService {
     @Autowired
     private CompensatedDecryptionRepository compensatedDecryptionRepository;
 
+    @Autowired
+    private com.amarvote.blockchain.service.BlockchainService blockchainService;
+
     @Transactional
     public Election createElection(ElectionCreationRequest request, String jwtToken, String userEmail) {
         // Log the received token and email
@@ -259,6 +262,21 @@ public class ElectionService {
                     .build();
 
             guardianRepository.save(guardian);
+
+            // Log guardian key submission to blockchain
+            try {
+                // Create hash of public key for blockchain logging
+                String publicKeyHash = String.valueOf(guardianPublicKeys.get(i).hashCode());
+                blockchainService.logGuardianKeySubmitted(
+                    String.valueOf(election.getElectionId()),
+                    email,
+                    "guardian-" + (i + 1),
+                    publicKeyHash
+                );
+                System.out.println("✅ Guardian key submission logged to blockchain for " + email);
+            } catch (Exception e) {
+                System.err.println("⚠️ Failed to log guardian key to blockchain: " + e.getMessage());
+            }
         }
 
         System.out.println("Guardians saved successfully.");
@@ -309,6 +327,21 @@ public class ElectionService {
             System.out.println("Allowed voters saved successfully for listed election.");
         } else {
             System.out.println("No voters saved - election eligibility is 'unlisted' or no voter emails provided.");
+        }
+
+        // Log election creation to blockchain
+        try {
+            blockchainService.logElectionCreated(
+                String.valueOf(election.getElectionId()),
+                election.getElectionTitle(),
+                userEmail,
+                election.getStartingTime().toString(),
+                election.getEndingTime().toString()
+            );
+            System.out.println("✅ Election creation logged to blockchain");
+        } catch (Exception e) {
+            System.err.println("⚠️ Failed to log election creation to blockchain: " + e.getMessage());
+            // Don't fail the election creation if blockchain logging fails
         }
 
         return election;

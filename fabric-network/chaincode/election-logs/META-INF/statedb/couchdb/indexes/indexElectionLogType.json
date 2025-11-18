@@ -1,0 +1,8 @@
+{
+  "index": {
+    "fields": ["electionId", "logType", "timestamp"]
+  },
+  "ddoc": "indexElectionLogTypeDoc",
+  "name": "indexElectionLogType",
+  "type": "json"
+}

@@ -71,6 +71,9 @@ public class BallotService {
     @Autowired
     private ObjectMapper objectMapper;
 
+    @Autowired
+    private com.amarvote.blockchain.service.BlockchainService blockchainService;
+
     @Transactional
     public CastBallotResponse castBallot(CastBallotRequest request, String userEmail) {
         try {
@@ -703,7 +706,21 @@ public class BallotService {
                         .build();
             }
 
-            // 10. Return encrypted ballot details (do not save to database yet)
+            // 10. Log encrypted ballot creation to blockchain
+            try {
+                blockchainService.logEncryptedBallotCreated(
+                    String.valueOf(election.getElectionId()),
+                    ballotHashId,
+                    guardResponse.getBallot_hash(),
+                    userEmail
+                );
+                System.out.println("✅ Encrypted ballot creation logged to blockchain");
+            } catch (Exception e) {
+                System.err.println("⚠️ Failed to log encrypted ballot to blockchain: " + e.getMessage());
+                // Don't fail ballot creation if blockchain logging fails
+            }
+
+            // 11. Return encrypted ballot details (do not save to database yet)
             return CreateEncryptedBallotResponse.builder()
                     .success(true)
                     .message("Encrypted ballot created successfully")
@@ -814,7 +831,21 @@ public class BallotService {
                         .build();
             }
 
-            // 6. Return challenge result
+            // 6. Log Benaloh challenge to blockchain
+            try {
+                blockchainService.logBenalohChallenge(
+                    String.valueOf(election.getElectionId()),
+                    ballotId,
+                    "N/A", // Benaloh challenge doesn't have ballot hash yet
+                    userEmail,
+                    guardResponse.isMatch()
+                );
+                System.out.println("✅ Benaloh challenge logged to blockchain");
+            } catch (Exception e) {
+                System.err.println("⚠️ Failed to log Benaloh challenge to blockchain: " + e.getMessage());
+            }
+
+            // 7. Return challenge result
             String message;
             if (guardResponse.isMatch()) {
                 message = "✅ Ballot verification successful! The encrypted ballot was created with your selected choice: " + guardResponse.getVerified_candidate();
@@ -968,7 +999,20 @@ public class BallotService {
             // 7. Update voter status
             updateVoterStatus(user.getUserId(), election);
 
-            // 8. Return success response
+            // 8. Log ballot cast to blockchain
+            try {
+                blockchainService.logBallotCast(
+                    String.valueOf(election.getElectionId()),
+                    request.getBallot_tracking_code(),
+                    request.getBallot_hash(),
+                    userEmail
+                );
+                System.out.println("✅ Ballot cast logged to blockchain");
+            } catch (Exception e) {
+                System.err.println("⚠️ Failed to log ballot cast to blockchain: " + e.getMessage());
+            }
+
+            // 9. Return success response
             return CastBallotResponse.builder()
                     .success(true)
                     .message("Ballot cast successfully")

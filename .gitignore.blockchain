@@ -1,0 +1,19 @@
+# Blockchain Network Artifacts
+fabric-network/crypto-config/
+fabric-network/channel-artifacts/
+fabric-network/bin/
+
+# Blockchain API
+blockchain-api/node_modules/
+blockchain-api/wallet/
+blockchain-api/npm-debug.log
+blockchain-api/.env
+
+# Chaincode
+fabric-network/chaincode/election-logs/node_modules/
+fabric-network/chaincode/*/package-lock.json
+
+# Generated files
+*.tar.gz
+*.block
+*.tx

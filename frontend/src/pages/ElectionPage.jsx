@@ -58,6 +58,7 @@ import 'jspdf-autotable';
 import ErrorBoundary from '../components/ErrorBoundary';
 import GuardianDataDisplay from '../components/GuardianDataDisplay';
 import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
+import BlockchainLogs from '../components/BlockchainLogs';
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -3455,6 +3456,11 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                         </p>
                       </div>
                     </div>
+                  </div>
+
+                  {/* Blockchain Audit Trail - Moved to Top */}
+                  <div className="mb-8">
+                    <BlockchainLogs electionId={id} />
                   </div>
 
                   {/* Original Cryptographic Data */}

@@ -1,0 +1,47 @@
+{
+    "name": "amarvote-network",
+    "version": "1.0.0",
+    "client": {
+        "organization": "AmarVoteOrg",
+        "connection": {
+            "timeout": {
+                "peer": {
+                    "endorser": "300"
+                },
+                "orderer": "300"
+            }
+        }
+    },
+    "channels": {
+        "electionchannel": {
+            "orderers": ["orderer.amarvote.com"],
+            "peers": {
+                "peer0.amarvote.com": {
+                    "endorsingPeer": true,
+                    "chaincodeQuery": true,
+                    "ledgerQuery": true,
+                    "eventSource": true
+                }
+            }
+        }
+    },
+    "organizations": {
+        "AmarVoteOrg": {
+            "mspid": "AmarVoteOrgMSP",
+            "peers": [
+                "peer0.amarvote.com"
+            ],
+            "certificateAuthorities": []
+        }
+    },
+    "orderers": {
+        "orderer.amarvote.com": {
+            "url": "grpc://orderer.amarvote.com:7050"
+        }
+    },
+    "peers": {
+        "peer0.amarvote.com": {
+            "url": "grpc://peer0.amarvote.com:7051"
+        }
+    }
+}
