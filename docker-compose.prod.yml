@@ -86,6 +86,20 @@ services:
       - rag_vectorstore:/app/vectorstore
 
   # Blockchain Network Components
+  
+  # Artifact Generator - Runs once to create crypto materials
+  fabric-tools:
+    image: hyperledger/fabric-tools:2.5
+    container_name: fabric-tools
+    restart: "no"
+    command: /bin/bash -c "cd /scripts && chmod +x generate-artifacts-docker.sh && ./generate-artifacts-docker.sh"
+    volumes:
+      - ./fabric-network/config:/config
+      - ./fabric-network/scripts:/scripts
+      - fabric_shared:/shared
+    networks:
+      - election_net
+
   orderer.amarvote.com:
     container_name: orderer.amarvote.com
     image: hyperledger/fabric-orderer:2.5
@@ -95,18 +109,20 @@ services:
       - ORDERER_GENERAL_LISTENADDRESS=0.0.0.0
       - ORDERER_GENERAL_LISTENPORT=7050
       - ORDERER_GENERAL_GENESISMETHOD=file
-      - ORDERER_GENERAL_GENESISFILE=/var/hyperledger/orderer/orderer.genesis.block
+      - ORDERER_GENERAL_GENESISFILE=/shared/channel-artifacts/genesis.block
       - ORDERER_GENERAL_LOCALMSPID=OrdererMSP
-      - ORDERER_GENERAL_LOCALMSPDIR=/var/hyperledger/orderer/msp
+      - ORDERER_GENERAL_LOCALMSPDIR=/shared/crypto-config/ordererOrganizations/amarvote.com/orderers/orderer.amarvote.com/msp
       - ORDERER_GENERAL_TLS_ENABLED=false
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric
-    command: orderer
+    command: sh -c "sleep 10 && orderer"
     volumes:
-      - ./fabric-network/channel-artifacts/genesis.block:/var/hyperledger/orderer/orderer.genesis.block
-      - ./fabric-network/crypto-config/ordererOrganizations/amarvote.com/orderers/orderer.amarvote.com/msp:/var/hyperledger/orderer/msp
+      - /var/run/:/host/var/run/
+      - fabric_shared:/shared:ro
       - orderer_data:/var/hyperledger/production/orderer
     expose:
       - "7050"
+    depends_on:
+      - fabric-tools
     networks:
       - election_net
 
@@ -130,15 +146,16 @@ services:
       - CORE_PEER_GOSSIP_BOOTSTRAP=peer0.amarvote.com:7051
       - CORE_PEER_GOSSIP_EXTERNALENDPOINT=peer0.amarvote.com:7051
       - CORE_PEER_LOCALMSPID=AmarVoteOrgMSP
+      - CORE_PEER_MSPCONFIGPATH=/shared/crypto-config/peerOrganizations/amarvote.com/peers/peer0.amarvote.com/msp
       - CORE_LEDGER_STATE_STATEDATABASE=CouchDB
       - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb:5984
       - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
-    command: peer node start
+    command: sh -c "sleep 15 && peer node start"
     volumes:
       - /var/run/:/host/var/run/
-      - ./fabric-network/crypto-config/peerOrganizations/amarvote.com/peers/peer0.amarvote.com/msp:/etc/hyperledger/fabric/msp
+      - fabric_shared:/shared:ro
       - peer_data:/var/hyperledger/production
     expose:
       - "7051"
@@ -146,6 +163,7 @@ services:
     depends_on:
       - orderer.amarvote.com
       - couchdb
+      - fabric-tools
     networks:
       - election_net
 
@@ -163,6 +181,36 @@ services:
     networks:
       - election_net
 
+  cli:
+    container_name: cli
+    image: hyperledger/fabric-tools:2.5
+    restart: unless-stopped
+    tty: true
+    stdin_open: true
+    environment:
+      - GOPATH=/opt/gopath
+      - CORE_VM_ENDPOINT=unix:///host/var/run/docker.sock
+      - FABRIC_LOGGING_SPEC=INFO
+      - CORE_PEER_ID=cli
+      - CORE_PEER_ADDRESS=peer0.amarvote.com:7051
+      - CORE_PEER_LOCALMSPID=AmarVoteOrgMSP
+      - CORE_PEER_TLS_ENABLED=false
+      - CORE_PEER_MSPCONFIGPATH=/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp
+    working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
+    command: sh -c "sleep 30 && cd /opt/gopath/src/github.com/hyperledger/fabric/peer/scripts && chmod +x auto-setup.sh && ./auto-setup.sh && tail -f /dev/null"
+    volumes:
+      - /var/run/:/host/var/run/
+      - ./fabric-network/chaincode/:/opt/gopath/src/github.com/chaincode
+      - fabric_shared:/shared
+      - ./fabric-network/scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+    depends_on:
+      - orderer.amarvote.com
+      - peer0.amarvote.com
+      - couchdb
+      - fabric-tools
+    networks:
+      - election_net
+
   blockchain-api:
     build: ./blockchain-api
     container_name: blockchain_api
@@ -173,10 +221,11 @@ services:
       - PORT=3000
       - NODE_ENV=production
     volumes:
-      - ./fabric-network/crypto-config:/app/crypto-config
+      - fabric_shared:/shared:ro
     depends_on:
       - peer0.amarvote.com
       - orderer.amarvote.com
+      - cli
     networks:
       - election_net
 
@@ -186,8 +235,9 @@ volumes:
   orderer_data:
   peer_data:
   couchdb_data:
+  fabric_shared:
 
 networks:
   election_net:
-    external: true
+    driver: bridge
     name: amarvote_election_net
