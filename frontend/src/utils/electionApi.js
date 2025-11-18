@@ -1,5 +1,5 @@
 // API utility functions for election-related operations
-import { apiRequest } from './api.js';
+import { apiRequest, apiBinaryRequest } from './api.js';
 import { prepareBallotForTransmission, TARGET_SIZE } from './ballotPadding.js';
 
 // Extended timeout for computationally intensive operations (5 minutes)
@@ -100,26 +100,8 @@ export const electionApi = {
 
       console.log(`🔒 [CREATE BALLOT] Sending ${paddedPayload.length} byte fixed-size encrypted ballot`);
 
-      // Send as binary with explicit content type
-      const response = await fetch(`${import.meta.env.VITE_API_URL}/create-encrypted-ballot`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/octet-stream',
-          'Content-Length': paddedPayload.length.toString(),
-          // Include auth token if available
-          ...(localStorage.getItem('token') && {
-            'Authorization': `Bearer ${localStorage.getItem('token')}`
-          })
-        },
-        body: paddedPayload,
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        throw new Error(`HTTP ${response.status}: ${errorText}`);
-      }
-
-      return await response.json();
+      // Use the standard apiBinaryRequest helper (follows same pattern as other API calls)
+      return await apiBinaryRequest('/create-encrypted-ballot', paddedPayload, 'application/octet-stream', EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('❌ [CREATE BALLOT] Error creating encrypted ballot:', error);
       throw error;

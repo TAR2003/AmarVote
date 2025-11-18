@@ -85,6 +85,67 @@ export async function apiRequest(endpoint, options = {}, timeout = DEFAULT_TIMEO
 }
 
 /**
+ * Make an authenticated binary API request with timeout support
+ * Used for sending binary payloads (e.g., padded encrypted ballots)
+ * @param {string} endpoint - API endpoint
+ * @param {ArrayBuffer|Uint8Array} binaryData - Binary data to send
+ * @param {string} contentType - Content-Type header (e.g., 'application/octet-stream')
+ * @param {number} timeout - Timeout in milliseconds (default: 5 minutes)
+ * @returns {Promise} Response promise
+ */
+export async function apiBinaryRequest(endpoint, binaryData, contentType = 'application/octet-stream', timeout = DEFAULT_TIMEOUT) {
+  const url = `${API_BASE_URL}${endpoint}`;
+  
+  // Include CSRF token and authentication headers
+  const headers = {
+    'Content-Type': contentType,
+  };
+  
+  const csrfToken = getCsrfToken();
+  if (csrfToken) {
+    headers['X-XSRF-TOKEN'] = csrfToken;
+  }
+  console.log(`CSRF token for ${endpoint}:`, csrfToken ? 'present' : 'missing');
+  
+  const defaultOptions = {
+    method: 'POST',
+    credentials: 'include',
+    headers,
+    body: binaryData
+  };
+  
+  try {
+    // Create fetch promise with timeout
+    const fetchPromise = fetch(url, defaultOptions);
+    const timeoutPromise = createTimeoutPromise(timeout);
+    
+    // Race between fetch and timeout
+    const response = await Promise.race([fetchPromise, timeoutPromise]);
+    
+    if (!response.ok) {
+      let errorData;
+      try {
+        errorData = await response.json();
+      } catch {
+        errorData = {};
+      }
+      
+      console.error(`API Error (${response.status}):`, errorData);
+      throw new Error(
+        errorData.message || 
+        (errorData.error && errorData.error.message) || 
+        `Request failed with status ${response.status}: ${response.statusText}`
+      );
+    }
+    
+    return response.json();
+  } catch (error) {
+    console.error(`API Binary Request failed for ${endpoint}:`, error);
+    throw error;
+  }
+}
+
+/**
  * Fetch all elections accessible to the current user
  * This returns ALL necessary election data including:
  * - Basic election info (title, description, dates)
