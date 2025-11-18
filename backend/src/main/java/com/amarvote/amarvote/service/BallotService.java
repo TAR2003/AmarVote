@@ -15,7 +15,6 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import com.amarvote.amarvote.dto.BenalohChallengeRequest;
 import com.amarvote.amarvote.dto.BenalohChallengeResponse;
-import com.amarvote.amarvote.dto.BlockchainRecordBallotResponse;
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
 import com.amarvote.amarvote.dto.CastEncryptedBallotRequest;
@@ -71,9 +70,6 @@ public class BallotService {
 
     @Autowired
     private ObjectMapper objectMapper;
-
-    @Autowired
-    private BlockchainService blockchainService;
 
     @Transactional
     public CastBallotResponse castBallot(CastBallotRequest request, String userEmail) {
@@ -251,25 +247,6 @@ public class BallotService {
                     .submissionTime(Instant.now())
                     .build();
             ballotRepository.save(ballot);
-
-            // 🔗 Record ballot on blockchain
-            try {
-                BlockchainRecordBallotResponse blockchainResponse = blockchainService.recordBallot(
-                        election.getElectionId().toString(),
-                        ballotHashId,
-                        guardResponse.getBallot_hash());
-                if (blockchainResponse.isSuccess()) {
-                    System.out.println("✅ Ballot " + ballotHashId + " successfully recorded on blockchain");
-                    System.out.println("🔗 Transaction Hash: " + blockchainResponse.getTransactionHash());
-                    System.out.println("📦 Block Number: " + blockchainResponse.getBlockNumber());
-                } else {
-                    System.err.println("⚠️ Failed to record ballot on blockchain: " + blockchainResponse.getMessage());
-                    // Continue with ballot casting even if blockchain fails
-                }
-            } catch (Exception e) {
-                System.err.println("⚠️ Error calling blockchain service: " + e.getMessage());
-                // Continue with ballot casting even if blockchain fails
-            }
 
             // 11. Update voter status
             updateVoterStatus(user.getUserId(), election);
@@ -988,27 +965,10 @@ public class BallotService {
                     .build();
             ballotRepository.save(ballot);
 
-            // 7. Record ballot on blockchain
-            try {
-                BlockchainRecordBallotResponse blockchainResponse = blockchainService.recordBallot(
-                        election.getElectionId().toString(),
-                        request.getBallot_tracking_code(),
-                        request.getBallot_hash());
-                if (blockchainResponse.isSuccess()) {
-                    System.out.println("✅ Ballot " + request.getBallot_tracking_code() + " successfully recorded on blockchain");
-                    System.out.println("🔗 Transaction Hash: " + blockchainResponse.getTransactionHash());
-                    System.out.println("📦 Block Number: " + blockchainResponse.getBlockNumber());
-                } else {
-                    System.err.println("⚠️ Failed to record ballot on blockchain: " + blockchainResponse.getMessage());
-                }
-            } catch (Exception e) {
-                System.err.println("⚠️ Error calling blockchain service: " + e.getMessage());
-            }
-
-            // 8. Update voter status
+            // 7. Update voter status
             updateVoterStatus(user.getUserId(), election);
 
-            // 9. Return success response
+            // 8. Return success response
             return CastBallotResponse.builder()
                     .success(true)
                     .message("Ballot cast successfully")

@@ -7,14 +7,13 @@
 
 AmarVote is a next-generation secure voting platform built with a microservices
 architecture using containerized services. The system integrates multiple 
-technologies for end-to-end verifiable voting with blockchain audit trails,
+technologies for end-to-end verifiable voting,
 AI-powered assistance, and post-quantum cryptography.
 
 CORE ARCHITECTURE:
 - Frontend: React 19.1.0 with Vite build system
 - Backend: Spring Boot 3.5.0 with Java 21
 - ElectionGuard Service: Python 3.12 with cryptographic operations
-- Blockchain Service: Node.js 18 with Truffle and Ganache
 - RAG Service: Python 3.12 with LangChain for AI assistance
 - Database: PostgreSQL 16 (Neon Cloud or local)
 - Containerization: Docker & Docker Compose
@@ -63,14 +62,6 @@ AmarVote/
 │   ├── requirements.txt   # Python dependencies
 │   ├── tests/            # Test suites
 │   └── api.py           # Flask application
-├── blockchain/           # Blockchain components
-│   ├── Dockerfile       # Node.js container
-│   ├── scripts/         # Deployment scripts
-│   ├── contracts/       # Solidity contracts
-│   └── migrations/      # Truffle migrations
-├── blockchain-microservice/ # Voting API
-│   ├── Dockerfile      # Flask API container
-│   └── requirements.txt # Python dependencies
 ├── rag-service/        # AI assistance service
 │   ├── Dockerfile     # Python service container
 │   ├── requirements.txt # Python dependencies
@@ -162,12 +153,6 @@ RAG Service (requirements.txt):
 - OpenAI API integration
 - FAISS for similarity search
 
-Blockchain Service (package.json):
-- Truffle framework for smart contracts
-- Web3.js for blockchain interaction
-- Ganache for local blockchain
-- Solidity compiler
-
 ===============================================================================
                          CONTAINER ARCHITECTURE
 ===============================================================================
@@ -206,17 +191,6 @@ DEVELOPMENT CONTAINERS (docker-compose.yml):
    - Volumes: Vector store persistence
    - Memory: Optimized for ML operations
 
-5. BLOCKCHAIN SERVICES:
-   - Ganache: trufflesuite/ganache:latest
-     * Port: 8545:8545
-     * Purpose: Local Ethereum blockchain
-   - Blockchain Deployer: Custom container
-     * Runs smart contract deployment
-     * Depends on Ganache availability
-   - Voting API: Custom Python Flask
-     * Port: 5002:5002
-     * Blockchain interaction service
-
 PRODUCTION CONTAINERS (docker-compose.prod.yml):
 
 1. BACKEND:
@@ -247,10 +221,6 @@ DEVELOPMENT NETWORKS:
   * Frontend: Dynamic IP  
   * ElectionGuard: 172.20.0.10
   * RAG Service: 172.20.0.50
-  
-- voting-network: Bridge network
-  * Ganache blockchain: Dynamic IP
-  * Voting services: Dynamic IP
 
 PRODUCTION NETWORKS:
 - amarvote_election_net: External network
@@ -266,8 +236,6 @@ PORT MAPPINGS:
 - 8080: Backend API
 - 5000: ElectionGuard Service
 - 5001: RAG Service
-- 5002: Blockchain API
-- 8545: Ganache Blockchain
 
 ===============================================================================
                           BUILD PROCESS
@@ -387,17 +355,10 @@ UNIT TESTING:
    python test_amarvote_rag.py
    ```
 
-4. Smart Contracts (Truffle):
-   ```bash
-   cd blockchain
-   truffle test                 # Run contract tests
-   truffle test --network development
-   ```
-
 INTEGRATION TESTING:
 1. API Integration:
    ```bash
-   # Test blockchain API
+   # Test API integration
    python test_api.py
    
    # Test full system integration
@@ -421,9 +382,6 @@ PERFORMANCE TESTING:
    ```bash
    # Load test voting process
    ./scripts/load_test.sh 1000  # 1000 concurrent votes
-   
-   # Stress test blockchain
-   ./scripts/blockchain_stress_test.sh
    ```
 
 2. Security Testing:
@@ -575,7 +533,6 @@ LOCAL DEVELOPMENT DEPLOYMENT:
    - Backend: http://localhost:8080
    - ElectionGuard: http://localhost:5000
    - RAG Service: http://localhost:5001
-   - Blockchain: http://localhost:5002
 
 3. Development Tools:
    ```bash
@@ -708,11 +665,6 @@ HEALTH CHECK ENDPOINTS:
    - Response: AI service status
    - Includes: Vector store connectivity
 
-4. Blockchain Health:
-   - URL: http://localhost:5002/health
-   - Response: Blockchain connectivity
-   - Includes: Smart contract status
-
 DOCKER HEALTH CHECKS:
 Containers include built-in health monitoring:
 ```dockerfile
@@ -771,7 +723,6 @@ SECURITY LAYERS:
 3. CRYPTOGRAPHIC SECURITY:
    - ElectionGuard end-to-end verification
    - Post-quantum cryptography (pqcrypto)
-   - Blockchain immutable audit trail
    - Zero-knowledge proofs
 
 4. CONTAINER SECURITY:
@@ -917,9 +868,6 @@ DATA BACKUP:
    ```bash
    # Backup environment configuration
    tar czf config_backup.tar.gz .env docker-compose*.yml
-   
-   # Backup blockchain artifacts
-   tar czf blockchain_backup.tar.gz blockchain/build/
    ```
 
 DISASTER RECOVERY:

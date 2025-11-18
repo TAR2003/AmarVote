@@ -7,7 +7,7 @@
 [![ElectionGuard](https://img.shields.io/badge/ElectionGuard-Enabled-purple.svg)](https://github.com/microsoft/electionguard)
 [![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED.svg)](https://www.docker.com/)
 
-AmarVote is a cryptographically secure, end-to-end verifiable voting platform that combines **ElectionGuard technology**, **blockchain verification**, and **post-quantum cryptography** to deliver a secure digital voting experience.
+AmarVote is a cryptographically secure, end-to-end verifiable voting platform that combines **ElectionGuard technology** and **post-quantum cryptography** to deliver a secure digital voting experience.
 
 **Youtube Demonstration Links:**
 - 🎥 **Platform Features**: https://youtu.be/ixsvvl_7qVo
@@ -23,11 +23,7 @@ AmarVote is a cryptographically secure, end-to-end verifiable voting platform th
 - **Zero-Knowledge Proofs**: Mathematical verification using Chaum-Pedersen and Schnorr proofs
 - **Threshold Decryption**: Quorum-based guardian key management with backup compensation
 
-### 🔗 **Blockchain Verification**
-- **Immutable Audit Trail**: Ballot verification using local blockchain (Ganache)
-- **Smart Contract Security**: Solidity contracts for tamper-proof ballot verification
-- **Public Verification**: Anyone can verify ballot authenticity via blockchain API
-- **Timestamped Records**: All ballots include cryptographic timestamps
+
 
 ### 🛡️ **Advanced Security Features**
 - **Bot Detection**: FingerprintJS-powered anti-fraud protection during vote casting
@@ -62,17 +58,17 @@ AmarVote is a cryptographically secure, end-to-end verifiable voting platform th
 │   (Port 5173)   │◄──►│  Backend         │◄──►│  Microservice       │
 │                 │    │  (Port 8080)     │    │  (Port 5000)        │
 └─────────────────┘    └──────────────────┘    └─────────────────────┘
-                     /           │                        │
-                    /            │                        │
-                   ▼             ▼                        ▼
-┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
-│   RAG Service   │    │  PostgreSQL      │    │  Blockchain API     │
-│   (Port 5001)   │    │  Database        │    │  (Optional)         │
-│   [PROD ONLY]   │    │  (Neon Cloud)    │    │  (Port 5002)        │
-└─────────────────┘    └──────────────────┘    └─────────────────────┘
+                                │                        │
+                                │                        │
+                                ▼                        ▼
+                       ┌──────────────────┐    ┌─────────────────────┐
+                       │  PostgreSQL      │    │   RAG Service       │
+                       │  Database        │    │   (Port 5001)       │
+                       │  (Neon Cloud)    │    │   [PROD ONLY]       │
+                       └──────────────────┘    └─────────────────────┘
 ```
 
-**Note**: Blockchain services and some auxiliary services are currently commented out in development but available for production deployment.
+**Note**: RAG service is enabled in production but commented out in development for resource optimization.
 
 ### **Technology Stack**
 
@@ -84,7 +80,6 @@ AmarVote is a cryptographically secure, end-to-end verifiable voting platform th
 | **Database**         | PostgreSQL             | Latest      | Data persistence (Neon Cloud)     |
 | **Cryptography**     | ElectionGuard          | Python 3.12 | Vote encryption and verification  |
 | **Post-Quantum**     | pqcrypto (ML-KEM-1024) | Latest      | Quantum-resistant encryption      |
-| **Blockchain**       | Ganache + Web3         | Latest      | Immutable audit trail (optional)  |
 | **Containerization** | Docker Compose         | Latest      | Service orchestration             |
 | **Bot Detection**    | FingerprintJS BotD     | 1.9.1       | Anti-fraud protection             |
 | **AI Assistant**     | RAG System             | Custom      | Document-based help system        |
@@ -129,18 +124,7 @@ AmarVote/
 │   ├── requirements.txt       # Python dependencies
 │   └── Dockerfile             # Service containerization
 │
-├── ⛓️ blockchain/             # Blockchain Service (Optional)
-│   ├── contracts/             # Solidity smart contracts
-│   ├── migrations/            # Deployment scripts
-│   ├── scripts/               # Utility scripts
-│   └── truffle-config.js      # Truffle configuration
-│
-├── 🔗 blockchain-microservice/ # Blockchain API Service (Optional)
-│   ├── app/                   # Flask application modules
-│   ├── wsgi.py                # WSGI entry point
-│   ├── requirements.txt       # Python dependencies
-│   └── Dockerfile             # Service containerization
-│
+
 ├── 🤖 rag-service/            # AI Assistant Service
 │   ├── app.py                 # RAG application
 │   ├── rag_processor.py       # Document processing
@@ -173,7 +157,6 @@ AmarVote/
     ├── README.md              # This file
     ├── infrastructure.txt     # Detailed technical specifications
     ├── SYSTEM_STATUS.md       # Current system status
-    ├── BlockChain.md          # Blockchain implementation details
     ├── BOT_DETECTION_IMPLEMENTATION.md # Bot detection guide
     ├── GUARDIAN_COMBINED_ENCRYPTION_IMPLEMENTATION.md
     ├── DUPLICATE_BALLOTS_FIX.md
@@ -222,9 +205,6 @@ AmarVote/
 
    # API Keys (Optional)
    DEEPSEEK_API_KEY=your-deepseek-api-key
-   
-   # Blockchain Configuration (Optional - for blockchain features)
-   VOTING_API_URL=http://voting-api:5002
    ```
 
 3. **Start Core Services (Development)**
@@ -240,7 +220,7 @@ AmarVote/
 4. **Start All Services (Production)**
 
    ```bash
-   # Start all services including RAG and blockchain
+   # Start all services including RAG
    docker-compose -f docker-compose.prod.yml up -d
    
    # Verify all services are running
@@ -255,9 +235,6 @@ AmarVote/
    
    # Test the backend API
    curl http://localhost:8080/actuator/health
-   
-   # Optional: Test blockchain API (if enabled)
-   python test_api.py
    ```
 
 ### **🌐 Service Access Points**
@@ -268,11 +245,9 @@ AmarVote/
 | **Backend API**    | <http://localhost:8080> | ✅ Active    | REST API endpoints     |
 | **ElectionGuard**  | <http://localhost:5000> | ✅ Active    | Cryptographic services |
 | **RAG Service**    | <http://localhost:5001> | 🏭 Prod Only | AI assistant           |
-| **Blockchain API** | <http://localhost:5002> | ⚠️ Optional  | Blockchain operations  |
 
 **Development Notes:**
 - RAG service is enabled in production but commented out in development
-- Blockchain services are optional and can be enabled by uncommenting in docker-compose.yml
 - All services use custom Docker bridge network (172.20.0.0/24)
 
 ---
@@ -286,7 +261,6 @@ sequenceDiagram
     participant Admin as Election Admin
     participant Backend as Backend Service
     participant EG as ElectionGuard
-    participant BC as Blockchain
     participant Guardians as Guardians
 
     Admin->>Backend: Create Election Request
@@ -295,8 +269,6 @@ sequenceDiagram
     EG-->>Backend: Return Keys & Polynomials
     Backend->>Backend: Encrypt Private Keys (Post-Quantum)
     Backend->>Guardians: Send Encrypted Credentials
-    Backend->>BC: Record Election Creation
-    BC-->>Backend: Transaction Hash
     Backend-->>Admin: Election Created Successfully
 ```
 
@@ -304,8 +276,7 @@ sequenceDiagram
 1. **Election Configuration**: Admin specifies election parameters, candidates, and timeline
 2. **Guardian Setup**: System generates cryptographic keys for threshold decryption
 3. **Key Distribution**: Private keys encrypted with post-quantum cryptography and sent to guardians
-4. **Blockchain Registration**: Election metadata recorded on immutable blockchain
-5. **Public Key Publication**: Joint public key published for vote encryption
+4. **Public Key Publication**: Joint public key published for vote encryption
 
 ### **2. Voting Process**
 
@@ -315,7 +286,6 @@ sequenceDiagram
     participant Frontend as Frontend
     participant Backend as Backend Service
     participant EG as ElectionGuard
-    participant BC as Blockchain
     participant Bot as Bot Detection
 
     Voter->>Frontend: Select Candidate
@@ -324,8 +294,6 @@ sequenceDiagram
     Frontend->>Backend: Cast Vote Request
     Backend->>EG: Encrypt Ballot
     EG-->>Backend: Encrypted Ballot + Proof
-    Backend->>BC: Record Ballot Hash
-    BC-->>Backend: Transaction Receipt
     Backend-->>Frontend: Ballot Tracking Code
     Frontend-->>Voter: Vote Confirmation + Receipt
 ```
@@ -334,7 +302,7 @@ sequenceDiagram
 - **Bot Detection**: AI-powered verification ensures human voters
 - **End-to-End Encryption**: Votes encrypted immediately upon selection
 - **Zero-Knowledge Proofs**: Mathematical proof of valid vote without revealing choice
-- **Blockchain Logging**: Immutable record of ballot submission
+- **Audit Logging**: Comprehensive record of ballot submission
 - **Tracking Codes**: Unique identifiers for vote verification
 
 ### **3. Vote Tallying & Decryption**
@@ -344,7 +312,6 @@ sequenceDiagram
     participant System as System
     participant EG as ElectionGuard
     participant Guardians as Guardians
-    participant BC as Blockchain
 
     System->>EG: Aggregate Encrypted Ballots
     EG->>EG: Homomorphic Tallying
@@ -353,8 +320,6 @@ sequenceDiagram
     Guardians->>EG: Submit Private Key Shares
     EG->>EG: Combine Decryption Shares
     EG-->>System: Final Results + Proofs
-    System->>BC: Record Final Results
-    BC-->>System: Immutable Result Hash
 ```
 
 **Key Features:**
@@ -391,7 +356,7 @@ sequenceDiagram
 ┌─────────────────────────────────────────────────────────┐
 │                  Infrastructure Layer                   │
 │  • Docker Isolation  • Network Segmentation             │
-│  • Blockchain Immutability  • Database Encryption       │
+│  • Audit Logging  • Database Encryption              │
 └─────────────────────────────────────────────────────────┘
 ```
 
@@ -403,7 +368,6 @@ sequenceDiagram
 | **Guardian Keys** | Post-Quantum KEM | 1024-bit | Private key protection |
 | **Digital Signatures** | Ed25519 | 256-bit | Transaction signing |
 | **Hash Functions** | SHA3-256 | 256-bit | Data integrity |
-| **Blockchain** | ECDSA | 256-bit | Smart contract security |
 
 ### **Security Auditing**
 
@@ -421,21 +385,20 @@ sequenceDiagram
 
 Voters can verify their vote was counted through multiple methods:
 
-1. **Blockchain Verification**
-   ```bash
-   # Using ballot tracking code
-   curl -X GET "http://localhost:5002/ballot/{electionId}/{trackingCode}"
-   ```
-
-2. **File Upload Verification**
+1. **File Upload Verification**
    - Download ballot receipt after voting
    - Upload to verification portal
    - System confirms ballot inclusion in final tally
 
-3. **Public Bulletin Board**
+2. **Public Bulletin Board**
    - All encrypted ballots publicly visible
    - Cryptographic proofs available for download
    - Independent verification tools provided
+
+3. **Tracking Code Verification**
+   - Use unique ballot tracking code
+   - Verify ballot status and inclusion
+   - Confirm cryptographic proof integrity
 
 ### **Election Integrity Verification**
 
@@ -506,7 +469,6 @@ docker-compose -f docker-compose.prod.yml logs -f
 | `NEON_PASSWORD` | Database password | Required |
 | `MASTER_KEY_PQ` | Post-quantum master key | Required |
 | `JWT_SECRET` | JWT signing key | Generated |
-| `BLOCKCHAIN_NETWORK` | Blockchain network | development |
 
 ---
 
@@ -517,7 +479,7 @@ docker-compose -f docker-compose.prod.yml logs -f
 | Operation | Throughput | Latency | Notes |
 |-----------|------------|---------|-------|
 | **Vote Encryption** | 100 votes/sec | <200ms | Per service instance |
-| **Ballot Verification** | 1000 checks/sec | <50ms | Blockchain cached |
+| **Ballot Verification** | 1000 checks/sec | <50ms | Database cached |
 | **Homomorphic Tallying** | 10k votes | <30sec | Single operation |
 | **Threshold Decryption** | 5 guardians | <10sec | Network dependent |
 
@@ -615,9 +577,6 @@ python -m pytest tests/ --cov=. --cov-report=html
 # Test complete election workflow
 python test_api.py
 
-# Test blockchain integration (optional)
-cd blockchain && truffle test
-
 # System integration tests
 python integration_tests.py
 ```
@@ -696,7 +655,6 @@ docker stack deploy -c docker-stack.yml amarvote
 
 - **Database**: VM PostgreSQL
 - **Application**: On-premises containers
-- **Blockchain**: Local Ganache network
 - **CDN**: Cloud-based static asset delivery
 
 ---
@@ -825,35 +783,6 @@ POST /api/electionguard/create_partial_decryption
 }
 ```
 
-### **Blockchain APIs (Optional)**
-
-```javascript
-// Record ballot on blockchain (Backend only)
-POST /api/blockchain/record-ballot
-{
-  "electionId": "election_123",
-  "ballotData": "encrypted_ballot_data",
-  "voterHash": "hashed_voter_id",
-  "timestamp": 1647859200
-}
-
-// Verify ballot on blockchain
-GET /api/blockchain/ballot/{electionId}/{trackingCode}
-
-// Response includes blockchain verification
-{
-  "success": true,
-  "ballotFound": true,
-  "blockNumber": 42,
-  "transactionHash": "0x...",
-  "timestamp": 1647859200,
-  "verified": true
-}
-
-// Get blockchain logs for election
-GET /api/blockchain/logs/{electionId}
-```
-
 ### **RAG Assistant API (Production)**
 
 ```javascript
@@ -880,9 +809,6 @@ GET /actuator/health
 
 // ElectionGuard service health
 GET /health
-
-// Blockchain service health (if enabled)
-GET /api/blockchain/health
 ```
 
 ---
@@ -934,7 +860,7 @@ POST /api/chat/query
 | **Vote Buying**         | Anonymous voting + ZK proofs   | ✅ Implemented |
 | **Ballot Stuffing**     | Bot detection + authentication | ✅ Implemented |
 | **Man-in-the-Middle**   | End-to-end encryption          | ✅ Implemented |
-| **Database Compromise** | Encrypted storage + blockchain | ✅ Implemented |
+| **Database Compromise** | Encrypted storage + audit logs | ✅ Implemented |
 | **Quantum Attacks**     | Post-quantum cryptography      | ✅ Implemented |
 | **Insider Threats**     | Threshold cryptography         | ✅ Implemented |
 
@@ -973,8 +899,7 @@ GET /actuator/health
   "status": "UP",
   "components": {
     "database": {"status": "UP"},
-    "electionguard": {"status": "UP"},
-    "blockchain": {"status": "UP"}
+    "electionguard": {"status": "UP"}
   }
 }
 
@@ -1023,8 +948,8 @@ alerts:
 
 2. **Advanced Features**
    - [ElectionGuard Deep Dive](docs/electionguard_deep_dive.md)
-   - [Blockchain Integration](docs/blockchain_integration.md)
    - [Security Architecture](docs/security_architecture.md)
+   - [Post-Quantum Cryptography](docs/post_quantum_crypto.md)
 
 3. **Development**
    - [API Reference](docs/api.md)
@@ -1042,8 +967,8 @@ alerts:
 
 - **ElectionGuard Specification**: [Microsoft Research](https://github.com/microsoft/electionguard)
 - **Post-Quantum Cryptography**: NIST standardization efforts
-- **Blockchain Voting Security**: Academic research compilation
 - **Zero-Knowledge Proofs**: Mathematical foundations
+- **Homomorphic Encryption**: Cryptographic voting systems
 
 ---
 
@@ -1174,7 +1099,7 @@ For enterprise deployments and custom requirements:
 
 - **Encryption Speed**: 1000 ballots/minute
 - **Verification Speed**: 5000 verifications/minute  
-- **Blockchain TPS**: 1200 transactions/second
+- **Database TPS**: 1200 transactions/second
 - **Zero-Knowledge Proof**: 200ms generation time
 
 ---
@@ -1240,7 +1165,7 @@ furnished to do so, subject to the following conditions:
 
 ## 🎯 Summary
 
-AmarVote represents a cutting-edge secure voting platform that combines **ElectionGuard's cryptographic security** with modern web technologies and optional **blockchain verification**. The platform is designed to ensure both voter privacy and election integrity through mathematical proofs and transparent verification mechanisms.
+AmarVote represents a cutting-edge secure voting platform that combines **ElectionGuard's cryptographic security** with modern web technologies. The platform is designed to ensure both voter privacy and election integrity through mathematical proofs and transparent verification mechanisms.
 
 ### **Current Implementation Status**
 
@@ -1255,7 +1180,6 @@ AmarVote represents a cutting-edge secure voting platform that combines **Electi
 
 **🏭 Production-Ready Optional Features:**
 - 🤖 **RAG AI Assistant**: Document-based help system for user guidance
-- ⛓️ **Blockchain Verification**: Immutable ballot verification using Ganache and Solidity smart contracts
 - 📊 **Advanced Analytics**: Election monitoring and reporting capabilities
 
 **🎯 Key Technical Achievements:**
@@ -1269,7 +1193,7 @@ AmarVote represents a cutting-edge secure voting platform that combines **Electi
 
 The platform supports multiple deployment configurations:
 - **Development**: Core services (Frontend + Backend + ElectionGuard)
-- **Production**: Full feature set including AI assistant and blockchain verification
+- **Production**: Full feature set including AI assistant and advanced analytics
 - **Hybrid**: Configurable service selection based on requirements
 
 ### **Security & Compliance**
