@@ -253,8 +253,8 @@ services:
           export CHAINCODE_ID_NAME=election-logs_1.3:placeholder
         fi
         
-        # Start chaincode
-        exec node server.js
+        # Start chaincode using the proper start script
+        exec /app/start.sh
     networks:
       - election_net
     depends_on:
