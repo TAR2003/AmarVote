@@ -67,15 +67,6 @@ if [ "$CHANNEL_EXISTS" = false ]; then
     echo "Updating anchor peers..."
     peer channel update -o orderer.amarvote.com:7050 -c $CHANNEL_NAME -f /shared/channel-artifacts/AmarVoteOrgMSPanchors.tx 2>&1
 fi
-    echo "✓ Peer joined channel"
-else
-    echo "✗ Failed to join peer to channel"
-    exit 1
-fi
-
-# Update anchor peers
-echo "Updating anchor peers..."
-peer channel update -o orderer.amarvote.com:7050 -c $CHANNEL_NAME -f /shared/channel-artifacts/AmarVoteOrgMSPanchors.tx 2>&1
 
 # Package chaincode
 echo "Packaging chaincode..."
