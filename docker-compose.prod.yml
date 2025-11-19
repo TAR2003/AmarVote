@@ -231,6 +231,30 @@ services:
       - CHAINCODE_ID_NAME=election-logs_1.3:placeholder
     ports:
       - "9999:9999"
+    volumes:
+      - fabric_shared:/shared
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        # Wait for package ID file
+        echo "Waiting for package ID..."
+        for i in $(seq 1 60); do
+          if [ -f /shared/package_id.txt ]; then
+            export CHAINCODE_ID_NAME=$(cat /shared/package_id.txt)
+            echo "Using CHAINCODE_ID_NAME: $CHAINCODE_ID_NAME"
+            break
+          fi
+          sleep 1
+        done
+        
+        # If no package ID found, use default
+        if [ ! -f /shared/package_id.txt ]; then
+          echo "⚠️  No package ID found, using placeholder"
+          export CHAINCODE_ID_NAME=election-logs_1.3:placeholder
+        fi
+        
+        # Start chaincode
+        exec node server.js
     networks:
       - election_net
     depends_on:
