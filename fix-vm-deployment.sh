@@ -7,16 +7,6 @@ set -e
 echo "🔧 AmarVote VM Deployment Fix Script"
 echo "===================================="
 
-# Check Docker socket permissions
-echo "🔍 Checking Docker socket permissions..."
-if [ ! -w /var/run/docker.sock ]; then
-    echo "❌ Docker socket is not writable!"
-    echo "Run: sudo chmod 666 /var/run/docker.sock"
-    echo "Or run: sudo ./fix-docker-permissions.sh"
-    exit 1
-fi
-echo "✓ Docker socket is accessible"
-
 # Step 1: Stop all containers
 echo "⏹️  Stopping all containers..."
 docker-compose -f docker-compose.prod.yml down -v
