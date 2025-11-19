@@ -68,20 +68,46 @@ if [ "$CHANNEL_EXISTS" = false ]; then
     peer channel update -o orderer.amarvote.com:7050 -c $CHANNEL_NAME -f /shared/channel-artifacts/AmarVoteOrgMSPanchors.tx 2>&1
 fi
 
-# Package chaincode
-echo "Packaging chaincode..."
-peer lifecycle chaincode package election-logs.tar.gz --path /opt/gopath/src/github.com/chaincode/election-logs --lang node --label election-logs_1 2>&1
+# For external chaincode, we don't package - we just create a connection.json
+echo "Creating chaincode connection configuration..."
+
+# Wait for chaincode container to be ready
+echo "Waiting for chaincode container..."
+sleep 5
+
+# Create connection.json for external chaincode
+mkdir -p /tmp/chaincode-pkg/code
+cat > /tmp/chaincode-pkg/connection.json <<EOF
+{
+  "address": "election-logs-chaincode:9999",
+  "dial_timeout": "10s",
+  "tls_required": false
+}
+EOF
+
+# Create metadata.json
+cat > /tmp/chaincode-pkg/metadata.json <<EOF
+{
+  "type": "external",
+  "label": "election-logs_1"
+}
+EOF
+
+# Package the external chaincode
+echo "Packaging external chaincode..."
+cd /tmp
+tar czf election-logs.tar.gz -C chaincode-pkg .
 
 if [ $? -eq 0 ]; then
-    echo "✓ Chaincode packaged"
+    echo "✓ External chaincode packaged"
 else
-    echo "✗ Failed to package chaincode"
+    echo "✗ Failed to package external chaincode"
     exit 1
 fi
 
 # Install chaincode
 echo "Installing chaincode..."
-peer lifecycle chaincode install election-logs.tar.gz 2>&1
+peer lifecycle chaincode install /tmp/election-logs.tar.gz 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode installed"
@@ -92,10 +118,13 @@ fi
 
 # Get package ID
 echo "Getting chaincode package ID..."
-PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>&1 | grep election-logs_1 | awk '{print $3}' | sed 's/,$//')
+sleep 2
+PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>&1 | grep -o 'election-logs_1:[a-f0-9]*' | head -n1)
 
 if [ -z "$PACKAGE_ID" ]; then
     echo "✗ Failed to get package ID"
+    echo "Installed chaincodes:"
+    peer lifecycle chaincode queryinstalled
     exit 1
 fi
 
@@ -103,7 +132,14 @@ echo "Package ID: $PACKAGE_ID"
 
 # Approve chaincode
 echo "Approving chaincode..."
-peer lifecycle chaincode approveformyorg -o orderer.amarvote.com:7050 --channelID $CHANNEL_NAME --name election-logs --version 1.0 --package-id $PACKAGE_ID --sequence 1 2>&1
+peer lifecycle chaincode approveformyorg \
+    -o orderer.amarvote.com:7050 \
+    --channelID $CHANNEL_NAME \
+    --name election-logs \
+    --version 1.0 \
+    --package-id $PACKAGE_ID \
+    --sequence 1 \
+    --init-required 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode approved"
@@ -112,12 +148,27 @@ else
     exit 1
 fi
 
+# Check commit readiness
+echo "Checking commit readiness..."
+peer lifecycle chaincode checkcommitreadiness \
+    --channelID $CHANNEL_NAME \
+    --name election-logs \
+    --version 1.0 \
+    --sequence 1 \
+    --init-required 2>&1
+
 # Wait a bit before commit
 sleep 5
 
 # Commit chaincode
 echo "Committing chaincode..."
-peer lifecycle chaincode commit -o orderer.amarvote.com:7050 --channelID $CHANNEL_NAME --name election-logs --version 1.0 --sequence 1 2>&1
+peer lifecycle chaincode commit \
+    -o orderer.amarvote.com:7050 \
+    --channelID $CHANNEL_NAME \
+    --name election-logs \
+    --version 1.0 \
+    --sequence 1 \
+    --init-required 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode committed"
@@ -131,7 +182,12 @@ sleep 10
 
 # Initialize chaincode
 echo "Initializing chaincode..."
-peer chaincode invoke -o orderer.amarvote.com:7050 -C $CHANNEL_NAME -n election-logs -c '{"function":"initLedger","Args":[]}' 2>&1
+peer chaincode invoke \
+    -o orderer.amarvote.com:7050 \
+    -C $CHANNEL_NAME \
+    -n election-logs \
+    --isInit \
+    -c '{"function":"initLedger","Args":[]}' 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode initialized"
