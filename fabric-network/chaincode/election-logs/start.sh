@@ -13,5 +13,5 @@ export CHAINCODE_ID_NAME
 echo "CHAINCODE_SERVER_ADDRESS: $CHAINCODE_SERVER_ADDRESS"
 echo "CHAINCODE_ID_NAME: $CHAINCODE_ID_NAME"
 
-# Start the chaincode in server mode
-exec fabric-chaincode-node server --chaincode-address="$CHAINCODE_SERVER_ADDRESS" --chaincode-id="$CHAINCODE_ID_NAME"
+# Start the chaincode in server mode using npx to find the binary
+exec npx fabric-chaincode-node server --chaincode-address="$CHAINCODE_SERVER_ADDRESS" --chaincode-id="$CHAINCODE_ID_NAME"
