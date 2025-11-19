@@ -71,21 +71,21 @@ services:
       --limit-request-field_size 0
 
 
-  rag-service:
-    build: ./rag-service
-    container_name: rag_service
-    restart: unless-stopped
-    ports:
-      - "5001:5001"
-    networks:
-      - election_net
-    environment:
-      - FLASK_ENV=production
-      - FLASK_DEBUG=False
-      - RAG_SERVICE_PORT=5001
-    volumes:
-      - ./backend/src/main/resources/pdf:/app/data
-      - rag_vectorstore:/app/vectorstore
+  # rag-service:
+  #   build: ./rag-service
+  #   container_name: rag_service
+  #   restart: unless-stopped
+  #   ports:
+  #     - "5001:5001"
+  #   networks:
+  #     - election_net
+  #   environment:
+  #     - FLASK_ENV=production
+  #     - FLASK_DEBUG=False
+  #     - RAG_SERVICE_PORT=5001
+  #   volumes:
+  #     - ./backend/src/main/resources/pdf:/app/data
+  #     - rag_vectorstore:/app/vectorstore
 
   # Blockchain Network Components
   
@@ -151,16 +151,22 @@ services:
       - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb:5984
       - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
-      - CORE_CHAINCODE_MODE=dev
       - CORE_CHAINCODE_BUILDER=hyperledger/fabric-ccenv:2.5
       - CORE_CHAINCODE_GOLANG_RUNTIME=hyperledger/fabric-baseos:2.5
       - CORE_CHAINCODE_JAVA_RUNTIME=hyperledger/fabric-javaenv:2.5
       - CORE_CHAINCODE_NODE_RUNTIME=hyperledger/fabric-nodeenv:2.5
+      - CORE_CHAINCODE_EXECUTETIMEOUT=300s
+      - CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG={"peername":"peer0AmarVoteOrg"}
+      - FABRIC_CFG_PATH=/etc/hyperledger/fabric
+      - CORE_PEER_EXTERNALBUILDERS_0_NAME=ccaas_builder
+      - CORE_PEER_EXTERNALBUILDERS_0_PATH=/opt/hyperledger/ccaas_builder
+      - CORE_PEER_EXTERNALBUILDERS_0_PROPAGATEENVIRONMENT_0=CHAINCODE_AS_A_SERVICE_BUILDER_CONFIG
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
     command: sh -c "sleep 15 && peer node start"
     volumes:
       - fabric_shared:/shared:ro
       - peer_data:/var/hyperledger/production
+      - /var/run/docker.sock:/var/run/docker.sock
     ports:
       - "7051:7051"
       - "7052:7052"
@@ -201,7 +207,7 @@ services:
       - CORE_PEER_TLS_ENABLED=false
       - CORE_PEER_MSPCONFIGPATH=/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
-    command: sh -c "sleep 30 && cd /opt/gopath/src/github.com/hyperledger/fabric/peer/scripts && chmod +x auto-setup.sh && ./auto-setup.sh && tail -f /dev/null"
+    command: sh -c "sleep 45 && cd /opt/gopath/src/github.com/hyperledger/fabric/peer/scripts && chmod +x auto-setup.sh && ./auto-setup.sh && tail -f /dev/null"
     volumes:
       - ./fabric-network/chaincode/:/opt/gopath/src/github.com/chaincode
       - fabric_shared:/shared
@@ -211,6 +217,7 @@ services:
       - peer0.amarvote.com
       - couchdb
       - fabric-tools
+      - election-logs-chaincode
     networks:
       - election_net
 
@@ -220,11 +227,13 @@ services:
     restart: unless-stopped
     environment:
       - CHAINCODE_SERVER_ADDRESS=0.0.0.0:9999
-      - CHAINCODE_ID_NAME=election-logs_1:placeholder
+      - CHAINCODE_ID_NAME=election-logs_1.3:777efdcfb971f745f683b153a612ba96332abb21414c85c382a6648717c21f19
     ports:
       - "9999:9999"
     networks:
       - election_net
+    depends_on:
+      - peer0.amarvote.com
 
   blockchain-api:
     build: ./blockchain-api

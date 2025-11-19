@@ -23,15 +23,15 @@ if peer channel list 2>&1 | grep -q "electionchannel"; then
     echo "✓ Channel already exists and peer is joined"
 fi
 
-# Check if chaincode is already installed
-CHAINCODE_INSTALLED=false
-if peer lifecycle chaincode queryinstalled 2>&1 | grep -q "election-logs_1"; then
-    CHAINCODE_INSTALLED=true
-    echo "✓ Chaincode already installed"
+# Check if chaincode is already installed and committed
+CHAINCODE_COMMITTED=false
+if peer lifecycle chaincode querycommitted -C electionchannel 2>&1 | grep -q "election-logs"; then
+    CHAINCODE_COMMITTED=true
+    echo "✓ Chaincode already committed"
 fi
 
 # If both channel and chaincode exist, we're done
-if [ "$CHANNEL_EXISTS" = true ] && [ "$CHAINCODE_INSTALLED" = true ]; then
+if [ "$CHANNEL_EXISTS" = true ] && [ "$CHAINCODE_COMMITTED" = true ]; then
     echo "✓ Blockchain network already configured"
     exit 0
 fi
@@ -68,15 +68,16 @@ if [ "$CHANNEL_EXISTS" = false ]; then
     peer channel update -o orderer.amarvote.com:7050 -c $CHANNEL_NAME -f /shared/channel-artifacts/AmarVoteOrgMSPanchors.tx 2>&1
 fi
 
-# For external chaincode, we don't package - we just create a connection.json
+# For external chaincode, we package connection.json
 echo "Creating chaincode connection configuration..."
 
 # Wait for chaincode container to be ready
-echo "Waiting for chaincode container..."
-sleep 5
+echo "Waiting for chaincode container to be accessible..."
+sleep 10
+echo "✓ Proceeding with chaincode setup"
 
 # Create connection.json for external chaincode
-mkdir -p /tmp/chaincode-pkg/code
+mkdir -p /tmp/chaincode-pkg
 cat > /tmp/chaincode-pkg/connection.json <<EOF
 {
   "address": "election-logs-chaincode:9999",
@@ -85,18 +86,22 @@ cat > /tmp/chaincode-pkg/connection.json <<EOF
 }
 EOF
 
+# Package connection.json into code.tar.gz
+cd /tmp/chaincode-pkg
+tar czf code.tar.gz connection.json
+
 # Create metadata.json
 cat > /tmp/chaincode-pkg/metadata.json <<EOF
 {
   "type": "external",
-  "label": "election-logs_1"
+  "label": "election-logs_1.2"
 }
 EOF
 
 # Package the external chaincode
 echo "Packaging external chaincode..."
 cd /tmp
-tar czf election-logs.tar.gz -C chaincode-pkg .
+tar czf election-logs.tar.gz -C chaincode-pkg metadata.json code.tar.gz
 
 if [ $? -eq 0 ]; then
     echo "✓ External chaincode packaged"
@@ -138,8 +143,7 @@ peer lifecycle chaincode approveformyorg \
     --name election-logs \
     --version 1.0 \
     --package-id $PACKAGE_ID \
-    --sequence 1 \
-    --init-required 2>&1
+    --sequence 1 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode approved"
@@ -154,8 +158,7 @@ peer lifecycle chaincode checkcommitreadiness \
     --channelID $CHANNEL_NAME \
     --name election-logs \
     --version 1.0 \
-    --sequence 1 \
-    --init-required 2>&1
+    --sequence 1 2>&1
 
 # Wait a bit before commit
 sleep 5
@@ -167,8 +170,7 @@ peer lifecycle chaincode commit \
     --channelID $CHANNEL_NAME \
     --name election-logs \
     --version 1.0 \
-    --sequence 1 \
-    --init-required 2>&1
+    --sequence 1 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode committed"
@@ -180,13 +182,12 @@ fi
 # Wait for chaincode to be ready
 sleep 10
 
-# Initialize chaincode
+# Initialize chaincode (optional - only if initLedger function exists)
 echo "Initializing chaincode..."
 peer chaincode invoke \
     -o orderer.amarvote.com:7050 \
     -C $CHANNEL_NAME \
     -n election-logs \
-    --isInit \
     -c '{"function":"initLedger","Args":[]}' 2>&1
 
 if [ $? -eq 0 ]; then
