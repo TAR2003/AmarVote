@@ -16,19 +16,19 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-# Check if docker compose is installed
-if ! command -v docker compose &> /dev/null; then
-    echo -e "${RED}✗ docker compose not found${NC}"
-    echo "Please install docker compose first"
+# Check if docker-compose is installed
+if ! command -v docker-compose &> /dev/null; then
+    echo -e "${RED}✗ docker-compose not found${NC}"
+    echo "Please install docker-compose first"
     exit 1
 fi
 
-echo -e "${GREEN}✓ docker compose found${NC}"
+echo -e "${GREEN}✓ docker-compose found${NC}"
 echo ""
 
 # Stop all services
 echo -e "${YELLOW}Stopping all services...${NC}"
-docker compose -f docker compose.prod.yml down
+docker-compose -f docker-compose.prod.yml down
 echo -e "${GREEN}✓ Services stopped${NC}"
 echo ""
 
@@ -43,13 +43,13 @@ echo ""
 echo -e "${YELLOW}Rebuilding services...${NC}"
 echo "  - frontend (with fixed nginx config)"
 echo "  - blockchain-api (with fixed enrollment)"
-docker compose -f docker compose.prod.yml build frontend blockchain-api
+docker-compose -f docker-compose.prod.yml build frontend blockchain-api
 echo -e "${GREEN}✓ Services rebuilt${NC}"
 echo ""
 
 # Start all services
 echo -e "${YELLOW}Starting all services...${NC}"
-docker compose -f docker compose.prod.yml up -d
+docker-compose -f docker-compose.prod.yml up -d
 echo -e "${GREEN}✓ Services started${NC}"
 echo ""
 
