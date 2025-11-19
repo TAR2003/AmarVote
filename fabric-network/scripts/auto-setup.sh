@@ -9,13 +9,21 @@ echo "=========================================="
 echo "Waiting for Fabric components to start..."
 sleep 15
 
-# Check if artifacts already exist
-if [ -f "/shared/channel-artifacts/electionchannel.block" ]; then
-    echo "Channel already exists, skipping setup..."
-    exit 0
+# Check if channel already exists
+if peer channel list 2>&1 | grep -q "electionchannel"; then
+    echo "✓ Channel already exists and peer is joined"
+    
+    # Check if chaincode is already installed
+    if peer lifecycle chaincode queryinstalled 2>&1 | grep -q "election-logs_1"; then
+        echo "✓ Chaincode already installed"
+        echo "✓ Blockchain network already configured"
+        exit 0
+    else
+        echo "Channel exists but chaincode needs installation..."
+    fi
+else
+    echo "Setting up Fabric network from scratch..."
 fi
-
-echo "Setting up Fabric network..."
 
 # Set environment variables
 export CORE_PEER_TLS_ENABLED=false

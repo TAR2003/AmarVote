@@ -1,52 +1,88 @@
-# Cloud VM Deployment Guide
+# Cloud VM Deployment Guide - AmarVote
 
-## Files Changed
-1. **frontend/nginx.conf** - Added Authorization header forwarding
-2. **blockchain-api/enrollAdmin.js** - Enhanced error handling and validation
-3. **blockchain-api/start.sh** - Improved startup sequence and checks
-4. **blockchain-api/fabricNetwork.js** - Better logging for debugging
-5. **frontend/src/components/BlockchainLogs.jsx** - Use relative URLs instead of localhost
+## Critical Fix for "creator org unknown" Error
 
-## Deployment Steps
+The blockchain error you're experiencing is caused by a **mismatch between crypto materials and the existing channel**. When the channel was created with one set of certificates, but the blockchain-api is trying to use different certificates, Fabric rejects the access.
 
-### Step 1: Upload Files to Cloud VM
+## Quick Fix (Recommended)
 
-From your local Windows machine:
+### Step 1: Copy Files to Cloud VM
+
+From your Windows machine:
 
 ```bash
-# Upload the updated files
-scp -r blockchain-api/ ttt@192.168.30.138:~/AmarVote/
-scp -r frontend/ ttt@192.168.30.138:~/AmarVote/
-scp deploy-to-cloud.sh ttt@192.168.30.138:~/AmarVote/
+# Copy updated files
+scp -r blockchain-api/ user@your-cloud-ip:~/AmarVote/
+scp -r frontend/ user@your-cloud-ip:~/AmarVote/
+scp reset-blockchain.sh user@your-cloud-ip:~/AmarVote/
+scp deploy-full.sh user@your-cloud-ip:~/AmarVote/
 ```
 
-### Step 2: Connect to Cloud VM
+### Step 2: SSH to Cloud VM and Reset Blockchain
 
 ```bash
-ssh ttt@192.168.30.138
+ssh user@your-cloud-ip
 cd ~/AmarVote
+
+# Make scripts executable
+chmod +x reset-blockchain.sh deploy-full.sh
+
+# Reset blockchain completely (IMPORTANT!)
+./reset-blockchain.sh
 ```
 
-### Step 3: Make Deploy Script Executable
+### Step 3: Deploy with Fresh Blockchain
 
 ```bash
-chmod +x deploy-to-cloud.sh
+# Start everything fresh
+docker-compose -f docker-compose.prod.yml up -d
+
+# Wait 2-3 minutes for initialization
+sleep 180
+
+# Check blockchain-api logs
+docker logs blockchain_api -f
 ```
 
-### Step 4: Run Deployment Script
+You should see:
+```
+✓ Crypto materials found!
+✓ Successfully enrolled admin and imported to wallet
+✓ Verified admin identity in wallet
+```
+
+### Step 4: Check CLI Logs
 
 ```bash
-./deploy-to-cloud.sh
+docker logs cli -f
 ```
 
-This script will:
-- Stop all running containers
-- Clean up old blockchain data (to ensure fresh enrollment)
-- Rebuild frontend and blockchain-api with fixes
-- Start all services
-- Show service status
+You should see:
+```
+✓ Channel created
+✓ Peer joined channel
+✓ Chaincode packaged
+✓ Chaincode installed
+✓ Chaincode approved
+✓ Chaincode committed
+✓ Chaincode initialized
+✓ Blockchain network setup complete!
+```
 
-### Step 5: Monitor Blockchain API Logs
+## Files Changed to Fix Issues
+
+1. **frontend/nginx.conf** - Fixed JWT token forwarding (Authorization header)
+2. **frontend/src/components/BlockchainLogs.jsx** - Changed to relative URLs
+3. **blockchain-api/enrollAdmin.js** - Enhanced validation and error handling
+4. **blockchain-api/start.sh** - Improved startup checks
+5. **blockchain-api/fabricNetwork.js** - Better error logging
+6. **fabric-network/scripts/auto-setup.sh** - Better checking for existing setup
+7. **reset-blockchain.sh** - NEW script for complete blockchain reset
+8. **deploy-full.sh** - NEW automated deployment script
+
+## Manual Deployment (If Scripts Don't Work)
+
+### 1. Stop Everything
 
 ```bash
 docker logs blockchain_api -f
