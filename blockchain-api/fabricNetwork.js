@@ -18,15 +18,10 @@ async function getContract() {
         // Check if admin identity exists
         const identity = await wallet.get('admin');
         if (!identity) {
-            console.error('❌ Admin identity not found in wallet');
-            console.error('   Wallet path:', walletPath);
-            console.error('   Please ensure enrollAdmin.js has run successfully');
-            throw new Error('Admin identity not found in wallet - enrollment may have failed');
+            console.log('An identity for the admin user "admin" does not exist in the wallet');
+            console.log('Run the enrollAdmin.js application before retrying');
+            throw new Error('Admin identity not found in wallet');
         }
-
-        console.log('✓ Admin identity found in wallet');
-        console.log('  MSP ID:', identity.mspId);
-        console.log('  Type:', identity.type);
 
         // Create gateway
         const gateway = new Gateway();
@@ -36,18 +31,13 @@ async function getContract() {
             discovery: { enabled: false }
         });
 
-        console.log('✓ Gateway connected successfully');
-
         // Get network and contract
         const network = await gateway.getNetwork('electionchannel');
         const contract = network.getContract('election-logs');
         
-        console.log('✓ Contract acquired: election-logs on electionchannel');
-        
         return { gateway, contract };
     } catch (error) {
-        console.error(`❌ Failed to get contract: ${error.message}`);
-        console.error('   Stack:', error.stack);
+        console.error(`Failed to get contract: ${error}`);
         throw error;
     }
 }

@@ -9,6 +9,14 @@ echo "=========================================="
 echo "Waiting for Fabric components to start..."
 sleep 15
 
+# Check if artifacts already exist
+if [ -f "/shared/channel-artifacts/electionchannel.block" ]; then
+    echo "Channel already exists, skipping setup..."
+    exit 0
+fi
+
+echo "Setting up Fabric network..."
+
 # Set environment variables
 export CORE_PEER_TLS_ENABLED=false
 export CORE_PEER_LOCALMSPID="AmarVoteOrgMSP"
@@ -16,107 +24,46 @@ export CORE_PEER_ADDRESS=peer0.amarvote.com:7051
 export CORE_PEER_MSPCONFIGPATH=/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp
 export CHANNEL_NAME=electionchannel
 
-# Check if channel already exists
-CHANNEL_EXISTS=false
-if peer channel list 2>&1 | grep -q "electionchannel"; then
-    CHANNEL_EXISTS=true
-    echo "✓ Channel already exists and peer is joined"
-fi
-
-# Check if chaincode is already installed and committed
-CHAINCODE_COMMITTED=false
-if peer lifecycle chaincode querycommitted -C electionchannel 2>&1 | grep -q "election-logs" | grep -q "Version: 1.3"; then
-    CHAINCODE_COMMITTED=true
-    echo "✓ Chaincode version 1.3 already committed"
-elif peer lifecycle chaincode querycommitted -C electionchannel 2>&1 | grep -q "election-logs"; then
-    echo "⚠ Different version of chaincode exists - will upgrade to 1.3"
-    CHAINCODE_COMMITTED=false
-fi
-
-# If both channel and chaincode exist, we're done
-if [ "$CHANNEL_EXISTS" = true ] && [ "$CHAINCODE_COMMITTED" = true ]; then
-    echo "✓ Blockchain network already configured"
-    exit 0
-fi
-
-# If channel exists but chaincode doesn't, or neither exists, we need to do full setup
-echo "Setting up Fabric network..."
-
-# Only create and join channel if it doesn't exist
-if [ "$CHANNEL_EXISTS" = false ]; then
-    # Create channel
-    echo "Creating channel..."
-    peer channel create -o orderer.amarvote.com:7050 -c electionchannel -f /shared/channel-artifacts/electionchannel.tx --outputBlock /shared/channel-artifacts/electionchannel.block 2>&1
-
-    if [ $? -eq 0 ]; then
-        echo "✓ Channel created"
-    else
-        echo "✗ Failed to create channel"
-        exit 1
-    fi
-
-    # Join peer to channel
-    echo "Joining peer to channel..."
-    peer channel join -b /shared/channel-artifacts/electionchannel.block
-
-    if [ $? -eq 0 ]; then
-        echo "✓ Peer joined channel"
-    else
-        echo "✗ Failed to join peer to channel"
-        exit 1
-    fi
-
-    # Update anchor peers
-    echo "Updating anchor peers..."
-    peer channel update -o orderer.amarvote.com:7050 -c $CHANNEL_NAME -f /shared/channel-artifacts/AmarVoteOrgMSPanchors.tx 2>&1
-fi
-
-# For external chaincode, we package connection.json
-echo "Creating chaincode connection configuration..."
-
-# Wait for chaincode container to be ready
-echo "Waiting for chaincode container to be accessible..."
-sleep 10
-echo "✓ Proceeding with chaincode setup"
-
-# Create connection.json for external chaincode
-mkdir -p /tmp/chaincode-pkg
-cat > /tmp/chaincode-pkg/connection.json <<EOF
-{
-  "address": "election-logs-chaincode:9999",
-  "dial_timeout": "10s",
-  "tls_required": false
-}
-EOF
-
-# Package connection.json into code.tar.gz
-cd /tmp/chaincode-pkg
-tar czf code.tar.gz connection.json
-rm connection.json
-
-# Create metadata.json
-cat > /tmp/chaincode-pkg/metadata.json <<EOF
-{
-  "type": "ccaas",
-  "label": "election-logs_1.3"
-}
-EOF
-
-# Package the external chaincode
-echo "Packaging external chaincode..."
-cd /tmp
-tar czf election-logs.tar.gz -C chaincode-pkg metadata.json code.tar.gz
+# Create channel
+echo "Creating channel..."
+peer channel create -o orderer.amarvote.com:7050 -c electionchannel -f /shared/channel-artifacts/electionchannel.tx --outputBlock /shared/channel-artifacts/electionchannel.block 2>&1
 
 if [ $? -eq 0 ]; then
-    echo "✓ External chaincode packaged"
+    echo "✓ Channel created"
 else
-    echo "✗ Failed to package external chaincode"
+    echo "✗ Failed to create channel"
+    exit 1
+fi
+
+# Join peer to channel
+echo "Joining peer to channel..."
+peer channel join -b /shared/channel-artifacts/electionchannel.block
+
+if [ $? -eq 0 ]; then
+    echo "✓ Peer joined channel"
+else
+    echo "✗ Failed to join peer to channel"
+    exit 1
+fi
+
+# Update anchor peers
+echo "Updating anchor peers..."
+peer channel update -o orderer.amarvote.com:7050 -c $CHANNEL_NAME -f /shared/channel-artifacts/AmarVoteOrgMSPanchors.tx 2>&1
+
+# Package chaincode
+echo "Packaging chaincode..."
+peer lifecycle chaincode package election-logs.tar.gz --path /opt/gopath/src/github.com/chaincode/election-logs --lang node --label election-logs_1 2>&1
+
+if [ $? -eq 0 ]; then
+    echo "✓ Chaincode packaged"
+else
+    echo "✗ Failed to package chaincode"
     exit 1
 fi
 
 # Install chaincode
 echo "Installing chaincode..."
-peer lifecycle chaincode install /tmp/election-logs.tar.gz 2>&1
+peer lifecycle chaincode install election-logs.tar.gz 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode installed"
@@ -127,43 +74,18 @@ fi
 
 # Get package ID
 echo "Getting chaincode package ID..."
-sleep 2
-PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>&1 | grep -o 'election-logs_1\.3:[a-f0-9]*' | head -n1)
+PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>&1 | grep election-logs_1 | awk '{print $3}' | sed 's/,$//')
 
 if [ -z "$PACKAGE_ID" ]; then
     echo "✗ Failed to get package ID"
-    echo "Installed chaincodes:"
-    peer lifecycle chaincode queryinstalled
     exit 1
 fi
 
 echo "Package ID: $PACKAGE_ID"
 
-# Save package ID to shared file for chaincode container
-echo "Saving package ID to shared volume..."
-echo "$PACKAGE_ID" > /shared/package_id.txt
-chmod 644 /shared/package_id.txt
-echo "✓ Package ID saved to /shared/package_id.txt"
-
-# Create restart signal to trigger chaincode container restart
-touch /shared/restart_chaincode.signal
-echo "✓ Restart signal created"
-
-# Determine the next sequence number
-echo "Determining sequence number..."
-CURRENT_SEQUENCE=$(peer lifecycle chaincode querycommitted -C $CHANNEL_NAME 2>&1 | grep "election-logs" | grep -o 'Sequence: [0-9]*' | awk '{print $2}' || echo "0")
-NEXT_SEQUENCE=$((CURRENT_SEQUENCE + 1))
-echo "Current sequence: $CURRENT_SEQUENCE, Next sequence: $NEXT_SEQUENCE"
-
 # Approve chaincode
 echo "Approving chaincode..."
-peer lifecycle chaincode approveformyorg \
-    -o orderer.amarvote.com:7050 \
-    --channelID $CHANNEL_NAME \
-    --name election-logs \
-    --version 1.3 \
-    --package-id $PACKAGE_ID \
-    --sequence $NEXT_SEQUENCE 2>&1
+peer lifecycle chaincode approveformyorg -o orderer.amarvote.com:7050 --channelID $CHANNEL_NAME --name election-logs --version 1.0 --package-id $PACKAGE_ID --sequence 1 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode approved"
@@ -172,25 +94,12 @@ else
     exit 1
 fi
 
-# Check commit readiness
-echo "Checking commit readiness..."
-peer lifecycle chaincode checkcommitreadiness \
-    --channelID $CHANNEL_NAME \
-    --name election-logs \
-    --version 1.3 \
-    --sequence $NEXT_SEQUENCE 2>&1
-
 # Wait a bit before commit
 sleep 5
 
 # Commit chaincode
 echo "Committing chaincode..."
-peer lifecycle chaincode commit \
-    -o orderer.amarvote.com:7050 \
-    --channelID $CHANNEL_NAME \
-    --name election-logs \
-    --version 1.3 \
-    --sequence $NEXT_SEQUENCE 2>&1
+peer lifecycle chaincode commit -o orderer.amarvote.com:7050 --channelID $CHANNEL_NAME --name election-logs --version 1.0 --sequence 1 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode committed"
@@ -199,43 +108,12 @@ else
     exit 1
 fi
 
-echo ""
-echo "=========================================="
-echo "✓ Chaincode Installation Summary"
-echo "=========================================="
-echo "Package ID: $PACKAGE_ID"
-echo "Version: 1.3"
-echo "Sequence: $NEXT_SEQUENCE"
-echo "=========================================="
+# Wait for chaincode to be ready
+sleep 10
 
-# Restart chaincode container to pick up new package ID
-echo ""
-echo "Restarting chaincode container with new package ID..."
-
-# Kill the chaincode process inside the container (it will auto-restart due to restart policy)
-if command -v docker &> /dev/null; then
-    echo "Sending restart signal to chaincode container..."
-    docker exec election-logs-chaincode pkill -9 node 2>&1 || true
-    echo "✓ Chaincode restart signal sent"
-    echo "Container will restart automatically with new package ID"
-    echo "Waiting for chaincode to restart and connect..."
-    sleep 15
-else
-    echo "⚠️  Docker command not available in CLI container"
-    echo "MANUAL STEP REQUIRED: Run this on the host:"
-    echo "  sudo docker restart election-logs-chaincode"
-    echo ""
-    echo "Press Enter after restarting the chaincode container..."
-    read -t 30 || echo "Timeout - continuing anyway"
-fi
-
-# Initialize chaincode (optional - only if initLedger function exists)
+# Initialize chaincode
 echo "Initializing chaincode..."
-peer chaincode invoke \
-    -o orderer.amarvote.com:7050 \
-    -C $CHANNEL_NAME \
-    -n election-logs \
-    -c '{"function":"initLedger","Args":[]}' 2>&1
+peer chaincode invoke -o orderer.amarvote.com:7050 -C $CHANNEL_NAME -n election-logs -c '{"function":"initLedger","Args":[]}' 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode initialized"
