@@ -1,10 +1,10 @@
 # Build stage
-FROM node:20-alpine AS build
+FROM node:18-alpine AS build
 
 WORKDIR /app
 COPY package*.json ./
 # Install all dependencies including devDependencies for build
-RUN npm install --include=dev
+RUN npm ci --include=dev
 COPY . .
 # Add NODE_OPTIONS to increase memory limit
 RUN NODE_OPTIONS="--max-old-space-size=8192" npm run build

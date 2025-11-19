@@ -269,6 +269,79 @@ export const electionApi = {
   },
 
   /**
+   * Get blockchain logs for an election
+   */
+  async getBlockchainLogs(electionId) {
+    try {
+      const response = await fetch(`/api/blockchain/logs/${electionId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      // Get response text for better error handling
+      const responseText = await response.text();
+
+      if (!response.ok) {
+        // If there's an error, try to parse the response as JSON for a structured error message
+        try {
+          const errorData = JSON.parse(responseText);
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        } catch (e) {
+          // If parsing fails, throw the raw text as the error
+          throw new Error(responseText || `HTTP error! status: ${response.status}`);
+        }
+      }
+
+      // If response is OK, parse it as JSON
+      const data = JSON.parse(responseText);
+
+      if (!data.success) {
+        throw new Error(data.message || 'Operation failed');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error fetching blockchain logs:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Verify a ballot on the blockchain
+   */
+  async verifyBallotOnBlockchainAPI(electionId, trackingCode) {
+    try {
+      const response = await fetch(`/api/blockchain/ballot/${electionId}/${trackingCode}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+      const responseText = await response.text();
+      if (!response.ok) {
+        try {
+          const errorData = JSON.parse(responseText);
+          throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+        } catch (e) {
+          throw new Error(responseText || `HTTP error! status: ${response.status}`);
+        }
+      }
+      const data = JSON.parse(responseText);
+      if (!data.success) {
+        throw new Error(data.message || 'Operation failed');
+      }
+      return data;
+    } catch (error) {
+      console.error('Error verifying ballot on blockchain:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Get ballot details including cipher text by election ID and tracking code
    */
   async getBallotDetails(electionId, trackingCode) {

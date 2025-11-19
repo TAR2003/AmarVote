@@ -286,6 +286,7 @@ This padding mechanism works in conjunction with:
 2. **Benaloh Challenge:** Ballot verification without revealing choice
 3. **Bot Detection:** Prevents automated voting
 4. **JWT Authentication:** Ensures voter identity
+5. **Blockchain Recording:** Immutable audit trail
 
 ## References
 

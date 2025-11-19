@@ -14,6 +14,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 
+import com.amarvote.amarvote.dto.BlockchainElectionResponse; // Fixed: Use Spring's HttpHeaders, not Netty's
 import com.amarvote.amarvote.dto.ElectionCreationRequest;
 import com.amarvote.amarvote.dto.ElectionDetailResponse; // Added: For setting content type
 import com.amarvote.amarvote.dto.ElectionGuardianSetupRequest; // Added: For handling HTTP responses
@@ -73,7 +74,7 @@ public class ElectionService {
     private CompensatedDecryptionRepository compensatedDecryptionRepository;
 
     @Autowired
-    private com.amarvote.blockchain.service.BlockchainService blockchainService;
+    private BlockchainService blockchainService;
 
     @Transactional
     public Election createElection(ElectionCreationRequest request, String jwtToken, String userEmail) {
@@ -159,6 +160,23 @@ public class ElectionService {
 
         // ✅ Save to DB to get generated ID
         election = electionRepository.save(election);
+
+        // 🔗 Create election on blockchain
+        try {
+            BlockchainElectionResponse blockchainResponse = blockchainService
+                    .createElection(election.getElectionId().toString());
+            if (blockchainResponse.isSuccess()) {
+                System.out.println("✅ Election " + election.getElectionId() + " successfully created on blockchain");
+                System.out.println("🔗 Transaction Hash: " + blockchainResponse.getTransactionHash());
+                System.out.println("📦 Block Number: " + blockchainResponse.getBlockNumber());
+            } else {
+                System.err.println("⚠️ Failed to create election on blockchain: " + blockchainResponse.getMessage());
+                // Continue with election creation even if blockchain fails
+            }
+        } catch (Exception e) {
+            System.err.println("⚠️ Error calling blockchain service: " + e.getMessage());
+            // Continue with election creation even if blockchain fails
+        }
 
         // Validate guardian email and private key count
         List<String> guardianEmails = request.guardianEmails();
@@ -262,21 +280,6 @@ public class ElectionService {
                     .build();
 
             guardianRepository.save(guardian);
-
-            // Log guardian key submission to blockchain
-            try {
-                // Create hash of public key for blockchain logging
-                String publicKeyHash = String.valueOf(guardianPublicKeys.get(i).hashCode());
-                blockchainService.logGuardianKeySubmitted(
-                    String.valueOf(election.getElectionId()),
-                    email,
-                    "guardian-" + (i + 1),
-                    publicKeyHash
-                );
-                System.out.println("✅ Guardian key submission logged to blockchain for " + email);
-            } catch (Exception e) {
-                System.err.println("⚠️ Failed to log guardian key to blockchain: " + e.getMessage());
-            }
         }
 
         System.out.println("Guardians saved successfully.");
@@ -327,21 +330,6 @@ public class ElectionService {
             System.out.println("Allowed voters saved successfully for listed election.");
         } else {
             System.out.println("No voters saved - election eligibility is 'unlisted' or no voter emails provided.");
-        }
-
-        // Log election creation to blockchain
-        try {
-            blockchainService.logElectionCreated(
-                String.valueOf(election.getElectionId()),
-                election.getElectionTitle(),
-                userEmail,
-                election.getStartingTime().toString(),
-                election.getEndingTime().toString()
-            );
-            System.out.println("✅ Election creation logged to blockchain");
-        } catch (Exception e) {
-            System.err.println("⚠️ Failed to log election creation to blockchain: " + e.getMessage());
-            // Don't fail the election creation if blockchain logging fails
         }
 
         return election;

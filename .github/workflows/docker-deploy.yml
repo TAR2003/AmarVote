@@ -83,29 +83,20 @@ jobs:
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
               "ls -la /home/${{ secrets.AZURE_VM_USERNAME }}/app"
 
-      - name: Copy files to VM
+      - name: Copy files to VM and .env from blockchain folder
         run: |
-          scp -o StrictHostKeyChecking=no \
-            -i ~/.ssh/id_rsa \
-            -r ./* \
-            ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app/
-
-      - name: Copy .env file
-        run: |
-          # Copy .env file to app folder on the VM
-          ssh -i ~/.ssh/id_rsa \
-            -o StrictHostKeyChecking=no \
-            ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-            "echo '${{ secrets.ENV_FILE }}' > /home/${{ secrets.AZURE_VM_USERNAME }}/app/.env"
-
-      - name: Upload .env to VM
-        run: |
-          # Upload .env to VM
-          echo "${{ secrets.ENV_FILE }}" > .env
-          scp -o StrictHostKeyChecking=no \
-            -i ~/.ssh/id_rsa \
-            .env \
-            ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app/.env
+          # Copy main project files (excluding .env)
+          rsync -avz --delete \
+            --exclude='.git' \
+            --exclude='node_modules' \
+            --exclude='.env' \
+            --exclude='backend/logs' \
+            ./ ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app/
+          
+          # Copy .env file from blockchain folder to app folder on the VM
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+              "cp /home/blockchain/.env /home/${{ secrets.AZURE_VM_USERNAME }}/app/.env"
 
       - name: Verify .env file was copied
         run: |
@@ -115,10 +106,12 @@ jobs:
                echo 'First 5 lines of .env:' && \
                head -5 /home/${{ secrets.AZURE_VM_USERNAME }}/app/.env"
 
-      - name: Copy .env from secrets for Docker context
+      - name: Copy .env from VM to GitHub runner for Docker context
         run: |
-          # Copy .env file from GitHub secrets for Docker context usage
-          echo "${{ secrets.ENV_FILE }}" > ./.env
+          # Copy .env file from VM to local runner for Docker context usage
+          scp -o StrictHostKeyChecking=no \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/blockchain/.env \
+              ./.env
           
           # Verify .env file exists locally
           echo "Contents of current directory:"

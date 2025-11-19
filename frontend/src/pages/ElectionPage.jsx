@@ -58,7 +58,6 @@ import 'jspdf-autotable';
 import ErrorBoundary from '../components/ErrorBoundary';
 import GuardianDataDisplay from '../components/GuardianDataDisplay';
 import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
-import BlockchainLogs from '../components/BlockchainLogs';
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -247,6 +246,221 @@ const DataDisplay = ({ title, data, type = 'json' }) => {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
 // Ballots in Tally Section Component
+// Blockchain Verification Section Component
+const BlockchainVerificationSection = ({ electionId }) => {
+  const [blockchainLogs, setBlockchainLogs] = useState([]);
+  const [loadingLogs, setLoadingLogs] = useState(false);
+  const [logsError, setLogsError] = useState(null);
+  const [logsLoaded, setLogsLoaded] = useState(false);
+
+  const fetchBlockchainLogs = async () => {
+    if (!electionId) {
+      setLogsError('Election ID is required to fetch blockchain logs');
+      return;
+    }
+
+    setLoadingLogs(true);
+    setLogsError(null);
+
+    try {
+      // console.log('🔗 Fetching blockchain logs for election:', electionId);
+
+      // const response = await fetch(`/api/blockchain/logs/${electionId}`, {
+      //   method: 'GET',
+      //   headers: {
+      //     'Content-Type': 'application/json',
+      //   },
+      // });
+      // console.log('🔗--- Blockchain logs response:', response);
+      const data = await electionApi.getBlockchainLogs(electionId);
+
+      if (data.success) {
+        const logs = data.result?.logs || [];
+        setBlockchainLogs(logs);
+        setLogsLoaded(true);
+        toast.success(`✅ Retrieved ${logs.length} blockchain logs successfully!`);
+      } else {
+        setLogsError(data.message || 'Failed to fetch blockchain logs');
+        toast.error(`❌ Failed to fetch blockchain logs: ${data.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Blockchain logs fetch error:', error);
+      setLogsError(error.message || 'Network error while fetching blockchain logs');
+      toast.error('Network error while fetching blockchain logs');
+    } finally {
+      setLoadingLogs(false);
+    }
+  };
+
+  return (
+    <div className="bg-gradient-to-br from-purple-50 to-indigo-50 border border-purple-200 rounded-lg p-6 mb-6">
+      <div className="flex items-center justify-between mb-4">
+        <div className="flex items-center">
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full p-2 mr-3">
+            <FiShield className="h-5 w-5 text-white" />
+          </div>
+          <div>
+            <h4 className="font-medium text-gray-900">Blockchain Verification</h4>
+            <p className="text-sm text-gray-600 mt-1">
+              View election activities recorded on the blockchain for transparency and immutability
+            </p>
+          </div>
+        </div>
+
+        <button
+          onClick={fetchBlockchainLogs}
+          disabled={loadingLogs}
+          className={`flex items-center space-x-2 px-4 py-2 rounded-lg font-medium transition-all duration-200 ${loadingLogs
+              ? 'bg-gray-400 text-white cursor-not-allowed'
+              : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700 transform hover:scale-[1.02]'
+            }`}
+        >
+          {loadingLogs ? (
+            <>
+              <FiLoader className="h-4 w-4 animate-spin" />
+              <span>Loading...</span>
+            </>
+          ) : (
+            <>
+              <FiRefreshCw className="h-4 w-4" />
+              <span>{logsLoaded ? 'Refresh Logs' : 'Load Blockchain Logs'}</span>
+            </>
+          )}
+        </button>
+      </div>
+
+      {logsError && (
+        <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
+          <div className="flex items-center">
+            <FiAlertCircle className="h-5 w-5 text-red-500 mr-2" />
+            <div>
+              <h5 className="font-medium text-red-900">Error Loading Blockchain Logs</h5>
+              <p className="text-sm text-red-700 mt-1">{logsError}</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {logsLoaded && blockchainLogs.length > 0 && (
+        <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
+          <div className="bg-gray-50 px-4 py-3 border-b border-gray-200">
+            <h5 className="font-medium text-gray-900 flex items-center">
+              <FiFileText className="h-4 w-4 mr-2" />
+              Blockchain Activity Logs ({blockchainLogs.length} entries)
+            </h5>
+          </div>
+
+          <div className="max-h-96 overflow-y-auto">
+            <div className="divide-y divide-gray-200">
+              {blockchainLogs.map((log, index) => (
+                <div key={index} className="p-4 hover:bg-gray-50 transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center space-x-2 mb-2">
+                        <div className="bg-green-100 rounded-full p-1">
+                          <FiCheckCircle className="h-3 w-3 text-green-600" />
+                        </div>
+                        <span className="text-sm font-medium text-gray-900">
+                          Blockchain Event #{index + 1}
+                        </span>
+                      </div>
+                      <p className="text-sm text-gray-700 mb-2">{log.message}</p>
+                      <div className="flex items-center space-x-4 text-xs text-gray-500">
+                        <span className="flex items-center">
+                          <FiClock className="h-3 w-3 mr-1" />
+                          {log.formatted_time ? (
+                            // If formatted_time is provided, convert it from GMT to local time
+                            (() => {
+                              try {
+                                // Parse the GMT time string and convert to local time
+                                const gmtDate = new Date(log.formatted_time.replace(' UTC', ' GMT'));
+                                return new Intl.DateTimeFormat('default', {
+                                  year: 'numeric',
+                                  month: 'short',
+                                  day: '2-digit',
+                                  hour: '2-digit',
+                                  minute: '2-digit',
+                                  second: '2-digit',
+                                  timeZoneName: 'short'
+                                }).format(gmtDate);
+                              } catch (e) {
+                                // Fallback to original formatted_time if parsing fails
+                                return log.formatted_time;
+                              }
+                            })()
+                          ) : (
+                            // If no formatted_time, use timestamp and convert to local time
+                            new Intl.DateTimeFormat('default', {
+                              year: 'numeric',
+                              month: 'short',
+                              day: '2-digit',
+                              hour: '2-digit',
+                              minute: '2-digit',
+                              second: '2-digit',
+                              timeZoneName: 'short'
+                            }).format(new Date(log.timestamp * 1000))
+                          )}
+                        </span>
+                        <span className="flex items-center">
+                          <FiHash className="h-3 w-3 mr-1" />
+                          Unix: {log.timestamp}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {logsLoaded && blockchainLogs.length === 0 && (
+        <div className="text-center py-8">
+          <FiFileText className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+          <h5 className="font-medium text-gray-900 mb-2">No Blockchain Logs Found</h5>
+          <p className="text-gray-600 text-sm">
+            No blockchain activity has been recorded for this election yet.
+          </p>
+        </div>
+      )}
+
+      {!logsLoaded && !loadingLogs && (
+        <div className="text-center py-8">
+          <div className="bg-gradient-to-r from-purple-600 to-indigo-600 rounded-full p-3 w-fit mx-auto mb-3">
+            <FiShield className="h-8 w-8 text-white" />
+          </div>
+          <h5 className="font-medium text-gray-900 mb-2">Blockchain Transparency</h5>
+          <p className="text-gray-600 text-sm mb-4">
+            Click "Load Blockchain Logs" to view all election activities recorded on the blockchain.
+            This provides an immutable audit trail of all election operations.
+          </p>
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mt-6">
+            <div className="text-center">
+              <div className="bg-blue-100 rounded-full p-2 w-fit mx-auto mb-2">
+                <FiLock className="h-4 w-4 text-blue-600" />
+              </div>
+              <p className="text-xs text-gray-600 font-medium">Immutable Records</p>
+            </div>
+            <div className="text-center">
+              <div className="bg-green-100 rounded-full p-2 w-fit mx-auto mb-2">
+                <FiEye className="h-4 w-4 text-green-600" />
+              </div>
+              <p className="text-xs text-gray-600 font-medium">Full Transparency</p>
+            </div>
+            <div className="text-center">
+              <div className="bg-purple-100 rounded-full p-2 w-fit mx-auto mb-2">
+                <FiCheckCircle className="h-4 w-4 text-purple-600" />
+              </div>
+              <p className="text-xs text-gray-600 font-medium">Verifiable Audit Trail</p>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
 const BallotsInTallySection = ({ resultsData, id }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [filteredBallots, setFilteredBallots] = useState([]);
@@ -254,6 +468,57 @@ const BallotsInTallySection = ({ resultsData, id }) => {
   const [sortOrder, setSortOrder] = useState('asc'); // asc, desc
   const [hasError, setHasError] = useState(false);
   const [errorMessage, setErrorMessage] = useState('');
+  const [blockchainVerifying, setBlockchainVerifying] = useState({}); // Track verification state per ballot
+  const [blockchainResults, setBlockchainResults] = useState({}); // Store verification results
+
+  // Function to verify ballot on blockchain
+  const verifyBallotOnBlockchain = async (trackingCode) => {
+    const electionId = id;
+    if (!electionId || !trackingCode) {
+      toast.error('Missing election ID or tracking code for blockchain verification');
+      return;
+    }
+
+    setBlockchainVerifying(prev => ({ ...prev, [trackingCode]: true }));
+
+    try {
+      const data = await electionApi.verifyBallotOnBlockchainAPI(electionId, trackingCode);
+
+      if (data.success) {
+        setBlockchainResults(prev => ({
+          ...prev,
+          [trackingCode]: {
+            ...data,
+            verificationTimestamp: new Date().toISOString(),
+          },
+        }));
+        toast.success(`✅ Ballot ${trackingCode} verified on blockchain successfully!`);
+      } else {
+        setBlockchainResults(prev => ({
+          ...prev,
+          [trackingCode]: {
+            success: false,
+            error: data.message || 'Verification failed',
+            verificationTimestamp: new Date().toISOString(),
+          },
+        }));
+        toast.error(`❌ Blockchain verification failed: ${data.message || 'Unknown error'}`);
+      }
+    } catch (error) {
+      console.error('Blockchain verification error:', error);
+      setBlockchainResults(prev => ({
+        ...prev,
+        [trackingCode]: {
+          success: false,
+          error: error.message || 'Network error during verification',
+          verificationTimestamp: new Date().toISOString(),
+        },
+      }));
+      toast.error('Network error during blockchain verification');
+    } finally {
+      setBlockchainVerifying(prev => ({ ...prev, [trackingCode]: false }));
+    }
+  };
 
   // Extract and deduplicate ballots from results data using useMemo
   const ballots = useMemo(() => {
@@ -577,6 +842,86 @@ const BallotsInTallySection = ({ resultsData, id }) => {
                   <div className={`px-2 py-1 rounded text-xs font-medium ${statusInfo.bgColor} ${statusInfo.textColor}`}>
                     {statusInfo.text}
                   </div>
+                </div>
+
+                {/* Blockchain Verification Button */}
+                <div className="pt-3 border-t border-gray-100 mt-3">
+                  <button
+                    onClick={() => verifyBallotOnBlockchain(ballot.ballot_id)}
+                    className={`w-full flex items-center justify-center space-x-2 px-3 py-2 rounded-lg transition-all duration-200 transform hover:scale-[1.02] disabled:opacity-50 disabled:cursor-not-allowed text-sm font-medium ${blockchainVerifying[ballot.ballot_id]
+                        ? 'bg-gray-400 text-white cursor-not-allowed'
+                        : blockchainResults[ballot.ballot_id]?.success
+                          ? 'bg-gradient-to-r from-green-600 to-emerald-600 text-white hover:from-green-700 hover:to-emerald-700'
+                          : blockchainResults[ballot.ballot_id]?.success === false
+                            ? 'bg-gradient-to-r from-red-600 to-rose-600 text-white hover:from-red-700 hover:to-rose-700'
+                            : 'bg-gradient-to-r from-purple-600 to-indigo-600 text-white hover:from-purple-700 hover:to-indigo-700'
+                      }`}
+                    disabled={!ballot.ballot_id || blockchainVerifying[ballot.ballot_id]}
+                    title="Verify this ballot using blockchain technology"
+                  >
+                    {blockchainVerifying[ballot.ballot_id] ? (
+                      <>
+                        <FiLoader className="h-4 w-4 animate-spin" />
+                        <span>Verifying...</span>
+                      </>
+                    ) : blockchainResults[ballot.ballot_id]?.success ? (
+                      <>
+                        <FiCheckCircle className="h-4 w-4" />
+                        <span>Blockchain Verified ✓</span>
+                      </>
+                    ) : blockchainResults[ballot.ballot_id]?.success === false ? (
+                      <>
+                        <FiX className="h-4 w-4" />
+                        <span>Verification Failed</span>
+                      </>
+                    ) : (
+                      <>
+                        <FiShield className="h-4 w-4" />
+                        <span>Verify Using Blockchain</span>
+                      </>
+                    )}
+                  </button>
+
+                  {/* Blockchain Verification Result Display */}
+                  {blockchainResults[ballot.ballot_id] && (
+                    <div className={`mt-2 p-3 rounded-lg text-xs ${blockchainResults[ballot.ballot_id].success
+                        ? 'bg-green-50 border border-green-200'
+                        : 'bg-red-50 border border-red-200'
+                      }`}>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className={`font-medium ${blockchainResults[ballot.ballot_id].success ? 'text-green-800' : 'text-red-800'
+                          }`}>
+                          {blockchainResults[ballot.ballot_id].success ? '🔗 Blockchain Verified' : '⚠️ Verification Failed'}
+                        </span>
+                        <span className="text-gray-500 text-xs">
+                          {timezoneUtils.formatForDisplay(new Date(blockchainResults[ballot.ballot_id].timestamp * 1000).toISOString(), {
+                            hour: '2-digit',
+                            minute: '2-digit',
+                            second: '2-digit',
+                            timeZoneName: 'short'
+                          })}
+                        </span>
+                      </div>
+
+                      {blockchainResults[ballot.ballot_id].success ? (
+                        <div className="space-y-1 text-green-700">
+                          <div>✅ Ballot found on blockchain</div>
+                          <div>✅ Hash validation successful</div>
+                          <div>✅ Election context verified</div>
+                          <div className="flex items-center pt-1 text-xs text-gray-500">
+                            <FiClock className="h-3 w-3 mr-1" />
+                            {blockchainResults[ballot.ballot_id].data?.timestamp && (
+                              <span>{timezoneUtils.formatForDisplay(new Date(blockchainResults[ballot.ballot_id].data.timestamp * 1000).toISOString())}</span>
+                            )}
+                          </div>
+                        </div>
+                      ) : (
+                        <div className="text-red-700">
+                          ❌ {blockchainResults[ballot.ballot_id].error || 'Unknown verification error'}
+                        </div>
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -3458,10 +3803,8 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                     </div>
                   </div>
 
-                  {/* Blockchain Audit Trail - Moved to Top */}
-                  <div className="mb-8">
-                    <BlockchainLogs electionId={id} />
-                  </div>
+                  {/* Blockchain Verification Section */}
+                  <BlockchainVerificationSection electionId={id} />
 
                   {/* Original Cryptographic Data */}
 
