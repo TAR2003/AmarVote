@@ -9,22 +9,6 @@ echo "=========================================="
 echo "Waiting for Fabric components to start..."
 sleep 15
 
-# Check if channel already exists
-if peer channel list 2>&1 | grep -q "electionchannel"; then
-    echo "✓ Channel already exists and peer is joined"
-    
-    # Check if chaincode is already installed
-    if peer lifecycle chaincode queryinstalled 2>&1 | grep -q "election-logs_1"; then
-        echo "✓ Chaincode already installed"
-        echo "✓ Blockchain network already configured"
-        exit 0
-    else
-        echo "Channel exists but chaincode needs installation..."
-    fi
-else
-    echo "Setting up Fabric network from scratch..."
-fi
-
 # Set environment variables
 export CORE_PEER_TLS_ENABLED=false
 export CORE_PEER_LOCALMSPID="AmarVoteOrgMSP"
@@ -32,22 +16,57 @@ export CORE_PEER_ADDRESS=peer0.amarvote.com:7051
 export CORE_PEER_MSPCONFIGPATH=/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp
 export CHANNEL_NAME=electionchannel
 
-# Create channel
-echo "Creating channel..."
-peer channel create -o orderer.amarvote.com:7050 -c electionchannel -f /shared/channel-artifacts/electionchannel.tx --outputBlock /shared/channel-artifacts/electionchannel.block 2>&1
-
-if [ $? -eq 0 ]; then
-    echo "✓ Channel created"
-else
-    echo "✗ Failed to create channel"
-    exit 1
+# Check if channel already exists
+CHANNEL_EXISTS=false
+if peer channel list 2>&1 | grep -q "electionchannel"; then
+    CHANNEL_EXISTS=true
+    echo "✓ Channel already exists and peer is joined"
 fi
 
-# Join peer to channel
-echo "Joining peer to channel..."
-peer channel join -b /shared/channel-artifacts/electionchannel.block
+# Check if chaincode is already installed
+CHAINCODE_INSTALLED=false
+if peer lifecycle chaincode queryinstalled 2>&1 | grep -q "election-logs_1"; then
+    CHAINCODE_INSTALLED=true
+    echo "✓ Chaincode already installed"
+fi
 
-if [ $? -eq 0 ]; then
+# If both channel and chaincode exist, we're done
+if [ "$CHANNEL_EXISTS" = true ] && [ "$CHAINCODE_INSTALLED" = true ]; then
+    echo "✓ Blockchain network already configured"
+    exit 0
+fi
+
+# If channel exists but chaincode doesn't, or neither exists, we need to do full setup
+echo "Setting up Fabric network..."
+
+# Only create and join channel if it doesn't exist
+if [ "$CHANNEL_EXISTS" = false ]; then
+    # Create channel
+    echo "Creating channel..."
+    peer channel create -o orderer.amarvote.com:7050 -c electionchannel -f /shared/channel-artifacts/electionchannel.tx --outputBlock /shared/channel-artifacts/electionchannel.block 2>&1
+
+    if [ $? -eq 0 ]; then
+        echo "✓ Channel created"
+    else
+        echo "✗ Failed to create channel"
+        exit 1
+    fi
+
+    # Join peer to channel
+    echo "Joining peer to channel..."
+    peer channel join -b /shared/channel-artifacts/electionchannel.block
+
+    if [ $? -eq 0 ]; then
+        echo "✓ Peer joined channel"
+    else
+        echo "✗ Failed to join peer to channel"
+        exit 1
+    fi
+
+    # Update anchor peers
+    echo "Updating anchor peers..."
+    peer channel update -o orderer.amarvote.com:7050 -c $CHANNEL_NAME -f /shared/channel-artifacts/AmarVoteOrgMSPanchors.tx 2>&1
+fi
     echo "✓ Peer joined channel"
 else
     echo "✗ Failed to join peer to channel"
