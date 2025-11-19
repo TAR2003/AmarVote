@@ -229,7 +229,7 @@ services:
   blockchain-api:
     build: ./blockchain-api
     container_name: blockchain_api
-    restart: unless-stopped
+    restart: on-failure:5
     ports:
       - "3000:3000"
     environment:

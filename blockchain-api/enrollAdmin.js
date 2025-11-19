@@ -43,6 +43,14 @@ async function main() {
         console.log('✓ Successfully read crypto materials');
         console.log(`  Certificate length: ${certificate.length}`);
         console.log(`  Private key length: ${privateKey.length}`);
+        
+        // Validate certificate format
+        if (!certificate.includes('BEGIN CERTIFICATE') || !certificate.includes('END CERTIFICATE')) {
+            throw new Error('Invalid certificate format - missing BEGIN/END markers');
+        }
+        if (!privateKey.includes('BEGIN') || !privateKey.includes('PRIVATE KEY')) {
+            throw new Error('Invalid private key format - missing BEGIN/END markers');
+        }
 
         // Create admin identity
         const x509Identity = {
