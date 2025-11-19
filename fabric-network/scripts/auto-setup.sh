@@ -145,6 +145,10 @@ echo "$PACKAGE_ID" > /shared/package_id.txt
 chmod 644 /shared/package_id.txt
 echo "✓ Package ID saved to /shared/package_id.txt"
 
+# Create restart signal to trigger chaincode container restart
+touch /shared/restart_chaincode.signal
+echo "✓ Restart signal created"
+
 # Determine the next sequence number
 echo "Determining sequence number..."
 CURRENT_SEQUENCE=$(peer lifecycle chaincode querycommitted -C $CHANNEL_NAME 2>&1 | grep "election-logs" | grep -o 'Sequence: [0-9]*' | awk '{print $2}' || echo "0")
@@ -207,25 +211,23 @@ echo "=========================================="
 # Restart chaincode container to pick up new package ID
 echo ""
 echo "Restarting chaincode container with new package ID..."
-if command -v docker &> /dev/null; then
-    echo "Restarting election-logs-chaincode container..."
-    docker restart election-logs-chaincode 2>&1
-    
-    if [ $? -eq 0 ]; then
-        echo "✓ Chaincode container restarted successfully"
-        echo "Container will read package ID from /shared/package_id.txt"
-    else
-        echo "⚠️  Failed to restart container automatically"
-        echo "Please run: docker restart election-logs-chaincode"
-    fi
-else
-    echo "⚠️  Docker command not available"
-    echo "Package ID saved to /shared/package_id.txt"
-    echo "Chaincode container will read it on next restart"
-fi
 
-# Wait for chaincode to be ready
-sleep 10
+# Kill the chaincode process inside the container (it will auto-restart due to restart policy)
+if command -v docker &> /dev/null; then
+    echo "Sending restart signal to chaincode container..."
+    docker exec election-logs-chaincode pkill -9 node 2>&1 || true
+    echo "✓ Chaincode restart signal sent"
+    echo "Container will restart automatically with new package ID"
+    echo "Waiting for chaincode to restart and connect..."
+    sleep 15
+else
+    echo "⚠️  Docker command not available in CLI container"
+    echo "MANUAL STEP REQUIRED: Run this on the host:"
+    echo "  sudo docker restart election-logs-chaincode"
+    echo ""
+    echo "Press Enter after restarting the chaincode container..."
+    read -t 30 || echo "Timeout - continuing anyway"
+fi
 
 # Initialize chaincode (optional - only if initLedger function exists)
 echo "Initializing chaincode..."

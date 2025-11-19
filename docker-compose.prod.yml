@@ -236,25 +236,37 @@ services:
     entrypoint: ["/bin/sh", "-c"]
     command:
       - |
-        # Wait for package ID file
-        echo "Waiting for package ID..."
-        for i in $(seq 1 60); do
+        # Function to start chaincode
+        start_chaincode() {
           if [ -f /shared/package_id.txt ]; then
             export CHAINCODE_ID_NAME=$(cat /shared/package_id.txt)
             echo "Using CHAINCODE_ID_NAME: $CHAINCODE_ID_NAME"
+          else
+            echo "⚠️  No package ID found, using placeholder"
+            export CHAINCODE_ID_NAME=election-logs_1.3:placeholder
+          fi
+          exec /app/start.sh
+        }
+        
+        # Wait for initial package ID (max 120 seconds)
+        echo "Waiting for package ID..."
+        for i in $(seq 1 120); do
+          if [ -f /shared/package_id.txt ]; then
+            echo "Package ID file found!"
             break
           fi
           sleep 1
         done
         
-        # If no package ID found, use default
-        if [ ! -f /shared/package_id.txt ]; then
-          echo "⚠️  No package ID found, using placeholder"
-          export CHAINCODE_ID_NAME=election-logs_1.3:placeholder
+        # Check for restart signal
+        if [ -f /shared/restart_chaincode.signal ]; then
+          echo "Restart signal detected, waiting 5 seconds..."
+          sleep 5
+          rm -f /shared/restart_chaincode.signal
         fi
         
-        # Start chaincode using the proper start script
-        exec /app/start.sh
+        # Start chaincode
+        start_chaincode
     networks:
       - election_net
     depends_on:
