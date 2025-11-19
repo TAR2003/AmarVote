@@ -157,8 +157,9 @@ services:
       - CORE_LEDGER_STATE_COUCHDBCONFIG_COUCHDBADDRESS=couchdb:5984
       - CORE_LEDGER_STATE_COUCHDBCONFIG_USERNAME=admin
       - CORE_LEDGER_STATE_COUCHDBCONFIG_PASSWORD=adminpw
+      - DOCKER_HOST=unix:///host/var/run/docker.sock
     working_dir: /opt/gopath/src/github.com/hyperledger/fabric/peer
-    command: sh -c "sleep 15 && peer node start"
+    command: sh -c "chmod 666 /host/var/run/docker.sock 2>/dev/null || true && sleep 15 && peer node start"
     volumes:
       - /var/run/docker.sock:/host/var/run/docker.sock
       - fabric_shared:/shared:ro
