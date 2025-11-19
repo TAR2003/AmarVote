@@ -52,7 +52,7 @@ peer channel update -o orderer.amarvote.com:7050 -c $CHANNEL_NAME -f /shared/cha
 
 # Package chaincode
 echo "Packaging chaincode..."
-peer lifecycle chaincode package election-logs.tar.gz --path /opt/gopath/src/github.com/chaincode/election-logs --lang node --label election-logs_1 2>&1
+peer lifecycle chaincode package election-logs.tar.gz --path /opt/gopath/src/github.com/chaincode/election-logs --lang node --label election-logs_1.0 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode packaged"
@@ -74,7 +74,7 @@ fi
 
 # Get package ID
 echo "Getting chaincode package ID..."
-PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>&1 | grep election-logs_1 | awk '{print $3}' | sed 's/,$//')
+PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>&1 | grep election-logs_1.0 | awk '{print $3}' | sed 's/,$//')
 
 if [ -z "$PACKAGE_ID" ]; then
     echo "✗ Failed to get package ID"
