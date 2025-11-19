@@ -2,12 +2,13 @@
 
 ## 📦 What's Included
 
-This fix package resolves all blockchain certificate and chaincode issues for your Debian VM deployment.
+This fix package resolves all blockchain certificate, chaincode, and Docker issues for your Debian VM deployment.
 
 ### Fixed Issues:
 - ✅ Certificate authority mismatch (`x509: certificate signed by unknown authority`)
 - ✅ Creator org unknown errors (`creator is malformed`)
 - ✅ Chaincode container not found errors
+- ✅ **Docker socket permission errors (`docker build failed: broken pipe`)**
 - ✅ Service startup timing issues
 - ✅ Admin enrollment failures
 
@@ -16,16 +17,23 @@ This fix package resolves all blockchain certificate and chaincode issues for yo
 ```bash
 # On your Debian VM:
 cd /path/to/AmarVote
+git pull
 chmod +x *.sh blockchain-api/*.sh fabric-network/scripts/*.sh
-./pre-deployment-check.sh  # Run checks first
-./fix-vm-deployment.sh     # Deploy everything
+sudo bash one-command-fix.sh  # ⚡ ONE COMMAND - DOES EVERYTHING!
+```
+
+**Alternative (step-by-step):**
+```bash
+sudo ./fix-docker-permissions.sh  # Fix Docker socket first
+./fix-vm-deployment.sh            # Then deploy
 ```
 
 ## 📚 Documentation Files
 
 | File | Purpose |
 |------|---------|
-| `QUICK_VM_START.md` | ⚡ Quick reference - start here! |
+| `DOCKER_SOCKET_FIX.md` | 🔥 **NEW!** Fix Docker socket permission issue |
+| `QUICK_VM_START.md` | ⚡ Quick reference commands |
 | `DEPLOYMENT_SUMMARY.md` | 📖 Complete overview of all changes |
 | `VM_DEPLOYMENT_FIX.md` | 🔧 Detailed troubleshooting guide |
 | `ARCHITECTURE_DIAGRAM.md` | 🏗️ Visual architecture and flow |
