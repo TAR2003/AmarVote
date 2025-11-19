@@ -196,10 +196,54 @@ echo "=========================================="
 echo "Package ID: $PACKAGE_ID"
 echo "Version: 1.3"
 echo "Sequence: $NEXT_SEQUENCE"
-echo ""
-echo "⚠️  IMPORTANT: Update docker-compose.prod.yml"
-echo "Set CHAINCODE_ID_NAME to: $PACKAGE_ID"
 echo "=========================================="
+
+# Auto-restart chaincode container with correct package ID
+echo ""
+echo "Updating chaincode container with correct package ID..."
+if command -v docker &> /dev/null; then
+    # Get the container name
+    CONTAINER_NAME=$(docker ps -a --format '{{.Names}}' | grep election-logs-chaincode || echo "")
+    
+    if [ -n "$CONTAINER_NAME" ]; then
+        echo "Found chaincode container: $CONTAINER_NAME"
+        
+        # Stop and remove the container
+        docker stop $CONTAINER_NAME 2>/dev/null || true
+        docker rm $CONTAINER_NAME 2>/dev/null || true
+        
+        # Get the network name
+        NETWORK_NAME=$(docker network ls --format '{{.Name}}' | grep election_net || echo "amarvote_election_net")
+        
+        # Get the image name
+        IMAGE_NAME=$(docker images --format '{{.Repository}}:{{.Tag}}' | grep election-logs-chaincode | head -n1 || echo "amarvote-election-logs-chaincode:latest")
+        
+        # Start container with correct package ID
+        echo "Starting chaincode container with package ID: $PACKAGE_ID"
+        docker run -d \
+            --name election-logs-chaincode \
+            --network $NETWORK_NAME \
+            -p 9999:9999 \
+            -e CHAINCODE_SERVER_ADDRESS=0.0.0.0:9999 \
+            -e CHAINCODE_ID_NAME=$PACKAGE_ID \
+            --restart unless-stopped \
+            $IMAGE_NAME
+        
+        if [ $? -eq 0 ]; then
+            echo "✓ Chaincode container restarted with correct package ID"
+            sleep 5
+        else
+            echo "⚠️  Failed to restart chaincode container automatically"
+            echo "Please restart manually: docker restart election-logs-chaincode"
+        fi
+    else
+        echo "⚠️  Chaincode container not found"
+        echo "Please ensure the chaincode container is running"
+    fi
+else
+    echo "⚠️  Docker command not available in this container"
+    echo "Chaincode container needs manual restart with package ID: $PACKAGE_ID"
+fi
 
 # Wait for chaincode to be ready
 sleep 10

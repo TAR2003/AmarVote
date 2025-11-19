@@ -212,6 +212,7 @@ services:
       - ./fabric-network/chaincode/:/opt/gopath/src/github.com/chaincode
       - fabric_shared:/shared
       - ./fabric-network/scripts:/opt/gopath/src/github.com/hyperledger/fabric/peer/scripts/
+      - /var/run/docker.sock:/var/run/docker.sock
     depends_on:
       - orderer.amarvote.com
       - peer0.amarvote.com
