@@ -220,7 +220,7 @@ services:
     restart: unless-stopped
     environment:
       - CHAINCODE_SERVER_ADDRESS=0.0.0.0:9999
-      - CHAINCODE_ID_NAME=election-logs_1:notset
+      - CHAINCODE_ID_NAME=election-logs_1:placeholder
     ports:
       - "9999:9999"
     networks:
