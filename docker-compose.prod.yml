@@ -27,9 +27,11 @@ services:
     volumes:
       - maven_repo:/root/.m2
     networks:
-      - election_net
-    depends_on:
-      - rag-service
+      election_net:
+        aliases:
+          - backend
+    # depends_on:
+      # - rag-service
 
   frontend:
     build:
@@ -51,7 +53,9 @@ services:
     ports:
       - "5000:5000"
     networks:
-      - election_net
+      election_net:
+        aliases:
+          - electionguard
     environment:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
