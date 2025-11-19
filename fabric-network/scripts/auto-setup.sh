@@ -25,9 +25,12 @@ fi
 
 # Check if chaincode is already installed and committed
 CHAINCODE_COMMITTED=false
-if peer lifecycle chaincode querycommitted -C electionchannel 2>&1 | grep -q "election-logs"; then
+if peer lifecycle chaincode querycommitted -C electionchannel 2>&1 | grep -q "election-logs" | grep -q "Version: 1.3"; then
     CHAINCODE_COMMITTED=true
-    echo "✓ Chaincode already committed"
+    echo "✓ Chaincode version 1.3 already committed"
+elif peer lifecycle chaincode querycommitted -C electionchannel 2>&1 | grep -q "election-logs"; then
+    echo "⚠ Different version of chaincode exists - will upgrade to 1.3"
+    CHAINCODE_COMMITTED=false
 fi
 
 # If both channel and chaincode exist, we're done
@@ -89,12 +92,13 @@ EOF
 # Package connection.json into code.tar.gz
 cd /tmp/chaincode-pkg
 tar czf code.tar.gz connection.json
+rm connection.json
 
 # Create metadata.json
 cat > /tmp/chaincode-pkg/metadata.json <<EOF
 {
-  "type": "external",
-  "label": "election-logs_1.2"
+  "type": "ccaas",
+  "label": "election-logs_1.3"
 }
 EOF
 
@@ -124,7 +128,7 @@ fi
 # Get package ID
 echo "Getting chaincode package ID..."
 sleep 2
-PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>&1 | grep -o 'election-logs_1:[a-f0-9]*' | head -n1)
+PACKAGE_ID=$(peer lifecycle chaincode queryinstalled 2>&1 | grep -o 'election-logs_1\.3:[a-f0-9]*' | head -n1)
 
 if [ -z "$PACKAGE_ID" ]; then
     echo "✗ Failed to get package ID"
@@ -141,9 +145,9 @@ peer lifecycle chaincode approveformyorg \
     -o orderer.amarvote.com:7050 \
     --channelID $CHANNEL_NAME \
     --name election-logs \
-    --version 1.0 \
+    --version 1.3 \
     --package-id $PACKAGE_ID \
-    --sequence 1 2>&1
+    --sequence 4 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode approved"
@@ -157,8 +161,8 @@ echo "Checking commit readiness..."
 peer lifecycle chaincode checkcommitreadiness \
     --channelID $CHANNEL_NAME \
     --name election-logs \
-    --version 1.0 \
-    --sequence 1 2>&1
+    --version 1.3 \
+    --sequence 4 2>&1
 
 # Wait a bit before commit
 sleep 5
@@ -169,8 +173,8 @@ peer lifecycle chaincode commit \
     -o orderer.amarvote.com:7050 \
     --channelID $CHANNEL_NAME \
     --name election-logs \
-    --version 1.0 \
-    --sequence 1 2>&1
+    --version 1.3 \
+    --sequence 4 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode committed"
