@@ -139,6 +139,12 @@ fi
 
 echo "Package ID: $PACKAGE_ID"
 
+# Determine the next sequence number
+echo "Determining sequence number..."
+CURRENT_SEQUENCE=$(peer lifecycle chaincode querycommitted -C $CHANNEL_NAME 2>&1 | grep "election-logs" | grep -o 'Sequence: [0-9]*' | awk '{print $2}' || echo "0")
+NEXT_SEQUENCE=$((CURRENT_SEQUENCE + 1))
+echo "Current sequence: $CURRENT_SEQUENCE, Next sequence: $NEXT_SEQUENCE"
+
 # Approve chaincode
 echo "Approving chaincode..."
 peer lifecycle chaincode approveformyorg \
@@ -147,7 +153,7 @@ peer lifecycle chaincode approveformyorg \
     --name election-logs \
     --version 1.3 \
     --package-id $PACKAGE_ID \
-    --sequence 4 2>&1
+    --sequence $NEXT_SEQUENCE 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode approved"
@@ -162,7 +168,7 @@ peer lifecycle chaincode checkcommitreadiness \
     --channelID $CHANNEL_NAME \
     --name election-logs \
     --version 1.3 \
-    --sequence 4 2>&1
+    --sequence $NEXT_SEQUENCE 2>&1
 
 # Wait a bit before commit
 sleep 5
@@ -174,7 +180,7 @@ peer lifecycle chaincode commit \
     --channelID $CHANNEL_NAME \
     --name election-logs \
     --version 1.3 \
-    --sequence 4 2>&1
+    --sequence $NEXT_SEQUENCE 2>&1
 
 if [ $? -eq 0 ]; then
     echo "✓ Chaincode committed"
@@ -182,6 +188,18 @@ else
     echo "✗ Failed to commit chaincode"
     exit 1
 fi
+
+echo ""
+echo "=========================================="
+echo "✓ Chaincode Installation Summary"
+echo "=========================================="
+echo "Package ID: $PACKAGE_ID"
+echo "Version: 1.3"
+echo "Sequence: $NEXT_SEQUENCE"
+echo ""
+echo "⚠️  IMPORTANT: Update docker-compose.prod.yml"
+echo "Set CHAINCODE_ID_NAME to: $PACKAGE_ID"
+echo "=========================================="
 
 # Wait for chaincode to be ready
 sleep 10
