@@ -1,32 +1,54 @@
 #!/bin/sh
 set -e
 
-echo "Starting blockchain API initialization..."
+echo "========================================"
+echo "  Blockchain API Initialization"
+echo "========================================"
 
 # Wait for crypto materials to be available
-max_attempts=30
+max_attempts=60
 attempt=0
-while [ ! -f "/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp/signcerts/Admin@amarvote.com-cert.pem" ]; do
+cert_path="/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp/signcerts/Admin@amarvote.com-cert.pem"
+key_path="/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp/keystore/priv_sk"
+
+echo "Waiting for crypto materials..."
+while [ ! -f "$cert_path" ] || [ ! -f "$key_path" ]; do
     attempt=$((attempt + 1))
     if [ $attempt -ge $max_attempts ]; then
-        echo "Crypto materials not found after $max_attempts attempts"
-        echo "Starting without enrollment (will retry later)..."
-        break
+        echo "✗ Crypto materials not found after $max_attempts attempts"
+        echo "Expected files:"
+        echo "  - $cert_path"
+        echo "  - $key_path"
+        echo "Listing /shared directory:"
+        ls -la /shared/ || echo "Cannot list /shared"
+        exit 1
     fi
-    echo "Waiting for crypto materials... (attempt $attempt/$max_attempts)"
-    sleep 5
+    echo "  Waiting... (attempt $attempt/$max_attempts)"
+    sleep 3
 done
 
-# Wait for peer to be ready
-echo "Waiting for peer to be ready..."
-sleep 20
+echo "✓ Crypto materials found!"
+echo "  Certificate: $cert_path"
+echo "  Private Key: $key_path"
 
-# Try to enroll admin
-if [ -f "/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp/signcerts/Admin@amarvote.com-cert.pem" ]; then
-    echo "Enrolling admin identity..."
-    node enrollAdmin.js || echo "Admin enrollment failed, will retry on API calls"
+# Wait for peer and orderer to be ready
+echo ""
+echo "Waiting for Fabric network to be ready..."
+sleep 30
+
+# Enroll admin (this must succeed)
+echo ""
+echo "Enrolling admin identity..."
+if ! node enrollAdmin.js; then
+    echo "✗ Admin enrollment FAILED - cannot continue"
+    exit 1
 fi
 
+echo ""
+echo "========================================"
+echo "  Starting Blockchain API Server"
+echo "========================================"
+echo ""
+
 # Start the server
-echo "Starting blockchain API server..."
 exec node server.js
