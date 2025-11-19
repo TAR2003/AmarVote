@@ -7,8 +7,8 @@ services:
       dockerfile: Dockerfile.dev
     container_name: amarvote_backend
     restart: unless-stopped
-    expose:
-      - "8080"
+    ports:
+      - "8080:8080"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${NEON_HOST}:${NEON_PORT}/${NEON_DATABASE}
       - SPRING_DATASOURCE_USERNAME=${NEON_USERNAME}
@@ -48,8 +48,8 @@ services:
     build: ./Microservice
     container_name: electionguard_service
     restart: unless-stopped
-    expose:
-      - "5000"
+    ports:
+      - "5000:5000"
     networks:
       - election_net
     environment:
@@ -73,8 +73,8 @@ services:
     build: ./rag-service
     container_name: rag_service
     restart: unless-stopped
-    expose:
-      - "5001"
+    ports:
+      - "5001:5001"
     networks:
       - election_net
     environment:
@@ -119,8 +119,8 @@ services:
       - /var/run/:/host/var/run/
       - fabric_shared:/shared:ro
       - orderer_data:/var/hyperledger/production/orderer
-    expose:
-      - "7050"
+    ports:
+      - "7050:7050"
     depends_on:
       - fabric-tools
     networks:
@@ -157,9 +157,9 @@ services:
       - /var/run/:/host/var/run/
       - fabric_shared:/shared:ro
       - peer_data:/var/hyperledger/production
-    expose:
-      - "7051"
-      - "7052"
+    ports:
+      - "7051:7051"
+      - "7052:7052"
     depends_on:
       - orderer.amarvote.com
       - couchdb
@@ -174,8 +174,8 @@ services:
     environment:
       - COUCHDB_USER=admin
       - COUCHDB_PASSWORD=adminpw
-    expose:
-      - "5984"
+    ports:
+      - "5984:5984"
     volumes:
       - couchdb_data:/opt/couchdb/data
     networks:
@@ -215,8 +215,8 @@ services:
     build: ./blockchain-api
     container_name: blockchain_api
     restart: unless-stopped
-    expose:
-      - "3000"
+    ports:
+      - "3000:3000"
     environment:
       - PORT=3000
       - NODE_ENV=production
