@@ -10,7 +10,7 @@ COPY package*.json ./
 RUN npm install
 
 # Copy certs directory
-# COPY certs ./certs
+COPY certs ./certs
 COPY vite.config.js ./
 
 ENV NODE_ENV=development

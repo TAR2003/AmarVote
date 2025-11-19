@@ -231,7 +231,6 @@ volumes:
 networks:
   election_net:
     driver: bridge
-    name: amarvote_election_net
     ipam:
       driver: default
       config:

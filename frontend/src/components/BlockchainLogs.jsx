@@ -11,8 +11,9 @@ const BlockchainLogs = ({ electionId }) => {
   const fetchBlockchainLogs = async () => {
     try {
       setLoading(true);
+      const apiUrl = import.meta.env.VITE_API_URL || 'http://localhost:8080';
       
-      let url = `/api/blockchain/logs/${electionId}`;
+      let url = `${apiUrl}/api/blockchain/logs/${electionId}`;
       if (filter !== 'ALL') {
         url += `/${filter}`;
       }
