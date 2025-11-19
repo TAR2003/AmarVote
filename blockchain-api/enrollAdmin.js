@@ -17,58 +17,21 @@ async function main() {
         const identity = await wallet.get('admin');
         if (identity) {
             console.log('Admin identity already exists in wallet');
-            // Verify the identity is still valid
-            const certPath = '/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp/signcerts/Admin@amarvote.com-cert.pem';
-            if (fs.existsSync(certPath)) {
-                const currentCert = fs.readFileSync(certPath, 'utf8');
-                if (identity.credentials.certificate === currentCert) {
-                    console.log('✓ Admin identity is valid and up-to-date');
-                    return;
-                } else {
-                    console.log('⚠ Admin certificate changed, re-enrolling...');
-                    await wallet.remove('admin');
-                }
-            }
+            return;
         }
 
-        // Wait for crypto materials to be available
-        const certPath = '/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp/signcerts/Admin@amarvote.com-cert.pem';
-        const maxRetries = 30;
-        let retries = 0;
-        
-        while (!fs.existsSync(certPath) && retries < maxRetries) {
-            console.log(`Waiting for crypto materials... (${retries + 1}/${maxRetries})`);
-            await new Promise(resolve => setTimeout(resolve, 2000));
-            retries++;
-        }
-
-        if (!fs.existsSync(certPath)) {
-            throw new Error('Crypto materials not found after waiting');
-        }
-
-        // Find the private key file
-        const keystorePath = '/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp/keystore';
-        const keyFiles = fs.readdirSync(keystorePath);
-        const privKeyFile = keyFiles.find(file => file.endsWith('_sk'));
-        
-        if (!privKeyFile) {
-            throw new Error('Private key file not found in keystore');
-        }
-
-        console.log('Reading certificates...');
-        const certificate = fs.readFileSync(certPath, 'utf8');
-        const privateKey = fs.readFileSync(path.join(keystorePath, privKeyFile), 'utf8');
-
-        // Verify certificate and key are valid
-        if (!certificate.includes('BEGIN CERTIFICATE') || !privateKey.includes('BEGIN PRIVATE KEY')) {
-            throw new Error('Invalid certificate or private key format');
+        // Read MSP config
+        const mspConfigPath = '/shared/crypto-config/peerOrganizations/amarvote.com/msp/config.yaml';
+        let mspConfig = undefined;
+        if (fs.existsSync(mspConfigPath)) {
+            mspConfig = fs.readFileSync(mspConfigPath, 'utf8');
         }
 
         // Create admin identity
         const x509Identity = {
             credentials: {
-                certificate: certificate,
-                privateKey: privateKey,
+                certificate: fs.readFileSync('/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp/signcerts/Admin@amarvote.com-cert.pem', 'utf8'),
+                privateKey: fs.readFileSync('/shared/crypto-config/peerOrganizations/amarvote.com/users/Admin@amarvote.com/msp/keystore/priv_sk', 'utf8'),
             },
             mspId: 'AmarVoteOrgMSP',
             type: 'X.509',
@@ -76,11 +39,8 @@ async function main() {
 
         await wallet.put('admin', x509Identity);
         console.log('✓ Successfully enrolled admin and imported to wallet');
-        console.log('✓ MSP ID: AmarVoteOrgMSP');
-        console.log('✓ Certificate Subject: Admin@amarvote.com');
     } catch (error) {
-        console.error(`Failed to enroll admin: ${error.message}`);
-        console.error('Stack trace:', error.stack);
+        console.error(`Failed to enroll admin: ${error}`);
         // Don't exit with error, just log it
         console.log('Will retry on next startup...');
     }
