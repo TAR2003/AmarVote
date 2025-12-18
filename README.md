@@ -1133,29 +1133,10 @@ For enterprise deployments and custom requirements:
 
 ## 🔮 Roadmap
 
-### **Q2 2024**
-- [ ] Mobile application (iOS/Android)
-- [ ] Advanced analytics dashboard
-- [ ] Multi-language support (5 languages)
-- [ ] Performance optimizations
-
-### **Q3 2024**
-- [ ] Government-grade security certification
-- [ ] Integration with national ID systems
-- [ ] Advanced audit capabilities
-- [ ] Real-time result streaming
-
-### **Q4 2024**
-- [ ] Machine learning fraud detection
-- [ ] Quantum-resistant upgrade
-- [ ] Compliance automation
-- [ ] Global CDN deployment
-
-### **2025 Goals**
-- [ ] 1M+ voter capacity
-- [ ] 99.99% uptime SLA
-- [ ] Global deployment ready
-- [ ] Open governance model
+  [] Hyperledger Fabric Blockchain
+  [] Multi Dealer System
+  [] HSM/TPM integration
+  [] Full post quantum application
 
 ---
 
@@ -1188,7 +1169,7 @@ AmarVote is released under the **MIT License**, promoting open-source adoption w
 ```
 MIT License
 
-Copyright (c) 2024 TAR2003
+Copyright (c) 2025 TAR2003
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software and associated documentation files (the "Software"), to deal
