@@ -1133,10 +1133,10 @@ For enterprise deployments and custom requirements:
 
 ## 🔮 Roadmap
 
-  [] Hyperledger Fabric Blockchain
-  [] Multi Dealer System
-  [] HSM/TPM integration
-  [] Full post quantum application
+- **Hyperledger Fabric Blockchain**
+- **Multi Dealer System**
+- **HSM/TPM integration**
+- **Full post-quantum application**
 
 ---
 
