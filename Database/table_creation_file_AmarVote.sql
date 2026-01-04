@@ -29,12 +29,13 @@ CREATE TABLE IF NOT EXISTS elections (
     CONSTRAINT valid_quorum CHECK (election_quorum <= number_of_guardians AND election_quorum > 0)
 );
 
-CREATE TABLE IF NOT EXISTS election_center
-(
+CREATE TABLE IF NOT EXISTS election_center (
     election_center_id SERIAL PRIMARY KEY,
     election_id INTEGER NOT NULL,
-    encrypted_tally TEXT
-)
+    encrypted_tally TEXT,
+    CONSTRAINT fk_election FOREIGN KEY (election_id) 
+        REFERENCES elections(election_id) ON DELETE CASCADE
+); 
 
 -- Allowed Voters Table
 CREATE TABLE IF NOT EXISTS allowed_voters (
@@ -100,14 +101,13 @@ CREATE TABLE IF NOT EXISTS submitted_ballots (
 CREATE TABLE IF NOT EXISTS compensated_decryptions (
     compensated_decryption_id SERIAL PRIMARY KEY,
     election_center_id INTEGER NOT NULL,
-    compensating_guardian_sequence INTEGER NOT NULL,
-    missing_guardian_sequence INTEGER NOT NULL,
+    compensating_guardian_id INTEGER NOT NULL,
+    missing_guardian_id INTEGER NOT NULL,
     compensated_tally_share TEXT NOT NULL,
     compensated_ballot_share TEXT NOT NULL,
     CONSTRAINT fk_election_center FOREIGN KEY (election_center_id) REFERENCES election_center(election_center_id) ON DELETE CASCADE,
-    CONSTRAINT fk_compensating_guardian FOREIGN KEY (compensating_guardian_sequence) REFERENCES guardians(guardian_id) ON DELETE CASCADE,
-    CONSTRAINT fk_missing_guardian FOREIGN KEY (missing_guardian_sequence) REFERENCES guardians(guardian_id) ON DELETE CASCADE,
-    CONSTRAINT check_different_guardians CHECK (compensating_guardian_sequence != missing_guardian_sequence)
+    CONSTRAINT fk_compensating_guardian FOREIGN KEY (compensating_guardian_id) REFERENCES guardians(guardian_id) ON DELETE CASCADE,
+    CONSTRAINT fk_missing_guardian FOREIGN KEY (missing_guardian_id) REFERENCES guardians(guardian_id) ON DELETE CASCADE
 );
 
 -- Decryption Table
