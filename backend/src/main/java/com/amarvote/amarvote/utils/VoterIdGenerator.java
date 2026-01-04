@@ -11,38 +11,38 @@ public class VoterIdGenerator {
 
     /**
      * Generate a unique ballot hash ID using SHA-256 hash
-     * Combines user ID, election ID, and application salt for security
+     * Combines user email, election ID, and application salt for security
      * 
-     * @param userId The user ID of the voter
+     * @param userEmail The email of the voter
      * @param electionId The election ID
      * @return A unique SHA-256 hash as ballot ID
      */
-    public static String generateBallotHashId(Integer userId, Long electionId) {
-        String combined = APP_SALT + ":" + userId + ":" + electionId + ":" + System.currentTimeMillis();
+    public static String generateBallotHashId(String userEmail, Long electionId) {
+        String combined = APP_SALT + ":" + userEmail + ":" + electionId + ":" + System.currentTimeMillis();
         return sha256Hex(combined);
     }
 
     /**
      * Generate a simple SHA-256 hash for ballot ID
      * 
-     * @param userId The user ID of the voter
+     * @param userEmail The email of the voter
      * @param electionId The election ID
      * @return A SHA-256 hash as ballot ID
      */
-    public static String generateSimpleBallotHashId(Integer userId, Long electionId) {
-        String combined = userId + ":" + electionId;
+    public static String generateSimpleBallotHashId(String userEmail, Long electionId) {
+        String combined = userEmail + ":" + electionId;
         return sha256Hex(combined);
     }
 
     /**
      * Generate a deterministic UUID approach for ballot ID
      * 
-     * @param userId The user ID of the voter
+     * @param userEmail The email of the voter
      * @param electionId The election ID
      * @return A deterministic UUID as ballot ID
      */
-    public static String generateDeterministicBallotId(Integer userId, Long electionId) {
-        String combined = "voter-" + userId + "-election-" + electionId;
+    public static String generateDeterministicBallotId(String userEmail, Long electionId) {
+        String combined = "voter-" + userEmail + "-election-" + electionId;
         return UUID.nameUUIDFromBytes(combined.getBytes()).toString();
     }
 
@@ -72,3 +72,4 @@ public class VoterIdGenerator {
         }
     }
 }
+

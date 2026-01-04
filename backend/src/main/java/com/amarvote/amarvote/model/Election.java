@@ -62,9 +62,6 @@ public class Election {
     @Column(name = "ending_time", nullable = false)
     private Instant endingTime;
 
-    @Column(name = "encrypted_tally", columnDefinition = "TEXT")
-    private String encryptedTally;
-
     @Column(name = "base_hash", columnDefinition = "TEXT")
     private String baseHash;
 

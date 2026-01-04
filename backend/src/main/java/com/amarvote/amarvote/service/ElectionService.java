@@ -11,7 +11,6 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.amarvote.amarvote.dto.BlockchainElectionResponse; // Fixed: Use Spring's HttpHeaders, not Netty's
@@ -22,18 +21,14 @@ import com.amarvote.amarvote.dto.ElectionGuardianSetupResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.dto.OptimizedElectionResponse;
 import com.amarvote.amarvote.model.AllowedVoter;
-import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.Guardian;
-import com.amarvote.amarvote.model.User;
 import com.amarvote.amarvote.repository.AllowedVoterRepository;
 import com.amarvote.amarvote.repository.BallotRepository;
-import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
-import com.amarvote.amarvote.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
@@ -44,16 +39,12 @@ import lombok.RequiredArgsConstructor;
 public class ElectionService {
 
     private final ElectionRepository electionRepository;
-    private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
     @Autowired
     private WebClient webClient;
 
     @Autowired
     private EmailService emailService;
-
-    @Autowired
-    private UserRepository userRepository;
 
     @Autowired
     private ElectionGuardCryptoService cryptoService;
@@ -69,9 +60,6 @@ public class ElectionService {
 
     @Autowired
     private BallotRepository ballotRepository;
-
-    @Autowired
-    private CompensatedDecryptionRepository compensatedDecryptionRepository;
 
     @Autowired
     private BlockchainService blockchainService;
@@ -202,9 +190,7 @@ public class ElectionService {
             // in Guardian table
             String polynomial = guardianResponse.polynomials().get(i);
 
-            if (!userRepository.existsByUserEmail(email)) {
-                throw new RuntimeException("User not found for email: " + email);
-            }
+            // No need to check if user exists - we use email directly
 
             try {
                 // Encrypt the guardian's private key and polynomial together using
@@ -243,7 +229,7 @@ public class ElectionService {
 
         // Now save Guardian objects
         List<String> guardianPublicKeys = guardianResponse.public_keys();
-        List<String> guardianDataList = guardianResponse.guardian_data(); // ✅ Fixed: Now expects strings
+        // Note: guardian_data is available in response but not stored in Guardian table
 
         // Add null checks for guardian data
         if (guardianPublicKeys == null) {
@@ -257,26 +243,13 @@ public class ElectionService {
         for (int i = 0; i < guardianEmails.size(); i++) {
             String email = guardianEmails.get(i);
 
-            Integer userId = userRepository.findByUserEmail(email)
-                    .orElseThrow(() -> new RuntimeException("User not found for email: " + email))
-                    .getUserId();
-
-            // ✅ Fixed: Store guardian data directly as string (no double serialization)
-            String guardianDataJson = null;
-            if (guardianDataList != null && i < guardianDataList.size()) {
-                guardianDataJson = guardianDataList.get(i); // Store directly as string
-            }
-
             Guardian guardian = Guardian.builder()
-                    .electionId(election.getElectionId()) // Now safely use
-                    .userId(userId)
+                    .electionId(election.getElectionId())
+                    .userEmail(email)
                     .guardianPublicKey(guardianPublicKeys.get(i))
                     .sequenceOrder(i + 1)
                     .decryptedOrNot(false)
-                    .partialDecryptedTally(null)
-                    .proof(null)
-                    .keyBackup(guardianDataJson) // ✅ Fixed: Store string directly
-                    .credentials(guardianCredentials.get(email)) // ✅ Store encryption credentials
+                    .credentials(guardianCredentials.get(email))
                     .build();
 
             guardianRepository.save(guardian);
@@ -315,13 +288,9 @@ public class ElectionService {
         List<String> voterEmails = request.voterEmails();
         if ("listed".equals(request.electionEligibility()) && voterEmails != null && !voterEmails.isEmpty()) {
             for (String email : voterEmails) {
-                Integer userId = userRepository.findByUserEmail(email)
-                        .orElseThrow(() -> new RuntimeException("User not found for voter email: " + email))
-                        .getUserId();
-
                 AllowedVoter allowedVoter = AllowedVoter.builder()
                         .electionId(election.getElectionId())
-                        .userId(userId)
+                        .userEmail(email)
                         .hasVoted(false)
                         .build();
 
@@ -437,9 +406,9 @@ public class ElectionService {
         }
 
         // Check if user is in allowed voters
-        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(),
+        Optional<AllowedVoter> allowedVoterOpt = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(),
                 userEmail);
-        if (!allowedVoters.isEmpty()) {
+        if (allowedVoterOpt.isPresent()) {
             userRoles.add("voter");
         }
 
@@ -453,22 +422,10 @@ public class ElectionService {
         boolean isPublic = "public".equals(election.getPrivacy());
 
         // Check if user has already voted in this election
-        boolean hasVoted = false;
-        Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
-        if (userOpt.isPresent()) {
-            List<AllowedVoter> allAllowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
-            hasVoted = allAllowedVoters.stream()
-                    .anyMatch(av -> av.getUserId().equals(userOpt.get().getUserId()) && av.getHasVoted());
-        }
+        boolean hasVoted = allowedVoterOpt.isPresent() && allowedVoterOpt.get().getHasVoted();
 
-        // Get admin name
-        String adminName = null;
-        if (election.getAdminEmail() != null) {
-            Optional<User> adminUser = userRepository.findByUserEmail(election.getAdminEmail());
-            if (adminUser.isPresent()) {
-                adminName = adminUser.get().getUserName();
-            }
-        }
+        // Get admin name - just use email since we don't have User table
+        String adminName = election.getAdminEmail();
 
         return ElectionResponse.builder()
                 .electionId(election.getElectionId())
@@ -546,9 +503,9 @@ public class ElectionService {
         }
 
         // Check if user is a voter
-        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(),
+        Optional<AllowedVoter> allowedVoterOpt = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(),
                 userEmail);
-        if (!allowedVoters.isEmpty()) {
+        if (allowedVoterOpt.isPresent()) {
             System.out.println("User is voter of election " + election.getElectionId());
             return true;
         }
@@ -591,14 +548,8 @@ public class ElectionService {
         List<ElectionDetailResponse.ElectionChoiceInfo> electionChoices = getElectionChoicesForElection(
                 election.getElectionId());
 
-        // Get admin name
-        String adminName = null;
-        if (election.getAdminEmail() != null) {
-            Optional<User> adminUser = userRepository.findByUserEmail(election.getAdminEmail());
-            if (adminUser.isPresent()) {
-                adminName = adminUser.get().getUserName();
-            }
-        }
+        // Get admin name - just use email since we don't have User table
+        String adminName = election.getAdminEmail();
 
         return ElectionDetailResponse.builder()
                 .electionId(election.getElectionId())
@@ -612,7 +563,7 @@ public class ElectionService {
                 .status(election.getStatus())
                 .startingTime(election.getStartingTime())
                 .endingTime(election.getEndingTime())
-                .encryptedTally(election.getEncryptedTally())
+                // .encryptedTally(election.getEncryptedTally()) // Removed - now in ElectionCenter table
                 .baseHash(election.getBaseHash())
                 .createdAt(election.getCreatedAt())
                 .profilePic(election.getProfilePic())
@@ -642,9 +593,9 @@ public class ElectionService {
         }
 
         // Check if user is in allowed voters
-        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(),
+        Optional<AllowedVoter> allowedVoterOpt = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(),
                 userEmail);
-        if (!allowedVoters.isEmpty()) {
+        if (allowedVoterOpt.isPresent()) {
             userRoles.add("voter");
         }
 
@@ -662,26 +613,19 @@ public class ElectionService {
      */
     private List<ElectionDetailResponse.GuardianInfo> getGuardianInfoForElection(Long electionId,
             String currentUserEmail) {
-        List<Object[]> guardianData = guardianRepository.findGuardiansWithUserDetailsByElectionId(electionId);
+        List<Guardian> guardians = guardianRepository.findByElectionId(electionId);
 
-        return guardianData.stream()
-                .map(data -> {
-                    Guardian guardian = (Guardian) data[0];
-                    User user = (User) data[1];
-
-                    // Calculate decryption status based on tallyShare field
-                    boolean hasDecrypted = guardian.getTallyShare() != null
-                            && !guardian.getTallyShare().trim().isEmpty();
-
+        return guardians.stream()
+                .map(guardian -> {
                     return ElectionDetailResponse.GuardianInfo.builder()
-                            .userEmail(user.getUserEmail())
-                            .userName(user.getUserName())
+                            .userEmail(guardian.getUserEmail())
+                            .userName(guardian.getUserEmail()) // Use email as name
                             .guardianPublicKey(guardian.getGuardianPublicKey())
                             .sequenceOrder(guardian.getSequenceOrder())
-                            .decryptedOrNot(hasDecrypted)
-                            .partialDecryptedTally(guardian.getPartialDecryptedTally())
-                            .proof(guardian.getProof())
-                            .isCurrentUser(user.getUserEmail().equals(currentUserEmail))
+                            .decryptedOrNot(guardian.getDecryptedOrNot())
+                            .partialDecryptedTally(null) // Now in Decryptions table
+                            .proof(null) // Removed field
+                            .isCurrentUser(guardian.getUserEmail().equals(currentUserEmail))
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -691,18 +635,15 @@ public class ElectionService {
      * Get voter information for an election
      */
     private List<ElectionDetailResponse.VoterInfo> getVoterInfoForElection(Long electionId, String currentUserEmail) {
-        List<Object[]> voterData = allowedVoterRepository.findAllowedVotersWithUserDetailsByElectionId(electionId);
+        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(electionId);
 
-        return voterData.stream()
-                .map(data -> {
-                    AllowedVoter allowedVoter = (AllowedVoter) data[0];
-                    User user = (User) data[1];
-
+        return allowedVoters.stream()
+                .map(allowedVoter -> {
                     return ElectionDetailResponse.VoterInfo.builder()
-                            .userEmail(user.getUserEmail())
-                            .userName(user.getUserName())
+                            .userEmail(allowedVoter.getUserEmail())
+                            .userName(allowedVoter.getUserEmail()) // Use email as name
                             .hasVoted(allowedVoter.getHasVoted())
-                            .isCurrentUser(user.getUserEmail().equals(currentUserEmail))
+                            .isCurrentUser(allowedVoter.getUserEmail().equals(currentUserEmail))
                             .build();
                 })
                 .collect(Collectors.toList());
@@ -1105,27 +1046,15 @@ public class ElectionService {
             
             return guardians.stream().map(guardian -> {
                 Map<String, Object> guardianData = new HashMap<>();
-                guardianData.put("id", guardian.getId());
+                guardianData.put("id", guardian.getGuardianId());
                 guardianData.put("electionId", guardian.getElectionId());
-                guardianData.put("userId", guardian.getUserId());
+                guardianData.put("userEmail", guardian.getUserEmail());
                 guardianData.put("sequenceOrder", guardian.getSequenceOrder());
                 guardianData.put("guardianPublicKey", guardian.getGuardianPublicKey());
                 guardianData.put("decryptedOrNot", guardian.getDecryptedOrNot());
-                guardianData.put("partialDecryptedTally", guardian.getPartialDecryptedTally());
-                guardianData.put("guardianDecryptionKey", guardian.getGuardianDecryptionKey());
-                guardianData.put("tallyShare", guardian.getTallyShare());
-                guardianData.put("keyBackup", guardian.getKeyBackup());
+                // Fields moved to Decryptions table:
+                // partialDecryptedTally, guardianDecryptionKey, tallyShare, keyBackup
                 // Intentionally exclude sensitive credentials field
-                // guardianData.put("credentials", guardian.getCredentials());
-                // Removed: ballotShare and proof fields as they're not needed for verification table
-                
-                // Add user information if available
-                Optional<User> userOpt = userRepository.findById(guardian.getUserId());
-                if (userOpt.isPresent()) {
-                    User user = userOpt.get();
-                    guardianData.put("userEmail", user.getUserEmail());
-                    guardianData.put("userName", user.getUserName());
-                }
                 
                 return guardianData;
             }).collect(Collectors.toList());
@@ -1142,41 +1071,46 @@ public class ElectionService {
      */
     public List<Map<String, Object>> getCompensatedDecryptionsForVerification(Long electionId) {
         try {
-            List<CompensatedDecryption> compensatedDecryptions = compensatedDecryptionRepository.findByElectionId(electionId);
+            // CompensatedDecryption uses election_center_id, not election_id
+            // For now, return empty list - need to update to work with chunks
+            return new ArrayList<>();
             
-            return compensatedDecryptions.stream().map(cd -> {
-                Map<String, Object> cdData = new HashMap<>();
-                cdData.put("electionId", cd.getElectionId());
-                cdData.put("compensatingGuardianSequence", cd.getCompensatingGuardianSequence());
-                cdData.put("missingGuardianSequence", cd.getMissingGuardianSequence());
-                cdData.put("compensatedTallyShare", cd.getCompensatedTallyShare());
-                cdData.put("compensatedBallotShare", cd.getCompensatedBallotShare());
-                
-                // Add guardian information for better understanding
-                Guardian compensatingGuardian = guardianRepository
-                    .findByElectionIdAndSequenceOrder(electionId, cd.getCompensatingGuardianSequence());
-                Guardian missingGuardian = guardianRepository
-                    .findByElectionIdAndSequenceOrder(electionId, cd.getMissingGuardianSequence());
-                
-                if (compensatingGuardian != null) {
-                    Optional<User> compensatingUser = userRepository.findById(compensatingGuardian.getUserId());
-                    if (compensatingUser.isPresent()) {
-                        cdData.put("compensatingGuardianEmail", compensatingUser.get().getUserEmail());
-                        cdData.put("compensatingGuardianName", compensatingUser.get().getUserName());
-                    }
-                }
-                
-                if (missingGuardian != null) {
-                    Optional<User> missingUser = userRepository.findById(missingGuardian.getUserId());
-                    if (missingUser.isPresent()) {
-                        cdData.put("missingGuardianEmail", missingUser.get().getUserEmail());
-                        cdData.put("missingGuardianName", missingUser.get().getUserName());
-                    }
-                }
-                
-                return cdData;
-            }).collect(Collectors.toList());
+            /* TODO: Update this to work with election centers (chunks)
+            List<ElectionCenter> centers = electionCenterRepository.findByElectionId(electionId);
+            List<Map<String, Object>> allCompensatedDecryptions = new ArrayList<>();
             
+            for (ElectionCenter center : centers) {
+                List<CompensatedDecryption> compensatedDecryptions = 
+                    compensatedDecryptionRepository.findByElectionCenterId(center.getElectionCenterId());
+                
+                for (CompensatedDecryption cd : compensatedDecryptions) {
+                    Map<String, Object> cdData = new HashMap<>();
+                    cdData.put("electionCenterId", cd.getElectionCenterId());
+                    cdData.put("compensatingGuardianId", cd.getCompensatingGuardianId());
+                    cdData.put("missingGuardianId", cd.getMissingGuardianId());
+                    cdData.put("compensatedTallyShare", cd.getCompensatedTallyShare());
+                    cdData.put("compensatedBallotShare", cd.getCompensatedBallotShare());
+                    
+                    // Look up guardian info
+                    Optional<Guardian> compensatingGuardian = guardianRepository.findById(cd.getCompensatingGuardianId());
+                    Optional<Guardian> missingGuardian = guardianRepository.findById(cd.getMissingGuardianId());
+                    
+                    if (compensatingGuardian.isPresent()) {
+                        cdData.put("compensatingGuardianEmail", compensatingGuardian.get().getUserEmail());
+                        cdData.put("compensatingGuardianSequence", compensatingGuardian.get().getSequenceOrder());
+                    }
+                    
+                    if (missingGuardian.isPresent()) {
+                        cdData.put("missingGuardianEmail", missingGuardian.get().getUserEmail());
+                        cdData.put("missingGuardianSequence", missingGuardian.get().getSequenceOrder());
+                    }
+                    
+                    allCompensatedDecryptions.add(cdData);
+                }
+            }
+            
+            return allCompensatedDecryptions;
+            */
         } catch (Exception e) {
             System.err.println("Error retrieving compensated decryptions for verification: " + e.getMessage());
             e.printStackTrace();

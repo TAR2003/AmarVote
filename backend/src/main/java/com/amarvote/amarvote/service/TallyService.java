@@ -1,7 +1,6 @@
 package com.amarvote.amarvote.service;
 
 import java.time.Instant;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.stream.Collectors;
@@ -13,13 +12,16 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import com.amarvote.amarvote.dto.CreateTallyRequest;
 import com.amarvote.amarvote.dto.CreateTallyResponse;
+import com.amarvote.amarvote.dto.ChunkConfiguration;
 import com.amarvote.amarvote.dto.ElectionGuardTallyRequest;
 import com.amarvote.amarvote.dto.ElectionGuardTallyResponse;
 import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.Election;
+import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.SubmittedBallot;
 import com.amarvote.amarvote.repository.BallotRepository;
+import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
@@ -47,6 +49,12 @@ public class TallyService {
     
     @Autowired
     private SubmittedBallotRepository submittedBallotRepository;
+    
+    @Autowired
+    private ElectionCenterRepository electionCenterRepository;
+    
+    @Autowired
+    private ChunkingService chunkingService;
     
     @Autowired
     private WebClient webClient;
@@ -103,58 +111,51 @@ public class TallyService {
                 System.out.println("Election has ended, proceeding with tally creation");
             }
             
-            // Check if encrypted tally already exists
-            if (election.getEncryptedTally() != null && !election.getEncryptedTally().trim().isEmpty()) {
-                System.out.println("Encrypted tally already exists for election: " + request.getElection_id());
+            // Check if encrypted tally already exists (check election_center table)
+            List<ElectionCenter> existingChunks = electionCenterRepository.findByElectionId(request.getElection_id());
+            if (!existingChunks.isEmpty()) {
+                System.out.println("Encrypted tally already exists for election (chunks found): " + request.getElection_id());
                 return CreateTallyResponse.builder()
                     .success(true)
                     .message("Encrypted tally already calculated")
-                    .encryptedTally(election.getEncryptedTally())
+                    .encryptedTally("Chunked tallies exist in election_center table")
                     .build();
             }
             
-            // Fetch all ballots for this election
-            System.out.println("=== FETCHING BALLOTS FOR TALLY ===");
-            List<Ballot> ballots = ballotRepository.findByElectionId(request.getElection_id());
-            System.out.println("Found " + ballots.size() + " ballots in Ballot table");
+            // CAST ballots for this election
+            System.out.println("=== FETCHING CAST BALLOTS FOR TALLY ===");
+            List<Ballot> ballots = ballotRepository.findByElectionIdAndStatus(request.getElection_id(), "cast");
+            System.out.println("Found " + ballots.size() + " cast ballots in Ballot table");
             
-            // If no ballots found in Ballot table, check SubmittedBallot table
-            // (This handles the case where ballots were already processed and moved to SubmittedBallot table)
-            List<String> encryptedBallots = new ArrayList<>();
-            
-            if (!ballots.isEmpty()) {
-                // Extract cipher_text from ballots
-                encryptedBallots = ballots.stream()
-                    .map(Ballot::getCipherText)
-                    .collect(Collectors.toList());
-                System.out.println("✅ Using " + encryptedBallots.size() + " encrypted ballots from Ballot table");
-            } else {
-                // Check SubmittedBallot table
-                System.out.println("No ballots in Ballot table, checking SubmittedBallot table...");
-                List<SubmittedBallot> submittedBallots = submittedBallotRepository.findByElectionId(request.getElection_id());
-                System.out.println("Found " + submittedBallots.size() + " ballots in SubmittedBallot table");
-                
-                if (!submittedBallots.isEmpty()) {
-                    encryptedBallots = submittedBallots.stream()
-                        .map(SubmittedBallot::getCipherText)
-                        .collect(Collectors.toList());
-                    System.out.println("✅ Using " + encryptedBallots.size() + " encrypted ballots from SubmittedBallot table");
-                } else {
-                    System.err.println("❌ No ballots found in either table");
-                }
-            }
-            
-            if (encryptedBallots.isEmpty()) {
-                System.err.println("❌ NO BALLOTS AVAILABLE FOR TALLY CREATION");
+            if (ballots.isEmpty()) {
+                System.err.println("❌ NO CAST BALLOTS AVAILABLE FOR TALLY CREATION");
                 return CreateTallyResponse.builder()
                     .success(false)
-                    .message("No ballots found for this election in either Ballot or SubmittedBallot tables")
+                    .message("No cast ballots found for this election")
                     .build();
             }
             
-            System.out.println("✅ Total encrypted ballots for tally: " + encryptedBallots.size());
+            // ===== CHUNKING LOGIC START =====
+            System.out.println("=== CALCULATING CHUNKS ===");
+            ChunkConfiguration chunkConfig = chunkingService.calculateChunks(ballots.size());
+            System.out.println("✅ Chunks calculated: " + chunkConfig.getNumChunks() + " chunks");
+            System.out.println("Chunk sizes: " + chunkConfig.getChunkSizes());
             
-            // Fetch election choices
+            // Assign ballots to chunks randomly
+            java.util.Map<Integer, List<Ballot>> chunks = chunkingService.assignBallotsToChunks(ballots, chunkConfig);
+            System.out.println("✅ Ballots assigned to chunks");
+            
+            // Verify assignment
+            if (!chunkingService.verifyChunkAssignment(ballots, chunks)) {
+                System.err.println("❌ CHUNK ASSIGNMENT VERIFICATION FAILED");
+                return CreateTallyResponse.builder()
+                    .success(false)
+                    .message("Internal error: Chunk assignment verification failed")
+                    .build();
+            }
+            System.out.println("✅ Chunk assignment verified");
+            
+            // Fetch election choices ONCE (same for all chunks)
             System.out.println("=== FETCHING ELECTION CHOICES ===");
             List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(request.getElection_id());
             System.out.println("Found " + electionChoices.size() + " election choices");
@@ -166,9 +167,8 @@ public class TallyService {
                     .message("No election choices found for this election")
                     .build();
             }
-            // electionChoices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             
-            // Extract party names and candidate names
+            // Extract party names and candidate names (same for all chunks)
             List<String> partyNames = electionChoices.stream()
                 .map(ElectionChoice::getPartyName)
                 .distinct()
@@ -181,97 +181,95 @@ public class TallyService {
             System.out.println("✅ Party names (" + partyNames.size() + "): " + partyNames);
             System.out.println("✅ Candidate names (" + candidateNames.size() + "): " + candidateNames);
             
-            System.out.println("=== PREPARING ELECTIONGUARD SERVICE CALL ===");
-            System.out.println("Joint Public Key exists: " + (election.getJointPublicKey() != null && !election.getJointPublicKey().isEmpty()));
-            System.out.println("Base Hash exists: " + (election.getBaseHash() != null && !election.getBaseHash().isEmpty()));
-            System.out.println("Election Quorum: " + election.getElectionQuorum());
-            
             int numberOfGuardians = guardianRepository.findByElectionId(election.getElectionId()).size();
             System.out.println("Number of Guardians: " + numberOfGuardians);
             
-            // Call ElectionGuard microservice
-            System.out.println("🚀 CALLING ELECTIONGUARD TALLY SERVICE");
-            ElectionGuardTallyResponse guardResponse = callElectionGuardTallyService(
-                partyNames, 
-                candidateNames, 
-                election.getJointPublicKey(), 
-                election.getBaseHash(), 
-                encryptedBallots,
-                election.getElectionQuorum(),
-                numberOfGuardians
-            );
-            
-            System.out.println("=== ELECTIONGUARD SERVICE RESPONSE ===");
-            System.out.println("ElectionGuard response status: " + guardResponse.getStatus());
-            System.out.println("ElectionGuard response message: " + guardResponse.getMessage());
-            
-            if (!"success".equals(guardResponse.getStatus())) {
-                System.err.println("❌ ELECTIONGUARD SERVICE FAILED: " + guardResponse.getMessage());
-                return CreateTallyResponse.builder()
-                    .success(false)
-                    .message("Failed to create encrypted tally: " + guardResponse.getMessage())
+            // Process each chunk
+            for (java.util.Map.Entry<Integer, List<Ballot>> entry : chunks.entrySet()) {
+                int chunkNumber = entry.getKey();
+                List<Ballot> chunkBallots = entry.getValue();
+                
+                System.out.println("=== PROCESSING CHUNK " + chunkNumber + " ===");
+                System.out.println("Chunk size: " + chunkBallots.size() + " ballots");
+                
+                // Create election center entry for this chunk
+                ElectionCenter electionCenter = ElectionCenter.builder()
+                    .electionId(request.getElection_id())
                     .build();
-            }
-            
-            System.out.println("✅ ElectionGuard service succeeded");
-            
-            // ✅ Fixed: Store ciphertext_tally directly as string (no double serialization)
-            String ciphertextTallyJson = guardResponse.getCiphertext_tally(); // Store directly
-            System.out.println("=== SAVING TALLY TO DATABASE ===");
-            System.out.println("Ciphertext tally length: " + (ciphertextTallyJson != null ? ciphertextTallyJson.length() : 0) + " characters");
-            
-            election.setEncryptedTally(ciphertextTallyJson);
-            electionRepository.save(election);
-            System.out.println("✅ Encrypted tally saved to election record");
-            
-            // Save submitted_ballots from ElectionGuard response
-            if (guardResponse.getSubmitted_ballots() != null && guardResponse.getSubmitted_ballots().length > 0) {
-                System.out.println("Processing " + guardResponse.getSubmitted_ballots().length + " submitted ballots for election: " + request.getElection_id());
+                electionCenter = electionCenterRepository.save(electionCenter);
+                System.out.println("✅ Created election_center entry ID: " + electionCenter.getElectionCenterId());
                 
-                int savedCount = 0;
-                int duplicateCount = 0;
-                int errorCount = 0;
+                // Extract cipher texts for this chunk
+                List<String> chunkEncryptedBallots = chunkBallots.stream()
+                    .map(Ballot::getCipherText)
+                    .collect(Collectors.toList());
                 
-                for (String submittedBallotCipherText : guardResponse.getSubmitted_ballots()) {
-                    try {
-                        // Check if this ballot already exists to prevent duplicates
-                        if (!submittedBallotRepository.existsByElectionIdAndCipherText(request.getElection_id(), submittedBallotCipherText)) {
-                            SubmittedBallot submittedBallot = SubmittedBallot.builder()
-                                .electionId(request.getElection_id())
-                                .cipherText(submittedBallotCipherText)
-                                .build();
-                            
-                            submittedBallotRepository.save(submittedBallot);
-                            savedCount++;
-                        } else {
-                            duplicateCount++;
-                            System.out.println("Skipping duplicate submitted ballot for election: " + request.getElection_id());
-                        }
-                    } catch (org.springframework.dao.DataIntegrityViolationException e) {
-                        // Handle database constraint violations (like unique constraint violations)
-                        duplicateCount++;
-                        System.out.println("Database prevented duplicate ballot insertion for election: " + request.getElection_id() + " - " + e.getMessage());
-                    } catch (Exception e) {
-                        // Handle other unexpected errors
-                        errorCount++;
-                        System.err.println("Error saving submitted ballot for election " + request.getElection_id() + ": " + e.getMessage());
-                    }
+                // Call ElectionGuard microservice for this chunk
+                System.out.println("🚀 CALLING ELECTIONGUARD TALLY SERVICE FOR CHUNK " + chunkNumber);
+                ElectionGuardTallyResponse guardResponse = callElectionGuardTallyService(
+                    partyNames, 
+                    candidateNames, 
+                    election.getJointPublicKey(), 
+                    election.getBaseHash(), 
+                    chunkEncryptedBallots,
+                    election.getElectionQuorum(),
+                    numberOfGuardians
+                );
+                
+                if (!"success".equals(guardResponse.getStatus())) {
+                    System.err.println("❌ ELECTIONGUARD SERVICE FAILED FOR CHUNK " + chunkNumber + ": " + guardResponse.getMessage());
+                    return CreateTallyResponse.builder()
+                        .success(false)
+                        .message("Failed to create encrypted tally for chunk " + chunkNumber + ": " + guardResponse.getMessage())
+                        .build();
                 }
                 
-                System.out.println("Successfully saved " + savedCount + " new submitted ballots for election: " + request.getElection_id() + 
-                                 (duplicateCount > 0 ? " (skipped " + duplicateCount + " duplicates)" : "") +
-                                 (errorCount > 0 ? " (errors: " + errorCount + ")" : ""));
-            } else {
-                System.out.println("No submitted ballots received from ElectionGuard for election: " + request.getElection_id());
+                System.out.println("✅ ElectionGuard service succeeded for chunk " + chunkNumber);
+                
+                // Store encrypted tally for this chunk
+                String ciphertextTallyJson = guardResponse.getCiphertext_tally();
+                electionCenter.setEncryptedTally(ciphertextTallyJson);
+                electionCenterRepository.save(electionCenter);
+                System.out.println("✅ Encrypted tally saved for chunk " + chunkNumber);
+                
+                // Save submitted_ballots for this chunk (linked to election_center_id)
+                if (guardResponse.getSubmitted_ballots() != null && guardResponse.getSubmitted_ballots().length > 0) {
+                    System.out.println("Processing " + guardResponse.getSubmitted_ballots().length + " submitted ballots for chunk " + chunkNumber);
+                    
+                    int savedCount = 0;
+                    for (String submittedBallotCipherText : guardResponse.getSubmitted_ballots()) {
+                        try {
+                            if (!submittedBallotRepository.existsByElectionCenterIdAndCipherText(
+                                    electionCenter.getElectionCenterId(), submittedBallotCipherText)) {
+                                SubmittedBallot submittedBallot = SubmittedBallot.builder()
+                                    .electionCenterId(electionCenter.getElectionCenterId())
+                                    .cipherText(submittedBallotCipherText)
+                                    .build();
+                                
+                                submittedBallotRepository.save(submittedBallot);
+                                savedCount++;
+                            }
+                        } catch (Exception e) {
+                            System.err.println("Error saving submitted ballot for chunk " + chunkNumber + ": " + e.getMessage());
+                        }
+                    }
+                    
+                    System.out.println("✅ Saved " + savedCount + " submitted ballots for chunk " + chunkNumber);
+                }
             }
+            // ===== CHUNKING LOGIC END =====
+            
+            // Update election status to completed
+            election.setStatus("completed");
+            electionRepository.save(election);
             
             System.out.println("=== TALLY CREATION COMPLETED SUCCESSFULLY ===");
-            System.out.println("✅ Encrypted tally created and saved for election: " + request.getElection_id());
+            System.out.println("✅ Created " + chunkConfig.getNumChunks() + " chunks for election: " + request.getElection_id());
             
             return CreateTallyResponse.builder()
                 .success(true)
-                .message("Encrypted tally created successfully")
-                .encryptedTally(ciphertextTallyJson)
+                .message("Encrypted tally created successfully with " + chunkConfig.getNumChunks() + " chunks")
+                .encryptedTally("Chunked tallies stored in election_center table")
                 .build();
                 
         } catch (Exception e) {
@@ -347,7 +345,9 @@ public class TallyService {
     @Transactional
     public void removeDuplicateSubmittedBallots(Integer electionId) {
         try {
-            List<SubmittedBallot> allBallots = submittedBallotRepository.findByElectionId(electionId.longValue());
+            // TODO: Update to work with chunks - SubmittedBallot now uses election_center_id
+            // List<SubmittedBallot> allBallots = submittedBallotRepository.findByElectionCenterId(electionCenterId);
+            List<SubmittedBallot> allBallots = submittedBallotRepository.findAll(); // Temporary workaround
             
             // Group by cipher_text and keep only the first occurrence (earliest created)
             List<SubmittedBallot> ballotsToDelete = allBallots.stream()

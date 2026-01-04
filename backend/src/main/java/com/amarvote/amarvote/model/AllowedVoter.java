@@ -1,5 +1,7 @@
 package com.amarvote.amarvote.model;
 
+import java.io.Serializable;
+
 import jakarta.persistence.*;
 import lombok.*;
 
@@ -10,19 +12,28 @@ import lombok.*;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
+@IdClass(AllowedVoter.AllowedVoterId.class)
 public class AllowedVoter {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Long id; // Optional: only needed if not using composite key
-
     @Column(name = "election_id", nullable = false)
     private Long electionId;
 
-    @Column(name = "user_id", nullable = false)
-    private Integer userId;
+    @Id
+    @Column(name = "user_email", nullable = false, columnDefinition = "TEXT")
+    private String userEmail;
 
     @Column(name = "has_voted", nullable = false)
+    @Builder.Default
     private Boolean hasVoted = false;
+
+    // Composite key class
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class AllowedVoterId implements Serializable {
+        private Long electionId;
+        private String userEmail;
+    }
 }
 

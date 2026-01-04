@@ -20,14 +20,12 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
     // 4. All elections where the user is a guardian
     @Query("SELECT DISTINCT e FROM Election e " +
            "LEFT JOIN AllowedVoter av ON e.electionId = av.electionId " +
-           "LEFT JOIN User u1 ON av.userId = u1.userId " +
            "LEFT JOIN Guardian g ON e.electionId = g.electionId " +
-           "LEFT JOIN User u2 ON g.userId = u2.userId " +
            "WHERE " +
            "   e.privacy = 'public' " + // Public elections
-           "   OR u1.userEmail = :userEmail " + // User is allowed voter
+           "   OR av.userEmail = :userEmail " + // User is allowed voter
            "   OR e.adminEmail = :userEmail " + // User is admin
-           "   OR u2.userEmail = :userEmail")   // User is guardian
+           "   OR g.userEmail = :userEmail")   // User is guardian
     List<Election> findAllAccessibleElections(@Param("userEmail") String userEmail);
     
     /**
@@ -45,37 +43,33 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
             "WITH accessible_elections AS (" +
             "    SELECT DISTINCT e.* FROM elections e " +
             "    LEFT JOIN allowed_voters av ON e.election_id = av.election_id " +
-            "    LEFT JOIN users u1 ON av.user_id = u1.user_id " +
             "    LEFT JOIN guardians g ON e.election_id = g.election_id " +
-            "    LEFT JOIN users u2 ON g.user_id = u2.user_id " +
             "    WHERE " +
             "        e.privacy = 'public' OR " +
-            "        u1.user_email = :userEmail OR " +
+            "        av.user_email = :userEmail OR " +
             "        e.admin_email = :userEmail OR " +
-            "        u2.user_email = :userEmail" +
+            "        g.user_email = :userEmail" +
             "), " +
-            // Admin data
+            // Admin data - admin_email is stored directly in elections table
             "admin_info AS (" +
-            "    SELECT e.election_id, u.user_name as admin_name " +
-            "    FROM accessible_elections e " +
-            "    LEFT JOIN users u ON e.admin_email = u.user_email" +
+            "    SELECT e.election_id, e.admin_email as admin_name " +
+            "    FROM accessible_elections e" +
             "), " +
             // User role data
             "user_roles AS (" +
             "    SELECT e.election_id, " +
             "        CASE WHEN e.admin_email = :userEmail THEN true ELSE false END AS is_admin, " +
-            "        EXISTS (SELECT 1 FROM guardians g JOIN users u ON g.user_id = u.user_id " +
-            "               WHERE g.election_id = e.election_id AND u.user_email = :userEmail) AS is_guardian, " +
-            "        EXISTS (SELECT 1 FROM allowed_voters av JOIN users u ON av.user_id = u.user_id " +
-            "               WHERE av.election_id = e.election_id AND u.user_email = :userEmail) AS is_voter " +
+            "        EXISTS (SELECT 1 FROM guardians g " +
+            "               WHERE g.election_id = e.election_id AND g.user_email = :userEmail) AS is_guardian, " +
+            "        EXISTS (SELECT 1 FROM allowed_voters av " +
+            "               WHERE av.election_id = e.election_id AND av.user_email = :userEmail) AS is_voter " +
             "    FROM accessible_elections e" +
             "), " +
             // Voting status data
             "vote_status AS (" +
             "    SELECT av.election_id, av.has_voted " +
             "    FROM allowed_voters av " +
-            "    JOIN users u ON av.user_id = u.user_id " +
-            "    WHERE u.user_email = :userEmail" +
+            "    WHERE av.user_email = :userEmail" +
             ") " +
             // Final combined query
             "SELECT e.*, " +
@@ -93,8 +87,7 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
     // Get all elections where user is in allowed voters
     @Query("SELECT DISTINCT e FROM Election e " +
            "JOIN AllowedVoter av ON e.electionId = av.electionId " +
-           "JOIN User u ON av.userId = u.userId " +
-           "WHERE u.userEmail = :userEmail")
+           "WHERE av.userEmail = :userEmail")
     List<Election> findElectionsForUser(@Param("userEmail") String userEmail);
     
     // Get all elections where user is admin
@@ -104,8 +97,7 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
     // Get all elections where user is guardian
     @Query("SELECT DISTINCT e FROM Election e " +
            "JOIN Guardian g ON e.electionId = g.electionId " +
-           "JOIN User u ON g.userId = u.userId " +
-           "WHERE u.userEmail = :userEmail")
+           "WHERE g.userEmail = :userEmail")
     List<Election> findElectionsByGuardian(@Param("userEmail") String userEmail);
     
     // Find elections by status

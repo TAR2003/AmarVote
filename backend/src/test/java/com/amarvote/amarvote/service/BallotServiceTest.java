@@ -107,9 +107,8 @@ class BallotServiceTest {
 
         // Setup test allowed voter
         testAllowedVoter = AllowedVoter.builder()
-                .id(1L)
                 .electionId(1L)
-                .userId(1)
+                .userEmail("test@example.com")
                 .hasVoted(false)
                 .build();
 
@@ -314,9 +313,8 @@ class BallotServiceTest {
     void testCastBallot_UserAlreadyVoted() {
         // Arrange
         AllowedVoter votedAllowedVoter = AllowedVoter.builder()
-                .id(1L)
                 .electionId(1L)
-                .userId(1)
+                .userEmail("test@example.com")
                 .hasVoted(true) // Already voted
                 .build();
 
@@ -510,9 +508,8 @@ class BallotServiceTest {
     void testCheckEligibility_UserAlreadyVoted() {
         // Arrange
         AllowedVoter votedAllowedVoter = AllowedVoter.builder()
-                .id(1L)
                 .electionId(1L)
-                .userId(1)
+                .userEmail("test@example.com")
                 .hasVoted(true) // Already voted
                 .build();
 

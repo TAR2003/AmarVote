@@ -172,7 +172,7 @@ public class BallotService {
             }
 
             // 4. Check eligibility
-            boolean isEligible = checkVoterEligibility(user.getUserId(), election);
+            boolean isEligible = checkVoterEligibility(user.getUserEmail(), election);
             if (!isEligible) {
                 String errorMessage;
                 String errorReason;
@@ -193,7 +193,7 @@ public class BallotService {
             }
 
             // 5. Check if user has already voted
-            if (hasUserAlreadyVoted(user.getUserId(), election.getElectionId())) {
+            if (hasUserAlreadyVoted(user.getUserEmail(), election.getElectionId())) {
                 return CastBallotResponse.builder()
                         .success(false)
                         .message("You have already voted in this election")
@@ -216,7 +216,7 @@ public class BallotService {
             }
 
             // 7. Generate ballot hash ID
-            String ballotHashId = VoterIdGenerator.generateBallotHashId(user.getUserId(), election.getElectionId());
+            String ballotHashId = VoterIdGenerator.generateBallotHashId(user.getUserEmail(), election.getElectionId());
 
             // 8. Prepare data for ElectionGuard API
             List<String> partyNames = choices.stream()
@@ -272,7 +272,7 @@ public class BallotService {
             }
 
             // 11. Update voter status
-            updateVoterStatus(user.getUserId(), election);
+            updateVoterStatus(userEmail, election);
 
             // 12. Return success response
             return CastBallotResponse.builder()
@@ -341,10 +341,10 @@ public class BallotService {
             }
 
             // 4. Check if user has already voted
-            boolean hasVoted = hasUserAlreadyVoted(user.getUserId(), election.getElectionId());
+            boolean hasVoted = hasUserAlreadyVoted(user.getUserEmail(), election.getElectionId());
 
             // 5. Check if user is eligible to vote
-            boolean isEligible = checkVoterEligibility(user.getUserId(), election);
+            boolean isEligible = checkVoterEligibility(user.getUserEmail(), election);
 
             // 6. Build comprehensive response
             String message;
@@ -398,7 +398,7 @@ public class BallotService {
         }
     }
 
-    private boolean checkVoterEligibility(Integer userId, Election election) {
+    private boolean checkVoterEligibility(String userEmail, Election election) {
         // Check eligibility type
         String eligibility = election.getEligibility();
 
@@ -409,7 +409,7 @@ public class BallotService {
             // For listed elections, only users in the allowed voters list can vote
             List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
             return allowedVoters.stream()
-                    .anyMatch(av -> av.getUserId().equals(userId));
+                    .anyMatch(av -> av.getUserEmail().equals(userEmail)); // Use userEmail, not userId
         }
 
         // Default behavior for unknown eligibility types - deny access
@@ -450,21 +450,21 @@ public class BallotService {
         }
     }
 
-    private boolean hasUserAlreadyVoted(Integer userId, Long electionId) {
+    private boolean hasUserAlreadyVoted(String userEmail, Long electionId) {
         // Check if user has an entry in allowed_voters table with hasVoted = true
         List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(electionId);
 
         return allowedVoters.stream()
-                .anyMatch(av -> av.getUserId().equals(userId) && av.getHasVoted());
+                .anyMatch(av -> av.getUserEmail().equals(userEmail) && av.getHasVoted());
     }
 
     @Transactional
-    private void updateVoterStatus(Integer userId, Election election) {
+    private void updateVoterStatus(String userEmail, Election election) {
         List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
 
         // Check if user already exists in allowed voters
         Optional<AllowedVoter> existingVoterOpt = allowedVoters.stream()
-                .filter(av -> av.getUserId().equals(userId))
+                .filter(av -> av.getUserEmail().equals(userEmail)) // Use userEmail instead of userId
                 .findFirst();
 
         if (existingVoterOpt.isPresent()) {
@@ -478,14 +478,14 @@ public class BallotService {
                 // For unlisted elections, add user to allowed voters with hasVoted = true
                 AllowedVoter newVoter = AllowedVoter.builder()
                         .electionId(election.getElectionId())
-                        .userId(userId)
+                        .userEmail(userEmail) // Use userEmail, not userId
                         .hasVoted(true)
                         .build();
                 allowedVoterRepository.save(newVoter);
             } else {
                 // For listed elections, user should already be in the list
                 // This case shouldn't happen if eligibility check is working correctly
-                System.err.println("Warning: User " + userId + " not found in allowed voters for listed election "
+                System.err.println("Warning: User " + userEmail + " not found in allowed voters for listed election "
                         + election.getElectionId());
             }
         }
@@ -658,7 +658,7 @@ public class BallotService {
             }
 
             // 4. Check eligibility
-            boolean isEligible = checkVoterEligibility(user.getUserId(), election);
+            boolean isEligible = checkVoterEligibility(user.getUserEmail(), election);
             if (!isEligible) {
                 String errorMessage;
                 String errorReason;
@@ -679,7 +679,7 @@ public class BallotService {
             }
 
             // 5. Check if user has already voted
-            if (hasUserAlreadyVoted(user.getUserId(), election.getElectionId())) {
+            if (hasUserAlreadyVoted(user.getUserEmail(), election.getElectionId())) {
                 return CreateEncryptedBallotResponse.builder()
                         .success(false)
                         .message("You have already voted in this election")
@@ -701,7 +701,7 @@ public class BallotService {
             }
 
             // 7. Generate ballot hash ID
-            String ballotHashId = VoterIdGenerator.generateBallotHashId(user.getUserId(), election.getElectionId());
+            String ballotHashId = VoterIdGenerator.generateBallotHashId(user.getUserEmail(), election.getElectionId());
 
             // 8. Prepare data for ElectionGuard API
             List<String> partyNames = choices.stream()
@@ -959,7 +959,7 @@ public class BallotService {
             }
 
             // 4. Check eligibility
-            boolean isEligible = checkVoterEligibility(user.getUserId(), election);
+            boolean isEligible = checkVoterEligibility(user.getUserEmail(), election);
             if (!isEligible) {
                 return CastBallotResponse.builder()
                         .success(false)
@@ -969,7 +969,7 @@ public class BallotService {
             }
 
             // 5. Check if user has already voted
-            if (hasUserAlreadyVoted(user.getUserId(), election.getElectionId())) {
+            if (hasUserAlreadyVoted(user.getUserEmail(), election.getElectionId())) {
                 return CastBallotResponse.builder()
                         .success(false)
                         .message("You have already voted in this election")
@@ -1006,7 +1006,7 @@ public class BallotService {
             }
 
             // 8. Update voter status
-            updateVoterStatus(user.getUserId(), election);
+            updateVoterStatus(userEmail, election);
 
             // 9. Return success response
             return CastBallotResponse.builder()

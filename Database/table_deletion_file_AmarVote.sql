@@ -41,6 +41,11 @@ DROP INDEX IF EXISTS idx_decryptions_date CASCADE;
 DROP INDEX IF EXISTS idx_ballots_election_time_status CASCADE;
 DROP INDEX IF EXISTS idx_guardians_election_decrypted CASCADE;
 
+DROP INDEX IF EXISTS idx_otp_email CASCADE;
+DROP INDEX IF EXISTS idx_otp_email_code CASCADE;
+DROP INDEX IF EXISTS idx_otp_expires CASCADE;
+
+
 -- Step 2: Drop all tables in reverse dependency order
 -- (Child tables first, parent tables last)
 
@@ -53,6 +58,7 @@ DROP TABLE IF EXISTS guardians CASCADE;
 DROP TABLE IF EXISTS allowed_voters CASCADE;
 DROP TABLE IF EXISTS election_center CASCADE;
 DROP TABLE IF EXISTS elections CASCADE;
+DROP TABLE IF EXISTS otp_verifications CASCADE;
 
 -- Step 3: Drop extensions (optional - comment out if shared with other apps)
 DROP EXTENSION IF EXISTS "pgcrypto" CASCADE;

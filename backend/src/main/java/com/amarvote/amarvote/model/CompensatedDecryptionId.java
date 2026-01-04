@@ -15,7 +15,7 @@ import lombok.Setter;
 @EqualsAndHashCode
 public class CompensatedDecryptionId implements Serializable {
     
-    private Long electionId;
-    private Integer compensatingGuardianSequence;
-    private Integer missingGuardianSequence;
+    private Long electionCenterId;
+    private Long compensatingGuardianId;
+    private Long missingGuardianId;
 }

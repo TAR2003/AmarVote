@@ -143,32 +143,31 @@ public class UserController {
         return ResponseEntity.ok(loginResponse);
     }
 
-    @PostMapping("/logout")
-    public ResponseEntity<String> logout(HttpServletResponse response) {
-        Cookie cookie = new Cookie("jwtToken", null);
-        cookie.setHttpOnly(true);
-        cookie.setSecure(true); // Only over HTTPS
-        cookie.setPath("/");
-        cookie.setMaxAge(0); // Set to 0 to delete the cookie
-        cookie.setAttribute("SameSite", "Strict"); // Requires Servlet 4.0+ / Tomcat 9+
-        response.addCookie(cookie);
-        return ResponseEntity.ok("Logged out successfully");
-    }
+    // Logout moved to OtpAuthController - using OTP-based authentication now
+    // @PostMapping("/logout")
+    // public ResponseEntity<String> logout(HttpServletResponse response) {
+    //     Cookie cookie = new Cookie("jwtToken", null);
+    //     cookie.setHttpOnly(true);
+    //     cookie.setSecure(true); // Only over HTTPS
+    //     cookie.setPath("/");
+    //     cookie.setMaxAge(0); // Set to 0 to delete the cookie
+    //     cookie.setAttribute("SameSite", "Strict"); // Requires Servlet 4.0+ / Tomcat 9+
+    //     response.addCookie(cookie);
+    //     return ResponseEntity.ok("Logged out successfully");
+    // }
 
-    @GetMapping("/session")
-    public ResponseEntity<?> sessionCheck() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-
-        if (authentication == null || !authentication.isAuthenticated()
-                || "anonymousUser".equals(authentication.getPrincipal())) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No active session");
-        }
-
-        UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        UserSession session = new UserSession(userDetails.getUsername());
-
-        return ResponseEntity.ok(session);
-    }
+    // Session check moved to OtpAuthController - using OTP-based authentication now
+    // @GetMapping("/session")
+    // public ResponseEntity<?> sessionCheck() {
+    //     Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+    //     if (authentication == null || !authentication.isAuthenticated()
+    //             || "anonymousUser".equals(authentication.getPrincipal())) {
+    //         return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("No active session");
+    //     }
+    //     UserDetails userDetails = (UserDetails) authentication.getPrincipal();
+    //     UserSession session = new UserSession(userDetails.getUsername());
+    //     return ResponseEntity.ok(session);
+    // }
 
     @PostMapping("/profile/upload-picture")
     public ResponseEntity<?> uploadProfilePicture(@RequestParam("file") MultipartFile file) {
