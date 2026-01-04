@@ -33,6 +33,7 @@ CREATE TABLE IF NOT EXISTS election_center (
     election_center_id SERIAL PRIMARY KEY,
     election_id INTEGER NOT NULL,
     encrypted_tally TEXT,
+    election_result TEXT,
     CONSTRAINT fk_election FOREIGN KEY (election_id) 
         REFERENCES elections(election_id) ON DELETE CASCADE
 ); 
