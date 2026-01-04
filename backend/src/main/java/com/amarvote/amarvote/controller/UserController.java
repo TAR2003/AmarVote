@@ -23,7 +23,6 @@ import com.amarvote.amarvote.dto.RegisterRequest;
 import com.amarvote.amarvote.dto.RegisterResponse;
 import com.amarvote.amarvote.dto.UpdatePasswordRequest;
 import com.amarvote.amarvote.dto.UpdateProfileRequest;
-import com.amarvote.amarvote.dto.UserSession;
 import com.amarvote.amarvote.service.CloudinaryService;
 import com.amarvote.amarvote.service.UserService;
 

@@ -32,7 +32,6 @@ import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.model.SubmittedBallot;
-import com.amarvote.amarvote.model.User;
 import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionRepository;
@@ -41,7 +40,6 @@ import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
-import com.amarvote.amarvote.repository.UserRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
@@ -51,7 +49,6 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class PartialDecryptionService {
 
-    private final UserRepository userRepository;
     private final GuardianRepository guardianRepository;
     private final ElectionRepository electionRepository;
     private final ElectionChoiceRepository electionChoiceRepository;
@@ -73,16 +70,7 @@ public class PartialDecryptionService {
             System.out.println("=== Starting Partial Decryption Process ===");
             System.out.println("Election ID: " + request.election_id() + ", User: " + userEmail);
             
-            // 1. Find user by email
-            Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
-            if (!userOpt.isPresent()) {
-                System.err.println("User not found: " + userEmail);
-                return CreatePartialDecryptionResponse.builder()
-                    .success(false)
-                    .message("User not found")
-                    .build();
-            }
-            // 2. Find guardian record for this user and election
+            // 1. Find guardian record for this user and election
             List<Guardian> guardians = guardianRepository.findByElectionIdAndUserEmail(request.election_id(), userEmail);
             if (guardians.isEmpty()) {
                 return CreatePartialDecryptionResponse.builder()

@@ -225,6 +225,20 @@ export const electionApi = {
   },
 
   /**
+   * Get election results with chunk breakdown
+   */
+  async getElectionResults(electionId) {
+    try {
+      return await apiRequest(`/election/${electionId}/results`, {
+        method: 'GET',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error fetching election results:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Verify a vote using tracking code and hash
    */
   async verifyVote(electionId, verificationData) {

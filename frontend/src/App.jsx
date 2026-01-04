@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 
 import Login from "./pages/Login";
+import OtpLogin from "./pages/OtpLogin";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Hello from "./pages/Hello";
@@ -73,6 +74,16 @@ function App() {
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/about" element={<About />} />
         <Route path="/features" element={<Features />} />
+        <Route
+          path="/otp-login"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <OtpLogin setUserEmail={setUserEmail} />
+            )
+          }
+        />
         <Route
           path="/login"
           element={

@@ -58,6 +58,7 @@ import 'jspdf-autotable';
 import ErrorBoundary from '../components/ErrorBoundary';
 import GuardianDataDisplay from '../components/GuardianDataDisplay';
 import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
+import AnimatedResults from '../components/AnimatedResults';
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -1488,6 +1489,7 @@ export default function ElectionPage() {
   // Results state
   const [resultsData, setResultsData] = useState(null);
   const [rawVerificationData, setRawVerificationData] = useState(null); // Store raw API response for ballots
+  const [animatedResults, setAnimatedResults] = useState(null); // Store animated results from new endpoint
   const [loadingResults, setLoadingResults] = useState(false);
   const [combiningDecryptions, setCombiningDecryptions] = useState(false);
 
@@ -1769,6 +1771,18 @@ export default function ElectionPage() {
         // Process and set the results data for charts and statistics
         const processedResults = processElectionResults(response.results);
         setResultsData(processedResults);
+      }
+
+      // Fetch animated results from new endpoint
+      try {
+        const animatedResultsData = await electionApi.getElectionResults(id);
+        if (animatedResultsData.success) {
+          console.log('✅ Fetched animated results with chunk breakdown');
+          setAnimatedResults(animatedResultsData);
+        }
+      } catch (animErr) {
+        console.warn('Failed to fetch animated results:', animErr);
+        // Don't fail the whole operation if animated results aren't available
       }
 
       // Refresh election data to get updated results
@@ -3507,6 +3521,13 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                           <p className="text-sm text-gray-600 mt-2">
                             ✅ Quorum met! {guardiansSubmitted} out of {electionQuorum} required guardians have submitted keys. Click "Combine Partial Decryptions" to decrypt results.
                           </p>
+                        </div>
+                      )}
+
+                      {/* Animated Results Component */}
+                      {animatedResults && (
+                        <div className="mb-6">
+                          <AnimatedResults electionResults={animatedResults} />
                         </div>
                       )}
 

@@ -39,7 +39,7 @@ const Home = () => {
               </div>
             </div>
             <div className="flex items-center space-x-4">
-              <Link to="/auth">
+              <Link to="/otp-login">
                 <button className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition shadow-sm font-medium">
                   Sign In
                 </button>
@@ -62,7 +62,7 @@ const Home = () => {
             end-to-end encryption and homomorphic tallying.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link to="/auth">
+            <Link to="/otp-login">
               <button className="px-8 py-3 bg-blue-600 text-white text-lg rounded-lg shadow hover:bg-blue-700 transition transform hover:-translate-y-1">
                 Get Started
               </button>

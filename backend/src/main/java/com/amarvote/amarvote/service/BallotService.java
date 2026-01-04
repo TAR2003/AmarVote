@@ -31,13 +31,11 @@ import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
-import com.amarvote.amarvote.model.User;
 import com.amarvote.amarvote.repository.AllowedVoterRepository;
 import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
-import com.amarvote.amarvote.repository.UserRepository;
 import com.amarvote.amarvote.utils.VoterIdGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -56,9 +54,6 @@ public class BallotService {
 
     @Autowired
     private AllowedVoterRepository allowedVoterRepository;
-
-    @Autowired
-    private UserRepository userRepository;
 
     @Autowired
     private ElectionChoiceRepository electionChoiceRepository;
@@ -132,18 +127,7 @@ public class BallotService {
                  */
             }
 
-            // 1. Find user by email
-            Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
-            if (!userOpt.isPresent()) {
-                return CastBallotResponse.builder()
-                        .success(false)
-                        .message("User not found")
-                        .errorReason("Invalid user")
-                        .build();
-            }
-            User user = userOpt.get();
-
-            // 2. Find election
+            // 1. Find election
             Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
             if (!electionOpt.isPresent()) {
                 return CastBallotResponse.builder()
@@ -172,7 +156,7 @@ public class BallotService {
             }
 
             // 4. Check eligibility
-            boolean isEligible = checkVoterEligibility(user.getUserEmail(), election);
+            boolean isEligible = checkVoterEligibility(userEmail, election);
             if (!isEligible) {
                 String errorMessage;
                 String errorReason;
@@ -193,7 +177,7 @@ public class BallotService {
             }
 
             // 5. Check if user has already voted
-            if (hasUserAlreadyVoted(user.getUserEmail(), election.getElectionId())) {
+            if (hasUserAlreadyVoted(userEmail, election.getElectionId())) {
                 return CastBallotResponse.builder()
                         .success(false)
                         .message("You have already voted in this election")
@@ -216,7 +200,7 @@ public class BallotService {
             }
 
             // 7. Generate ballot hash ID
-            String ballotHashId = VoterIdGenerator.generateBallotHashId(user.getUserEmail(), election.getElectionId());
+            String ballotHashId = VoterIdGenerator.generateBallotHashId(userEmail, election.getElectionId());
 
             // 8. Prepare data for ElectionGuard API
             List<String> partyNames = choices.stream()
@@ -298,21 +282,7 @@ public class BallotService {
      */
     public EligibilityCheckResponse checkEligibility(EligibilityCheckRequest request, String userEmail) {
         try {
-            // 1. Find user by email
-            Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
-            if (!userOpt.isPresent()) {
-                return EligibilityCheckResponse.builder()
-                        .eligible(false)
-                        .message("User not found")
-                        .reason("User account not found")
-                        .hasVoted(false)
-                        .isElectionActive(false)
-                        .electionStatus("N/A")
-                        .build();
-            }
-            User user = userOpt.get();
-
-            // 2. Find election
+            // 1. Find election
             Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
             if (!electionOpt.isPresent()) {
                 return EligibilityCheckResponse.builder()
@@ -341,10 +311,10 @@ public class BallotService {
             }
 
             // 4. Check if user has already voted
-            boolean hasVoted = hasUserAlreadyVoted(user.getUserEmail(), election.getElectionId());
+            boolean hasVoted = hasUserAlreadyVoted(userEmail, election.getElectionId());
 
             // 5. Check if user is eligible to vote
-            boolean isEligible = checkVoterEligibility(user.getUserEmail(), election);
+            boolean isEligible = checkVoterEligibility(userEmail, election);
 
             // 6. Build comprehensive response
             String message;
@@ -618,18 +588,7 @@ public class BallotService {
                 }
             }
 
-            // 1. Find user
-            Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
-            if (!userOpt.isPresent()) {
-                return CreateEncryptedBallotResponse.builder()
-                        .success(false)
-                        .message("User not found")
-                        .errorReason("Invalid user")
-                        .build();
-            }
-            User user = userOpt.get();
-
-            // 2. Find election
+            // 1. Find election
             Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
             if (!electionOpt.isPresent()) {
                 return CreateEncryptedBallotResponse.builder()
@@ -658,7 +617,7 @@ public class BallotService {
             }
 
             // 4. Check eligibility
-            boolean isEligible = checkVoterEligibility(user.getUserEmail(), election);
+            boolean isEligible = checkVoterEligibility(userEmail, election);
             if (!isEligible) {
                 String errorMessage;
                 String errorReason;
@@ -679,7 +638,7 @@ public class BallotService {
             }
 
             // 5. Check if user has already voted
-            if (hasUserAlreadyVoted(user.getUserEmail(), election.getElectionId())) {
+            if (hasUserAlreadyVoted(userEmail, election.getElectionId())) {
                 return CreateEncryptedBallotResponse.builder()
                         .success(false)
                         .message("You have already voted in this election")
@@ -701,7 +660,7 @@ public class BallotService {
             }
 
             // 7. Generate ballot hash ID
-            String ballotHashId = VoterIdGenerator.generateBallotHashId(user.getUserEmail(), election.getElectionId());
+            String ballotHashId = VoterIdGenerator.generateBallotHashId(userEmail, election.getElectionId());
 
             // 8. Prepare data for ElectionGuard API
             List<String> partyNames = choices.stream()
@@ -756,20 +715,7 @@ public class BallotService {
             System.out.println("🔍 [BENALOH] Request data: electionId=" + request.getElectionId() + 
                               ", candidate=" + request.getCandidate_name());
 
-            // 1. Find user
-            Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
-            if (!userOpt.isPresent()) {
-                System.out.println("❌ [BENALOH] User not found");
-                return BenalohChallengeResponse.builder()
-                        .success(false)
-                        .message("User not found")
-                        .errorReason("Invalid user")
-                        .build();
-            }
-            User user = userOpt.get();
-            System.out.println("✅ [BENALOH] User found: " + user.getUserId());
-
-            // 2. Find election
+            // 1. Find election
             Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
             if (!electionOpt.isPresent()) {
                 System.out.println("❌ [BENALOH] Election not found");
@@ -782,7 +728,7 @@ public class BallotService {
             Election election = electionOpt.get();
             System.out.println("✅ [BENALOH] Election found: " + election.getElectionTitle());
 
-            // 3. Validate candidate choice
+            // 2. Validate candidate choice
             System.out.println("🔍 [BENALOH] Fetching election choices...");
             List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
             // choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
@@ -814,7 +760,7 @@ public class BallotService {
                     .map(ElectionChoice::getOptionTitle)
                     .collect(Collectors.toList());
 
-            String ballotId = "challenge-" + user.getUserId() + "-" + election.getElectionId() + "-" + System.currentTimeMillis();
+            String ballotId = "challenge-" + userEmail.hashCode() + "-" + election.getElectionId() + "-" + System.currentTimeMillis();
             System.out.println("🔍 [BENALOH] Ballot ID: " + ballotId);
             System.out.println("🔍 [BENALOH] Party names: " + partyNames);
             System.out.println("🔍 [BENALOH] Candidate names: " + candidateNames);
@@ -919,18 +865,7 @@ public class BallotService {
     @Transactional
     public CastBallotResponse castEncryptedBallot(CastEncryptedBallotRequest request, String userEmail) {
         try {
-            // 1. Find user
-            Optional<User> userOpt = userRepository.findByUserEmail(userEmail);
-            if (!userOpt.isPresent()) {
-                return CastBallotResponse.builder()
-                        .success(false)
-                        .message("User not found")
-                        .errorReason("Invalid user")
-                        .build();
-            }
-            User user = userOpt.get();
-
-            // 2. Find election
+            // 1. Find election
             Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
             if (!electionOpt.isPresent()) {
                 return CastBallotResponse.builder()
@@ -959,7 +894,7 @@ public class BallotService {
             }
 
             // 4. Check eligibility
-            boolean isEligible = checkVoterEligibility(user.getUserEmail(), election);
+            boolean isEligible = checkVoterEligibility(userEmail, election);
             if (!isEligible) {
                 return CastBallotResponse.builder()
                         .success(false)
@@ -969,7 +904,7 @@ public class BallotService {
             }
 
             // 5. Check if user has already voted
-            if (hasUserAlreadyVoted(user.getUserEmail(), election.getElectionId())) {
+            if (hasUserAlreadyVoted(userEmail, election.getElectionId())) {
                 return CastBallotResponse.builder()
                         .success(false)
                         .message("You have already voted in this election")
@@ -1025,3 +960,4 @@ public class BallotService {
         }
     }
 }
+

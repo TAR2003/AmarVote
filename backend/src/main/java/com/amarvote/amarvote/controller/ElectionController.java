@@ -37,6 +37,7 @@ import com.amarvote.amarvote.dto.CreateTallyResponse;
 import com.amarvote.amarvote.dto.ElectionCreationRequest;
 import com.amarvote.amarvote.dto.ElectionDetailResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
+import com.amarvote.amarvote.dto.ElectionResultsResponse;
 import com.amarvote.amarvote.dto.EligibilityCheckRequest;
 import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.model.Election;
@@ -736,6 +737,23 @@ public class ElectionController {
                 "success", false,
                 "error", "Failed to retrieve compensated decryption information: " + e.getMessage()
             ));
+        }
+    }
+
+    /**
+     * Get election results with chunk information
+     */
+    @GetMapping("/election/{id}/results")
+    public ResponseEntity<ElectionResultsResponse> getElectionResults(@PathVariable Long id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userEmail = authentication.getName();
+        
+        ElectionResultsResponse results = electionService.getElectionResults(id, userEmail);
+        
+        if (results.isSuccess()) {
+            return ResponseEntity.ok(results);
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(results);
         }
     }
 }

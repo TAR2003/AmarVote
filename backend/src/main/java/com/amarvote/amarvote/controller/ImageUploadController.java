@@ -18,10 +18,8 @@ import org.springframework.web.multipart.MultipartFile;
 
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
-import com.amarvote.amarvote.model.User;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
-import com.amarvote.amarvote.repository.UserRepository;
 import com.amarvote.amarvote.service.CloudinaryService;
 
 @RestController
@@ -32,9 +30,6 @@ public class ImageUploadController {
     private CloudinaryService cloudinaryService;
 
     @Autowired
-    private UserRepository userRepository;
-
-    @Autowired
     private ElectionRepository electionRepository;
 
     @Autowired
@@ -42,6 +37,7 @@ public class ImageUploadController {
 
     /**
      * Upload profile picture for authenticated user
+     * Note: Profile pictures are no longer stored in a user table
      */
     @PostMapping("/profile")
     public ResponseEntity<?> uploadProfilePicture(@RequestParam("file") MultipartFile file) {
@@ -54,33 +50,12 @@ public class ImageUploadController {
         }
 
         try {
-            UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-            String email = userDetails.getUsername();
-
-            // Find user
-            Optional<User> userOpt = userRepository.findByUserEmail(email);
-            if (userOpt.isEmpty()) {
-                return ResponseEntity.status(HttpStatus.NOT_FOUND)
-                        .body(Map.of("success", false, "message", "User not found"));
-            }
-
-            User user = userOpt.get();
-
-            // Delete old profile picture if exists
-            if (user.getProfilePic() != null && !user.getProfilePic().isEmpty()) {
-                cloudinaryService.deleteImage(user.getProfilePic());
-            }
-
-            // Upload new image
+            // Upload image and return URL - client will handle storage
             String imageUrl = cloudinaryService.uploadImage(file, CloudinaryService.ImageType.PROFILE);
             
-            // Update user profile
-            user.setProfilePic(imageUrl);
-            userRepository.save(user);
-
             return ResponseEntity.ok(Map.of(
                     "success", true,
-                    "message", "Profile picture updated successfully",
+                    "message", "Profile picture uploaded successfully",
                     "imageUrl", imageUrl
             ));
 

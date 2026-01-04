@@ -14,18 +14,22 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
 import com.amarvote.amarvote.dto.BlockchainElectionResponse; // Fixed: Use Spring's HttpHeaders, not Netty's
+import com.amarvote.amarvote.dto.ChunkResultResponse;
 import com.amarvote.amarvote.dto.ElectionCreationRequest;
 import com.amarvote.amarvote.dto.ElectionDetailResponse; // Added: For setting content type
 import com.amarvote.amarvote.dto.ElectionGuardianSetupRequest; // Added: For handling HTTP responses
 import com.amarvote.amarvote.dto.ElectionGuardianSetupResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
+import com.amarvote.amarvote.dto.ElectionResultsResponse;
 import com.amarvote.amarvote.dto.OptimizedElectionResponse;
 import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.Election;
+import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.repository.AllowedVoterRepository;
 import com.amarvote.amarvote.repository.BallotRepository;
+import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
@@ -60,6 +64,9 @@ public class ElectionService {
 
     @Autowired
     private BallotRepository ballotRepository;
+
+    @Autowired
+    private ElectionCenterRepository electionCenterRepository;
 
     @Autowired
     private BlockchainService blockchainService;
@@ -1115,6 +1122,143 @@ public class ElectionService {
             System.err.println("Error retrieving compensated decryptions for verification: " + e.getMessage());
             e.printStackTrace();
             throw new RuntimeException("Failed to retrieve compensated decryption information", e);
+        }
+    }
+
+    /**
+     * Get election results with chunk information
+     * Returns individual chunk results and combined final results
+     */
+    public ElectionResultsResponse getElectionResults(Long electionId, String userEmail) {
+        try {
+            System.out.println("Fetching election results for ID: " + electionId + " by user: " + userEmail);
+            
+            // Check if election exists and user is authorized
+            Optional<Election> electionOpt = electionRepository.findById(electionId);
+            if (!electionOpt.isPresent()) {
+                return ElectionResultsResponse.builder()
+                    .success(false)
+                    .message("Election not found")
+                    .build();
+            }
+            
+            Election election = electionOpt.get();
+            
+            // Check authorization
+            if (!isUserAuthorizedToViewElection(election, userEmail)) {
+                return ElectionResultsResponse.builder()
+                    .success(false)
+                    .message("You are not authorized to view this election")
+                    .build();
+            }
+            
+            // Get all election centers (chunks) for this election
+            List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
+            
+            if (electionCenters.isEmpty()) {
+                return ElectionResultsResponse.builder()
+                    .success(false)
+                    .message("No tally data found for this election")
+                    .build();
+            }
+            
+            // Parse results from each chunk
+            List<ChunkResultResponse> chunkResults = new ArrayList<>();
+            Map<String, Integer> finalResults = new HashMap<>();
+            List<ElectionResultsResponse.BallotInfo> allBallots = new ArrayList<>();
+            int chunkNumber = 1;
+            
+            for (ElectionCenter center : electionCenters) {
+                String electionResult = center.getElectionResult();
+                
+                if (electionResult != null && !electionResult.trim().isEmpty()) {
+                    try {
+                        // Parse the election result JSON
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> resultMap = objectMapper.readValue(electionResult, Map.class);
+                        
+                        // Extract candidate votes from this chunk
+                        Map<String, Integer> chunkVotes = new HashMap<>();
+                        List<String> trackingCodes = new ArrayList<>();
+                        List<String> ballotHashes = new ArrayList<>();
+                        
+                        // Parse results structure
+                        if (resultMap.containsKey("results")) {
+                            @SuppressWarnings("unchecked")
+                            Map<String, Object> results = (Map<String, Object>) resultMap.get("results");
+                            if (results.containsKey("candidates")) {
+                                @SuppressWarnings("unchecked")
+                                Map<String, Object> candidates = (Map<String, Object>) results.get("candidates");
+                                for (Map.Entry<String, Object> entry : candidates.entrySet()) {
+                                    String candidateName = entry.getKey();
+                                    @SuppressWarnings("unchecked")
+                                    Map<String, Object> candidateData = (Map<String, Object>) entry.getValue();
+                                    Object votesObj = candidateData.get("votes");
+                                    int votes = (votesObj instanceof Integer) ? (Integer) votesObj : 
+                                               Integer.parseInt(String.valueOf(votesObj));
+                                    
+                                    chunkVotes.put(candidateName, votes);
+                                    finalResults.put(candidateName, 
+                                        finalResults.getOrDefault(candidateName, 0) + votes);
+                                }
+                            }
+                        }
+                        
+                        // Extract ballot tracking codes and hashes
+                        if (resultMap.containsKey("ballots")) {
+                            @SuppressWarnings("unchecked")
+                            List<Map<String, Object>> ballots = (List<Map<String, Object>>) resultMap.get("ballots");
+                            for (Map<String, Object> ballot : ballots) {
+                                String trackingCode = (String) ballot.get("tracking_code");
+                                String ballotHash = (String) ballot.get("ballot_hash");
+                                trackingCodes.add(trackingCode);
+                                ballotHashes.add(ballotHash);
+                                
+                                allBallots.add(ElectionResultsResponse.BallotInfo.builder()
+                                    .trackingCode(trackingCode)
+                                    .ballotHash(ballotHash)
+                                    .chunkNumber(chunkNumber)
+                                    .build());
+                            }
+                        }
+                        
+                        chunkResults.add(ChunkResultResponse.builder()
+                            .electionCenterId(center.getElectionCenterId())
+                            .chunkNumber(chunkNumber)
+                            .candidateVotes(chunkVotes)
+                            .trackingCodes(trackingCodes)
+                            .ballotHashes(ballotHashes)
+                            .build());
+                        
+                    } catch (Exception e) {
+                        System.err.println("Error parsing chunk " + chunkNumber + " results: " + e.getMessage());
+                    }
+                }
+                chunkNumber++;
+            }
+            
+            // Calculate total votes
+            int totalVotes = finalResults.values().stream().mapToInt(Integer::intValue).sum();
+            
+            return ElectionResultsResponse.builder()
+                .success(true)
+                .message("Results retrieved successfully")
+                .electionId(electionId)
+                .electionTitle(election.getElectionTitle())
+                .status(election.getStatus())
+                .chunkResults(chunkResults)
+                .finalResults(finalResults)
+                .totalVotes(totalVotes)
+                .ballots(allBallots)
+                .build();
+                
+        } catch (Exception e) {
+            System.err.println("Error getting election results: " + e.getMessage());
+            e.printStackTrace();
+            return ElectionResultsResponse.builder()
+                .success(false)
+                .message("Internal server error: " + e.getMessage())
+                .build();
         }
     }
 }
