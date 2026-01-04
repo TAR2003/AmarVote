@@ -51,15 +51,8 @@ CREATE TABLE IF NOT EXISTS guardians (
     election_id INTEGER NOT NULL,
     user_email TEXT NOT NULL,
     guardian_public_key TEXT NOT NULL,
-    guardian_polynomial TEXT NOT NULL,
     sequence_order INTEGER NOT NULL CHECK (sequence_order > 0),
     decrypted_or_not BOOLEAN NOT NULL DEFAULT FALSE,
-    -- partial_decrypted_tally TEXT,
-    -- proof TEXT, -- Added proof field
-    -- guardian_decryption_key TEXT, -- Added guardian_decryption_key field
-    -- tally_share TEXT, -- Added tally_share field
-    -- ballot_share TEXT, -- Added ballot_share field
-    key_backup TEXT, -- Added key_backup field
     credentails TEXT, -- Added credentials field
     CONSTRAINT unique_sequence_order UNIQUE (election_id, sequence_order),
     CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE
