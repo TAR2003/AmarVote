@@ -126,3 +126,58 @@ CREATE TABLE IF NOT EXISTS decryptions (
 );
 
 
+-- ============================================
+-- AMARVOTE PERFORMANCE INDEXES
+-- Run after creating all tables
+-- ============================================
+
+-- Elections table indexes
+CREATE INDEX IF NOT EXISTS idx_elections_status ON elections(status);
+CREATE INDEX IF NOT EXISTS idx_elections_admin ON elections(admin_email);
+CREATE INDEX IF NOT EXISTS idx_elections_times ON elections(starting_time, ending_time);
+CREATE INDEX IF NOT EXISTS idx_elections_created ON elections(created_at DESC);
+
+-- Election Center table indexes
+CREATE INDEX IF NOT EXISTS idx_election_center_election ON election_center(election_id);
+
+-- Allowed Voters table indexes
+CREATE INDEX IF NOT EXISTS idx_allowed_voters_email ON allowed_voters(user_email);
+CREATE INDEX IF NOT EXISTS idx_allowed_voters_voted ON allowed_voters(election_id, has_voted);
+
+-- Guardians table indexes
+CREATE INDEX IF NOT EXISTS idx_guardians_election ON guardians(election_id);
+CREATE INDEX IF NOT EXISTS idx_guardians_email ON guardians(user_email);
+CREATE INDEX IF NOT EXISTS idx_guardians_sequence ON guardians(election_id, sequence_order);
+CREATE INDEX IF NOT EXISTS idx_guardians_decryption_status ON guardians(election_id, decrypted_or_not);
+
+-- Election Choices table indexes
+CREATE INDEX IF NOT EXISTS idx_choices_election ON election_choices(election_id);
+CREATE INDEX IF NOT EXISTS idx_choices_title ON election_choices(election_id, option_title);
+
+-- Ballots table indexes (CRITICAL for performance)
+CREATE INDEX IF NOT EXISTS idx_ballots_election ON ballots(election_id);
+CREATE INDEX IF NOT EXISTS idx_ballots_election_status ON ballots(election_id, status);
+CREATE INDEX IF NOT EXISTS idx_ballots_tracking ON ballots(tracking_code);
+CREATE INDEX IF NOT EXISTS idx_ballots_submission_time ON ballots(election_id, submission_time DESC);
+CREATE INDEX IF NOT EXISTS idx_ballots_hash ON ballots(hash_code);
+CREATE INDEX IF NOT EXISTS idx_ballots_status ON ballots(status);
+
+-- Submitted Ballots table indexes
+CREATE INDEX IF NOT EXISTS idx_submitted_ballots_center ON submitted_ballots(election_center_id);
+CREATE INDEX IF NOT EXISTS idx_submitted_ballots_created ON submitted_ballots(election_center_id, created_at DESC);
+
+-- Compensated Decryptions table indexes
+CREATE INDEX IF NOT EXISTS idx_compensated_election_center ON compensated_decryptions(election_center_id);
+CREATE INDEX IF NOT EXISTS idx_compensated_comp_guardian ON compensated_decryptions(compensating_guardian_id);
+CREATE INDEX IF NOT EXISTS idx_compensated_miss_guardian ON compensated_decryptions(missing_guardian_id);
+CREATE INDEX IF NOT EXISTS idx_compensated_guardians ON compensated_decryptions(election_center_id, compensating_guardian_id, missing_guardian_id);
+
+-- Decryptions table indexes
+CREATE INDEX IF NOT EXISTS idx_decryptions_center ON decryptions(election_center_id);
+CREATE INDEX IF NOT EXISTS idx_decryptions_guardian ON decryptions(guardian_id);
+CREATE INDEX IF NOT EXISTS idx_decryptions_center_guardian ON decryptions(election_center_id, guardian_id);
+CREATE INDEX IF NOT EXISTS idx_decryptions_date ON decryptions(election_center_id, date_performed DESC);
+
+-- Composite indexes for common queries
+CREATE INDEX IF NOT EXISTS idx_ballots_election_time_status ON ballots(election_id, submission_time DESC, status);
+CREATE INDEX IF NOT EXISTS idx_guardians_election_decrypted ON guardians(election_id, decrypted_or_not, sequence_order);
