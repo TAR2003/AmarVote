@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS elections (
     CONSTRAINT valid_quorum CHECK (election_quorum <= number_of_guardians AND election_quorum > 0)
 );
 
-CREATE INDEX IF NOT EXISTS election_center
+CREATE TABLE IF NOT EXISTS election_center
 (
     election_center_id SERIAL PRIMARY KEY,
     election_id INTEGER NOT NULL,
@@ -53,7 +53,7 @@ CREATE TABLE IF NOT EXISTS guardians (
     guardian_public_key TEXT NOT NULL,
     sequence_order INTEGER NOT NULL CHECK (sequence_order > 0),
     decrypted_or_not BOOLEAN NOT NULL DEFAULT FALSE,
-    credentails TEXT, -- Added credentials field
+    credentials TEXT, -- Added credentials field
     CONSTRAINT unique_sequence_order UNIQUE (election_id, sequence_order),
     CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE
 );
@@ -80,7 +80,7 @@ CREATE TABLE IF NOT EXISTS ballots (
     status TEXT NOT NULL, -- Changed from ballot_status enum
     cipher_text TEXT NOT NULL,
     hash_code TEXT NOT NULL,
-    tracking_code TEXT NOT NULL
+    tracking_code TEXT NOT NULL,
     CONSTRAINT unique_tracking_code UNIQUE (tracking_code),
     CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE,
     CONSTRAINT valid_ballot_status CHECK (status IN ('cast', 'spoiled', 'challenged'))
@@ -105,8 +105,8 @@ CREATE TABLE IF NOT EXISTS compensated_decryptions (
     compensated_tally_share TEXT NOT NULL,
     compensated_ballot_share TEXT NOT NULL,
     CONSTRAINT fk_election_center FOREIGN KEY (election_center_id) REFERENCES election_center(election_center_id) ON DELETE CASCADE,
-    CONSTRAINT fk_compensating_guardian FOREIGN KEY (election_center_id, compensating_guardian_sequence) REFERENCES guardians(election_center_id, sequence_order) ON DELETE CASCADE,
-    CONSTRAINT fk_missing_guardian FOREIGN KEY (election_center_id, missing_guardian_sequence) REFERENCES guardians(election_center_id, sequence_order) ON DELETE CASCADE,
+    CONSTRAINT fk_compensating_guardian FOREIGN KEY (compensating_guardian_sequence) REFERENCES guardians(guardian_id) ON DELETE CASCADE,
+    CONSTRAINT fk_missing_guardian FOREIGN KEY (missing_guardian_sequence) REFERENCES guardians(guardian_id) ON DELETE CASCADE,
     CONSTRAINT check_different_guardians CHECK (compensating_guardian_sequence != missing_guardian_sequence)
 );
 
