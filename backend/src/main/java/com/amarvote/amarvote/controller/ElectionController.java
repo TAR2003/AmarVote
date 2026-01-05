@@ -542,6 +542,31 @@ public class ElectionController {
     }
 
     /**
+     * Get cached election results with chunk breakdown
+     * Returns results from election_result field if already computed
+     */
+    @GetMapping("/election/{electionId}/cached-results")
+    public ResponseEntity<?> getCachedElectionResults(@PathVariable Long electionId) {
+        try {
+            System.out.println("Fetching cached election results for ID: " + electionId);
+
+            Object results = partialDecryptionService.getElectionResults(electionId);
+
+            if (results == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("success", false, "message", "Results not yet available"));
+            }
+
+            return ResponseEntity.ok(Map.of("success", true, "results", results));
+
+        } catch (Exception e) {
+            System.err.println("Error fetching cached election results: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Internal server error: " + e.getMessage()));
+        }
+    }
+
+    /**
      * 🔗 Verify a ballot on the blockchain by election ID and tracking code
      * This endpoint is public and can be used by voters to verify their ballots
      */

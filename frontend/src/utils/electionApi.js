@@ -229,9 +229,10 @@ export const electionApi = {
    */
   async getElectionResults(electionId) {
     try {
-      return await apiRequest(`/election/${electionId}/results`, {
+      const response = await apiRequest(`/election/${electionId}/cached-results`, {
         method: 'GET',
       }, EXTENDED_TIMEOUT);
+      return response;
     } catch (error) {
       console.error('Error fetching election results:', error);
       throw error;

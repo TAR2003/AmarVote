@@ -1,6 +1,7 @@
 package com.amarvote.amarvote.service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -385,7 +386,6 @@ public class PartialDecryptionService {
             Election election = electionOpt.get();
 
             // 2. Check if ciphertext_tally exists in ElectionCenter table
-            // TODO: Update to use chunking - check if at least one ElectionCenter has encrypted tally
             List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(request.election_id());
             if (electionCenters == null || electionCenters.isEmpty() || 
                 electionCenters.stream().noneMatch(ec -> ec.getEncryptedTally() != null && !ec.getEncryptedTally().trim().isEmpty())) {
@@ -394,6 +394,25 @@ public class PartialDecryptionService {
                     .message("Election tally has not been created yet. Please create the tally first.")
                     .build();
             }
+
+            // 2.5. Check if results already exist (optimization)
+            boolean allChunksHaveResults = electionCenters.stream()
+                .allMatch(ec -> ec.getElectionResult() != null && !ec.getElectionResult().trim().isEmpty());
+            
+            if (allChunksHaveResults) {
+                System.out.println("✅ Results already computed for all chunks. Returning cached results.");
+                
+                // Build aggregated results from cached chunk data
+                Object cachedResults = buildAggregatedResultsFromChunks(electionCenters, request.election_id());
+                
+                return CombinePartialDecryptionResponse.builder()
+                    .success(true)
+                    .message("Election results retrieved from cache")
+                    .results(cachedResults)
+                    .build();
+            }
+            
+            System.out.println("🔄 Computing fresh results for " + electionCenters.size() + " chunk(s)");
 
             // 3. Fetch election choices for candidate_names and party_names
             List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(request.election_id());
@@ -631,11 +650,20 @@ public class PartialDecryptionService {
 
             ElectionGuardCombineDecryptionSharesResponse guardResponse = callElectionGuardCombineDecryptionSharesService(guardRequest);
 
-            // 9. ✅ Process the response string to extract results
+            // 9. ✅ Process the response string to extract results and save to election_result
             if ("success".equals(guardResponse.status())) {
                 Object resultsObject = parseResultsString(guardResponse.results());
                 
-                // Update the total_votes in election_choices table
+                // Save chunk result to the first ElectionCenter's election_result
+                // This stores per-chunk results with ballot tracking codes and candidate tallies
+                if (!electionCenters.isEmpty()) {
+                    ElectionCenter firstChunk = electionCenters.get(0);
+                    firstChunk.setElectionResult(guardResponse.results());
+                    electionCenterRepository.save(firstChunk);
+                    System.out.println("💾 Saved chunk results to election_center_id: " + firstChunk.getElectionCenterId());
+                }
+                
+                // Update the total_votes in election_choices table (for final aggregated results)
                 updateElectionChoicesWithResults(request.election_id(), resultsObject, electionChoices);
                 
                 // Update election status to 'decrypted'
@@ -981,6 +1009,38 @@ public class PartialDecryptionService {
     }
 
     /**
+     * Get election results from cached election_result data
+     * Returns null if results haven't been computed yet
+     */
+    public Object getElectionResults(Long electionId) {
+        try {
+            List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
+            
+            if (electionCenters == null || electionCenters.isEmpty()) {
+                System.out.println("No election centers found for election: " + electionId);
+                return null;
+            }
+            
+            // Check if any chunks have results
+            boolean anyChunkHasResults = electionCenters.stream()
+                .anyMatch(ec -> ec.getElectionResult() != null && !ec.getElectionResult().trim().isEmpty());
+            
+            if (!anyChunkHasResults) {
+                System.out.println("No results computed yet for election: " + electionId);
+                return null;
+            }
+            
+            // Build and return aggregated results
+            return buildAggregatedResultsFromChunks(electionCenters, electionId);
+            
+        } catch (Exception e) {
+            System.err.println("Error getting election results: " + e.getMessage());
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
      * Parses the results string from the microservice response
      */
     private Object parseResultsString(String resultsString) {
@@ -989,6 +1049,133 @@ public class PartialDecryptionService {
         } catch (Exception e) {
             System.err.println("Error parsing results string: " + e.getMessage());
             return resultsString; // Return as string if parsing fails
+        }
+    }
+
+    /**
+     * Builds aggregated results from all chunk election_result data
+     * Combines per-chunk results into a single comprehensive result object
+     */
+    private Object buildAggregatedResultsFromChunks(List<ElectionCenter> electionCenters, Long electionId) {
+        try {
+            Map<String, Object> aggregatedResult = new HashMap<>();
+            List<Map<String, Object>> chunkResults = new ArrayList<>();
+            Map<String, Integer> finalTallies = new HashMap<>();
+            List<Map<String, Object>> allBallots = new ArrayList<>();
+            
+            // Process each chunk
+            for (int i = 0; i < electionCenters.size(); i++) {
+                ElectionCenter chunk = electionCenters.get(i);
+                if (chunk.getElectionResult() != null && !chunk.getElectionResult().trim().isEmpty()) {
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> chunkData = objectMapper.readValue(chunk.getElectionResult(), Map.class);
+                    
+                    // Extract chunk-specific results
+                    @SuppressWarnings("unchecked")
+                    Map<String, Object> resultsSection = (Map<String, Object>) chunkData.get("results");
+                    
+                    if (resultsSection != null) {
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> candidates = (Map<String, Object>) resultsSection.get("candidates");
+                        
+                        // Extract vote counts from candidates (handle nested structure)
+                        Map<String, Integer> candidateVoteCounts = new HashMap<>();
+                        if (candidates != null) {
+                            for (Map.Entry<String, Object> entry : candidates.entrySet()) {
+                                String candidateName = entry.getKey();
+                                Object value = entry.getValue();
+                                int votes = 0;
+                                
+                                if (value instanceof Number) {
+                                    votes = ((Number) value).intValue();
+                                } else if (value instanceof Map) {
+                                    @SuppressWarnings("unchecked")
+                                    Map<String, Object> voteData = (Map<String, Object>) value;
+                                    Object votesObj = voteData.get("votes");
+                                    if (votesObj instanceof Number) {
+                                        votes = ((Number) votesObj).intValue();
+                                    } else if (votesObj instanceof String) {
+                                        try {
+                                            votes = Integer.parseInt((String) votesObj);
+                                        } catch (NumberFormatException e) {
+                                            System.err.println("Failed to parse votes for " + candidateName + ": " + votesObj);
+                                        }
+                                    }
+                                }
+                                candidateVoteCounts.put(candidateName, votes);
+                            }
+                        }
+                        
+                        // Build per-chunk result
+                        Map<String, Object> chunkResult = new HashMap<>();
+                        chunkResult.put("chunkIndex", i + 1);
+                        chunkResult.put("electionCenterId", chunk.getElectionCenterId());
+                        chunkResult.put("candidateVotes", candidateVoteCounts);
+                        
+                        // Extract ballot information
+                        @SuppressWarnings("unchecked")
+                        Map<String, Object> verification = (Map<String, Object>) chunkData.get("verification");
+                        if (verification != null) {
+                            @SuppressWarnings("unchecked")
+                            List<Map<String, Object>> ballots = (List<Map<String, Object>>) verification.get("ballots");
+                            if (ballots != null) {
+                                chunkResult.put("ballotCount", ballots.size());
+                                // Add chunk index to each ballot
+                                for (Map<String, Object> ballot : ballots) {
+                                    ballot.put("chunkIndex", i + 1);
+                                    allBallots.add(ballot);
+                                }
+                            }
+                        }
+                        
+                        chunkResults.add(chunkResult);
+                        
+                        // Aggregate tallies - handle nested votes structure
+                        if (candidates != null) {
+                            for (Map.Entry<String, Object> entry : candidates.entrySet()) {
+                                String candidateName = entry.getKey();
+                                int votes = 0;
+                                
+                                // Handle both simple number and nested object formats
+                                Object value = entry.getValue();
+                                if (value instanceof Number) {
+                                    votes = ((Number) value).intValue();
+                                } else if (value instanceof Map) {
+                                    // Extract votes from nested object: {"votes": "2", "percentage": "50.0"}
+                                    @SuppressWarnings("unchecked")
+                                    Map<String, Object> voteData = (Map<String, Object>) value;
+                                    Object votesObj = voteData.get("votes");
+                                    if (votesObj instanceof Number) {
+                                        votes = ((Number) votesObj).intValue();
+                                    } else if (votesObj instanceof String) {
+                                        try {
+                                            votes = Integer.parseInt((String) votesObj);
+                                        } catch (NumberFormatException e) {
+                                            System.err.println("Failed to parse votes for " + candidateName + ": " + votesObj);
+                                        }
+                                    }
+                                }
+                                
+                                finalTallies.put(candidateName, finalTallies.getOrDefault(candidateName, 0) + votes);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            // Build final aggregated response
+            aggregatedResult.put("chunks", chunkResults);
+            aggregatedResult.put("finalTallies", finalTallies);
+            aggregatedResult.put("totalChunks", electionCenters.size());
+            aggregatedResult.put("allBallots", allBallots);
+            
+            System.out.println("✅ Built aggregated results from " + chunkResults.size() + " chunks");
+            return aggregatedResult;
+            
+        } catch (Exception e) {
+            System.err.println("Error building aggregated results: " + e.getMessage());
+            e.printStackTrace();
+            return new HashMap<>();
         }
     }
 }

@@ -7,8 +7,10 @@ const AnimatedResults = ({ electionResults }) => {
   const [isAnimating, setIsAnimating] = useState(false);
 
   useEffect(() => {
-    if (!electionResults || !electionResults.chunkResults) return;
+    if (!electionResults || !electionResults.results || !electionResults.results.chunks) return;
 
+    const chunks = electionResults.results.chunks;
+    
     // Start animation
     setIsAnimating(true);
     setAnimationStep(0);
@@ -16,18 +18,22 @@ const AnimatedResults = ({ electionResults }) => {
 
     // Animate through each chunk
     const animateNextChunk = (chunkIndex) => {
-      if (chunkIndex >= electionResults.chunkResults.length) {
+      if (chunkIndex >= chunks.length) {
         setIsAnimating(false);
         return;
       }
 
       setTimeout(() => {
-        const chunk = electionResults.chunkResults[chunkIndex];
+        const chunk = chunks[chunkIndex];
         
         // Update current totals by adding this chunk's votes
         setCurrentTotals(prev => {
           const newTotals = { ...prev };
-          Object.entries(chunk.candidateVotes || {}).forEach(([candidate, votes]) => {
+          Object.entries(chunk.candidateVotes || {}).forEach(([candidate, voteData]) => {
+            // Handle both simple number and nested object formats
+            const votes = typeof voteData === 'object' && voteData.votes 
+              ? (typeof voteData.votes === 'string' ? parseInt(voteData.votes) : voteData.votes)
+              : voteData;
             newTotals[candidate] = (newTotals[candidate] || 0) + votes;
           });
           return newTotals;
@@ -49,18 +55,20 @@ const AnimatedResults = ({ electionResults }) => {
     );
   }
 
-  const candidates = Object.keys(electionResults.finalResults || {});
+  const results = electionResults.results;
+  const candidates = Object.keys(results.finalTallies || {});
   const maxVotes = Math.max(...Object.values(currentTotals), 1);
+  const totalVotes = Object.values(results.finalTallies || {}).reduce((a, b) => a + b, 0);
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg p-6 shadow-lg">
-        <h2 className="text-3xl font-bold mb-2">{electionResults.electionTitle}</h2>
-        <p className="text-blue-100">Total Votes: {electionResults.totalVotes}</p>
+        <h2 className="text-3xl font-bold mb-2">Election Results</h2>
+        <p className="text-blue-100">Total Votes: {totalVotes}</p>
         {isAnimating && (
           <p className="text-sm text-blue-200 mt-2 animate-pulse">
-            Tallying chunk {animationStep} of {electionResults.chunkResults.length}...
+            Processing chunk {animationStep} of {results.totalChunks}...
           </p>
         )}
       </div>
@@ -69,9 +77,17 @@ const AnimatedResults = ({ electionResults }) => {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {candidates.map((candidate, index) => {
           const currentVotes = currentTotals[candidate] || 0;
-          const finalVotes = electionResults.finalResults[candidate] || 0;
+          // Handle nested finalTallies structure
+          const finalTallyData = results.finalTallies[candidate];
+          const finalVotes = typeof finalTallyData === 'object' && finalTallyData.votes
+            ? (typeof finalTallyData.votes === 'string' ? parseInt(finalTallyData.votes) : finalTallyData.votes)
+            : (finalTallyData || 0);
           const percentage = maxVotes > 0 ? (currentVotes / maxVotes) * 100 : 0;
-          const isWinner = finalVotes === Math.max(...Object.values(electionResults.finalResults));
+          // Calculate max from final tallies properly
+          const maxFinalVotes = Math.max(...Object.values(results.finalTallies).map(v => 
+            typeof v === 'object' && v.votes ? (typeof v.votes === 'string' ? parseInt(v.votes) : v.votes) : (v || 0)
+          ));
+          const isWinner = finalVotes === maxFinalVotes;
 
           return (
             <motion.div
@@ -130,7 +146,7 @@ const AnimatedResults = ({ electionResults }) => {
       <div className="bg-white rounded-lg shadow-lg p-6">
         <h3 className="text-2xl font-bold text-gray-800 mb-4">Chunk Breakdown</h3>
         <div className="space-y-4">
-          {electionResults.chunkResults.map((chunk, index) => (
+          {results.chunks.map((chunk, index) => (
             <AnimatePresence key={chunk.electionCenterId}>
               {index < animationStep && (
                 <motion.div
@@ -146,19 +162,25 @@ const AnimatedResults = ({ electionResults }) => {
                 >
                   <div className="flex items-center justify-between mb-2">
                     <h4 className="font-semibold text-gray-700">
-                      Chunk {chunk.chunkNumber}
+                      Chunk {chunk.chunkIndex} (ID: {chunk.electionCenterId})
                     </h4>
                     <span className="text-sm text-gray-500">
-                      {chunk.trackingCodes?.length || 0} ballots
+                      {chunk.ballotCount || 0} ballots
                     </span>
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                    {Object.entries(chunk.candidateVotes || {}).map(([candidate, votes]) => (
-                      <div key={candidate} className="text-sm">
-                        <span className="font-medium text-gray-700">{candidate}:</span>
-                        <span className="ml-2 text-blue-600 font-bold">{votes}</span>
-                      </div>
-                    ))}
+                    {Object.entries(chunk.candidateVotes || {}).map(([candidate, voteData]) => {
+                      // Handle both simple number and nested object formats
+                      const votes = typeof voteData === 'object' && voteData.votes 
+                        ? (typeof voteData.votes === 'string' ? parseInt(voteData.votes) : voteData.votes)
+                        : voteData;
+                      return (
+                        <div key={candidate} className="text-sm">
+                          <span className="font-medium text-gray-700">{candidate}:</span>
+                          <span className="ml-2 text-blue-600 font-bold">{votes}</span>
+                        </div>
+                      );
+                    })}
                   </div>
                 </motion.div>
               )}
@@ -168,9 +190,9 @@ const AnimatedResults = ({ electionResults }) => {
       </div>
 
       {/* All Ballots */}
-      {!isAnimating && electionResults.ballots && electionResults.ballots.length > 0 && (
+      {!isAnimating && results.allBallots && results.allBallots.length > 0 && (
         <div className="bg-white rounded-lg shadow-lg p-6">
-          <h3 className="text-2xl font-bold text-gray-800 mb-4">All Ballots</h3>
+          <h3 className="text-2xl font-bold text-gray-800 mb-4">All Ballots ({results.allBallots.length})</h3>
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-gray-200">
               <thead className="bg-gray-50">
@@ -187,16 +209,16 @@ const AnimatedResults = ({ electionResults }) => {
                 </tr>
               </thead>
               <tbody className="bg-white divide-y divide-gray-200">
-                {electionResults.ballots.map((ballot, index) => (
+                {results.allBallots.map((ballot, index) => (
                   <tr key={index} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-600">
-                      {ballot.trackingCode}
+                      {ballot.tracking_code}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500 truncate max-w-xs">
-                      {ballot.ballotHash}
+                      {ballot.ballot_hash}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      {ballot.chunkNumber}
+                      Chunk {ballot.chunkIndex}
                     </td>
                   </tr>
                 ))}
