@@ -567,6 +567,68 @@ public class PartialDecryptionService {
                 List<String> compensatingGuardianIds = new ArrayList<>();
                 List<String> compensatedTallyShares = new ArrayList<>();
                 List<String> compensatedBallotShares = new ArrayList<>();
+                
+                // ✅ Populate compensated decryption data for missing guardians
+                // CRITICAL: Order must match - each index in all arrays corresponds to the same compensated share
+                // Example: missing=[4,4,4,5,5,5], compensating=[1,2,3,1,2,3] means:
+                //   Index 0: Guardian 1 compensating for Guardian 4
+                //   Index 1: Guardian 2 compensating for Guardian 4
+                //   Index 2: Guardian 3 compensating for Guardian 4
+                //   Index 3: Guardian 1 compensating for Guardian 5
+                //   etc.
+                if (!missingGuardians.isEmpty()) {
+                    System.out.println("Processing compensated decryptions for " + missingGuardians.size() + " missing guardians");
+                    
+                    // Sort missing guardians by sequence_order for consistent ordering
+                    missingGuardians.sort((g1, g2) -> g1.getSequenceOrder().compareTo(g2.getSequenceOrder()));
+                    
+                    for (Guardian missingGuardian : missingGuardians) {
+                        // Get all compensated decryptions for this missing guardian in this chunk
+                        List<CompensatedDecryption> compensatedDecryptions = compensatedDecryptionRepository
+                            .findByElectionCenterIdAndMissingGuardianId(
+                                electionCenter.getElectionCenterId(),
+                                missingGuardian.getGuardianId()
+                            );
+                        
+                        if (!compensatedDecryptions.isEmpty()) {
+                            // Create a map of compensating guardian ID -> CompensatedDecryption for sorting
+                            Map<Long, CompensatedDecryption> cdMap = new HashMap<>();
+                            for (CompensatedDecryption cd : compensatedDecryptions) {
+                                cdMap.put(cd.getCompensatingGuardianId(), cd);
+                            }
+                            
+                            // Sort available guardians by sequence_order to ensure consistent ordering
+                            List<Guardian> sortedAvailableGuardians = availableGuardians.stream()
+                                .sorted((g1, g2) -> g1.getSequenceOrder().compareTo(g2.getSequenceOrder()))
+                                .collect(Collectors.toList());
+                            
+                            // Add compensated shares in order: for each missing guardian, 
+                            // add all compensating guardians' shares in sequence_order
+                            for (Guardian compensatingGuardian : sortedAvailableGuardians) {
+                                CompensatedDecryption cd = cdMap.get(compensatingGuardian.getGuardianId());
+                                if (cd != null) {
+                                    missingGuardianIds.add(String.valueOf(missingGuardian.getSequenceOrder()));
+                                    compensatingGuardianIds.add(String.valueOf(compensatingGuardian.getSequenceOrder()));
+                                    compensatedTallyShares.add(cd.getCompensatedTallyShare());
+                                    compensatedBallotShares.add(cd.getCompensatedBallotShare());
+                                    
+                                    System.out.println("Added compensated share [index=" + (missingGuardianIds.size()-1) + 
+                                                     "]: missing=" + missingGuardian.getSequenceOrder() + 
+                                                     ", compensating=" + compensatingGuardian.getSequenceOrder());
+                                }
+                            }
+                        } else {
+                            System.out.println("⚠️ No compensated decryptions found for missing guardian " + missingGuardian.getSequenceOrder() + 
+                                             " in chunk " + electionCenter.getElectionCenterId());
+                        }
+                    }
+                    
+                    // Log the final arrays for verification
+                    System.out.println("Final compensated arrays:");
+                    System.out.println("  missing_guardian_ids: " + missingGuardianIds);
+                    System.out.println("  compensating_guardian_ids: " + compensatingGuardianIds);
+                    System.out.println("  Total compensated shares: " + compensatedTallyShares.size());
+                }
 
                 // Get encrypted tally from THIS chunk's ElectionCenter
                 String ciphertextTallyString = electionCenter.getEncryptedTally();
@@ -820,17 +882,31 @@ public class PartialDecryptionService {
                 .map(SubmittedBallot::getCipherText)
                 .collect(Collectors.toList());
             
-            // Construct guardian_data JSON for both guardians
-            String availableGuardianDataJson = String.format(
-                "{\"id\":\"%s\",\"sequence_order\":%d}",
-                compensatingGuardian.getSequenceOrder(),
-                compensatingGuardian.getSequenceOrder()
-            );
-            String missingGuardianDataJson = String.format(
-                "{\"id\":\"%s\",\"sequence_order\":%d}",
-                otherGuardian.getSequenceOrder(),
-                otherGuardian.getSequenceOrder()
-            );
+            // Get guardian_data from key_backup field (contains full ElectionGuard guardian data)
+            // Use key_backup if available, otherwise construct minimal guardian data
+            String availableGuardianDataJson;
+            if (compensatingGuardian.getKeyBackup() != null && !compensatingGuardian.getKeyBackup().trim().isEmpty()) {
+                availableGuardianDataJson = compensatingGuardian.getKeyBackup();
+            } else {
+                // Fallback: construct minimal guardian data
+                availableGuardianDataJson = String.format(
+                    "{\"id\":\"%s\",\"sequence_order\":%d}",
+                    compensatingGuardian.getSequenceOrder(),
+                    compensatingGuardian.getSequenceOrder()
+                );
+            }
+            
+            String missingGuardianDataJson;
+            if (otherGuardian.getKeyBackup() != null && !otherGuardian.getKeyBackup().trim().isEmpty()) {
+                missingGuardianDataJson = otherGuardian.getKeyBackup();
+            } else {
+                // Fallback: construct minimal guardian data
+                missingGuardianDataJson = String.format(
+                    "{\"id\":\"%s\",\"sequence_order\":%d}",
+                    otherGuardian.getSequenceOrder(),
+                    otherGuardian.getSequenceOrder()
+                );
+            }
             
             ElectionGuardCompensatedDecryptionRequest request = ElectionGuardCompensatedDecryptionRequest.builder()
                 .available_guardian_id(String.valueOf(compensatingGuardian.getSequenceOrder()))
