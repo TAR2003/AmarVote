@@ -265,11 +265,17 @@ public class PartialDecryptionService {
                     .toList();
                 System.out.println("Found " + ballotCipherTexts.size() + " ballots for chunk " + electionCenterId);
                 
+                // Construct guardian_data JSON with required fields
+                String guardianDataJson = String.format(
+                    "{\"id\":\"%s\",\"sequence_order\":%d}",
+                    guardian.getSequenceOrder(),
+                    guardian.getSequenceOrder()
+                );
+                
                 // Call ElectionGuard microservice for this chunk
                 ElectionGuardPartialDecryptionRequest guardRequest = ElectionGuardPartialDecryptionRequest.builder()
                     .guardian_id(String.valueOf(guardian.getSequenceOrder()))
-                    // TODO: guardian_data/keyBackup removed - need to retrieve from Decryptions table
-                    .guardian_data("TODO: Get from Decryptions table") // guardian.getKeyBackup()
+                    .guardian_data(guardianDataJson)
                     .private_key(decryptedPrivateKey)
                     .public_key(guardian.getGuardianPublicKey())
                     .polynomial(decryptedPolynomial)
@@ -777,12 +783,23 @@ public class PartialDecryptionService {
                 .map(SubmittedBallot::getCipherText)
                 .collect(Collectors.toList());
             
+            // Construct guardian_data JSON for both guardians
+            String availableGuardianDataJson = String.format(
+                "{\"id\":\"%s\",\"sequence_order\":%d}",
+                compensatingGuardian.getSequenceOrder(),
+                compensatingGuardian.getSequenceOrder()
+            );
+            String missingGuardianDataJson = String.format(
+                "{\"id\":\"%s\",\"sequence_order\":%d}",
+                otherGuardian.getSequenceOrder(),
+                otherGuardian.getSequenceOrder()
+            );
+            
             ElectionGuardCompensatedDecryptionRequest request = ElectionGuardCompensatedDecryptionRequest.builder()
                 .available_guardian_id(String.valueOf(compensatingGuardian.getSequenceOrder()))
                 .missing_guardian_id(String.valueOf(otherGuardian.getSequenceOrder()))
-                // TODO: guardian_data/keyBackup field removed - need to retrieve from Decryptions table
-                .available_guardian_data("TODO: Get from Decryptions table")
-                .missing_guardian_data("TODO: Get from Decryptions table")
+                .available_guardian_data(availableGuardianDataJson)
+                .missing_guardian_data(missingGuardianDataJson)
                 .available_private_key(compensatingGuardianPrivateKey)
                 .available_public_key(compensatingGuardian.getGuardianPublicKey())
                 .available_polynomial(compensatingGuardianPolynomial)
