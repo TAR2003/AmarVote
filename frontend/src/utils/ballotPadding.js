@@ -2,7 +2,7 @@
  * Ballot Padding Utility - Industry Standard PKCS#7 Implementation
  * 
  * Ensures constant-size encrypted ballot transmission to prevent traffic analysis attacks.
- * Uses 17520 bytes (12 × 1460) for optimal TCP packet alignment.
+ * Uses 18980 bytes (13 × 1460) for optimal TCP packet alignment.
  * 
  * Security Features:
  * - PKCS#7 padding standard (industry best practice)
@@ -15,9 +15,10 @@
 
 /**
  * Target size for encrypted ballot transmission
- * 17520 bytes = 12 × 1460 (TCP MSS), ensuring stable packet segmentation
+ * 18980 bytes = 13 × 1460 (TCP MSS), ensuring stable packet segmentation
+ * Increased from 17520 to provide more padding headroom
  */
-export const TARGET_SIZE = 17520;
+export const TARGET_SIZE = 18980;
 
 /**
  * Pad encrypted ballot data to fixed size using PKCS#7 standard
@@ -48,15 +49,16 @@ export function padToFixedSize(data, targetSize = TARGET_SIZE) {
     throw new Error('Invalid data type. Expected Uint8Array, ArrayBuffer, or string');
   }
 
-  // Validate size
-  if (byteArray.length > targetSize) {
+  // Validate size - PKCS#7 requires at least 1 byte of padding
+  // So actual data must be less than targetSize
+  if (byteArray.length >= targetSize) {
     throw new Error(
-      `Encrypted ballot size (${byteArray.length} bytes) exceeds target size (${targetSize} bytes). ` +
+      `Encrypted ballot size (${byteArray.length} bytes) must be less than target size (${targetSize} bytes) to allow padding. ` +
       `Consider increasing TARGET_SIZE or optimizing ballot structure.`
     );
   }
 
-  // Calculate padding length
+  // Calculate padding length (will always be >= 1)
   const paddingLength = targetSize - byteArray.length;
 
   // Create fixed-size buffer
@@ -66,6 +68,7 @@ export function padToFixedSize(data, targetSize = TARGET_SIZE) {
   padded.set(byteArray, 0);
 
   // Apply PKCS#7 padding: fill remaining bytes with padding length value
+  // Note: paddingLength can be 0-255, but 0 is not valid PKCS#7
   for (let i = byteArray.length; i < targetSize; i++) {
     padded[i] = paddingLength;
   }
