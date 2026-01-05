@@ -58,7 +58,14 @@ const AnimatedResults = ({ electionResults }) => {
   const results = electionResults.results;
   const candidates = Object.keys(results.finalTallies || {});
   const maxVotes = Math.max(...Object.values(currentTotals), 1);
-  const totalVotes = Object.values(results.finalTallies || {}).reduce((a, b) => a + b, 0);
+  
+  // Calculate total votes properly - extract votes from nested structure
+  const totalVotes = Object.values(results.finalTallies || {}).reduce((sum, tallyData) => {
+    const votes = typeof tallyData === 'object' && tallyData.votes
+      ? (typeof tallyData.votes === 'string' ? parseInt(tallyData.votes) : tallyData.votes)
+      : (tallyData || 0);
+    return sum + votes;
+  }, 0);
 
   return (
     <div className="space-y-8">

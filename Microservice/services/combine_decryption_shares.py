@@ -226,11 +226,14 @@ def combine_decryption_shares_service(
                 decryption_mediator.receive_ballot_compensation_shares(compensated_ballot_shares)
                 print(f"    ✅ Added {len(compensated_ballot_shares)} compensated ballot shares")
     
-    # Reconstruct shares for missing guardians
-    print(f"Reconstructing shares for tally and ballots...")
-    decryption_mediator.reconstruct_shares_for_tally(ciphertext_tally)
-    decryption_mediator.reconstruct_shares_for_ballots(submitted_ballots)
-    print(f"✅ Shares reconstructed")
+    # Reconstruct shares ONLY if there are missing guardians
+    if compensated_shares:
+        print(f"Reconstructing shares for tally and ballots...")
+        decryption_mediator.reconstruct_shares_for_tally(ciphertext_tally)
+        decryption_mediator.reconstruct_shares_for_ballots(submitted_ballots)
+        print(f"✅ Shares reconstructed")
+    else:
+        print(f"⏭️ No missing guardians - skipping share reconstruction")
     
     # Ensure announcement is complete
     if not decryption_mediator.announcement_complete():
