@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
-import { FiUser, FiMail, FiLock, FiEdit, FiSave, FiX, FiAlertCircle } from "react-icons/fi";
-import { getUserProfile, updateUserProfile, updateUserPassword, uploadProfilePicture } from "../utils/api";
+import { FiUser, FiMail, FiEdit, FiSave, FiX, FiAlertCircle } from "react-icons/fi";
+import { getUserProfile, updateUserProfile, uploadProfilePicture } from "../utils/api";
 import ImageUpload from "../components/ImageUpload";
 
 const Profile = () => {
@@ -16,12 +16,6 @@ const Profile = () => {
 
   const [isEditing, setIsEditing] = useState(false);
   const [tempUser, setTempUser] = useState({ ...user });
-  const [passwordData, setPasswordData] = useState({
-    currentPassword: "",
-    newPassword: "",
-    confirmPassword: ""
-  });
-  const [passwordError, setPasswordError] = useState(null);
 
   // Fetch user profile on component mount
   useEffect(() => {
@@ -69,12 +63,6 @@ const Profile = () => {
 
   const handleCancel = () => {
     setTempUser({ ...user });
-    setPasswordData({
-      currentPassword: "",
-      newPassword: "",
-      confirmPassword: ""
-    });
-    setPasswordError(null);
     setIsEditing(false);
   };
 
@@ -101,11 +89,6 @@ const Profile = () => {
       setUser(updatedProfile);
       setSuccessMessage("Profile updated successfully");
       setIsEditing(false);
-      
-      // Handle password update if password fields are filled
-      if (passwordData.currentPassword && passwordData.newPassword) {
-        await handlePasswordUpdate();
-      }
     } catch (err) {
       console.error("Failed to update profile:", err);
       setError(err.message || "Failed to update profile. Please try again later.");
@@ -114,55 +97,9 @@ const Profile = () => {
     }
   };
 
-  const handlePasswordUpdate = async () => {
-    try {
-      setPasswordError(null);
-      
-      // Validate password fields
-      if (!passwordData.currentPassword) {
-        setPasswordError("Current password is required");
-        return;
-      }
-      
-      if (passwordData.newPassword !== passwordData.confirmPassword) {
-        setPasswordError("New password and confirmation do not match");
-        return;
-      }
-      
-      if (passwordData.newPassword.length < 8) {
-        setPasswordError("Password must be at least 8 characters");
-        return;
-      }
-      
-      console.log("Updating password...");
-      await updateUserPassword({
-        currentPassword: passwordData.currentPassword,
-        newPassword: passwordData.newPassword,
-        confirmPassword: passwordData.confirmPassword
-      });
-      
-      setSuccessMessage((prev) => prev ? `${prev} and password updated successfully` : "Password updated successfully");
-      setPasswordData({
-        currentPassword: "",
-        newPassword: "",
-        confirmPassword: ""
-      });
-    } catch (err) {
-      console.error("Failed to update password:", err);
-      setPasswordError(err.message || "Failed to update password. Please check your current password.");
-    }
-  };
-
   const handleChange = (e) => {
     setTempUser({
       ...tempUser,
-      [e.target.name]: e.target.value,
-    });
-  };
-  
-  const handlePasswordChange = (e) => {
-    setPasswordData({
-      ...passwordData,
       [e.target.name]: e.target.value,
     });
   };
@@ -339,57 +276,6 @@ const Profile = () => {
                   </span>
                 </div>
 
-                {/* Password Change (Only shown when editing) */}
-                {isEditing && (
-                  <div className="pt-4 border-t">
-                    <h3 className="text-lg font-medium mb-4 flex items-center gap-2">
-                      <FiLock /> Change Password
-                    </h3>
-                    {passwordError && (
-                      <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-                        <p className="text-sm text-red-700">{passwordError}</p>
-                      </div>
-                    )}
-                    <div className="space-y-4">
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">
-                          Current Password
-                        </label>
-                        <input
-                          type="password"
-                          name="currentPassword"
-                          value={passwordData.currentPassword}
-                          onChange={handlePasswordChange}
-                          className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">
-                          New Password
-                        </label>
-                        <input
-                          type="password"
-                          name="newPassword"
-                          value={passwordData.newPassword}
-                          onChange={handlePasswordChange}
-                          className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </div>
-                      <div>
-                        <label className="block text-sm font-medium text-gray-500 mb-1">
-                          Confirm New Password
-                        </label>
-                        <input
-                          type="password"
-                          name="confirmPassword"
-                          value={passwordData.confirmPassword}
-                          onChange={handlePasswordChange}
-                          className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
                 </div>
               </div>
             </div>

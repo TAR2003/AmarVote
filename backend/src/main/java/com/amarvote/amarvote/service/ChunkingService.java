@@ -16,7 +16,7 @@ import com.amarvote.amarvote.model.Ballot;
 @Service
 public class ChunkingService {
     
-    @Value("${amarvote.chunking.chunk-size:64}")
+    @Value("${amarvote.chunking.chunk-size:2}")
     private int CHUNK_SIZE;
     
     private static final SecureRandom secureRandom = new SecureRandom();

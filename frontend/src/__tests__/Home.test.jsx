@@ -43,7 +43,7 @@ describe("Home Component", () => {
     const signInLink = screen.getByRole("link", { name: /sign in/i });
     const signUpLink = screen.getByRole("link", { name: /sign up/i });
     
-    expect(signInLink).toHaveAttribute("href", "/login");
+    expect(signInLink).toHaveAttribute("href", "/otp-login");
     expect(signUpLink).toHaveAttribute("href", "/signup");
   });
 

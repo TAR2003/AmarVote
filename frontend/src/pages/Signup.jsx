@@ -211,7 +211,7 @@ export default function Signup({ setUserEmail }) {
       
       if (response.data.success) {
         console.log('🎉 [REGISTRATION] Registration successful! Redirecting to login...');
-        navigate("/login", { state: { message: "Signup successful! Please login." } });
+        navigate("/otp-login", { state: { message: "Signup successful! Please login." } });
       } else {
         console.error('❌ [REGISTRATION] Registration failed:', response.data.message);
         setServerError(response.data.message || "Registration failed.");
@@ -234,7 +234,7 @@ export default function Signup({ setUserEmail }) {
             <h2 className="text-3xl font-bold text-gray-900">Create your account</h2>
             <p className="text-sm mt-2 text-gray-600">
               Already have an account?{" "}
-              <Link to="/login" className="text-blue-600 hover:text-blue-500 font-medium">
+              <Link to="/otp-login" className="text-blue-600 hover:text-blue-500 font-medium">
                 Sign in
               </Link>
             </p>

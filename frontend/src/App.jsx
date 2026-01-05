@@ -6,13 +6,10 @@ import {
   Navigate,
 } from "react-router-dom";
 
-import Login from "./pages/Login";
 import OtpLogin from "./pages/OtpLogin";
 import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Hello from "./pages/Hello";
-import ForgetPassword from "./pages/ForgotPassword";
-import CreateNewPassword from "./pages/CreateNewPassword"; // ✅ Import the page
 import Home from "./pages/Home";
 import HowItWorks from "./pages/HowItWorks";
 import AuthenticatedLayout from "./pages/AuthenticatedLayout";
@@ -85,41 +82,9 @@ function App() {
           }
         />
         <Route
-          path="/login"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <Login setUserEmail={setUserEmail} />
-            )
-          }
-        />
-        <Route
           path="/signup"
           element={
             isAuthenticated ? <Navigate to="/dashboard" replace /> : <Signup />
-          }
-        />
-
-        {/* Move these routes outside the AuthenticatedLayout */}
-        <Route
-          path="/forgot-password"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <ForgetPassword />
-            )
-          }
-        />
-        <Route
-          path="/create-password"
-          element={
-            isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
-            ) : (
-              <CreateNewPassword />
-            )
           }
         />
 

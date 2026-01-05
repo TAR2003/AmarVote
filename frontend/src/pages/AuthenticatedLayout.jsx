@@ -146,8 +146,8 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
       localStorage.removeItem("email");
       localStorage.setItem("logout", Date.now());
 
-      // Redirect to login
-      navigate("/login");
+      // Redirect to OTP login
+      navigate("/otp-login");
     } catch (err) {
       console.error("Logout error:", err);
       alert("Failed to logout. Please try again.");
@@ -166,7 +166,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
           </h2>
           <p className="text-gray-600 mb-6">Please sign in again to continue</p>
           <Link
-            to="/login"
+            to="/otp-login"
             className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200"
           >
             Go to Login
