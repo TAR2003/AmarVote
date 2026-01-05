@@ -236,14 +236,18 @@ public class ElectionService {
 
         // Now save Guardian objects
         List<String> guardianPublicKeys = guardianResponse.public_keys();
-        // Note: guardian_data is available in response but not stored in Guardian table
+        List<String> guardianDataList = guardianResponse.guardian_data();
 
         // Add null checks for guardian data
         if (guardianPublicKeys == null) {
             throw new RuntimeException("ElectionGuard service did not return guardian public keys");
         }
+        
+        if (guardianDataList == null) {
+            throw new RuntimeException("ElectionGuard service did not return guardian_data");
+        }
 
-        if (guardianPublicKeys.size() != guardianEmails.size()) {
+        if (guardianPublicKeys.size() != guardianEmails.size() || guardianDataList.size() != guardianEmails.size()) {
             throw new IllegalArgumentException("Guardian data arrays size mismatch");
         }
 
@@ -257,10 +261,13 @@ public class ElectionService {
                     .sequenceOrder(i + 1)
                     .decryptedOrNot(false)
                     .credentials(guardianCredentials.get(email))
+                    .keyBackup(guardianDataList.get(i)) // Save guardian_data to key_backup
                     .build();
 
             guardianRepository.save(guardian);
         }
+        
+        System.out.println("Guardians saved successfully with key_backup data.");
 
         System.out.println("Guardians saved successfully.");
 

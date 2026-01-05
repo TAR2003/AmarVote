@@ -307,7 +307,7 @@ public class PartialDecryptionService {
                     .guardianId(guardian.getGuardianId())
                     .tallyShare(guardResponse.tally_share())
                     .guardianDecryptionKey(guardResponse.guardian_public_key())
-                    .partialDecryptedTally(guardResponse.ballot_shares()) // Field is partialDecryptedTally, not ballotShares
+                    .partialDecryptedTally(guardResponse.ballot_shares())
                     .build();
                 
                 decryptionRepository.save(decryption);
@@ -460,41 +460,97 @@ public class PartialDecryptionService {
                 .collect(Collectors.toList());
             System.out.println("Available guardian sequences: " + availableSequences);
 
-            // 7. ✅ NEW: Prepare data for combine_decryption_shares endpoint
-            // Get guardian data for all guardians (needed for missing guardian reconstruction)
-            // TODO: Guardian.getKeyBackup() moved to Decryptions table - implement proper lookup
-            // List<String> guardianDataList = guardians.stream()
-            //     .map(Guardian::getKeyBackup)
-            //     .collect(Collectors.toList());
-            List<String> guardianDataList = new ArrayList<>(); // Placeholder
+            // 7. ✅ Prepare data for combine_decryption_shares endpoint
+            // Get decryptions for the first election center (assumes single chunk for combining)
+            Long firstElectionCenterId = electionCenters.get(0).getElectionCenterId();
+            List<Decryption> decryptions = decryptionRepository.findByElectionCenterId(firstElectionCenterId);
+            
+            System.out.println("Found " + decryptions.size() + " decryption records for election center " + firstElectionCenterId);
+            
+            // Create a map for faster guardian decryption lookup
+            Map<Long, Decryption> guardianDecryptionMap = decryptions.stream()
+                .collect(Collectors.toMap(Decryption::getGuardianId, d -> d, (d1, d2) -> d1));
+            
+            // Get guardian data for all guardians from guardians.key_backup field (needed for missing guardian reconstruction)
+            List<String> guardianDataList = new ArrayList<>();
+            for (Guardian guardian : guardians) {
+                if (guardian.getKeyBackup() != null && !guardian.getKeyBackup().trim().isEmpty()) {
+                    guardianDataList.add(guardian.getKeyBackup());
+                    System.out.println("Using key_backup from Guardian table for guardian " + guardian.getSequenceOrder());
+                } else {
+                    // Fallback: construct guardian_data if key_backup is not available
+                    String guardianDataJson = String.format(
+                        "{\"id\":\"%s\",\"sequence_order\":%d}",
+                        guardian.getSequenceOrder(),
+                        guardian.getSequenceOrder()
+                    );
+                    guardianDataList.add(guardianDataJson);
+                    System.out.println("WARNING: key_backup missing in Guardian table, using fallback for guardian " + guardian.getSequenceOrder());
+                }
+            }
+
+            System.out.println("Guardian data list size: " + guardianDataList.size());
 
             // Available guardian data (those who completed decryption)
             List<String> availableGuardianIds = availableGuardians.stream()
                 .map(g -> String.valueOf(g.getSequenceOrder()))
                 .collect(Collectors.toList());
             
-            // TODO: Guardian.getGuardianDecryptionKey() moved to Decryptions table
-            // List<String> availableGuardianPublicKeys = availableGuardians.stream()
-            //     .map(Guardian::getGuardianDecryptionKey)
-            //     .collect(Collectors.toList());
-            List<String> availableGuardianPublicKeys = new ArrayList<>(); // Placeholder
+            System.out.println("Available guardian IDs: " + availableGuardianIds);
             
-            // TODO: Guardian.getTallyShare() moved to Decryptions table
-            // List<String> availableTallyShares = availableGuardians.stream()
-            //     .map(Guardian::getTallyShare)
-            //     .collect(Collectors.toList());
-            List<String> availableTallyShares = new ArrayList<>(); // Placeholder
+            // Get guardian decryption keys from Decryptions table
+            List<String> availableGuardianPublicKeys = new ArrayList<>();
+            for (Guardian guardian : availableGuardians) {
+                Decryption decryption = guardianDecryptionMap.get(guardian.getGuardianId());
+                if (decryption != null && decryption.getGuardianDecryptionKey() != null && 
+                    !decryption.getGuardianDecryptionKey().trim().isEmpty()) {
+                    availableGuardianPublicKeys.add(decryption.getGuardianDecryptionKey());
+                } else {
+                    System.err.println("WARNING: Missing guardian decryption key for guardian " + guardian.getSequenceOrder());
+                    return CombinePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Missing guardian decryption key data. Please ensure all guardians have submitted their keys.")
+                        .build();
+                }
+            }
             
-            // TODO: Guardian.getPartialDecryptedTally() moved to Decryptions table
-            // List<String> availableBallotShares = availableGuardians.stream()
-            //     .map(guardian -> {
-            //         if (guardian.getPartialDecryptedTally() != null && !guardian.getPartialDecryptedTally().trim().isEmpty()) {
-            //             return guardian.getPartialDecryptedTally();
-            //         }
-            //         return "{}";
-            //     })
-            //     .collect(Collectors.toList());
-            List<String> availableBallotShares = new ArrayList<>(); // Placeholder
+            System.out.println("Available guardian public keys count: " + availableGuardianPublicKeys.size());
+            
+            // Get tally shares from Decryptions table
+            List<String> availableTallyShares = new ArrayList<>();
+            for (Guardian guardian : availableGuardians) {
+                Decryption decryption = guardianDecryptionMap.get(guardian.getGuardianId());
+                if (decryption != null && decryption.getTallyShare() != null && 
+                    !decryption.getTallyShare().trim().isEmpty()) {
+                    availableTallyShares.add(decryption.getTallyShare());
+                } else {
+                    System.err.println("WARNING: Missing tally share for guardian " + guardian.getSequenceOrder());
+                    return CombinePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Missing tally share data. Please ensure all guardians have submitted their keys.")
+                        .build();
+                }
+            }
+            
+            System.out.println("Available tally shares count: " + availableTallyShares.size());
+            
+            // Get partial decrypted tally (ballot shares) from Decryptions table
+            List<String> availableBallotShares = new ArrayList<>();
+            for (Guardian guardian : availableGuardians) {
+                Decryption decryption = guardianDecryptionMap.get(guardian.getGuardianId());
+                if (decryption != null && decryption.getPartialDecryptedTally() != null && 
+                    !decryption.getPartialDecryptedTally().trim().isEmpty()) {
+                    availableBallotShares.add(decryption.getPartialDecryptedTally());
+                } else {
+                    System.err.println("WARNING: Missing ballot shares for guardian " + guardian.getSequenceOrder());
+                    return CombinePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Missing ballot shares data. Please ensure all guardians have submitted their keys.")
+                        .build();
+                }
+            }
+            
+            System.out.println("Available ballot shares count: " + availableBallotShares.size());
 
             // TODO: Update for chunking - these fields moved to Decryptions table
             // Missing guardian data (those who haven't completed decryption)
@@ -543,14 +599,22 @@ public class PartialDecryptionService {
             //     }
             // }
 
-            // TODO: Update for chunking - encryptedTally now in ElectionCenter table
+            // Get encrypted tally from first ElectionCenter (assumes single chunk for combining)
+            // TODO: For multi-chunk elections, need to merge tallies or process chunks sequentially
+            String ciphertextTallyString = electionCenters.get(0).getEncryptedTally();
+            if (ciphertextTallyString == null || ciphertextTallyString.trim().isEmpty()) {
+                return CombinePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("Encrypted tally not found in election center")
+                    .build();
+            }
+            
             ElectionGuardCombineDecryptionSharesRequest guardRequest = ElectionGuardCombineDecryptionSharesRequest.builder()
                 .party_names(partyNames)
                 .candidate_names(candidateNames)
                 .joint_public_key(election.getJointPublicKey())
                 .commitment_hash(election.getBaseHash())
-                // .ciphertext_tally(election.getEncryptedTally()) // Moved to ElectionCenter table
-                .ciphertext_tally("TODO: Get from ElectionCenter table")
+                .ciphertext_tally(ciphertextTallyString)
                 .submitted_ballots(ballotCipherTexts)
                 .guardian_data(guardianDataList)
                 .available_guardian_ids(availableGuardianIds)
@@ -879,8 +943,19 @@ public class PartialDecryptionService {
         try {
             String url = "/combine_decryption_shares";
             
-            System.out.println("Calling ElectionGuard combine decryption shares service at: " + url);
-            System.out.println("Sending request to ElectionGuard service: " + request);
+            System.out.println("=== CALLING ELECTIONGUARD COMBINE DECRYPTION SHARES ===");
+            System.out.println("URL: " + url);
+            System.out.println("Party names count: " + (request.party_names() != null ? request.party_names().size() : 0));
+            System.out.println("Candidate names count: " + (request.candidate_names() != null ? request.candidate_names().size() : 0));
+            System.out.println("Guardian data count: " + (request.guardian_data() != null ? request.guardian_data().size() : 0));
+            System.out.println("Available guardian IDs: " + request.available_guardian_ids());
+            System.out.println("Available guardian public keys count: " + (request.available_guardian_public_keys() != null ? request.available_guardian_public_keys().size() : 0));
+            System.out.println("Available tally shares count: " + (request.available_tally_shares() != null ? request.available_tally_shares().size() : 0));
+            System.out.println("Available ballot shares count: " + (request.available_ballot_shares() != null ? request.available_ballot_shares().size() : 0));
+            System.out.println("Submitted ballots count: " + (request.submitted_ballots() != null ? request.submitted_ballots().size() : 0));
+            System.out.println("Quorum: " + request.quorum());
+            System.out.println("Number of guardians: " + request.number_of_guardians());
+            System.out.println("Has ciphertext_tally: " + (request.ciphertext_tally() != null && !request.ciphertext_tally().trim().isEmpty()));
             
             String response = webClient.post()
                 .uri(url)

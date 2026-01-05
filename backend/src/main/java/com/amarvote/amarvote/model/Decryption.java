@@ -36,9 +36,6 @@ public class Decryption {
     @Column(name = "tally_share", columnDefinition = "TEXT")
     private String tallyShare;
 
-    @Column(name = "key_backup", columnDefinition = "TEXT")
-    private String keyBackup;
-
     @Column(name = "date_performed", updatable = false)
     @CreationTimestamp
     private Instant datePerformed;

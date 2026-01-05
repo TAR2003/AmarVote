@@ -23,6 +23,9 @@ public class Guardian {
     @Column(name = "user_email", nullable = false, columnDefinition = "TEXT")
     private String userEmail;
 
+    @Column(name = "key_backup", columnDefinition = "TEXT")
+    private String keyBackup;
+
     @Column(name = "guardian_public_key", nullable = false, columnDefinition = "TEXT")
     private String guardianPublicKey;
 

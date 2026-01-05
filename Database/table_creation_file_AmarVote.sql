@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS guardians (
     guardian_id SERIAL PRIMARY KEY,
     election_id INTEGER NOT NULL,
     user_email TEXT NOT NULL,
+    key_backup TEXT,
     guardian_public_key TEXT NOT NULL,
     sequence_order INTEGER NOT NULL CHECK (sequence_order > 0),
     decrypted_or_not BOOLEAN NOT NULL DEFAULT FALSE,
@@ -119,7 +120,6 @@ CREATE TABLE IF NOT EXISTS decryptions (
     partial_decrypted_tally TEXT,
     guardian_decryption_key TEXT,
     tally_share TEXT,
-    key_backup TEXT,
     date_performed TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_guardian FOREIGN KEY (guardian_id) 
         REFERENCES guardians(guardian_id) ON DELETE CASCADE,
