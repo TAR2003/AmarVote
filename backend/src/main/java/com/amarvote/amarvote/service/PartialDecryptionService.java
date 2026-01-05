@@ -1113,8 +1113,11 @@ public class PartialDecryptionService {
             aggregatedResult.put("finalTallies", finalTallies);
             aggregatedResult.put("totalChunks", electionCenters.size());
             aggregatedResult.put("allBallots", allBallots);
+            aggregatedResult.put("total_ballots_cast", allBallots.size());
+            aggregatedResult.put("total_valid_ballots", allBallots.size());
             
-            System.out.println("✅ Built aggregated results from " + chunkResults.size() + " chunks");
+            System.out.println("✅ Built aggregated results from " + chunkResults.size() + " chunks with " + allBallots.size() + " total ballots");
+            System.out.println("✅ Final tallies: " + finalTallies);
             return aggregatedResult;
             
         } catch (Exception e) {

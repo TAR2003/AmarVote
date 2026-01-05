@@ -1532,6 +1532,13 @@ export default function ElectionPage() {
               // Fetch cached results from new endpoint
               try {
                 const animatedResultsData = await electionApi.getElectionResults(id);
+                console.log('📦 [CACHED RESULTS] Raw data from backend:', {
+                  success: animatedResultsData.success,
+                  finalTallies: animatedResultsData.results?.finalTallies,
+                  totalBallots: animatedResultsData.results?.total_ballots_cast,
+                  chunksCount: animatedResultsData.results?.chunks?.length
+                });
+                
                 if (animatedResultsData.success && animatedResultsData.results) {
                   console.log('✅ Loaded cached results with chunk breakdown');
                   setAnimatedResults(animatedResultsData);
@@ -1544,11 +1551,19 @@ export default function ElectionPage() {
                         ballots: animatedResultsData.results.allBallots
                       },
                       results: {
-                        candidates: animatedResultsData.results.finalTallies
+                        finalTallies: animatedResultsData.results.finalTallies,
+                        total_ballots_cast: animatedResultsData.results.total_ballots_cast || animatedResultsData.results.allBallots.length,
+                        total_valid_ballots: animatedResultsData.results.total_valid_ballots || animatedResultsData.results.allBallots.length
                       }
                     };
                     setRawVerificationData(cachedVerificationData);
-                    console.log(`✅ Loaded ${animatedResultsData.results.allBallots.length} ballots from cache`);
+                    
+                    // Process and set results data for charts and statistics
+                    const processedResults = processElectionResults(cachedVerificationData);
+                    if (processedResults) {
+                      setResultsData(processedResults);
+                      console.log('✅ Results processed for charts:', processedResults);
+                    }
                   }
                 }
               } catch (err) {
@@ -1722,23 +1737,69 @@ export default function ElectionPage() {
     const dataToProcess = apiResponseData || resultsData;
 
     // If we have resultsData from combine-decryption, use that as it's more accurate
-    if (dataToProcess?.results?.candidates) {
-      const candidates = dataToProcess.results.candidates;
-      const totalVotes = Object.values(candidates).reduce((sum, candidate) => sum + parseInt(candidate.votes || 0), 0);
+    // Handle both 'candidates' and 'finalTallies' from backend
+    const candidates = dataToProcess?.results?.candidates || dataToProcess?.results?.finalTallies;
+    
+    console.log('🔍 [processElectionResults] Processing data:', {
+      hasCandidates: !!candidates,
+      candidatesData: candidates,
+      dataStructure: dataToProcess?.results
+    });
+    
+    if (candidates) {
+      // Calculate total votes - handle both simple integers and nested objects
+      const totalVotes = Object.values(candidates).reduce((sum, candidate) => {
+        if (typeof candidate === 'number') {
+          return sum + candidate;
+        } else if (typeof candidate === 'object' && candidate.votes) {
+          return sum + parseInt(candidate.votes || 0);
+        } else if (typeof candidate === 'string') {
+          return sum + parseInt(candidate || 0);
+        }
+        return sum;
+      }, 0);
+      
+      console.log('📊 [processElectionResults] Total votes calculated:', totalVotes);
 
-      const chartData = Object.entries(candidates).map(([name, data]) => ({
-        name: name,
-        votes: parseInt(data.votes || 0),
-        percentage: parseFloat(data.percentage || 0),
-        party: name // You might want to map this to actual party names if available
-      }));
+      // Build chart data - handle both simple integers and nested objects
+      const chartData = Object.entries(candidates).map(([name, data]) => {
+        let votes = 0;
+        let percentage = 0;
+        
+        if (typeof data === 'number') {
+          votes = data;
+        } else if (typeof data === 'object' && data.votes !== undefined) {
+          votes = parseInt(data.votes || 0);
+          percentage = parseFloat(data.percentage || 0);
+        } else if (typeof data === 'string') {
+          votes = parseInt(data || 0);
+        }
+        
+        // Calculate percentage if not provided
+        if (!percentage && totalVotes > 0) {
+          percentage = ((votes / totalVotes) * 100).toFixed(1);
+        }
+        
+        return {
+          name: name,
+          votes: votes,
+          percentage: parseFloat(percentage),
+          party: name // You might want to map this to actual party names if available
+        };
+      });
+
+      // Count total ballots from verification data or use total votes
+      const totalBallots = dataToProcess.verification?.ballots?.length || 
+                          dataToProcess.results?.total_valid_ballots || 
+                          dataToProcess.results?.total_ballots_cast || 
+                          totalVotes;
 
       return {
         totalVotes,
         totalEligibleVoters: electionData?.voters?.length || 0,
-        totalVotedUsers: dataToProcess.results.total_valid_ballots || dataToProcess.results.total_ballots_cast || 0,
+        totalVotedUsers: totalBallots,
         turnoutRate: electionData?.voters?.length > 0 ?
-          ((dataToProcess.results.total_valid_ballots || 0) / electionData.voters.length * 100).toFixed(1) : 0,
+          ((totalBallots || 0) / electionData.voters.length * 100).toFixed(1) : 0,
         chartData,
         choices: chartData,
         // Include verification data
@@ -1802,7 +1863,9 @@ export default function ElectionPage() {
                 ballots: animatedResultsData.results.allBallots
               },
               results: {
-                candidates: animatedResultsData.results.finalTallies
+                finalTallies: animatedResultsData.results.finalTallies,
+                total_ballots_cast: animatedResultsData.results.allBallots.length,
+                total_valid_ballots: animatedResultsData.results.allBallots.length
               }
             };
             setRawVerificationData(cachedVerificationData);
@@ -3499,8 +3562,20 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 )}
 
                 {(() => {
-                  const processedResults = processElectionResults();
-                  if (!processedResults) return null;
+                  // Use resultsData if available, otherwise process from rawVerificationData
+                  const processedResults = resultsData || processElectionResults();
+                  
+                  console.log('📊 [Results Tab] Rendering with data:', {
+                    hasResultsData: !!resultsData,
+                    hasRawVerificationData: !!rawVerificationData,
+                    processedResults,
+                    animatedResults: animatedResults?.results?.finalTallies
+                  });
+                  
+                  if (!processedResults) {
+                    console.warn('⚠️ [Results Tab] No processed results available');
+                    return null;
+                  }
 
                   const totalBallots = processedResults.totalVotedUsers;
                   const totalVotesInChoices = processedResults.totalVotes;

@@ -5,11 +5,35 @@ const AnimatedResults = ({ electionResults }) => {
   const [animationStep, setAnimationStep] = useState(0);
   const [currentTotals, setCurrentTotals] = useState({});
   const [isAnimating, setIsAnimating] = useState(false);
+  const [lastAnimatedDataKey, setLastAnimatedDataKey] = useState(null);
 
   useEffect(() => {
     if (!electionResults || !electionResults.results || !electionResults.results.chunks) return;
 
     const chunks = electionResults.results.chunks;
+    
+    // Create a unique key for this data to prevent re-animation of the same data
+    const dataKey = JSON.stringify({
+      totalChunks: chunks.length,
+      finalTallies: electionResults.results.finalTallies,
+      totalBallots: electionResults.results.allBallots?.length
+    });
+    
+    console.log('🎬 [AnimatedResults] Checking animation trigger:', {
+      currentKey: dataKey,
+      lastKey: lastAnimatedDataKey,
+      willAnimate: dataKey !== lastAnimatedDataKey,
+      finalTallies: electionResults.results.finalTallies
+    });
+    
+    // Don't re-animate if we've already animated this exact data
+    if (dataKey === lastAnimatedDataKey) {
+      console.log('⏭️ [AnimatedResults] Skipping animation - same data already animated');
+      return;
+    }
+    
+    console.log('✨ [AnimatedResults] Starting new animation with fresh data');
+    setLastAnimatedDataKey(dataKey);
     
     // Start animation
     setIsAnimating(true);
@@ -26,16 +50,29 @@ const AnimatedResults = ({ electionResults }) => {
       setTimeout(() => {
         const chunk = chunks[chunkIndex];
         
+        console.log(`🎬 [AnimatedResults] Processing chunk ${chunkIndex + 1}:`, {
+          chunkIndex: chunk.chunkIndex,
+          candidateVotes: chunk.candidateVotes,
+          electionCenterId: chunk.electionCenterId
+        });
+        
         // Update current totals by adding this chunk's votes
         setCurrentTotals(prev => {
           const newTotals = { ...prev };
           Object.entries(chunk.candidateVotes || {}).forEach(([candidate, voteData]) => {
-            // Handle both simple number and nested object formats
-            const votes = typeof voteData === 'object' && voteData.votes 
-              ? (typeof voteData.votes === 'string' ? parseInt(voteData.votes) : voteData.votes)
-              : voteData;
+            // Handle simple integers, strings, and nested object formats
+            let votes = 0;
+            if (typeof voteData === 'number') {
+              votes = voteData;
+            } else if (typeof voteData === 'object' && voteData.votes) {
+              votes = typeof voteData.votes === 'string' ? parseInt(voteData.votes) : voteData.votes;
+            } else if (typeof voteData === 'string') {
+              votes = parseInt(voteData);
+            }
+            console.log(`  📝 Adding ${votes} votes for ${candidate} (was ${prev[candidate] || 0})`);
             newTotals[candidate] = (newTotals[candidate] || 0) + votes;
           });
+          console.log(`  ✅ New totals:`, newTotals);
           return newTotals;
         });
 
@@ -45,7 +82,7 @@ const AnimatedResults = ({ electionResults }) => {
     };
 
     animateNextChunk(0);
-  }, [electionResults]);
+  }, [electionResults, lastAnimatedDataKey]);
 
   if (!electionResults || !electionResults.success) {
     return (
@@ -59,20 +96,38 @@ const AnimatedResults = ({ electionResults }) => {
   const candidates = Object.keys(results.finalTallies || {});
   const maxVotes = Math.max(...Object.values(currentTotals), 1);
   
-  // Calculate total votes properly - extract votes from nested structure
+  // Calculate total votes properly - handle both simple integers and nested objects
   const totalVotes = Object.values(results.finalTallies || {}).reduce((sum, tallyData) => {
-    const votes = typeof tallyData === 'object' && tallyData.votes
-      ? (typeof tallyData.votes === 'string' ? parseInt(tallyData.votes) : tallyData.votes)
-      : (tallyData || 0);
-    return sum + votes;
+    if (typeof tallyData === 'number') {
+      return sum + tallyData;
+    } else if (typeof tallyData === 'object' && tallyData.votes) {
+      return sum + (typeof tallyData.votes === 'string' ? parseInt(tallyData.votes) : tallyData.votes);
+    } else if (typeof tallyData === 'string') {
+      return sum + parseInt(tallyData);
+    }
+    return sum;
   }, 0);
+  
+  // Get total ballots from results
+  const totalBallots = results.allBallots?.length || results.total_ballots_cast || results.total_valid_ballots || totalVotes;
+  
+  console.log('📊 [AnimatedResults] Rendering with data:', {
+    finalTallies: results.finalTallies,
+    totalVotes,
+    totalBallots,
+    currentTotals,
+    isAnimating
+  });
 
   return (
     <div className="space-y-8">
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg p-6 shadow-lg">
         <h2 className="text-3xl font-bold mb-2">Election Results</h2>
-        <p className="text-blue-100">Total Votes: {totalVotes}</p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
+          <p className="text-blue-100 text-lg">Total Votes Cast: <span className="font-bold text-white">{totalVotes}</span></p>
+          <p className="text-blue-100 text-lg">Total Ballots: <span className="font-bold text-white">{totalBallots}</span></p>
+        </div>
         {isAnimating && (
           <p className="text-sm text-blue-200 mt-2 animate-pulse">
             Processing chunk {animationStep} of {results.totalChunks}...
@@ -83,18 +138,31 @@ const AnimatedResults = ({ electionResults }) => {
       {/* Animated Vote Columns */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {candidates.map((candidate, index) => {
-          const currentVotes = currentTotals[candidate] || 0;
-          // Handle nested finalTallies structure
+          // ALWAYS use finalTallies for display, not currentTotals (which may be wrong during animation)
           const finalTallyData = results.finalTallies[candidate];
-          const finalVotes = typeof finalTallyData === 'object' && finalTallyData.votes
-            ? (typeof finalTallyData.votes === 'string' ? parseInt(finalTallyData.votes) : finalTallyData.votes)
-            : (finalTallyData || 0);
-          const percentage = maxVotes > 0 ? (currentVotes / maxVotes) * 100 : 0;
-          // Calculate max from final tallies properly
-          const maxFinalVotes = Math.max(...Object.values(results.finalTallies).map(v => 
-            typeof v === 'object' && v.votes ? (typeof v.votes === 'string' ? parseInt(v.votes) : v.votes) : (v || 0)
-          ));
-          const isWinner = finalVotes === maxFinalVotes;
+          let finalVotes = 0;
+          if (typeof finalTallyData === 'number') {
+            finalVotes = finalTallyData;
+          } else if (typeof finalTallyData === 'object' && finalTallyData.votes) {
+            finalVotes = typeof finalTallyData.votes === 'string' ? parseInt(finalTallyData.votes) : finalTallyData.votes;
+          } else if (typeof finalTallyData === 'string') {
+            finalVotes = parseInt(finalTallyData);
+          }
+          
+          // Use finalVotes for display and percentage calculation
+          const displayVotes = finalVotes;
+          const percentage = totalVotes > 0 ? (displayVotes / totalVotes) * 100 : 0;
+          
+          // Calculate max from final tallies properly - handle all formats
+          const maxFinalVotes = Math.max(...Object.values(results.finalTallies).map(v => {
+            if (typeof v === 'number') return v;
+            if (typeof v === 'object' && v.votes) {
+              return typeof v.votes === 'string' ? parseInt(v.votes) : v.votes;
+            }
+            if (typeof v === 'string') return parseInt(v);
+            return 0;
+          }));
+          const isWinner = finalVotes === maxFinalVotes && maxFinalVotes > 0;
 
           return (
             <motion.div
@@ -117,15 +185,12 @@ const AnimatedResults = ({ electionResults }) => {
               {/* Vote Count */}
               <motion.div
                 className="text-4xl font-extrabold text-blue-600 mb-4"
-                key={currentVotes}
+                key={displayVotes}
                 initial={{ scale: 1.2 }}
                 animate={{ scale: 1 }}
                 transition={{ duration: 0.3 }}
               >
-                {currentVotes}
-                {!isAnimating && currentVotes < finalVotes && (
-                  <span className="text-sm text-gray-400"> / {finalVotes}</span>
-                )}
+                {displayVotes}
               </motion.div>
 
               {/* Animated Bar */}
@@ -177,10 +242,15 @@ const AnimatedResults = ({ electionResults }) => {
                   </div>
                   <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                     {Object.entries(chunk.candidateVotes || {}).map(([candidate, voteData]) => {
-                      // Handle both simple number and nested object formats
-                      const votes = typeof voteData === 'object' && voteData.votes 
-                        ? (typeof voteData.votes === 'string' ? parseInt(voteData.votes) : voteData.votes)
-                        : voteData;
+                      // Handle simple integers, strings, and nested object formats
+                      let votes = 0;
+                      if (typeof voteData === 'number') {
+                        votes = voteData;
+                      } else if (typeof voteData === 'object' && voteData.votes) {
+                        votes = typeof voteData.votes === 'string' ? parseInt(voteData.votes) : voteData.votes;
+                      } else if (typeof voteData === 'string') {
+                        votes = parseInt(voteData);
+                      }
                       return (
                         <div key={candidate} className="text-sm">
                           <span className="font-medium text-gray-700">{candidate}:</span>
