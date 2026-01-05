@@ -261,6 +261,25 @@ def combine_decryption_shares_service(
     cast_ballot_ids = ciphertext_tally.cast_ballot_ids
     spoiled_ballot_ids = ciphertext_tally.spoiled_ballot_ids
     
+    # DEBUG: Log ballot counts
+    print(f"📊 BALLOT COUNT DEBUG:")
+    print(f"  - submitted_ballots length: {len(submitted_ballots)}")
+    print(f"  - cast_ballot_ids length: {len(cast_ballot_ids)}")
+    print(f"  - spoiled_ballot_ids length: {len(spoiled_ballot_ids)}")
+    print(f"  - cast_ballot_ids: {cast_ballot_ids}")
+    print(f"  - spoiled_ballot_ids: {spoiled_ballot_ids}")
+    
+    # ✅ FIX: Use submitted_ballots length for all counts since it represents THIS chunk
+    # The ciphertext_tally object's cast_ballot_ids may include metadata from ballot store
+    # but we should count actual submitted_ballots for accurate per-chunk counts
+    chunk_cast_ballots = len([b for b in submitted_ballots if b.object_id in cast_ballot_ids])
+    chunk_spoiled_ballots = len([b for b in submitted_ballots if b.object_id in spoiled_ballot_ids])
+    
+    print(f"✅ CORRECTED COUNTS:")
+    print(f"  - total_ballots_cast (chunk): {len(submitted_ballots)}")
+    print(f"  - total_valid_ballots (chunk): {chunk_cast_ballots}")
+    print(f"  - total_spoiled_ballots (chunk): {chunk_spoiled_ballots}")
+    
     # Format the complete results
     results = {
         'election': {
@@ -296,8 +315,8 @@ def combine_decryption_shares_service(
         },
         'results': {
             'total_ballots_cast': len(submitted_ballots),
-            'total_valid_ballots': len(cast_ballot_ids),
-            'total_spoiled_ballots': len(spoiled_ballot_ids),
+            'total_valid_ballots': chunk_cast_ballots,
+            'total_spoiled_ballots': chunk_spoiled_ballots,
             'candidates': {},
             'spoiled_ballots': []
         },
@@ -313,7 +332,7 @@ def combine_decryption_shares_service(
             candidate = selection.object_id
             results['results']['candidates'][candidate] = {
                 'votes': str(selection.tally),
-                'percentage': str(round(selection.tally / len(cast_ballot_ids) * 100, 2)) if len(cast_ballot_ids) > 0 else "0"
+                'percentage': str(round(selection.tally / chunk_cast_ballots * 100, 2)) if chunk_cast_ballots > 0 else "0"
             }
     
     # Process spoiled ballots
