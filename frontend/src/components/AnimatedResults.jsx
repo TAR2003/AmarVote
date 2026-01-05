@@ -212,13 +212,15 @@ const AnimatedResults = ({ electionResults }) => {
                 {results.allBallots.map((ballot, index) => (
                   <tr key={index} className="hover:bg-gray-50">
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-blue-600">
-                      {ballot.tracking_code}
+                      {ballot.ballot_id || ballot.tracking_code || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm font-mono text-gray-500 truncate max-w-xs">
-                      {ballot.ballot_hash}
+                      {ballot.initial_hash || ballot.ballot_hash || 'N/A'}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                      Chunk {ballot.chunkIndex}
+                      <span className="inline-flex items-center justify-center px-3 py-1 rounded-full bg-blue-100 text-blue-800 font-bold">
+                        {ballot.chunkIndex || '?'}
+                      </span>
                     </td>
                   </tr>
                 ))}

@@ -36,29 +36,42 @@ public class ChunkingService {
      * @return ChunkConfiguration with number of chunks and their sizes
      */
     public ChunkConfiguration calculateChunks(int totalBallots) {
+        System.out.println("\n=== CHUNK CALCULATION DEBUG ===");
+        System.out.println("Total ballots: " + totalBallots);
+        System.out.println("CHUNK_SIZE: " + CHUNK_SIZE);
+        
         if (totalBallots <= 0) {
+            System.out.println("❌ No ballots, returning 0 chunks");
             return new ChunkConfiguration(0, new ArrayList<>());
         }
         
         if (totalBallots <= CHUNK_SIZE) {
+            System.out.println("✅ totalBallots (" + totalBallots + ") <= CHUNK_SIZE (" + CHUNK_SIZE + "), returning 1 chunk");
             return new ChunkConfiguration(1, List.of(totalBallots));
         }
         
         // Calculate number of chunks
         int numChunks = totalBallots / CHUNK_SIZE;
+        int remainder = totalBallots % CHUNK_SIZE;
+        
+        System.out.println("Division result: " + totalBallots + " / " + CHUNK_SIZE + " = " + numChunks + " (remainder: " + remainder + ")");
         
         // If we have a remainder and more than one chunk would be needed,
         // distribute evenly across the calculated number of chunks
-        if (totalBallots % CHUNK_SIZE > 0 && numChunks > 0) {
+        if (remainder > 0 && numChunks > 0) {
+            System.out.println("📊 Has remainder, distributing " + totalBallots + " ballots evenly across " + numChunks + " chunks");
             List<Integer> chunkSizes = distributeEvenly(totalBallots, numChunks);
+            System.out.println("✅ Chunk distribution: " + chunkSizes);
             return new ChunkConfiguration(numChunks, chunkSizes);
         }
         
         // Perfect division - all chunks same size
+        System.out.println("✅ Perfect division: " + numChunks + " chunks of size " + CHUNK_SIZE + " each");
         List<Integer> chunkSizes = new ArrayList<>();
         for (int i = 0; i < numChunks; i++) {
             chunkSizes.add(CHUNK_SIZE);
         }
+        System.out.println("Final chunks: " + chunkSizes);
         return new ChunkConfiguration(numChunks, chunkSizes);
     }
     
@@ -90,9 +103,15 @@ public class ChunkingService {
     public Map<Integer, List<Ballot>> assignBallotsToChunks(
             List<Ballot> ballots, ChunkConfiguration config) {
         
+        System.out.println("\n=== ASSIGNING BALLOTS TO CHUNKS ===");
+        System.out.println("Total ballots to assign: " + ballots.size());
+        System.out.println("Number of chunks: " + config.getNumChunks());
+        System.out.println("Chunk sizes: " + config.getChunkSizes());
+        
         // Shuffle ballots using secure random
         List<Ballot> shuffled = new ArrayList<>(ballots);
         Collections.shuffle(shuffled, secureRandom);
+        System.out.println("✅ Ballots shuffled randomly");
         
         Map<Integer, List<Ballot>> chunks = new HashMap<>();
         int ballotIndex = 0;
@@ -103,9 +122,12 @@ public class ChunkingService {
             List<Ballot> chunkBallots = new ArrayList<>(
                 shuffled.subList(ballotIndex, ballotIndex + chunkSize));
             chunks.put(chunkNum, chunkBallots);
+            System.out.println("  Chunk " + chunkNum + ": " + chunkSize + " ballots (ballot IDs: " + 
+                chunkBallots.stream().map(b -> String.valueOf(b.getBallotId())).collect(java.util.stream.Collectors.joining(", ")) + ")");
             ballotIndex += chunkSize;
         }
         
+        System.out.println("✅ All ballots assigned to " + chunks.size() + " chunks");
         return chunks;
     }
     
