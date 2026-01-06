@@ -3,6 +3,7 @@ package com.amarvote.amarvote.controller;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -31,6 +32,9 @@ public class OtpAuthController {
 
     @Autowired
     private OtpAuthService otpAuthService;
+    
+    @Value("${cookie.secure:false}")
+    private boolean cookieSecure;
 
     /**
      * Request OTP code to be sent to email
@@ -64,7 +68,7 @@ public class OtpAuthController {
             // Set HTTP-only cookie
             Cookie cookie = new Cookie("jwtToken", token);
             cookie.setHttpOnly(true);
-            cookie.setSecure(true); // Only over HTTPS
+            cookie.setSecure(cookieSecure); // Configurable via application.properties
             cookie.setPath("/");
             cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
             cookie.setAttribute("SameSite", "Strict");

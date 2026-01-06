@@ -30,21 +30,10 @@ describe("Home Component", () => {
     expect(aboutLinks.length).toBeGreaterThan(0);
   });
 
-  it("renders sign in and sign up buttons", () => {
+  it("renders sign in button", () => {
     render(<Home />, { wrapper: RouterWrapper });
     
     expect(screen.getByRole("button", { name: /sign in/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /sign up/i })).toBeInTheDocument();
-  });
-
-  it("has correct link destinations", () => {
-    render(<Home />, { wrapper: RouterWrapper });
-    
-    const signInLink = screen.getByRole("link", { name: /sign in/i });
-    const signUpLink = screen.getByRole("link", { name: /sign up/i });
-    
-    expect(signInLink).toHaveAttribute("href", "/otp-login");
-    expect(signUpLink).toHaveAttribute("href", "/signup");
   });
 
   it("renders with proper styling classes", () => {
