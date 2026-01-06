@@ -577,12 +577,35 @@ public class PartialDecryptionService {
                 //   Index 3: Guardian 1 compensating for Guardian 5
                 //   etc.
                 if (!missingGuardians.isEmpty()) {
-                    System.out.println("Processing compensated decryptions for " + missingGuardians.size() + " missing guardians");
+                    System.out.println("\n" + "*".repeat(80));
+                    System.out.println("🔍 BUILDING COMPENSATED ARRAYS FOR CHUNK " + electionCenter.getElectionCenterId());
+                    System.out.println("*".repeat(80));
+                    System.out.println("Missing guardians count: " + missingGuardians.size());
                     
                     // Sort missing guardians by sequence_order for consistent ordering
                     missingGuardians.sort((g1, g2) -> g1.getSequenceOrder().compareTo(g2.getSequenceOrder()));
                     
+                    System.out.print("Missing guardian sequences (sorted): [");
+                    for (int i = 0; i < missingGuardians.size(); i++) {
+                        System.out.print(missingGuardians.get(i).getSequenceOrder());
+                        if (i < missingGuardians.size() - 1) System.out.print(", ");
+                    }
+                    System.out.println("]");
+                    
+                    System.out.print("Available guardian sequences (sorted): [");
+                    List<Guardian> sortedAvailableForDisplay = availableGuardians.stream()
+                        .sorted((g1, g2) -> g1.getSequenceOrder().compareTo(g2.getSequenceOrder()))
+                        .collect(Collectors.toList());
+                    for (int i = 0; i < sortedAvailableForDisplay.size(); i++) {
+                        System.out.print(sortedAvailableForDisplay.get(i).getSequenceOrder());
+                        if (i < sortedAvailableForDisplay.size() - 1) System.out.print(", ");
+                    }
+                    System.out.println("]");
+                    System.out.println("-".repeat(80));
+                    
                     for (Guardian missingGuardian : missingGuardians) {
+                        System.out.println("\n📋 Processing missing Guardian " + missingGuardian.getSequenceOrder() + " (ID: " + missingGuardian.getGuardianId() + ")");
+                        
                         // Get all compensated decryptions for this missing guardian in this chunk
                         List<CompensatedDecryption> compensatedDecryptions = compensatedDecryptionRepository
                             .findByElectionCenterIdAndMissingGuardianId(
@@ -590,7 +613,13 @@ public class PartialDecryptionService {
                                 missingGuardian.getGuardianId()
                             );
                         
+                        System.out.println("  Found " + compensatedDecryptions.size() + " compensated decryption(s) in database");
+                        
                         if (!compensatedDecryptions.isEmpty()) {
+                            System.out.println("  Compensating guardian IDs in database: " + 
+                                compensatedDecryptions.stream()
+                                    .map(cd -> cd.getCompensatingGuardianId().toString())
+                                    .collect(Collectors.joining(", ")));
                             // Create a map of compensating guardian ID -> CompensatedDecryption for sorting
                             Map<Long, CompensatedDecryption> cdMap = new HashMap<>();
                             for (CompensatedDecryption cd : compensatedDecryptions) {
@@ -602,21 +631,36 @@ public class PartialDecryptionService {
                                 .sorted((g1, g2) -> g1.getSequenceOrder().compareTo(g2.getSequenceOrder()))
                                 .collect(Collectors.toList());
                             
+                            System.out.println("  Sorted available guardians for array building: " + 
+                                sortedAvailableGuardians.stream()
+                                    .map(g -> g.getSequenceOrder().toString())
+                                    .collect(Collectors.joining(", ")));
+                            
+                            System.out.println("  ⚙️ Adding shares to arrays in sequence order:");
+                            
                             // Add compensated shares in order: for each missing guardian, 
                             // add all compensating guardians' shares in sequence_order
+                            int addedForThisGuardian = 0;
                             for (Guardian compensatingGuardian : sortedAvailableGuardians) {
                                 CompensatedDecryption cd = cdMap.get(compensatingGuardian.getGuardianId());
                                 if (cd != null) {
+                                    int currentIndex = missingGuardianIds.size();
                                     missingGuardianIds.add(String.valueOf(missingGuardian.getSequenceOrder()));
                                     compensatingGuardianIds.add(String.valueOf(compensatingGuardian.getSequenceOrder()));
                                     compensatedTallyShares.add(cd.getCompensatedTallyShare());
                                     compensatedBallotShares.add(cd.getCompensatedBallotShare());
+                                    addedForThisGuardian++;
                                     
-                                    System.out.println("Added compensated share [index=" + (missingGuardianIds.size()-1) + 
-                                                     "]: missing=" + missingGuardian.getSequenceOrder() + 
+                                    System.out.println("    [" + currentIndex + "] missing=" + missingGuardian.getSequenceOrder() + 
                                                      ", compensating=" + compensatingGuardian.getSequenceOrder());
+                                    System.out.println("        Current missing_guardian_ids: " + missingGuardianIds);
+                                    System.out.println("        Current compensating_guardian_ids: " + compensatingGuardianIds);
+                                } else {
+                                    System.out.println("    ⚠️ No compensated share found from Guardian " + compensatingGuardian.getSequenceOrder() + 
+                                                     " for missing Guardian " + missingGuardian.getSequenceOrder());
                                 }
                             }
+                            System.out.println("  ✅ Added " + addedForThisGuardian + " share(s) for missing Guardian " + missingGuardian.getSequenceOrder());
                         } else {
                             System.out.println("⚠️ No compensated decryptions found for missing guardian " + missingGuardian.getSequenceOrder() + 
                                              " in chunk " + electionCenter.getElectionCenterId());
@@ -624,10 +668,30 @@ public class PartialDecryptionService {
                     }
                     
                     // Log the final arrays for verification
-                    System.out.println("Final compensated arrays:");
-                    System.out.println("  missing_guardian_ids: " + missingGuardianIds);
-                    System.out.println("  compensating_guardian_ids: " + compensatingGuardianIds);
-                    System.out.println("  Total compensated shares: " + compensatedTallyShares.size());
+                    System.out.println("\n" + "*".repeat(80));
+                    System.out.println("📊 FINAL COMPENSATED ARRAYS SUMMARY");
+                    System.out.println("*".repeat(80));
+                    System.out.println("missing_guardian_ids:       " + missingGuardianIds);
+                    System.out.println("compensating_guardian_ids:  " + compensatingGuardianIds);
+                    System.out.println("\nArray lengths:");
+                    System.out.println("  - missing_guardian_ids:        " + missingGuardianIds.size());
+                    System.out.println("  - compensating_guardian_ids:   " + compensatingGuardianIds.size());
+                    System.out.println("  - compensated_tally_shares:    " + compensatedTallyShares.size());
+                    System.out.println("  - compensated_ballot_shares:   " + compensatedBallotShares.size());
+                    
+                    System.out.println("\n✅ Expected pattern verified:");
+                    System.out.println("   For each missing guardian, all available guardians provide shares");
+                    System.out.println("   Missing guardians: " + missingGuardians.size());
+                    System.out.println("   Available guardians: " + availableGuardians.size());
+                    System.out.println("   Expected total shares: " + (missingGuardians.size() * availableGuardians.size()));
+                    System.out.println("   Actual shares: " + missingGuardianIds.size());
+                    
+                    if (missingGuardianIds.size() == missingGuardians.size() * availableGuardians.size()) {
+                        System.out.println("   ✅ CORRECT: All compensated shares present!");
+                    } else {
+                        System.out.println("   ⚠️ WARNING: Missing some compensated shares!");
+                    }
+                    System.out.println("*".repeat(80) + "\n");
                 }
 
                 // Get encrypted tally from THIS chunk's ElectionCenter
@@ -782,58 +846,90 @@ public class PartialDecryptionService {
      */
     private void createCompensatedDecryptionShares(Election election, Guardian availableGuardian, String availableGuardianPrivateKey, String availableGuardianPolynomial, List<ElectionCenter> electionCenters) {
         try {
-            System.out.println("Starting compensated decryption for election: " + election.getElectionId());
-            System.out.println("Processing " + electionCenters.size() + " chunks");
+            System.out.println("\n" + "=".repeat(80));
+            System.out.println("🔐 STARTING COMPENSATED DECRYPTION SHARE CREATION");
+            System.out.println("=".repeat(80));
+            System.out.println("Election ID: " + election.getElectionId());
+            System.out.println("Creating guardian: Guardian " + availableGuardian.getSequenceOrder() + " (ID: " + availableGuardian.getGuardianId() + ")");
+            System.out.println("Number of chunks to process: " + electionCenters.size());
+            System.out.println("=".repeat(80));
             
             // Get all guardians for this election
             List<Guardian> allGuardians = guardianRepository.findByElectionId(election.getElectionId());
+            System.out.println("\n📊 Total guardians in election: " + allGuardians.size());
             
             // Get ALL other guardians (excluding the current guardian who is creating compensated shares)
             List<Guardian> otherGuardians = allGuardians.stream()
                 .filter(g -> !g.getSequenceOrder().equals(availableGuardian.getSequenceOrder()))
                 .collect(Collectors.toList());
             
-            System.out.println("Total guardians: " + allGuardians.size() + 
-                             ", Other guardians (excluding current): " + otherGuardians.size());
+            System.out.println("Other guardians (excluding Guardian " + availableGuardian.getSequenceOrder() + "): " + otherGuardians.size());
+            if (!otherGuardians.isEmpty()) {
+                System.out.print("Other guardian sequences: [");
+                for (int i = 0; i < otherGuardians.size(); i++) {
+                    System.out.print(otherGuardians.get(i).getSequenceOrder());
+                    if (i < otherGuardians.size() - 1) System.out.print(", ");
+                }
+                System.out.println("]");
+            }
             
             // Create compensated shares for ALL other guardians for EACH chunk
             if (otherGuardians.isEmpty()) {
-                System.out.println("No other guardians found, skipping compensated decryption");
+                System.out.println("⚠️ No other guardians found, skipping compensated decryption");
                 return;
             }
+            
+            System.out.println("\n" + "-".repeat(80));
+            System.out.println("📦 PROCESSING CHUNKS");
+            System.out.println("-".repeat(80));
             
             // Process each chunk
             for (ElectionCenter electionCenter : electionCenters) {
                 Long electionCenterId = electionCenter.getElectionCenterId();
-                System.out.println("=== Creating compensated shares for chunk " + electionCenterId + " ===");
+                System.out.println("\n📍 Chunk " + electionCenterId + " | Guardian " + availableGuardian.getSequenceOrder() + " creating shares for others");
+                
+                int createdCount = 0;
+                int skippedCount = 0;
                 
                 // For each OTHER guardian, create compensated share using the current guardian
                 for (Guardian otherGuardian : otherGuardians) {
-                    // Check if compensated share from this specific guardian for this chunk already exists
-                    // TODO: Add findByElectionCenterIdAndCompensatingGuardianIdAndMissingGuardianId to repository
-                    // For now, just check by election center and missing guardian
-                    List<CompensatedDecryption> specificExists = compensatedDecryptionRepository
-                        .findByElectionCenterIdAndMissingGuardianId(
+                    // Check if compensated share from THIS SPECIFIC guardian for this chunk already exists
+                    boolean alreadyExists = compensatedDecryptionRepository
+                        .existsByElectionCenterIdAndCompensatingGuardianIdAndMissingGuardianId(
                             electionCenterId,
+                            availableGuardian.getGuardianId(),
                             otherGuardian.getGuardianId()
                         );
                     
-                    if (specificExists.isEmpty()) {
+                    System.out.println("  Checking: Guardian " + availableGuardian.getSequenceOrder() + " → Guardian " + otherGuardian.getSequenceOrder() + 
+                                     " (Exists: " + alreadyExists + ")");
+                    
+                    if (!alreadyExists) {
                         // Create compensated share from this guardian for the other guardian for this chunk
+                        System.out.println("  🔧 Creating share: Guardian " + availableGuardian.getSequenceOrder() + " compensating for Guardian " + otherGuardian.getSequenceOrder());
                         createCompensatedShare(election, electionCenter, availableGuardian, otherGuardian, availableGuardianPrivateKey, availableGuardianPolynomial);
-                        System.out.println("✅ Created compensated share for chunk " + electionCenterId + ": Guardian " + availableGuardian.getSequenceOrder() + 
-                                         " compensating for Guardian " + otherGuardian.getSequenceOrder());
+                        System.out.println("  ✅ Successfully created compensated share");
+                        createdCount++;
                     } else {
-                        System.out.println("⏭️ Compensated share already exists for chunk " + electionCenterId + ": Guardian " + availableGuardian.getSequenceOrder() + 
-                                         " compensating for Guardian " + otherGuardian.getSequenceOrder());
+                        System.out.println("  ⏭️ Skipped (already exists)");
+                        skippedCount++;
                     }
                 }
+                
+                System.out.println("  📊 Summary for Chunk " + electionCenterId + ": Created=" + createdCount + ", Skipped=" + skippedCount);
             }
             
-            System.out.println("✅ Completed compensated decryption shares creation for Guardian " + availableGuardian.getSequenceOrder() + " across all chunks");
+            System.out.println("\n" + "=".repeat(80));
+            System.out.println("✅ COMPLETED COMPENSATED DECRYPTION SHARES CREATION");
+            System.out.println("Guardian " + availableGuardian.getSequenceOrder() + " has finished creating shares across all " + electionCenters.size() + " chunks");
+            System.out.println("=".repeat(80) + "\n");
             
         } catch (Exception e) {
-            System.err.println("Error creating compensated decryption shares: " + e.getMessage());
+            System.err.println("\n" + "=".repeat(80));
+            System.err.println("❌ ERROR CREATING COMPENSATED DECRYPTION SHARES");
+            System.err.println("Guardian: " + availableGuardian.getSequenceOrder());
+            System.err.println("Error: " + e.getMessage());
+            System.err.println("=".repeat(80));
             e.printStackTrace();
         }
     }
