@@ -1249,9 +1249,9 @@ const VerifyVoteSection = ({ electionId, resultsData }) => {
             <p className="text-gray-600 mb-4">
               Drag and drop your vote receipt file here (.txt or .json), or click to browse
             </p>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <span className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               Choose File
-            </button>
+            </span>
           </label>
         </div>
       ) : (

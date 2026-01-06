@@ -23,12 +23,14 @@ import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.dto.ElectionResultsResponse;
 import com.amarvote.amarvote.dto.OptimizedElectionResponse;
 import com.amarvote.amarvote.model.AllowedVoter;
+import com.amarvote.amarvote.model.Decryption;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.repository.AllowedVoterRepository;
 import com.amarvote.amarvote.repository.BallotRepository;
+import com.amarvote.amarvote.repository.DecryptionRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
@@ -67,6 +69,9 @@ public class ElectionService {
 
     @Autowired
     private ElectionCenterRepository electionCenterRepository;
+
+    @Autowired
+    private DecryptionRepository decryptionRepository;
 
     @Autowired
     private BlockchainService blockchainService;
@@ -1053,10 +1058,12 @@ public class ElectionService {
 
     /**
      * Get guardian information for verification tab, excluding sensitive credentials
+     * Includes decryption data from ALL chunks
      */
     public List<Map<String, Object>> getGuardiansForVerification(Long electionId) {
         try {
             List<Guardian> guardians = guardianRepository.findByElectionId(electionId);
+            List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
             
             return guardians.stream().map(guardian -> {
                 Map<String, Object> guardianData = new HashMap<>();
@@ -1066,8 +1073,31 @@ public class ElectionService {
                 guardianData.put("sequenceOrder", guardian.getSequenceOrder());
                 guardianData.put("guardianPublicKey", guardian.getGuardianPublicKey());
                 guardianData.put("decryptedOrNot", guardian.getDecryptedOrNot());
-                // Fields moved to Decryptions table:
-                // partialDecryptedTally, guardianDecryptionKey, tallyShare, keyBackup
+                guardianData.put("keyBackup", guardian.getKeyBackup()); // From guardians table
+                
+                // Get decryption data from ALL chunks for this guardian
+                List<Map<String, Object>> chunkDecryptions = new ArrayList<>();
+                for (ElectionCenter center : electionCenters) {
+                    // Find decryption for this guardian and this chunk
+                    List<Decryption> decryptions = decryptionRepository.findByElectionCenterIdAndGuardianId(
+                        center.getElectionCenterId(), 
+                        guardian.getGuardianId()
+                    );
+                    
+                    if (!decryptions.isEmpty()) {
+                        Decryption decryption = decryptions.get(0); // Should be only one per guardian per chunk
+                        Map<String, Object> chunkData = new HashMap<>();
+                        chunkData.put("electionCenterId", center.getElectionCenterId());
+                        chunkData.put("chunkIndex", center.getElectionCenterId()); // Use center ID as chunk identifier
+                        chunkData.put("partialDecryptedTally", decryption.getPartialDecryptedTally());
+                        chunkData.put("guardianDecryptionKey", decryption.getGuardianDecryptionKey());
+                        chunkData.put("tallyShare", decryption.getTallyShare());
+                        chunkData.put("datePerformed", decryption.getDatePerformed());
+                        chunkDecryptions.add(chunkData);
+                    }
+                }
+                
+                guardianData.put("chunkDecryptions", chunkDecryptions);
                 // Intentionally exclude sensitive credentials field
                 
                 return guardianData;
