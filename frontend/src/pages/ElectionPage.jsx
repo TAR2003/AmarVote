@@ -28,6 +28,7 @@ import {
   FiDatabase,
   FiLock,
   FiUnlock,
+  FiLayers,
   FiHash,
   FiCheck
 } from 'react-icons/fi';
@@ -58,6 +59,7 @@ import 'jspdf-autotable';
 import ErrorBoundary from '../components/ErrorBoundary';
 import GuardianDataDisplay from '../components/GuardianDataDisplay';
 import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
+import AnimatedResults from '../components/AnimatedResults';
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -653,8 +655,9 @@ const BallotsInTallySection = ({ resultsData, id }) => {
   };
 
   const downloadAllBallotsCSV = () => {
-    const csvHeaders = ['Tracking Code', 'Hash Code', 'Decrypted Hash', 'Status', 'Verification'];
+    const csvHeaders = ['Chunk #', 'Tracking Code', 'Hash Code', 'Decrypted Hash', 'Status', 'Verification'];
     const csvRows = ballots.map(ballot => [
+      ballot.chunkIndex || 'N/A',
       ballot.ballot_id,
       ballot.initial_hash || 'N/A',
       ballot.decrypted_hash || 'N/A',
@@ -795,9 +798,16 @@ const BallotsInTallySection = ({ resultsData, id }) => {
                   </div>
                   <div>
                     <h4 className="font-medium text-gray-900">Ballot #{index + 1}</h4>
-                    <div className={`flex items-center mt-1 ${statusInfo.textColor}`}>
-                      <StatusIcon className="h-3 w-3 mr-1" />
-                      <span className="text-xs font-medium">{statusInfo.text}</span>
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className={`flex items-center ${statusInfo.textColor}`}>
+                        <StatusIcon className="h-3 w-3 mr-1" />
+                        <span className="text-xs font-medium">{statusInfo.text}</span>
+                      </div>
+                      {ballot.chunkIndex && (
+                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">
+                          Chunk {ballot.chunkIndex}
+                        </span>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1239,9 +1249,9 @@ const VerifyVoteSection = ({ electionId, resultsData }) => {
             <p className="text-gray-600 mb-4">
               Drag and drop your vote receipt file here (.txt or .json), or click to browse
             </p>
-            <button className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <span className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
               Choose File
-            </button>
+            </span>
           </label>
         </div>
       ) : (
@@ -1488,6 +1498,7 @@ export default function ElectionPage() {
   // Results state
   const [resultsData, setResultsData] = useState(null);
   const [rawVerificationData, setRawVerificationData] = useState(null); // Store raw API response for ballots
+  const [animatedResults, setAnimatedResults] = useState(null); // Store animated results from new endpoint
   const [loadingResults, setLoadingResults] = useState(false);
   const [combiningDecryptions, setCombiningDecryptions] = useState(false);
 
@@ -1507,47 +1518,93 @@ export default function ElectionPage() {
           setElectionData(data);
           // Check if user has already voted - this info is now handled through eligibilityData
 
-          // Auto-create tally if election has ended and tally doesn't exist yet
+          // Auto-load results if election has ended and is decrypted
           const electionStatus = getElectionStatusFromData(data);
-
-          if (electionStatus === 'Ended' && !data.encryptedTally) {
-            console.log('Election has ended - creating tally automatically');
-            await createTallyForElection(id);
-          }
-
-          // Auto-combine decryptions if election has ended and quorum is met
           if (electionStatus === 'Ended') {
             const guardiansSubmitted = data.guardiansSubmitted || 0;
             const electionQuorum = data.electionQuorum || data.totalGuardians || 0;
             const quorumMet = guardiansSubmitted >= electionQuorum;
 
-            if (quorumMet) {
+            // Check if results already exist (election status is 'decrypted')
+            if (data.status === 'decrypted') {
+              console.log('✅ Results already computed. Loading cached results...');
+              
+              // Fetch cached results from new endpoint
+              try {
+                const animatedResultsData = await electionApi.getElectionResults(id);
+                console.log('📦 [CACHED RESULTS] Raw data from backend:', {
+                  success: animatedResultsData.success,
+                  finalTallies: animatedResultsData.results?.finalTallies,
+                  totalBallots: animatedResultsData.results?.total_ballots_cast,
+                  chunksCount: animatedResultsData.results?.chunks?.length
+                });
+                
+                if (animatedResultsData.success && animatedResultsData.results) {
+                  console.log('✅ Loaded cached results with chunk breakdown');
+                  setAnimatedResults(animatedResultsData);
+                  
+                  // Extract and properly format ballot data from cached results
+                  if (animatedResultsData.results.allBallots && animatedResultsData.results.allBallots.length > 0) {
+                    // Build verification data structure to match expected format
+                    const cachedVerificationData = {
+                      verification: {
+                        ballots: animatedResultsData.results.allBallots
+                      },
+                      results: {
+                        finalTallies: animatedResultsData.results.finalTallies,
+                        total_ballots_cast: animatedResultsData.results.total_ballots_cast || animatedResultsData.results.allBallots.length,
+                        total_valid_ballots: animatedResultsData.results.total_valid_ballots || animatedResultsData.results.allBallots.length
+                      }
+                    };
+                    setRawVerificationData(cachedVerificationData);
+                    
+                    // Process and set results data for charts and statistics
+                    const processedResults = processElectionResults(cachedVerificationData);
+                    if (processedResults) {
+                      setResultsData(processedResults);
+                      console.log('✅ Results processed for charts:', processedResults);
+                    }
+                  }
+                }
+              } catch (err) {
+                console.warn('Failed to load cached results:', err);
+              }
+            } else if (quorumMet) {
               console.log('🔄 Auto-combining decryptions on page load: Election ended and quorum met');
               console.log(`Guardians status: ${guardiansSubmitted}/${electionQuorum} required have submitted keys`);
 
-              // Call combine partial decryptions to fill ballot lists
+              // Call combine partial decryptions to compute results for first time
               try {
                 setCombiningDecryptions(true);
                 const response = await electionApi.combinePartialDecryptions(id);
                 console.log('Auto-combined partial decryptions successfully');
 
-                // Store the decryption results for ballot verification
-                if (response.results) {
-                  setRawVerificationData(response.results);
-
-                  // Log ballot data summary
-                  if (response.results?.verification?.ballots && response.results.verification.ballots.length > 0) {
-                    console.log(`✅ Auto-loaded ${response.results.verification.ballots.length} ballots with tracking codes and hashes`);
+                // After combining, immediately fetch cached results with full ballot data
+                try {
+                  const animatedResultsData = await electionApi.getElectionResults(id);
+                  if (animatedResultsData.success && animatedResultsData.results) {
+                    setAnimatedResults(animatedResultsData);
+                    
+                    // Build verification data structure from newly cached results
+                    if (animatedResultsData.results.allBallots && animatedResultsData.results.allBallots.length > 0) {
+                      const cachedVerificationData = {
+                        verification: {
+                          ballots: animatedResultsData.results.allBallots
+                        },
+                        results: {
+                          candidates: animatedResultsData.results.finalTallies
+                        }
+                      };
+                      setRawVerificationData(cachedVerificationData);
+                      console.log(`✅ Loaded ${animatedResultsData.results.allBallots.length} ballots after combining`);
+                    }
                   }
-
-                  // Process and set the results data for charts and statistics
-                  // Note: We'll set this in a later useEffect when processElectionResults is available
-                  // For now, just store the raw data
+                } catch (err) {
+                  console.warn('Failed to fetch cached results after combining:', err);
                 }
 
               } catch (combineErr) {
                 console.warn('Auto-combine decryptions failed during page load:', combineErr.message);
-                // Don't show error to user as this is automatic - they can manually combine later
               } finally {
                 setCombiningDecryptions(false);
               }
@@ -1680,23 +1737,69 @@ export default function ElectionPage() {
     const dataToProcess = apiResponseData || resultsData;
 
     // If we have resultsData from combine-decryption, use that as it's more accurate
-    if (dataToProcess?.results?.candidates) {
-      const candidates = dataToProcess.results.candidates;
-      const totalVotes = Object.values(candidates).reduce((sum, candidate) => sum + parseInt(candidate.votes || 0), 0);
+    // Handle both 'candidates' and 'finalTallies' from backend
+    const candidates = dataToProcess?.results?.candidates || dataToProcess?.results?.finalTallies;
+    
+    console.log('🔍 [processElectionResults] Processing data:', {
+      hasCandidates: !!candidates,
+      candidatesData: candidates,
+      dataStructure: dataToProcess?.results
+    });
+    
+    if (candidates) {
+      // Calculate total votes - handle both simple integers and nested objects
+      const totalVotes = Object.values(candidates).reduce((sum, candidate) => {
+        if (typeof candidate === 'number') {
+          return sum + candidate;
+        } else if (typeof candidate === 'object' && candidate.votes) {
+          return sum + parseInt(candidate.votes || 0);
+        } else if (typeof candidate === 'string') {
+          return sum + parseInt(candidate || 0);
+        }
+        return sum;
+      }, 0);
+      
+      console.log('📊 [processElectionResults] Total votes calculated:', totalVotes);
 
-      const chartData = Object.entries(candidates).map(([name, data]) => ({
-        name: name,
-        votes: parseInt(data.votes || 0),
-        percentage: parseFloat(data.percentage || 0),
-        party: name // You might want to map this to actual party names if available
-      }));
+      // Build chart data - handle both simple integers and nested objects
+      const chartData = Object.entries(candidates).map(([name, data]) => {
+        let votes = 0;
+        let percentage = 0;
+        
+        if (typeof data === 'number') {
+          votes = data;
+        } else if (typeof data === 'object' && data.votes !== undefined) {
+          votes = parseInt(data.votes || 0);
+          percentage = parseFloat(data.percentage || 0);
+        } else if (typeof data === 'string') {
+          votes = parseInt(data || 0);
+        }
+        
+        // Calculate percentage if not provided
+        if (!percentage && totalVotes > 0) {
+          percentage = ((votes / totalVotes) * 100).toFixed(1);
+        }
+        
+        return {
+          name: name,
+          votes: votes,
+          percentage: parseFloat(percentage),
+          party: name // You might want to map this to actual party names if available
+        };
+      });
+
+      // Count total ballots from verification data or use total votes
+      const totalBallots = dataToProcess.verification?.ballots?.length || 
+                          dataToProcess.results?.total_valid_ballots || 
+                          dataToProcess.results?.total_ballots_cast || 
+                          totalVotes;
 
       return {
         totalVotes,
         totalEligibleVoters: electionData?.voters?.length || 0,
-        totalVotedUsers: dataToProcess.results.total_valid_ballots || dataToProcess.results.total_ballots_cast || 0,
+        totalVotedUsers: totalBallots,
         turnoutRate: electionData?.voters?.length > 0 ?
-          ((dataToProcess.results.total_valid_ballots || 0) / electionData.voters.length * 100).toFixed(1) : 0,
+          ((totalBallots || 0) / electionData.voters.length * 100).toFixed(1) : 0,
         chartData,
         choices: chartData,
         // Include verification data
@@ -1746,41 +1849,44 @@ export default function ElectionPage() {
       const response = await electionApi.combinePartialDecryptions(id);
       console.log('Combined partial decryptions');
 
-      // Store the decryption results for ballot verification
-      // The response.results contains the complete election results including verification.ballots
-      if (response.results) {
-        // Store raw verification data separately for ballots
-        setRawVerificationData(response.results);
-
-        // Log a summary of the extracted ballot data
-        if (response.results?.verification?.ballots && response.results.verification.ballots.length > 0) {
-          console.log(`✅ Successfully extracted ${response.results.verification.ballots.length} ballots from API response`);
-
-          // Log a summary of ballot verification statuses
-          const statusCounts = {};
-          response.results.verification.ballots.forEach(ballot => {
-            statusCounts[ballot.verification] = (statusCounts[ballot.verification] || 0) + 1;
-          });
-          console.log('Ballot verification status summary:', statusCounts);
-        } else {
-          console.log('⚠️ No ballots found in API response');
+      // After combining, immediately fetch cached results with full ballot data
+      try {
+        const animatedResultsData = await electionApi.getElectionResults(id);
+        if (animatedResultsData.success && animatedResultsData.results) {
+          console.log('✅ Auto-fetched cached results with chunk breakdown after combining');
+          setAnimatedResults(animatedResultsData);
+          
+          // Build verification data structure from newly cached results
+          if (animatedResultsData.results.allBallots && animatedResultsData.results.allBallots.length > 0) {
+            const cachedVerificationData = {
+              verification: {
+                ballots: animatedResultsData.results.allBallots
+              },
+              results: {
+                finalTallies: animatedResultsData.results.finalTallies,
+                total_ballots_cast: animatedResultsData.results.allBallots.length,
+                total_valid_ballots: animatedResultsData.results.allBallots.length
+              }
+            };
+            setRawVerificationData(cachedVerificationData);
+            
+            // Process and set the results data for charts and statistics
+            const processedResults = processElectionResults(cachedVerificationData);
+            setResultsData(processedResults);
+            
+            console.log(`✅ Loaded ${animatedResultsData.results.allBallots.length} ballots after combining`);
+          }
         }
-
-        // Process and set the results data for charts and statistics
-        const processedResults = processElectionResults(response.results);
-        setResultsData(processedResults);
+      } catch (err) {
+        console.warn('Failed to fetch cached results after combining:', err);
       }
-
-      // Refresh election data to get updated results
-      const updatedData = await electionApi.getElectionById(id);
-      setElectionData(updatedData);
 
       toast.success('🎉 Election results successfully decrypted! The final tallies are now available.', {
         duration: 5000
       });
-    } catch (err) {
-      console.error('Error combining partial decryptions:', err);
-      const errorMessage = err.message || 'Unknown error occurred';
+    } catch (error) {
+      console.error('Error combining partial decryptions:', error);
+      const errorMessage = error.message || 'Unknown error occurred';
       if (errorMessage.includes('Quorum not met')) {
         toast.error('❌ ' + errorMessage, { duration: 8000 });
       } else {
@@ -3456,8 +3562,20 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 )}
 
                 {(() => {
-                  const processedResults = processElectionResults();
-                  if (!processedResults) return null;
+                  // Use resultsData if available, otherwise process from rawVerificationData
+                  const processedResults = resultsData || processElectionResults();
+                  
+                  console.log('📊 [Results Tab] Rendering with data:', {
+                    hasResultsData: !!resultsData,
+                    hasRawVerificationData: !!rawVerificationData,
+                    processedResults,
+                    animatedResults: animatedResults?.results?.finalTallies
+                  });
+                  
+                  if (!processedResults) {
+                    console.warn('⚠️ [Results Tab] No processed results available');
+                    return null;
+                  }
 
                   const totalBallots = processedResults.totalVotedUsers;
                   const totalVotesInChoices = processedResults.totalVotes;
@@ -3507,6 +3625,13 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                           <p className="text-sm text-gray-600 mt-2">
                             ✅ Quorum met! {guardiansSubmitted} out of {electionQuorum} required guardians have submitted keys. Click "Combine Partial Decryptions" to decrypt results.
                           </p>
+                        </div>
+                      )}
+
+                      {/* Animated Results Component */}
+                      {animatedResults && (
+                        <div className="mb-6">
+                          <AnimatedResults electionResults={animatedResults} />
                         </div>
                       )}
 
@@ -3849,6 +3974,51 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
                   {/* Compensated Decryption Display */}
                   <CompensatedDecryptionDisplay electionId={id} />
+
+                  {/* Per-Chunk Verification Data */}
+                  {animatedResults && animatedResults.results && animatedResults.results.chunks && (
+                    <div className="bg-white border border-gray-200 rounded-lg p-6">
+                      <h4 className="font-medium text-gray-900 mb-4 flex items-center">
+                        <FiLayers className="h-5 w-5 mr-2 text-blue-600" />
+                        Per-Chunk Tallies and Decryptions
+                      </h4>
+                      <div className="space-y-4">
+                        {animatedResults.results.chunks.map((chunk, index) => (
+                          <div key={chunk.electionCenterId} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
+                            <div className="flex items-center justify-between mb-3">
+                              <h5 className="font-semibold text-gray-800">
+                                Chunk {chunk.chunkIndex} (Election Center ID: {chunk.electionCenterId})
+                              </h5>
+                              <span className="text-sm text-gray-600">
+                                {chunk.ballotCount} ballots
+                              </span>
+                            </div>
+                            
+                            {/* Chunk Tally Results */}
+                            <div className="mb-3">
+                              <p className="text-sm font-medium text-gray-700 mb-2">Tally for this chunk:</p>
+                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
+                                {Object.entries(chunk.candidateVotes || {}).map(([candidate, votes]) => (
+                                  <div key={candidate} className="bg-white rounded px-3 py-2 border border-gray-200">
+                                    <span className="font-medium text-gray-800">{candidate}:</span>
+                                    <span className="ml-2 text-blue-600 font-bold">{votes}</span>
+                                  </div>
+                                ))}
+                              </div>
+                            </div>
+
+                            {/* Note about partial decryptions */}
+                            <div className="text-xs text-gray-600 mt-2 bg-blue-50 border border-blue-200 rounded p-2">
+                              <p>
+                                <strong>Note:</strong> Each guardian submitted a partial decryption for this chunk. 
+                                The partial decryptions were combined using threshold cryptography to compute the tally shown above.
+                              </p>
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
 
                   <div className="bg-gray-50 rounded-lg p-4">
                     <h4 className="font-medium text-gray-900 mb-3">Verification Instructions</h4>

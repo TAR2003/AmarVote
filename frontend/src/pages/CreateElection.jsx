@@ -182,6 +182,63 @@ const CreateElection = () => {
         reader.readAsText(file);
     };
 
+    // Email validation and suggestion based on common providers
+    const commonEmailProviders = [
+        '@gmail.com',
+        '@yahoo.com',
+        '@outlook.com',
+        '@hotmail.com',
+        '@icloud.com',
+        '@protonmail.com',
+        '@aol.com',
+        '@mail.com',
+        '@zoho.com',
+        '@yandex.com'
+    ];
+
+    // Validate email format
+    const isValidEmail = (email) => {
+        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        return emailRegex.test(email);
+    };
+
+    // Generate email suggestions based on input
+    const generateEmailSuggestions = (query) => {
+        if (!query || query.length < 2) {
+            return [];
+        }
+
+        const suggestions = [];
+        const lowerQuery = query.toLowerCase();
+
+        // If query contains @, suggest completing the domain
+        if (lowerQuery.includes('@')) {
+            const [localPart, domainPart] = lowerQuery.split('@');
+            
+            // If domain is partially typed, suggest matching providers
+            if (domainPart !== undefined) {
+                commonEmailProviders.forEach(provider => {
+                    if (provider.toLowerCase().startsWith('@' + domainPart)) {
+                        suggestions.push({
+                            email: localPart + provider,
+                            isComplete: true
+                        });
+                    }
+                });
+            }
+        } else {
+            // If @ not typed yet, suggest adding common providers
+            commonEmailProviders.forEach(provider => {
+                suggestions.push({
+                    email: lowerQuery + provider,
+                    isComplete: true
+                });
+            });
+        }
+
+        return suggestions.slice(0, 5); // Limit to 5 suggestions
+    };
+
     // Create a debounced search function
     const debouncedSearch = useRef(
         debounce(async (query) => {
@@ -191,19 +248,17 @@ const CreateElection = () => {
             }
 
             try {
-                const users = await userApi.searchUsers(query);
+                // Generate email suggestions based on common providers
+                const suggestions = generateEmailSuggestions(query);
+                
+                // Filter out already selected emails
+                const filteredSuggestions = suggestions.filter(
+                    suggestion => !form.guardianEmails.includes(suggestion.email)
+                );
 
-                // Map the response to match our expected format and filter out already selected emails
-                const mappedUsers = users.map(user => ({
-                    email: user.email,
-                    name: user.name,
-                    userId: user.userId,
-                    profilePic: user.profilePic
-                })).filter(user => !form.guardianEmails.includes(user.email));
-
-                setEmailSuggestions(mappedUsers);
+                setEmailSuggestions(filteredSuggestions);
             } catch (error) {
-                console.error("Error searching for users:", error);
+                console.error("Error generating email suggestions:", error);
                 setEmailSuggestions([]);
             }
         }, 300)
@@ -215,6 +270,14 @@ const CreateElection = () => {
     };
 
     const addGuardianEmail = (email) => {
+        // Validate email format
+        if (!isValidEmail(email)) {
+            setError("Please enter a valid email address");
+            setTimeout(() => setError(""), 3000);
+            return;
+        }
+
+        // Check if email is already added
         if (!form.guardianEmails.includes(email)) {
             setForm(prev => ({
                 ...prev,
@@ -450,31 +513,33 @@ const CreateElection = () => {
             ref={suggestionsRef}
             className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto"
         >
-            {emailSuggestions.map((user) => (
+            {emailSuggestions.map((suggestion, index) => (
                 <div
-                    key={user.email}
-                    className="px-4 py-2 hover:bg-gray-100 cursor-pointer flex items-center"
-                    onClick={() => addGuardianEmail(user.email)}
+                    key={index}
+                    className="px-4 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition-colors"
+                    onClick={() => addGuardianEmail(suggestion.email)}
                 >
-                    {user.profilePic ? (
-                        <img
-                            src={user.profilePic}
-                            alt={user.name}
-                            className="w-8 h-8 rounded-full mr-2"
-                        />
-                    ) : (
-                        <div className="w-8 h-8 rounded-full bg-blue-500 flex items-center justify-center text-white mr-2">
-                            {user.name.charAt(0)}
+                    <div className="flex items-center flex-1">
+                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white mr-3 font-semibold">
+                            @
                         </div>
-                    )}
-                    <div>
-                        <div className="font-medium">{user.name}</div>
-                        <div className="text-sm text-gray-500">{user.email}</div>
+                        <div className="flex-1">
+                            <div className="font-medium text-gray-800">{suggestion.email}</div>
+                            <div className="text-xs text-gray-500">
+                                {isValidEmail(suggestion.email) ? "Valid email format" : "Complete the email"}
+                            </div>
+                        </div>
+                    </div>
+                    <div className="text-blue-500 text-sm">
+                        Click to add
                     </div>
                 </div>
             ))}
             {emailSuggestions.length === 0 && searchQuery.length > 0 && (
-                <div className="px-4 py-2 text-gray-500">No users found</div>
+                <div className="px-4 py-3 text-gray-500 text-center">
+                    <div className="mb-1">💡 Type your email address</div>
+                    <div className="text-xs">Suggestions will appear as you type</div>
+                </div>
             )}
         </div>
     );
@@ -749,7 +814,19 @@ const CreateElection = () => {
                                 type="text"
                                 value={searchQuery}
                                 onChange={(e) => searchEmails(e.target.value)}
-                                placeholder="Type to search for users..."
+                                onKeyDown={(e) => {
+                                    if (e.key === 'Enter' && searchQuery.trim()) {
+                                        e.preventDefault();
+                                        // If there are suggestions, add the first one
+                                        if (emailSuggestions.length > 0) {
+                                            addGuardianEmail(emailSuggestions[0].email);
+                                        } else if (isValidEmail(searchQuery.trim())) {
+                                            // Otherwise, if the typed email is valid, add it
+                                            addGuardianEmail(searchQuery.trim());
+                                        }
+                                    }
+                                }}
+                                placeholder="Type email address (e.g., user@gmail.com)..."
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             />
 
@@ -766,8 +843,9 @@ const CreateElection = () => {
                             </div>
                         </div>
 
-                        <div className="mt-2 text-sm text-gray-500">
-                            {form.guardianEmails.length} of {form.guardianNumber} guardians added
+                        <div className="mt-2 text-sm text-gray-600">
+                            <div>{form.guardianEmails.length} of {form.guardianNumber} guardians added</div>
+                            <div className="text-xs mt-1">💡 Tip: Press Enter to add email or click on a suggestion</div>
                         </div>
                     </div>
                 </div>

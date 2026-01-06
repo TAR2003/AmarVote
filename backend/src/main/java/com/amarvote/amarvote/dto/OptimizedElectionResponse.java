@@ -52,26 +52,29 @@ public class OptimizedElectionResponse {
      */
     public static OptimizedElectionResponse fromQueryResult(Object[] result) {
         // The order must match the column order in the repository query
+        // Query returns: e.* (all election columns), admin_name, is_admin, is_guardian, is_voter, has_voted
         int i = 0;
         
+        // Election entity columns (from e.*)
         Long electionId = ((Number) result[i++]).longValue();
         String electionTitle = (String) result[i++];
         String electionDescription = (String) result[i++];
         Integer numberOfGuardians = (Integer) result[i++];
         Integer electionQuorum = (Integer) result[i++];
         Integer noOfCandidates = (Integer) result[i++];
-        i++; // Skip jointPublicKey
-        i++; // Skip manifestHash
+        String jointPublicKey = (String) result[i++]; // Don't skip, read and ignore
+        String manifestHash = (String) result[i++];    // Don't skip, read and ignore
         String status = (String) result[i++];
         Instant startingTime = (Instant) result[i++];
         Instant endingTime = (Instant) result[i++];
-        i++; // Skip encryptedTally
-        i++; // Skip baseHash
+        String baseHash = (String) result[i++];        // Don't skip, read and ignore
         Instant createdAt = (Instant) result[i++];
         String profilePic = (String) result[i++];
         String adminEmail = (String) result[i++];
         String privacy = (String) result[i++];
         String eligibility = (String) result[i++];
+        
+        // Additional columns from joins
         String adminName = (String) result[i++];
         Boolean isAdmin = (Boolean) result[i++];
         Boolean isGuardian = (Boolean) result[i++];

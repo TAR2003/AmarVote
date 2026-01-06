@@ -2,8 +2,9 @@ package com.amarvote.amarvote.model;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
-import jakarta.persistence.IdClass;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -18,20 +19,21 @@ import lombok.Setter;
 @NoArgsConstructor
 @AllArgsConstructor
 @Builder
-@IdClass(CompensatedDecryptionId.class)
 public class CompensatedDecryption {
 
     @Id
-    @Column(name = "election_id", nullable = false)
-    private Long electionId;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(name = "compensated_decryption_id")
+    private Long compensatedDecryptionId;
 
-    @Id
-    @Column(name = "compensating_guardian_sequence", nullable = false)
-    private Integer compensatingGuardianSequence;
+    @Column(name = "election_center_id", nullable = false)
+    private Long electionCenterId;
 
-    @Id
-    @Column(name = "missing_guardian_sequence", nullable = false)
-    private Integer missingGuardianSequence;
+    @Column(name = "compensating_guardian_id", nullable = false)
+    private Long compensatingGuardianId;
+
+    @Column(name = "missing_guardian_id", nullable = false)
+    private Long missingGuardianId;
 
     @Column(name = "compensated_tally_share", nullable = false, columnDefinition = "TEXT")
     private String compensatedTallyShare;

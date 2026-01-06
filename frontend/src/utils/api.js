@@ -25,6 +25,21 @@ function createTimeoutPromise(timeoutMs) {
 }
 
 /**
+ * Handle 401 Unauthorized errors by logging out and redirecting
+ * @param {Response} response - Fetch response
+ */
+function handle401Error(response) {
+  if (response.status === 401) {
+    console.warn('401 Unauthorized - Session expired or invalid token. Logging out...');
+    // Clear user data
+    localStorage.removeItem('email');
+    localStorage.setItem('logout', Date.now());
+    // Redirect to OTP login page
+    window.location.href = '/otp-login';
+  }
+}
+
+/**
  * Make an authenticated API request with timeout support
  * @param {string} endpoint - API endpoint
  * @param {Object} options - Fetch options
@@ -60,6 +75,12 @@ export async function apiRequest(endpoint, options = {}, timeout = DEFAULT_TIMEO
     
     // Race between fetch and timeout
     const response = await Promise.race([fetchPromise, timeoutPromise]);
+    
+    // Handle 401 errors by logging out and redirecting
+    if (response.status === 401) {
+      handle401Error(response);
+      throw new Error('Session expired. Please login again.');
+    }
     
     if (!response.ok) {
       let errorData;
@@ -121,6 +142,12 @@ export async function apiBinaryRequest(endpoint, binaryData, contentType = 'appl
     
     // Race between fetch and timeout
     const response = await Promise.race([fetchPromise, timeoutPromise]);
+    
+    // Handle 401 errors by logging out and redirecting
+    if (response.status === 401) {
+      handle401Error(response);
+      throw new Error('Session expired. Please login again.');
+    }
     
     if (!response.ok) {
       let errorData;
@@ -271,26 +298,6 @@ export async function updateUserProfile(profileData) {
     return response;
   } catch (error) {
     console.error('Error updating user profile:', error);
-    throw error;
-  }
-}
-
-/**
- * Update user password
- * @param {Object} passwordData - Password data (currentPassword, newPassword, confirmPassword)
- * @returns {Promise<Object>} Success response
- */
-export async function updateUserPassword(passwordData) {
-  try {
-    console.log('Sending password update request');
-    const response = await apiRequest('/auth/password', {
-      method: 'PUT',
-      body: JSON.stringify(passwordData),
-    });
-    console.log('Password update response:', response);
-    return response;
-  } catch (error) {
-    console.error('Error updating password:', error);
     throw error;
   }
 }

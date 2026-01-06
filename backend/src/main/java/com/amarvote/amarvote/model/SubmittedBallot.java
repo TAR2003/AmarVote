@@ -30,8 +30,8 @@ public class SubmittedBallot {
     @Column(name = "submitted_ballot_id")
     private Long submittedBallotId;
 
-    @Column(name = "election_id", nullable = false)
-    private Long electionId;
+    @Column(name = "election_center_id", nullable = false)
+    private Long electionCenterId;
 
     @Column(name = "created_at", updatable = false)
     @CreationTimestamp

@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
  * Ballot Padding Utility - Industry Standard PKCS#7 Implementation
  * 
  * Ensures constant-size encrypted ballot transmission to prevent traffic analysis attacks.
- * Uses 17520 bytes (12 × 1460) for optimal TCP packet alignment.
+ * Uses 18980 bytes (13 × 1460) for optimal TCP packet alignment.
  * 
  * Security Features:
  * - PKCS#7 padding standard (industry best practice, RFC 5652)
@@ -27,9 +27,10 @@ public class BallotPaddingUtil {
 
     /**
      * Target size for encrypted ballot transmission
-     * 17520 bytes = 12 × 1460 (TCP MSS), ensuring stable packet segmentation
+     * 18980 bytes = 13 × 1460 (TCP MSS), ensuring stable packet segmentation
+     * Increased from 17520 to provide more padding headroom
      */
-    public static final int TARGET_SIZE = 17520;
+    public static final int TARGET_SIZE = 18980;
 
     /**
      * Remove PKCS#7 padding from received data
@@ -54,18 +55,13 @@ public class BallotPaddingUtil {
         int paddingLength = paddedData[paddedData.length - 1] & 0xFF;
 
         // Validate padding length
-        if (paddingLength > paddedData.length) {
-            logger.error("Invalid padding: padding length ({}) exceeds data size ({})", 
+        if (paddingLength > paddedData.length || paddingLength == 0) {
+            logger.error("Invalid padding: padding length ({}) is invalid for data size ({})", 
                          paddingLength, paddedData.length);
             throw new IllegalArgumentException(
-                String.format("Invalid padding: padding length (%d) exceeds data size (%d)", 
+                String.format("Invalid padding: padding length (%d) is invalid for data size (%d)", 
                               paddingLength, paddedData.length)
             );
-        }
-
-        if (paddingLength == 0) {
-            logger.error("Invalid padding: padding length cannot be zero");
-            throw new IllegalArgumentException("Invalid padding: padding length cannot be zero");
         }
 
         // Verify PKCS#7 padding integrity - all padding bytes must equal padding length

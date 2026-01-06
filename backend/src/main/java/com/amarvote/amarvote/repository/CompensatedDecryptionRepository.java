@@ -3,40 +3,32 @@ package com.amarvote.amarvote.repository;
 import java.util.List;
 
 import org.springframework.data.jpa.repository.JpaRepository;
-import org.springframework.data.jpa.repository.Query;
-import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.amarvote.amarvote.model.CompensatedDecryption;
-import com.amarvote.amarvote.model.CompensatedDecryptionId;
 
 @Repository
-public interface CompensatedDecryptionRepository extends JpaRepository<CompensatedDecryption, CompensatedDecryptionId> {
+public interface CompensatedDecryptionRepository extends JpaRepository<CompensatedDecryption, Long> {
     
-    List<CompensatedDecryption> findByElectionId(Long electionId);
+    // Find compensated decryptions by election center ID (chunk)
+    List<CompensatedDecryption> findByElectionCenterId(Long electionCenterId);
     
-    @Query("SELECT cd FROM CompensatedDecryption cd WHERE cd.electionId = :electionId AND cd.missingGuardianSequence = :missingGuardianSequence")
-    List<CompensatedDecryption> findByElectionIdAndMissingGuardianSequence(
-        @Param("electionId") Long electionId, 
-        @Param("missingGuardianSequence") Integer missingGuardianSequence
+    // Find compensated decryptions for a missing guardian in a chunk
+    List<CompensatedDecryption> findByElectionCenterIdAndMissingGuardianId(
+        Long electionCenterId, 
+        Long missingGuardianId
     );
     
-    @Query("SELECT cd FROM CompensatedDecryption cd WHERE cd.electionId = :electionId AND cd.compensatingGuardianSequence = :compensatingGuardianSequence")
-    List<CompensatedDecryption> findByElectionIdAndCompensatingGuardianSequence(
-        @Param("electionId") Long electionId, 
-        @Param("compensatingGuardianSequence") Integer compensatingGuardianSequence
+    // Find compensated decryptions by compensating guardian in a chunk
+    List<CompensatedDecryption> findByElectionCenterIdAndCompensatingGuardianId(
+        Long electionCenterId, 
+        Long compensatingGuardianId
     );
     
-    @Query("SELECT cd FROM CompensatedDecryption cd WHERE cd.electionId = :electionId AND cd.compensatingGuardianSequence = :compensatingGuardianSequence AND cd.missingGuardianSequence = :missingGuardianSequence")
-    List<CompensatedDecryption> findByElectionIdAndCompensatingGuardianSequenceAndMissingGuardianSequence(
-        @Param("electionId") Long electionId, 
-        @Param("compensatingGuardianSequence") Integer compensatingGuardianSequence,
-        @Param("missingGuardianSequence") Integer missingGuardianSequence
-    );
-    
-    boolean existsByElectionIdAndCompensatingGuardianSequenceAndMissingGuardianSequence(
-        Long electionId, 
-        Integer compensatingGuardianSequence, 
-        Integer missingGuardianSequence
+    // Check if compensated decryption exists
+    boolean existsByElectionCenterIdAndCompensatingGuardianIdAndMissingGuardianId(
+        Long electionCenterId, 
+        Long compensatingGuardianId, 
+        Long missingGuardianId
     );
 }

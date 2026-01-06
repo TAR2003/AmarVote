@@ -141,9 +141,67 @@ const GuardianDataDisplay = ({ electionId }) => {
             )}
           </div>
         </div>
-        <div className="mt-2 text-sm text-gray-700 font-mono bg-white p-3 rounded border">
+        <div className="mt-2 text-sm text-gray-700 font-mono bg-white p-3 rounded border max-h-48 overflow-y-auto">
           {isLongText && !isExpanded ? truncateText(fieldValue) : fieldValue}
         </div>
+      </div>
+    );
+  };
+
+  const renderChunkDecryptions = (guardian) => {
+    if (!guardian.chunkDecryptions || guardian.chunkDecryptions.length === 0) {
+      return (
+        <div className="col-span-full bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+          <div className="text-sm text-yellow-800">
+            No chunk decryption data available yet. Guardian needs to submit partial decryption keys.
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <div className="col-span-full space-y-4">
+        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+          <h5 className="font-medium text-blue-900 mb-1">Chunk-based Decryption Data</h5>
+          <p className="text-sm text-blue-700">
+            This guardian has submitted decryption data for {guardian.chunkDecryptions.length} chunk(s). 
+            Each chunk contains partial decrypted tally, guardian decryption key, and tally share.
+          </p>
+        </div>
+        {guardian.chunkDecryptions.map((chunk, index) => (
+          <div key={chunk.electionCenterId} className="bg-white border-2 border-purple-200 rounded-lg p-4">
+            <div className="flex items-center justify-between mb-3">
+              <h6 className="font-semibold text-purple-900">
+                Chunk {index + 1} (ID: {chunk.electionCenterId})
+              </h6>
+              {chunk.datePerformed && (
+                <span className="text-xs text-gray-500">
+                  {new Date(chunk.datePerformed).toLocaleString()}
+                </span>
+              )}
+            </div>
+            <div className="grid grid-cols-1 gap-3">
+              {renderField(
+                { id: `${guardian.id}-chunk-${chunk.electionCenterId}` }, 
+                'Partial Decrypted Tally', 
+                chunk.partialDecryptedTally, 
+                <FiDatabase className="h-4 w-4 text-purple-600" />
+              )}
+              {renderField(
+                { id: `${guardian.id}-chunk-${chunk.electionCenterId}` }, 
+                'Guardian Decryption Key', 
+                chunk.guardianDecryptionKey, 
+                <FiKey className="h-4 w-4 text-green-600" />
+              )}
+              {renderField(
+                { id: `${guardian.id}-chunk-${chunk.electionCenterId}` }, 
+                'Tally Share', 
+                chunk.tallyShare, 
+                <FiDatabase className="h-4 w-4 text-orange-600" />
+              )}
+            </div>
+          </div>
+        ))}
       </div>
     );
   };
@@ -247,10 +305,8 @@ const GuardianDataDisplay = ({ electionId }) => {
 
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {renderField(guardian, 'Guardian Public Key', guardian.guardianPublicKey, <FiKey className="h-4 w-4 text-blue-600" />)}
-              {renderField(guardian, 'Guardian Decryption Key', guardian.guardianDecryptionKey, <FiKey className="h-4 w-4 text-green-600" />)}
-              {renderField(guardian, 'Partial Decrypted Tally', guardian.partialDecryptedTally, <FiDatabase className="h-4 w-4 text-purple-600" />)}
-              {renderField(guardian, 'Tally Share', guardian.tallyShare, <FiDatabase className="h-4 w-4 text-orange-600" />)}
               {renderField(guardian, 'Key Backup', guardian.keyBackup, <FiShield className="h-4 w-4 text-gray-600" />)}
+              {renderChunkDecryptions(guardian)}
             </div>
           </div>
         ))}

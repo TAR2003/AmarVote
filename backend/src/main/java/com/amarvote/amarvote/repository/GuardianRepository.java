@@ -13,37 +13,25 @@ import com.amarvote.amarvote.model.Guardian;
 public interface GuardianRepository extends JpaRepository<Guardian, Long> {
     
     // Find guardians by election ID and user email
-    @Query("SELECT g FROM Guardian g " +
-           "JOIN User u ON g.userId = u.userId " +
-           "WHERE g.electionId = :electionId AND u.userEmail = :userEmail")
-    List<Guardian> findByElectionIdAndUserEmail(@Param("electionId") Long electionId, @Param("userEmail") String userEmail);
+    List<Guardian> findByElectionIdAndUserEmail(Long electionId, String userEmail);
     
     // Find all guardians for a specific election
-    @Query("SELECT g FROM Guardian g WHERE g.electionId = :electionId")
-    List<Guardian> findByElectionId(@Param("electionId") Long electionId);
+    List<Guardian> findByElectionId(Long electionId);
     
     // Find all elections where a user is guardian
-    @Query("SELECT g FROM Guardian g " +
-           "JOIN User u ON g.userId = u.userId " +
-           "WHERE u.userEmail = :userEmail")
-    List<Guardian> findByUserEmail(@Param("userEmail") String userEmail);
-    
-    // Find guardians with user details for a specific election
-    @Query("SELECT g, u FROM Guardian g " +
-           "JOIN User u ON g.userId = u.userId " +
-           "WHERE g.electionId = :electionId " +
-           "ORDER BY g.sequenceOrder")
-    List<Object[]> findGuardiansWithUserDetailsByElectionId(@Param("electionId") Long electionId);
+    List<Guardian> findByUserEmail(String userEmail);
     
     // Find guardian by election ID and sequence order
-    @Query("SELECT g FROM Guardian g WHERE g.electionId = :electionId AND g.sequenceOrder = :sequenceOrder")
-    Guardian findByElectionIdAndSequenceOrder(@Param("electionId") Long electionId, @Param("sequenceOrder") Integer sequenceOrder);
+    Guardian findByElectionIdAndSequenceOrder(Long electionId, Integer sequenceOrder);
+    
+    // Find guardians ordered by sequence for a specific election
+    List<Guardian> findByElectionIdOrderBySequenceOrder(Long electionId);
     
     // Count guardians who have completed partial decryption for an election
     @Query("SELECT COUNT(g) FROM Guardian g WHERE g.electionId = :electionId AND g.decryptedOrNot = true")
     int countDecryptedGuardiansByElectionId(@Param("electionId") Long electionId);
     
     // Find all guardians who have completed partial decryption for an election
-    @Query("SELECT g FROM Guardian g WHERE g.electionId = :electionId AND g.decryptedOrNot = true ORDER BY g.sequenceOrder")
-    List<Guardian> findDecryptedGuardiansByElectionId(@Param("electionId") Long electionId);
+    @Query("SELECT g FROM Guardian g WHERE g.electionId = :electionId AND g.decryptedOrNot = :decryptedOrNot ORDER BY g.sequenceOrder")
+    List<Guardian> findByElectionIdAndDecryptedOrNot(@Param("electionId") Long electionId, @Param("decryptedOrNot") Boolean decryptedOrNot);
 }

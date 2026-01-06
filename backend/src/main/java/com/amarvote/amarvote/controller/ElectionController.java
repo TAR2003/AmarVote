@@ -37,6 +37,7 @@ import com.amarvote.amarvote.dto.CreateTallyResponse;
 import com.amarvote.amarvote.dto.ElectionCreationRequest;
 import com.amarvote.amarvote.dto.ElectionDetailResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
+import com.amarvote.amarvote.dto.ElectionResultsResponse;
 import com.amarvote.amarvote.dto.EligibilityCheckRequest;
 import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.model.Election;
@@ -541,6 +542,31 @@ public class ElectionController {
     }
 
     /**
+     * Get cached election results with chunk breakdown
+     * Returns results from election_result field if already computed
+     */
+    @GetMapping("/election/{electionId}/cached-results")
+    public ResponseEntity<?> getCachedElectionResults(@PathVariable Long electionId) {
+        try {
+            System.out.println("Fetching cached election results for ID: " + electionId);
+
+            Object results = partialDecryptionService.getElectionResults(electionId);
+
+            if (results == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("success", false, "message", "Results not yet available"));
+            }
+
+            return ResponseEntity.ok(Map.of("success", true, "results", results));
+
+        } catch (Exception e) {
+            System.err.println("Error fetching cached election results: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Internal server error: " + e.getMessage()));
+        }
+    }
+
+    /**
      * 🔗 Verify a ballot on the blockchain by election ID and tracking code
      * This endpoint is public and can be used by voters to verify their ballots
      */
@@ -736,6 +762,23 @@ public class ElectionController {
                 "success", false,
                 "error", "Failed to retrieve compensated decryption information: " + e.getMessage()
             ));
+        }
+    }
+
+    /**
+     * Get election results with chunk information
+     */
+    @GetMapping("/election/{id}/results")
+    public ResponseEntity<ElectionResultsResponse> getElectionResults(@PathVariable Long id) {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        String userEmail = authentication.getName();
+        
+        ElectionResultsResponse results = electionService.getElectionResults(id, userEmail);
+        
+        if (results.isSuccess()) {
+            return ResponseEntity.ok(results);
+        } else {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(results);
         }
     }
 }
