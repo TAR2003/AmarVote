@@ -7,9 +7,9 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://${DB_HOST}:${DB_PORT}/${DB_DATABASE}
-      - SPRING_DATASOURCE_USERNAME=${DB_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${DB_PASSWORD}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://${NEON_HOST}:${NEON_PORT}/${NEON_DATABASE}
+      - SPRING_DATASOURCE_USERNAME=${NEON_USERNAME}
+      - SPRING_DATASOURCE_PASSWORD=${NEON_PASSWORD}
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
@@ -34,7 +34,7 @@ services:
       dockerfile: Dockerfile.dev
     container_name: amarvote_frontend
     ports:
-      - "5173:5173"
+      - "0.0.0.0:5173:5173"
     networks:
       election_net:
         ipv4_address: 172.20.0.40
@@ -48,7 +48,7 @@ services:
     build: ./Microservice
     container_name: electionguard_service
     ports:
-      - "5000:5000"
+      - "0.0.0.0:5000:5000"
     networks:
       election_net:
         ipv4_address: 172.20.0.10
