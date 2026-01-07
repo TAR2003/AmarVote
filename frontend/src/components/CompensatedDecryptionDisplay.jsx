@@ -235,13 +235,13 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
                 </p>
               )}
               <div className="mt-2 text-sm text-gray-500">
-                {shares.length} guardian{shares.length !== 1 ? 's' : ''} provided compensation shares
+                {shares.length} compensating guardian{shares.length !== 1 ? 's' : ''} created shares for this guardian
               </div>
             </div>
 
             <div className="space-y-6">
               {shares.map((cd) => (
-                <div key={`${cd.compensatingGuardianSequence}-${cd.missingGuardianSequence}`} 
+                <div key={cd.compensatedDecryptionId} 
                      className="bg-gray-50 border border-gray-200 rounded-lg p-5">
                   <div className="flex items-center justify-between mb-4">
                     <div className="flex items-center space-x-3">
@@ -257,6 +257,11 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
                         {cd.compensatingGuardianName && (
                           <p className="text-sm text-gray-600">
                             {cd.compensatingGuardianName} ({cd.compensatingGuardianEmail})
+                          </p>
+                        )}
+                        {cd.chunkCount > 1 && (
+                          <p className="text-xs text-blue-600 mt-1">
+                            ✓ Applied across {cd.chunkCount} chunk{cd.chunkCount !== 1 ? 's' : ''}
                           </p>
                         )}
                       </div>

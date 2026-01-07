@@ -23,6 +23,7 @@ import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.dto.ElectionResultsResponse;
 import com.amarvote.amarvote.dto.OptimizedElectionResponse;
 import com.amarvote.amarvote.model.AllowedVoter;
+import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Decryption;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionCenter;
@@ -30,6 +31,7 @@ import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.repository.AllowedVoterRepository;
 import com.amarvote.amarvote.repository.BallotRepository;
+import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
@@ -72,6 +74,9 @@ public class ElectionService {
 
     @Autowired
     private DecryptionRepository decryptionRepository;
+
+    @Autowired
+    private CompensatedDecryptionRepository compensatedDecryptionRepository;
 
     @Autowired
     private BlockchainService blockchainService;
@@ -1115,46 +1120,65 @@ public class ElectionService {
      */
     public List<Map<String, Object>> getCompensatedDecryptionsForVerification(Long electionId) {
         try {
-            // CompensatedDecryption uses election_center_id, not election_id
-            // For now, return empty list - need to update to work with chunks
-            return new ArrayList<>();
+            System.out.println("Fetching compensated decryptions for election: " + electionId);
             
-            /* TODO: Update this to work with election centers (chunks)
+            // Get all election centers (chunks) for this election
             List<ElectionCenter> centers = electionCenterRepository.findByElectionId(electionId);
-            List<Map<String, Object>> allCompensatedDecryptions = new ArrayList<>();
+            System.out.println("Found " + centers.size() + " chunks for election " + electionId);
+            
+            // Map to track unique guardian pairs and aggregate their data
+            Map<String, Map<String, Object>> uniqueCompensations = new HashMap<>();
             
             for (ElectionCenter center : centers) {
                 List<CompensatedDecryption> compensatedDecryptions = 
                     compensatedDecryptionRepository.findByElectionCenterId(center.getElectionCenterId());
                 
+                System.out.println("Found " + compensatedDecryptions.size() + " compensated decryptions for chunk " + center.getElectionCenterId());
+                
                 for (CompensatedDecryption cd : compensatedDecryptions) {
-                    Map<String, Object> cdData = new HashMap<>();
-                    cdData.put("electionCenterId", cd.getElectionCenterId());
-                    cdData.put("compensatingGuardianId", cd.getCompensatingGuardianId());
-                    cdData.put("missingGuardianId", cd.getMissingGuardianId());
-                    cdData.put("compensatedTallyShare", cd.getCompensatedTallyShare());
-                    cdData.put("compensatedBallotShare", cd.getCompensatedBallotShare());
+                    // Create unique key for this guardian pair
+                    String pairKey = cd.getCompensatingGuardianId() + "-" + cd.getMissingGuardianId();
                     
-                    // Look up guardian info
-                    Optional<Guardian> compensatingGuardian = guardianRepository.findById(cd.getCompensatingGuardianId());
-                    Optional<Guardian> missingGuardian = guardianRepository.findById(cd.getMissingGuardianId());
-                    
-                    if (compensatingGuardian.isPresent()) {
-                        cdData.put("compensatingGuardianEmail", compensatingGuardian.get().getUserEmail());
-                        cdData.put("compensatingGuardianSequence", compensatingGuardian.get().getSequenceOrder());
+                    // If this guardian pair hasn't been seen yet, add it
+                    if (!uniqueCompensations.containsKey(pairKey)) {
+                        Map<String, Object> cdData = new HashMap<>();
+                        cdData.put("compensatedDecryptionId", cd.getCompensatedDecryptionId());
+                        cdData.put("electionCenterId", cd.getElectionCenterId());
+                        cdData.put("compensatingGuardianId", cd.getCompensatingGuardianId());
+                        cdData.put("missingGuardianId", cd.getMissingGuardianId());
+                        cdData.put("compensatedTallyShare", cd.getCompensatedTallyShare());
+                        cdData.put("compensatedBallotShare", cd.getCompensatedBallotShare());
+                        cdData.put("chunkCount", 1); // Track how many chunks this pair appears in
+                        
+                        // Look up guardian info
+                        Optional<Guardian> compensatingGuardian = guardianRepository.findById(cd.getCompensatingGuardianId());
+                        Optional<Guardian> missingGuardian = guardianRepository.findById(cd.getMissingGuardianId());
+                        
+                        if (compensatingGuardian.isPresent()) {
+                            cdData.put("compensatingGuardianEmail", compensatingGuardian.get().getUserEmail());
+                            cdData.put("compensatingGuardianSequence", compensatingGuardian.get().getSequenceOrder());
+                            cdData.put("compensatingGuardianName", "Guardian " + compensatingGuardian.get().getSequenceOrder());
+                        }
+                        
+                        if (missingGuardian.isPresent()) {
+                            cdData.put("missingGuardianEmail", missingGuardian.get().getUserEmail());
+                            cdData.put("missingGuardianSequence", missingGuardian.get().getSequenceOrder());
+                            cdData.put("missingGuardianName", "Guardian " + missingGuardian.get().getSequenceOrder());
+                        }
+                        
+                        uniqueCompensations.put(pairKey, cdData);
+                    } else {
+                        // Guardian pair already exists, just increment chunk count
+                        Map<String, Object> existingData = uniqueCompensations.get(pairKey);
+                        int currentCount = (int) existingData.get("chunkCount");
+                        existingData.put("chunkCount", currentCount + 1);
                     }
-                    
-                    if (missingGuardian.isPresent()) {
-                        cdData.put("missingGuardianEmail", missingGuardian.get().getUserEmail());
-                        cdData.put("missingGuardianSequence", missingGuardian.get().getSequenceOrder());
-                    }
-                    
-                    allCompensatedDecryptions.add(cdData);
                 }
             }
             
-            return allCompensatedDecryptions;
-            */
+            List<Map<String, Object>> result = new ArrayList<>(uniqueCompensations.values());
+            System.out.println("Returning " + result.size() + " unique compensated decryption pairs (aggregated across " + centers.size() + " chunks)");
+            return result;
         } catch (Exception e) {
             System.err.println("Error retrieving compensated decryptions for verification: " + e.getMessage());
             e.printStackTrace();
