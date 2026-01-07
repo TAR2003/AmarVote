@@ -4007,6 +4007,15 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                               </div>
                             </div>
 
+                            {/* Encrypted ciphertext for this chunk (from election_center) */}
+                            <div className="mb-3">
+                              <DataDisplay
+                                title="Encrypted Tally"
+                                data={chunk.encryptedTally || "Not available"}
+                                type="text"
+                              />
+                            </div>
+
                             {/* Note about partial decryptions */}
                             <div className="text-xs text-gray-600 mt-2 bg-blue-50 border border-blue-200 rounded p-2">
                               <p>

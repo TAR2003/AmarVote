@@ -1227,6 +1227,8 @@ public class PartialDecryptionService {
                         Map<String, Object> chunkResult = new HashMap<>();
                         chunkResult.put("chunkIndex", i + 1);
                         chunkResult.put("electionCenterId", chunk.getElectionCenterId());
+                        // Include the stored encrypted tally ciphertext for this chunk so frontend can display it
+                        chunkResult.put("encryptedTally", chunk.getEncryptedTally());
                         chunkResult.put("candidateVotes", candidateVoteCounts);
                         
                         // Extract ballot information
