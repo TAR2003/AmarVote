@@ -60,6 +60,7 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import GuardianDataDisplay from '../components/GuardianDataDisplay';
 import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
 import AnimatedResults from '../components/AnimatedResults';
+import TallyCreationModal from '../components/TallyCreationModal';
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -1505,6 +1506,8 @@ export default function ElectionPage() {
   // Tally creation state
   // const [tallyCreated, setTallyCreated] = useState(false);
   const [creatingTally, setCreatingTally] = useState(false);
+  const [isTallyModalOpen, setIsTallyModalOpen] = useState(false);
+  const [tallyStatus, setTallyStatus] = useState(null);
 
   // Load election data and optionally create tally
   useEffect(() => {
@@ -2480,6 +2483,20 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
   return (
     <div className="min-h-screen bg-gray-50">
+      {/* Tally Creation Modal */}
+      <TallyCreationModal
+        isOpen={isTallyModalOpen}
+        onClose={() => {
+          setIsTallyModalOpen(false);
+          // Refresh election data after tally creation
+          if (electionData) {
+            electionApi.getElectionById(id).then(setElectionData);
+          }
+        }}
+        electionId={id}
+        electionApi={electionApi}
+      />
+      
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
@@ -3326,6 +3343,27 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
               </div>
             ) : (
               <div className="space-y-6">
+                {/* Tally Creation Section - Only show if election has ended */}
+                {electionData && new Date(electionData.endingTime) < new Date() && (
+                  <div className="border border-blue-200 rounded-lg p-6 bg-blue-50">
+                    <div className="flex items-center justify-between mb-4">
+                      <div>
+                        <h4 className="font-medium text-blue-900 mb-2">Step 1: Create Encrypted Tally</h4>
+                        <p className="text-sm text-blue-800">
+                          Before guardians can submit their keys, the encrypted tally must be created from all cast ballots.
+                        </p>
+                      </div>
+                    </div>
+                    <button
+                      onClick={() => setIsTallyModalOpen(true)}
+                      className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                    >
+                      <FiRefreshCw className="h-5 w-5" />
+                      <span>Create/Check Tally Status</span>
+                    </button>
+                  </div>
+                )}
+
                 {/* Guardian Key Submission Status */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="p-4 bg-blue-50 rounded-lg">
@@ -3337,7 +3375,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                     </p>
                   </div>
                   <div className="p-4 bg-green-50 rounded-lg">
-                    <h4 className="font-medium text-green-900 mb-2">Decryption Status</h4>
+                    <h4 className="font-medium text-green-900 mb-2">Step 2: Decryption Status</h4>
                     <p className="text-sm text-green-800">
                       {electionData.guardiansSubmitted || 0} of {electionData.totalGuardians || 0} guardians have submitted keys
                     </p>

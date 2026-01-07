@@ -173,7 +173,38 @@ export const electionApi = {
   },
 
   /**
-   * Create tally for an election (automatically called when election page loads)
+   * Initiate tally creation (new async endpoint)
+   */
+  async initiateTallyCreation(electionId) {
+    try {
+      return await apiRequest('/initiate-tally', {
+        method: 'POST',
+        body: JSON.stringify({
+          election_id: electionId
+        }),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error initiating tally creation:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get tally creation status
+   */
+  async getTallyStatus(electionId) {
+    try {
+      return await apiRequest(`/election/${electionId}/tally-status`, {
+        method: 'GET',
+      });
+    } catch (error) {
+      console.error('Error fetching tally status:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Create tally for an election (legacy endpoint, now uses async system)
    */
   async createTally(electionId) {
     try {

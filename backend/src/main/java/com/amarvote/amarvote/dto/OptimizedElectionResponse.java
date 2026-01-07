@@ -62,12 +62,12 @@ public class OptimizedElectionResponse {
         Integer numberOfGuardians = (Integer) result[i++];
         Integer electionQuorum = (Integer) result[i++];
         Integer noOfCandidates = (Integer) result[i++];
-        String jointPublicKey = (String) result[i++]; // Don't skip, read and ignore
-        String manifestHash = (String) result[i++];    // Don't skip, read and ignore
+        i++; // Skip jointPublicKey
+        i++; // Skip manifestHash
         String status = (String) result[i++];
         Instant startingTime = (Instant) result[i++];
         Instant endingTime = (Instant) result[i++];
-        String baseHash = (String) result[i++];        // Don't skip, read and ignore
+        i++; // Skip baseHash
         Instant createdAt = (Instant) result[i++];
         String profilePic = (String) result[i++];
         String adminEmail = (String) result[i++];

@@ -430,6 +430,72 @@ public class ElectionController {
         }
     }
 
+    /**
+     * Initiate tally creation (new endpoint with progress tracking)
+     * Returns immediately after initiating async processing
+     */
+    @PostMapping(value = "/initiate-tally", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<CreateTallyResponse> initiateTallyCreation(
+            @Valid @RequestBody CreateTallyRequest request,
+            HttpServletRequest httpRequest) {
+        
+        // Get user email from request attributes (set by JWTFilter)
+        String userEmail = (String) httpRequest.getAttribute("userEmail");
+        
+        if (userEmail == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+        }
+        
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(CreateTallyResponse.builder()
+                            .success(false)
+                            .message("User authentication required")
+                            .build());
+        }
+        
+        System.out.println("Initiating tally creation for election ID: " + request.getElection_id() + " by user: " + userEmail);
+        
+        try {
+            CreateTallyResponse response = tallyService.initiateTallyCreation(request, userEmail);
+            
+            if (response.isSuccess()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        } catch (Exception e) {
+            System.err.println("Error initiating tally creation: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(CreateTallyResponse.builder()
+                            .success(false)
+                            .message("Internal server error occurred: " + e.getMessage())
+                            .build());
+        }
+    }
+
+    /**
+     * Get tally creation status for an election
+     */
+    @GetMapping("/election/{electionId}/tally-status")
+    public ResponseEntity<?> getTallyStatus(@PathVariable Long electionId) {
+        try {
+            System.out.println("Fetching tally status for election ID: " + electionId);
+            com.amarvote.amarvote.dto.TallyCreationStatusResponse status = tallyService.getTallyStatus(electionId);
+            return ResponseEntity.ok(status);
+        } catch (Exception e) {
+            System.err.println("Error fetching tally status: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                        "success", false,
+                        "message", "Failed to fetch tally status: " + e.getMessage()
+                    ));
+        }
+    }
+
     @PostMapping(value = "/create-tally", consumes = "application/json", produces = "application/json")
     public ResponseEntity<CreateTallyResponse> createTally(
             @Valid @RequestBody CreateTallyRequest request,
@@ -456,7 +522,8 @@ public class ElectionController {
         }
 
         try {
-            CreateTallyResponse response = tallyService.createTally(request, userEmail);
+            // Delegate to new async system
+            CreateTallyResponse response = tallyService.initiateTallyCreation(request, userEmail);
 
             if (response.isSuccess()) {
                 return ResponseEntity.ok(response);
