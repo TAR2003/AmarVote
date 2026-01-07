@@ -238,7 +238,7 @@ const HowItWorks = () => {
               Join thousands of voters who trust AmarVote for verifiable,
               private elections.
             </p>
-            <Link to="/signup">
+            <Link to="/otp-login">
               <button className="px-8 py-3 bg-white text-blue-700 rounded-lg font-medium hover:bg-blue-50 transition">
                 Sign Up Now
               </button>

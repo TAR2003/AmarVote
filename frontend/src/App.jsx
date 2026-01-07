@@ -7,7 +7,6 @@ import {
 } from "react-router-dom";
 
 import OtpLogin from "./pages/OtpLogin";
-import Signup from "./pages/Signup";
 import Dashboard from "./pages/Dashboard";
 import Hello from "./pages/Hello";
 import Home from "./pages/Home";
@@ -81,12 +80,7 @@ function App() {
             )
           }
         />
-        <Route
-          path="/signup"
-          element={
-            isAuthenticated ? <Navigate to="/dashboard" replace /> : <Signup />
-          }
-        />
+        {/* Signup route removed per design change */}
 
         {/* AuthenticatedLayout routes - Authentication is handled by AuthenticatedLayout */}
         <Route

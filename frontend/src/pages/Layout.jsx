@@ -61,11 +61,6 @@ const Layout = ({ children }) => {
                   Sign In
                 </button>
               </Link>
-              <Link to="/signup">
-                <button className="px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-700 text-white rounded-2xl hover:from-blue-700 hover:to-indigo-800 transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105">
-                  Sign Up
-                </button>
-              </Link>
             </div>
           </div>
         </div>
