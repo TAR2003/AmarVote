@@ -1,38 +1,37 @@
 import React, { useState, useEffect } from 'react';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
+import { electionApi } from '../utils/electionApi';
 
-const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianId, guardianName }) => {
+const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) => {
   const [status, setStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Debug logging
   useEffect(() => {
-    if (isOpen && electionId && guardianId) {
+    console.log('DecryptionProgressModal props:', { isOpen, electionId, guardianName });
+  }, [isOpen, electionId, guardianName]);
+
+  useEffect(() => {
+    if (isOpen && electionId) {
+      console.log('Modal is open, starting to poll status...');
       // Start polling for status
       pollStatus();
       const interval = setInterval(pollStatus, 2000); // Poll every 2 seconds
 
-      return () => clearInterval(interval);
+      return () => {
+        console.log('Stopping polling...');
+        clearInterval(interval);
+      };
     }
-  }, [isOpen, electionId, guardianId]);
+  }, [isOpen, electionId]);
 
   const pollStatus = async () => {
     try {
-      const response = await fetch(
-        `http://localhost:8080/api/guardian/decryption-status/${electionId}/${guardianId}`,
-        {
-          headers: {
-            'Authorization': `Bearer ${localStorage.getItem('jwtToken')}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch status');
-      }
-
-      const data = await response.json();
+      console.log('Polling status for election:', electionId);
+      const data = await electionApi.getDecryptionStatus(electionId);
+      console.log('Received status data:', data);
       setStatus(data);
       setError(null);
 
@@ -44,7 +43,12 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianId, guar
     }
   };
 
-  if (!isOpen) return null;
+  if (!isOpen) {
+    console.log('Modal is closed, not rendering');
+    return null;
+  }
+
+  console.log('Modal is rendering with status:', status);
 
   const getPhaseDisplay = () => {
     if (!status || !status.currentPhase) return 'Initializing...';
@@ -255,42 +259,76 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianId, guar
               )}
 
               {status.status === 'completed' && (
-                <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
-                  <div className="flex items-start gap-3">
-                    <div className="text-3xl">🎉</div>
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-5 mb-4 shadow-md">
+                  <div className="flex items-start gap-4">
+                    <div className="text-5xl animate-bounce">🎉</div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-green-900 mb-1">
-                        Decryption Complete!
+                      <h4 className="font-bold text-green-900 mb-2 text-xl flex items-center gap-2">
+                        ✅ Decryption Successfully Completed!
                       </h4>
-                      <p className="text-sm text-green-700">
-                        Your guardian credentials have been successfully processed.
-                        All {status.totalChunks} chunks have been decrypted and compensated shares
-                        have been generated for {status.totalCompensatedGuardians} other guardians.
-                      </p>
-                      {status.completedAt && (
-                        <p className="text-xs text-green-600 mt-2">
-                          Completed at: {new Date(status.completedAt).toLocaleString()}
+                      <div className="bg-white rounded-lg p-4 mb-3 border-l-4 border-green-500 shadow-sm">
+                        <p className="text-sm text-green-800 font-medium mb-2">
+                          Your guardian credentials have been verified and processed successfully.
                         </p>
-                      )}
+                        <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
+                          <div className="bg-green-50 rounded p-2">
+                            <p className="text-green-600 font-semibold">Chunks Processed</p>
+                            <p className="text-green-900 text-lg font-bold">{status.totalChunks}</p>
+                          </div>
+                          <div className="bg-green-50 rounded p-2">
+                            <p className="text-green-600 font-semibold">Backup Shares Generated</p>
+                            <p className="text-green-900 text-lg font-bold">{status.totalCompensatedGuardians || 0}</p>
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex items-center gap-2 bg-green-100 rounded p-2">
+                        <svg className="w-5 h-5 text-green-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                        </svg>
+                        <div className="flex-1">
+                          <p className="text-xs text-green-900 font-semibold">Your contribution to the election decryption is complete</p>
+                          {status.completedAt && (
+                            <p className="text-xs text-green-700">
+                              Completed at: {new Date(status.completedAt).toLocaleString()}
+                            </p>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </div>
               )}
 
               {status.status === 'failed' && (
-                <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                  <div className="flex items-start gap-3">
-                    <div className="text-2xl">❌</div>
+                <div className="bg-red-50 border border-red-300 rounded-lg p-5 mb-4">
+                  <div className="flex items-start gap-4">
+                    <div className="text-4xl">🚫</div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-red-900 mb-1">
-                        Decryption Failed
+                      <h4 className="font-bold text-red-900 mb-2 text-lg">
+                        ❌ Decryption Failed
                       </h4>
-                      <p className="text-sm text-red-700">
-                        {status.errorMessage || 'An error occurred during the decryption process.'}
-                      </p>
-                      <p className="text-xs text-red-600 mt-2">
-                        Please check your credentials and try again, or contact the election administrator.
-                      </p>
+                      <div className="bg-white rounded p-3 mb-3 border-l-4 border-red-500">
+                        <p className="text-sm text-red-800 font-medium mb-2">
+                          {status.errorMessage || 'An error occurred during the decryption process.'}
+                        </p>
+                      </div>
+                      <div className="bg-red-100 rounded p-3 mb-3">
+                        <p className="text-xs font-semibold text-red-900 mb-1">What to do next:</p>
+                        <ul className="text-xs text-red-800 list-disc list-inside space-y-1">
+                          <li>Verify you uploaded the correct <strong>credentials.txt</strong> file</li>
+                          <li>The file should be the one emailed to you after guardian assignment</li>
+                          <li>If you lost the file, contact the election administrator</li>
+                          <li>Close this modal and submit again with the correct file</li>
+                        </ul>
+                      </div>
+                      <div className="flex items-center gap-2 mt-3">
+                        <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                          <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                        </svg>
+                        <p className="text-xs text-red-700 font-medium">
+                          You can retry submission after closing this modal
+                        </p>
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -356,23 +394,45 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianId, guar
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 rounded-b-xl flex justify-end gap-3">
-          {status && status.status === 'completed' && (
-            <button
-              onClick={onClose}
-              className="px-6 py-2 bg-indigo-600 text-white rounded-lg font-semibold hover:bg-indigo-700 transition-colors"
-            >
-              Done
-            </button>
-          )}
-          {status && status.status !== 'completed' && (
-            <button
-              onClick={onClose}
-              className="px-6 py-2 bg-gray-300 text-gray-700 rounded-lg font-semibold hover:bg-gray-400 transition-colors"
-            >
-              Close (Running in Background)
-            </button>
-          )}
+        <div className="bg-gray-50 px-6 py-4 rounded-b-xl flex justify-between items-center gap-3">
+          <div className="flex-1">
+            {status && status.status === 'failed' && (
+              <p className="text-sm text-red-600 font-medium">
+                ⚠️ Close this modal and submit the correct credentials file
+              </p>
+            )}
+            {status && status.status === 'in_progress' && (
+              <p className="text-sm text-blue-600 font-medium">
+                🔄 Processing continues in background after closing
+              </p>
+            )}
+          </div>
+          <div className="flex gap-3">
+            {status && status.status === 'completed' && (
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-md"
+              >
+                ✓ Done
+              </button>
+            )}
+            {status && status.status === 'failed' && (
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-md"
+              >
+                Close & Retry
+              </button>
+            )}
+            {status && status.status === 'in_progress' && (
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 transition-colors"
+              >
+                Close (Running in Background)
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>

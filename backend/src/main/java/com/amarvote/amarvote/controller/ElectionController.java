@@ -633,18 +633,33 @@ public class ElectionController {
     }
 
     /**
-     * Get decryption status for a guardian
+     * Get decryption status for the authenticated guardian
      */
-    @GetMapping("/guardian/decryption-status/{electionId}/{guardianId}")
+    @GetMapping("/guardian/decryption-status/{electionId}")
     public ResponseEntity<?> getDecryptionStatus(
             @PathVariable Long electionId,
-            @PathVariable Long guardianId) {
+            HttpServletRequest httpRequest) {
 
-        System.out.println("Getting decryption status for election: " + electionId + ", guardian: " + guardianId);
+        // Get user email from Spring Security context
+        String userEmail = null;
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication != null && authentication.isAuthenticated()) {
+            userEmail = authentication.getName();
+        }
+
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of(
+                            "success", false,
+                            "message", "User not authenticated"
+                    ));
+        }
+
+        System.out.println("Getting decryption status for election: " + electionId + ", user: " + userEmail);
 
         try {
             com.amarvote.amarvote.dto.DecryptionStatusResponse response = 
-                partialDecryptionService.getDecryptionStatus(electionId, guardianId);
+                partialDecryptionService.getDecryptionStatusByEmail(electionId, userEmail);
 
             return ResponseEntity.ok(response);
         } catch (Exception e) {

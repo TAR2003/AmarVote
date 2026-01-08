@@ -221,11 +221,11 @@ export const electionApi = {
   },
 
   /**
-   * Get guardian decryption status
+   * Get guardian decryption status (authenticated - no guardianId needed)
    */
-  async getDecryptionStatus(electionId, guardianId) {
+  async getDecryptionStatus(electionId) {
     try {
-      return await apiRequest(`/guardian/decryption-status/${electionId}/${guardianId}`, {
+      return await apiRequest(`/guardian/decryption-status/${electionId}`, {
         method: 'GET',
       });
     } catch (error) {

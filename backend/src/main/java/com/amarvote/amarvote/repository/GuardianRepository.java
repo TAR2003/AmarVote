@@ -15,6 +15,9 @@ public interface GuardianRepository extends JpaRepository<Guardian, Long> {
     // Find guardians by election ID and user email
     List<Guardian> findByElectionIdAndUserEmail(Long electionId, String userEmail);
     
+    // Find guardian by user email and election ID (returns single result)
+    java.util.Optional<Guardian> findByUserEmailAndElectionId(String userEmail, Long electionId);
+    
     // Find all guardians for a specific election
     List<Guardian> findByElectionId(Long electionId);
     

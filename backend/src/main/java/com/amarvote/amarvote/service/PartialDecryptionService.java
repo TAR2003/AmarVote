@@ -350,14 +350,61 @@ public class PartialDecryptionService {
                 
                 decryptionStatusRepository.save(decryptionStatus);
                 
-                System.out.println("✅ Decryption status created. Starting async processing...");
+                System.out.println("✅ Decryption status created.");
                 
-                // 7. Start async processing
+                // 7. Validate credentials BEFORE starting async processing
+                System.out.println("🔑 Validating guardian credentials...");
+                try {
+                    String guardianCredentials = guardian.getCredentials();
+                    if (guardianCredentials == null || guardianCredentials.trim().isEmpty()) {
+                        decryptionLocks.remove(lockKey);
+                        decryptionStatus.setStatus("failed");
+                        decryptionStatus.setErrorMessage("Guardian credentials not found in database. Please contact administrator.");
+                        decryptionStatusRepository.save(decryptionStatus);
+                        return CreatePartialDecryptionResponse.builder()
+                            .success(false)
+                            .message("Guardian credentials not found in database. Please contact administrator.")
+                            .build();
+                    }
+                    
+                    // Try to decrypt the credentials to validate them
+                    ElectionGuardCryptoService.GuardianDecryptionResult validationResult = 
+                        cryptoService.decryptGuardianData(request.encrypted_data(), guardianCredentials);
+                    
+                    if (validationResult == null || 
+                        validationResult.getPrivateKey() == null || 
+                        validationResult.getPrivateKey().trim().isEmpty()) {
+                        decryptionLocks.remove(lockKey);
+                        decryptionStatus.setStatus("failed");
+                        decryptionStatus.setErrorMessage("The credential file you provided is incorrect. Please upload the correct credentials.txt file that was sent to you via email.");
+                        decryptionStatusRepository.save(decryptionStatus);
+                        return CreatePartialDecryptionResponse.builder()
+                            .success(false)
+                            .message("The credential file you provided is incorrect. Please upload the correct credentials.txt file that was sent to you via email.")
+                            .build();
+                    }
+                    
+                    System.out.println("✅ Credentials validated successfully");
+                } catch (Exception validationError) {
+                    System.err.println("❌ Credential validation failed: " + validationError.getMessage());
+                    decryptionLocks.remove(lockKey);
+                    decryptionStatus.setStatus("failed");
+                    decryptionStatus.setErrorMessage("Invalid credential file. Please ensure you uploaded the correct credentials.txt file sent to you via email.");
+                    decryptionStatusRepository.save(decryptionStatus);
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Invalid credential file. Please ensure you uploaded the correct credentials.txt file sent to you via email.")
+                        .build();
+                }
+                
+                System.out.println("✅ Starting async processing...");
+                
+                // 8. Start async processing (credentials already validated)
                 processDecryptionAsync(request, userEmail, guardian, electionCenters);
                 
                 return CreatePartialDecryptionResponse.builder()
                     .success(true)
-                    .message("Decryption process initiated. Processing in progress...")
+                    .message("Credentials received successfully! Your decryption is being processed...")
                     .build();
                     
             } catch (Exception e) {
@@ -374,6 +421,28 @@ public class PartialDecryptionService {
                 .message("Failed to initiate decryption: " + e.getMessage())
                 .build();
         }
+    }
+
+    /**
+     * Get current decryption status for a guardian by user email
+     */
+    public DecryptionStatusResponse getDecryptionStatusByEmail(Long electionId, String userEmail) {
+        // Find guardian by email and election
+        Optional<Guardian> guardianOpt = guardianRepository.findByUserEmailAndElectionId(userEmail, electionId);
+        
+        if (guardianOpt.isEmpty()) {
+            return DecryptionStatusResponse.builder()
+                .success(false)
+                .status("not_found")
+                .message("Guardian not found for this election")
+                .totalChunks(0)
+                .processedChunks(0)
+                .progressPercentage(0.0)
+                .build();
+        }
+        
+        Guardian guardian = guardianOpt.get();
+        return getDecryptionStatus(electionId, guardian.getGuardianId());
     }
 
     /**
@@ -533,9 +602,9 @@ public class PartialDecryptionService {
                 
                 ElectionGuardPartialDecryptionResponse guardResponse = callElectionGuardPartialDecryptionService(guardRequest);
                 
-                // Check if credentials are valid
-                if (guardResponse.tally_share() == null) {
-                    throw new RuntimeException("Invalid credentials provided");
+                // Additional validation check
+                if (guardResponse == null || guardResponse.tally_share() == null) {
+                    throw new RuntimeException("Failed to generate decryption shares. This may indicate an issue with the credentials or election configuration.");
                 }
                 
                 // Store decryption data
@@ -571,8 +640,21 @@ public class PartialDecryptionService {
         } catch (Exception e) {
             System.err.println("❌ Error in async decryption: " + e.getMessage());
             e.printStackTrace();
+            
+            // Provide user-friendly error message
+            String userFriendlyError;
+            if (e.getMessage() != null && e.getMessage().contains("Invalid credentials")) {
+                userFriendlyError = "The credential file you provided was incorrect. Please submit the correct credentials.txt file that was sent to you via email.";
+            } else if (e.getMessage() != null && e.getMessage().contains("credentials not found")) {
+                userFriendlyError = "Your credentials could not be found in the system. Please contact the election administrator.";
+            } else if (e.getMessage() != null && e.getMessage().contains("Failed to generate decryption")) {
+                userFriendlyError = "Decryption processing failed. Please try again or contact the election administrator if the problem persists.";
+            } else {
+                userFriendlyError = "An unexpected error occurred during decryption: " + e.getMessage() + ". Please try again or contact the election administrator.";
+            }
+            
             updateDecryptionStatus(request.election_id(), guardian.getGuardianId(), "failed",
-                "error", 0, 0, null, e.getMessage(), null);
+                "error", 0, 0, null, userFriendlyError, null);
         } finally {
             // Release lock
             decryptionLocks.remove(lockKey);
