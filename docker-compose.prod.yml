@@ -1,4 +1,26 @@
 services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: amarvote_postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=amarvote_db
+      - POSTGRES_USER=amarvote_user
+      - POSTGRES_PASSWORD=amarvote_password
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./Database/table_creation_file_AmarVote.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    ports:
+      - "5432:5432"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.20
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U amarvote_user -d amarvote_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -8,9 +30,9 @@ services:
     ports:
       - "8080:8080"
     environment:
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://${NEON_HOST}:${NEON_PORT}/${NEON_DATABASE}
-      - SPRING_DATASOURCE_USERNAME=${NEON_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${NEON_PASSWORD}
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/amarvote_db
+      - SPRING_DATASOURCE_USERNAME=amarvote_user
+      - SPRING_DATASOURCE_PASSWORD=amarvote_password
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
@@ -28,8 +50,10 @@ services:
     networks:
       election_net:
         ipv4_address: 172.20.0.30
-    # depends_on:
-      # - rag-service
+    depends_on:
+      postgres:
+        condition: service_healthy
+      # rag-service:
 
   frontend:
     build:
@@ -78,6 +102,7 @@ services:
   #     - rag_vectorstore:/app/vectorstore
 
 volumes:
+  postgres_data:
   maven_repo:
   rag_vectorstore:
 
@@ -89,5 +114,5 @@ networks:
       config:
         - subnet: 172.20.0.0/24
           gateway: 172.20.0.1
-  voting-network:
-    driver: bridge
+  # voting-network:
+  #   driver: bridge
