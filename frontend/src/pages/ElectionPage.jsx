@@ -2224,11 +2224,16 @@ export default function ElectionPage() {
           percentage = ((votes / totalVotes) * 100).toFixed(1);
         }
         
+        // Map candidate name to party name from electionData
+        const candidateChoice = electionData?.electionChoices?.find(
+          choice => choice.optionTitle === name
+        );
+        
         return {
           name: name,
           votes: votes,
           percentage: parseFloat(percentage),
-          party: name // You might want to map this to actual party names if available
+          party: candidateChoice?.partyName || 'Independent'
         };
       });
 
