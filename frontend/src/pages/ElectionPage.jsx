@@ -352,8 +352,10 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData, ani
 
       {/* Sub-navigation Tabs */}
       <div className="border-b border-gray-200 bg-gray-50">
-        <nav className="flex space-x-1 px-6" aria-label="Verification sections">
-          {verificationTabs.map((tab) => {
+        <div className="px-6 py-2">
+          <div className="border border-gray-300 rounded-lg bg-white overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
+            <nav className="flex space-x-1 px-2 min-w-max" aria-label="Verification sections">
+              {verificationTabs.map((tab) => {
             const Icon = tab.icon;
             return (
               <button
@@ -372,7 +374,9 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData, ani
               </button>
             );
           })}
-        </nav>
+            </nav>
+          </div>
+        </div>
       </div>
 
       {/* Tab Content */}
@@ -3212,8 +3216,9 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
       {/* Navigation Tabs */}
       <div className="bg-white border-b">
         <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-          <nav className="flex space-x-2 sm:space-x-4 md:space-x-8 overflow-x-auto scrollbar-hide pb-px">
-            {subMenus.map((menu) => {
+          <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
+            <nav className="flex space-x-2 sm:space-x-4 md:space-x-8 pb-px min-w-max">
+              {subMenus.map((menu) => {
               const Icon = menu.icon;
               return (
                 <button
@@ -3231,7 +3236,8 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 </button>
               );
             })}
-          </nav>
+            </nav>
+          </div>
         </div>
       </div>
 
