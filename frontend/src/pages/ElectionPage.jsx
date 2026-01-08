@@ -2011,7 +2011,8 @@ export default function ElectionPage() {
                   setRawVerificationData(cachedVerificationData);
                   
                   // Process and set results data for charts and statistics
-                  const processedResults = processElectionResults(cachedVerificationData);
+                  // Pass data directly to avoid stale state issue
+                  const processedResults = processElectionResults(cachedVerificationData, data);
                   if (processedResults) {
                     setResultsData(processedResults);
                     console.log('✅ Results processed for charts:', processedResults);
@@ -2180,7 +2181,10 @@ export default function ElectionPage() {
       getElectionStatus() === 'Ended';
   }, [electionData, getElectionStatus]);
 
-  const processElectionResults = useCallback((apiResponseData = null) => {
+  const processElectionResults = useCallback((apiResponseData = null, electionDataParam = null) => {
+    // Use provided electionDataParam or fall back to state electionData
+    const currentElectionData = electionDataParam || electionData;
+    
     // Use provided data or fall back to existing resultsData
     const dataToProcess = apiResponseData || resultsData;
 
@@ -2191,7 +2195,13 @@ export default function ElectionPage() {
     console.log('🔍 [processElectionResults] Processing data:', {
       hasCandidates: !!candidates,
       candidatesData: candidates,
-      dataStructure: dataToProcess?.results
+      dataStructure: dataToProcess?.results,
+      hasCurrentElectionData: !!currentElectionData,
+      electionChoices: currentElectionData?.electionChoices?.map(c => ({
+        optionTitle: c.optionTitle,
+        partyName: c.partyName,
+        choiceId: c.choiceId
+      }))
     });
     
     if (candidates) {
@@ -2228,16 +2238,26 @@ export default function ElectionPage() {
           percentage = ((votes / totalVotes) * 100).toFixed(1);
         }
         
-        // Map candidate name to party name from electionData
-        const candidateChoice = electionData?.electionChoices?.find(
-          choice => choice.optionTitle === name
+        // Map candidate name to party name from currentElectionData
+        // Use more robust matching: trim whitespace and case-insensitive comparison
+        const normalizedName = name.trim().toLowerCase();
+        const candidateChoice = currentElectionData?.electionChoices?.find(
+          choice => choice.optionTitle.trim().toLowerCase() === normalizedName
         );
         
         console.log(`🔍 [Party Mapping] Candidate "${name}":`, {
+          normalizedName,
           found: !!candidateChoice,
           partyName: candidateChoice?.partyName,
           optionTitle: candidateChoice?.optionTitle,
-          availableChoices: electionData?.electionChoices?.map(c => ({ title: c.optionTitle, party: c.partyName }))
+          hasElectionData: !!currentElectionData,
+          hasElectionChoices: !!currentElectionData?.electionChoices,
+          choicesCount: currentElectionData?.electionChoices?.length,
+          availableChoices: currentElectionData?.electionChoices?.map(c => ({ 
+            title: c.optionTitle, 
+            titleLower: c.optionTitle.trim().toLowerCase(),
+            party: c.partyName 
+          }))
         });
         
         return {
@@ -2254,9 +2274,9 @@ export default function ElectionPage() {
                           dataToProcess.results?.total_ballots_cast || 
                           totalVotes;
 
-      // Use total_eligible_voters from API if available, otherwise fall back to electionData
+      // Use total_eligible_voters from API if available, otherwise fall back to currentElectionData
       const totalEligibleVoters = dataToProcess.results?.total_eligible_voters || 
-                                  electionData?.voters?.length || 
+                                  currentElectionData?.voters?.length || 
                                   0;
       
       return {
@@ -2272,14 +2292,14 @@ export default function ElectionPage() {
       };
     }
 
-    // Fallback to electionData if resultsData is not available
-    if (!electionData?.electionChoices) return null;
+    // Fallback to currentElectionData if resultsData is not available
+    if (!currentElectionData?.electionChoices) return null;
 
-    const totalVotes = electionData.electionChoices.reduce((sum, choice) => sum + (choice.totalVotes || 0), 0);
-    const totalEligibleVoters = electionData.voters?.length || 0;
-    const totalVotedUsers = electionData.voters?.filter(v => v.hasVoted).length || 0;
+    const totalVotes = currentElectionData.electionChoices.reduce((sum, choice) => sum + (choice.totalVotes || 0), 0);
+    const totalEligibleVoters = currentElectionData.voters?.length || 0;
+    const totalVotedUsers = currentElectionData.voters?.filter(v => v.hasVoted).length || 0;
 
-    const chartData = electionData.electionChoices.map(choice => ({
+    const chartData = currentElectionData.electionChoices.map(choice => ({
       name: choice.optionTitle,
       votes: choice.totalVotes || 0,
       percentage: totalVotes > 0 ? ((choice.totalVotes || 0) / totalVotes * 100).toFixed(1) : 0,
@@ -2292,7 +2312,7 @@ export default function ElectionPage() {
       totalVotedUsers,
       turnoutRate: totalEligibleVoters > 0 ? (totalVotedUsers / totalEligibleVoters * 100).toFixed(1) : 0,
       chartData,
-      choices: electionData.electionChoices,
+      choices: currentElectionData.electionChoices,
       verification: null
     };
   }, [resultsData, electionData]);
@@ -2337,7 +2357,8 @@ export default function ElectionPage() {
             setRawVerificationData(cachedVerificationData);
             
             // Process and set the results data for charts and statistics
-            const processedResults = processElectionResults(cachedVerificationData);
+            // Pass electionData to ensure party names are mapped correctly
+            const processedResults = processElectionResults(cachedVerificationData, electionData);
             setResultsData(processedResults);
             
             console.log(`✅ Loaded ${animatedResultsData.results.allBallots.length} ballots after combining`);
@@ -2445,7 +2466,7 @@ export default function ElectionPage() {
             }
           };
           setRawVerificationData(cachedVerificationData);
-          const processedResults = processElectionResults(cachedVerificationData);
+          const processedResults = processElectionResults(cachedVerificationData, electionData);
           setResultsData(processedResults);
         }
       }
