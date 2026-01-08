@@ -30,7 +30,11 @@ import {
   FiUnlock,
   FiLayers,
   FiHash,
-  FiCheck
+  FiCheck,
+  FiLink,
+  FiChevronDown,
+  FiChevronUp,
+  FiSearch
 } from 'react-icons/fi';
 import {
   BarChart,
@@ -249,6 +253,442 @@ const DataDisplay = ({ title, data, type = 'json' }) => {
 
 // Constants for chart colors
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+
+// Modern Verification Tab Content Component
+const VerificationTabContent = ({ canUserViewVerification, id, electionData, animatedResults }) => {
+  const [verificationSubTab, setVerificationSubTab] = useState('overview');
+  
+  if (!canUserViewVerification()) {
+    return (
+      <div className="bg-white rounded-lg shadow p-6">
+        <div className="text-center py-12">
+          <FiEye className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Verification Not Available</h3>
+          <p className="text-gray-600 mb-4">
+            Election verification will be available after the results have been displayed.
+          </p>
+          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 inline-block">
+            <p className="text-sm text-blue-800">
+              <strong>Why?</strong> Verification artifacts are only generated after the election results have been computed and displayed.
+            </p>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const verificationTabs = [
+    { id: 'overview', name: 'Overview', icon: FiEye },
+    { id: 'guardians', name: 'Guardians', icon: FiShield },
+    { id: 'chunks', name: 'Chunks & Tallies', icon: FiLayers },
+    { id: 'compensated', name: 'Compensated Decryptions', icon: FiRefreshCw },
+    { id: 'blockchain', name: 'Blockchain', icon: FiLink },
+  ];
+
+  return (
+    <div className="bg-white rounded-lg shadow">
+      {/* Header with Stats */}
+      <div className="border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
+        <div className="flex items-center justify-between mb-4">
+          <div>
+            <h3 className="text-2xl font-bold text-gray-900 flex items-center">
+              <FiEye className="h-7 w-7 mr-3 text-blue-600" />
+              Election Verification
+            </h3>
+            <p className="text-sm text-gray-600 mt-1">
+              Cryptographic verification data and audit trail
+            </p>
+          </div>
+        </div>
+
+        {/* Quick Stats */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
+          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Guardians</p>
+                <p className="text-2xl font-bold text-blue-600">-</p>
+              </div>
+              <FiShield className="h-8 w-8 text-blue-400" />
+            </div>
+          </div>
+          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Chunks</p>
+                <p className="text-2xl font-bold text-green-600">
+                  {animatedResults?.results?.chunks?.length || 0}
+                </p>
+              </div>
+              <FiLayers className="h-8 w-8 text-green-400" />
+            </div>
+          </div>
+          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Artifacts</p>
+                <p className="text-2xl font-bold text-purple-600">
+                  {[
+                    electionData.jointPublicKey,
+                    electionData.baseHash,
+                    electionData.manifestHash,
+                    electionData.encryptedTally
+                  ].filter(Boolean).length}
+                </p>
+              </div>
+              <FiKey className="h-8 w-8 text-purple-400" />
+            </div>
+          </div>
+          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="text-xs text-gray-500 uppercase tracking-wide">Blockchain</p>
+                <p className="text-2xl font-bold text-indigo-600">✓</p>
+              </div>
+              <FiLink className="h-8 w-8 text-indigo-400" />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Sub-navigation Tabs */}
+      <div className="border-b border-gray-200 bg-gray-50">
+        <nav className="flex space-x-1 px-6" aria-label="Verification sections">
+          {verificationTabs.map((tab) => {
+            const Icon = tab.icon;
+            return (
+              <button
+                key={tab.id}
+                onClick={() => setVerificationSubTab(tab.id)}
+                className={`
+                  flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors
+                  ${verificationSubTab === tab.id
+                    ? 'border-blue-600 text-blue-600 bg-white'
+                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                  }
+                `}
+              >
+                <Icon className="h-4 w-4 mr-2" />
+                {tab.name}
+              </button>
+            );
+          })}
+        </nav>
+      </div>
+
+      {/* Tab Content */}
+      <div className="p-6">
+        {/* Overview Tab */}
+        {verificationSubTab === 'overview' && (
+          <OverviewTabContent electionData={electionData} id={id} animatedResults={animatedResults} />
+        )}
+
+        {/* Guardians Tab */}
+        {verificationSubTab === 'guardians' && (
+          <GuardianDataDisplay electionId={id} />
+        )}
+
+        {/* Chunks Tab */}
+        {verificationSubTab === 'chunks' && (
+          <ChunksTabContent animatedResults={animatedResults} />
+        )}
+
+        {/* Compensated Decryptions Tab */}
+        {verificationSubTab === 'compensated' && (
+          <CompensatedDecryptionDisplay electionId={id} />
+        )}
+
+        {/* Blockchain Tab */}
+        {verificationSubTab === 'blockchain' && (
+          <BlockchainVerificationSection electionId={id} />
+        )}
+      </div>
+    </div>
+  );
+};
+
+// Overview Tab Content
+const OverviewTabContent = ({ electionData, id, animatedResults }) => {
+  return (
+    <div className="space-y-6">
+      {/* Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+        <div className="flex items-start">
+          <FiInfo className="h-5 w-5 text-blue-500 mr-3 mt-0.5 flex-shrink-0" />
+          <div>
+            <h4 className="font-semibold text-blue-900 mb-1">Cryptographic Verification</h4>
+            <p className="text-sm text-blue-800">
+              This section displays cryptographic artifacts and proofs that can be used to verify the integrity of the election.
+              All data shown below can be independently verified using ElectionGuard verification tools.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Core Cryptographic Artifacts */}
+      <div className="bg-white border border-gray-200 rounded-lg">
+        <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
+          <h4 className="font-semibold text-gray-900 flex items-center">
+            <FiKey className="h-5 w-5 mr-2 text-blue-600" />
+            Core Cryptographic Artifacts
+          </h4>
+        </div>
+        <div className="p-4 space-y-4">
+          <DataDisplay
+            title="Joint Public Key"
+            data={electionData.jointPublicKey || "Not available"}
+            type="text"
+          />
+
+          <DataDisplay
+            title="Commitment Hash"
+            data={electionData.baseHash || "Not available"}
+            type="text"
+          />
+
+          <DataDisplay
+            title="Election Manifest"
+            data={electionData.manifestHash || "Not available"}
+          />
+
+          <DataDisplay
+            title="Encrypted Tally"
+            data={electionData.encryptedTally || "Not available"}
+          />
+
+          {electionData.sampleEncryptedBallots && (
+            <DataDisplay
+              title="Sample Encrypted Ballots"
+              data={electionData.sampleEncryptedBallots}
+            />
+          )}
+
+          {electionData.cryptographicProofs && (
+            <DataDisplay
+              title="Cryptographic Proofs"
+              data={electionData.cryptographicProofs}
+            />
+          )}
+        </div>
+      </div>
+
+      {/* Verification Instructions */}
+      <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-5">
+        <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
+          <FiInfo className="h-5 w-5 mr-2 text-gray-600" />
+          Verification Instructions
+        </h4>
+        <div className="space-y-3">
+          <div className="flex items-start">
+            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-3 mt-0.5">
+              <span className="text-blue-600 text-xs font-bold">1</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Joint Public Key</p>
+              <p className="text-sm text-gray-600">Used to encrypt all ballots in this election</p>
+            </div>
+          </div>
+          <div className="flex items-start">
+            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-3 mt-0.5">
+              <span className="text-blue-600 text-xs font-bold">2</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Commitment Hash</p>
+              <p className="text-sm text-gray-600">Cryptographic commitment to the election parameters</p>
+            </div>
+          </div>
+          <div className="flex items-start">
+            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-3 mt-0.5">
+              <span className="text-blue-600 text-xs font-bold">3</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Guardian Keys</p>
+              <p className="text-sm text-gray-600">Public keys and polynomials used in the threshold cryptography</p>
+            </div>
+          </div>
+          <div className="flex items-start">
+            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-3 mt-0.5">
+              <span className="text-blue-600 text-xs font-bold">4</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Encrypted Tally</p>
+              <p className="text-sm text-gray-600">The encrypted sum of all valid ballots</p>
+            </div>
+          </div>
+          <div className="flex items-start">
+            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-3 mt-0.5">
+              <span className="text-blue-600 text-xs font-bold">5</span>
+            </div>
+            <div>
+              <p className="text-sm font-medium text-gray-900">Proofs</p>
+              <p className="text-sm text-gray-600">Zero-knowledge proofs that the tallying was performed correctly</p>
+            </div>
+          </div>
+        </div>
+        
+        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+          <div className="flex items-start">
+            <FiAlertCircle className="h-5 w-5 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" />
+            <p className="text-sm text-yellow-800">
+              <strong>Independent Verification:</strong> You can use these artifacts with ElectionGuard verification tools to independently verify that your vote was counted correctly and that the election results are mathematically sound.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// Chunks Tab Content
+const ChunksTabContent = ({ animatedResults }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+  const [expandedChunks, setExpandedChunks] = useState({});
+
+  if (!animatedResults || !animatedResults.results || !animatedResults.results.chunks) {
+    return (
+      <div className="text-center py-12">
+        <FiLayers className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Chunk Data Available</h3>
+        <p className="text-gray-600">
+          Chunk tallies and decryptions will appear here once available.
+        </p>
+      </div>
+    );
+  }
+
+  const chunks = animatedResults.results.chunks;
+  const filteredChunks = chunks.filter(chunk => 
+    chunk.electionCenterId?.toString().includes(searchTerm) ||
+    chunk.chunkIndex?.toString().includes(searchTerm)
+  );
+
+  const toggleChunk = (chunkId) => {
+    setExpandedChunks(prev => ({
+      ...prev,
+      [chunkId]: !prev[chunkId]
+    }));
+  };
+
+  return (
+    <div className="space-y-4">
+      {/* Header with Search */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h4 className="font-semibold text-gray-900 text-lg">Per-Chunk Tallies and Decryptions</h4>
+          <p className="text-sm text-gray-600 mt-1">
+            View detailed tally results and encrypted data for each chunk
+          </p>
+        </div>
+        <div className="flex items-center space-x-3">
+          <div className="relative">
+            <input
+              type="text"
+              placeholder="Search chunks..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            />
+            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+          </div>
+          <span className="text-sm text-gray-600">
+            {filteredChunks.length} of {chunks.length} chunks
+          </span>
+        </div>
+      </div>
+
+      {/* Chunks List */}
+      <div className="space-y-3">
+        {filteredChunks.map((chunk, index) => {
+          const isExpanded = expandedChunks[chunk.electionCenterId];
+          return (
+            <div key={chunk.electionCenterId} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
+              {/* Chunk Header */}
+              <div 
+                className="flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50"
+                onClick={() => toggleChunk(chunk.electionCenterId)}
+              >
+                <div className="flex items-center space-x-4">
+                  <div className="flex-shrink-0">
+                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
+                      <FiLayers className="h-5 w-5 text-blue-600" />
+                    </div>
+                  </div>
+                  <div>
+                    <h5 className="font-semibold text-gray-900">
+                      Chunk {chunk.chunkIndex}
+                    </h5>
+                    <p className="text-sm text-gray-600">
+                      Election Center ID: {chunk.electionCenterId} • {chunk.ballotCount} ballots
+                    </p>
+                  </div>
+                </div>
+                <div className="flex items-center space-x-3">
+                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                    Processed
+                  </span>
+                  {isExpanded ? (
+                    <FiChevronUp className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <FiChevronDown className="h-5 w-5 text-gray-400" />
+                  )}
+                </div>
+              </div>
+
+              {/* Expanded Content */}
+              {isExpanded && (
+                <div className="p-4 bg-gray-50 border-t border-gray-200">
+                  {/* Tally Results */}
+                  <div className="mb-4">
+                    <h6 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                      <FiBarChart className="h-4 w-4 mr-2 text-blue-600" />
+                      Tally Results for this Chunk
+                    </h6>
+                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                      {Object.entries(chunk.candidateVotes || {}).map(([candidate, votes]) => (
+                        <div key={candidate} className="bg-white rounded-lg px-4 py-3 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
+                          <p className="text-xs text-gray-500 mb-1">Candidate</p>
+                          <p className="font-semibold text-gray-900 truncate">{candidate}</p>
+                          <p className="text-2xl font-bold text-blue-600 mt-1">{votes}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Encrypted Tally */}
+                  <div className="mb-4">
+                    <DataDisplay
+                      title="Encrypted Tally"
+                      data={chunk.encryptedTally || "Not available"}
+                      type="text"
+                    />
+                  </div>
+
+                  {/* Information Note */}
+                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                    <div className="flex items-start">
+                      <FiInfo className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                      <p className="text-sm text-blue-800">
+                        <strong>Threshold Cryptography:</strong> Each guardian submitted a partial decryption for this chunk. 
+                        The partial decryptions were combined using threshold cryptography to compute the tally shown above.
+                      </p>
+                    </div>
+                  </div>
+                </div>
+              )}
+            </div>
+          );
+        })}
+      </div>
+
+      {filteredChunks.length === 0 && (
+        <div className="text-center py-8">
+          <FiSearch className="h-12 w-12 text-gray-300 mx-auto mb-3" />
+          <p className="text-gray-600">No chunks match your search</p>
+        </div>
+      )}
+    </div>
+  );
+};
 
 // Ballots in Tally Section Component
 // Blockchain Verification Section Component
@@ -4288,161 +4728,12 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
         {/* Verification Tab */}
         {activeTab === 'verification' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            {!canUserViewVerification() ? (
-              <div className="text-center py-12">
-                <FiEye className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Verification Not Available</h3>
-                <p className="text-gray-600 mb-4">
-                  Election verification will be available after the results have been displayed.
-                </p>
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 inline-block">
-                  <p className="text-sm text-blue-800">
-                    <strong>Why?</strong> Verification artifacts are only generated after the election results have been computed and displayed.
-                  </p>
-                </div>
-              </div>
-            ) : (
-              <>
-                <h3 className="text-lg font-semibold mb-4 flex items-center">
-                  <FiEye className="h-5 w-5 mr-2" />
-                  Election Verification
-                </h3>
-
-                <div className="space-y-6">
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-                    <div className="flex items-center">
-                      <FiInfo className="h-5 w-5 text-blue-500 mr-2" />
-                      <div>
-                        <h4 className="font-medium text-blue-900">Cryptographic Verification</h4>
-                        <p className="text-sm text-blue-800 mt-1">
-                          This section displays cryptographic artifacts and proofs that can be used to verify the integrity of the election.
-                          All data shown below can be independently verified using ElectionGuard verification tools.
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Blockchain Verification Section */}
-                  <BlockchainVerificationSection electionId={id} />
-
-                  {/* Original Cryptographic Data */}
-
-                  <DataDisplay
-                    title="Joint Public Key"
-                    data={electionData.jointPublicKey || "Not available"}
-                    type="text"
-                  />
-
-                  <DataDisplay
-                    title="Commitment Hash"
-                    data={electionData.baseHash || "Not available"}
-                    type="text"
-                  />
-
-                  <DataDisplay
-                    title="Election Manifest"
-                    data={electionData.manifestHash || "Not available"}
-                  />
-
-                  <DataDisplay
-                    title="Encrypted Tally"
-                    data={electionData.encryptedTally || "Not available"}
-                  />
-
-                  {electionData.sampleEncryptedBallots && (
-                    <DataDisplay
-                      title="Sample Encrypted Ballots"
-                      data={electionData.sampleEncryptedBallots}
-                    />
-                  )}
-
-                  {electionData.cryptographicProofs && (
-                    <DataDisplay
-                      title="Cryptographic Proofs"
-                      data={electionData.cryptographicProofs}
-                    />
-                  )}
-
-                  {/* Enhanced Guardian Information Display */}
-                  <GuardianDataDisplay electionId={id} />
-
-                  {/* Compensated Decryption Display */}
-                  <CompensatedDecryptionDisplay electionId={id} />
-
-                  {/* Per-Chunk Verification Data */}
-                  {animatedResults && animatedResults.results && animatedResults.results.chunks && (
-                    <div className="bg-white border border-gray-200 rounded-lg p-6">
-                      <h4 className="font-medium text-gray-900 mb-4 flex items-center">
-                        <FiLayers className="h-5 w-5 mr-2 text-blue-600" />
-                        Per-Chunk Tallies and Decryptions
-                      </h4>
-                      <div className="space-y-4">
-                        {animatedResults.results.chunks.map((chunk, index) => (
-                          <div key={chunk.electionCenterId} className="border border-gray-300 rounded-lg p-4 bg-gray-50">
-                            <div className="flex items-center justify-between mb-3">
-                              <h5 className="font-semibold text-gray-800">
-                                Chunk {chunk.chunkIndex} (Election Center ID: {chunk.electionCenterId})
-                              </h5>
-                              <span className="text-sm text-gray-600">
-                                {chunk.ballotCount} ballots
-                              </span>
-                            </div>
-                            
-                            {/* Chunk Tally Results */}
-                            <div className="mb-3">
-                              <p className="text-sm font-medium text-gray-700 mb-2">Tally for this chunk:</p>
-                              <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                                {Object.entries(chunk.candidateVotes || {}).map(([candidate, votes]) => (
-                                  <div key={candidate} className="bg-white rounded px-3 py-2 border border-gray-200">
-                                    <span className="font-medium text-gray-800">{candidate}:</span>
-                                    <span className="ml-2 text-blue-600 font-bold">{votes}</span>
-                                  </div>
-                                ))}
-                              </div>
-                            </div>
-
-                            {/* Encrypted ciphertext for this chunk (from election_center) */}
-                            <div className="mb-3">
-                              <DataDisplay
-                                title="Encrypted Tally"
-                                data={chunk.encryptedTally || "Not available"}
-                                type="text"
-                              />
-                            </div>
-
-                            {/* Note about partial decryptions */}
-                            <div className="text-xs text-gray-600 mt-2 bg-blue-50 border border-blue-200 rounded p-2">
-                              <p>
-                                <strong>Note:</strong> Each guardian submitted a partial decryption for this chunk. 
-                                The partial decryptions were combined using threshold cryptography to compute the tally shown above.
-                              </p>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="bg-gray-50 rounded-lg p-4">
-                    <h4 className="font-medium text-gray-900 mb-3">Verification Instructions</h4>
-                    <div className="text-sm text-gray-700 space-y-2">
-                      <p>• <strong>Joint Public Key:</strong> Used to encrypt all ballots in this election</p>
-                      <p>• <strong>Commitment Hash:</strong> Cryptographic commitment to the election parameters</p>
-                      <p>• <strong>Guardian Keys:</strong> Public keys and polynomials used in the threshold cryptography</p>
-                      <p>• <strong>Encrypted Tally:</strong> The encrypted sum of all valid ballots</p>
-                      <p>• <strong>Proofs:</strong> Zero-knowledge proofs that the tallying was performed correctly</p>
-                    </div>
-                    <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded">
-                      <p className="text-sm text-yellow-800">
-                        <strong>Note:</strong> You can use these artifacts with ElectionGuard verification tools to independently verify that your vote was counted correctly and that the election results are mathematically sound.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
+          <VerificationTabContent 
+            canUserViewVerification={canUserViewVerification}
+            id={id}
+            electionData={electionData}
+            animatedResults={animatedResults}
+          />
         )}
 
       </div>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiDownload, FiChevronDown, FiChevronUp, FiUser, FiKey, FiShield, FiDatabase } from 'react-icons/fi';
+import { FiDownload, FiChevronDown, FiChevronUp, FiUser, FiKey, FiShield, FiDatabase, FiInfo } from 'react-icons/fi';
 import { saveAs } from 'file-saver';
 
 const GuardianDataDisplay = ({ electionId }) => {
@@ -7,6 +7,7 @@ const GuardianDataDisplay = ({ electionId }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
+  const [expandedGuardians, setExpandedGuardians] = useState({});
 
   useEffect(() => {
     const fetchGuardians = async () => {
@@ -151,36 +152,35 @@ const GuardianDataDisplay = ({ electionId }) => {
   const renderChunkDecryptions = (guardian) => {
     if (!guardian.chunkDecryptions || guardian.chunkDecryptions.length === 0) {
       return (
-        <div className="col-span-full bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-          <div className="text-sm text-yellow-800">
+        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-3">
+          <p className="text-sm text-yellow-800">
             No chunk decryption data available yet. Guardian needs to submit partial decryption keys.
-          </div>
+          </p>
         </div>
       );
     }
 
     return (
-      <div className="col-span-full space-y-4">
+      <div className="space-y-3">
         <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-          <h5 className="font-medium text-blue-900 mb-1">Chunk-based Decryption Data</h5>
           <p className="text-sm text-blue-700">
-            This guardian has submitted decryption data for {guardian.chunkDecryptions.length} chunk(s). 
-            Each chunk contains partial decrypted tally, guardian decryption key, and tally share.
+            <strong>Submitted:</strong> {guardian.chunkDecryptions.length} chunk decryption(s). 
+            Each contains partial decrypted tally, guardian decryption key, and tally share.
           </p>
         </div>
         {guardian.chunkDecryptions.map((chunk, index) => (
-          <div key={chunk.electionCenterId} className="bg-white border-2 border-purple-200 rounded-lg p-4">
-            <div className="flex items-center justify-between mb-3">
-              <h6 className="font-semibold text-purple-900">
+          <div key={chunk.electionCenterId} className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+            <div className="flex items-center justify-between mb-2">
+              <h6 className="font-medium text-purple-900 text-sm">
                 Chunk {index + 1} (ID: {chunk.electionCenterId})
               </h6>
               {chunk.datePerformed && (
                 <span className="text-xs text-gray-500">
-                  {new Date(chunk.datePerformed).toLocaleString()}
+                  {new Date(chunk.datePerformed).toLocaleDateString()}
                 </span>
               )}
             </div>
-            <div className="grid grid-cols-1 gap-3">
+            <div className="space-y-2">
               {renderField(
                 { id: `${guardian.id}-chunk-${chunk.electionCenterId}` }, 
                 'Partial Decrypted Tally', 
@@ -241,75 +241,123 @@ const GuardianDataDisplay = ({ electionId }) => {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <FiShield className="h-6 w-6 text-blue-600" />
-          <h3 className="text-lg font-semibold text-gray-900">Guardian Information</h3>
-          <span className="bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-0.5 rounded">
-            {guardians.length} {guardians.length === 1 ? 'Guardian' : 'Guardians'}
-          </span>
+    <div className="space-y-4">
+      {/* Header */}
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+            <FiShield className="h-5 w-5 mr-2 text-blue-600" />
+            Guardian Information
+            <span className="ml-3 bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-1 rounded-full">
+              {guardians.length} {guardians.length === 1 ? 'Guardian' : 'Guardians'}
+            </span>
+          </h3>
+          <p className="text-sm text-gray-600 mt-1">
+            View cryptographic keys and decryption data for each guardian
+          </p>
         </div>
         <button
           onClick={downloadAllGuardiansData}
-          className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors"
+          className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
         >
           <FiDownload className="h-4 w-4" />
           <span>Download All</span>
         </button>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <div className="text-sm text-blue-800">
-          <strong>Note:</strong> Sensitive credential fields are excluded from this display for security purposes. 
-          All other guardian information including public keys, decryption status, and backup data is shown below.
+      {/* Info Banner */}
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+        <div className="flex items-start">
+          <FiInfo className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-blue-800">
+            <strong>Security Notice:</strong> Sensitive credential fields are excluded from this display. 
+            All other guardian information including public keys, decryption status, and backup data is shown below.
+          </p>
         </div>
       </div>
 
-      <div className="space-y-8">
-        {guardians.map((guardian) => (
-          <div key={guardian.id} className="bg-white border border-gray-200 rounded-lg p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <div className="flex items-center space-x-3">
-                <div className="flex-shrink-0">
-                  <div className="h-10 w-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <FiUser className="h-6 w-6 text-blue-600" />
+      {/* Guardian Accordion List */}
+      <div className="space-y-3">
+        {guardians.map((guardian) => {
+          const isExpanded = expandedGuardians[guardian.id];
+          return (
+            <div key={guardian.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-all">
+              {/* Guardian Header (Clickable) */}
+              <div
+                className="flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50"
+                onClick={() => setExpandedGuardians(prev => ({ ...prev, [guardian.id]: !prev[guardian.id] }))}
+              >
+                <div className="flex items-center space-x-4 flex-1">
+                  <div className="flex-shrink-0">
+                    <div className="h-12 w-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center shadow-sm">
+                      <FiUser className="h-6 w-6 text-white" />
+                    </div>
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-base font-semibold text-gray-900">
+                      Guardian {guardian.sequenceOrder}
+                    </h4>
+                    <p className="text-sm text-gray-600">
+                      {guardian.userName} • {guardian.userEmail}
+                    </p>
                   </div>
                 </div>
-                <div>
-                  <h4 className="text-lg font-semibold text-gray-900">
-                    Guardian {guardian.sequenceOrder}
-                  </h4>
-                  <p className="text-sm text-gray-600">
-                    {guardian.userName} ({guardian.userEmail})
-                  </p>
+                <div className="flex items-center space-x-3">
+                  <div className={`px-3 py-1 rounded-full text-sm font-medium ${
+                    guardian.decryptedOrNot 
+                      ? 'bg-green-100 text-green-800' 
+                      : 'bg-yellow-100 text-yellow-800'
+                  }`}>
+                    {guardian.decryptedOrNot ? '✓ Decrypted' : '⏳ Pending'}
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      downloadAllGuardianData(guardian);
+                    }}
+                    className="flex items-center space-x-1 text-blue-600 hover:text-blue-800 text-sm px-2 py-1 hover:bg-blue-50 rounded transition-colors"
+                  >
+                    <FiDownload className="h-4 w-4" />
+                    <span>Download</span>
+                  </button>
+                  {isExpanded ? (
+                    <FiChevronUp className="h-5 w-5 text-gray-400" />
+                  ) : (
+                    <FiChevronDown className="h-5 w-5 text-gray-400" />
+                  )}
                 </div>
               </div>
-              <div className="flex items-center space-x-4">
-                <div className={`px-3 py-1 rounded-full text-sm font-medium ${
-                  guardian.decryptedOrNot 
-                    ? 'bg-green-100 text-green-800' 
-                    : 'bg-yellow-100 text-yellow-800'
-                }`}>
-                  {guardian.decryptedOrNot ? 'Decryption Submitted' : 'Pending Decryption'}
-                </div>
-                <button
-                  onClick={() => downloadAllGuardianData(guardian)}
-                  className="flex items-center space-x-1 text-blue-600 hover:text-blue-800 text-sm"
-                >
-                  <FiDownload className="h-4 w-4" />
-                  <span>Download</span>
-                </button>
-              </div>
-            </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-              {renderField(guardian, 'Guardian Public Key', guardian.guardianPublicKey, <FiKey className="h-4 w-4 text-blue-600" />)}
-              {renderField(guardian, 'Key Backup', guardian.keyBackup, <FiShield className="h-4 w-4 text-gray-600" />)}
-              {renderChunkDecryptions(guardian)}
+              {/* Expanded Guardian Details */}
+              {isExpanded && (
+                <div className="p-4 bg-gray-50 border-t border-gray-200">
+                  <div className="space-y-4">
+                    {/* Guardian Keys Section */}
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <h5 className="font-semibold text-gray-900 mb-3 flex items-center">
+                        <FiKey className="h-4 w-4 mr-2 text-blue-600" />
+                        Cryptographic Keys
+                      </h5>
+                      <div className="grid grid-cols-1 gap-3">
+                        {renderField(guardian, 'Guardian Public Key', guardian.guardianPublicKey, <FiKey className="h-4 w-4 text-blue-600" />)}
+                        {renderField(guardian, 'Key Backup', guardian.keyBackup, <FiShield className="h-4 w-4 text-gray-600" />)}
+                      </div>
+                    </div>
+
+                    {/* Chunk Decryptions Section */}
+                    <div className="bg-white rounded-lg p-4 border border-gray-200">
+                      <h5 className="font-semibold text-gray-900 mb-3 flex items-center">
+                        <FiDatabase className="h-4 w-4 mr-2 text-purple-600" />
+                        Chunk Decryption Data
+                      </h5>
+                      {renderChunkDecryptions(guardian)}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
