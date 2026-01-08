@@ -307,7 +307,7 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData, ani
             <div className="flex items-center justify-between">
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Guardians</p>
-                <p className="text-2xl font-bold text-blue-600">-</p>
+                <p className="text-2xl font-bold text-blue-600">{electionData.numberOfGuardians || electionData.guardians?.length || 0}</p>
               </div>
               <FiShield className="h-8 w-8 text-blue-400" />
             </div>
@@ -331,8 +331,7 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData, ani
                   {[
                     electionData.jointPublicKey,
                     electionData.baseHash,
-                    electionData.manifestHash,
-                    electionData.encryptedTally
+                    electionData.manifestHash
                   ].filter(Boolean).length}
                 </p>
               </div>
@@ -449,11 +448,6 @@ const OverviewTabContent = ({ electionData, id, animatedResults }) => {
           <DataDisplay
             title="Election Manifest"
             data={electionData.manifestHash || "Not available"}
-          />
-
-          <DataDisplay
-            title="Encrypted Tally"
-            data={electionData.encryptedTally || "Not available"}
           />
 
           {electionData.sampleEncryptedBallots && (
