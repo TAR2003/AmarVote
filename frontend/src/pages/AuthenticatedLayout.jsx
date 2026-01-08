@@ -24,6 +24,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   const [isLoadingElections, setIsLoadingElections] = useState(false);
   const searchRef = useRef(null);
   const suggestionsRef = useRef(null);
+  const mobileSearchRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -61,7 +62,14 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   // Handle clicks outside search to close suggestions
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (searchRef.current && !searchRef.current.contains(event.target)) {
+      // If click is outside BOTH the desktop search area and the mobile search area,
+      // then close suggestions. This prevents mobile suggestion clicks from being
+      // dismissed by the global mousedown handler before the button's click runs.
+      const clickedInsideDesktop = searchRef.current && searchRef.current.contains(event.target);
+      const clickedInsideSuggestions = suggestionsRef.current && suggestionsRef.current.contains(event.target);
+      const clickedInsideMobile = mobileSearchRef.current && mobileSearchRef.current.contains(event.target);
+
+      if (!clickedInsideDesktop && !clickedInsideSuggestions && !clickedInsideMobile) {
         setShowSuggestions(false);
       }
     };
@@ -367,7 +375,8 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
           <div className="bg-white/95 backdrop-blur-lg shadow-xl border-b border-white/20 max-h-screen overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="px-4 pt-2 pb-4 space-y-2">
             {/* Mobile Search Bar - Only visible on small screens */}
-            <div className="relative mb-4 md:hidden">
+            <div className="relative mb-4 md:hidden" ref={mobileSearchRef}>
+
               <form onSubmit={handleSearchSubmit} className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <FiSearch className="h-5 w-5 text-gray-400" />
@@ -378,22 +387,30 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                   value={searchQuery}
                   onChange={handleSearchInputChange}
                   className="block w-full pl-10 pr-3 py-2.5 border border-gray-200/80 rounded-2xl leading-5 bg-white/80 backdrop-blur-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 sm:text-sm transition-all duration-300"
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter') {
+                      e.preventDefault();
+                      handleSearchSubmit(e);
+                    }
+                  }}
                 />
               </form>
 
               {/* Mobile Search Suggestions Dropdown */}
               {showSuggestions && searchSuggestions.length > 0 && (
                 <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
-                  {searchSuggestions.map((election) => {
+                  {searchSuggestions.map((election, idx) => {
                     const status = getElectionStatus(election);
                     return (
-                      <div
+                      <button
+                        type="button"
                         key={election.electionId}
                         onClick={() => {
                           handleElectionSelect(election.electionId);
                           setMobileMenuOpen(false);
                         }}
-                        className="p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
+                        className="w-full text-left p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150 focus:bg-blue-50 outline-none"
+                        tabIndex={0}
                       >
                         <div className="flex items-start justify-between">
                           <div className="flex-1 min-w-0">
@@ -420,7 +437,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                             </span>
                           </div>
                         </div>
-                      </div>
+                      </button>
                     );
                   })}
                 </div>
