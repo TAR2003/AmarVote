@@ -1,14 +1,17 @@
 package com.amarvote.amarvote.service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -16,6 +19,7 @@ import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionResponse;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionResponse;
+import com.amarvote.amarvote.dto.DecryptionStatusResponse;
 import com.amarvote.amarvote.dto.ElectionGuardCombineDecryptionSharesRequest;
 import com.amarvote.amarvote.dto.ElectionGuardCombineDecryptionSharesResponse;
 import com.amarvote.amarvote.dto.ElectionGuardCompensatedDecryptionRequest;
@@ -24,6 +28,7 @@ import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionRequest;
 import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionResponse;
 import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Decryption;
+import com.amarvote.amarvote.model.DecryptionStatus;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.ElectionChoice;
@@ -31,6 +36,7 @@ import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.model.SubmittedBallot;
 import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionRepository;
+import com.amarvote.amarvote.repository.DecryptionStatusRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
@@ -52,8 +58,12 @@ public class PartialDecryptionService {
     private final CompensatedDecryptionRepository compensatedDecryptionRepository;
     private final ElectionCenterRepository electionCenterRepository;
     private final DecryptionRepository decryptionRepository;
+    private final DecryptionStatusRepository decryptionStatusRepository;
     private final ObjectMapper objectMapper;
     private final ElectionGuardCryptoService cryptoService;
+    
+    // Concurrent lock to prevent multiple decryption processes for same guardian
+    private final ConcurrentHashMap<String, Boolean> decryptionLocks = new ConcurrentHashMap<>();
     
     @Autowired
     private WebClient webClient;
@@ -240,6 +250,513 @@ public class PartialDecryptionService {
                 .success(false)
                 .message("Internal server error: " + e.getMessage())
                 .build();
+        }
+    }
+
+    /**
+     * Initiate decryption process (returns immediately, processes asynchronously)
+     */
+    public CreatePartialDecryptionResponse initiateDecryption(CreatePartialDecryptionRequest request, String userEmail) {
+        try {
+            System.out.println("=== Initiating Guardian Decryption Process ===");
+            System.out.println("Election ID: " + request.election_id() + ", User: " + userEmail);
+            
+            // 1. Find guardian record
+            List<Guardian> guardians = guardianRepository.findByElectionIdAndUserEmail(request.election_id(), userEmail);
+            if (guardians.isEmpty()) {
+                return CreatePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("User is not a guardian for this election")
+                    .build();
+            }
+            Guardian guardian = guardians.get(0);
+            
+            // 2. Check if tally exists
+            List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(request.election_id());
+            if (electionCenters.isEmpty()) {
+                return CreatePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("Tally has not been created yet. Please create the tally before submitting guardian keys.")
+                    .build();
+            }
+            
+            // 3. Create lock key
+            String lockKey = request.election_id() + "_" + guardian.getGuardianId();
+            
+            // 4. Check if decryption already exists or is in progress
+            Optional<DecryptionStatus> existingStatus = decryptionStatusRepository
+                .findByElectionIdAndGuardianId(request.election_id(), guardian.getGuardianId());
+            
+            if (existingStatus.isPresent()) {
+                DecryptionStatus status = existingStatus.get();
+                
+                if ("in_progress".equals(status.getStatus())) {
+                    System.out.println("⚠️ Decryption already in progress for guardian " + guardian.getGuardianId());
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(true)
+                        .message("Decryption is already in progress")
+                        .build();
+                }
+                
+                if ("completed".equals(status.getStatus())) {
+                    System.out.println("✅ Decryption already completed for guardian " + guardian.getGuardianId());
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(true)
+                        .message("Decryption already completed for this guardian")
+                        .build();
+                }
+            }
+            
+            // 5. Try to acquire lock
+            Boolean lockAcquired = decryptionLocks.putIfAbsent(lockKey, true);
+            if (lockAcquired != null) {
+                System.out.println("⚠️ Another decryption process is already running for this guardian");
+                return CreatePartialDecryptionResponse.builder()
+                    .success(true)
+                    .message("Decryption is already in progress")
+                    .build();
+            }
+            
+            try {
+                // 6. Create or update decryption status
+                DecryptionStatus decryptionStatus = existingStatus.orElse(DecryptionStatus.builder()
+                    .electionId(request.election_id())
+                    .guardianId(guardian.getGuardianId())
+                    .guardianEmail(userEmail)
+                    .guardianName(guardian.getUserEmail())
+                    .totalChunks(electionCenters.size())
+                    .processedChunks(0)
+                    .currentPhase("pending")
+                    .currentChunkNumber(0)
+                    .totalCompensatedGuardians(0)
+                    .processedCompensatedGuardians(0)
+                    .createdAt(Instant.now())
+                    .build());
+                
+                decryptionStatus.setStatus("pending");
+                decryptionStatus.setStartedAt(Instant.now());
+                decryptionStatus.setTotalChunks(electionCenters.size());
+                decryptionStatus.setProcessedChunks(0);
+                decryptionStatus.setCurrentPhase("pending");
+                decryptionStatus.setErrorMessage(null);
+                decryptionStatus.setUpdatedAt(Instant.now());
+                
+                decryptionStatusRepository.save(decryptionStatus);
+                
+                System.out.println("✅ Decryption status created. Starting async processing...");
+                
+                // 7. Start async processing
+                processDecryptionAsync(request, userEmail, guardian, electionCenters);
+                
+                return CreatePartialDecryptionResponse.builder()
+                    .success(true)
+                    .message("Decryption process initiated. Processing in progress...")
+                    .build();
+                    
+            } catch (Exception e) {
+                // Release lock on error
+                decryptionLocks.remove(lockKey);
+                throw e;
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error initiating decryption: " + e.getMessage());
+            e.printStackTrace();
+            return CreatePartialDecryptionResponse.builder()
+                .success(false)
+                .message("Failed to initiate decryption: " + e.getMessage())
+                .build();
+        }
+    }
+
+    /**
+     * Get current decryption status for a guardian
+     */
+    public DecryptionStatusResponse getDecryptionStatus(Long electionId, Long guardianId) {
+        Optional<DecryptionStatus> statusOpt = decryptionStatusRepository.findByElectionIdAndGuardianId(electionId, guardianId);
+        
+        if (statusOpt.isEmpty()) {
+            // Check if decryption already completed (old way, before this feature)
+            List<Decryption> existingDecryptions = decryptionRepository.findByGuardianId(guardianId);
+            if (!existingDecryptions.isEmpty()) {
+                return DecryptionStatusResponse.builder()
+                    .success(true)
+                    .status("completed")
+                    .message("Decryption already exists")
+                    .totalChunks(existingDecryptions.size())
+                    .processedChunks(existingDecryptions.size())
+                    .progressPercentage(100.0)
+                    .build();
+            }
+            
+            return DecryptionStatusResponse.builder()
+                .success(true)
+                .status("not_started")
+                .message("Decryption has not been initiated")
+                .totalChunks(0)
+                .processedChunks(0)
+                .progressPercentage(0.0)
+                .build();
+        }
+        
+        DecryptionStatus status = statusOpt.get();
+        double progressPercentage = status.getTotalChunks() > 0 
+            ? (status.getProcessedChunks() * 100.0) / status.getTotalChunks()
+            : 0.0;
+        
+        double compensatedProgressPercentage = status.getTotalCompensatedGuardians() != null && status.getTotalCompensatedGuardians() > 0
+            ? (status.getProcessedCompensatedGuardians() * 100.0) / status.getTotalCompensatedGuardians()
+            : 0.0;
+        
+        return DecryptionStatusResponse.builder()
+            .success(true)
+            .status(status.getStatus())
+            .message("Decryption status retrieved successfully")
+            .totalChunks(status.getTotalChunks())
+            .processedChunks(status.getProcessedChunks())
+            .progressPercentage(progressPercentage)
+            .currentPhase(status.getCurrentPhase())
+            .currentChunkNumber(status.getCurrentChunkNumber())
+            .compensatingForGuardianId(status.getCompensatingForGuardianId())
+            .compensatingForGuardianName(status.getCompensatingForGuardianName())
+            .totalCompensatedGuardians(status.getTotalCompensatedGuardians())
+            .processedCompensatedGuardians(status.getProcessedCompensatedGuardians())
+            .compensatedProgressPercentage(compensatedProgressPercentage)
+            .guardianEmail(status.getGuardianEmail())
+            .guardianName(status.getGuardianName())
+            .startedAt(status.getStartedAt() != null ? status.getStartedAt().toString() : null)
+            .completedAt(status.getCompletedAt() != null ? status.getCompletedAt().toString() : null)
+            .errorMessage(status.getErrorMessage())
+            .build();
+    }
+
+    /**
+     * Process decryption asynchronously with detailed progress tracking
+     */
+    @Async
+    @Transactional
+    public void processDecryptionAsync(CreatePartialDecryptionRequest request, String userEmail, 
+                                       Guardian guardian, List<ElectionCenter> electionCenters) {
+        String lockKey = request.election_id() + "_" + guardian.getGuardianId();
+        
+        try {
+            System.out.println("=== ASYNC DECRYPTION STARTED ===");
+            System.out.println("Election ID: " + request.election_id() + ", Guardian: " + guardian.getUserEmail());
+            
+            // Update status to in_progress
+            updateDecryptionStatus(request.election_id(), guardian.getGuardianId(), "in_progress", 
+                "partial_decryption", 0, 0, null, null, null);
+            
+            // Get election and choices
+            Optional<Election> electionOpt = electionRepository.findById(request.election_id());
+            if (!electionOpt.isPresent()) {
+                throw new RuntimeException("Election not found");
+            }
+            Election election = electionOpt.get();
+            
+            List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(request.election_id());
+            List<String> candidateNames = choices.stream().map(ElectionChoice::getOptionTitle).toList();
+            List<String> partyNames = choices.stream().map(ElectionChoice::getPartyName).toList();
+            
+            List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
+            
+            // Decrypt guardian credentials
+            String guardianCredentials = guardian.getCredentials();
+            if (guardianCredentials == null || guardianCredentials.trim().isEmpty()) {
+                throw new RuntimeException("Guardian credentials not found");
+            }
+            
+            ElectionGuardCryptoService.GuardianDecryptionResult decryptionResult = 
+                cryptoService.decryptGuardianData(request.encrypted_data(), guardianCredentials);
+            String decryptedPrivateKey = decryptionResult.getPrivateKey();
+            String decryptedPolynomial = decryptionResult.getPolynomial();
+            
+            System.out.println("✅ Guardian credentials decrypted successfully");
+            
+            // PHASE 1: Process each chunk for partial decryption
+            System.out.println("=== PHASE 1: PARTIAL DECRYPTION (" + electionCenters.size() + " chunks) ===");
+            int processedChunks = 0;
+            
+            for (ElectionCenter electionCenter : electionCenters) {
+                Long electionCenterId = electionCenter.getElectionCenterId();
+                processedChunks++;
+                
+                System.out.println("📦 Processing chunk " + processedChunks + "/" + electionCenters.size() 
+                    + " (ID: " + electionCenterId + ")");
+                
+                // Update status with current chunk
+                updateDecryptionStatus(request.election_id(), guardian.getGuardianId(), "in_progress",
+                    "partial_decryption", processedChunks, electionCenters.size(), null, null, null);
+                
+                // Get encrypted tally for this chunk
+                String ciphertextTallyString = electionCenter.getEncryptedTally();
+                if (ciphertextTallyString == null || ciphertextTallyString.trim().isEmpty()) {
+                    throw new RuntimeException("Chunk " + processedChunks + " has no encrypted tally");
+                }
+                
+                // Get submitted ballots for this chunk
+                List<SubmittedBallot> chunkBallots = submittedBallotRepository.findByElectionCenterId(electionCenterId);
+                List<String> ballotCipherTexts = chunkBallots.stream()
+                    .map(SubmittedBallot::getCipherText)
+                    .toList();
+                
+                // Construct guardian_data JSON
+                String guardianDataJson = String.format(
+                    "{\"id\":\"%s\",\"sequence_order\":%d}",
+                    guardian.getSequenceOrder(),
+                    guardian.getSequenceOrder()
+                );
+                
+                // Call ElectionGuard microservice
+                ElectionGuardPartialDecryptionRequest guardRequest = ElectionGuardPartialDecryptionRequest.builder()
+                    .guardian_id(String.valueOf(guardian.getSequenceOrder()))
+                    .guardian_data(guardianDataJson)
+                    .private_key(decryptedPrivateKey)
+                    .public_key(guardian.getGuardianPublicKey())
+                    .polynomial(decryptedPolynomial)
+                    .party_names(partyNames)
+                    .candidate_names(candidateNames)
+                    .ciphertext_tally(ciphertextTallyString)
+                    .submitted_ballots(ballotCipherTexts)
+                    .joint_public_key(election.getJointPublicKey())
+                    .commitment_hash(election.getBaseHash())
+                    .number_of_guardians(allGuardians.size())
+                    .quorum(election.getElectionQuorum())
+                    .build();
+                
+                ElectionGuardPartialDecryptionResponse guardResponse = callElectionGuardPartialDecryptionService(guardRequest);
+                
+                // Check if credentials are valid
+                if (guardResponse.tally_share() == null) {
+                    throw new RuntimeException("Invalid credentials provided");
+                }
+                
+                // Store decryption data
+                Decryption decryption = Decryption.builder()
+                    .electionCenterId(electionCenterId)
+                    .guardianId(guardian.getGuardianId())
+                    .tallyShare(guardResponse.tally_share())
+                    .guardianDecryptionKey(guardResponse.guardian_public_key())
+                    .partialDecryptedTally(guardResponse.ballot_shares())
+                    .build();
+                
+                decryptionRepository.save(decryption);
+                System.out.println("✅ Chunk " + processedChunks + " processed and saved");
+            }
+            
+            System.out.println("✅ PHASE 1 COMPLETED: All " + processedChunks + " chunks processed");
+            
+            // Mark guardian as having completed decryption
+            guardian.setDecryptedOrNot(true);
+            guardianRepository.save(guardian);
+            
+            // PHASE 2: Create compensated decryption shares for other guardians
+            System.out.println("=== PHASE 2: COMPENSATED SHARES GENERATION ===");
+            createCompensatedDecryptionSharesWithProgress(election, guardian, decryptedPrivateKey, 
+                decryptedPolynomial, electionCenters);
+            
+            // Mark as completed
+            updateDecryptionStatus(request.election_id(), guardian.getGuardianId(), "completed",
+                "completed", processedChunks, electionCenters.size(), null, null, Instant.now());
+            
+            System.out.println("🎉 DECRYPTION PROCESS COMPLETED SUCCESSFULLY");
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error in async decryption: " + e.getMessage());
+            e.printStackTrace();
+            updateDecryptionStatus(request.election_id(), guardian.getGuardianId(), "failed",
+                "error", 0, 0, null, e.getMessage(), null);
+        } finally {
+            // Release lock
+            decryptionLocks.remove(lockKey);
+            System.out.println("🔓 Lock released for guardian " + guardian.getGuardianId());
+        }
+    }
+
+    /**
+     * Update decryption status in database
+     */
+    private void updateDecryptionStatus(Long electionId, Long guardianId, String status, 
+                                       String phase, int processedChunks, int totalChunks,
+                                       Long compensatingForGuardianId, String errorMessage,
+                                       Instant completedAt) {
+        try {
+            Optional<DecryptionStatus> statusOpt = decryptionStatusRepository.findByElectionIdAndGuardianId(electionId, guardianId);
+            if (statusOpt.isPresent()) {
+                DecryptionStatus decryptionStatus = statusOpt.get();
+                decryptionStatus.setStatus(status);
+                decryptionStatus.setCurrentPhase(phase);
+                decryptionStatus.setProcessedChunks(processedChunks);
+                if (totalChunks > 0) {
+                    decryptionStatus.setTotalChunks(totalChunks);
+                }
+                decryptionStatus.setCurrentChunkNumber(processedChunks);
+                decryptionStatus.setErrorMessage(errorMessage);
+                decryptionStatus.setCompletedAt(completedAt);
+                decryptionStatus.setUpdatedAt(Instant.now());
+                
+                if (compensatingForGuardianId != null) {
+                    decryptionStatus.setCompensatingForGuardianId(compensatingForGuardianId);
+                    // Get guardian email as name
+                    Optional<Guardian> compensatedGuardian = guardianRepository.findById(compensatingForGuardianId);
+                    compensatedGuardian.ifPresent(g -> 
+                        decryptionStatus.setCompensatingForGuardianName(g.getUserEmail())
+                    );
+                }
+                
+                decryptionStatusRepository.save(decryptionStatus);
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to update decryption status: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Create compensated decryption shares with progress tracking
+     */
+    private void createCompensatedDecryptionSharesWithProgress(Election election, Guardian guardian, 
+                                                              String decryptedPrivateKey, String decryptedPolynomial,
+                                                              List<ElectionCenter> electionCenters) {
+        try {
+            List<Guardian> allGuardians = guardianRepository.findByElectionId(election.getElectionId());
+            List<Guardian> otherGuardians = allGuardians.stream()
+                .filter(g -> !g.getGuardianId().equals(guardian.getGuardianId()))
+                .collect(Collectors.toList());
+            
+            System.out.println("Creating compensated shares for " + otherGuardians.size() + " other guardians");
+            
+            // Update total compensated guardians
+            Optional<DecryptionStatus> statusOpt = decryptionStatusRepository
+                .findByElectionIdAndGuardianId(election.getElectionId(), guardian.getGuardianId());
+            if (statusOpt.isPresent()) {
+                DecryptionStatus status = statusOpt.get();
+                status.setTotalCompensatedGuardians(otherGuardians.size());
+                status.setProcessedCompensatedGuardians(0);
+                decryptionStatusRepository.save(status);
+            }
+            
+            int processedGuardians = 0;
+            
+            for (Guardian otherGuardian : otherGuardians) {
+                processedGuardians++;
+                System.out.println("💫 Creating compensated shares for guardian: " + otherGuardian.getUserEmail() 
+                    + " (" + processedGuardians + "/" + otherGuardians.size() + ")");
+                
+                // Update status with current compensating guardian
+                Optional<DecryptionStatus> currentStatus = decryptionStatusRepository
+                    .findByElectionIdAndGuardianId(election.getElectionId(), guardian.getGuardianId());
+                if (currentStatus.isPresent()) {
+                    DecryptionStatus status = currentStatus.get();
+                    status.setCurrentPhase("compensated_shares_generation");
+                    status.setCompensatingForGuardianId(otherGuardian.getGuardianId());
+                    status.setCompensatingForGuardianName(otherGuardian.getUserEmail());
+                    status.setProcessedCompensatedGuardians(processedGuardians);
+                    status.setUpdatedAt(Instant.now());
+                    decryptionStatusRepository.save(status);
+                }
+                
+                // Process each chunk for this guardian
+                for (ElectionCenter electionCenter : electionCenters) {
+                    // Check if compensated decryption already exists
+                    boolean existsAlready = compensatedDecryptionRepository
+                        .existsByElectionCenterIdAndCompensatingGuardianIdAndMissingGuardianId(
+                            electionCenter.getElectionCenterId(),
+                            guardian.getGuardianId(),
+                            otherGuardian.getGuardianId()
+                        );
+                    
+                    if (existsAlready) {
+                        continue;
+                    }
+                    
+                    // Prepare required data for compensated decryption
+                    List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
+                    List<String> candidateNames = electionChoices.stream()
+                        .map(ElectionChoice::getOptionTitle)
+                        .collect(Collectors.toList());
+                    List<String> partyNames = electionChoices.stream()
+                        .map(ElectionChoice::getPartyName)
+                        .filter(partyName -> partyName != null && !partyName.trim().isEmpty())
+                        .distinct()
+                        .collect(Collectors.toList());
+                    
+                    // Get submitted ballots for this chunk
+                    List<SubmittedBallot> submittedBallots = submittedBallotRepository.findByElectionCenterId(electionCenter.getElectionCenterId());
+                    List<String> ballotCipherTexts = submittedBallots.stream()
+                        .map(SubmittedBallot::getCipherText)
+                        .collect(Collectors.toList());
+                    
+                    // Get guardian data from key_backup field
+                    String availableGuardianDataJson;
+                    if (guardian.getKeyBackup() != null && !guardian.getKeyBackup().trim().isEmpty()) {
+                        availableGuardianDataJson = guardian.getKeyBackup();
+                    } else {
+                        availableGuardianDataJson = String.format(
+                            "{\"id\":\"%s\",\"sequence_order\":%d}",
+                            guardian.getSequenceOrder(),
+                            guardian.getSequenceOrder()
+                        );
+                    }
+                    
+                    String missingGuardianDataJson;
+                    if (otherGuardian.getKeyBackup() != null && !otherGuardian.getKeyBackup().trim().isEmpty()) {
+                        missingGuardianDataJson = otherGuardian.getKeyBackup();
+                    } else {
+                        missingGuardianDataJson = String.format(
+                            "{\"id\":\"%s\",\"sequence_order\":%d}",
+                            otherGuardian.getSequenceOrder(),
+                            otherGuardian.getSequenceOrder()
+                        );
+                    }
+                    
+                    // Call ElectionGuard service to generate compensated share with ALL required fields
+                    ElectionGuardCompensatedDecryptionRequest compensatedRequest = 
+                        ElectionGuardCompensatedDecryptionRequest.builder()
+                            .available_guardian_id(String.valueOf(guardian.getSequenceOrder()))
+                            .missing_guardian_id(String.valueOf(otherGuardian.getSequenceOrder()))
+                            .available_guardian_data(availableGuardianDataJson)
+                            .missing_guardian_data(missingGuardianDataJson)
+                            .available_private_key(decryptedPrivateKey)
+                            .available_public_key(guardian.getGuardianPublicKey())
+                            .available_polynomial(decryptedPolynomial)
+                            .party_names(partyNames)
+                            .candidate_names(candidateNames)
+                            .ciphertext_tally(electionCenter.getEncryptedTally())
+                            .submitted_ballots(ballotCipherTexts)
+                            .joint_public_key(election.getJointPublicKey())
+                            .commitment_hash(election.getBaseHash())
+                            .number_of_guardians(guardianRepository.findByElectionId(election.getElectionId()).size())
+                            .quorum(election.getElectionQuorum())
+                            .build();
+                    
+                    ElectionGuardCompensatedDecryptionResponse compensatedResponse = 
+                        callElectionGuardCompensatedDecryptionService(compensatedRequest);
+                    
+                    if (compensatedResponse == null || compensatedResponse.compensated_tally_share() == null) {
+                        System.err.println("Failed to get compensated decryption response from microservice");
+                        continue;
+                    }
+                    
+                    // Save compensated decryption
+                    CompensatedDecryption compensatedDecryption = CompensatedDecryption.builder()
+                        .electionCenterId(electionCenter.getElectionCenterId())
+                        .compensatingGuardianId(guardian.getGuardianId())
+                        .missingGuardianId(otherGuardian.getGuardianId())
+                        .compensatedTallyShare(compensatedResponse.compensated_tally_share())
+                        .compensatedBallotShare(compensatedResponse.compensated_ballot_shares())
+                        .build();
+                    
+                    compensatedDecryptionRepository.save(compensatedDecryption);
+                }
+                
+                System.out.println("✅ Compensated shares created for " + otherGuardian.getUserEmail());
+            }
+            
+            System.out.println("✅ PHASE 2 COMPLETED: Compensated shares for all " + processedGuardians + " guardians");
+            
+        } catch (Exception e) {
+            System.err.println("Error creating compensated shares: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 

@@ -584,6 +584,78 @@ public class ElectionController {
         }
     }
 
+    /**
+     * Initiate guardian decryption process (async, returns immediately)
+     */
+    @PostMapping(value = "/guardian/initiate-decryption", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<CreatePartialDecryptionResponse> initiateDecryption(
+            @Valid @RequestBody CreatePartialDecryptionRequest request,
+            HttpServletRequest httpRequest) {
+
+        // Get user email from request attributes (set by JWTFilter)
+        String userEmail = (String) httpRequest.getAttribute("userEmail");
+        System.out.println("Initiating decryption for election ID: " + request.election_id() + " by user: " + userEmail);
+
+        // Alternative: Get user email from Spring Security context
+        if (userEmail == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+        }
+
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(CreatePartialDecryptionResponse.builder()
+                            .success(false)
+                            .message("User authentication required")
+                            .build());
+        }
+
+        try {
+            CreatePartialDecryptionResponse response = partialDecryptionService.initiateDecryption(request, userEmail);
+
+            if (response.success()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        } catch (Exception e) {
+            System.err.println("Error initiating decryption: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(CreatePartialDecryptionResponse.builder()
+                            .success(false)
+                            .message("Internal server error occurred: " + e.getMessage())
+                            .build());
+        }
+    }
+
+    /**
+     * Get decryption status for a guardian
+     */
+    @GetMapping("/guardian/decryption-status/{electionId}/{guardianId}")
+    public ResponseEntity<?> getDecryptionStatus(
+            @PathVariable Long electionId,
+            @PathVariable Long guardianId) {
+
+        System.out.println("Getting decryption status for election: " + electionId + ", guardian: " + guardianId);
+
+        try {
+            com.amarvote.amarvote.dto.DecryptionStatusResponse response = 
+                partialDecryptionService.getDecryptionStatus(electionId, guardianId);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("Error getting decryption status: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "success", false,
+                            "message", "Failed to get decryption status: " + e.getMessage()));
+        }
+    }
+
     @PostMapping(value = "/combine-partial-decryption", consumes = "application/json", produces = "application/json")
     public ResponseEntity<CombinePartialDecryptionResponse> combinePartialDecryption(
             @Valid @RequestBody CombinePartialDecryptionRequest request) {

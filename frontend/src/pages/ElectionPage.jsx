@@ -61,6 +61,7 @@ import GuardianDataDisplay from '../components/GuardianDataDisplay';
 import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
 import AnimatedResults from '../components/AnimatedResults';
 import TallyCreationModal from '../components/TallyCreationModal';
+import DecryptionProgressModal from '../components/DecryptionProgressModal';
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -1509,6 +1510,13 @@ export default function ElectionPage() {
   const [isTallyModalOpen, setIsTallyModalOpen] = useState(false);
   const [tallyStatus, setTallyStatus] = useState(null);
 
+  // Decryption progress state
+  const [isDecryptionModalOpen, setIsDecryptionModalOpen] = useState(false);
+  const [currentGuardianId, setCurrentGuardianId] = useState(null);
+  const [currentGuardianName, setCurrentGuardianName] = useState(null);
+  const [guardianDecryptionStatus, setGuardianDecryptionStatus] = useState(null);
+  const [isCheckingStatus, setIsCheckingStatus] = useState(false);
+
   // Load election data and optionally create tally
   useEffect(() => {
     const fetchElectionData = async () => {
@@ -1627,6 +1635,28 @@ export default function ElectionPage() {
       fetchElectionData();
     }
   }, [id]);
+
+  // Check decryption status when guardian tab becomes active
+  useEffect(() => {
+    const checkGuardianDecryptionStatus = async () => {
+      if (activeTab === 'guardian' && electionData?.guardians) {
+        const userEmail = localStorage.getItem('userEmail');
+        const userGuardian = electionData.guardians.find(g => g.userEmail === userEmail);
+        
+        if (userGuardian && userGuardian.decryptedOrNot) {
+          try {
+            const statusData = await electionApi.getDecryptionStatus(id, userGuardian.guardianId);
+            setGuardianDecryptionStatus(statusData);
+            console.log('Guardian decryption status loaded:', statusData.status);
+          } catch (err) {
+            console.log('No decryption status found (may be using old system):', err.message);
+          }
+        }
+      }
+    };
+
+    checkGuardianDecryptionStatus();
+  }, [activeTab, id, electionData?.guardians]);
 
   // Initialize bot detection on component mount
   useEffect(() => {
@@ -2225,6 +2255,28 @@ export default function ElectionPage() {
     }
   };
 
+  const handleCheckDecryptionStatus = async () => {
+    setIsCheckingStatus(true);
+    try {
+      const userGuardian = electionData?.guardians?.find(
+        g => g.userEmail === localStorage.getItem('userEmail')
+      );
+      
+      if (userGuardian) {
+        const statusData = await electionApi.getDecryptionStatus(id, userGuardian.guardianId);
+        setGuardianDecryptionStatus(statusData);
+        setCurrentGuardianId(userGuardian.guardianId);
+        setCurrentGuardianName(userGuardian.userEmail);
+        setIsDecryptionModalOpen(true);
+      }
+    } catch (err) {
+      toast.error('Failed to fetch decryption status');
+      console.error('Status check error:', err);
+    } finally {
+      setIsCheckingStatus(false);
+    }
+  };
+
   const handleGuardianKeySubmit = async (e) => {
     e.preventDefault();
     if (!guardianKey.trim()) return;
@@ -2234,22 +2286,80 @@ export default function ElectionPage() {
     setKeySubmissionResult(null);
 
     try {
-      const result = await electionApi.submitGuardianKey(id, guardianKey);
+      // Check if decryption is already in progress or completed
+      const userGuardian = electionData?.guardians?.find(
+        g => g.userEmail === localStorage.getItem('userEmail')
+      );
+      
+      if (userGuardian) {
+        try {
+          const statusData = await electionApi.getDecryptionStatus(id, userGuardian.guardianId);
+          setGuardianDecryptionStatus(statusData);
+          
+          if (statusData.status === 'in_progress') {
+            toast.info('Decryption is already in progress. Opening status monitor...');
+            setCurrentGuardianId(userGuardian.guardianId);
+            setCurrentGuardianName(userGuardian.userEmail);
+            setIsDecryptionModalOpen(true);
+            setIsSubmittingKey(false);
+            return;
+          }
+          
+          if (statusData.status === 'completed') {
+            toast.success('Decryption already completed successfully!');
+            setKeySubmissionResult({ success: true, message: 'Your credentials were previously verified and decryption is complete.' });
+            setIsSubmittingKey(false);
+            return;
+          }
+        } catch (statusErr) {
+          // Status doesn't exist yet, proceed with submission
+          console.log('No existing status, proceeding with submission');
+        }
+      }
+
+      // Use new async endpoint
+      const result = await electionApi.initiateDecryption(id, guardianKey);
 
       if (result.success) {
+        // Show immediate acknowledgment
+        toast.success('✅ Credentials received! Processing decryption...');
         setKeySubmissionResult(result);
+        
+        // Get guardian info from electionData to open modal
+        const userGuardian = electionData?.guardians?.find(
+          g => g.userEmail === localStorage.getItem('userEmail')
+        );
+        
+        if (userGuardian) {
+          setCurrentGuardianId(userGuardian.guardianId);
+          setCurrentGuardianName(userGuardian.userEmail);
+          // Automatically open progress modal
+          setIsDecryptionModalOpen(true);
+        }
+        
         setGuardianKey('');
 
-        // Refresh election data to update guardian status
-        const updatedData = await electionApi.getElectionById(id);
-        setElectionData(updatedData);
+        // Refresh election data periodically while decryption is in progress
+        // The modal will handle its own polling
       } else {
         setKeySubmissionError(result.message || 'Failed to submit guardian credentials');
+        toast.error(result.message || 'Failed to submit credentials');
       }
     } catch (err) {
       setKeySubmissionError(err.message || 'Failed to submit guardian credentials');
     } finally {
       setIsSubmittingKey(false);
+    }
+  };
+
+  const handleDecryptionModalClose = async () => {
+    setIsDecryptionModalOpen(false);
+    // Refresh election data to update guardian status
+    try {
+      const updatedData = await electionApi.getElectionById(id);
+      setElectionData(updatedData);
+    } catch (err) {
+      console.error('Failed to refresh election data:', err);
     }
   };
 
@@ -2495,6 +2605,15 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
         }}
         electionId={id}
         electionApi={electionApi}
+      />
+
+      {/* Decryption Progress Modal */}
+      <DecryptionProgressModal
+        isOpen={isDecryptionModalOpen}
+        onClose={handleDecryptionModalClose}
+        electionId={id}
+        guardianId={currentGuardianId}
+        guardianName={currentGuardianName}
       />
       
       {/* Header */}
@@ -3394,14 +3513,63 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                           Submit Your Guardian Credentials
                         </h4>
 
+                        {/* Check Status Button - Always visible if guardian has submitted */}
+                        {(() => {
+                          const userGuardian = electionData?.guardians?.find(
+                            g => g.userEmail === localStorage.getItem('userEmail')
+                          );
+                          
+                          if (userGuardian?.decryptedOrNot || guardianDecryptionStatus) {
+                            return (
+                              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-4">
+                                <div className="flex items-center justify-between">
+                                  <div className="flex items-center">
+                                    <FiRefreshCw className="h-5 w-5 text-blue-500 mr-2" />
+                                    <div>
+                                      <h5 className="font-medium text-blue-900">Decryption In Progress</h5>
+                                      <p className="text-sm text-blue-800 mt-1">
+                                        {guardianDecryptionStatus?.status === 'completed' 
+                                          ? 'Your decryption has been completed successfully!'
+                                          : guardianDecryptionStatus?.status === 'in_progress'
+                                          ? 'Your credentials are being processed...'
+                                          : guardianDecryptionStatus?.status === 'failed'
+                                          ? 'Decryption failed. You can submit new credentials.'
+                                          : 'Click below to check your decryption progress.'}
+                                      </p>
+                                    </div>
+                                  </div>
+                                  <button
+                                    onClick={handleCheckDecryptionStatus}
+                                    disabled={isCheckingStatus}
+                                    className="px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-medium transition-colors flex items-center space-x-2 disabled:bg-gray-400"
+                                  >
+                                    {isCheckingStatus ? (
+                                      <>
+                                        <FiLoader className="h-4 w-4 animate-spin" />
+                                        <span>Checking...</span>
+                                      </>
+                                    ) : (
+                                      <>
+                                        <FiEye className="h-4 w-4" />
+                                        <span>Check Progress</span>
+                                      </>
+                                    )}
+                                  </button>
+                                </div>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+
                         {keySubmissionResult && (
                           <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
                             <div className="flex items-center">
                               <FiCheckCircle className="h-5 w-5 text-green-500 mr-2" />
                               <div>
-                                <h5 className="font-medium text-green-900">Credentials Submitted Successfully</h5>
+                                <h5 className="font-medium text-green-900">Credentials Received!</h5>
                                 <p className="text-sm text-green-800 mt-1">
-                                  {keySubmissionResult.message || "Your credentials have been verified and partial decryption has been completed."}
+                                  {keySubmissionResult.message || "Your credentials have been received. Decryption processing has started. Use the 'Check Progress' button above to monitor status."}
                                 </p>
                               </div>
                             </div>
@@ -3443,23 +3611,52 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                           </div>
 
                           <div className="flex justify-center">
-                            <button
-                              type="submit"
-                              disabled={!guardianKey.trim() || isSubmittingKey}
-                              className={`px-6 py-2 rounded-lg font-medium text-white transition-colors ${!guardianKey.trim() || isSubmittingKey
-                                  ? 'bg-gray-400 cursor-not-allowed'
-                                  : 'bg-green-600 hover:bg-green-700'
-                                }`}
-                            >
-                              {isSubmittingKey ? (
-                                <div className="flex items-center space-x-2">
-                                  <FiLoader className="h-4 w-4 animate-spin" />
-                                  <span>Submitting...</span>
-                                </div>
-                              ) : (
-                                'Submit Guardian Credentials'
-                              )}
-                            </button>
+                            {(() => {
+                              const isCompleted = guardianDecryptionStatus?.status === 'completed';
+                              const isInProgress = guardianDecryptionStatus?.status === 'in_progress';
+                              const isFailed = guardianDecryptionStatus?.status === 'failed';
+                              const isDisabled = !guardianKey.trim() || isSubmittingKey || isCompleted || isInProgress;
+                              
+                              return (
+                                <button
+                                  type="submit"
+                                  disabled={isDisabled}
+                                  className={`px-6 py-2 rounded-lg font-medium text-white transition-colors ${
+                                    isCompleted
+                                      ? 'bg-green-500 cursor-not-allowed'
+                                      : isInProgress
+                                      ? 'bg-blue-500 cursor-not-allowed'
+                                      : isDisabled
+                                      ? 'bg-gray-400 cursor-not-allowed'
+                                      : 'bg-green-600 hover:bg-green-700'
+                                  }`}
+                                >
+                                  {isCompleted ? (
+                                    <div className="flex items-center space-x-2">
+                                      <FiCheckCircle className="h-4 w-4" />
+                                      <span>Decryption Completed</span>
+                                    </div>
+                                  ) : isInProgress ? (
+                                    <div className="flex items-center space-x-2">
+                                      <FiLoader className="h-4 w-4 animate-spin" />
+                                      <span>Processing... Check Progress Above</span>
+                                    </div>
+                                  ) : isSubmittingKey ? (
+                                    <div className="flex items-center space-x-2">
+                                      <FiLoader className="h-4 w-4 animate-spin" />
+                                      <span>Submitting...</span>
+                                    </div>
+                                  ) : isFailed ? (
+                                    <div className="flex items-center space-x-2">
+                                      <FiRefreshCw className="h-4 w-4" />
+                                      <span>Retry Submission</span>
+                                    </div>
+                                  ) : (
+                                    'Submit Guardian Credentials'
+                                  )}
+                                </button>
+                              );
+                            })()}
                           </div>
                         </form>
                       </div>

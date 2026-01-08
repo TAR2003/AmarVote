@@ -203,8 +203,38 @@ export const electionApi = {
     }
   },
 
+  /**   * Initiate guardian decryption process (new async endpoint)
+   */
+  async initiateDecryption(electionId, encryptedData) {
+    try {
+      return await apiRequest('/guardian/initiate-decryption', {
+        method: 'POST',
+        body: JSON.stringify({
+          election_id: electionId,
+          encrypted_data: encryptedData
+        }),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error initiating decryption:', error);
+      throw error;
+    }
+  },
+
   /**
-   * Create tally for an election (legacy endpoint, now uses async system)
+   * Get guardian decryption status
+   */
+  async getDecryptionStatus(electionId, guardianId) {
+    try {
+      return await apiRequest(`/guardian/decryption-status/${electionId}/${guardianId}`, {
+        method: 'GET',
+      });
+    } catch (error) {
+      console.error('Error getting decryption status:', error);
+      throw error;
+    }
+  },
+
+  /**   * Create tally for an election (legacy endpoint, now uses async system)
    */
   async createTally(electionId) {
     try {

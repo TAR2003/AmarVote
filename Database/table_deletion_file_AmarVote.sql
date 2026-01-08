@@ -59,6 +59,8 @@ DROP TABLE IF EXISTS allowed_voters CASCADE;
 DROP TABLE IF EXISTS election_center CASCADE;
 DROP TABLE IF EXISTS elections CASCADE;
 DROP TABLE IF EXISTS otp_verifications CASCADE;
+DROP TABLE IF EXISTS decryption_status CASCADE;
+DROP TABLE IF EXISTS tally_creation_status CASCADE;
 
 -- Step 3: Drop extensions (optional - comment out if shared with other apps)
 DROP EXTENSION IF EXISTS "pgcrypto" CASCADE;

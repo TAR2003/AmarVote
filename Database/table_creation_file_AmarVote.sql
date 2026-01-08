@@ -137,6 +137,97 @@ CREATE TABLE IF NOT EXISTS otp_verifications (
     is_used BOOLEAN NOT NULL DEFAULT FALSE
 );
 
+CREATE TABLE IF NOT EXISTS decryption_status (
+    decryption_status_id SERIAL PRIMARY KEY,
+
+    election_id BIGINT NOT NULL,
+    guardian_id BIGINT NOT NULL,
+
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    -- Status values: 'pending', 'in_progress', 'completed', 'failed'
+
+    -- Progress tracking
+    total_chunks INT NOT NULL DEFAULT 0,
+    processed_chunks INT NOT NULL DEFAULT 0,
+
+    -- Current processing phase
+    current_phase VARCHAR(100),
+    -- Phase values: 'partial_decryption', 'compensated_shares_generation'
+
+    -- Current chunk being processed
+    current_chunk_number INT DEFAULT 0,
+
+    -- Compensated guardian tracking
+    compensating_for_guardian_id BIGINT,
+    compensating_for_guardian_name VARCHAR(255),
+    total_compensated_guardians INT DEFAULT 0,
+    processed_compensated_guardians INT DEFAULT 0,
+
+    -- Metadata
+    guardian_email VARCHAR(255),
+    guardian_name VARCHAR(255),
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    error_message TEXT,
+
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT unique_election_guardian
+        UNIQUE (election_id, guardian_id),
+
+    CONSTRAINT fk_decryption_election
+        FOREIGN KEY (election_id)
+        REFERENCES elections(election_id)
+        ON DELETE CASCADE,
+
+    CONSTRAINT fk_decryption_guardian
+        FOREIGN KEY (guardian_id)
+        REFERENCES guardians(guardian_id)
+        ON DELETE CASCADE
+);
+
+CREATE TABLE IF NOT EXISTS tally_creation_status (
+    tally_status_id SERIAL PRIMARY KEY,
+
+    election_id BIGINT NOT NULL,
+
+    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    -- 'pending', 'in_progress', 'completed', 'failed'
+
+    total_chunks INT NOT NULL DEFAULT 0,
+    processed_chunks INT NOT NULL DEFAULT 0,
+
+    created_by VARCHAR(255) NOT NULL,
+    -- Email of user who initiated tally creation
+
+    started_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    completed_at TIMESTAMP,
+    error_message TEXT,
+
+    CONSTRAINT unique_election_tally
+        UNIQUE (election_id),
+
+    CONSTRAINT fk_tally_election
+        FOREIGN KEY (election_id)
+        REFERENCES elections(election_id)
+        ON DELETE CASCADE
+);
+
+
+
+CREATE INDEX idx_decryption_election_status
+    ON decryption_status (election_id, status);
+
+CREATE INDEX idx_decryption_guardian_status
+    ON decryption_status (guardian_id, status);
+
+CREATE INDEX idx_tally_election_status
+    ON tally_creation_status (election_id, status);
+
+
+
+
 -- OTP Verification table indexes
 CREATE INDEX IF NOT EXISTS idx_otp_email ON otp_verifications(user_email);
 CREATE INDEX IF NOT EXISTS idx_otp_email_code ON otp_verifications(user_email, otp_code);
