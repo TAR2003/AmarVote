@@ -1613,14 +1613,26 @@ export default function ElectionPage() {
           // If status is in_progress or pending, we should show the progress button
           if (statusData.status === 'in_progress' || statusData.status === 'pending') {
             console.log('⚠️ Guardian has ongoing decryption process');
+            setCurrentGuardianName(statusData.guardianEmail || statusData.guardianName || 'Guardian');
           }
         } catch (err) {
           console.log('No decryption status found or not a guardian:', err.message);
+          setGuardianDecryptionStatus(null);
         }
       }
     };
 
     checkGuardianDecryptionStatus();
+    
+    // Poll periodically if guardian tab is active to catch ongoing processes
+    let pollInterval;
+    if (activeTab === 'guardian') {
+      pollInterval = setInterval(checkGuardianDecryptionStatus, 5000); // Check every 5 seconds
+    }
+    
+    return () => {
+      if (pollInterval) clearInterval(pollInterval);
+    };
   }, [activeTab, id, electionData?.guardians]);
 
   // Initialize bot detection on component mount
@@ -2340,7 +2352,8 @@ export default function ElectionPage() {
         setGuardianDecryptionStatus(statusData);
         
         if (statusData.status === 'in_progress' || statusData.status === 'pending') {
-          toast.info('Decryption is already in progress. Opening status monitor...');
+          toast.info('⚠️ Decryption is already in progress! Opening progress monitor...');
+          setCurrentGuardianName(statusData.guardianEmail || statusData.guardianName || 'Guardian');
           setIsDecryptionModalOpen(true);
           setIsSubmittingKey(false);
           return;
@@ -2356,7 +2369,7 @@ export default function ElectionPage() {
         // If status is 'failed', allow resubmission by continuing the flow
         if (statusData.status === 'failed') {
           console.log('Previous submission failed, allowing retry...');
-          toast.info('Retrying with new credentials...');
+          toast.info('⚠️ Previous attempt failed. Retrying with new credentials...');
         }
       } catch (statusErr) {
         // Status doesn't exist yet, proceed with submission
@@ -2370,12 +2383,21 @@ export default function ElectionPage() {
 
       if (result.success) {
         // Show immediate acknowledgment
-        toast.success('✅ Credentials received! Processing decryption...');
+        toast.success('✅ Credentials received! Opening progress monitor...');
         setKeySubmissionResult(result);
+        
+        // Fetch status immediately to populate modal
+        try {
+          const statusData = await electionApi.getDecryptionStatus(id);
+          setGuardianDecryptionStatus(statusData);
+          setCurrentGuardianName(statusData.guardianEmail || result.guardianEmail || 'Guardian');
+        } catch (err) {
+          console.log('Could not fetch initial status, modal will poll:', err);
+          setCurrentGuardianName(result.guardianEmail || 'Guardian');
+        }
         
         // Open modal immediately
         console.log('Opening decryption modal');
-        setCurrentGuardianName(result.guardianEmail || 'Guardian');
         setIsDecryptionModalOpen(true);
         
         setGuardianKey('');
@@ -3557,6 +3579,31 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                     </p>
                   </div>
                 </div>
+
+                {/* Active Decryption Process Banner */}
+                {guardianDecryptionStatus && 
+                 (guardianDecryptionStatus.status === 'in_progress' || guardianDecryptionStatus.status === 'pending') && (
+                  <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg p-4 shadow-lg animate-pulse">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center space-x-3">
+                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                        <div>
+                          <p className="font-bold text-lg">🔄 Your Decryption is in Progress</p>
+                          <p className="text-sm text-blue-100">
+                            Processing your guardian credentials... Click below to view real-time progress
+                          </p>
+                        </div>
+                      </div>
+                      <button
+                        onClick={() => setIsDecryptionModalOpen(true)}
+                        className="px-6 py-3 bg-white text-blue-600 rounded-lg font-bold hover:bg-blue-50 transition-all shadow-md flex items-center space-x-2"
+                      >
+                        <FiEye className="h-5 w-5" />
+                        <span>View Progress</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
 
                 {/* Key Submission Form */}
                 {(() => {

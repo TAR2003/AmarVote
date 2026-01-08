@@ -16,7 +16,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
   useEffect(() => {
     if (isOpen && electionId) {
       console.log('Modal is open, starting to poll status...');
-      // Start polling for status
+      // Start polling for status immediately
       pollStatus();
       const interval = setInterval(pollStatus, 2000); // Poll every 2 seconds
 
@@ -24,6 +24,10 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
         console.log('Stopping polling...');
         clearInterval(interval);
       };
+    } else if (!isOpen) {
+      // Reset status when modal closes
+      setStatus(null);
+      setError(null);
     }
   }, [isOpen, electionId]);
 
