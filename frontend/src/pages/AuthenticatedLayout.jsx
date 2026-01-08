@@ -244,9 +244,9 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               </Link>
             </div>
 
-            {/* Search Bar */}
-            <div className="flex-1 flex items-center justify-center px-4 lg:ml-6 lg:justify-end">
-              <div className="max-w-lg w-full lg:max-w-xs relative" ref={searchRef}>
+            {/* Search Bar - Desktop Only */}
+            <div className="hidden lg:flex flex-1 items-center justify-center px-4 lg:ml-6 lg:justify-end">
+              <div className="max-w-lg w-full lg:max-w-xs relative" style={{minWidth: '250px'}} ref={searchRef}>
                 <form onSubmit={handleSearchSubmit} className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <FiSearch className="h-5 w-5 text-gray-400" />
@@ -338,23 +338,17 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
             {/* User menu */}
             <div className="ml-4 flex items-center space-x-3">
-              {/* Profile Section */}
-              <Link
-                to="/profile"
-                className="flex items-center space-x-3 p-2 rounded-2xl hover:bg-gray-100/80 transition-all duration-300 group"
-              >
+              {/* User Email Display */}
+              <div className="flex items-center space-x-3 p-2 rounded-2xl bg-gray-50/80">
                 <div className="hidden sm:flex flex-col items-end">
-                  <span className="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-                    {userEmail?.split('@')[0] || 'User'}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    View Profile
+                  <span className="text-sm font-medium text-gray-700">
+                    {userEmail || 'User'}
                   </span>
                 </div>
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl flex items-center justify-center shadow-sm group-hover:shadow-md transition-all duration-300">
+                <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl flex items-center justify-center shadow-sm">
                   <FiUser className="text-blue-600 h-5 w-5" />
                 </div>
-              </Link>
+              </div>
 
               {/* Logout Button */}
               <button
@@ -371,8 +365,9 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
       {/* Mobile menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden bg-white/95 backdrop-blur-lg shadow-xl border-b border-white/20">
-          <div className="px-4 pt-2 pb-4 space-y-2">
+        <div className="md:hidden fixed inset-0 z-50 bg-black bg-opacity-50" onClick={() => setMobileMenuOpen(false)}>
+          <div className="bg-white/95 backdrop-blur-lg shadow-xl border-b border-white/20 max-h-screen overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+            <div className="px-4 pt-2 pb-4 space-y-2">
             {/* Mobile Search Bar */}
             <div className="relative mb-4" ref={searchRef}>
               <form onSubmit={handleSearchSubmit} className="relative">
@@ -480,18 +475,6 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               <span>Create Election</span>
             </Link>
 
-            <Link
-              to="/profile"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium ${isActiveRoute('/profile')
-                  ? 'text-blue-700 bg-blue-50/80'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
-                }`}
-            >
-              <FiUser className="h-5 w-5" />
-              <span>Profile</span>
-            </Link>
-
             <button
               onClick={() => {
                 handleLogout();
@@ -502,6 +485,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               <FiLogOut className="h-5 w-5" />
               <span>Logout</span>
             </button>
+            </div>
           </div>
         </div>
       )}

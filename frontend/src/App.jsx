@@ -12,7 +12,6 @@ import Hello from "./pages/Hello";
 import Home from "./pages/Home";
 import HowItWorks from "./pages/HowItWorks";
 import AuthenticatedLayout from "./pages/AuthenticatedLayout";
-import Profile from "./pages/Profile";
 import CreateElection from "./pages/CreateElection";
 import ElectionPage from "./pages/ElectionPage";
 import AllElections from "./pages/AllElections";
@@ -91,7 +90,6 @@ function App() {
             />
           }
         >
-          <Route path="/profile" element={<Profile />} />
           <Route
             path="/dashboard"
             element={<Dashboard userEmail={userEmail} setUserEmail={setUserEmail} />}
