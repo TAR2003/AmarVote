@@ -17,6 +17,7 @@ import org.springframework.web.reactive.function.client.WebClient;
 
 import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionResponse;
+import com.amarvote.amarvote.dto.CombineStatusResponse;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionResponse;
 import com.amarvote.amarvote.dto.DecryptionStatusResponse;
@@ -26,6 +27,7 @@ import com.amarvote.amarvote.dto.ElectionGuardCompensatedDecryptionRequest;
 import com.amarvote.amarvote.dto.ElectionGuardCompensatedDecryptionResponse;
 import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionRequest;
 import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionResponse;
+import com.amarvote.amarvote.model.CombineStatus;
 import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Decryption;
 import com.amarvote.amarvote.model.DecryptionStatus;
@@ -34,6 +36,7 @@ import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.model.SubmittedBallot;
+import com.amarvote.amarvote.repository.CombineStatusRepository;
 import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionStatusRepository;
@@ -58,12 +61,16 @@ public class PartialDecryptionService {
     private final CompensatedDecryptionRepository compensatedDecryptionRepository;
     private final ElectionCenterRepository electionCenterRepository;
     private final DecryptionRepository decryptionRepository;
+    private final CombineStatusRepository combineStatusRepository;
     private final DecryptionStatusRepository decryptionStatusRepository;
     private final ObjectMapper objectMapper;
     private final ElectionGuardCryptoService cryptoService;
     
     // Concurrent lock to prevent multiple decryption processes for same guardian
     private final ConcurrentHashMap<String, Boolean> decryptionLocks = new ConcurrentHashMap<>();
+    
+    // Concurrent lock to prevent multiple combine processes for same election
+    private final ConcurrentHashMap<Long, Boolean> combineLocks = new ConcurrentHashMap<>();
     
     @Autowired
     private WebClient webClient;
@@ -791,6 +798,194 @@ public class PartialDecryptionService {
         }
     }
 
+    /**
+     * Initiate async combine partial decryption process
+     */
+    public CombinePartialDecryptionResponse initiateCombine(Long electionId, String userEmail) {
+        try {
+            // 1. Check if combine already exists or is in progress
+            Optional<CombineStatus> existingStatus = combineStatusRepository.findByElectionId(electionId);
+            
+            if (existingStatus.isPresent()) {
+                CombineStatus status = existingStatus.get();
+                
+                if ("in_progress".equals(status.getStatus())) {
+                    System.out.println("⚠️ Combine already in progress for election " + electionId);
+                    return CombinePartialDecryptionResponse.builder()
+                        .success(true)
+                        .message("Combine is already in progress")
+                        .build();
+                }
+                
+                if ("completed".equals(status.getStatus())) {
+                    System.out.println("✅ Combine already completed for election " + electionId);
+                    return CombinePartialDecryptionResponse.builder()
+                        .success(true)
+                        .message("Combine already completed for this election")
+                        .build();
+                }
+            }
+            
+            // 2. Try to acquire lock
+            Boolean lockAcquired = combineLocks.putIfAbsent(electionId, true);
+            if (lockAcquired != null) {
+                System.out.println("⚠️ Another combine process is already running for this election");
+                return CombinePartialDecryptionResponse.builder()
+                    .success(true)
+                    .message("Combine is already in progress")
+                    .build();
+            }
+            
+            try {
+                // 3. Get election centers to determine total chunks
+                List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
+                if (electionCenters == null || electionCenters.isEmpty()) {
+                    combineLocks.remove(electionId);
+                    return CombinePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("No election centers found. Please create tally first.")
+                        .build();
+                }
+                
+                // 4. Create or update combine status
+                CombineStatus combineStatus = existingStatus.orElse(CombineStatus.builder()
+                    .electionId(electionId)
+                    .createdBy(userEmail)
+                    .totalChunks(electionCenters.size())
+                    .processedChunks(0)
+                    .startedAt(Instant.now())
+                    .build());
+                
+                combineStatus.setStatus("pending");
+                combineStatus.setStartedAt(Instant.now());
+                combineStatus.setTotalChunks(electionCenters.size());
+                combineStatus.setProcessedChunks(0);
+                combineStatus.setErrorMessage(null);
+                
+                combineStatusRepository.save(combineStatus);
+                
+                System.out.println("✅ Combine status created. Starting async processing...");
+                
+                // 5. Start async processing
+                processCombineAsync(electionId);
+                
+                return CombinePartialDecryptionResponse.builder()
+                    .success(true)
+                    .message("Combine process initiated. Processing in progress...")
+                    .build();
+                    
+            } catch (Exception e) {
+                // Release lock on error
+                combineLocks.remove(electionId);
+                throw e;
+            }
+            
+        } catch (Exception e) {
+            System.err.println("Error initiating combine: " + e.getMessage());
+            e.printStackTrace();
+            return CombinePartialDecryptionResponse.builder()
+                .success(false)
+                .message("Failed to initiate combine: " + e.getMessage())
+                .build();
+        }
+    }
+
+    /**
+     * Process combine asynchronously with progress updates
+     */
+    @Async
+    public void processCombineAsync(Long electionId) {
+        try {
+            System.out.println("=== ASYNC COMBINE STARTED ===");
+            System.out.println("Election ID: " + electionId);
+            
+            // Update status to in_progress
+            updateCombineStatus(electionId, "in_progress", 0, null);
+            
+            // Call the existing combine method
+            CombinePartialDecryptionRequest request = new CombinePartialDecryptionRequest(electionId);
+            CombinePartialDecryptionResponse response = combinePartialDecryption(request);
+            
+            if (response.success()) {
+                // Mark as completed
+                Optional<CombineStatus> statusOpt = combineStatusRepository.findByElectionId(electionId);
+                if (statusOpt.isPresent()) {
+                    CombineStatus status = statusOpt.get();
+                    updateCombineStatus(electionId, "completed", status.getTotalChunks(), Instant.now());
+                }
+                System.out.println("🎉 COMBINE PROCESS COMPLETED SUCCESSFULLY");
+            } else {
+                updateCombineStatus(electionId, "failed", 0, response.message());
+                System.err.println("❌ COMBINE PROCESS FAILED: " + response.message());
+            }
+            
+        } catch (Exception e) {
+            System.err.println("❌ Error in async combine: " + e.getMessage());
+            e.printStackTrace();
+            updateCombineStatus(electionId, "failed", 0, e.getMessage());
+        } finally {
+            // Release lock
+            combineLocks.remove(electionId);
+            System.out.println("🔓 Lock released for election " + electionId);
+        }
+    }
+
+    /**
+     * Update combine status in database
+     */
+    private void updateCombineStatus(Long electionId, String status, Integer processedChunks, Object completedAtOrError) {
+        try {
+            Optional<CombineStatus> statusOpt = combineStatusRepository.findByElectionId(electionId);
+            if (statusOpt.isPresent()) {
+                CombineStatus combineStatus = statusOpt.get();
+                combineStatus.setStatus(status);
+                
+                if (processedChunks != null) {
+                    combineStatus.setProcessedChunks(processedChunks);
+                }
+                
+                if (completedAtOrError instanceof Instant) {
+                    combineStatus.setCompletedAt((Instant) completedAtOrError);
+                } else if (completedAtOrError instanceof String) {
+                    combineStatus.setErrorMessage((String) completedAtOrError);
+                }
+                
+                combineStatusRepository.save(combineStatus);
+            }
+        } catch (Exception e) {
+            System.err.println("Failed to update combine status: " + e.getMessage());
+        }
+    }
+
+    /**
+     * Get current combine status for an election
+     */
+    public CombineStatusResponse getCombineStatus(Long electionId) {
+        Optional<CombineStatus> statusOpt = combineStatusRepository.findByElectionId(electionId);
+        
+        if (statusOpt.isEmpty()) {
+            return CombineStatusResponse.notFound();
+        }
+        
+        CombineStatus status = statusOpt.get();
+        double progressPercentage = status.getTotalChunks() > 0 
+            ? (status.getProcessedChunks() * 100.0) / status.getTotalChunks()
+            : 0.0;
+        
+        return CombineStatusResponse.builder()
+            .success(true)
+            .status(status.getStatus())
+            .message("Combine status retrieved successfully")
+            .totalChunks(status.getTotalChunks())
+            .processedChunks(status.getProcessedChunks())
+            .progressPercentage(progressPercentage)
+            .createdBy(status.getCreatedBy())
+            .startedAt(status.getStartedAt())
+            .completedAt(status.getCompletedAt())
+            .errorMessage(status.getErrorMessage())
+            .build();
+    }
+
     @Transactional
     public CombinePartialDecryptionResponse combinePartialDecryption(CombinePartialDecryptionRequest request) {
         try {
@@ -888,8 +1083,14 @@ public class PartialDecryptionService {
 
             // 7. ✅ PROCESS EACH CHUNK SEPARATELY
             // Loop through each election_center (chunk) and combine decryption shares for that chunk
+            int processedChunkCount = 0;
             for (ElectionCenter electionCenter : electionCenters) {
-                System.out.println("=== PROCESSING CHUNK " + electionCenter.getElectionCenterId() + " ===");
+                processedChunkCount++;
+                System.out.println("=== PROCESSING CHUNK " + processedChunkCount + "/" + electionCenters.size() 
+                    + " (election_center_id: " + electionCenter.getElectionCenterId() + ") ===");
+                
+                // Update progress
+                updateCombineStatus(request.election_id(), "in_progress", processedChunkCount - 1, null);
                 
                 // Get submitted ballots for THIS CHUNK ONLY
                 List<SubmittedBallot> chunkSubmittedBallots = submittedBallotRepository.findByElectionCenterId(electionCenter.getElectionCenterId());

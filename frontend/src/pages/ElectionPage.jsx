@@ -62,6 +62,7 @@ import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDis
 import AnimatedResults from '../components/AnimatedResults';
 import TallyCreationModal from '../components/TallyCreationModal';
 import DecryptionProgressModal from '../components/DecryptionProgressModal';
+import CombineProgressModal from '../components/CombineProgressModal';
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -1517,124 +1518,89 @@ export default function ElectionPage() {
   const [guardianDecryptionStatus, setGuardianDecryptionStatus] = useState(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
-  // Load election data and optionally create tally
-  useEffect(() => {
-    const fetchElectionData = async () => {
-      try {
-        setLoading(true);
-        const data = await electionApi.getElectionById(id);
-        if (data === null) {
-          setError('You are not authorized to view this election or the election does not exist.');
-        } else {
-          setElectionData(data);
-          // Check if user has already voted - this info is now handled through eligibilityData
+  // Combine progress state
+  const [isCombineModalOpen, setIsCombineModalOpen] = useState(false);
+  const [combineStatus, setCombineStatus] = useState(null);
 
-          // Auto-load results if election has ended and is decrypted
-          const electionStatus = getElectionStatusFromData(data);
-          if (electionStatus === 'Ended') {
-            const guardiansSubmitted = data.guardiansSubmitted || 0;
-            const electionQuorum = data.electionQuorum || data.totalGuardians || 0;
-            const quorumMet = guardiansSubmitted >= electionQuorum;
+  // Fetch election data function (moved outside useEffect for reusability)
+  const fetchElectionData = useCallback(async () => {
+    try {
+      setLoading(true);
+      const data = await electionApi.getElectionById(id);
+      if (data === null) {
+        setError('You are not authorized to view this election or the election does not exist.');
+      } else {
+        setElectionData(data);
+        // Check if user has already voted - this info is now handled through eligibilityData
 
-            // Check if results already exist (election status is 'decrypted')
-            if (data.status === 'decrypted') {
-              console.log('✅ Results already computed. Loading cached results...');
+        // Auto-load results if election has ended and is decrypted
+        const electionStatus = getElectionStatusFromData(data);
+        if (electionStatus === 'Ended') {
+          const guardiansSubmitted = data.guardiansSubmitted || 0;
+          const electionQuorum = data.electionQuorum || data.totalGuardians || 0;
+          const quorumMet = guardiansSubmitted >= electionQuorum;
+
+          // Check if results already exist (election status is 'decrypted')
+          if (data.status === 'decrypted') {
+            console.log('✅ Results already computed. Loading cached results...');
+            
+            // Fetch cached results from new endpoint
+            try {
+              const animatedResultsData = await electionApi.getElectionResults(id);
+              console.log('📦 [CACHED RESULTS] Raw data from backend:', {
+                success: animatedResultsData.success,
+                finalTallies: animatedResultsData.results?.finalTallies,
+                totalBallots: animatedResultsData.results?.total_ballots_cast,
+                chunksCount: animatedResultsData.results?.chunks?.length
+              });
               
-              // Fetch cached results from new endpoint
-              try {
-                const animatedResultsData = await electionApi.getElectionResults(id);
-                console.log('📦 [CACHED RESULTS] Raw data from backend:', {
-                  success: animatedResultsData.success,
-                  finalTallies: animatedResultsData.results?.finalTallies,
-                  totalBallots: animatedResultsData.results?.total_ballots_cast,
-                  chunksCount: animatedResultsData.results?.chunks?.length
-                });
+              if (animatedResultsData.success && animatedResultsData.results) {
+                console.log('✅ Loaded cached results with chunk breakdown');
+                setAnimatedResults(animatedResultsData);
                 
-                if (animatedResultsData.success && animatedResultsData.results) {
-                  console.log('✅ Loaded cached results with chunk breakdown');
-                  setAnimatedResults(animatedResultsData);
+                // Extract and properly format ballot data from cached results
+                if (animatedResultsData.results.allBallots && animatedResultsData.results.allBallots.length > 0) {
+                  // Build verification data structure to match expected format
+                  const cachedVerificationData = {
+                    verification: {
+                      ballots: animatedResultsData.results.allBallots
+                    },
+                    results: {
+                      finalTallies: animatedResultsData.results.finalTallies,
+                      total_ballots_cast: animatedResultsData.results.total_ballots_cast || animatedResultsData.results.allBallots.length,
+                      total_valid_ballots: animatedResultsData.results.total_valid_ballots || animatedResultsData.results.allBallots.length
+                    }
+                  };
+                  setRawVerificationData(cachedVerificationData);
                   
-                  // Extract and properly format ballot data from cached results
-                  if (animatedResultsData.results.allBallots && animatedResultsData.results.allBallots.length > 0) {
-                    // Build verification data structure to match expected format
-                    const cachedVerificationData = {
-                      verification: {
-                        ballots: animatedResultsData.results.allBallots
-                      },
-                      results: {
-                        finalTallies: animatedResultsData.results.finalTallies,
-                        total_ballots_cast: animatedResultsData.results.total_ballots_cast || animatedResultsData.results.allBallots.length,
-                        total_valid_ballots: animatedResultsData.results.total_valid_ballots || animatedResultsData.results.allBallots.length
-                      }
-                    };
-                    setRawVerificationData(cachedVerificationData);
-                    
-                    // Process and set results data for charts and statistics
-                    const processedResults = processElectionResults(cachedVerificationData);
-                    if (processedResults) {
-                      setResultsData(processedResults);
-                      console.log('✅ Results processed for charts:', processedResults);
-                    }
+                  // Process and set results data for charts and statistics
+                  const processedResults = processElectionResults(cachedVerificationData);
+                  if (processedResults) {
+                    setResultsData(processedResults);
+                    console.log('✅ Results processed for charts:', processedResults);
                   }
                 }
-              } catch (err) {
-                console.warn('Failed to load cached results:', err);
               }
-            } else if (quorumMet) {
-              console.log('🔄 Auto-combining decryptions on page load: Election ended and quorum met');
-              console.log(`Guardians status: ${guardiansSubmitted}/${electionQuorum} required have submitted keys`);
-
-              // Call combine partial decryptions to compute results for first time
-              try {
-                setCombiningDecryptions(true);
-                const response = await electionApi.combinePartialDecryptions(id);
-                console.log('Auto-combined partial decryptions successfully');
-
-                // After combining, immediately fetch cached results with full ballot data
-                try {
-                  const animatedResultsData = await electionApi.getElectionResults(id);
-                  if (animatedResultsData.success && animatedResultsData.results) {
-                    setAnimatedResults(animatedResultsData);
-                    
-                    // Build verification data structure from newly cached results
-                    if (animatedResultsData.results.allBallots && animatedResultsData.results.allBallots.length > 0) {
-                      const cachedVerificationData = {
-                        verification: {
-                          ballots: animatedResultsData.results.allBallots
-                        },
-                        results: {
-                          candidates: animatedResultsData.results.finalTallies
-                        }
-                      };
-                      setRawVerificationData(cachedVerificationData);
-                      console.log(`✅ Loaded ${animatedResultsData.results.allBallots.length} ballots after combining`);
-                    }
-                  }
-                } catch (err) {
-                  console.warn('Failed to fetch cached results after combining:', err);
-                }
-
-              } catch (combineErr) {
-                console.warn('Auto-combine decryptions failed during page load:', combineErr.message);
-              } finally {
-                setCombiningDecryptions(false);
-              }
-            } else {
-              console.log(`⏳ Quorum not yet met: ${guardiansSubmitted}/${electionQuorum} guardians have submitted keys`);
+            } catch (err) {
+              console.warn('Failed to load cached results:', err);
             }
           }
+          // NOTE: Auto-combine removed - users must manually click "Combine Partial Decryptions" button
         }
-      } catch (err) {
-        setError('Failed to load election data: ' + err.message);
-      } finally {
-        setLoading(false);
       }
-    };
+    } catch (err) {
+      setError('Failed to load election data: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }, [id]); // Removed processElectionResults from dependencies - it's stable and called directly
 
+  // Load election data and optionally create tally
+  useEffect(() => {
     if (id) {
       fetchElectionData();
     }
-  }, [id]);
+  }, [id, fetchElectionData]);
 
   // Check decryption status when guardian tab becomes active
   useEffect(() => {
@@ -1929,6 +1895,96 @@ export default function ElectionPage() {
       setCombiningDecryptions(false);
     }
   }, [id, processElectionResults]);
+
+  // Initiate combine partial decryptions (async with progress tracking)
+  const handleInitiateCombine = useCallback(async () => {
+    try {
+      console.log('Initiating combine for election:', id);
+      
+      // Open modal immediately to show user feedback
+      setIsCombineModalOpen(true);
+      
+      // Then start the backend process
+      const response = await electionApi.initiateCombine(id);
+      
+      if (response.success) {
+        toast.success('Combine process started!');
+      } else {
+        // If initiation failed, close modal and show error
+        setIsCombineModalOpen(false);
+        toast.error(response.message || 'Failed to initiate combine');
+      }
+    } catch (error) {
+      console.error('Error initiating combine:', error);
+      setIsCombineModalOpen(false);
+      toast.error('Failed to start combine process: ' + (error.message || 'Unknown error'));
+    }
+  }, [id]);
+
+  // Check combine status
+  const handleCheckCombineStatus = useCallback(async () => {
+    try {
+      const status = await electionApi.getCombineStatus(id);
+      setCombineStatus(status);
+      
+      if (status.status === 'completed') {
+        toast.success('Combine completed! Refreshing results...');
+        // Reload results after successful combine
+        fetchElectionData();
+      } else if (status.status === 'in_progress') {
+        toast('Combine in progress. Opening progress modal...', { icon: '🔄' });
+        setIsCombineModalOpen(true);
+      } else if (status.status === 'failed') {
+        toast.error('Combine failed: ' + (status.errorMessage || 'Unknown error'));
+      } else if (status.status === 'pending') {
+        toast('Combine is pending...', { icon: '⏳' });
+      } else {
+        toast('Combine status: ' + status.status);
+      }
+    } catch (error) {
+      console.error('Error checking combine status:', error);
+      toast.error('Failed to check combine status');
+    }
+  }, [id, fetchElectionData]);
+
+  // Handle combine completion from modal
+  const handleCombineComplete = useCallback(async () => {
+    console.log('Combine completed! Refreshing results...');
+    
+    // Close the modal first to prevent re-opening
+    setIsCombineModalOpen(false);
+    
+    toast.success('🎉 Election results successfully decrypted!', { duration: 5000 });
+    
+    // Reload election data to get updated results
+    await fetchElectionData();
+    
+    // Try to fetch cached results
+    try {
+      const animatedResultsData = await electionApi.getElectionResults(id);
+      if (animatedResultsData.success && animatedResultsData.results) {
+        setAnimatedResults(animatedResultsData);
+        
+        if (animatedResultsData.results.allBallots && animatedResultsData.results.allBallots.length > 0) {
+          const cachedVerificationData = {
+            verification: {
+              ballots: animatedResultsData.results.allBallots
+            },
+            results: {
+              finalTallies: animatedResultsData.results.finalTallies,
+              total_ballots_cast: animatedResultsData.results.allBallots.length,
+              total_valid_ballots: animatedResultsData.results.allBallots.length
+            }
+          };
+          setRawVerificationData(cachedVerificationData);
+          const processedResults = processElectionResults(cachedVerificationData);
+          setResultsData(processedResults);
+        }
+      }
+    } catch (err) {
+      console.warn('Failed to fetch cached results after combining:', err);
+    }
+  }, [id, fetchElectionData, processElectionResults]);
 
   const loadElectionResults = useCallback(async () => {
     setLoadingResults(true);
@@ -2614,6 +2670,14 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
         electionId={id}
         guardianId={currentGuardianId}
         guardianName={currentGuardianName}
+      />
+
+      {/* Combine Progress Modal */}
+      <CombineProgressModal
+        isOpen={isCombineModalOpen}
+        onClose={() => setIsCombineModalOpen(false)}
+        electionId={id}
+        onCombineComplete={handleCombineComplete}
       />
       
       {/* Header */}
@@ -3839,27 +3903,32 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                       )}
 
                       {needsDecryption && quorumMet && (
-                        <div className="text-center mb-6">
-                          <div className="space-x-4">
-                            <button
-                              onClick={combinePartialDecryptions}
-                              disabled={combiningDecryptions}
-                              className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-                            >
-                              {combiningDecryptions ? 'Combining...' : 'Combine Partial Decryptions'}
-                            </button>
-                            <button
-                              onClick={() => window.location.reload()}
-                              disabled={combiningDecryptions}
-                              className="bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 disabled:opacity-50 flex items-center"
-                            >
-                              <FiRefreshCw className="h-4 w-4 mr-2" />
-                              Refresh Status
-                            </button>
+                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
+                          <div className="text-center">
+                            <FiKey className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+                            <h4 className="font-medium text-blue-900 mb-2">Ready to Combine Decryptions</h4>
+                            <p className="text-sm text-blue-800 mb-4">
+                              ✅ Quorum met! {guardiansSubmitted} of {electionQuorum} required guardians have submitted their keys.
+                              Click below to combine and decrypt final results.
+                            </p>
+                            <div className="space-x-4">
+                              <button
+                                onClick={handleInitiateCombine}
+                                disabled={combiningDecryptions}
+                                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
+                              >
+                                {combiningDecryptions ? 'Combining...' : 'Combine Partial Decryptions'}
+                              </button>
+                              <button
+                                onClick={handleCheckCombineStatus}
+                                disabled={combiningDecryptions}
+                                className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors font-medium"
+                              >
+                                <FiRefreshCw className="inline h-4 w-4 mr-2" />
+                                Check Status
+                              </button>
+                            </div>
                           </div>
-                          <p className="text-sm text-gray-600 mt-2">
-                            ✅ Quorum met! {guardiansSubmitted} out of {electionQuorum} required guardians have submitted keys. Click "Combine Partial Decryptions" to decrypt results.
-                          </p>
                         </div>
                       )}
 

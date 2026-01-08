@@ -269,7 +269,7 @@ export const electionApi = {
   },
 
   /**
-   * Combine partial decryptions to get final results
+   * Combine partial decryptions to get final results (synchronous - deprecated)
    */
   async combinePartialDecryptions(electionId) {
     try {
@@ -281,6 +281,34 @@ export const electionApi = {
       }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error combining partial decryptions:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Initiate combine partial decryptions (new async endpoint)
+   */
+  async initiateCombine(electionId) {
+    try {
+      return await apiRequest(`/initiate-combine?electionId=${electionId}`, {
+        method: 'POST',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error initiating combine:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Get combine status for an election
+   */
+  async getCombineStatus(electionId) {
+    try {
+      return await apiRequest(`/combine-status/${electionId}`, {
+        method: 'GET',
+      });
+    } catch (error) {
+      console.error('Error getting combine status:', error);
       throw error;
     }
   },

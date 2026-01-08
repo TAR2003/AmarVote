@@ -28,6 +28,7 @@ import com.amarvote.amarvote.dto.CastBallotResponse;
 import com.amarvote.amarvote.dto.CastEncryptedBallotRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionResponse;
+import com.amarvote.amarvote.dto.CombineStatusResponse;
 import com.amarvote.amarvote.dto.CreateEncryptedBallotRequest;
 import com.amarvote.amarvote.dto.CreateEncryptedBallotResponse;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionRequest;
@@ -653,6 +654,65 @@ public class ElectionController {
                     .body(Map.of(
                             "success", false,
                             "message", "Failed to get decryption status: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Initiate async combine partial decryption process
+     */
+    @PostMapping(value = "/initiate-combine", produces = "application/json")
+    public ResponseEntity<CombinePartialDecryptionResponse> initiateCombine(
+            @RequestParam Long electionId) {
+
+        System.out.println("Initiating combine for election ID: " + electionId);
+
+        try {
+            // Extract user email from authentication context
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String userEmail = null;
+            
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+            
+            if (userEmail == null || userEmail.equals("anonymousUser")) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(CombinePartialDecryptionResponse.builder()
+                                .success(false)
+                                .message("User not authenticated")
+                                .build());
+            }
+            
+            CombinePartialDecryptionResponse response = partialDecryptionService.initiateCombine(electionId, userEmail);
+
+            if (response.success()) {
+                return ResponseEntity.ok(response);
+            } else {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+            }
+        } catch (Exception e) {
+            System.err.println("Error initiating combine: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(CombinePartialDecryptionResponse.builder()
+                            .success(false)
+                            .message("Internal server error occurred: " + e.getMessage())
+                            .build());
+        }
+    }
+
+    /**
+     * Get combine status for an election
+     */
+    @GetMapping("/combine-status/{electionId}")
+    public ResponseEntity<?> getCombineStatus(@PathVariable Long electionId) {
+        try {
+            CombineStatusResponse status = partialDecryptionService.getCombineStatus(electionId);
+            return ResponseEntity.ok(status);
+        } catch (Exception e) {
+            System.err.println("Error getting combine status: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false,
+                            "message", "Failed to get combine status: " + e.getMessage()));
         }
     }
 
