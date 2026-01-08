@@ -1616,40 +1616,42 @@ const VerifyVoteSection = ({ electionId, resultsData }) => {
 
   return (
     <div>
-      <div className="flex items-center justify-between mb-6">
-        <h3 className="text-lg font-semibold flex items-center">
-          <FiHash className="h-5 w-5 mr-2" />
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
+        <h3 className="text-base sm:text-lg font-semibold flex items-center">
+          <FiHash className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
           Verify Your Vote
         </h3>
 
-        <div className="flex space-x-2">
+        <div className="flex space-x-2 w-full sm:w-auto">
           <button
             onClick={() => setInputMethod('file')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${inputMethod === 'file'
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+              inputMethod === 'file'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
+            }`}
           >
             Upload File
           </button>
           <button
             onClick={() => setInputMethod('manual')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${inputMethod === 'manual'
+            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
+              inputMethod === 'manual'
                 ? 'bg-blue-600 text-white'
                 : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-              }`}
+            }`}
           >
             Manual Entry
           </button>
         </div>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
-        <div className="flex items-center">
-          <FiInfo className="h-5 w-5 text-blue-500 mr-2" />
+      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
+        <div className="flex items-start">
+          <FiInfo className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" />
           <div>
-            <h4 className="font-medium text-blue-900">How to Verify Your Vote</h4>
-            <p className="text-sm text-blue-800 mt-1">
+            <h4 className="font-medium text-blue-900 text-sm sm:text-base">How to Verify Your Vote</h4>
+            <p className="text-xs sm:text-sm text-blue-800 mt-1">
               Use either method below to verify that your vote was counted correctly in the final tally.
               You need both your tracking code and hash code from your vote receipt.
             </p>
@@ -1660,10 +1662,11 @@ const VerifyVoteSection = ({ electionId, resultsData }) => {
       {inputMethod === 'file' ? (
         /* File Upload Method */
         <div
-          className={`border-2 border-dashed rounded-lg p-8 text-center transition-colors mb-6 ${dragOver
+          className={`border-2 border-dashed rounded-lg p-4 sm:p-8 text-center transition-colors mb-4 sm:mb-6 ${
+            dragOver
               ? 'border-blue-400 bg-blue-50'
               : 'border-gray-300 hover:border-gray-400'
-            }`}
+          }`}
           onDragOver={(e) => {
             e.preventDefault();
             setDragOver(true);
@@ -1679,22 +1682,22 @@ const VerifyVoteSection = ({ electionId, resultsData }) => {
             id="verification-file"
           />
           <label htmlFor="verification-file" className="cursor-pointer">
-            <FiFileText className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-            <p className="text-lg font-medium text-gray-900 mb-2">
+            <FiFileText className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
+            <p className="text-base sm:text-lg font-medium text-gray-900 mb-1 sm:mb-2">
               Upload Your Vote Receipt
             </p>
-            <p className="text-gray-600 mb-4">
+            <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4 px-2">
               Drag and drop your vote receipt file here (.txt or .json), or click to browse
             </p>
-            <span className="inline-block px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors">
+            <span className="inline-block px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base">
               Choose File
             </span>
           </label>
         </div>
       ) : (
         /* Manual Input Method */
-        <div className="bg-white border rounded-lg p-6 mb-6">
-          <h4 className="font-medium text-gray-900 mb-4">Enter Verification Details</h4>
+        <div className="bg-white border rounded-lg p-4 sm:p-6 mb-4 sm:mb-6">
+          <h4 className="font-medium text-gray-900 mb-3 sm:mb-4 text-sm sm:text-base">Enter Verification Details</h4>
 
           <div className="space-y-4">
             <div>
@@ -2001,7 +2004,8 @@ export default function ElectionPage() {
                     results: {
                       finalTallies: animatedResultsData.results.finalTallies,
                       total_ballots_cast: animatedResultsData.results.total_ballots_cast || animatedResultsData.results.allBallots.length,
-                      total_valid_ballots: animatedResultsData.results.total_valid_ballots || animatedResultsData.results.allBallots.length
+                      total_valid_ballots: animatedResultsData.results.total_valid_ballots || animatedResultsData.results.allBallots.length,
+                      total_eligible_voters: data.voters?.length || 0
                     }
                   };
                   setRawVerificationData(cachedVerificationData);
@@ -2229,6 +2233,13 @@ export default function ElectionPage() {
           choice => choice.optionTitle === name
         );
         
+        console.log(`🔍 [Party Mapping] Candidate "${name}":`, {
+          found: !!candidateChoice,
+          partyName: candidateChoice?.partyName,
+          optionTitle: candidateChoice?.optionTitle,
+          availableChoices: electionData?.electionChoices?.map(c => ({ title: c.optionTitle, party: c.partyName }))
+        });
+        
         return {
           name: name,
           votes: votes,
@@ -2243,12 +2254,17 @@ export default function ElectionPage() {
                           dataToProcess.results?.total_ballots_cast || 
                           totalVotes;
 
+      // Use total_eligible_voters from API if available, otherwise fall back to electionData
+      const totalEligibleVoters = dataToProcess.results?.total_eligible_voters || 
+                                  electionData?.voters?.length || 
+                                  0;
+      
       return {
         totalVotes,
-        totalEligibleVoters: electionData?.voters?.length || 0,
+        totalEligibleVoters,
         totalVotedUsers: totalBallots,
-        turnoutRate: electionData?.voters?.length > 0 ?
-          ((totalBallots || 0) / electionData.voters.length * 100).toFixed(1) : 0,
+        turnoutRate: totalEligibleVoters > 0 ?
+          ((totalBallots || 0) / totalEligibleVoters * 100).toFixed(1) : 0,
         chartData,
         choices: chartData,
         // Include verification data
@@ -2314,7 +2330,8 @@ export default function ElectionPage() {
               results: {
                 finalTallies: animatedResultsData.results.finalTallies,
                 total_ballots_cast: animatedResultsData.results.allBallots.length,
-                total_valid_ballots: animatedResultsData.results.allBallots.length
+                total_valid_ballots: animatedResultsData.results.allBallots.length,
+                total_eligible_voters: electionData?.voters?.length || 0
               }
             };
             setRawVerificationData(cachedVerificationData);
@@ -2423,7 +2440,8 @@ export default function ElectionPage() {
             results: {
               finalTallies: animatedResultsData.results.finalTallies,
               total_ballots_cast: animatedResultsData.results.allBallots.length,
-              total_valid_ballots: animatedResultsData.results.allBallots.length
+              total_valid_ballots: animatedResultsData.results.allBallots.length,
+              total_eligible_voters: electionData?.voters?.length || 0
             }
           };
           setRawVerificationData(cachedVerificationData);
@@ -3136,20 +3154,20 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
       
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between items-center py-4">
-            <div>
-              <h1 className="text-2xl font-bold text-gray-900">{electionData.electionTitle}</h1>
-              <p className="text-sm text-gray-500">Election ID: {electionData.electionId}</p>
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
+            <div className="flex-1 min-w-0 w-full sm:w-auto">
+              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 truncate">{electionData.electionTitle}</h1>
+              <p className="text-xs sm:text-sm text-gray-500 truncate">Election ID: {electionData.electionId}</p>
             </div>
-            <div className="flex items-center space-x-4">
-              <span className={`px-3 py-1 rounded-full text-sm font-medium ${getStatusColor(getElectionStatus())}`}>
+            <div className="flex items-center gap-2 sm:gap-4 flex-wrap w-full sm:w-auto">
+              <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${getStatusColor(getElectionStatus())}`}>
                 {getElectionStatus()}
               </span>
-              <div className="flex items-center space-x-2 text-sm text-gray-600">
-                <FiUser className="h-4 w-4" />
-                <span>
-                  Your roles: {
+              <div className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm text-gray-600">
+                <FiUser className="h-3 w-3 sm:h-4 sm:w-4" />
+                <span className="truncate max-w-[150px] sm:max-w-none">
+                  {
                     (() => {
                       const roles = [...(electionData.userRoles || [])];
                       // Add voting eligibility info based on new eligibility field
@@ -3172,21 +3190,23 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
       {/* Navigation Tabs */}
       <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <nav className="flex space-x-8 overflow-x-auto">
+        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
+          <nav className="flex space-x-2 sm:space-x-4 md:space-x-8 overflow-x-auto scrollbar-hide pb-px">
             {subMenus.map((menu) => {
               const Icon = menu.icon;
               return (
                 <button
                   key={menu.key}
                   onClick={() => handleTabClick(menu.key)}
-                  className={`flex items-center space-x-2 py-4 px-1 border-b-2 font-medium text-sm whitespace-nowrap ${activeTab === menu.key
+                  className={`flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-colors ${
+                    activeTab === menu.key
                       ? 'border-blue-500 text-blue-600'
                       : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                    }`}
+                  }`}
                 >
-                  <Icon className="h-4 w-4" />
-                  <span>{menu.name}</span>
+                  <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
+                  <span className="hidden xs:inline sm:inline">{menu.name}</span>
+                  <span className="inline xs:hidden sm:hidden">{menu.name.split(' ')[0]}</span>
                 </button>
               );
             })}
@@ -3195,7 +3215,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
       </div>
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
         {/* Election Info Tab */}
         {activeTab === 'info' && (
           <div className="space-y-6">
@@ -3207,12 +3227,12 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
             />
 
             {/* Election Details Card */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4 flex items-center">
-                <FiInfo className="h-5 w-5 mr-2" />
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
+                <FiInfo className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                 Election Details
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2">Basic Information</h4>
                   <div className="space-y-2 text-sm">
@@ -3236,50 +3256,50 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
             </div>
 
             {/* Election Statistics */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-              <div className="bg-white rounded-lg shadow p-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                 <div className="flex items-center">
-                  <FiUsers className="h-8 w-8 text-blue-500" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Total Voters</p>
-                    <p className="text-2xl font-semibold text-gray-900">{electionData.voters?.length || 0}</p>
+                  <FiUsers className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500" />
+                  <div className="ml-3 sm:ml-4">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600">Total Voters</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{electionData.voters?.length || 0}</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                 <div className="flex items-center">
-                  <FiShield className="h-8 w-8 text-green-500" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Guardians</p>
-                    <p className="text-2xl font-semibold text-gray-900">{electionData.guardians?.length || 0}</p>
+                  <FiShield className="h-6 w-6 sm:h-8 sm:w-8 text-green-500" />
+                  <div className="ml-3 sm:ml-4">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600">Guardians</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{electionData.guardians?.length || 0}</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow p-6">
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                 <div className="flex items-center">
-                  <FiCheckCircle className="h-8 w-8 text-purple-500" />
-                  <div className="ml-4">
-                    <p className="text-sm font-medium text-gray-600">Candidates</p>
-                    <p className="text-2xl font-semibold text-gray-900">{electionData.electionChoices?.length || 0}</p>
+                  <FiCheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500" />
+                  <div className="ml-3 sm:ml-4">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600">Candidates</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{electionData.electionChoices?.length || 0}</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Candidates */}
-            <div className="bg-white rounded-lg shadow p-6">
-              <h3 className="text-lg font-semibold mb-4">Candidates</h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Candidates</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {electionData.electionChoices?.map((choice) => (
-                  <div key={choice.choiceId} className="border rounded-lg p-4">
-                    <div className="flex items-center space-x-3">
+                  <div key={choice.choiceId} className="border rounded-lg p-3 sm:p-4">
+                    <div className="flex items-center space-x-2 sm:space-x-3">
                       {choice.candidatePic && (
-                        <img src={choice.candidatePic} alt={choice.optionTitle} className="h-12 w-12 rounded-full object-cover" />
+                        <img src={choice.candidatePic} alt={choice.optionTitle} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover flex-shrink-0" />
                       )}
-                      <div>
-                        <h4 className="font-medium text-gray-900">{choice.optionTitle}</h4>
-                        <p className="text-sm text-gray-600">{choice.partyName}</p>
-                        <p className="text-sm text-gray-500">{choice.optionDescription}</p>
+                      <div className="min-w-0 flex-1">
+                        <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">{choice.optionTitle}</h4>
+                        <p className="text-xs sm:text-sm text-gray-600 truncate">{choice.partyName}</p>
+                        <p className="text-xs sm:text-sm text-gray-500 line-clamp-2">{choice.optionDescription}</p>
                       </div>
                     </div>
                   </div>
@@ -3291,9 +3311,9 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
         {/* Voting Booth Tab */}
         {activeTab === 'voting' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <FiCheckCircle className="h-5 w-5 mr-2" />
+          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
+              <FiCheckCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Voting Booth
             </h3>
 
@@ -3802,21 +3822,21 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
         {/* Vote Confirmation Modal */}
         {showConfirmModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <div className="flex justify-between items-center mb-4">
-                <h3 className="text-lg font-semibold text-gray-900">Confirm Your Vote</h3>
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+              <div className="flex justify-between items-center mb-3 sm:mb-4">
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Confirm Your Vote</h3>
                 <button
                   onClick={() => setShowConfirmModal(false)}
                   disabled={isSubmitting}
                   className="text-gray-400 hover:text-gray-600"
                 >
-                  <FiX className="h-6 w-6" />
+                  <FiX className="h-5 w-5 sm:h-6 sm:w-6" />
                 </button>
               </div>
 
-              <div className="mb-6">
-                <p className="text-sm text-gray-600 mb-4">
+              <div className="mb-4 sm:mb-6">
+                <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
                   You are about to cast your vote for:
                 </p>
                 {(() => {
@@ -3824,19 +3844,19 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                     choice => choice.choiceId.toString() === selectedCandidate
                   );
                   return (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                      <div className="flex items-center space-x-3">
+                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
+                      <div className="flex items-center space-x-2 sm:space-x-3">
                         {selectedChoice?.candidatePic && (
                           <img
                             src={selectedChoice.candidatePic}
                             alt={selectedChoice.optionTitle}
-                            className="h-10 w-10 rounded-full object-cover"
+                            className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover flex-shrink-0"
                           />
                         )}
-                        <div>
-                          <p className="font-medium text-blue-900">{selectedChoice?.optionTitle}</p>
+                        <div className="min-w-0">
+                          <p className="font-medium text-blue-900 text-sm sm:text-base">{selectedChoice?.optionTitle}</p>
                           {selectedChoice?.partyName && (
-                            <p className="text-sm text-blue-700">{selectedChoice.partyName}</p>
+                            <p className="text-xs sm:text-sm text-blue-700">{selectedChoice.partyName}</p>
                           )}
                         </div>
                       </div>
@@ -3844,29 +3864,29 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                   );
                 })()}
 
-                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-sm text-yellow-800">
+                <div className="mt-3 sm:mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                  <p className="text-xs sm:text-sm text-yellow-800">
                     <strong>Warning:</strong> This action cannot be undone. You will not be able to change your vote after submission.
                   </p>
                 </div>
               </div>
 
-              <div className="flex space-x-3">
+              <div className="flex space-x-2 sm:space-x-3">
                 <button
                   onClick={() => setShowConfirmModal(false)}
                   disabled={isSubmitting}
-                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-3 sm:px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50 text-sm sm:text-base"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmVote}
                   disabled={isSubmitting}
-                  className="flex-1 bg-blue-600 text-white py-2 px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                  className="flex-1 bg-blue-600 text-white py-2 px-3 sm:px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm sm:text-base"
                 >
                   {isSubmitting ? (
                     <div className="flex items-center justify-center space-x-2">
-                      <FiLoader className="h-4 w-4 animate-spin" />
+                      <FiLoader className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                       <span>Submitting...</span>
                     </div>
                   ) : (
@@ -3880,24 +3900,24 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
         {/* Benaloh Challenge Modal */}
         {showChallengeModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-6">
-              <h3 className="text-lg font-semibold text-gray-900 mb-4 flex items-center">
-                <FiShield className="h-5 w-5 mr-2" />
+          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50">
+            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center">
+                <FiShield className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
                 Challenge Ballot Verification
               </h3>
               
-              <div className="mb-4">
-                <p className="text-sm text-gray-600 mb-4">
+              <div className="mb-3 sm:mb-4">
+                <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
                   Select the candidate you want to verify against your encrypted ballot. 
                   This will check if your ballot was encrypted with the correct choice.
                 </p>
                 
-                <div className="space-y-3">
+                <div className="space-y-2 sm:space-y-3">
                   {electionData && electionData.electionChoices && electionData.electionChoices.map((choice) => (
                     <div 
                       key={choice.choiceId} 
-                      className={`flex items-center p-3 border-2 rounded-lg cursor-pointer transition-all ${
+                      className={`flex items-center p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all ${
                         challengeCandidateChoice === choice.choiceId.toString()
                           ? 'border-blue-500 bg-blue-50'
                           : 'border-gray-200 hover:border-gray-300'
@@ -3910,20 +3930,20 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                         value={choice.choiceId.toString()}
                         checked={challengeCandidateChoice === choice.choiceId.toString()}
                         onChange={(e) => setChallengeCandidateChoice(e.target.value)}
-                        className="mr-3"
+                        className="mr-2 sm:mr-3"
                       />
-                      <div className="flex-1">
-                        <div className="font-medium text-gray-900">{choice.optionTitle}</div>
-                        <div className="text-sm text-gray-500">{choice.partyName}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{choice.optionTitle}</div>
+                        <div className="text-xs sm:text-sm text-gray-500 truncate">{choice.partyName}</div>
                       </div>
                     </div>
                   ))}
                 </div>
                 
-                <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+                <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <div className="flex items-start">
-                    <FiAlertCircle className="h-4 w-4 text-yellow-600 mt-0.5 mr-2" />
-                    <div className="text-sm text-yellow-800">
+                    <FiAlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
+                    <div className="text-xs sm:text-sm text-yellow-800">
                       <strong>Important:</strong> After challenging your ballot, it cannot be cast. 
                       Challenge is only for verification purposes.
                     </div>
@@ -3931,21 +3951,21 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 </div>
               </div>
 
-              <div className="flex space-x-3">
+              <div className="flex space-x-2 sm:space-x-3">
                 <button
                   onClick={() => {
                     setShowChallengeModal(false);
                     setChallengeCandidateChoice('');
                   }}
                   disabled={isChallenging}
-                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50"
+                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-3 sm:px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50 text-sm sm:text-base"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleConfirmChallenge}
                   disabled={!challengeCandidateChoice || isChallenging}
-                  className={`flex-1 py-2 px-4 rounded-lg font-medium text-white transition-colors ${
+                  className={`flex-1 py-2 px-3 sm:px-4 rounded-lg font-medium text-white transition-colors text-sm sm:text-base ${
                     !challengeCandidateChoice || isChallenging
                       ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-orange-600 hover:bg-orange-700'
@@ -3953,7 +3973,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 >
                   {isChallenging ? (
                     <div className="flex items-center justify-center space-x-2">
-                      <FiLoader className="h-4 w-4 animate-spin" />
+                      <FiLoader className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
                       <span>Challenging...</span>
                     </div>
                   ) : (
@@ -3967,9 +3987,9 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
         {/* Guardian Keys Tab */}
         {activeTab === 'guardian' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <FiShield className="h-5 w-5 mr-2" />
+          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
+              <FiShield className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Guardian Credential Submission
             </h3>
             {!canUserManageGuardian() ? (
@@ -4356,9 +4376,9 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
         {/* Results Tab */}
         {activeTab === 'results' && (
-          <div className="bg-white rounded-lg shadow p-6">
-            <h3 className="text-lg font-semibold mb-4 flex items-center">
-              <FiTrendingUp className="h-5 w-5 mr-2" />
+          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
+              <FiTrendingUp className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Election Results
             </h3>
             {!canUserViewResults() ? (
@@ -4470,52 +4490,52 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                       )}
 
                       {/* Results Summary */}
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-                        <div className="p-4 bg-blue-50 rounded-lg text-center">
-                          <h4 className="font-medium text-blue-900 mb-2">Total Votes Cast</h4>
-                          <p className="text-2xl font-bold text-blue-800">{processedResults.totalVotes}</p>
+                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-6">
+                        <div className="p-3 sm:p-4 bg-blue-50 rounded-lg text-center">
+                          <h4 className="font-medium text-blue-900 mb-1 sm:mb-2 text-xs sm:text-sm">Total Votes Cast</h4>
+                          <p className="text-xl sm:text-2xl font-bold text-blue-800">{processedResults.totalVotes}</p>
                         </div>
-                        <div className="p-4 bg-green-50 rounded-lg text-center">
-                          <h4 className="font-medium text-green-900 mb-2">Eligible Voters</h4>
-                          <p className="text-2xl font-bold text-green-800">{processedResults.totalEligibleVoters}</p>
+                        <div className="p-3 sm:p-4 bg-green-50 rounded-lg text-center">
+                          <h4 className="font-medium text-green-900 mb-1 sm:mb-2 text-xs sm:text-sm">Eligible Voters</h4>
+                          <p className="text-xl sm:text-2xl font-bold text-green-800">{processedResults.totalEligibleVoters}</p>
                         </div>
-                        <div className="p-4 bg-purple-50 rounded-lg text-center">
-                          <h4 className="font-medium text-purple-900 mb-2">Voter Turnout</h4>
-                          <p className="text-2xl font-bold text-purple-800">{processedResults.turnoutRate}%</p>
+                        <div className="p-3 sm:p-4 bg-purple-50 rounded-lg text-center">
+                          <h4 className="font-medium text-purple-900 mb-1 sm:mb-2 text-xs sm:text-sm">Voter Turnout</h4>
+                          <p className="text-xl sm:text-2xl font-bold text-purple-800">{processedResults.turnoutRate}%</p>
                         </div>
-                        <div className="p-4 bg-orange-50 rounded-lg text-center">
-                          <h4 className="font-medium text-orange-900 mb-2">Total Candidates</h4>
-                          <p className="text-2xl font-bold text-orange-800">{processedResults.choices.length}</p>
+                        <div className="p-3 sm:p-4 bg-orange-50 rounded-lg text-center">
+                          <h4 className="font-medium text-orange-900 mb-1 sm:mb-2 text-xs sm:text-sm">Total Candidates</h4>
+                          <p className="text-xl sm:text-2xl font-bold text-orange-800">{processedResults.choices.length}</p>
                         </div>
                       </div>
 
                       {/* Download Options */}
-                      <div className="flex justify-center space-x-4 mb-6">
+                      <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mb-6">
                         <button
                           onClick={downloadResultsPDF}
-                          className="flex items-center space-x-2 bg-red-600 text-white px-4 py-2 rounded-lg hover:bg-red-700"
+                          className="flex items-center space-x-1 sm:space-x-2 bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 text-xs sm:text-sm"
                         >
-                          <FiDownload className="h-4 w-4" />
-                          <span>Download PDF</span>
+                          <FiDownload className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span>PDF</span>
                         </button>
                         <button
                           onClick={downloadResultsCSV}
-                          className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700"
+                          className="flex items-center space-x-1 sm:space-x-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 text-xs sm:text-sm"
                         >
-                          <FiDownload className="h-4 w-4" />
-                          <span>Download CSV</span>
+                          <FiDownload className="h-3 w-3 sm:h-4 sm:w-4" />
+                          <span>CSV</span>
                         </button>
                       </div>
 
                       {/* Charts */}
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6 mb-6">
                         {/* Bar Chart */}
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="font-medium text-gray-900 mb-4 flex items-center">
-                            <FiBarChart className="h-4 w-4 mr-2" />
-                            Vote Distribution (Bar Chart)
+                        <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                          <h4 className="font-medium text-gray-900 mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
+                            <FiBarChart className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                            Vote Distribution
                           </h4>
-                          <ResponsiveContainer width="100%" height={300}>
+                          <ResponsiveContainer width="100%" height={250}>
                             <BarChart data={processedResults.chartData}>
                               <CartesianGrid strokeDasharray="3 3" />
                               <XAxis dataKey="name" />
@@ -4528,12 +4548,12 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                         </div>
 
                         {/* Pie Chart */}
-                        <div className="bg-gray-50 rounded-lg p-4">
-                          <h4 className="font-medium text-gray-900 mb-4 flex items-center">
-                            <FiPieChart className="h-4 w-4 mr-2" />
-                            Vote Share (Pie Chart)
+                        <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                          <h4 className="font-medium text-gray-900 mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
+                            <FiPieChart className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
+                            Vote Share
                           </h4>
-                          <ResponsiveContainer width="100%" height={300}>
+                          <ResponsiveContainer width="100%" height={250}>
                             <PieChart>
                               <Pie
                                 data={processedResults.chartData}
@@ -4556,10 +4576,10 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                       </div>
 
                       {/* Detailed Results Table */}
-                      <div className="bg-gray-50 rounded-lg p-4">
-                        <h4 className="font-medium text-gray-900 mb-4">Detailed Results</h4>
-                        <div className="overflow-x-auto">
-                          <table className="w-full border-collapse">
+                      <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
+                        <h4 className="font-medium text-gray-900 mb-3 sm:mb-4 text-sm sm:text-base">Detailed Results</h4>
+                        <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
+                          <table className="w-full border-collapse min-w-[500px]">
                             <thead>
                               <tr className="border-b-2 border-gray-300">
                                 <th className="text-left p-3 font-medium text-gray-900">Rank</th>
@@ -4613,22 +4633,22 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
         {/* Ballots in Tally Tab */}
         {activeTab === 'ballots' && (
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
             {!canUserViewVerification() ? (
-              <div className="text-center py-12">
-                <FiDatabase className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Ballots Not Available</h3>
-                <p className="text-gray-600 mb-4">
+              <div className="text-center py-8 sm:py-12 px-4">
+                <FiDatabase className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Ballots Not Available</h3>
+                <p className="text-sm sm:text-base text-gray-600 mb-4">
                   Ballot information will be available after the election results have been computed.
                 </p>
               </div>
             ) : loadingResults || combiningDecryptions ? (
-              <div className="text-center py-12">
-                <FiLoader className="h-16 w-16 text-blue-500 mx-auto mb-4 animate-spin" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">
+              <div className="text-center py-8 sm:py-12 px-4">
+                <FiLoader className="h-12 w-12 sm:h-16 sm:w-16 text-blue-500 mx-auto mb-4 animate-spin" />
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
                   {combiningDecryptions ? '🔄 Combining Decryptions' : 'Loading Ballot Data'}
                 </h3>
-                <p className="text-gray-600 mb-4">
+                <p className="text-sm sm:text-base text-gray-600 mb-4">
                   {combiningDecryptions
                     ? 'Combining guardian keys to retrieve ballot hashes and tracking codes...'
                     : 'Retrieving ballot information from the election results...'
@@ -4680,20 +4700,20 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
         {/* Verify Your Vote Tab */}
         {activeTab === 'verify' && (
-          <div className="bg-white rounded-lg shadow p-6">
+          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
             {!canUserViewVerification() ? (
-              <div className="text-center py-12">
-                <FiHash className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-lg font-semibold text-gray-900 mb-2">Vote Verification Not Available</h3>
-                <p className="text-gray-600 mb-4">
+              <div className="text-center py-8 sm:py-12 px-4">
+                <FiHash className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Vote Verification Not Available</h3>
+                <p className="text-sm sm:text-base text-gray-600 mb-4">
                   Vote verification will be available after the election results have been computed.
                 </p>
               </div>
             ) : combiningDecryptions ? (
-              <div className="text-center py-12">
-                <FiLoader className="h-16 w-16 text-blue-500 mx-auto mb-4 animate-spin" />
-                <h3 className="text-lg font-semibold text-blue-900 mb-2">🔄 Combining Decryptions</h3>
-                <p className="text-gray-600 mb-4">
+              <div className="text-center py-8 sm:py-12 px-4">
+                <FiLoader className="h-12 w-12 sm:h-16 sm:w-16 text-blue-500 mx-auto mb-4 animate-spin" />
+                <h3 className="text-base sm:text-lg font-semibold text-blue-900 mb-2">🔄 Combining Decryptions</h3>
+                <p className="text-sm sm:text-base text-gray-600 mb-4">
                   Combining guardian keys to enable vote verification...
                 </p>
               </div>
