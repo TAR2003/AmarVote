@@ -182,8 +182,8 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
       <header className="bg-white/95 backdrop-blur-lg shadow-lg border-b border-white/20 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between h-16 items-center">
-            {/* Mobile menu button */}
-            <div className="flex md:hidden">
+            {/* Mobile/Tablet menu button - Show when nav buttons are hidden */}
+            <div className="flex xl:hidden">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="inline-flex items-center justify-center p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
@@ -199,17 +199,17 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
             {/* Logo */}
             <div className="flex items-center">
               <Link to="/dashboard" className="flex-shrink-0 flex items-center group">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
-                  <span className="text-white text-xl font-bold">🗳️</span>
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
+                  <span className="text-white text-lg sm:text-xl font-bold">🗳️</span>
                 </div>
-                <span className="ml-3 text-xl font-bold bg-gradient-to-r from-gray-900 to-blue-800 bg-clip-text text-transparent hidden sm:block">
+                <span className="ml-2 sm:ml-3 text-base sm:text-xl font-bold bg-gradient-to-r from-gray-900 to-blue-800 bg-clip-text text-transparent hidden sm:block">
                   AmarVote
                 </span>
               </Link>
             </div>
 
-            {/* Desktop Navigation Menu */}
-            <div className="hidden md:flex items-center space-x-2">
+            {/* Desktop Navigation Menu - Hidden on medium, shown on xl and above */}
+            <div className="hidden xl:flex items-center space-x-2">
               <Link
                 to="/dashboard"
                 className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/dashboard')
@@ -244,9 +244,9 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               </Link>
             </div>
 
-            {/* Search Bar - Desktop Only */}
-            <div className="hidden lg:flex flex-1 items-center justify-center px-4 lg:ml-6 lg:justify-end">
-              <div className="max-w-lg w-full lg:max-w-xs relative" style={{minWidth: '250px'}} ref={searchRef}>
+            {/* Search Bar - Visible on md and above */}
+            <div className="hidden md:flex flex-1 items-center justify-center px-2 md:px-4 md:ml-6 md:justify-end">
+              <div className="max-w-lg w-full md:max-w-xs relative" style={{minWidth: '200px'}} ref={searchRef}>
                 <form onSubmit={handleSearchSubmit} className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <FiSearch className="h-5 w-5 text-gray-400" />
@@ -337,23 +337,21 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
             </div>
 
             {/* User menu */}
-            <div className="ml-4 flex items-center space-x-3">
+            <div className="ml-2 md:ml-4 flex items-center space-x-2 md:space-x-3">
               {/* User Email Display */}
-              <div className="flex items-center space-x-3 p-2 rounded-2xl bg-gray-50/80">
-                <div className="hidden sm:flex flex-col items-end">
-                  <span className="text-sm font-medium text-gray-700">
-                    {userEmail || 'User'}
-                  </span>
+              <div className="flex flex-col items-center p-2 rounded-2xl bg-gray-50/80">
+                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl flex items-center justify-center shadow-sm">
+                  <FiUser className="text-blue-600 h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl flex items-center justify-center shadow-sm">
-                  <FiUser className="text-blue-600 h-5 w-5" />
-                </div>
+                <span className="text-xs sm:text-sm font-medium text-gray-700 mt-1 max-w-[120px] truncate">
+                  {userEmail || 'User'}
+                </span>
               </div>
 
               {/* Logout Button */}
               <button
                 onClick={handleLogout}
-                className="flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50/80 transition-all duration-300 shadow-sm hover:shadow-md"
+                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 rounded-2xl text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50/80 transition-all duration-300 shadow-sm hover:shadow-md"
               >
                 <FiLogOut className="h-4 w-4" />
                 <span className="hidden sm:block">Logout</span>
@@ -363,13 +361,13 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
         </div>
       </header>
 
-      {/* Mobile menu */}
+      {/* Mobile/Tablet menu */}
       {mobileMenuOpen && (
-        <div className="md:hidden fixed inset-0 z-50 bg-black bg-opacity-50" onClick={() => setMobileMenuOpen(false)}>
+        <div className="xl:hidden fixed inset-0 z-50 bg-black bg-opacity-50" onClick={() => setMobileMenuOpen(false)}>
           <div className="bg-white/95 backdrop-blur-lg shadow-xl border-b border-white/20 max-h-screen overflow-y-auto" onClick={(e) => e.stopPropagation()}>
             <div className="px-4 pt-2 pb-4 space-y-2">
-            {/* Mobile Search Bar */}
-            <div className="relative mb-4" ref={searchRef}>
+            {/* Mobile Search Bar - Only visible on small screens */}
+            <div className="relative mb-4 md:hidden">
               <form onSubmit={handleSearchSubmit} className="relative">
                 <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                   <FiSearch className="h-5 w-5 text-gray-400" />
