@@ -48,7 +48,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
   };
 
   if (!isOpen) {
-    console.log('Modal is closed, not rendering');
+    // console.log('Modal is closed, not rendering');
     return null;
   }
 
