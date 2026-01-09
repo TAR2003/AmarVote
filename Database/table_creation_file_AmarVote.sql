@@ -84,7 +84,7 @@ CREATE TABLE IF NOT EXISTS ballots (
     cipher_text TEXT NOT NULL,
     hash_code TEXT NOT NULL,
     tracking_code TEXT NOT NULL,
-    CONSTRAINT unique_tracking_code UNIQUE (tracking_code),
+    CONSTRAINT unique_tracking_code UNIQUE (election_id,tracking_code),
     CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE,
     CONSTRAINT valid_ballot_status CHECK (status IN ('cast', 'spoiled', 'challenged'))
 );
