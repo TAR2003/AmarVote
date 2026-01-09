@@ -24,6 +24,7 @@ services:
       - CLOUDINARY_SECRET=${CLOUDINARY_SECRET}
     volumes:
       - maven_repo:/root/.m2
+      - ./backend/credentials:/app/credentials:rw
     networks:
       election_net:
         ipv4_address: 172.20.0.30

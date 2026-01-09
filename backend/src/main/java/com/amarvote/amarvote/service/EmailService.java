@@ -2,7 +2,6 @@ package com.amarvote.amarvote.service;
 
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
-import java.nio.file.Files;
 import java.nio.file.Path;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -108,7 +107,7 @@ public class EmailService {
     private String loadResetPasswordTemplate(String resetLink) {
         try {
             ClassPathResource resource = new ClassPathResource("templates/resetpasswordemail.html");
-            String html = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+            String html = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             return html.replace("{{RESET_LINK}}", resetLink);
         } catch (IOException e) {
             throw new RuntimeException("Failed to load reset password email template", e);
@@ -118,7 +117,7 @@ public class EmailService {
     private String loadVerificationCodeTemplate(String code) {
         try {
             ClassPathResource resource = new ClassPathResource("templates/verificationcodeemail.html");
-            String html = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+            String html = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             return html.replace("{{VERIFICATION_CODE}}", code);
         } catch (IOException e) {
             throw new RuntimeException("Failed to load verification code email template", e);
@@ -128,7 +127,7 @@ public class EmailService {
     private String loadGuardianPrivateKeyTemplate(String electionTitle, String electionDescription, String privateKey, Long electionId) {
         try {
             ClassPathResource resource = new ClassPathResource("templates/GuardianPrivateKeyEmail.html");
-            String html = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+            String html = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             html = html.replace("{{ELECTION_TITLE}}", electionTitle);
             html = html.replace("{{ELECTION_DESCRIPTION}}", electionDescription != null ? electionDescription : "");
             html = html.replace("{{PRIVATE_KEY}}", privateKey);
@@ -142,7 +141,7 @@ public class EmailService {
     private String loadGuardianCredentialTemplate(String electionTitle, String electionDescription, Long electionId) {
         try {
             ClassPathResource resource = new ClassPathResource("templates/GuardianCredentialEmail.html");
-            String html = new String(Files.readAllBytes(resource.getFile().toPath()), StandardCharsets.UTF_8);
+            String html = new String(resource.getInputStream().readAllBytes(), StandardCharsets.UTF_8);
             html = html.replace("{{ELECTION_TITLE}}", electionTitle);
             html = html.replace("{{ELECTION_DESCRIPTION}}", electionDescription != null ? electionDescription : "");
             html = html.replace("{{ELECTION_ID}}", electionId.toString());

@@ -48,6 +48,8 @@ services:
       - LOG_PASSWORD=${LOG_PASSWORD}
     volumes:
       - maven_repo:/root/.m2
+      - ./backend/credentials:/app/credentials:rw
+      - ./backend/src/main/resources/templates:/app/templates:ro
     networks:
       election_net:
         ipv4_address: 172.20.0.30
