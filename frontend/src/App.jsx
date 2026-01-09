@@ -19,6 +19,8 @@ import LoadingScreen from "./pages/Loading";
 import Chatbot from "./components/Chatbot";
 import About from "./pages/About";
 import Features from "./pages/Features";
+import AdminLogin from "./pages/AdminLogin";
+import ApiLogs from "./pages/ApiLogs";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -69,6 +71,14 @@ function App() {
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/about" element={<About />} />
         <Route path="/features" element={<Features />} />
+        <Route
+          path="/admin-login"
+          element={<AdminLogin setUserEmail={setUserEmail} />}
+        />
+        <Route
+          path="/api-logs"
+          element={<ApiLogs userEmail={userEmail} />}
+        />
         <Route
           path="/otp-login"
           element={

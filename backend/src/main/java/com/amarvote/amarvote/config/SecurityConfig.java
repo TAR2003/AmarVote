@@ -38,6 +38,7 @@ public class SecurityConfig {
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authorize -> authorize
                 .requestMatchers("/api/auth/register", "/api/auth/login", "/api/auth/session", "/api/auth/request-otp", "/api/auth/verify-otp", "/api/auth/logout", "/api/password/forgot-password", "/api/password/create-password", "/api/verify/send-code", "/api/verify/verify-code", "/api/test-deepseek", "/api/health", "/api/chatbot/**", 
+                                "/api/admin/login",
                                 "/actuator/prometheus", "/actuator/health",
                                 "/actuator/metrics").permitAll() // Allow public access to these endpoints
                 .anyRequest().authenticated())

@@ -45,6 +45,7 @@ services:
       - CLOUDINARY_NAME=${CLOUDINARY_NAME}
       - CLOUDINARY_KEY=${CLOUDINARY_KEY}
       - CLOUDINARY_SECRET=${CLOUDINARY_SECRET}
+      - LOG_PASSWORD=${LOG_PASSWORD}
     volumes:
       - maven_repo:/root/.m2
     networks:

@@ -103,7 +103,8 @@ public class JWTFilter extends OncePerRequestFilter {
             "/api/verify/verify-code",
             "/api/test-deepseek",
             "/api/health",
-            "/api/chatbot/"
+            "/api/chatbot/",
+            "/api/admin/login"
         };
         
         for (String path : publicPaths) {

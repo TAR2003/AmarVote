@@ -45,6 +45,12 @@ DROP INDEX IF EXISTS idx_otp_email CASCADE;
 DROP INDEX IF EXISTS idx_otp_email_code CASCADE;
 DROP INDEX IF EXISTS idx_otp_expires CASCADE;
 
+DROP INDEX IF EXISTS idx_api_logs_email CASCADE;
+DROP INDEX IF EXISTS idx_api_logs_time CASCADE;
+DROP INDEX IF EXISTS idx_api_logs_path CASCADE;
+DROP INDEX IF EXISTS idx_api_logs_ip CASCADE;
+DROP INDEX IF EXISTS idx_api_logs_status CASCADE;
+
 
 -- Step 2: Drop all tables in reverse dependency order
 -- (Child tables first, parent tables last)
@@ -62,6 +68,7 @@ DROP TABLE IF EXISTS otp_verifications CASCADE;
 DROP TABLE IF EXISTS decryption_status CASCADE;
 DROP TABLE IF EXISTS tally_creation_status CASCADE;
 DROP TABLE IF EXISTS combine_status CASCADE;
+DROP TABLE IF EXISTS api_logs CASCADE;
 
 -- Step 3: Drop extensions (optional - comment out if shared with other apps)
 DROP EXTENSION IF EXISTS "pgcrypto" CASCADE;
