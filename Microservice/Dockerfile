@@ -8,8 +8,11 @@ ENV FLASK_APP=api.py
 ENV FLASK_ENV=production
 ENV FLASK_RUN_HOST=0.0.0.0
 ENV FLASK_RUN_PORT=5000
-ENV GUNICORN_TIMEOUT=120
+# Optimized Gunicorn settings for chunk processing
+ENV GUNICORN_TIMEOUT=300
 ENV GUNICORN_WORKERS=4
+ENV GUNICORN_THREADS=4
+ENV GUNICORN_MAX_REQUESTS=1000
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -33,8 +36,9 @@ COPY . .
 EXPOSE 5000
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s \
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Run the application with Gunicorn
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--timeout", "120", "--workers", "4", "api:app"]
+# Run the application with Gunicorn using production configuration
+# This prevents hanging issues with concurrent chunk processing
+CMD ["gunicorn", "-c", "gunicorn_config.py", "api:app"]
