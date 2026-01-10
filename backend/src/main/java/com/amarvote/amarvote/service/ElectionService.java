@@ -225,6 +225,9 @@ public class ElectionService {
                         election.getElectionDescription(),
                         credentialFile, election.getElectionId());
 
+                // 🔒 SECURITY: Delete credential file after sending email
+                cryptoService.deleteCredentialFile(credentialFile);
+
                 // Store credentials for later saving in guardian record
                 guardianCredentials.put(email, encryptionResult.getCredentials());
 
