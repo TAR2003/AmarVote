@@ -4649,6 +4649,109 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                           </table>
                         </div>
                       </div>
+
+                      {/* Chunk Breakdown Section - Modern UI */}
+                      {animatedResults && animatedResults.results && animatedResults.results.chunks && animatedResults.results.chunks.length > 0 && (
+                        <div className="mt-8">
+                          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
+                            <div className="flex items-center justify-between mb-6">
+                              <div>
+                                <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                                  </svg>
+                                  Processing Chunk Breakdown
+                                </h4>
+                                <p className="text-sm text-gray-600 mt-1">
+                                  Detailed view of vote distribution across {animatedResults.results.chunks.length} processing chunks
+                                </p>
+                              </div>
+                              <span className="px-4 py-2 bg-white rounded-full text-sm font-semibold text-purple-600 shadow-sm">
+                                {animatedResults.results.chunks.length} Chunks
+                              </span>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                              {animatedResults.results.chunks.map((chunk, index) => (
+                                <div 
+                                  key={chunk.electionCenterId}
+                                  className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden border border-gray-200"
+                                >
+                                  {/* Chunk Header */}
+                                  <div className="bg-gradient-to-r from-purple-500 to-blue-500 px-4 py-3">
+                                    <div className="flex items-center justify-between">
+                                      <h5 className="font-bold text-white text-lg">
+                                        Chunk #{chunk.chunkIndex}
+                                      </h5>
+                                      <span className="px-2 py-1 bg-white bg-opacity-20 rounded-full text-xs font-medium text-white">
+                                        ID: {chunk.electionCenterId}
+                                      </span>
+                                    </div>
+                                  </div>
+
+                                  {/* Chunk Body */}
+                                  <div className="p-4">
+                                    {/* Ballot Count */}
+                                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200">
+                                      <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                                      </svg>
+                                      <span className="text-sm font-medium text-gray-700">
+                                        {chunk.ballotCount || 0} Ballots Processed
+                                      </span>
+                                    </div>
+
+                                    {/* Vote Distribution */}
+                                    <div className="space-y-3">
+                                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vote Distribution</p>
+                                      {Object.entries(chunk.candidateVotes || {}).map(([candidate, voteData]) => {
+                                        let votes = 0;
+                                        if (typeof voteData === 'number') {
+                                          votes = voteData;
+                                        } else if (typeof voteData === 'object' && voteData.votes) {
+                                          votes = typeof voteData.votes === 'string' ? parseInt(voteData.votes) : voteData.votes;
+                                        } else if (typeof voteData === 'string') {
+                                          votes = parseInt(voteData);
+                                        }
+
+                                        const maxVotesInChunk = Math.max(...Object.values(chunk.candidateVotes || {}).map(v => {
+                                          if (typeof v === 'number') return v;
+                                          if (typeof v === 'object' && v.votes) return typeof v.votes === 'string' ? parseInt(v.votes) : v.votes;
+                                          if (typeof v === 'string') return parseInt(v);
+                                          return 0;
+                                        }));
+                                        const percentage = maxVotesInChunk > 0 ? (votes / maxVotesInChunk) * 100 : 0;
+
+                                        return (
+                                          <div key={candidate} className="space-y-1">
+                                            <div className="flex items-center justify-between text-sm">
+                                              <span className="font-medium text-gray-700 truncate">{candidate}</span>
+                                              <span className="font-bold text-blue-600 ml-2">{votes}</span>
+                                            </div>
+                                            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                              <div
+                                                className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                                                style={{ width: `${percentage}%` }}
+                                              ></div>
+                                            </div>
+                                          </div>
+                                        );
+                                      })}
+                                    </div>
+                                  </div>
+
+                                  {/* Chunk Footer */}
+                                  <div className="bg-gray-50 px-4 py-2 border-t border-gray-200">
+                                    <p className="text-xs text-gray-500 text-center">
+                                      Chunk {index + 1} of {animatedResults.results.chunks.length}
+                                    </p>
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+                        </div>
+                      )}
                     </>
                   );
                 })()}
