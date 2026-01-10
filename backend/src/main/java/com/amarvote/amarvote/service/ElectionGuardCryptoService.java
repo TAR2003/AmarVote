@@ -294,6 +294,25 @@ public class ElectionGuardCryptoService {
     }
 
     /**
+     * Deletes a credential file for security purposes after it has been sent via email
+     * @param credentialFilePath Path to the credential file to delete
+     */
+    public void deleteCredentialFile(Path credentialFilePath) {
+        try {
+            if (Files.exists(credentialFilePath)) {
+                Files.delete(credentialFilePath);
+                System.out.println("🔒 Security: Deleted credential file: " + credentialFilePath.toAbsolutePath());
+            } else {
+                System.out.println("⚠️ Credential file not found for deletion: " + credentialFilePath.toAbsolutePath());
+            }
+        } catch (IOException e) {
+            System.err.println("❌ Error deleting credential file: " + e.getMessage());
+            // Don't throw exception - log error but continue execution
+            // The file will be overwritten on next use if it still exists
+        }
+    }
+
+    /**
      * Creates a combined string format for guardian private key and polynomial
      * @param privateKey The guardian's private key
      * @param polynomial The guardian's polynomial
