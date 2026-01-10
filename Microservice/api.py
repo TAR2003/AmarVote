@@ -121,7 +121,30 @@ except ImportError:
     print("Warning: pqcrypto not available. Install with: pip install pqcrypto")
     PQ_AVAILABLE = False
 
+
+#!/usr/bin/env python
+
+# All your imports here...
+from flask import Flask, request, jsonify, g
+# ... rest of imports ...
+
+# ===== ADD THIS SECTION HERE (before app = Flask(__name__)) =====
+import multiprocessing
+import os
+
+# CRITICAL: Force spawn method to prevent fork-based deadlock in Docker
+try:
+    multiprocessing.set_start_method('spawn', force=True)
+except RuntimeError:
+    pass  # Already set
+
+# Prevent semaphore issues
+os.environ['PYTHONDONTWRITEBYTECODE'] = '1'
+# ===== END ADDITION =====
+
 app = Flask(__name__)
+# ... rest of your code ...
+
 
 # Flask Configuration for handling large files and long requests
 # No MAX_CONTENT_LENGTH limit - allows unlimited request sizes
@@ -621,8 +644,15 @@ def api_create_encrypted_ballot():
         # ## print_data(response, "./io/create_encrypted_ballot_response.json")  # Disabled
         logger.info(f'Finished encrypting ballot - Status: {ballot_status}')
         
-        # Force garbage collection to prevent memory accumulation
-        gc.collect()
+        # AGGRESSIVE memory cleanup to prevent accumulation across chunks
+        import sys
+        
+        # Clear Python's internal type cache
+        if hasattr(sys, '_clear_type_cache'):
+            sys._clear_type_cache()
+        
+        # Force full garbage collection (generation 2 includes all objects)
+        gc.collect(generation=2)
         
         return jsonify(response), 200
     
