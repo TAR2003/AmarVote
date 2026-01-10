@@ -220,17 +220,17 @@ def track_request(endpoint):
         return wrapper
     return decorator
 
-def print_json(data, str_):
-    """Disabled file I/O to prevent blocking - use logger instead"""
-    try:
-        logger.info(f"Processing: {str_} with {len(data)} fields")
-    except:
-        pass  # Don't let logging failures affect processing
+# def ## print_json(data, str_):
+#     """Disabled file I/O to prevent blocking - use logger instead"""
+#     try:
+#         logger.info(f"Processing: {str_} with {len(data)} fields")
+#     except:
+#         pass  # Don't let logging failures affect processing
 
-def print_data(data, filename):
-    pass
-    # with open(filename, "w") as f:
-    #     json.dump(data, f, ensure_ascii=False, indent=4)
+# def ## print_data(data, filename):
+#     pass
+#     # with open(filename, "w") as f:
+#     #     json.dump(data, f, ensure_ascii=False, indent=4)
 
 
 # Helper functions for serialization/deserialization
@@ -478,8 +478,8 @@ def api_setup_guardians():
         party_names = data['party_names']
         candidate_names = data['candidate_names']
         
-        print_json(data, "setup_guardians")
-        print_data(data, "./io/setup_guardians_data.json")
+        ## print_json(data, "setup_guardians")
+        ## print_data(data, "./io/setup_guardians_data.json")
 
         # Call service function
         result = setup_guardians_service(
@@ -510,8 +510,8 @@ def api_setup_guardians():
             'number_of_guardians': result['number_of_guardians'],
             'quorum': result['quorum']
         }
-        print_json(response, "setup_guardians_response")
-        print_data(response, "./io/setup_guardians_response.json")
+        ## print_json(response, "setup_guardians_response")
+        ## print_data(response, "./io/setup_guardians_response.json")
         print('Finished setup guardians call at the microservice')
         return jsonify(response), 200
     
@@ -539,8 +539,8 @@ def api_create_encrypted_ballot():
         if ballot_status not in ['CAST', 'AUDITED']:
             ballot_status = 'CAST'  # Default to most secure option
         
-        print_json(data, "create_encrypted_ballot")
-        print_data(data, "./io/create_encrypted_ballot_request.json")
+        ## print_json(data, "create_encrypted_ballot")
+        ## print_data(data, "./io/create_encrypted_ballot_request.json")
 
         # Get election data with safe int conversion
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
@@ -614,11 +614,11 @@ def api_create_encrypted_ballot():
             }
         
         # Save the response to file for debugging
-        with open("create_encrypted_ballot_response.json", "w", encoding="utf-8") as f:
-            json.dump(response, f, ensure_ascii=False, indent=2)
+        # with open("create_encrypted_ballot_response.json", "w", encoding="utf-8") as f:
+        #     json.dump(response, f, ensure_ascii=False, indent=2)
 
-        # print_json(response, "create_encrypted_ballot_response")  # Disabled - causes blocking
-        # print_data(response, "./io/create_encrypted_ballot_response.json")  # Disabled
+        # ## print_json(response, "create_encrypted_ballot_response")  # Disabled - causes blocking
+        # ## print_data(response, "./io/create_encrypted_ballot_response.json")  # Disabled
         logger.info(f'Finished encrypting ballot - Status: {ballot_status}')
         
         # Force garbage collection to prevent memory accumulation
@@ -658,7 +658,7 @@ def api_benaloh_challenge():
         number_of_guardians = safe_int_conversion(data['number_of_guardians'])
         quorum = safe_int_conversion(data['quorum'])
         
-        print_json(data, "benaloh_challenge_request")
+        ## print_json(data, "benaloh_challenge_request")
         
         # Call the Benaloh challenge service
         result = benaloh_challenge_service(
@@ -672,7 +672,7 @@ def api_benaloh_challenge():
             quorum=quorum
         )
         
-        print_json(result, "benaloh_challenge_response")
+        ## print_json(result, "benaloh_challenge_response")
         print('Finished Benaloh challenge call at the microservice')
         
         if result['success']:
@@ -822,9 +822,9 @@ def api_create_encrypted_tally():
         commitment_hash = data['commitment_hash']    # Expecting string
         encrypted_ballots = data['encrypted_ballots'] # List of encrypted ballot strings
         
-        print_json(data, "create_encrypted_tally")
+        ## print_json(data, "create_encrypted_tally")
         # Dump the request to a file named "create_encrypted_tally_request.json"
-        print_data(data, "./io/create_encrypted_tally_request.json")
+        ## print_data(data, "./io/create_encrypted_tally_request.json")
 
         # Get election data with safe int conversion
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
@@ -853,8 +853,8 @@ def api_create_encrypted_tally():
             'ciphertext_tally': serialize_dict_to_string(result['ciphertext_tally']),
             'submitted_ballots': serialize_list_of_dicts_to_list_of_strings(result['submitted_ballots'])
         }
-        # print_data(response, "./io/create_encrypted_tally_response.json")  # Disabled
-        # print_json(response, "create_encrypted_tally_response")  # Disabled
+        # ## print_data(response, "./io/create_encrypted_tally_response.json")  # Disabled
+        # ## print_json(response, "create_encrypted_tally_response")  # Disabled
         logger.info('Finished creating encrypted tally')
         
         # Force garbage collection to free memory
@@ -875,10 +875,10 @@ def api_create_partial_decryption():
         logger.info('Creating partial decryption')
         data = request.json
         guardian_id = data['guardian_id']
-        print_json(data, "create_partial_decryption")
+        ## print_json(data, "create_partial_decryption")
         # Print the request body as JSON to a file named "partial_decryption_request.json"
 
-        print_data(data, "./io/partial_decryption_request.json")
+        ## print_data(data, "./io/partial_decryption_request.json")
 
         # Deserialize single guardian data from string (if available)
         guardian_data = None
@@ -948,8 +948,8 @@ def api_create_partial_decryption():
             'tally_share': result['tally_share'],
             'ballot_shares': serialize_dict_to_string(result['ballot_shares'])
         }
-        # print_data(response, "./io/create_partial_decryption_response.json")  # Disabled
-        # print_json(response, "create_partial_decryption_response")  # Disabled
+        # ## print_data(response, "./io/create_partial_decryption_response.json")  # Disabled
+        # ## print_json(response, "create_partial_decryption_response")  # Disabled
         logger.info('Finished creating partial decryption')
         
         # Force garbage collection to free memory
@@ -972,9 +972,9 @@ def api_create_compensated_decryption():
         data = request.json
         available_guardian_id = data['available_guardian_id']
         missing_guardian_id = data['missing_guardian_id']
-        print_json(data, "create_compensated_decryption")
+        ## print_json(data, "create_compensated_decryption")
         # Dump the request to a file named "create_compensated_decryption_request.json"
-        print_data(data, "./io/create_compensated_decryption_request.json")
+        ## print_data(data, "./io/create_compensated_decryption_request.json")
 
         # Deserialize single guardian data from strings
         try:
@@ -1051,7 +1051,7 @@ def api_create_compensated_decryption():
             'compensated_tally_share': result['compensated_tally_share'],
             'compensated_ballot_shares': serialize_dict_to_string(result['compensated_ballot_shares'])
         }
-        # print_data(response, "./io/create_compensated_decryption_response.json")  # Disabled
+        # ## print_data(response, "./io/create_compensated_decryption_response.json")  # Disabled
         logger.info('Finished creating compensated decryption')
         
         # Force garbage collection to free memory
@@ -1077,8 +1077,8 @@ def api_combine_decryption_shares():
         candidate_names = data['candidate_names']
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
-        print_json(data, "combine_decryption_shares")
-        print_data(data, "./io/combine_decryption_shares_request.json")
+        ## print_json(data, "combine_decryption_shares")
+        ## print_data(data, "./io/combine_decryption_shares_request.json")
         # Deserialize dict from string with error context
         try:
             ciphertext_tally_json = deserialize_string_to_dict(data['ciphertext_tally'])
@@ -1192,8 +1192,8 @@ def api_combine_decryption_shares():
             'status': 'success',
             'results': serialize_dict_to_string(results)
         }
-        # print_json(response, "combine_decryption_shares_response")  # Disabled
-        # print_data(response, "./io/combine_decryption_shares_response.json")  # Disabled
+        # ## print_json(response, "combine_decryption_shares_response")  # Disabled
+        # ## print_data(response, "./io/combine_decryption_shares_response.json")  # Disabled
         logger.info('Finished combining decryption shares')
         
         # Force garbage collection to free memory
