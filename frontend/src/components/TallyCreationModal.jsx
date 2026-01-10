@@ -8,6 +8,42 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
   const pollIntervalRef = useRef(null);
+  const startTimeRef = useRef(null);
+
+  // Calculate estimated time remaining
+  const calculateEstimatedTime = (status) => {
+    if (!status || !status.startedAt || status.processedChunks === 0 || !status.totalChunks) {
+      return null;
+    }
+
+    const startTime = new Date(status.startedAt).getTime();
+    const currentTime = Date.now();
+    const elapsedMs = currentTime - startTime;
+    
+    const chunksProcessed = status.processedChunks || 0;
+    const totalChunks = status.totalChunks || 1;
+    const chunksRemaining = totalChunks - chunksProcessed;
+    
+    if (chunksProcessed === 0) return null;
+    
+    const msPerChunk = elapsedMs / chunksProcessed;
+    const estimatedRemainingMs = msPerChunk * chunksRemaining;
+    
+    // Convert to seconds
+    const estimatedRemainingSec = Math.ceil(estimatedRemainingMs / 1000);
+    
+    if (estimatedRemainingSec < 60) {
+      return `${estimatedRemainingSec}s`;
+    } else if (estimatedRemainingSec < 3600) {
+      const minutes = Math.floor(estimatedRemainingSec / 60);
+      const seconds = estimatedRemainingSec % 60;
+      return `${minutes}m ${seconds}s`;
+    } else {
+      const hours = Math.floor(estimatedRemainingSec / 3600);
+      const minutes = Math.floor((estimatedRemainingSec % 3600) / 60);
+      return `${hours}h ${minutes}m`;
+    }
+  };
 
   // Poll for status updates
   const pollStatus = async () => {
@@ -119,6 +155,8 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
 
     if (status.status === 'in_progress' || status.status === 'pending') {
       const progress = status.progressPercentage || 0;
+      const estimatedTime = calculateEstimatedTime(status);
+      
       return (
         <div className="text-center py-8">
           <div className="mb-6 flex justify-center">
@@ -142,6 +180,11 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
             <p className="text-gray-600">
               Processing chunks: {status.processedChunks || 0} / {status.totalChunks || 0}
             </p>
+            {estimatedTime && (
+              <p className="text-sm text-indigo-600 font-medium">
+                ⏱️ Estimated time remaining: {estimatedTime}
+              </p>
+            )}
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
               <div
                 className="bg-blue-600 h-2 rounded-full transition-all duration-300"
@@ -223,19 +266,18 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
       <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 relative">
-        {/* Close button */}
-        {status?.status !== 'in_progress' && status?.status !== 'pending' && (
-          <button
-            onClick={handleClose}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition-colors"
-          >
-            <FiX className="h-6 w-6" />
-          </button>
-        )}
-
         {/* Header */}
         <div className="border-b border-gray-200 p-6">
-          <h2 className="text-2xl font-bold text-gray-900">Tally Creation</h2>
+          <div className="flex justify-between items-center">
+            <h2 className="text-2xl font-bold text-gray-900">Tally Creation</h2>
+            <button
+              onClick={handleClose}
+              className="text-gray-400 hover:text-gray-600 transition-colors"
+              aria-label="Close"
+            >
+              <FiX className="h-6 w-6" />
+            </button>
+          </div>
         </div>
 
         {/* Content */}
