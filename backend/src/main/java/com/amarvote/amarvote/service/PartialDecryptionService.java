@@ -238,13 +238,17 @@ public class PartialDecryptionService {
             
             System.out.println("=== PROCESSED " + processedChunks + " CHUNKS SUCCESSFULLY ===");
             
-            // Mark guardian as having completed decryption
-            guardian.setDecryptedOrNot(true);
-            guardianRepository.save(guardian);
-            System.out.println("✅ Guardian marked as decrypted");
+            // 🔒 DO NOT mark guardian as decrypted yet - wait until compensated shares complete
+            // Mark guardian as having completed decryption AFTER compensated shares
+            // guardian.setDecryptedOrNot(true); // MOVED TO AFTER COMPENSATED SHARES
 
             // Create compensated decryption shares for ALL other guardians using decrypted polynomial
             createCompensatedDecryptionShares(election, guardian, decryptedPrivateKey, decryptedPolynomial, electionCenters);
+            
+            // ✅ NOW mark guardian as fully decrypted (both phases complete)
+            guardian.setDecryptedOrNot(true);
+            guardianRepository.save(guardian);
+            System.out.println("✅ Guardian marked as fully decrypted (both phases complete)");
 
             return CreatePartialDecryptionResponse.builder()
                 .success(true)
@@ -622,14 +626,18 @@ public class PartialDecryptionService {
             
             System.out.println("✅ PHASE 1 COMPLETED: All " + processedChunks + " chunks processed");
             
-            // Mark guardian as having completed decryption
-            guardian.setDecryptedOrNot(true);
-            guardianRepository.save(guardian);
+            // 🔒 DO NOT mark guardian as decrypted yet - wait until Phase 2 completes
+            // guardian.setDecryptedOrNot(true); // MOVED TO AFTER PHASE 2
             
             // PHASE 2: Create compensated decryption shares for other guardians
             System.out.println("=== PHASE 2: COMPENSATED SHARES GENERATION ===");
             createCompensatedDecryptionSharesWithProgress(election, guardian, decryptedPrivateKey, 
                 decryptedPolynomial, electionCenters);
+            
+            // ✅ NOW mark guardian as fully decrypted (both phases complete)
+            guardian.setDecryptedOrNot(true);
+            guardianRepository.save(guardian);
+            System.out.println("✅ Guardian marked as fully decrypted (both phases complete)");
             
             // Mark as completed
             updateDecryptionStatus(request.election_id(), guardian.getGuardianId(), "completed",
