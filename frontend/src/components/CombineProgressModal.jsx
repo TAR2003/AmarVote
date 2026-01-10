@@ -9,6 +9,41 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
   const completionHandledRef = useRef(false);
   const intervalRef = useRef(null);
 
+  // Calculate estimated time remaining
+  const calculateEstimatedTime = (status) => {
+    if (!status || !status.startedAt || status.processedChunks === 0 || !status.totalChunks) {
+      return null;
+    }
+
+    const startTime = new Date(status.startedAt).getTime();
+    const currentTime = Date.now();
+    const elapsedMs = currentTime - startTime;
+    
+    const chunksProcessed = status.processedChunks || 0;
+    const totalChunks = status.totalChunks || 1;
+    const chunksRemaining = totalChunks - chunksProcessed;
+    
+    if (chunksProcessed === 0) return null;
+    
+    const msPerChunk = elapsedMs / chunksProcessed;
+    const estimatedRemainingMs = msPerChunk * chunksRemaining;
+    
+    // Convert to seconds
+    const estimatedRemainingSec = Math.ceil(estimatedRemainingMs / 1000);
+    
+    if (estimatedRemainingSec < 60) {
+      return `${estimatedRemainingSec}s`;
+    } else if (estimatedRemainingSec < 3600) {
+      const minutes = Math.floor(estimatedRemainingSec / 60);
+      const seconds = estimatedRemainingSec % 60;
+      return `${minutes}m ${seconds}s`;
+    } else {
+      const hours = Math.floor(estimatedRemainingSec / 3600);
+      const minutes = Math.floor((estimatedRemainingSec % 3600) / 60);
+      return `${hours}h ${minutes}m`;
+    }
+  };
+
   const pollStatus = useCallback(async () => {
     try {
       const data = await electionApi.getCombineStatus(electionId);
@@ -192,6 +227,14 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                           <span className="text-gray-600">Chunks Processed:</span>
                           <span className="font-semibold text-gray-800">
                             {status.processedChunks} / {status.totalChunks}
+                          </span>
+                        </div>
+                      )}
+                      {calculateEstimatedTime(status) && status.status === 'in_progress' && (
+                        <div className="flex justify-between text-sm">
+                          <span className="text-gray-600">Est. Time Remaining:</span>
+                          <span className="font-semibold text-indigo-600">
+                            ⏱️ {calculateEstimatedTime(status)}
                           </span>
                         </div>
                       )}
