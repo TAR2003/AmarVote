@@ -989,7 +989,11 @@ public class PartialDecryptionService {
             System.out.println("=== ASYNC COMBINE STARTED ===");
             System.out.println("Election ID: " + electionId);
             
-            // Update status to in_progress
+            // Get total chunks count
+            List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
+            int totalChunks = electionCenters != null ? electionCenters.size() : 0;
+            
+            // Update status to in_progress with total chunks
             updateCombineStatus(electionId, "in_progress", 0, null);
             
             // Call the existing combine method
@@ -997,13 +1001,9 @@ public class PartialDecryptionService {
             CombinePartialDecryptionResponse response = combinePartialDecryption(request);
             
             if (response.success()) {
-                // Mark as completed
-                Optional<CombineStatus> statusOpt = combineStatusRepository.findByElectionId(electionId);
-                if (statusOpt.isPresent()) {
-                    CombineStatus status = statusOpt.get();
-                    updateCombineStatus(electionId, "completed", status.getTotalChunks(), Instant.now());
-                }
-                System.out.println("🎉 COMBINE PROCESS COMPLETED SUCCESSFULLY");
+                // Mark as completed with correct processed chunks count
+                updateCombineStatus(electionId, "completed", totalChunks, Instant.now());
+                System.out.println("🎉 COMBINE PROCESS COMPLETED SUCCESSFULLY - Processed " + totalChunks + " chunks");
             } else {
                 updateCombineStatus(electionId, "failed", 0, response.message());
                 System.err.println("❌ COMBINE PROCESS FAILED: " + response.message());
@@ -1175,12 +1175,11 @@ public class PartialDecryptionService {
             // Loop through each election_center (chunk) and combine decryption shares for that chunk
             int processedChunkCount = 0;
             for (ElectionCenter electionCenter : electionCenters) {
-                processedChunkCount++;
-                System.out.println("=== PROCESSING CHUNK " + processedChunkCount + "/" + electionCenters.size() 
+                System.out.println("=== PROCESSING CHUNK " + (processedChunkCount + 1) + "/" + electionCenters.size() 
                     + " (election_center_id: " + electionCenter.getElectionCenterId() + ") ===");
                 
-                // Update progress
-                updateCombineStatus(request.election_id(), "in_progress", processedChunkCount - 1, null);
+                // Update progress at start of chunk processing
+                updateCombineStatus(request.election_id(), "in_progress", processedChunkCount, null);
                 
                 // Get submitted ballots for THIS CHUNK ONLY
                 List<SubmittedBallot> chunkSubmittedBallots = submittedBallotRepository.findByElectionCenterId(electionCenter.getElectionCenterId());
@@ -1449,7 +1448,14 @@ public class PartialDecryptionService {
                         .message("Failed to combine partial decryption for chunk " + electionCenter.getElectionCenterId() + ": " + guardResponse.status())
                         .build();
                 }
+                
+                // Increment processed count after successful chunk processing
+                processedChunkCount++;
+                System.out.println("✅ Chunk " + processedChunkCount + "/" + electionCenters.size() + " processed successfully");
             }
+            
+            // Update final progress after all chunks processed
+            updateCombineStatus(request.election_id(), "in_progress", processedChunkCount, null);
             
             // After processing all chunks, update election_choices with aggregated results
             Object aggregatedResults = buildAggregatedResultsFromChunks(electionCenters, request.election_id());

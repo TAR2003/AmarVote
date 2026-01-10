@@ -8,6 +8,41 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Calculate estimated time remaining
+  const calculateEstimatedTime = (status) => {
+    if (!status || !status.startedAt || status.processedChunks === 0 || !status.totalChunks) {
+      return null;
+    }
+
+    const startTime = new Date(status.startedAt).getTime();
+    const currentTime = Date.now();
+    const elapsedMs = currentTime - startTime;
+    
+    const chunksProcessed = status.processedChunks || 0;
+    const totalChunks = status.totalChunks || 1;
+    const chunksRemaining = totalChunks - chunksProcessed;
+    
+    if (chunksProcessed === 0) return null;
+    
+    const msPerChunk = elapsedMs / chunksProcessed;
+    const estimatedRemainingMs = msPerChunk * chunksRemaining;
+    
+    // Convert to seconds
+    const estimatedRemainingSec = Math.ceil(estimatedRemainingMs / 1000);
+    
+    if (estimatedRemainingSec < 60) {
+      return `${estimatedRemainingSec}s`;
+    } else if (estimatedRemainingSec < 3600) {
+      const minutes = Math.floor(estimatedRemainingSec / 60);
+      const seconds = estimatedRemainingSec % 60;
+      return `${minutes}m ${seconds}s`;
+    } else {
+      const hours = Math.floor(estimatedRemainingSec / 3600);
+      const minutes = Math.floor((estimatedRemainingSec % 3600) / 60);
+      return `${hours}h ${minutes}m`;
+    }
+  };
+
   // Debug logging
   useEffect(() => {
     console.log('DecryptionProgressModal props:', { isOpen, electionId, guardianName });
@@ -211,6 +246,11 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                         This process validates your guardian credentials and generates
                         partial decryption shares.
                       </p>
+                      {calculateEstimatedTime(status) && (
+                        <p className="text-sm text-blue-600 font-medium mt-2">
+                          ⏱️ Estimated time remaining: {calculateEstimatedTime(status)}
+                        </p>
+                      )}
                       <div className="mt-3 h-2 bg-blue-200 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-blue-600 transition-all duration-500"
@@ -244,12 +284,30 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                         </div>
                       )}
                       
-                      <div className="flex items-center justify-between text-sm mb-2">
-                        <span className="text-purple-700">Guardians processed:</span>
-                        <span className="font-semibold text-purple-900">
-                          {status.processedCompensatedGuardians || 0} / {status.totalCompensatedGuardians || 0}
-                        </span>
+                      <div className="grid grid-cols-2 gap-3 mb-2">
+                        <div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-purple-700">Guardians processed:</span>
+                            <span className="font-semibold text-purple-900">
+                              {status.processedCompensatedGuardians || 0} / {status.totalCompensatedGuardians || 0}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-purple-700">Chunks processed:</span>
+                            <span className="font-semibold text-purple-900">
+                              {status.processedChunks || 0} / {status.totalChunks || 0}
+                            </span>
+                          </div>
+                        </div>
                       </div>
+                      
+                      {calculateEstimatedTime(status) && (
+                        <p className="text-sm text-purple-600 font-medium mb-2">
+                          ⏱️ Estimated time remaining: {calculateEstimatedTime(status)}
+                        </p>
+                      )}
                       
                       <div className="h-2 bg-purple-200 rounded-full overflow-hidden">
                         <div
