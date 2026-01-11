@@ -142,6 +142,7 @@ jobs:
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
               "cd /home/${{ secrets.AZURE_VM_USERNAME }}/app && \
                docker volume create maven_repo || true && \
+               docker compose -f docker-compose.prod.yml down --remove-orphans || true && \
                docker stop electionguard_service || true && \
                docker stop rag_service || true && \
                docker stop amarvote_backend || true && \
@@ -156,7 +157,8 @@ jobs:
                docker rm rag_service || true && \
                docker rm amarvote_backend || true && \
                docker rm amarvote_frontend || true && \
-               docker compose -f docker-compose.prod.yml down --remove-orphans || true && \
+               docker network rm app_election_net || true && \
+               docker network prune -f && \
                docker compose -f docker-compose.prod.yml build && \
                docker compose -f docker-compose.prod.yml up -d --force-recreate"
       
