@@ -56,7 +56,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      # rag-service:
+  # rag-service:
 
   frontend:
     build:
@@ -92,21 +92,19 @@ services:
     container_name: amarvote_prometheus
     restart: unless-stopped
     volumes:
-      - ./prometheus:/etc/prometheus:ro  # Mount entire directory so /etc/prometheus/prometheus.yml is available
+      - ./prometheus:/etc/prometheus:ro
       - prometheus_data:/prometheus
-
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/usr/share/prometheus/console_libraries'
-      - '--web.console.templates=/usr/share/prometheus/consoles'
     ports:
       - "9090:9090"
     networks:
-      - election_net
+      election_net:
+        ipv4_address: 172.20.0.50  # Add explicit IP
     depends_on:
       - backend
-
+  
   grafana:
     image: grafana/grafana:latest
     container_name: amarvote_grafana
@@ -121,26 +119,28 @@ services:
     ports:
       - "3000:3000"
     networks:
-      - election_net
+      election_net:
+        ipv4_address: 172.20.0.60  # Add explicit IP
     depends_on:
       - prometheus
 
 
-  # rag-service:
-  #   build: ./rag-service
-  #   container_name: rag_service
-  #   restart: unless-stopped
-  #   expose:
-  #     - "5001"
-  #   networks:
-  #     - election_net
-  #   environment:
-  #     - FLASK_ENV=production
-  #     - FLASK_DEBUG=False
-  #     - RAG_SERVICE_PORT=5001
-  #   volumes:
-  #     - ./backend/src/main/resources/pdf:/app/data
-  #     - rag_vectorstore:/app/vectorstore
+
+# rag-service:
+#   build: ./rag-service
+#   container_name: rag_service
+#   restart: unless-stopped
+#   expose:
+#     - "5001"
+#   networks:
+#     - election_net
+#   environment:
+#     - FLASK_ENV=production
+#     - FLASK_DEBUG=False
+#     - RAG_SERVICE_PORT=5001
+#   volumes:
+#     - ./backend/src/main/resources/pdf:/app/data
+#     - rag_vectorstore:/app/vectorstore
 
 volumes:
   postgres_data:
