@@ -92,7 +92,7 @@ services:
     container_name: amarvote_prometheus
     restart: unless-stopped
     volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - ./prometheus:/etc/prometheus:ro  # Mount entire directory so /etc/prometheus/prometheus.yml is available
       - prometheus_data:/prometheus
 
     command:
