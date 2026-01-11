@@ -83,7 +83,7 @@ jobs:
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
               "ls -la /home/${{ secrets.AZURE_VM_USERNAME }}/app"
 
-      - name: Copy files to VM and .env from blockchain folder
+      - name: Copy files to VM and .env from home/${{ secrets.AZURE_VM_USERNAME }} folder
         run: |
           # Copy main project files (excluding .env)
           rsync -avz --delete \
@@ -132,6 +132,11 @@ jobs:
           docker stop amarvote_backend || true
           docker stop amarvote_frontend || true
           docker stop amarvote_postgres || true
+          docker stop amarvote_prometheus || true
+          docker stop amarvote_grafana || true
+          
+          docker rm amarvote_grafana || true
+          docker rm amarvote_prometheus || true
           docker rm amarvote_postgres || true
           docker rm electionguard_service || true
           docker rm rag_service || true

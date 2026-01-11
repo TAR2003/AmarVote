@@ -9,7 +9,7 @@ services:
       - POSTGRES_PASSWORD=amarvote_password
     volumes:
       - postgres_data:/var/lib/postgresql/data
-      - ./Database/table_creation_file_AmarVote.sql:/docker-entrypoint-initdb.d/init.sql:ro
+      - ./Database/creation/:/docker-entrypoint-initdb.d/:ro
     ports:
       - "5432:5432"
     networks:
