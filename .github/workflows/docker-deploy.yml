@@ -97,6 +97,13 @@ jobs:
           ssh -o StrictHostKeyChecking=no \
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
               "cp /home/${{ secrets.AZURE_VM_USERNAME }}/.env /home/${{ secrets.AZURE_VM_USERNAME }}/app/.env"
+      
+      - name: Verify prometheus configuration exists
+        run: |
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+              "ls -la /home/${{ secrets.AZURE_VM_USERNAME }}/app/prometheus/ && \
+               cat /home/${{ secrets.AZURE_VM_USERNAME }}/app/prometheus/prometheus.yml"
 
       - name: Verify .env file was copied
         run: |
@@ -123,32 +130,41 @@ jobs:
         run: |
           docker context create azure-vm-${{ github.run_id }} --docker "host=ssh://${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}"
           docker context use azure-vm-${{ github.run_id }}
+          # Set working directory on VM for docker compose
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+              "cd /home/${{ secrets.AZURE_VM_USERNAME }}/app"
 
       - name: Deploy with docker-compose
         run: |
-          docker volume create maven_repo || true
-          docker stop electionguard_service || true
-          docker stop rag_service || true
-          docker stop amarvote_backend || true
-          docker stop amarvote_frontend || true
-          docker stop amarvote_postgres || true
-          docker stop amarvote_prometheus || true
-          docker stop amarvote_grafana || true
-          
-          docker rm amarvote_grafana || true
-          docker rm amarvote_prometheus || true
-          docker rm amarvote_postgres || true
-          docker rm electionguard_service || true
-          docker rm rag_service || true
-          docker rm amarvote_backend || true
-          docker rm amarvote_frontend || true
-          docker compose -f docker-compose.prod.yml down --remove-orphans || true
-          docker compose -f docker-compose.prod.yml build
-          docker compose -f docker-compose.prod.yml up -d --force-recreate
-
+          # Change to app directory on VM before running docker compose
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+              "cd /home/${{ secrets.AZURE_VM_USERNAME }}/app && \
+               docker volume create maven_repo || true && \
+               docker stop electionguard_service || true && \
+               docker stop rag_service || true && \
+               docker stop amarvote_backend || true && \
+               docker stop amarvote_frontend || true && \
+               docker stop amarvote_postgres || true && \
+               docker stop amarvote_prometheus || true && \
+               docker stop amarvote_grafana || true && \
+               docker rm amarvote_grafana || true && \
+               docker rm amarvote_prometheus || true && \
+               docker rm amarvote_postgres || true && \
+               docker rm electionguard_service || true && \
+               docker rm rag_service || true && \
+               docker rm amarvote_backend || true && \
+               docker rm amarvote_frontend || true && \
+               docker compose -f docker-compose.prod.yml down --remove-orphans || true && \
+               docker compose -f docker-compose.prod.yml build && \
+               docker compose -f docker-compose.prod.yml up -d --force-recreate"
+      
       - name: Verify deployment
         run: |
-          docker compose -f docker-compose.prod.yml ps -a
+          ssh -o StrictHostKeyChecking=no \
+              ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
+              "cd /home/${{ secrets.AZURE_VM_USERNAME }}/app && docker compose -f docker-compose.prod.yml ps -a"
           sleep 10
           curl -v http://${{ secrets.AZURE_VM_HOST }}
 
