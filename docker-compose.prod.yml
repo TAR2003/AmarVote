@@ -46,9 +46,10 @@ services:
       - CLOUDINARY_KEY=${CLOUDINARY_KEY}
       - CLOUDINARY_SECRET=${CLOUDINARY_SECRET}
       - LOG_PASSWORD=${LOG_PASSWORD}
+      - CREDENTIALS_DIRECTORY=/app/data/credentials
     volumes:
       - maven_repo:/root/.m2
-      - ./backend/credentials:/app/credentials:rw
+      - credentials_data:/app/data/credentials
       - ./backend/src/main/resources/templates:/app/templates:ro
     networks:
       election_net:
@@ -150,6 +151,7 @@ volumes:
   rag_vectorstore:
   prometheus_data:
   grafana_data:
+  credentials_data:
 
 networks:
   election_net:

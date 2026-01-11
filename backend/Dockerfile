@@ -23,12 +23,19 @@ WORKDIR /app
 
 # Create non-root user for security
 RUN groupadd -r spring && useradd -r -g spring spring
+
+# Create directories with secure permissions
+RUN mkdir -p /app/logs /app/data/credentials && \
+    chown -R spring:spring /app && \
+    chmod 700 /app/data/credentials
+
 USER spring:spring
 
 # Copy JAR from build stage
 COPY --from=build /app/target/*.jar app.jar
 
 VOLUME /app/logs
+VOLUME /app/data/credentials
 EXPOSE 8080
 
 ENV JAVA_OPTS="-Xmx512m -Xms256m"

@@ -1,9 +1,7 @@
 package com.amarvote.amarvote.service;
 
 import java.io.IOException;
-import java.nio.file.Files;
 import java.nio.file.Path;
-import java.nio.file.Paths;
 import java.util.Map;
 
 import org.springframework.http.MediaType;
@@ -14,13 +12,16 @@ import org.springframework.web.reactive.function.client.WebClientResponseExcepti
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class ElectionGuardCryptoService {
 
     private final WebClient webClient;
     private final ObjectMapper objectMapper;
+    private final SecureCredentialFileService secureCredentialFileService;
 
     /**
      * Encrypts a guardian's private key and polynomial using the ElectionGuard microservice
@@ -240,75 +241,76 @@ public class ElectionGuardCryptoService {
     }
 
     /**
-     * Creates a credential file for a guardian
+     * Creates a credential file for a guardian using the secure file service.
+     * 
      * @param guardianEmail The guardian's email
      * @param electionId The election ID
      * @param encryptedData The encrypted private key data
      * @return Path to the created credential file
+     * @throws RuntimeException if file creation fails
      */
     public Path createCredentialFile(String guardianEmail, Long electionId, String encryptedData) {
         try {
-            // Create credentials directory if it doesn't exist
-            Path credentialsDir = Paths.get("credentials");
-            Files.createDirectories(credentialsDir);
+            log.info("Creating credential file for guardian: {} (election: {})", guardianEmail, electionId);
+            return secureCredentialFileService.createCredentialFile(guardianEmail, electionId, encryptedData);
             
-            // Create filename: guardian_email_electionId.txt
-            String sanitizedEmail = guardianEmail.replaceAll("[^a-zA-Z0-9._-]", "_");
-            String filename = String.format("guardian_%s_%d.txt", sanitizedEmail, electionId);
-            Path credentialFile = credentialsDir.resolve(filename);
-            
-            // Write encrypted data to file
-            Files.write(credentialFile, encryptedData.getBytes());
-            
-            System.out.println("Created credential file: " + credentialFile.toAbsolutePath());
-            
-            return credentialFile;
-            
+        } catch (IllegalArgumentException e) {
+            log.error("❌ Invalid input for credential file creation: {}", e.getMessage());
+            throw new RuntimeException("Invalid input for credential file: " + e.getMessage(), e);
+        } catch (SecurityException e) {
+            log.error("🚨 Security violation during credential file creation: {}", e.getMessage());
+            throw new RuntimeException("Security violation: " + e.getMessage(), e);
         } catch (IOException e) {
-            System.err.println("Error creating credential file: " + e.getMessage());
-            throw new RuntimeException("Failed to create credential file", e);
+            log.error("❌ Failed to create credential file for guardian {}: {}", guardianEmail, e.getMessage(), e);
+            throw new RuntimeException("Failed to create credential file: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("❌ Unexpected error creating credential file for guardian {}: {}", guardianEmail, e.getMessage(), e);
+            throw new RuntimeException("Unexpected error creating credential file: " + e.getMessage(), e);
         }
     }
 
     /**
-     * Reads encrypted data from a credential file
+     * Reads encrypted data from a credential file using the secure file service.
+     * 
      * @param credentialFilePath Path to the credential file
      * @return The encrypted data content
+     * @throws RuntimeException if file reading fails
      */
     public String readCredentialFile(Path credentialFilePath) {
         try {
-            if (!Files.exists(credentialFilePath)) {
-                throw new RuntimeException("Credential file not found: " + credentialFilePath);
-            }
+            log.debug("Reading credential file: {}", credentialFilePath.toAbsolutePath());
+            return secureCredentialFileService.readCredentialFile(credentialFilePath);
             
-            String encryptedData = Files.readString(credentialFilePath);
-            
-            System.out.println("Read credential file: " + credentialFilePath.toAbsolutePath());
-            
-            return encryptedData;
-            
+        } catch (IllegalArgumentException e) {
+            log.error("❌ Invalid credential file path: {}", e.getMessage());
+            throw new RuntimeException("Invalid credential file: " + e.getMessage(), e);
         } catch (IOException e) {
-            System.err.println("Error reading credential file: " + e.getMessage());
-            throw new RuntimeException("Failed to read credential file", e);
+            log.error("❌ Failed to read credential file {}: {}", credentialFilePath.toAbsolutePath(), e.getMessage(), e);
+            throw new RuntimeException("Failed to read credential file: " + e.getMessage(), e);
+        } catch (Exception e) {
+            log.error("❌ Unexpected error reading credential file {}: {}", credentialFilePath.toAbsolutePath(), e.getMessage(), e);
+            throw new RuntimeException("Unexpected error reading credential file: " + e.getMessage(), e);
         }
     }
 
     /**
-     * Deletes a credential file for security purposes after it has been sent via email
+     * Securely deletes a credential file after it has been sent via email.
+     * Uses secure deletion with overwrite if configured.
+     * 
      * @param credentialFilePath Path to the credential file to delete
      */
     public void deleteCredentialFile(Path credentialFilePath) {
         try {
-            if (Files.exists(credentialFilePath)) {
-                Files.delete(credentialFilePath);
-                System.out.println("🔒 Security: Deleted credential file: " + credentialFilePath.toAbsolutePath());
-            } else {
-                System.out.println("⚠️ Credential file not found for deletion: " + credentialFilePath.toAbsolutePath());
-            }
+            log.debug("Deleting credential file: {}", credentialFilePath.toAbsolutePath());
+            secureCredentialFileService.deleteCredentialFile(credentialFilePath);
+            
         } catch (IOException e) {
-            System.err.println("❌ Error deleting credential file: " + e.getMessage());
+            log.error("❌ Error deleting credential file {}: {}", credentialFilePath.toAbsolutePath(), e.getMessage());
             // Don't throw exception - log error but continue execution
             // The file will be overwritten on next use if it still exists
+        } catch (Exception e) {
+            log.error("❌ Unexpected error deleting credential file {}: {}", credentialFilePath.toAbsolutePath(), e.getMessage());
+            // Don't throw exception - log error but continue execution
         }
     }
 
