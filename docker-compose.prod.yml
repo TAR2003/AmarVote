@@ -92,8 +92,10 @@ services:
     container_name: amarvote_prometheus
     restart: unless-stopped
     volumes:
-      - ./prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - postgres_data:/var/lib/postgresql/data
+      - ./prometheus:/etc/prometheus:ro  # Mount entire directory
       - prometheus_data:/prometheus
+
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
       - '--storage.tsdb.path=/prometheus'
