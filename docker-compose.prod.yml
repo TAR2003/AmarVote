@@ -92,7 +92,7 @@ services:
     container_name: amarvote_prometheus
     restart: unless-stopped
     volumes:
-      - ./prometheus:/etc/prometheus:ro
+      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
       - prometheus_data:/prometheus
     command:
       - '--config.file=/etc/prometheus/prometheus.yml'
@@ -104,7 +104,7 @@ services:
         ipv4_address: 172.20.0.50  # Add explicit IP
     depends_on:
       - backend
-  
+
   grafana:
     image: grafana/grafana:latest
     container_name: amarvote_grafana
