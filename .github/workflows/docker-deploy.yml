@@ -93,10 +93,10 @@ jobs:
             --exclude='backend/logs' \
             ./ ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }}:/home/${{ secrets.AZURE_VM_USERNAME }}/app/
           
-          # Copy .env file from blockchain folder to app folder on the VM
+          # Copy .env file from home/${{ secrets.AZURE_VM_USERNAME }} folder to app folder on the VM
           ssh -o StrictHostKeyChecking=no \
               ${{ secrets.AZURE_VM_USERNAME }}@${{ secrets.AZURE_VM_HOST }} \
-              "cp /home/blockchain/.env /home/${{ secrets.AZURE_VM_USERNAME }}/app/.env"
+              "cp /home/${{ secrets.AZURE_VM_USERNAME }}/.env /home/${{ secrets.AZURE_VM_USERNAME }}/app/.env"
 
       - name: Verify .env file was copied
         run: |
