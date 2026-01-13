@@ -281,13 +281,18 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                           <p className="text-lg font-semibold text-purple-900">
                             🛡️ {status.compensatingForGuardianName}
                           </p>
+                          {status.currentChunkNumber > 0 && (
+                            <p className="text-xs text-purple-600 mt-1">
+                              Processing chunk #{status.currentChunkNumber}
+                            </p>
+                          )}
                         </div>
                       )}
                       
-                      <div className="grid grid-cols-2 gap-3 mb-2">
+                      <div className="grid grid-cols-3 gap-3 mb-2">
                         <div>
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-purple-700">Guardians processed:</span>
+                            <span className="text-purple-700">Guardians:</span>
                             <span className="font-semibold text-purple-900">
                               {status.processedCompensatedGuardians || 0} / {status.totalCompensatedGuardians || 0}
                             </span>
@@ -295,9 +300,17 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                         </div>
                         <div>
                           <div className="flex items-center justify-between text-sm">
-                            <span className="text-purple-700">Chunks processed:</span>
+                            <span className="text-purple-700">Total Chunks:</span>
                             <span className="font-semibold text-purple-900">
                               {status.processedChunks || 0} / {status.totalChunks || 0}
+                            </span>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="flex items-center justify-between text-sm">
+                            <span className="text-purple-700">Current:</span>
+                            <span className="font-semibold text-purple-900">
+                              #{status.currentChunkNumber || 0}
                             </span>
                           </div>
                         </div>

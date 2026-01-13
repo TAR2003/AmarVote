@@ -722,17 +722,23 @@ public class PartialDecryptionService {
             
             System.out.println("Creating compensated shares for " + otherGuardians.size() + " other guardians");
             
-            // Update total compensated guardians
+            // Update total compensated guardians and reset chunk tracking for compensated phase
             Optional<DecryptionStatus> statusOpt = decryptionStatusRepository
                 .findByElectionIdAndGuardianId(election.getElectionId(), guardian.getGuardianId());
             if (statusOpt.isPresent()) {
                 DecryptionStatus status = statusOpt.get();
                 status.setTotalCompensatedGuardians(otherGuardians.size());
                 status.setProcessedCompensatedGuardians(0);
+                // Reset chunk tracking for compensated phase - total is guardians × chunks
+                status.setTotalChunks(otherGuardians.size() * electionCenters.size());
+                status.setProcessedChunks(0);
+                status.setCurrentChunkNumber(0);
                 decryptionStatusRepository.save(status);
             }
             
             int processedGuardians = 0;
+            int totalCompensatedChunks = otherGuardians.size() * electionCenters.size();
+            int processedCompensatedChunks = 0;
             
             for (Guardian otherGuardian : otherGuardians) {
                 processedGuardians++;
@@ -747,13 +753,15 @@ public class PartialDecryptionService {
                     status.setCurrentPhase("compensated_shares_generation");
                     status.setCompensatingForGuardianId(otherGuardian.getGuardianId());
                     status.setCompensatingForGuardianName(otherGuardian.getUserEmail());
-                    status.setProcessedCompensatedGuardians(processedGuardians);
+                    status.setProcessedCompensatedGuardians(processedGuardians - 1); // Set to previous count, will be incremented after all chunks
                     status.setUpdatedAt(Instant.now());
                     decryptionStatusRepository.save(status);
                 }
                 
+                int chunkNumber = 0;
                 // Process each chunk for this guardian
                 for (ElectionCenter electionCenter : electionCenters) {
+                    chunkNumber++;
                     // Check if compensated decryption already exists
                     boolean existsAlready = compensatedDecryptionRepository
                         .existsByElectionCenterIdAndCompensatingGuardianIdAndMissingGuardianId(
@@ -844,6 +852,32 @@ public class PartialDecryptionService {
                         .build();
                     
                     compensatedDecryptionRepository.save(compensatedDecryption);
+                    
+                    // Update chunk progress after each chunk
+                    processedCompensatedChunks++;
+                    System.out.println("📦 Compensated chunk " + chunkNumber + "/" + electionCenters.size() 
+                        + " for guardian " + otherGuardian.getUserEmail() 
+                        + " (Total: " + processedCompensatedChunks + "/" + totalCompensatedChunks + ")");
+                    
+                    Optional<DecryptionStatus> chunkStatus = decryptionStatusRepository
+                        .findByElectionIdAndGuardianId(election.getElectionId(), guardian.getGuardianId());
+                    if (chunkStatus.isPresent()) {
+                        DecryptionStatus status = chunkStatus.get();
+                        status.setProcessedChunks(processedCompensatedChunks);
+                        status.setCurrentChunkNumber(chunkNumber);
+                        status.setUpdatedAt(Instant.now());
+                        decryptionStatusRepository.save(status);
+                    }
+                }
+                
+                // Update guardian progress after all chunks for this guardian are processed
+                Optional<DecryptionStatus> guardianStatus = decryptionStatusRepository
+                    .findByElectionIdAndGuardianId(election.getElectionId(), guardian.getGuardianId());
+                if (guardianStatus.isPresent()) {
+                    DecryptionStatus status = guardianStatus.get();
+                    status.setProcessedCompensatedGuardians(processedGuardians);
+                    status.setUpdatedAt(Instant.now());
+                    decryptionStatusRepository.save(status);
                 }
                 
                 System.out.println("✅ Compensated shares created for " + otherGuardian.getUserEmail());
