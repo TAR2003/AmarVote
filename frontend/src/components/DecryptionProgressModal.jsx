@@ -33,20 +33,10 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
         // Fallback: if no other guardians (shouldn't happen), use totalChunks
         numChunks = status.totalChunks || 0;
       }
-    } else if (status.status === 'completed') {
-      // When completed, figure out n from the last known state
-      // The backend should have totalChunks set from Phase 2
-      // Phase 2 totalChunks = n * (m-1), so n = totalChunks / (m-1)
-      if (otherGuardians > 0 && status.totalChunks > 0) {
-        // Calculate based on Phase 2 data
-        numChunks = Math.floor((status.totalChunks || 0) / otherGuardians);
-      } else if (otherGuardians === 0) {
-        // Single guardian case - no compensated shares
-        numChunks = status.totalChunks || 0;
-      } else {
-        // Fallback: assume totalChunks is n (shouldn't reach here)
-        numChunks = status.totalChunks || 0;
-      }
+    } else if (status.status === 'completed' || status.currentPhase === 'completed') {
+      // When completed, the backend resets totalChunks to the actual number of ballot chunks (n)
+      // So we can use it directly without any calculation
+      numChunks = status.totalChunks || 0;
     } else {
       // Fallback for pending/other phases
       numChunks = status.totalChunks || 0;
