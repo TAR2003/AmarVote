@@ -248,9 +248,8 @@ public class PartialDecryptionService {
                 processedChunks++;
                 
                 // MEMORY-EFFICIENT: Clear references to allow garbage collection
-                electionCenterOpt = null;
-                chunkBallots.clear();
-                ballotCipherTexts.clear();
+                chunkBallots = null;
+                ballotCipherTexts = null;
             }
             
             System.out.println("=== PROCESSED " + processedChunks + " CHUNKS SUCCESSFULLY ===");
@@ -621,9 +620,17 @@ public class PartialDecryptionService {
                 
                 // Get submitted ballots for this chunk
                 List<SubmittedBallot> chunkBallots = submittedBallotRepository.findByElectionCenterId(electionCenterId);
+                if (chunkBallots == null || chunkBallots.isEmpty()) {
+                    System.err.println("⚠️ Warning: No submitted ballots found for chunk " + electionCenterId);
+                    chunkBallots = new ArrayList<>();
+                }
+                
                 List<String> ballotCipherTexts = chunkBallots.stream()
                     .map(SubmittedBallot::getCipherText)
+                    .filter(ct -> ct != null && !ct.trim().isEmpty())
                     .toList();
+                
+                System.out.println("Found " + ballotCipherTexts.size() + " ballot cipher texts for chunk " + electionCenterId);
                 
                 // Construct guardian_data JSON
                 String guardianDataJson = String.format(
@@ -631,6 +638,25 @@ public class PartialDecryptionService {
                     guardian.getSequenceOrder(),
                     guardian.getSequenceOrder()
                 );
+                
+                // Validate required data before calling microservice
+                if (decryptedPrivateKey == null || decryptedPrivateKey.trim().isEmpty()) {
+                    throw new RuntimeException("Decrypted private key is null or empty");
+                }
+                if (decryptedPolynomial == null || decryptedPolynomial.trim().isEmpty()) {
+                    throw new RuntimeException("Decrypted polynomial is null or empty");
+                }
+                if (guardian.getGuardianPublicKey() == null || guardian.getGuardianPublicKey().trim().isEmpty()) {
+                    throw new RuntimeException("Guardian public key is null or empty");
+                }
+                if (election.getJointPublicKey() == null || election.getJointPublicKey().trim().isEmpty()) {
+                    throw new RuntimeException("Election joint public key is null or empty");
+                }
+                if (election.getBaseHash() == null || election.getBaseHash().trim().isEmpty()) {
+                    throw new RuntimeException("Election base hash is null or empty");
+                }
+                
+                System.out.println("✅ All required data validated. Calling ElectionGuard microservice...");
                 
                 // Call ElectionGuard microservice
                 ElectionGuardPartialDecryptionRequest guardRequest = ElectionGuardPartialDecryptionRequest.builder()
@@ -669,9 +695,8 @@ public class PartialDecryptionService {
                 System.out.println("✅ Chunk " + processedChunks + " processed and saved");
                 
                 // MEMORY-EFFICIENT: Clear references to allow garbage collection
-                electionCenterOpt = null;
-                chunkBallots.clear();
-                ballotCipherTexts.clear();
+                chunkBallots = null;
+                ballotCipherTexts = null;
             }
             
             System.out.println("✅ PHASE 1 COMPLETED: All " + processedChunks + " chunks processed");
@@ -696,19 +721,27 @@ public class PartialDecryptionService {
             System.out.println("🎉 DECRYPTION PROCESS COMPLETED SUCCESSFULLY");
             
         } catch (Exception e) {
-            System.err.println("❌ Error in async decryption: " + e.getMessage());
+            System.err.println("❌ Error in async decryption: " + e.getClass().getName() + ": " + e.getMessage());
             e.printStackTrace();
             
             // Provide user-friendly error message
             String userFriendlyError;
-            if (e.getMessage() != null && e.getMessage().contains("Invalid credentials")) {
+            String errorMsg = e.getMessage() != null ? e.getMessage() : e.getClass().getSimpleName();
+            
+            if (errorMsg.contains("Invalid credentials")) {
                 userFriendlyError = "The credential file you provided was incorrect. Please submit the correct credentials.txt file that was sent to you via email.";
-            } else if (e.getMessage() != null && e.getMessage().contains("credentials not found")) {
+            } else if (errorMsg.contains("credentials not found") || errorMsg.contains("Credentials not found")) {
                 userFriendlyError = "Your credentials could not be found in the system. Please contact the election administrator.";
-            } else if (e.getMessage() != null && e.getMessage().contains("Failed to generate decryption")) {
+            } else if (errorMsg.contains("Failed to generate decryption")) {
                 userFriendlyError = "Decryption processing failed. Please try again or contact the election administrator if the problem persists.";
+            } else if (errorMsg.contains("Election center not found")) {
+                userFriendlyError = "Election data chunk not found. The tally may have been corrupted. Please contact the election administrator.";
+            } else if (errorMsg.contains("no encrypted tally") || errorMsg.contains("has no encrypted tally")) {
+                userFriendlyError = "One or more election data chunks are missing encrypted tally data. Please ensure the tally was created successfully before decryption.";
+            } else if (e instanceof NullPointerException) {
+                userFriendlyError = "A critical data element was not found. This may indicate incomplete election setup. Please contact the election administrator. (Error type: " + e.getClass().getSimpleName() + ")";
             } else {
-                userFriendlyError = "An unexpected error occurred during decryption: " + e.getMessage() + ". Please try again or contact the election administrator.";
+                userFriendlyError = "An unexpected error occurred during decryption: " + errorMsg + ". Please try again or contact the election administrator.";
             }
             
             updateDecryptionStatus(request.election_id(), guardian.getGuardianId(), "failed",
@@ -934,8 +967,7 @@ public class PartialDecryptionService {
                     }
                     
                     // MEMORY-EFFICIENT: Clear references to allow garbage collection
-                    electionCenterOpt = null;
-                    ballotCipherTexts.clear();
+                    ballotCipherTexts = null;
                 }
                 
                 // Update guardian progress after all chunks for this guardian are processed
@@ -1577,20 +1609,19 @@ public class PartialDecryptionService {
                 System.out.println("✅ Chunk " + processedChunkCount + "/" + electionCenterIds.size() + " processed successfully");
                 
                 // MEMORY-EFFICIENT: Clear references to allow garbage collection
-                electionCenterOpt = null;
-                chunkSubmittedBallots.clear();
-                ballotCipherTexts.clear();
-                decryptions.clear();
-                guardianDecryptionMap.clear();
-                guardianDataList.clear();
-                availableGuardianIds.clear();
-                availableGuardianPublicKeys.clear();
-                availableTallyShares.clear();
-                availableBallotShares.clear();
-                missingGuardianIds.clear();
-                compensatingGuardianIds.clear();
-                compensatedTallyShares.clear();
-                compensatedBallotShares.clear();
+                chunkSubmittedBallots = null;
+                ballotCipherTexts = null;
+                decryptions = null;
+                guardianDecryptionMap = null;
+                guardianDataList = null;
+                availableGuardianIds = null;
+                availableGuardianPublicKeys = null;
+                availableTallyShares = null;
+                availableBallotShares = null;
+                missingGuardianIds = null;
+                compensatingGuardianIds = null;
+                compensatedTallyShares = null;
+                compensatedBallotShares = null;
             }
             
             // Update final progress after all chunks processed
@@ -1782,9 +1813,6 @@ public class PartialDecryptionService {
                 }
                 
                 System.out.println("  📊 Summary for Chunk " + electionCenterId + ": Created=" + createdCount + ", Skipped=" + skippedCount);
-                
-                // MEMORY-EFFICIENT: Clear reference to allow garbage collection
-                electionCenterOpt = null;
             }
             
             System.out.println("\n" + "=".repeat(80));

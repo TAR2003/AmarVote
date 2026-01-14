@@ -331,8 +331,8 @@ public class TallyService {
                 System.out.println("✅ Chunk " + chunkNumber + " completed. Progress: " + processedChunks + "/" + chunkConfig.getNumChunks());
                 
                 // MEMORY-EFFICIENT: Clear references to allow garbage collection
-                chunkBallots.clear();
-                chunkEncryptedBallots.clear();
+                chunkBallots = null;
+                chunkEncryptedBallots = null;
             }
             
             // Update election status and mark tally as completed
