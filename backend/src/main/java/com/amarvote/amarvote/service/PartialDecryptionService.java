@@ -523,9 +523,25 @@ public class PartialDecryptionService {
             System.out.println("=== ASYNC DECRYPTION STARTED ===");
             System.out.println("Election ID: " + request.election_id() + ", Guardian: " + guardian.getUserEmail());
             
-            // Update status to in_progress
-            updateDecryptionStatus(request.election_id(), guardian.getGuardianId(), "in_progress", 
-                "partial_decryption", 0, 0, null, null, null);
+            // Get all guardians to calculate total compensated guardians upfront
+            List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
+            int totalCompensatedGuardians = allGuardians.size() - 1; // All other guardians except self
+            
+            // Initialize status with totalCompensatedGuardians set from the beginning
+            Optional<DecryptionStatus> statusOpt = decryptionStatusRepository
+                .findByElectionIdAndGuardianId(request.election_id(), guardian.getGuardianId());
+            if (statusOpt.isPresent()) {
+                DecryptionStatus status = statusOpt.get();
+                status.setStatus("in_progress");
+                status.setCurrentPhase("partial_decryption");
+                status.setProcessedChunks(0);
+                status.setTotalChunks(electionCenters.size());
+                status.setCurrentChunkNumber(0);
+                status.setTotalCompensatedGuardians(totalCompensatedGuardians);
+                status.setProcessedCompensatedGuardians(0);
+                status.setUpdatedAt(Instant.now());
+                decryptionStatusRepository.save(status);
+            }
             
             // Get election and choices
             Optional<Election> electionOpt = electionRepository.findById(request.election_id());
@@ -537,8 +553,6 @@ public class PartialDecryptionService {
             List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(request.election_id());
             List<String> candidateNames = choices.stream().map(ElectionChoice::getOptionTitle).toList();
             List<String> partyNames = choices.stream().map(ElectionChoice::getPartyName).toList();
-            
-            List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
             
             // Decrypt guardian credentials
             String guardianCredentials = guardian.getCredentials();

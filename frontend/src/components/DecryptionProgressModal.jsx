@@ -8,24 +8,108 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState(null);
 
+  // Calculate total operations (n * m where n = chunks, m = guardians)
+  const calculateTotalOperations = (status) => {
+    if (!status) return { total: 0, completed: 0, numChunks: 0, totalGuardians: 0 };
+    
+    // Get the number of other guardians (m-1)
+    const otherGuardians = status.totalCompensatedGuardians || 0;
+    
+    // Get the number of total guardians (m) = 1 (self) + other guardians
+    const totalGuardians = otherGuardians + 1;
+    
+    // Determine the actual number of chunks (n)
+    let numChunks;
+    
+    if (status.currentPhase === 'partial_decryption') {
+      // In Phase 1, totalChunks = n (actual number of chunks)
+      numChunks = status.totalChunks || 0;
+    } else if (status.currentPhase === 'compensated_shares_generation') {
+      // In Phase 2, totalChunks = n * (m-1) (chunks × other guardians)
+      // So n = totalChunks / (m-1)
+      if (otherGuardians > 0) {
+        numChunks = Math.floor((status.totalChunks || 0) / otherGuardians);
+      } else {
+        // Fallback: if no other guardians (shouldn't happen), use totalChunks
+        numChunks = status.totalChunks || 0;
+      }
+    } else if (status.status === 'completed') {
+      // When completed, figure out n from the last known state
+      // The backend should have totalChunks set from Phase 2
+      // Phase 2 totalChunks = n * (m-1), so n = totalChunks / (m-1)
+      if (otherGuardians > 0 && status.totalChunks > 0) {
+        // Calculate based on Phase 2 data
+        numChunks = Math.floor((status.totalChunks || 0) / otherGuardians);
+      } else if (otherGuardians === 0) {
+        // Single guardian case - no compensated shares
+        numChunks = status.totalChunks || 0;
+      } else {
+        // Fallback: assume totalChunks is n (shouldn't reach here)
+        numChunks = status.totalChunks || 0;
+      }
+    } else {
+      // Fallback for pending/other phases
+      numChunks = status.totalChunks || 0;
+    }
+    
+    // Total operations = n * m (chunks × total guardians)
+    const totalOperations = numChunks * totalGuardians;
+    
+    // Calculate completed operations based on current phase
+    let completedOperations = 0;
+    
+    if (status.currentPhase === 'partial_decryption') {
+      // In Phase 1: only count processed chunks
+      completedOperations = status.processedChunks || 0;
+    } else if (status.currentPhase === 'compensated_shares_generation') {
+      // In Phase 2: add all Phase 1 chunks (n) + current compensated chunks
+      completedOperations = numChunks + (status.processedChunks || 0);
+    } else if (status.status === 'completed') {
+      // Completed: all operations done
+      completedOperations = totalOperations;
+    }
+    
+    // Debug logging
+    console.log('calculateTotalOperations:', {
+      phase: status.currentPhase,
+      statusValue: status.status,
+      totalChunks: status.totalChunks,
+      processedChunks: status.processedChunks,
+      otherGuardians,
+      totalGuardians,
+      numChunks,
+      totalOperations,
+      completedOperations
+    });
+    
+    return { 
+      total: totalOperations, 
+      completed: completedOperations,
+      numChunks,
+      totalGuardians
+    };
+  };
+
   // Calculate estimated time remaining
   const calculateEstimatedTime = (status) => {
-    if (!status || !status.startedAt || status.processedChunks === 0 || !status.totalChunks) {
+    if (!status || !status.startedAt) {
       return null;
     }
+
+    const { total, completed } = calculateTotalOperations(status);
+    
+    if (completed === 0 || total === 0) return null;
 
     const startTime = new Date(status.startedAt).getTime();
     const currentTime = Date.now();
     const elapsedMs = currentTime - startTime;
     
-    const chunksProcessed = status.processedChunks || 0;
-    const totalChunks = status.totalChunks || 1;
-    const chunksRemaining = totalChunks - chunksProcessed;
+    const operationsRemaining = total - completed;
     
-    if (chunksProcessed === 0) return null;
+    if (completed === 0) return null;
     
-    const msPerChunk = elapsedMs / chunksProcessed;
-    const estimatedRemainingMs = msPerChunk * chunksRemaining;
+    const msPerOperation = elapsedMs / completed;
+    const estimatedRemainingMs = msPerOperation * operationsRemaining;
     
     // Convert to seconds
     const estimatedRemainingSec = Math.ceil(estimatedRemainingMs / 1000);
@@ -200,8 +284,14 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                 <div className="flex items-center gap-6 mt-4">
                   <div style={{ width: 120, height: 120 }}>
                     <CircularProgressbar
-                      value={status.progressPercentage || 0}
-                      text={`${Math.round(status.progressPercentage || 0)}%`}
+                      value={(() => {
+                        const { total, completed } = calculateTotalOperations(status);
+                        return total > 0 ? (completed * 100) / total : 0;
+                      })()}
+                      text={`${Math.round((() => {
+                        const { total, completed } = calculateTotalOperations(status);
+                        return total > 0 ? (completed * 100) / total : 0;
+                      })())}%`}
                       styles={buildStyles({
                         pathColor: getStatusColor(),
                         textColor: getStatusColor(),
@@ -215,18 +305,45 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                     <div className="bg-gray-100 rounded-lg p-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-sm text-gray-600">Chunks Processed</p>
+                          <p className="text-sm text-gray-600">Total Progress (All Operations)</p>
                           <p className="text-2xl font-bold text-gray-900">
-                            {status.processedChunks || 0} / {status.totalChunks || 0}
+                            {(() => {
+                              const { total, completed } = calculateTotalOperations(status);
+                              return `${completed} / ${total}`;
+                            })()}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            {(() => {
+                              const { numChunks, totalGuardians } = calculateTotalOperations(status);
+                              return `${numChunks} chunks × ${totalGuardians} guardians`;
+                            })()}
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600">Current Chunk</p>
-                          <p className="text-2xl font-bold text-indigo-600">
-                            #{status.currentChunkNumber || 0}
+                          <p className="text-sm text-gray-600">Current Operation</p>
+                          <p className="text-lg font-bold text-indigo-600">
+                            {status.currentPhase === 'partial_decryption' 
+                              ? 'Partial Decryption'
+                              : status.currentPhase === 'compensated_shares_generation'
+                              ? 'Compensated Shares'
+                              : 'Processing'}
+                          </p>
+                          <p className="text-xs text-gray-500 mt-1">
+                            Chunk #{status.currentChunkNumber || 0}
+                            {status.currentPhase === 'compensated_shares_generation' && status.compensatingForGuardianName && (
+                              <span className="block">for {status.compensatingForGuardianName}</span>
+                            )}
                           </p>
                         </div>
                       </div>
+                      
+                      {calculateEstimatedTime(status) && (
+                        <div className="mt-3 pt-3 border-t border-gray-300">
+                          <p className="text-sm text-gray-600 font-medium">
+                            ⏱️ Estimated time remaining (entire process): <span className="text-indigo-600 font-bold">{calculateEstimatedTime(status)}</span>
+                          </p>
+                        </div>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -241,20 +358,43 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                       <h4 className="font-semibold text-blue-900 mb-1">
                         Phase 1: Partial Decryption
                       </h4>
-                      <p className="text-sm text-blue-700">
+                      <p className="text-sm text-blue-700 mb-2">
                         Decrypting your portion of the encrypted tally for each chunk.
                         This process validates your guardian credentials and generates
                         partial decryption shares.
                       </p>
-                      {calculateEstimatedTime(status) && (
-                        <p className="text-sm text-blue-600 font-medium mt-2">
-                          ⏱️ Estimated time remaining: {calculateEstimatedTime(status)}
-                        </p>
-                      )}
-                      <div className="mt-3 h-2 bg-blue-200 rounded-full overflow-hidden">
+                      
+                      <div className="bg-white rounded-lg p-3 mb-3 border border-blue-200">
+                        <div className="grid grid-cols-2 gap-3 text-sm">
+                          <div>
+                            <p className="text-blue-600">Current Chunk:</p>
+                            <p className="text-blue-900 font-semibold text-lg">
+                              #{status.currentChunkNumber || 0}
+                            </p>
+                          </div>
+                          <div>
+                            <p className="text-blue-600">Phase 1 Progress:</p>
+                            <p className="text-blue-900 font-semibold text-lg">
+                              {status.processedChunks || 0} / {status.totalChunks || 0}
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <p className="text-xs text-blue-500 mb-2">
+                        Phase 1 progress:
+                      </p>
+                      <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-blue-600 transition-all duration-500"
-                          style={{ width: `${status.progressPercentage || 0}%` }}
+                          style={{ 
+                            width: `${(() => {
+                              const phaseProgress = status.totalChunks > 0 
+                                ? ((status.processedChunks || 0) * 100) / status.totalChunks 
+                                : 0;
+                              return phaseProgress;
+                            })()}%` 
+                          }}
                         ></div>
                       </div>
                     </div>
@@ -277,9 +417,9 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                       
                       {status.compensatingForGuardianName && (
                         <div className="bg-white rounded-lg p-3 mb-3 border border-purple-200">
-                          <p className="text-sm text-gray-600 mb-1">Currently compensating for:</p>
+                          <p className="text-sm text-gray-600 mb-1">Current Process:</p>
                           <p className="text-lg font-semibold text-purple-900">
-                            🛡️ {status.compensatingForGuardianName}
+                            💫 Compensating for {status.compensatingForGuardianName}
                           </p>
                           {status.currentChunkNumber > 0 && (
                             <p className="text-xs text-purple-600 mt-1">
@@ -289,43 +429,43 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                         </div>
                       )}
                       
-                      <div className="grid grid-cols-3 gap-3 mb-2">
-                        <div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-purple-700">Guardians:</span>
-                            <span className="font-semibold text-purple-900">
+                      <div className="bg-white rounded-lg p-3 mb-3 border border-purple-200">
+                        <div className="grid grid-cols-3 gap-3">
+                          <div>
+                            <p className="text-xs text-purple-600 mb-1">Guardians Progress</p>
+                            <p className="text-lg font-semibold text-purple-900">
                               {status.processedCompensatedGuardians || 0} / {status.totalCompensatedGuardians || 0}
-                            </span>
+                            </p>
                           </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-purple-700">Total Chunks:</span>
-                            <span className="font-semibold text-purple-900">
+                          <div>
+                            <p className="text-xs text-purple-600 mb-1">Phase 2 Progress</p>
+                            <p className="text-lg font-semibold text-purple-900">
                               {status.processedChunks || 0} / {status.totalChunks || 0}
-                            </span>
+                            </p>
                           </div>
-                        </div>
-                        <div>
-                          <div className="flex items-center justify-between text-sm">
-                            <span className="text-purple-700">Current:</span>
-                            <span className="font-semibold text-purple-900">
+                          <div>
+                            <p className="text-xs text-purple-600 mb-1">Current Chunk</p>
+                            <p className="text-lg font-semibold text-purple-900">
                               #{status.currentChunkNumber || 0}
-                            </span>
+                            </p>
                           </div>
                         </div>
                       </div>
                       
-                      {calculateEstimatedTime(status) && (
-                        <p className="text-sm text-purple-600 font-medium mb-2">
-                          ⏱️ Estimated time remaining: {calculateEstimatedTime(status)}
-                        </p>
-                      )}
-                      
+                      <p className="text-xs text-purple-500 mb-2">
+                        Phase 2 progress:
+                      </p>
                       <div className="h-2 bg-purple-200 rounded-full overflow-hidden">
                         <div
                           className="h-full bg-purple-600 transition-all duration-500"
-                          style={{ width: `${status.compensatedProgressPercentage || 0}%` }}
+                          style={{ 
+                            width: `${(() => {
+                              const phaseProgress = status.totalChunks > 0 
+                                ? ((status.processedChunks || 0) * 100) / status.totalChunks 
+                                : 0;
+                              return phaseProgress;
+                            })()}%` 
+                          }}
                         ></div>
                       </div>
                     </div>
@@ -347,12 +487,24 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                         </p>
                         <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
                           <div className="bg-green-50 rounded p-2">
-                            <p className="text-green-600 font-semibold">Chunks Processed</p>
-                            <p className="text-green-900 text-lg font-bold">{status.totalChunks}</p>
+                            <p className="text-green-600 font-semibold">Total Operations</p>
+                            <p className="text-green-900 text-lg font-bold">
+                              {(() => {
+                                const { total } = calculateTotalOperations(status);
+                                return total;
+                              })()}
+                            </p>
+                            <p className="text-green-700 text-xs">
+                              {(() => {
+                                const { numChunks, totalGuardians } = calculateTotalOperations(status);
+                                return `${numChunks} chunks × ${totalGuardians} guardians`;
+                              })()}
+                            </p>
                           </div>
                           <div className="bg-green-50 rounded p-2">
-                            <p className="text-green-600 font-semibold">Backup Shares Generated</p>
+                            <p className="text-green-600 font-semibold">Backup Shares</p>
                             <p className="text-green-900 text-lg font-bold">{status.totalCompensatedGuardians || 0}</p>
+                            <p className="text-green-700 text-xs">for other guardians</p>
                           </div>
                         </div>
                       </div>
@@ -438,9 +590,12 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                       {status.status === 'in_progress' || status.status === 'completed' ? '⟳' : '○'}
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Processing Chunks</p>
+                      <p className="text-sm font-medium text-gray-900">Processing Operations</p>
                       <p className="text-xs text-gray-600">
-                        {status.processedChunks || 0} of {status.totalChunks || 0} chunks processed
+                        {(() => {
+                          const { total, completed } = calculateTotalOperations(status);
+                          return `${completed} of ${total} operations completed`;
+                        })()}
                       </p>
                     </div>
                   </div>
