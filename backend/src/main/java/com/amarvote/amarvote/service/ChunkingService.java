@@ -157,4 +157,42 @@ public class ChunkingService {
             
         return uniqueCount == originalBallots.size();
     }
+
+    /**
+     * MEMORY-EFFICIENT: Randomly assign IDs to chunks using cryptographically secure randomization
+     * Each ID is assigned to exactly one chunk
+     * 
+     * @param ids List of IDs (ballot IDs, election center IDs, etc.) to assign
+     * @param config Chunk configuration specifying number and sizes of chunks
+     * @return Map of chunk number to list of IDs assigned to that chunk
+     */
+    public Map<Integer, List<Long>> assignIdsToChunks(
+            List<Long> ids, ChunkConfiguration config) {
+        
+        System.out.println("\n=== ASSIGNING IDs TO CHUNKS (Memory-Efficient) ===");
+        System.out.println("Total IDs to assign: " + ids.size());
+        System.out.println("Number of chunks: " + config.getNumChunks());
+        System.out.println("Chunk sizes: " + config.getChunkSizes());
+        
+        // Shuffle IDs using secure random
+        List<Long> shuffled = new ArrayList<>(ids);
+        Collections.shuffle(shuffled, secureRandom);
+        System.out.println("✅ IDs shuffled randomly");
+        
+        Map<Integer, List<Long>> chunks = new HashMap<>();
+        int idIndex = 0;
+        
+        // Distribute shuffled IDs according to chunk sizes
+        for (int chunkNum = 0; chunkNum < config.getNumChunks(); chunkNum++) {
+            int chunkSize = config.getChunkSizes().get(chunkNum);
+            List<Long> chunkIds = new ArrayList<>(
+                shuffled.subList(idIndex, idIndex + chunkSize));
+            chunks.put(chunkNum, chunkIds);
+            System.out.println("  Chunk " + chunkNum + ": " + chunkSize + " IDs: " + chunkIds);
+            idIndex += chunkSize;
+        }
+        
+        System.out.println("✅ All IDs assigned to " + chunks.size() + " chunks");
+        return chunks;
+    }
 }

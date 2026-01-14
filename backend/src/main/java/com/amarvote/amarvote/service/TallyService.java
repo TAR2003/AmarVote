@@ -231,33 +231,37 @@ public class TallyService {
         try {
             updateTallyStatus(electionId, "in_progress", 0, 0, null);
             
-            System.out.println("=== Async Tally Creation Started ===");
+            System.out.println("=== Async Tally Creation Started (Memory-Efficient Mode) ===");
             System.out.println("Election ID: " + electionId);
             
-            // Fetch election and ballots
+            // Fetch election
             Optional<Election> electionOpt = electionRepository.findById(electionId);
             if (electionOpt.isEmpty()) {
                 throw new RuntimeException("Election not found");
             }
             
             Election election = electionOpt.get();
-            List<Ballot> ballots = ballotRepository.findByElectionIdAndStatus(electionId, "cast");
             
-            if (ballots.isEmpty()) {
+            // MEMORY-EFFICIENT: Fetch only ballot IDs, not full ballot objects
+            List<Long> ballotIds = ballotRepository.findBallotIdsByElectionIdAndStatus(electionId, "cast");
+            
+            if (ballotIds.isEmpty()) {
                 throw new RuntimeException("No cast ballots found for this election");
             }
             
-            // Calculate chunks
-            ChunkConfiguration chunkConfig = chunkingService.calculateChunks(ballots.size());
+            System.out.println("✅ Found " + ballotIds.size() + " ballot IDs (not loading full ballots yet)");
+            
+            // Calculate chunks based on count
+            ChunkConfiguration chunkConfig = chunkingService.calculateChunks(ballotIds.size());
             System.out.println("✅ Calculated " + chunkConfig.getNumChunks() + " chunks");
             
             // Update status with total chunks
             updateTallyStatus(electionId, "in_progress", chunkConfig.getNumChunks(), 0, null);
             
-            // Assign ballots to chunks
-            java.util.Map<Integer, List<Ballot>> chunks = chunkingService.assignBallotsToChunks(ballots, chunkConfig);
+            // MEMORY-EFFICIENT: Assign only ballot IDs to chunks (not full Ballot objects)
+            java.util.Map<Integer, List<Long>> chunkIdMap = chunkingService.assignIdsToChunks(ballotIds, chunkConfig);
             
-            // Fetch election choices
+            // Fetch election choices (small dataset, OK to keep in memory)
             List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(electionId);
             List<String> partyNames = electionChoices.stream()
                 .map(ElectionChoice::getPartyName)
@@ -271,11 +275,15 @@ public class TallyService {
             
             // Process each chunk with progress updates
             int processedChunks = 0;
-            for (java.util.Map.Entry<Integer, List<Ballot>> entry : chunks.entrySet()) {
+            for (java.util.Map.Entry<Integer, List<Long>> entry : chunkIdMap.entrySet()) {
                 int chunkNumber = entry.getKey();
-                List<Ballot> chunkBallots = entry.getValue();
+                List<Long> chunkBallotIds = entry.getValue();
                 
                 System.out.println("=== Processing Chunk " + chunkNumber + "/" + chunkConfig.getNumChunks() + " ===");
+                System.out.println("Fetching " + chunkBallotIds.size() + " ballots from database for this chunk...");
+                
+                // MEMORY-EFFICIENT: Fetch only the ballots needed for this chunk
+                List<Ballot> chunkBallots = ballotRepository.findByBallotIdIn(chunkBallotIds);
                 
                 // Create election center entry
                 ElectionCenter electionCenter = ElectionCenter.builder()
@@ -321,6 +329,10 @@ public class TallyService {
                 processedChunks++;
                 updateTallyStatus(electionId, "in_progress", chunkConfig.getNumChunks(), processedChunks, null);
                 System.out.println("✅ Chunk " + chunkNumber + " completed. Progress: " + processedChunks + "/" + chunkConfig.getNumChunks());
+                
+                // MEMORY-EFFICIENT: Clear references to allow garbage collection
+                chunkBallots.clear();
+                chunkEncryptedBallots.clear();
             }
             
             // Update election status and mark tally as completed

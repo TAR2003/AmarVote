@@ -31,4 +31,12 @@ public interface BallotRepository extends JpaRepository<Ballot, Long> {
 
     // Find ballots by election ID and status
     List<Ballot> findByElectionIdAndStatus(Long electionId, String status);
+
+    // Find only ballot IDs by election ID and status (memory-efficient)
+    @Query("SELECT b.ballotId FROM Ballot b WHERE b.electionId = :electionId AND b.status = :status")
+    List<Long> findBallotIdsByElectionIdAndStatus(@Param("electionId") Long electionId, @Param("status") String status);
+
+    // Find ballots by list of IDs
+    @Query("SELECT b FROM Ballot b WHERE b.ballotId IN :ballotIds")
+    List<Ballot> findByBallotIdIn(@Param("ballotIds") List<Long> ballotIds);
 }

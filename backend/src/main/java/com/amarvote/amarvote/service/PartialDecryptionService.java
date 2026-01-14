@@ -117,12 +117,13 @@ public class PartialDecryptionService {
 
             // ===== CRITICAL CHECK: Tally must exist before guardian key submission =====
             // Check if encrypted tally exists (check election_center table for chunks)
-            List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(request.election_id());
+            // MEMORY-EFFICIENT: Fetch only election center IDs first
+            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(request.election_id());
             System.out.println("=== TALLY VERIFICATION ===");
             System.out.println("Checking if encrypted tally exists for election " + request.election_id());
-            System.out.println("Found " + electionCenters.size() + " chunk(s) in election_center table");
+            System.out.println("Found " + electionCenterIds.size() + " chunk(s) in election_center table");
             
-            if (electionCenters.isEmpty()) {
+            if (electionCenterIds.isEmpty()) {
                 System.out.println("❌ NO ENCRYPTED TALLY FOUND - GUARDIAN KEYS CANNOT BE SUBMITTED");
                 return CreatePartialDecryptionResponse.builder()
                     .success(false)
@@ -160,13 +161,24 @@ public class PartialDecryptionService {
                     .build();
             }
 
-            // 10. ===== PROCESS EACH CHUNK =====
-            System.out.println("=== PROCESSING " + electionCenters.size() + " CHUNKS ===");
+            // 10. ===== PROCESS EACH CHUNK (MEMORY-EFFICIENT) =====
+            System.out.println("=== PROCESSING " + electionCenterIds.size() + " CHUNKS ===");
             int processedChunks = 0;
             
-            for (ElectionCenter electionCenter : electionCenters) {
-                Long electionCenterId = electionCenter.getElectionCenterId();
+            for (Long electionCenterId : electionCenterIds) {
                 System.out.println("=== PROCESSING CHUNK " + (processedChunks + 1) + " (election_center_id: " + electionCenterId + ") ===");
+                System.out.println("Fetching election center from database...");
+                
+                // MEMORY-EFFICIENT: Fetch only the election center needed for this iteration
+                Optional<ElectionCenter> electionCenterOpt = electionCenterRepository.findById(electionCenterId);
+                if (!electionCenterOpt.isPresent()) {
+                    System.err.println("❌ Election center not found: " + electionCenterId);
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Chunk " + (processedChunks + 1) + " not found")
+                        .build();
+                }
+                ElectionCenter electionCenter = electionCenterOpt.get();
                 
                 // Get encrypted tally for this chunk
                 String ciphertextTallyString = electionCenter.getEncryptedTally();
@@ -234,6 +246,11 @@ public class PartialDecryptionService {
                 System.out.println("✅ Saved decryption data for chunk " + electionCenterId);
                 
                 processedChunks++;
+                
+                // MEMORY-EFFICIENT: Clear references to allow garbage collection
+                electionCenterOpt = null;
+                chunkBallots.clear();
+                ballotCipherTexts.clear();
             }
             
             System.out.println("=== PROCESSED " + processedChunks + " CHUNKS SUCCESSFULLY ===");
@@ -243,7 +260,7 @@ public class PartialDecryptionService {
             // guardian.setDecryptedOrNot(true); // MOVED TO AFTER COMPENSATED SHARES
 
             // Create compensated decryption shares for ALL other guardians using decrypted polynomial
-            createCompensatedDecryptionShares(election, guardian, decryptedPrivateKey, decryptedPolynomial, electionCenters);
+            createCompensatedDecryptionShares(election, guardian, decryptedPrivateKey, decryptedPolynomial, electionCenterIds);
             
             // ✅ NOW mark guardian as fully decrypted (both phases complete)
             guardian.setDecryptedOrNot(true);
@@ -329,13 +346,16 @@ public class PartialDecryptionService {
             }
             
             try {
+                // MEMORY-EFFICIENT: Fetch only election center IDs (not full objects)
+                List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(request.election_id());
+                
                 // 6. Create or update decryption status
                 DecryptionStatus decryptionStatus = existingStatus.orElse(DecryptionStatus.builder()
                     .electionId(request.election_id())
                     .guardianId(guardian.getGuardianId())
                     .guardianEmail(userEmail)
                     .guardianName(guardian.getUserEmail())
-                    .totalChunks(electionCenters.size())
+                    .totalChunks(electionCenterIds.size())
                     .processedChunks(0)
                     .currentPhase("pending")
                     .currentChunkNumber(0)
@@ -346,7 +366,7 @@ public class PartialDecryptionService {
                 
                 decryptionStatus.setStatus("pending");
                 decryptionStatus.setStartedAt(Instant.now());
-                decryptionStatus.setTotalChunks(electionCenters.size());
+                decryptionStatus.setTotalChunks(electionCenterIds.size());
                 decryptionStatus.setProcessedChunks(0);
                 decryptionStatus.setCurrentPhase("pending");
                 decryptionStatus.setErrorMessage(null);
@@ -404,7 +424,7 @@ public class PartialDecryptionService {
                 System.out.println("✅ Starting async processing...");
                 
                 // 8. Start async processing (credentials already validated)
-                processDecryptionAsync(request, userEmail, guardian, electionCenters);
+                processDecryptionAsync(request, userEmail, guardian);
                 
                 return CreatePartialDecryptionResponse.builder()
                     .success(true)
@@ -511,17 +531,21 @@ public class PartialDecryptionService {
     }
 
     /**
-     * Process decryption asynchronously with detailed progress tracking
+     * Process decryption asynchronously with detailed progress tracking (MEMORY-EFFICIENT)
      */
     @Async
     @Transactional
     public void processDecryptionAsync(CreatePartialDecryptionRequest request, String userEmail, 
-                                       Guardian guardian, List<ElectionCenter> electionCenters) {
+                                       Guardian guardian) {
         String lockKey = request.election_id() + "_" + guardian.getGuardianId();
         
         try {
-            System.out.println("=== ASYNC DECRYPTION STARTED ===");
+            System.out.println("=== ASYNC DECRYPTION STARTED (Memory-Efficient Mode) ===");
             System.out.println("Election ID: " + request.election_id() + ", Guardian: " + guardian.getUserEmail());
+            
+            // MEMORY-EFFICIENT: Fetch only election center IDs (not full objects)
+            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(request.election_id());
+            System.out.println("✅ Found " + electionCenterIds.size() + " election center IDs (not loading full objects yet)");
             
             // Get all guardians to calculate total compensated guardians upfront
             List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
@@ -535,7 +559,7 @@ public class PartialDecryptionService {
                 status.setStatus("in_progress");
                 status.setCurrentPhase("partial_decryption");
                 status.setProcessedChunks(0);
-                status.setTotalChunks(electionCenters.size());
+                status.setTotalChunks(electionCenterIds.size());
                 status.setCurrentChunkNumber(0);
                 status.setTotalCompensatedGuardians(totalCompensatedGuardians);
                 status.setProcessedCompensatedGuardians(0);
@@ -567,20 +591,27 @@ public class PartialDecryptionService {
             
             System.out.println("✅ Guardian credentials decrypted successfully");
             
-            // PHASE 1: Process each chunk for partial decryption
-            System.out.println("=== PHASE 1: PARTIAL DECRYPTION (" + electionCenters.size() + " chunks) ===");
+            // PHASE 1: Process each chunk for partial decryption (MEMORY-EFFICIENT)
+            System.out.println("=== PHASE 1: PARTIAL DECRYPTION (" + electionCenterIds.size() + " chunks) ===");
             int processedChunks = 0;
             
-            for (ElectionCenter electionCenter : electionCenters) {
-                Long electionCenterId = electionCenter.getElectionCenterId();
+            for (Long electionCenterId : electionCenterIds) {
                 processedChunks++;
                 
-                System.out.println("📦 Processing chunk " + processedChunks + "/" + electionCenters.size() 
+                System.out.println("📦 Processing chunk " + processedChunks + "/" + electionCenterIds.size() 
                     + " (ID: " + electionCenterId + ")");
+                System.out.println("Fetching election center data from database for this chunk...");
+                
+                // MEMORY-EFFICIENT: Fetch only the election center needed for this iteration
+                Optional<ElectionCenter> electionCenterOpt = electionCenterRepository.findById(electionCenterId);
+                if (!electionCenterOpt.isPresent()) {
+                    throw new RuntimeException("Election center not found: " + electionCenterId);
+                }
+                ElectionCenter electionCenter = electionCenterOpt.get();
                 
                 // Update status with current chunk
                 updateDecryptionStatus(request.election_id(), guardian.getGuardianId(), "in_progress",
-                    "partial_decryption", processedChunks, electionCenters.size(), null, null, null);
+                    "partial_decryption", processedChunks, electionCenterIds.size(), null, null, null);
                 
                 // Get encrypted tally for this chunk
                 String ciphertextTallyString = electionCenter.getEncryptedTally();
@@ -636,6 +667,11 @@ public class PartialDecryptionService {
                 
                 decryptionRepository.save(decryption);
                 System.out.println("✅ Chunk " + processedChunks + " processed and saved");
+                
+                // MEMORY-EFFICIENT: Clear references to allow garbage collection
+                electionCenterOpt = null;
+                chunkBallots.clear();
+                ballotCipherTexts.clear();
             }
             
             System.out.println("✅ PHASE 1 COMPLETED: All " + processedChunks + " chunks processed");
@@ -646,7 +682,7 @@ public class PartialDecryptionService {
             // PHASE 2: Create compensated decryption shares for other guardians
             System.out.println("=== PHASE 2: COMPENSATED SHARES GENERATION ===");
             createCompensatedDecryptionSharesWithProgress(election, guardian, decryptedPrivateKey, 
-                decryptedPolynomial, electionCenters);
+                decryptedPolynomial, electionCenterIds);
             
             // ✅ NOW mark guardian as fully decrypted (both phases complete)
             guardian.setDecryptedOrNot(true);
@@ -655,7 +691,7 @@ public class PartialDecryptionService {
             
             // Mark as completed
             updateDecryptionStatus(request.election_id(), guardian.getGuardianId(), "completed",
-                "completed", processedChunks, electionCenters.size(), null, null, Instant.now());
+                "completed", processedChunks, electionCenterIds.size(), null, null, Instant.now());
             
             System.out.println("🎉 DECRYPTION PROCESS COMPLETED SUCCESSFULLY");
             
@@ -723,11 +759,11 @@ public class PartialDecryptionService {
     }
 
     /**
-     * Create compensated decryption shares with progress tracking
+     * Create compensated decryption shares with progress tracking (MEMORY-EFFICIENT)
      */
     private void createCompensatedDecryptionSharesWithProgress(Election election, Guardian guardian, 
                                                               String decryptedPrivateKey, String decryptedPolynomial,
-                                                              List<ElectionCenter> electionCenters) {
+                                                              List<Long> electionCenterIds) {
         try {
             List<Guardian> allGuardians = guardianRepository.findByElectionId(election.getElectionId());
             List<Guardian> otherGuardians = allGuardians.stream()
@@ -744,14 +780,14 @@ public class PartialDecryptionService {
                 status.setTotalCompensatedGuardians(otherGuardians.size());
                 status.setProcessedCompensatedGuardians(0);
                 // Reset chunk tracking for compensated phase - total is guardians × chunks
-                status.setTotalChunks(otherGuardians.size() * electionCenters.size());
+                status.setTotalChunks(otherGuardians.size() * electionCenterIds.size());
                 status.setProcessedChunks(0);
                 status.setCurrentChunkNumber(0);
                 decryptionStatusRepository.save(status);
             }
             
             int processedGuardians = 0;
-            int totalCompensatedChunks = otherGuardians.size() * electionCenters.size();
+            int totalCompensatedChunks = otherGuardians.size() * electionCenterIds.size();
             int processedCompensatedChunks = 0;
             
             for (Guardian otherGuardian : otherGuardians) {
@@ -773,9 +809,20 @@ public class PartialDecryptionService {
                 }
                 
                 int chunkNumber = 0;
-                // Process each chunk for this guardian
-                for (ElectionCenter electionCenter : electionCenters) {
+                // Process each chunk for this guardian (MEMORY-EFFICIENT)
+                for (Long electionCenterId : electionCenterIds) {
                     chunkNumber++;
+                    
+                    System.out.println("Fetching election center " + electionCenterId + " for chunk " + chunkNumber + "...");
+                    
+                    // MEMORY-EFFICIENT: Fetch only the election center needed for this iteration
+                    Optional<ElectionCenter> electionCenterOpt = electionCenterRepository.findById(electionCenterId);
+                    if (!electionCenterOpt.isPresent()) {
+                        System.err.println("Election center not found: " + electionCenterId);
+                        continue;
+                    }
+                    ElectionCenter electionCenter = electionCenterOpt.get();
+                    
                     // Check if compensated decryption already exists
                     boolean existsAlready = compensatedDecryptionRepository
                         .existsByElectionCenterIdAndCompensatingGuardianIdAndMissingGuardianId(
@@ -785,6 +832,9 @@ public class PartialDecryptionService {
                         );
                     
                     if (existsAlready) {
+                        System.out.println("Compensated decryption already exists, skipping...");
+                        // MEMORY-EFFICIENT: Clear reference
+                        electionCenterOpt = null;
                         continue;
                     }
                     
@@ -869,7 +919,7 @@ public class PartialDecryptionService {
                     
                     // Update chunk progress after each chunk
                     processedCompensatedChunks++;
-                    System.out.println("📦 Compensated chunk " + chunkNumber + "/" + electionCenters.size() 
+                    System.out.println("📦 Compensated chunk " + chunkNumber + "/" + electionCenterIds.size() 
                         + " for guardian " + otherGuardian.getUserEmail() 
                         + " (Total: " + processedCompensatedChunks + "/" + totalCompensatedChunks + ")");
                     
@@ -882,6 +932,10 @@ public class PartialDecryptionService {
                         status.setUpdatedAt(Instant.now());
                         decryptionStatusRepository.save(status);
                     }
+                    
+                    // MEMORY-EFFICIENT: Clear references to allow garbage collection
+                    electionCenterOpt = null;
+                    ballotCipherTexts.clear();
                 }
                 
                 // Update guardian progress after all chunks for this guardian are processed
@@ -1127,6 +1181,8 @@ public class PartialDecryptionService {
     @Transactional
     public CombinePartialDecryptionResponse combinePartialDecryption(CombinePartialDecryptionRequest request) {
         try {
+            System.out.println("=== COMBINE PARTIAL DECRYPTION STARTED (Memory-Efficient Mode) ===");
+            
             // 1. Fetch election
             Optional<Election> electionOpt = electionRepository.findById(request.election_id());
             if (!electionOpt.isPresent()) {
@@ -1137,24 +1193,32 @@ public class PartialDecryptionService {
             }
             Election election = electionOpt.get();
 
-            // 2. Check if ciphertext_tally exists in ElectionCenter table
-            List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(request.election_id());
-            if (electionCenters == null || electionCenters.isEmpty() || 
-                electionCenters.stream().noneMatch(ec -> ec.getEncryptedTally() != null && !ec.getEncryptedTally().trim().isEmpty())) {
+            // 2. MEMORY-EFFICIENT: Check if tally exists using IDs first
+            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(request.election_id());
+            if (electionCenterIds == null || electionCenterIds.isEmpty()) {
                 return CombinePartialDecryptionResponse.builder()
                     .success(false)
                     .message("Election tally has not been created yet. Please create the tally first.")
                     .build();
             }
+            
+            System.out.println("✅ Found " + electionCenterIds.size() + " election center IDs");
 
-            // 2.5. Check if results already exist (optimization)
-            boolean allChunksHaveResults = electionCenters.stream()
-                .allMatch(ec -> ec.getElectionResult() != null && !ec.getElectionResult().trim().isEmpty());
+            // 2.5. Check if results already exist (optimization) - need to fetch one center to check
+            boolean allChunksHaveResults = true;
+            for (Long ecId : electionCenterIds) {
+                Optional<ElectionCenter> ecOpt = electionCenterRepository.findById(ecId);
+                if (!ecOpt.isPresent() || ecOpt.get().getElectionResult() == null || ecOpt.get().getElectionResult().trim().isEmpty()) {
+                    allChunksHaveResults = false;
+                    break;
+                }
+            }
             
             if (allChunksHaveResults) {
                 System.out.println("✅ Results already computed for all chunks. Returning cached results.");
                 
-                // Build aggregated results from cached chunk data
+                // Fetch all centers to build aggregated results
+                List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(request.election_id());
                 Object cachedResults = buildAggregatedResultsFromChunks(electionCenters, request.election_id());
                 
                 return CombinePartialDecryptionResponse.builder()
@@ -1164,7 +1228,7 @@ public class PartialDecryptionService {
                     .build();
             }
             
-            System.out.println("🔄 Computing fresh results for " + electionCenters.size() + " chunk(s)");
+            System.out.println("🔄 Computing fresh results for " + electionCenterIds.size() + " chunk(s)");
 
             // 3. Fetch election choices for candidate_names and party_names
             List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(request.election_id());
@@ -1219,15 +1283,28 @@ public class PartialDecryptionService {
                 .collect(Collectors.toList());
             System.out.println("Available guardian sequences: " + availableSequences);
 
-            // 7. ✅ PROCESS EACH CHUNK SEPARATELY
-            // Loop through each election_center (chunk) and combine decryption shares for that chunk
+            // 7. ✅ PROCESS EACH CHUNK SEPARATELY (MEMORY-EFFICIENT)
+            // Loop through each election_center ID and combine decryption shares for that chunk
             int processedChunkCount = 0;
-            for (ElectionCenter electionCenter : electionCenters) {
-                System.out.println("=== PROCESSING CHUNK " + (processedChunkCount + 1) + "/" + electionCenters.size() 
-                    + " (election_center_id: " + electionCenter.getElectionCenterId() + ") ===");
+            for (Long electionCenterId : electionCenterIds) {
+                processedChunkCount++;
+                System.out.println("=== PROCESSING CHUNK " + processedChunkCount + "/" + electionCenterIds.size() 
+                    + " (election_center_id: " + electionCenterId + ") ===");
+                System.out.println("Fetching election center from database...");
+                
+                // MEMORY-EFFICIENT: Fetch only the election center needed for this iteration
+                Optional<ElectionCenter> electionCenterOpt = electionCenterRepository.findById(electionCenterId);
+                if (!electionCenterOpt.isPresent()) {
+                    System.err.println("❌ Election center not found: " + electionCenterId);
+                    return CombinePartialDecryptionResponse.builder()
+                        .success(false)
+                        .message("Election center not found: " + electionCenterId)
+                        .build();
+                }
+                ElectionCenter electionCenter = electionCenterOpt.get();
                 
                 // Update progress at start of chunk processing
-                updateCombineStatus(request.election_id(), "in_progress", processedChunkCount, null);
+                updateCombineStatus(request.election_id(), "in_progress", processedChunkCount - 1, null);
                 
                 // Get submitted ballots for THIS CHUNK ONLY
                 List<SubmittedBallot> chunkSubmittedBallots = submittedBallotRepository.findByElectionCenterId(electionCenter.getElectionCenterId());
@@ -1497,15 +1574,30 @@ public class PartialDecryptionService {
                         .build();
                 }
                 
-                // Increment processed count after successful chunk processing
-                processedChunkCount++;
-                System.out.println("✅ Chunk " + processedChunkCount + "/" + electionCenters.size() + " processed successfully");
+                System.out.println("✅ Chunk " + processedChunkCount + "/" + electionCenterIds.size() + " processed successfully");
+                
+                // MEMORY-EFFICIENT: Clear references to allow garbage collection
+                electionCenterOpt = null;
+                chunkSubmittedBallots.clear();
+                ballotCipherTexts.clear();
+                decryptions.clear();
+                guardianDecryptionMap.clear();
+                guardianDataList.clear();
+                availableGuardianIds.clear();
+                availableGuardianPublicKeys.clear();
+                availableTallyShares.clear();
+                availableBallotShares.clear();
+                missingGuardianIds.clear();
+                compensatingGuardianIds.clear();
+                compensatedTallyShares.clear();
+                compensatedBallotShares.clear();
             }
             
             // Update final progress after all chunks processed
             updateCombineStatus(request.election_id(), "in_progress", processedChunkCount, null);
             
-            // After processing all chunks, update election_choices with aggregated results
+            // After processing all chunks, fetch all centers to build aggregated results
+            List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(request.election_id());
             Object aggregatedResults = buildAggregatedResultsFromChunks(electionCenters, request.election_id());
             updateElectionChoicesWithResults(request.election_id(), aggregatedResults, electionChoices);
             
@@ -1607,16 +1699,16 @@ public class PartialDecryptionService {
     }
 
     /**
-     * Creates compensated decryption shares for ALL other guardians using the available guardian
+     * Creates compensated decryption shares for ALL other guardians using the available guardian (MEMORY-EFFICIENT)
      */
-    private void createCompensatedDecryptionShares(Election election, Guardian availableGuardian, String availableGuardianPrivateKey, String availableGuardianPolynomial, List<ElectionCenter> electionCenters) {
+    private void createCompensatedDecryptionShares(Election election, Guardian availableGuardian, String availableGuardianPrivateKey, String availableGuardianPolynomial, List<Long> electionCenterIds) {
         try {
             System.out.println("\n" + "=".repeat(80));
-            System.out.println("🔐 STARTING COMPENSATED DECRYPTION SHARE CREATION");
+            System.out.println("🔐 STARTING COMPENSATED DECRYPTION SHARE CREATION (Memory-Efficient Mode)");
             System.out.println("=".repeat(80));
             System.out.println("Election ID: " + election.getElectionId());
             System.out.println("Creating guardian: Guardian " + availableGuardian.getSequenceOrder() + " (ID: " + availableGuardian.getGuardianId() + ")");
-            System.out.println("Number of chunks to process: " + electionCenters.size());
+            System.out.println("Number of chunks to process: " + electionCenterIds.size());
             System.out.println("=".repeat(80));
             
             // Get all guardians for this election
@@ -1645,13 +1737,21 @@ public class PartialDecryptionService {
             }
             
             System.out.println("\n" + "-".repeat(80));
-            System.out.println("📦 PROCESSING CHUNKS");
+            System.out.println("📦 PROCESSING CHUNKS (Memory-Efficient)");
             System.out.println("-".repeat(80));
             
-            // Process each chunk
-            for (ElectionCenter electionCenter : electionCenters) {
-                Long electionCenterId = electionCenter.getElectionCenterId();
+            // Process each chunk (MEMORY-EFFICIENT)
+            for (Long electionCenterId : electionCenterIds) {
                 System.out.println("\n📍 Chunk " + electionCenterId + " | Guardian " + availableGuardian.getSequenceOrder() + " creating shares for others");
+                System.out.println("Fetching election center from database...");
+                
+                // MEMORY-EFFICIENT: Fetch only the election center needed for this iteration
+                Optional<ElectionCenter> electionCenterOpt = electionCenterRepository.findById(electionCenterId);
+                if (!electionCenterOpt.isPresent()) {
+                    System.err.println("❌ Election center not found: " + electionCenterId);
+                    continue;
+                }
+                ElectionCenter electionCenter = electionCenterOpt.get();
                 
                 int createdCount = 0;
                 int skippedCount = 0;
@@ -1682,11 +1782,14 @@ public class PartialDecryptionService {
                 }
                 
                 System.out.println("  📊 Summary for Chunk " + electionCenterId + ": Created=" + createdCount + ", Skipped=" + skippedCount);
+                
+                // MEMORY-EFFICIENT: Clear reference to allow garbage collection
+                electionCenterOpt = null;
             }
             
             System.out.println("\n" + "=".repeat(80));
             System.out.println("✅ COMPLETED COMPENSATED DECRYPTION SHARES CREATION");
-            System.out.println("Guardian " + availableGuardian.getSequenceOrder() + " has finished creating shares across all " + electionCenters.size() + " chunks");
+            System.out.println("Guardian " + availableGuardian.getSequenceOrder() + " has finished creating shares across all " + electionCenterIds.size() + " chunks");
             System.out.println("=".repeat(80) + "\n");
             
         } catch (Exception e) {
