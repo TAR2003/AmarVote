@@ -1,5 +1,5 @@
-# Use official Python image - SLIM version for reduced size
-FROM python:3.12-slim
+# Use official Python image (3.13-slim is not yet available, using 3.12)
+FROM python:3.12
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -33,14 +33,20 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Optimized for 4GB RAM with reliability priority
+# Run with optimized settings to prevent deadlock
+# Key changes:
+# - worker-class sync (no threading with multiprocessing)
+# - workers 2 (reduced to minimize memory)
+# - max-requests 100 (recycle workers to prevent memory accumulation)
+# - timeout 300 (5 minutes for crypto operations)
+# - worker-tmp-dir /dev/shm (use shared memory to avoid disk I/O issues)
 CMD ["gunicorn", \
     "--bind", "0.0.0.0:5000", \
-    "--workers", "4", \
+    "--workers", "2", \
     "--worker-class", "sync", \
     "--threads", "1", \
-    "--max-requests", "500", \
-    "--max-requests-jitter", "50", \
+    "--max-requests", "100", \
+    "--max-requests-jitter", "20", \
     "--timeout", "300", \
     "--worker-tmp-dir", "/dev/shm", \
     "--graceful-timeout", "30", \
