@@ -33,19 +33,18 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Optimized for 1GB RAM constraint:
-# - workers 1 (single process to minimize memory footprint)
-# - threads 4 (handle concurrent requests within single process)
-# - worker-class gthread (thread-based for better memory efficiency)
-# - max-requests 500 (less frequent recycling to avoid memory spikes)
-# - preload (load app before forking to reduce memory with copy-on-write)
+# Optimized for 4GB RAM with 2 vCPUs:
+# - workers 3 (2*CPU + 1 formula for optimal concurrency)
+# - threads 2 (provides 6 total concurrent request handlers)
+# - worker-class gthread (balanced approach for crypto operations)
+# - preload (share memory across workers via copy-on-write)
 CMD ["gunicorn", \
     "--bind", "0.0.0.0:5000", \
-    "--workers", "1", \
+    "--workers", "3", \
     "--worker-class", "gthread", \
-    "--threads", "4", \
-    "--max-requests", "500", \
-    "--max-requests-jitter", "50", \
+    "--threads", "2", \
+    "--max-requests", "1000", \
+    "--max-requests-jitter", "100", \
     "--timeout", "300", \
     "--worker-tmp-dir", "/dev/shm", \
     "--graceful-timeout", "30", \
