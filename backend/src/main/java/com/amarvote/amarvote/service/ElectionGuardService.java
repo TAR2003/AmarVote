@@ -1,5 +1,8 @@
 package com.amarvote.amarvote.service;
 
+import java.time.Instant;
+import java.util.concurrent.atomic.AtomicLong;
+
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.io.HttpClientConnectionManager;
 import org.slf4j.Logger;
@@ -15,8 +18,6 @@ import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.web.client.RestClientException;
 import org.springframework.web.client.RestTemplate;
-import java.time.Instant;
-import java.util.concurrent.atomic.AtomicLong;
 
 @Service
 public class ElectionGuardService {
@@ -37,7 +38,7 @@ public class ElectionGuardService {
     public String postRequest(String endpoint, Object requestBody) {
         long requestId = requestCounter.incrementAndGet();
         String threadName = Thread.currentThread().getName();
-        long threadId = Thread.currentThread().getId();
+        long threadId = Thread.currentThread().threadId();
         Instant startTime = Instant.now();
         
         log.info("[REQ-{}][Thread-{}:{}] ===== STARTING POST REQUEST =====", requestId, threadName, threadId);
@@ -72,16 +73,17 @@ public class ElectionGuardService {
             log.info("[REQ-{}] Status code: {}", requestId, response.getStatusCode());
             log.info("[REQ-{}] Request duration: {}ms", requestId, requestDuration);
             log.info("[REQ-{}] Total duration (including setup): {}ms", requestId, totalDuration);
+            String responseBody = response.getBody();
             log.info("[REQ-{}] Response body length: {} chars", requestId, 
-                response.getBody() != null ? response.getBody().length() : 0);
+                responseBody != null ? responseBody.length() : 0);
             
             // Log connection pool stats AFTER response received
             logConnectionPoolStats(requestId, "AFTER");
 
-            if (response.getStatusCode().is2xxSuccessful() && response.getBody() != null) {
+            if (response.getStatusCode().is2xxSuccessful() && responseBody != null) {
                 log.info("[REQ-{}] ✅ Successfully received valid response from {}", requestId, endpoint);
                 log.info("[REQ-{}] ===== REQUEST COMPLETED SUCCESSFULLY =====", requestId);
-                return response.getBody();
+                return responseBody;
             } else {
                 log.error("[REQ-{}] ❌ Unexpected response for {}: {}", requestId, endpoint, response.getStatusCode());
                 log.error("[REQ-{}] Response body: {}", requestId, response.getBody());
@@ -167,11 +169,11 @@ public class ElectionGuardService {
             HttpComponentsClientHttpRequestFactory factory = 
                 (HttpComponentsClientHttpRequestFactory) restTemplate.getRequestFactory();
             
-            HttpClientConnectionManager connectionManager = factory.getHttpClient().getConnectionManager();
+            // Use reflection to access the connection manager
+            java.lang.reflect.Method method = factory.getHttpClient().getClass().getMethod("getConnectionManager");
+            HttpClientConnectionManager connectionManager = (HttpClientConnectionManager) method.invoke(factory.getHttpClient());
             
-            if (connectionManager instanceof PoolingHttpClientConnectionManager) {
-                PoolingHttpClientConnectionManager poolingManager = 
-                    (PoolingHttpClientConnectionManager) connectionManager;
+            if (connectionManager instanceof PoolingHttpClientConnectionManager poolingManager) {
                 
                 int totalStats = poolingManager.getTotalStats().getAvailable() + 
                                poolingManager.getTotalStats().getLeased();
