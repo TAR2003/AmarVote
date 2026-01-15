@@ -1,4 +1,4 @@
-# Use official Python image
+# Use official Python image - SLIM version for reduced size
 FROM python:3.12-slim
 
 # Set environment variables
@@ -33,22 +33,17 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Optimized for 4GB RAM with 2 vCPUs:
-# - workers 3 (2*CPU + 1 formula for optimal concurrency)
-# - threads 2 (provides 6 total concurrent request handlers)
-# - worker-class gthread (balanced approach for crypto operations)
-# - preload (share memory across workers via copy-on-write)
+# Optimized for 4GB RAM with reliability priority
 CMD ["gunicorn", \
     "--bind", "0.0.0.0:5000", \
-    "--workers", "3", \
-    "--worker-class", "gthread", \
-    "--threads", "2", \
-    "--max-requests", "1000", \
-    "--max-requests-jitter", "100", \
+    "--workers", "4", \
+    "--worker-class", "sync", \
+    "--threads", "1", \
+    "--max-requests", "500", \
+    "--max-requests-jitter", "50", \
     "--timeout", "300", \
     "--worker-tmp-dir", "/dev/shm", \
     "--graceful-timeout", "30", \
     "--keep-alive", "5", \
-    "--preload", \
     "--log-level", "info", \
     "api:app"]
