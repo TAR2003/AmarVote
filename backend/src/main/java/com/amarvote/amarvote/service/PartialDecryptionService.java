@@ -1003,9 +1003,32 @@ public class PartialDecryptionService {
                         decryptionStatusRepository.save(status);
                     }
                     
-                    // MEMORY-EFFICIENT: Clear references to allow garbage collection
-                    ballotCipherTexts = null;
+                    // MEMORY-EFFICIENT: Clear references and force garbage collection
+                    if (ballotCipherTexts != null) {
+                        ballotCipherTexts.clear();
+                        ballotCipherTexts = null;
+                    }
+                    electionCenterOpt = null;
+                    electionChoices = null;
+                    candidateNames = null;
+                    partyNames = null;
+                    submittedBallots = null;
+                    availableGuardianDataJson = null;
+                    missingGuardianDataJson = null;
+                    compensatedRequest = null;
+                    compensatedResponse = null;
+                    compensatedDecryption = null;
+                    
+                    // Force GC after each chunk
+                    System.gc();
                 }
+                
+                // Force major GC after completing all chunks for this guardian
+                System.gc();
+                Runtime runtime = Runtime.getRuntime();
+                long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+                long maxMemory = runtime.maxMemory() / (1024 * 1024);
+                System.out.println("💾 Memory after guardian " + otherGuardian.getSequenceOrder() + ": " + usedMemory + "MB / " + maxMemory + "MB");
                 
                 // Update guardian progress after all chunks for this guardian are processed
                 Optional<DecryptionStatus> guardianStatus = decryptionStatusRepository
@@ -1677,20 +1700,73 @@ public class PartialDecryptionService {
                 
                 System.out.println("✅ Chunk " + processedChunkCount + "/" + electionCenterIds.size() + " processed successfully");
                 
-                // MEMORY-EFFICIENT: Clear references to allow garbage collection
-                chunkSubmittedBallots = null;
-                ballotCipherTexts = null;
-                decryptions = null;
-                guardianDecryptionMap = null;
-                guardianDataList = null;
-                availableGuardianIds = null;
-                availableGuardianPublicKeys = null;
-                availableTallyShares = null;
-                availableBallotShares = null;
-                missingGuardianIds = null;
-                compensatingGuardianIds = null;
-                compensatedTallyShares = null;
-                compensatedBallotShares = null;
+                // MEMORY-EFFICIENT: Clear references and force garbage collection
+                if (chunkSubmittedBallots != null) {
+                    chunkSubmittedBallots.clear();
+                    chunkSubmittedBallots = null;
+                }
+                if (ballotCipherTexts != null) {
+                    ballotCipherTexts.clear();
+                    ballotCipherTexts = null;
+                }
+                if (decryptions != null) {
+                    decryptions.clear();
+                    decryptions = null;
+                }
+                if (guardianDecryptionMap != null) {
+                    guardianDecryptionMap.clear();
+                    guardianDecryptionMap = null;
+                }
+                if (guardianDataList != null) {
+                    guardianDataList.clear();
+                    guardianDataList = null;
+                }
+                if (availableGuardianIds != null) {
+                    availableGuardianIds.clear();
+                    availableGuardianIds = null;
+                }
+                if (availableGuardianPublicKeys != null) {
+                    availableGuardianPublicKeys.clear();
+                    availableGuardianPublicKeys = null;
+                }
+                if (availableTallyShares != null) {
+                    availableTallyShares.clear();
+                    availableTallyShares = null;
+                }
+                if (availableBallotShares != null) {
+                    availableBallotShares.clear();
+                    availableBallotShares = null;
+                }
+                if (missingGuardianIds != null) {
+                    missingGuardianIds.clear();
+                    missingGuardianIds = null;
+                }
+                if (compensatingGuardianIds != null) {
+                    compensatingGuardianIds.clear();
+                    compensatingGuardianIds = null;
+                }
+                if (compensatedTallyShares != null) {
+                    compensatedTallyShares.clear();
+                    compensatedTallyShares = null;
+                }
+                if (compensatedBallotShares != null) {
+                    compensatedBallotShares.clear();
+                    compensatedBallotShares = null;
+                }
+                electionCenterOpt = null;
+                electionCenter = null;
+                guardRequest = null;
+                guardResponse = null;
+                ciphertextTallyString = null;
+                
+                // Force garbage collection to free memory immediately
+                System.gc();
+                
+                // Log memory usage
+                Runtime runtime = Runtime.getRuntime();
+                long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+                long maxMemory = runtime.maxMemory() / (1024 * 1024);
+                System.out.println("💾 Memory after chunk " + processedChunkCount + ": " + usedMemory + "MB / " + maxMemory + "MB");
             }
             
             // Update final progress after all chunks processed
@@ -1882,6 +1958,17 @@ public class PartialDecryptionService {
                 }
                 
                 System.out.println("  📊 Summary for Chunk " + electionCenterId + ": Created=" + createdCount + ", Skipped=" + skippedCount);
+                
+                // MEMORY-EFFICIENT: Clear references and force GC after each chunk
+                electionCenterOpt = null;
+                electionCenter = null;
+                System.gc();
+                
+                // Log memory usage
+                Runtime runtime = Runtime.getRuntime();
+                long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+                long maxMemory = runtime.maxMemory() / (1024 * 1024);
+                System.out.println("  💾 Memory after chunk " + electionCenterId + ": " + usedMemory + "MB / " + maxMemory + "MB");
             }
             
             System.out.println("\n" + "=".repeat(80));
@@ -2007,6 +2094,25 @@ public class PartialDecryptionService {
             compensatedDecryptionRepository.save(compensatedDecryption);
             
             System.out.println("Successfully saved compensated decryption share for chunk " + electionCenter.getElectionCenterId());
+            
+            // MEMORY-EFFICIENT: Clear large data structures after use
+            if (submittedBallots != null) {
+                submittedBallots.clear();
+                submittedBallots = null;
+            }
+            if (ballotCipherTexts != null) {
+                ballotCipherTexts.clear();
+                ballotCipherTexts = null;
+            }
+            if (electionChoices != null) {
+                electionChoices.clear();
+                electionChoices = null;
+            }
+            candidateNames = null;
+            partyNames = null;
+            request = null;
+            response = null;
+            compensatedDecryption = null;
             
         } catch (Exception e) {
             System.err.println("Error creating compensated share: " + e.getMessage());

@@ -38,6 +38,12 @@ VOLUME /app/logs
 VOLUME /app/data/credentials
 EXPOSE 8080
 
-ENV JAVA_OPTS="-Xmx512m -Xms256m"
+# Increased heap size for large decryption operations with multiple chunks
+# -Xmx2560m: Max heap 2.5GB (increased from 512MB)
+# -Xms512m: Initial heap 512MB
+# -XX:+UseG1GC: Use G1 garbage collector for better memory management
+# -XX:MaxGCPauseMillis=200: Target max GC pause time
+# -XX:+ExitOnOutOfMemoryError: Exit cleanly on OOM
+ENV JAVA_OPTS="-Xmx2560m -Xms512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError"
 
 ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]
