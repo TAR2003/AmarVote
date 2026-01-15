@@ -730,9 +730,16 @@ public class PartialDecryptionService {
                 System.out.println("   - Total chunk time: " + chunkTotalDuration + "ms");
                 System.out.println("=====================================================================");
                 
-                // MEMORY-EFFICIENT: Clear references to allow garbage collection
+                // ✅ CRITICAL: Clear ALL large objects immediately to prevent memory leak
+                guardRequest = null;
+                guardResponse = null;
+                decryption = null;
                 chunkBallots = null;
                 ballotCipherTexts = null;
+                electionCenterOpt = null;
+                electionCenter = null;
+                ciphertextTallyString = null;
+                guardianDataJson = null;
                 
                 // ✅ AGGRESSIVE GC AFTER EVERY CHUNK
                 System.gc();
@@ -1044,6 +1051,17 @@ public class PartialDecryptionService {
                     compensatedResponse = null;
                     compensatedDecryption = null;
                     
+                    // ✅ CRITICAL: Clear references to prevent memory accumulation
+                    electionCenterOpt = null;
+                    electionCenter = null;
+                    submittedBallots = null;
+                    ballotCipherTexts = null;
+                    electionChoices = null;
+                    candidateNames = null;
+                    partyNames = null;
+                    availableGuardianDataJson = null;
+                    missingGuardianDataJson = null;
+                    
                     // ✅ AGGRESSIVE GC AFTER EVERY COMPENSATED CHUNK
                     System.gc();
                     try { 
@@ -1136,6 +1154,10 @@ public class PartialDecryptionService {
             System.out.println("   - Tally share present: " + (parsedResponse.tally_share() != null));
             System.out.println("   - Ballot shares present: " + (parsedResponse.ballot_shares() != null));
             System.out.println("=====================================================================");
+            
+            // ✅ CRITICAL: Clear response string immediately to free memory
+            response = null;
+            request = null;
             
             return parsedResponse;
         } catch (Exception e) {
@@ -2184,7 +2206,12 @@ public class PartialDecryptionService {
                 throw new RuntimeException("Invalid response from ElectionGuard service");
             }
 
-            return objectMapper.readValue(response, ElectionGuardCompensatedDecryptionResponse.class);
+            ElectionGuardCompensatedDecryptionResponse parsedResponse = objectMapper.readValue(response, ElectionGuardCompensatedDecryptionResponse.class);
+            
+            // ✅ CRITICAL: Clear response string immediately to free memory
+            response = null;
+            
+            return parsedResponse;
                 
         } catch (Exception e) {
             System.err.println("Error calling ElectionGuard compensated decryption service: " + e.getMessage());
@@ -2223,7 +2250,12 @@ public class PartialDecryptionService {
                 throw new RuntimeException("Invalid response from ElectionGuard service");
             }
 
-            return objectMapper.readValue(response, ElectionGuardCombineDecryptionSharesResponse.class);
+            ElectionGuardCombineDecryptionSharesResponse parsedResponse = objectMapper.readValue(response, ElectionGuardCombineDecryptionSharesResponse.class);
+            
+            // ✅ CRITICAL: Clear response string immediately to free memory
+            response = null;
+            
+            return parsedResponse;
         } catch (Exception e) {
             System.err.println("Failed to call ElectionGuard combine decryption shares service: " + e.getMessage());
             throw new RuntimeException("Failed to call ElectionGuard combine decryption shares service", e);
