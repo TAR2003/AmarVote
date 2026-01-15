@@ -214,9 +214,10 @@ public class TallyService {
 
     /**
      * Asynchronous tally creation with progress tracking
+     * NOTE: @Transactional removed from async method to prevent Hibernate session memory leak.
+     * Each chunk is processed in its own transaction via processChunkTransactional().
     */
     @Async
-    @Transactional
     public void createTallyAsync(CreateTallyRequest request, String userEmail) {
         Long electionId = request.getElection_id();
         
@@ -227,7 +228,7 @@ public class TallyService {
         }
         
         try {
-            updateTallyStatus(electionId, "in_progress", 0, 0, null);
+            updateTallyStatusTransactional(electionId, "in_progress", 0, 0, null);
             
             System.out.println("=== Async Tally Creation Started (Memory-Efficient Mode) ===");
             System.out.println("Election ID: " + electionId);
@@ -254,7 +255,7 @@ public class TallyService {
             System.out.println("✅ Calculated " + chunkConfig.getNumChunks() + " chunks");
             
             // Update status with total chunks
-            updateTallyStatus(electionId, "in_progress", chunkConfig.getNumChunks(), 0, null);
+            updateTallyStatusTransactional(electionId, "in_progress", chunkConfig.getNumChunks(), 0, null);
             
             // MEMORY-EFFICIENT: Assign only ballot IDs to chunks (not full Ballot objects)
             java.util.Map<Integer, List<Long>> chunkIdMap = chunkingService.assignIdsToChunks(ballotIds, chunkConfig);
@@ -271,80 +272,40 @@ public class TallyService {
             
             int numberOfGuardians = guardianRepository.findByElectionId(election.getElectionId()).size();
             
-            // Process each chunk with progress updates
+            // ✅ Process each chunk in separate isolated transaction
             int processedChunks = 0;
             for (java.util.Map.Entry<Integer, List<Long>> entry : chunkIdMap.entrySet()) {
                 int chunkNumber = entry.getKey();
                 List<Long> chunkBallotIds = entry.getValue();
                 
-                System.out.println("=== Processing Chunk " + chunkNumber + "/" + chunkConfig.getNumChunks() + " ===");
-                System.out.println("Fetching " + chunkBallotIds.size() + " ballots from database for this chunk...");
-                
-                // MEMORY-EFFICIENT: Fetch only the ballots needed for this chunk
-                List<Ballot> chunkBallots = ballotRepository.findByBallotIdIn(chunkBallotIds);
-                
-                // Create election center entry
-                ElectionCenter electionCenter = ElectionCenter.builder()
-                    .electionId(electionId)
-                    .build();
-                electionCenter = electionCenterRepository.save(electionCenter);
-                
-                // Extract cipher texts
-                List<String> chunkEncryptedBallots = chunkBallots.stream()
-                    .map(Ballot::getCipherText)
-                    .collect(Collectors.toList());
-                
-                // Call ElectionGuard service
-                ElectionGuardTallyResponse guardResponse = callElectionGuardTallyService(
-                    partyNames, candidateNames, election.getJointPublicKey(), 
-                    election.getBaseHash(), chunkEncryptedBallots,
-                    election.getElectionQuorum(), numberOfGuardians
+                // ✅ Each chunk processed in its own transaction - memory released after completion
+                processTallyChunkTransactional(
+                    electionId,
+                    chunkNumber,
+                    chunkBallotIds,
+                    partyNames,
+                    candidateNames,
+                    election.getJointPublicKey(),
+                    election.getBaseHash(),
+                    election.getElectionQuorum(),
+                    numberOfGuardians
                 );
                 
-                if (!"success".equals(guardResponse.getStatus())) {
-                    throw new RuntimeException("ElectionGuard service failed for chunk " + chunkNumber);
-                }
-                
-                // Store encrypted tally
-                electionCenter.setEncryptedTally(guardResponse.getCiphertext_tally());
-                electionCenterRepository.save(electionCenter);
-                
-                // Save submitted ballots
-                if (guardResponse.getSubmitted_ballots() != null) {
-                    for (String submittedBallotCipherText : guardResponse.getSubmitted_ballots()) {
-                        if (!submittedBallotRepository.existsByElectionCenterIdAndCipherText(
-                                electionCenter.getElectionCenterId(), submittedBallotCipherText)) {
-                            SubmittedBallot submittedBallot = SubmittedBallot.builder()
-                                .electionCenterId(electionCenter.getElectionCenterId())
-                                .cipherText(submittedBallotCipherText)
-                                .build();
-                            submittedBallotRepository.save(submittedBallot);
-                        }
-                    }
-                }
-                
-                // Update progress
                 processedChunks++;
-                updateTallyStatus(electionId, "in_progress", chunkConfig.getNumChunks(), processedChunks, null);
+                updateTallyStatusTransactional(electionId, "in_progress", chunkConfig.getNumChunks(), processedChunks, null);
                 System.out.println("✅ Chunk " + chunkNumber + " completed. Progress: " + processedChunks + "/" + chunkConfig.getNumChunks());
-                
-                // MEMORY-EFFICIENT: Clear references to allow garbage collection
-                chunkBallots = null;
-                chunkEncryptedBallots = null;
             }
             
-            // Update election status and mark tally as completed
-            election.setStatus("completed");
-            electionRepository.save(election);
-            
-            updateTallyStatus(electionId, "completed", chunkConfig.getNumChunks(), processedChunks, null);
+            // Update election status in separate transaction
+            updateElectionStatusTransactional(electionId, "completed");
+            updateTallyStatusTransactional(electionId, "completed", chunkConfig.getNumChunks(), processedChunks, null);
             
             System.out.println("=== Tally Creation Completed Successfully ===");
             
         } catch (Exception e) {
             System.err.println("❌ Error in async tally creation: " + e.getMessage());
             e.printStackTrace();
-            updateTallyStatus(electionId, "failed", 0, 0, e.getMessage());
+            updateTallyStatusTransactional(electionId, "failed", 0, 0, e.getMessage());
         } finally {
             // Release lock
             tallyCreationLocks.remove(electionId);
@@ -352,9 +313,76 @@ public class TallyService {
     }
 
     /**
-     * Update tally creation status in database
+     * Process one tally chunk in isolated transaction
+     * Transaction boundary ensures all entities are released after chunk completion
      */
-    private void updateTallyStatus(Long electionId, String status, int totalChunks, int processedChunks, String errorMessage) {
+    @Transactional
+    private void processTallyChunkTransactional(
+            Long electionId,
+            int chunkNumber,
+            List<Long> chunkBallotIds,
+            List<String> partyNames,
+            List<String> candidateNames,
+            String jointPublicKey,
+            String baseHash,
+            int quorum,
+            int numberOfGuardians) {
+        
+        System.out.println("=== Processing Chunk " + chunkNumber + " (Transaction Start) ===");
+        System.out.println("Fetching " + chunkBallotIds.size() + " ballots from database for this chunk...");
+        
+        // Fetch only the ballots needed for this chunk
+        List<Ballot> chunkBallots = ballotRepository.findByBallotIdIn(chunkBallotIds);
+        
+        // Create election center entry
+        ElectionCenter electionCenter = ElectionCenter.builder()
+            .electionId(electionId)
+            .build();
+        electionCenter = electionCenterRepository.save(electionCenter);
+        
+        // Extract cipher texts
+        List<String> chunkEncryptedBallots = chunkBallots.stream()
+            .map(Ballot::getCipherText)
+            .collect(Collectors.toList());
+        
+        // Call ElectionGuard service (no transaction needed for external HTTP call)
+        ElectionGuardTallyResponse guardResponse = callElectionGuardTallyService(
+            partyNames, candidateNames, jointPublicKey, 
+            baseHash, chunkEncryptedBallots,
+            quorum, numberOfGuardians
+        );
+        
+        if (!"success".equals(guardResponse.getStatus())) {
+            throw new RuntimeException("ElectionGuard service failed for chunk " + chunkNumber);
+        }
+        
+        // Store encrypted tally
+        electionCenter.setEncryptedTally(guardResponse.getCiphertext_tally());
+        electionCenterRepository.save(electionCenter);
+        
+        // Save submitted ballots
+        if (guardResponse.getSubmitted_ballots() != null) {
+            for (String submittedBallotCipherText : guardResponse.getSubmitted_ballots()) {
+                if (!submittedBallotRepository.existsByElectionCenterIdAndCipherText(
+                        electionCenter.getElectionCenterId(), submittedBallotCipherText)) {
+                    SubmittedBallot submittedBallot = SubmittedBallot.builder()
+                        .electionCenterId(electionCenter.getElectionCenterId())
+                        .cipherText(submittedBallotCipherText)
+                        .build();
+                    submittedBallotRepository.save(submittedBallot);
+                }
+            }
+        }
+        
+        System.out.println("✅ Chunk " + chunkNumber + " transaction complete - Hibernate session will close and release memory");
+        // Transaction ends here, Hibernate session closes automatically, all entities released from memory
+    }
+    
+    /**
+     * Update tally creation status in separate transaction
+     */
+    @Transactional
+    private void updateTallyStatusTransactional(Long electionId, String status, int totalChunks, int processedChunks, String errorMessage) {
         try {
             Optional<TallyCreationStatus> statusOpt = tallyCreationStatusRepository.findByElectionId(electionId);
             
@@ -376,7 +404,108 @@ public class TallyService {
         }
     }
     
+    /**
+     * Update election status in separate transaction
+     */
     @Transactional
+    private void updateElectionStatusTransactional(Long electionId, String status) {
+        Optional<Election> electionOpt = electionRepository.findById(electionId);
+        if (electionOpt.isPresent()) {
+            Election election = electionOpt.get();
+            election.setStatus(status);
+            electionRepository.save(election);
+        }
+    }
+    
+    /**     * Process one tally chunk in isolated transaction (synchronous version)
+     * Transaction boundary ensures all entities are released after chunk completion
+     */
+    @Transactional
+    private void processSyncChunkTransactional(
+            Long electionId,
+            int chunkNumber,
+            List<Long> chunkBallotIds,
+            List<String> partyNames,
+            List<String> candidateNames,
+            String jointPublicKey,
+            String baseHash,
+            int quorum,
+            int numberOfGuardians) {
+        
+        System.out.println("Chunk size: " + chunkBallotIds.size() + " ballots (Transaction Start)");
+        
+        // Fetch ballots for this chunk
+        List<Ballot> chunkBallots = ballotRepository.findByBallotIdIn(chunkBallotIds);
+        
+        // Create election center entry for this chunk
+        ElectionCenter electionCenter = ElectionCenter.builder()
+            .electionId(electionId)
+            .build();
+        electionCenter = electionCenterRepository.save(electionCenter);
+        System.out.println("✅ Created election_center entry ID: " + electionCenter.getElectionCenterId());
+        
+        // Extract cipher texts for this chunk
+        List<String> chunkEncryptedBallots = chunkBallots.stream()
+            .map(Ballot::getCipherText)
+            .collect(Collectors.toList());
+        
+        // Call ElectionGuard microservice for this chunk
+        System.out.println("🚀 CALLING ELECTIONGUARD TALLY SERVICE FOR CHUNK " + chunkNumber);
+        ElectionGuardTallyResponse guardResponse = callElectionGuardTallyService(
+            partyNames, 
+            candidateNames, 
+            jointPublicKey, 
+            baseHash, 
+            chunkEncryptedBallots,
+            quorum,
+            numberOfGuardians
+        );
+        
+        if (!"success".equals(guardResponse.getStatus())) {
+            System.err.println("❌ ELECTIONGUARD SERVICE FAILED FOR CHUNK " + chunkNumber + ": " + guardResponse.getMessage());
+            throw new RuntimeException("Failed to create encrypted tally for chunk " + chunkNumber + ": " + guardResponse.getMessage());
+        }
+        
+        System.out.println("✅ ElectionGuard service succeeded for chunk " + chunkNumber);
+        
+        // Store encrypted tally for this chunk
+        String ciphertextTallyJson = guardResponse.getCiphertext_tally();
+        electionCenter.setEncryptedTally(ciphertextTallyJson);
+        electionCenterRepository.save(electionCenter);
+        System.out.println("✅ Encrypted tally saved for chunk " + chunkNumber);
+        
+        // Save submitted_ballots for this chunk (linked to election_center_id)
+        if (guardResponse.getSubmitted_ballots() != null && guardResponse.getSubmitted_ballots().length > 0) {
+            System.out.println("Processing " + guardResponse.getSubmitted_ballots().length + " submitted ballots for chunk " + chunkNumber);
+            
+            int savedCount = 0;
+            for (String submittedBallotCipherText : guardResponse.getSubmitted_ballots()) {
+                try {
+                    if (!submittedBallotRepository.existsByElectionCenterIdAndCipherText(
+                            electionCenter.getElectionCenterId(), submittedBallotCipherText)) {
+                        SubmittedBallot submittedBallot = SubmittedBallot.builder()
+                            .electionCenterId(electionCenter.getElectionCenterId())
+                            .cipherText(submittedBallotCipherText)
+                            .build();
+                        
+                        submittedBallotRepository.save(submittedBallot);
+                        savedCount++;
+                    }
+                } catch (Exception e) {
+                    System.err.println("Error saving submitted ballot for chunk " + chunkNumber + ": " + e.getMessage());
+                }
+            }
+            
+            System.out.println("✅ Saved " + savedCount + " submitted ballots for chunk " + chunkNumber);
+        }
+        
+        System.out.println("✅ Chunk " + chunkNumber + " transaction complete - Hibernate session will close and release memory");
+        // Transaction ends here, Hibernate session closes automatically, all entities released from memory
+    }
+    
+    /**     * NOTE: @Transactional removed to prevent Hibernate session memory leak.
+     * Each chunk is processed in its own transaction via processSyncChunkTransactional().
+     */
     public CreateTallyResponse createTally(CreateTallyRequest request, String userEmail, boolean bypassEndTimeCheck) {
         try {
             System.out.println("=== TallyService.createTally START ===");
@@ -493,84 +622,35 @@ public class TallyService {
             int numberOfGuardians = guardianRepository.findByElectionId(election.getElectionId()).size();
             System.out.println("Number of Guardians: " + numberOfGuardians);
             
-            // Process each chunk
+            // ✅ Process each chunk in separate isolated transaction
             for (java.util.Map.Entry<Integer, List<Ballot>> entry : chunks.entrySet()) {
                 int chunkNumber = entry.getKey();
                 List<Ballot> chunkBallots = entry.getValue();
                 
                 System.out.println("=== PROCESSING CHUNK " + chunkNumber + " ===");
-                System.out.println("Chunk size: " + chunkBallots.size() + " ballots");
                 
-                // Create election center entry for this chunk
-                ElectionCenter electionCenter = ElectionCenter.builder()
-                    .electionId(request.getElection_id())
-                    .build();
-                electionCenter = electionCenterRepository.save(electionCenter);
-                System.out.println("✅ Created election_center entry ID: " + electionCenter.getElectionCenterId());
-                
-                // Extract cipher texts for this chunk
-                List<String> chunkEncryptedBallots = chunkBallots.stream()
-                    .map(Ballot::getCipherText)
+                // Extract ballot IDs from chunk ballots
+                List<Long> chunkBallotIds = chunkBallots.stream()
+                    .map(Ballot::getBallotId)
                     .collect(Collectors.toList());
                 
-                // Call ElectionGuard microservice for this chunk
-                System.out.println("🚀 CALLING ELECTIONGUARD TALLY SERVICE FOR CHUNK " + chunkNumber);
-                ElectionGuardTallyResponse guardResponse = callElectionGuardTallyService(
-                    partyNames, 
-                    candidateNames, 
-                    election.getJointPublicKey(), 
-                    election.getBaseHash(), 
-                    chunkEncryptedBallots,
+                // ✅ Process chunk in isolated transaction - memory released after completion
+                processSyncChunkTransactional(
+                    request.getElection_id(),
+                    chunkNumber,
+                    chunkBallotIds,
+                    partyNames,
+                    candidateNames,
+                    election.getJointPublicKey(),
+                    election.getBaseHash(),
                     election.getElectionQuorum(),
                     numberOfGuardians
                 );
-                
-                if (!"success".equals(guardResponse.getStatus())) {
-                    System.err.println("❌ ELECTIONGUARD SERVICE FAILED FOR CHUNK " + chunkNumber + ": " + guardResponse.getMessage());
-                    return CreateTallyResponse.builder()
-                        .success(false)
-                        .message("Failed to create encrypted tally for chunk " + chunkNumber + ": " + guardResponse.getMessage())
-                        .build();
-                }
-                
-                System.out.println("✅ ElectionGuard service succeeded for chunk " + chunkNumber);
-                
-                // Store encrypted tally for this chunk
-                String ciphertextTallyJson = guardResponse.getCiphertext_tally();
-                electionCenter.setEncryptedTally(ciphertextTallyJson);
-                electionCenterRepository.save(electionCenter);
-                System.out.println("✅ Encrypted tally saved for chunk " + chunkNumber);
-                
-                // Save submitted_ballots for this chunk (linked to election_center_id)
-                if (guardResponse.getSubmitted_ballots() != null && guardResponse.getSubmitted_ballots().length > 0) {
-                    System.out.println("Processing " + guardResponse.getSubmitted_ballots().length + " submitted ballots for chunk " + chunkNumber);
-                    
-                    int savedCount = 0;
-                    for (String submittedBallotCipherText : guardResponse.getSubmitted_ballots()) {
-                        try {
-                            if (!submittedBallotRepository.existsByElectionCenterIdAndCipherText(
-                                    electionCenter.getElectionCenterId(), submittedBallotCipherText)) {
-                                SubmittedBallot submittedBallot = SubmittedBallot.builder()
-                                    .electionCenterId(electionCenter.getElectionCenterId())
-                                    .cipherText(submittedBallotCipherText)
-                                    .build();
-                                
-                                submittedBallotRepository.save(submittedBallot);
-                                savedCount++;
-                            }
-                        } catch (Exception e) {
-                            System.err.println("Error saving submitted ballot for chunk " + chunkNumber + ": " + e.getMessage());
-                        }
-                    }
-                    
-                    System.out.println("✅ Saved " + savedCount + " submitted ballots for chunk " + chunkNumber);
-                }
             }
             // ===== CHUNKING LOGIC END =====
             
-            // Update election status to completed
-            election.setStatus("completed");
-            electionRepository.save(election);
+            // Update election status to completed in separate transaction
+            updateElectionStatusTransactional(request.getElection_id(), "completed");
             
             System.out.println("=== TALLY CREATION COMPLETED SUCCESSFULLY ===");
             System.out.println("✅ Created " + chunkConfig.getNumChunks() + " chunks for election: " + request.getElection_id());

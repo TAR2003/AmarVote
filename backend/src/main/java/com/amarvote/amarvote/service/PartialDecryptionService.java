@@ -45,6 +45,8 @@ import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
@@ -72,6 +74,9 @@ public class PartialDecryptionService {
     
     @Autowired
     private ElectionGuardService electionGuardService;
+    
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Transactional
     public CreatePartialDecryptionResponse createPartialDecryption(CreatePartialDecryptionRequest request, String userEmail) {
@@ -529,9 +534,10 @@ public class PartialDecryptionService {
 
     /**
      * Process decryption asynchronously with detailed progress tracking (MEMORY-EFFICIENT)
+     * NOTE: @Transactional removed from async method to prevent Hibernate session memory leak.
+     * Each chunk is processed in its own transaction via processChunkTransactional().
     */
     @Async
-    @Transactional
     public void processDecryptionAsync(CreatePartialDecryptionRequest request, String userEmail, 
                                        Guardian guardian) {
         String lockKey = request.election_id() + "_" + guardian.getGuardianId();
@@ -718,6 +724,11 @@ public class PartialDecryptionService {
                 long dbDuration3 = System.currentTimeMillis() - dbStart3;
                 System.out.println("✅ [DB] Decryption data saved in " + dbDuration3 + "ms");
                 
+                // ✅ CRITICAL: Flush and clear Hibernate session to prevent memory leak
+                entityManager.flush();
+                entityManager.clear();
+                System.out.println("✅ Hibernate session flushed and cleared");
+                
                 long chunkTotalDuration = System.currentTimeMillis() - chunkStartTime;
                 System.out.println("=====================================================================");
                 System.out.println("✅ Chunk " + processedChunks + "/" + electionCenterIds.size() + " COMPLETED");
@@ -747,8 +758,7 @@ public class PartialDecryptionService {
                 decryptedPolynomial, electionCenterIds);
             
             // ✅ NOW mark guardian as fully decrypted (both phases complete)
-            guardian.setDecryptedOrNot(true);
-            guardianRepository.save(guardian);
+            markGuardianDecrypted(guardian);
             System.out.println("✅ Guardian marked as fully decrypted (both phases complete)");
             
             // Mark as completed
@@ -826,6 +836,15 @@ public class PartialDecryptionService {
         } catch (Exception e) {
             System.err.println("Failed to update decryption status: " + e.getMessage());
         }
+    }
+    
+    /**
+     * Mark guardian as decrypted in a separate transaction
+     */
+    @Transactional
+    private void markGuardianDecrypted(Guardian guardian) {
+        guardian.setDecryptedOrNot(true);
+        guardianRepository.save(guardian);
     }
 
     /**
@@ -986,6 +1005,10 @@ public class PartialDecryptionService {
                         .build();
                     
                     compensatedDecryptionRepository.save(compensatedDecryption);
+                    
+                    // ✅ CRITICAL: Flush and clear Hibernate session after each compensated share
+                    entityManager.flush();
+                    entityManager.clear();
                     
                     // Update chunk progress after each chunk
                     processedCompensatedChunks++;
@@ -1302,7 +1325,10 @@ public class PartialDecryptionService {
             .build();
     }
 
-    @Transactional
+    /**
+     * NOTE: @Transactional removed to prevent Hibernate session memory leak.
+     * Each chunk is processed in its own transaction via processCombineChunkTransactional().
+     */
     public CombinePartialDecryptionResponse combinePartialDecryption(CombinePartialDecryptionRequest request) {
         try {
             System.out.println("=== COMBINE PARTIAL DECRYPTION STARTED (Memory-Efficient Mode) ===");
@@ -1690,6 +1716,11 @@ public class PartialDecryptionService {
                     electionCenter.setElectionResult(guardResponse.results());
                     electionCenterRepository.save(electionCenter);
                     System.out.println("💾 Saved chunk results to election_center_id: " + electionCenter.getElectionCenterId());
+                    
+                    // ✅ CRITICAL: Flush and clear Hibernate session after each chunk
+                    entityManager.flush();
+                    entityManager.clear();
+                    System.out.println("✅ Hibernate session flushed and cleared");
                 } else {
                     System.err.println("❌ ElectionGuard combine decryption failed for chunk " + electionCenter.getElectionCenterId() + ": " + guardResponse.status());
                     return CombinePartialDecryptionResponse.builder()
@@ -2092,6 +2123,10 @@ public class PartialDecryptionService {
             compensatedDecryption.setCompensatedBallotShare(response.compensated_ballot_shares());
             
             compensatedDecryptionRepository.save(compensatedDecryption);
+            
+            // ✅ CRITICAL: Flush and clear Hibernate session
+            entityManager.flush();
+            entityManager.clear();
             
             System.out.println("Successfully saved compensated decryption share for chunk " + electionCenter.getElectionCenterId());
             
