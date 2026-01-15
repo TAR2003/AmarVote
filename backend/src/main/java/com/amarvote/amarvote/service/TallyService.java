@@ -214,7 +214,7 @@ public class TallyService {
 
     /**
      * Asynchronous tally creation with progress tracking
-     */
+    */
     @Async
     @Transactional
     public void createTallyAsync(CreateTallyRequest request, String userEmail) {

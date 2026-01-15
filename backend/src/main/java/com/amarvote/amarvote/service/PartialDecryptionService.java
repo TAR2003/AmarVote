@@ -529,7 +529,7 @@ public class PartialDecryptionService {
 
     /**
      * Process decryption asynchronously with detailed progress tracking (MEMORY-EFFICIENT)
-     */
+    */
     @Async
     @Transactional
     public void processDecryptionAsync(CreatePartialDecryptionRequest request, String userEmail, 
