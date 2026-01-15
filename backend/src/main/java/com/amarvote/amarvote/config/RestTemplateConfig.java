@@ -23,13 +23,13 @@ public class RestTemplateConfig {
     @Value("${electionguard.socket.timeout:600000}") // 10 minutes for crypto ops
     private int socketTimeout;
 
-    @Value("${electionguard.connection.request.timeout:10000}") // 10 seconds
+    @Value("${electionguard.connection.request.timeout:30000}") // 30 seconds - increased from 10s
     private int connectionRequestTimeout;
 
-    @Value("${electionguard.max.connections:50}")
+    @Value("${electionguard.max.connections:200}") // Increased from 50 to 200 for concurrent operations
     private int maxConnections;
 
-    @Value("${electionguard.max.per.route:20}")
+    @Value("${electionguard.max.per.route:100}") // Increased from 20 to 100 for concurrent chunk processing
     private int maxPerRoute;
 
     @Bean

@@ -843,8 +843,19 @@ def api_publish_existing_ballot():
 @track_request('/create_encrypted_tally')
 def api_create_encrypted_tally():
     """API endpoint to tally encrypted ballots."""
+    start_time = time.time()
+    request_id = str(uuid.uuid4())[:8]
+    thread_id = threading.current_thread().ident
+    thread_name = threading.current_thread().name
+    
+    logger.info("="*80)
+    logger.info(f"🎯 [MICROSERVICE][REQ-{request_id}][Thread-{thread_name}:{thread_id}] RECEIVED REQUEST")
+    logger.info("="*80)
+    logger.info(f"[REQ-{request_id}] Endpoint: /create_encrypted_tally")
+    logger.info(f"[REQ-{request_id}] Timestamp: {datetime.now().isoformat()}")
+    
     try:
-        logger.info('Creating encrypted tally')
+        logger.info(f"[REQ-{request_id}] 📥 Parsing request JSON...")
         data = request.json
         party_names = data['party_names']
         candidate_names = data['candidate_names']
@@ -852,13 +863,19 @@ def api_create_encrypted_tally():
         commitment_hash = data['commitment_hash']    # Expecting string
         encrypted_ballots = data['encrypted_ballots'] # List of encrypted ballot strings
         
-        ## print_json(data, "create_encrypted_tally")
-        # Dump the request to a file named "create_encrypted_tally_request.json"
-        ## print_data(data, "./io/create_encrypted_tally_request.json")
-
         # Get election data with safe int conversion
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
         quorum = safe_int_conversion(data.get('quorum', 1))
+        
+        logger.info(f"[REQ-{request_id}] 📦 Request data:")
+        logger.info(f"[REQ-{request_id}]   - Party names: {len(party_names)}")
+        logger.info(f"[REQ-{request_id}]   - Candidate names: {len(candidate_names)}")
+        logger.info(f"[REQ-{request_id}]   - Encrypted ballots: {len(encrypted_ballots)}")
+        logger.info(f"[REQ-{request_id}]   - Number of guardians: {number_of_guardians}")
+        logger.info(f"[REQ-{request_id}]   - Quorum: {quorum}")
+        
+        logger.info(f"[REQ-{request_id}] 🔧 Calling service function...")
+        service_start = time.time()
         
         # Call service function
         result = create_encrypted_tally_service(
@@ -873,19 +890,20 @@ def api_create_encrypted_tally():
             ciphertext_tally_to_raw
         )
         
-        # Don't store tally data in memory - keep API stateless
-        # Backend should handle persistent storage
-        # election_data['ciphertext_tally'] = result['ciphertext_tally']
-        # election_data['submitted_ballots'] = result['submitted_ballots']
+        service_time = time.time() - service_start
+        logger.info(f"[REQ-{request_id}] ✅ Service function completed in {service_time*1000:.2f}ms")
         
         response = {
             'status': 'success',
             'ciphertext_tally': serialize_dict_to_string(result['ciphertext_tally']),
             'submitted_ballots': serialize_list_of_dicts_to_list_of_strings(result['submitted_ballots'])
         }
-        # ## print_data(response, "./io/create_encrypted_tally_response.json")  # Disabled
-        # ## print_json(response, "create_encrypted_tally_response")  # Disabled
-        logger.info('Finished creating encrypted tally')
+        
+        total_time = time.time() - start_time
+        logger.info("="*80)
+        logger.info(f"[REQ-{request_id}] ✅ REQUEST COMPLETED SUCCESSFULLY")
+        logger.info(f"[REQ-{request_id}] ⏱️ Total time: {total_time*1000:.2f}ms")
+        logger.info("="*80)
         
         # Force garbage collection to free memory
         gc.collect()
@@ -893,39 +911,71 @@ def api_create_encrypted_tally():
         return jsonify(response), 200
     
     except ValueError as e:
+        error_time = time.time() - start_time
+        logger.error(f"[REQ-{request_id}] ❌ REQUEST FAILED: {str(e)} (Time: {error_time*1000:.2f}ms)")
         return jsonify({'status': 'error', 'message': str(e)}), 400
     except Exception as e:
+        error_time = time.time() - start_time
+        logger.error(f"[REQ-{request_id}] ❌ REQUEST FAILED: {type(e).__name__}: {str(e)} (Time: {error_time*1000:.2f}ms)")
+        logger.error(f"[REQ-{request_id}] Stack trace:", exc_info=True)
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/create_partial_decryption', methods=['POST'])
 @track_request('/create_partial_decryption')
 def api_create_partial_decryption():
     """API endpoint to compute decryption shares for a single guardian."""
+    start_time = time.time()
+    request_id = str(uuid.uuid4())[:8]
+    thread_id = threading.current_thread().ident
+    thread_name = threading.current_thread().name
+    
+    logger.info("="*80)
+    logger.info(f"🎯 [MICROSERVICE][REQ-{request_id}][Thread-{thread_name}:{thread_id}] RECEIVED REQUEST")
+    logger.info("="*80)
+    logger.info(f"[REQ-{request_id}] Endpoint: /create_partial_decryption")
+    logger.info(f"[REQ-{request_id}] Timestamp: {datetime.now().isoformat()}")
+    logger.info(f"[REQ-{request_id}] Content-Type: {request.content_type}")
+    logger.info(f"[REQ-{request_id}] Content-Length: {request.content_length}")
+    
     try:
-        logger.info('Creating partial decryption')
+        logger.info(f"[REQ-{request_id}] 📥 Parsing request JSON...")
         data = request.json
         guardian_id = data['guardian_id']
-        ## print_json(data, "create_partial_decryption")
-        # Print the request body as JSON to a file named "partial_decryption_request.json"
-
-        ## print_data(data, "./io/partial_decryption_request.json")
+        
+        logger.info(f"[REQ-{request_id}] 📦 Request data received:")
+        logger.info(f"[REQ-{request_id}]   - Guardian ID: {guardian_id}")
+        logger.info(f"[REQ-{request_id}]   - Party names count: {len(data.get('party_names', []))}")
+        logger.info(f"[REQ-{request_id}]   - Candidate names count: {len(data.get('candidate_names', []))}")
+        logger.info(f"[REQ-{request_id}]   - Submitted ballots count: {len(data.get('submitted_ballots', []))}")
+        logger.info(f"[REQ-{request_id}]   - Number of guardians: {data.get('number_of_guardians')}")
+        logger.info(f"[REQ-{request_id}]   - Quorum: {data.get('quorum')}")
+        logger.info(f"[REQ-{request_id}] 🔄 Starting deserialization...")
 
         # Deserialize single guardian data from string (if available)
         guardian_data = None
         if data.get('guardian_data'):
             try:
+                logger.info(f"[REQ-{request_id}] Deserializing guardian_data...")
                 guardian_data = deserialize_string_to_dict(data['guardian_data'])
+                logger.info(f"[REQ-{request_id}] ✅ Guardian data deserialized")
             except Exception as e:
+                logger.error(f"[REQ-{request_id}] ❌ Error deserializing guardian_data: {e}")
                 raise ValueError(f"Error deserializing guardian_data: {e}")
             
         try:
+            logger.info(f"[REQ-{request_id}] Deserializing private_key...")
             private_key = deserialize_string_to_dict(data['private_key'])
+            logger.info(f"[REQ-{request_id}] ✅ Private key deserialized")
         except Exception as e:
+            logger.error(f"[REQ-{request_id}] ❌ Error deserializing private_key: {e}")
             raise ValueError(f"Error deserializing private_key: {e}")
             
         try:
+            logger.info(f"[REQ-{request_id}] Deserializing public_key...")
             public_key = deserialize_string_to_dict(data['public_key'])
+            logger.info(f"[REQ-{request_id}] ✅ Public key deserialized")
         except Exception as e:
+            logger.error(f"[REQ-{request_id}] ❌ Error deserializing public_key: {e}")
             raise ValueError(f"Error deserializing public_key: {e}")
             
         # Polynomial is no longer required from the request
@@ -935,14 +985,20 @@ def api_create_partial_decryption():
         
         # Deserialize dict from string with error context
         try:
+            logger.info(f"[REQ-{request_id}] Deserializing ciphertext_tally...")
             ciphertext_tally_json = deserialize_string_to_dict(data['ciphertext_tally'])
+            logger.info(f"[REQ-{request_id}] ✅ Ciphertext tally deserialized")
         except Exception as e:
+            logger.error(f"[REQ-{request_id}] ❌ Error deserializing ciphertext_tally: {e}")
             raise ValueError(f"Error deserializing ciphertext_tally: {e}")
             
         # Deserialize submitted_ballots from list of strings to list of dicts
         try:
+            logger.info(f"[REQ-{request_id}] Deserializing submitted_ballots...")
             submitted_ballots_json = deserialize_list_of_strings_to_list_of_dicts(data['submitted_ballots'])
+            logger.info(f"[REQ-{request_id}] ✅ Submitted ballots deserialized: {len(submitted_ballots_json)} ballots")
         except Exception as e:
+            logger.error(f"[REQ-{request_id}] ❌ Error deserializing submitted_ballots: {e}")
             raise ValueError(f"Error deserializing submitted_ballots: {e}")
             
         joint_public_key = data['joint_public_key']
@@ -951,6 +1007,12 @@ def api_create_partial_decryption():
         # Get election data with safe int conversion
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
         quorum = safe_int_conversion(data.get('quorum', 1))
+        
+        deserialization_time = time.time() - start_time
+        logger.info(f"[REQ-{request_id}] ⏱️ Deserialization completed in {deserialization_time*1000:.2f}ms")
+        logger.info(f"[REQ-{request_id}] 🔧 Calling service function...")
+        
+        service_start = time.time()
         
         # Call service function with single guardian data
         result = create_partial_decryption_service(
@@ -972,15 +1034,26 @@ def api_create_partial_decryption():
             compute_ballot_shares
         )
         
+        service_time = time.time() - service_start
+        logger.info(f"[REQ-{request_id}] ✅ Service function completed in {service_time*1000:.2f}ms")
+        logger.info(f"[REQ-{request_id}] 📤 Preparing response...")
+        
         response = {
             'status': 'success',
             'guardian_public_key': result['guardian_public_key'],
             'tally_share': result['tally_share'],
             'ballot_shares': serialize_dict_to_string(result['ballot_shares'])
         }
-        # ## print_data(response, "./io/create_partial_decryption_response.json")  # Disabled
-        # ## print_json(response, "create_partial_decryption_response")  # Disabled
-        logger.info('Finished creating partial decryption')
+        
+        total_time = time.time() - start_time
+        logger.info("="*80)
+        logger.info(f"[REQ-{request_id}] ✅ REQUEST COMPLETED SUCCESSFULLY")
+        logger.info("="*80)
+        logger.info(f"[REQ-{request_id}] ⏱️ Total time: {total_time*1000:.2f}ms")
+        logger.info(f"[REQ-{request_id}]   - Deserialization: {deserialization_time*1000:.2f}ms")
+        logger.info(f"[REQ-{request_id}]   - Service processing: {service_time*1000:.2f}ms")
+        logger.info(f"[REQ-{request_id}]   - Overhead: {(total_time-deserialization_time-service_time)*1000:.2f}ms")
+        logger.info("="*80)
         
         # Force garbage collection to free memory
         gc.collect()
@@ -988,8 +1061,24 @@ def api_create_partial_decryption():
         return jsonify(response), 200
     
     except ValueError as e:
+        error_time = time.time() - start_time
+        logger.error("="*80)
+        logger.error(f"[REQ-{request_id}] ❌ REQUEST FAILED (ValueError)")
+        logger.error("="*80)
+        logger.error(f"[REQ-{request_id}] ⏱️ Time elapsed: {error_time*1000:.2f}ms")
+        logger.error(f"[REQ-{request_id}] ⚠️ Error: {str(e)}")
+        logger.error("="*80)
         return jsonify({'status': 'error', 'message': str(e)}), 400
     except Exception as e:
+        error_time = time.time() - start_time
+        logger.error("="*80)
+        logger.error(f"[REQ-{request_id}] ❌ REQUEST FAILED (Exception)")
+        logger.error("="*80)
+        logger.error(f"[REQ-{request_id}] ⏱️ Time elapsed: {error_time*1000:.2f}ms")
+        logger.error(f"[REQ-{request_id}] ⚠️ Error type: {type(e).__name__}")
+        logger.error(f"[REQ-{request_id}] ⚠️ Error: {str(e)}")
+        logger.error(f"[REQ-{request_id}] Stack trace:", exc_info=True)
+        logger.error("="*80)
         return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/create_compensated_decryption', methods=['POST'])
