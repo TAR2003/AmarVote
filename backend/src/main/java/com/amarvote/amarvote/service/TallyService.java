@@ -293,23 +293,24 @@ public class TallyService {
                 
                 processedChunks++;
                 updateTallyStatusTransactional(electionId, "in_progress", chunkConfig.getNumChunks(), processedChunks, null);
-                System.out.println("✅ Chunk " + chunkNumber + " completed. Progress: " + processedChunks + "/" + chunkConfig.getNumChunks());
                 
-                // GARBAGE COLLECTION: Force GC every 10 chunks to prevent memory buildup
+                // ✅ AGGRESSIVE GC AFTER EVERY CHUNK
+                System.gc();
+                try { 
+                    Thread.sleep(300); 
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+                System.gc(); // Second pass
+                
+                // Log memory every 10 chunks
                 if (processedChunks % 10 == 0) {
                     Runtime runtime = Runtime.getRuntime();
-                    long beforeGC = runtime.totalMemory() - runtime.freeMemory();
-                    System.gc();
-                    System.out.println("🗑️ [GC] Forced garbage collection at tally chunk " + processedChunks);
-                    try { 
-                        Thread.sleep(200); 
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
-                    long afterGC = runtime.totalMemory() - runtime.freeMemory();
-                    long freedMemory = beforeGC - afterGC;
-                    System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
+                    long usedMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
+                    System.out.println("🗑️ [TALLY-GC] After chunk " + processedChunks + "/" + chunkConfig.getNumChunks() + ": " + usedMB + " MB");
                 }
+                
+                System.out.println("✅ Chunk " + chunkNumber + " completed. Progress: " + processedChunks + "/" + chunkConfig.getNumChunks());
             }
             
             // Update election status in separate transaction
@@ -521,6 +522,8 @@ public class TallyService {
         chunkBallots = null;
         chunkEncryptedBallots = null;
         guardResponse = null;
+        electionCenter = null;
+        electionCenter = null;
         
         // Transaction ends here, Hibernate session closes automatically, all entities released from memory
     }
@@ -672,20 +675,20 @@ public class TallyService {
                 
                 processedSyncChunks++;
                 
-                // GARBAGE COLLECTION: Force GC every 10 chunks to prevent memory buildup
+                // ✅ AGGRESSIVE GC AFTER EVERY CHUNK
+                System.gc();
+                try { 
+                    Thread.sleep(300); 
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+                System.gc(); // Second pass
+                
+                // Log memory every 10 chunks
                 if (processedSyncChunks % 10 == 0) {
                     Runtime runtime = Runtime.getRuntime();
-                    long beforeGC = runtime.totalMemory() - runtime.freeMemory();
-                    System.gc();
-                    System.out.println("🗑️ [GC] Forced garbage collection at sync tally chunk " + processedSyncChunks);
-                    try { 
-                        Thread.sleep(200); 
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
-                    long afterGC = runtime.totalMemory() - runtime.freeMemory();
-                    long freedMemory = beforeGC - afterGC;
-                    System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
+                    long usedMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
+                    System.out.println("🗑️ [TALLY-SYNC-GC] After chunk " + processedSyncChunks + ": " + usedMB + " MB");
                 }
             }
             // ===== CHUNKING LOGIC END =====

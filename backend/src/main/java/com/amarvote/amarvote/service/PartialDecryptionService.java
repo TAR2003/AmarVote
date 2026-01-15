@@ -734,21 +734,20 @@ public class PartialDecryptionService {
                 chunkBallots = null;
                 ballotCipherTexts = null;
                 
-                // GARBAGE COLLECTION: Force GC every 10 chunks to prevent memory buildup
+                // ✅ AGGRESSIVE GC AFTER EVERY CHUNK
+                System.gc();
+                try { 
+                    Thread.sleep(300); 
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+                System.gc(); // Second pass
+                
+                // Log memory every 10 chunks
                 if (processedChunks % 10 == 0) {
                     Runtime runtime = Runtime.getRuntime();
-                    long beforeGC = runtime.totalMemory() - runtime.freeMemory();
-                    System.gc();
-                    System.out.println("🗑️ [GC] Forced garbage collection at chunk " + processedChunks);
-                    // Give GC time to complete
-                    try { 
-                        Thread.sleep(200); 
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
-                    long afterGC = runtime.totalMemory() - runtime.freeMemory();
-                    long freedMemory = beforeGC - afterGC;
-                    System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
+                    long usedMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
+                    System.out.println("🗑️ [PARTIAL-DECRYPT-GC] After chunk " + processedChunks + "/" + electionCenterIds.size() + ": " + usedMB + " MB");
                 }
             }
             
@@ -1045,20 +1044,20 @@ public class PartialDecryptionService {
                     compensatedResponse = null;
                     compensatedDecryption = null;
                     
-                    // GARBAGE COLLECTION: Force GC every 10 compensated chunks to prevent memory buildup
+                    // ✅ AGGRESSIVE GC AFTER EVERY COMPENSATED CHUNK
+                    System.gc();
+                    try { 
+                        Thread.sleep(300); 
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                    System.gc(); // Second pass
+                    
+                    // Log memory every 10 chunks
                     if (processedCompensatedChunks % 10 == 0) {
                         Runtime runtime = Runtime.getRuntime();
-                        long beforeGC = runtime.totalMemory() - runtime.freeMemory();
-                        System.gc();
-                        System.out.println("🗑️ [GC] Forced garbage collection at compensated chunk " + processedCompensatedChunks);
-                        try { 
-                            Thread.sleep(200); 
-                        } catch (InterruptedException ie) {
-                            Thread.currentThread().interrupt();
-                        }
-                        long afterGC = runtime.totalMemory() - runtime.freeMemory();
-                        long freedMemory = beforeGC - afterGC;
-                        System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
+                        long usedMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
+                        System.out.println("🗑️ [COMPENSATED-DECRYPT-GC] After chunk " + processedCompensatedChunks + "/" + totalCompensatedChunks + ": " + usedMB + " MB");
                     }
                 }
                 
@@ -1801,26 +1800,20 @@ public class PartialDecryptionService {
                 guardResponse = null;
                 ciphertextTallyString = null;
                 
-                // GARBAGE COLLECTION: Force GC every 10 chunks during combine to prevent memory buildup
+                // ✅ AGGRESSIVE GC AFTER EVERY COMBINE CHUNK
+                System.gc();
+                try { 
+                    Thread.sleep(300); 
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+                System.gc(); // Second pass
+                
+                // Log memory every 10 chunks
                 if (processedChunkCount % 10 == 0) {
                     Runtime runtime = Runtime.getRuntime();
-                    long beforeGC = runtime.totalMemory() - runtime.freeMemory();
-                    System.gc();
-                    System.out.println("🗑️ [GC] Forced garbage collection at combine chunk " + processedChunkCount);
-                    try { 
-                        Thread.sleep(200); 
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
-                    long afterGC = runtime.totalMemory() - runtime.freeMemory();
-                    long freedMemory = beforeGC - afterGC;
-                    System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
-                } else {
-                    // Log memory usage without GC for other chunks
-                    Runtime runtime = Runtime.getRuntime();
-                    long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-                    long maxMemory = runtime.maxMemory() / (1024 * 1024);
-                    System.out.println("💾 Memory after chunk " + processedChunkCount + ": " + usedMemory + "MB / " + maxMemory + "MB");
+                    long usedMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
+                    System.out.println("🗑️ [COMBINE-DECRYPT-GC] After chunk " + processedChunkCount + "/" + electionCenterIds.size() + ": " + usedMB + " MB");
                 }
             }
             
