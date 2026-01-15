@@ -43,7 +43,9 @@ EXPOSE 8080
 # -Xms512m: Initial heap 512MB
 # -XX:+UseG1GC: Use G1 garbage collector for better memory management
 # -XX:MaxGCPauseMillis=200: Target max GC pause time
+# -XX:InitiatingHeapOccupancyPercent=45: Start concurrent GC at 45% heap (earlier than default 45%)
+# -XX:+ExplicitGCInvokesConcurrent: CRITICAL - Makes System.gc() run concurrently (prevents STW pauses)
 # -XX:+ExitOnOutOfMemoryError: Exit cleanly on OOM
-ENV JAVA_OPTS="-Xmx2560m -Xms512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError"
+ENV JAVA_OPTS="-Xmx2560m -Xms512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:InitiatingHeapOccupancyPercent=45 -XX:+ExplicitGCInvokesConcurrent -XX:+ExitOnOutOfMemoryError"
 
 ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]

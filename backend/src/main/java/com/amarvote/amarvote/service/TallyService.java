@@ -301,7 +301,11 @@ public class TallyService {
                     long beforeGC = runtime.totalMemory() - runtime.freeMemory();
                     System.gc();
                     System.out.println("🗑️ [GC] Forced garbage collection at tally chunk " + processedChunks);
-                    try { Thread.sleep(100); } catch (InterruptedException ie) {}
+                    try { 
+                        Thread.sleep(200); 
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
                     long afterGC = runtime.totalMemory() - runtime.freeMemory();
                     long freedMemory = beforeGC - afterGC;
                     System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
@@ -512,6 +516,12 @@ public class TallyService {
         }
         
         System.out.println("✅ Chunk " + chunkNumber + " transaction complete - Hibernate session will close and release memory");
+        
+        // ✅ Explicitly clear large object references to help GC
+        chunkBallots = null;
+        chunkEncryptedBallots = null;
+        guardResponse = null;
+        
         // Transaction ends here, Hibernate session closes automatically, all entities released from memory
     }
     
@@ -668,7 +678,11 @@ public class TallyService {
                     long beforeGC = runtime.totalMemory() - runtime.freeMemory();
                     System.gc();
                     System.out.println("🗑️ [GC] Forced garbage collection at sync tally chunk " + processedSyncChunks);
-                    try { Thread.sleep(100); } catch (InterruptedException ie) {}
+                    try { 
+                        Thread.sleep(200); 
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
                     long afterGC = runtime.totalMemory() - runtime.freeMemory();
                     long freedMemory = beforeGC - afterGC;
                     System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");

@@ -740,8 +740,12 @@ public class PartialDecryptionService {
                     long beforeGC = runtime.totalMemory() - runtime.freeMemory();
                     System.gc();
                     System.out.println("🗑️ [GC] Forced garbage collection at chunk " + processedChunks);
-                    // Give GC a moment to run
-                    try { Thread.sleep(100); } catch (InterruptedException ie) {}
+                    // Give GC time to complete
+                    try { 
+                        Thread.sleep(200); 
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
                     long afterGC = runtime.totalMemory() - runtime.freeMemory();
                     long freedMemory = beforeGC - afterGC;
                     System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
@@ -1041,8 +1045,21 @@ public class PartialDecryptionService {
                     compensatedResponse = null;
                     compensatedDecryption = null;
                     
-                    // Force GC after each chunk
-                    System.gc();
+                    // GARBAGE COLLECTION: Force GC every 10 compensated chunks to prevent memory buildup
+                    if (processedCompensatedChunks % 10 == 0) {
+                        Runtime runtime = Runtime.getRuntime();
+                        long beforeGC = runtime.totalMemory() - runtime.freeMemory();
+                        System.gc();
+                        System.out.println("🗑️ [GC] Forced garbage collection at compensated chunk " + processedCompensatedChunks);
+                        try { 
+                            Thread.sleep(200); 
+                        } catch (InterruptedException ie) {
+                            Thread.currentThread().interrupt();
+                        }
+                        long afterGC = runtime.totalMemory() - runtime.freeMemory();
+                        long freedMemory = beforeGC - afterGC;
+                        System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
+                    }
                 }
                 
                 // Force major GC after completing all chunks for this guardian
@@ -1790,7 +1807,11 @@ public class PartialDecryptionService {
                     long beforeGC = runtime.totalMemory() - runtime.freeMemory();
                     System.gc();
                     System.out.println("🗑️ [GC] Forced garbage collection at combine chunk " + processedChunkCount);
-                    try { Thread.sleep(100); } catch (InterruptedException ie) {}
+                    try { 
+                        Thread.sleep(200); 
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
                     long afterGC = runtime.totalMemory() - runtime.freeMemory();
                     long freedMemory = beforeGC - afterGC;
                     System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
