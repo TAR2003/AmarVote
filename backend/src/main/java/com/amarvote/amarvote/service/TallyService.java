@@ -7,11 +7,9 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import org.springframework.web.reactive.function.client.WebClient;
 
 import com.amarvote.amarvote.dto.ChunkConfiguration;
 import com.amarvote.amarvote.dto.CreateTallyRequest;
@@ -68,7 +66,7 @@ public class TallyService {
     private ChunkingService chunkingService;
     
     @Autowired
-    private WebClient webClient;
+    private ElectionGuardService electionGuardService;
     
     @Autowired
     private ObjectMapper objectMapper;
@@ -622,14 +620,7 @@ public class TallyService {
             System.out.println("🚀 Sending request to ElectionGuard service at: " + url);
             System.out.println("Request prepared successfully");
             
-            String response = webClient.post()
-                .uri(url)
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
+            String response = electionGuardService.postRequest(url, request);
             
             System.out.println("✅ Received response from ElectionGuard tally service");
             System.out.println("Response received (length: " + (response != null ? response.length() : 0) + " chars)");

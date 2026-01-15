@@ -9,9 +9,7 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 
 import com.amarvote.amarvote.dto.BenalohChallengeRequest;
 import com.amarvote.amarvote.dto.BenalohChallengeResponse;
@@ -62,7 +60,7 @@ public class BallotService {
     private GuardianRepository guardianRepository;
 
     @Autowired
-    private WebClient webClient;
+    private ElectionGuardService electionGuardService;
 
     @Autowired
     private ObjectMapper objectMapper;
@@ -483,14 +481,7 @@ public class BallotService {
             System.out.println("Calling ElectionGuard ballot service at: " + url);
             System.out.println("Sending request to ElectionGuard service: " + request);
 
-            String response = webClient.post()
-                    .uri(url)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .bodyValue(request)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
+            String response = electionGuardService.postRequest(url, request);
 
             System.out.println("Received response from ElectionGuard service: ");
 
@@ -836,15 +827,8 @@ public class BallotService {
             System.out.println("Calling ElectionGuard Benaloh challenge service at: " + url);
             System.out.println("Sending request to ElectionGuard Benaloh service: " + request);
 
-            System.out.println("🌐 [BENALOH API] Making WebClient call...");
-            String response = webClient.post()
-                    .uri(url)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .accept(MediaType.APPLICATION_JSON)
-                    .bodyValue(request)
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
+            System.out.println("🌐 [BENALOH API] Making ElectionGuardService call...");
+            String response = electionGuardService.postRequest(url, request);
 
             System.out.println("Received response from ElectionGuard Benaloh service: ");
 

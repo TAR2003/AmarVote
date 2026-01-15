@@ -10,10 +10,8 @@ import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.MediaType;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
 
 import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionResponse;
@@ -73,7 +71,7 @@ public class PartialDecryptionService {
     private final ConcurrentHashMap<Long, Boolean> combineLocks = new ConcurrentHashMap<>();
     
     @Autowired
-    private WebClient webClient;
+    private ElectionGuardService electionGuardService;
 
     @Transactional
     public CreatePartialDecryptionResponse createPartialDecryption(CreatePartialDecryptionRequest request, String userEmail) {
@@ -1000,14 +998,7 @@ public class PartialDecryptionService {
             System.out.println("Calling ElectionGuard partial decryption service at: " + url);
             System.out.println("Sending request to ElectionGuard service: ");
             
-            String response = webClient.post()
-                .uri(url)
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
+            String response = electionGuardService.postRequest(url, request);
             
             System.out.println("Received response from ElectionGuard service: " + response);
             
@@ -1955,14 +1946,7 @@ public class PartialDecryptionService {
             
             System.out.println("Calling ElectionGuard compensated decryption service at: " + url);
             
-            String response = webClient.post()
-                .uri(url)
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
+            String response = electionGuardService.postRequest(url, request);
             
             if (response == null) {
                 throw new RuntimeException("Invalid response from ElectionGuard service");
@@ -1998,14 +1982,7 @@ public class PartialDecryptionService {
             System.out.println("Number of guardians: " + request.number_of_guardians());
             System.out.println("Has ciphertext_tally: " + (request.ciphertext_tally() != null && !request.ciphertext_tally().trim().isEmpty()));
             
-            String response = webClient.post()
-                .uri(url)
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .bodyValue(request)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
+            String response = electionGuardService.postRequest(url, request);
             
             System.out.println("Received response from ElectionGuard service: " + response);
 

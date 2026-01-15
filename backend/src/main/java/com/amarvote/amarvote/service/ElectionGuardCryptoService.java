@@ -6,8 +6,7 @@ import java.util.Map;
 
 import org.springframework.http.MediaType;
 import org.springframework.stereotype.Service;
-import org.springframework.web.reactive.function.client.WebClient;
-import org.springframework.web.reactive.function.client.WebClientResponseException;
+import org.springframework.web.client.RestClientException;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -19,7 +18,7 @@ import lombok.extern.slf4j.Slf4j;
 @RequiredArgsConstructor
 public class ElectionGuardCryptoService {
 
-    private final WebClient webClient;
+    private final ElectionGuardService electionGuardService;
     private final ObjectMapper objectMapper;
     private final SecureCredentialFileService secureCredentialFileService;
 
@@ -40,14 +39,7 @@ public class ElectionGuardCryptoService {
             Map<String, String> requestBody = Map.of("private_key", combinedData);
             
             // Call the microservice
-            String response = webClient.post()
-                .uri("/api/encrypt")
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
+            String response = electionGuardService.postRequest("/api/encrypt", requestBody);
             
             if (response == null) {
                 throw new RuntimeException("No response from ElectionGuard encryption service");
@@ -68,8 +60,8 @@ public class ElectionGuardCryptoService {
             
             return new EncryptionResult(encryptedData, credentials);
             
-        } catch (WebClientResponseException e) {
-            System.err.println("ElectionGuard encryption service error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            System.err.println("ElectionGuard encryption service error: " + e.getMessage());
             throw new RuntimeException("Failed to encrypt guardian data: " + e.getMessage(), e);
         } catch (Exception e) {
             System.err.println("Error calling ElectionGuard encryption service: " + e.getMessage());
@@ -92,14 +84,7 @@ public class ElectionGuardCryptoService {
             Map<String, String> requestBody = Map.of("private_key", privateKey);
             
             // Call the microservice
-            String response = webClient.post()
-                .uri("/api/encrypt")
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
+            String response = electionGuardService.postRequest("/api/encrypt", requestBody);
             
             if (response == null) {
                 throw new RuntimeException("No response from ElectionGuard encryption service");
@@ -120,8 +105,8 @@ public class ElectionGuardCryptoService {
             
             return new EncryptionResult(encryptedData, credentials);
             
-        } catch (WebClientResponseException e) {
-            System.err.println("ElectionGuard encryption service error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            System.err.println("ElectionGuard encryption service error: " + e.getMessage());
             throw new RuntimeException("Failed to encrypt private key: " + e.getMessage(), e);
         } catch (Exception e) {
             System.err.println("Error calling ElectionGuard encryption service: " + e.getMessage());
@@ -146,14 +131,7 @@ public class ElectionGuardCryptoService {
             );
             
             // Call the microservice
-            String response = webClient.post()
-                .uri("/api/decrypt")
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
+            String response = electionGuardService.postRequest("/api/decrypt", requestBody);
             
             if (response == null) {
                 throw new RuntimeException("No response from ElectionGuard decryption service");
@@ -176,8 +154,8 @@ public class ElectionGuardCryptoService {
             
             return result;
             
-        } catch (WebClientResponseException e) {
-            System.err.println("ElectionGuard decryption service error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            System.err.println("ElectionGuard decryption service error: " + e.getMessage());
             throw new RuntimeException("Failed to decrypt guardian data: " + e.getMessage(), e);
         } catch (Exception e) {
             System.err.println("Error calling ElectionGuard decryption service: " + e.getMessage());
@@ -204,14 +182,7 @@ public class ElectionGuardCryptoService {
             );
             
             // Call the microservice
-            String response = webClient.post()
-                .uri("/api/decrypt")
-                .contentType(MediaType.APPLICATION_JSON)
-                .accept(MediaType.APPLICATION_JSON)
-                .bodyValue(requestBody)
-                .retrieve()
-                .bodyToMono(String.class)
-                .block(java.time.Duration.ofMinutes(5)); // Explicit 5-minute timeout
+            String response = electionGuardService.postRequest("/api/decrypt", requestBody);
             
             if (response == null) {
                 throw new RuntimeException("No response from ElectionGuard decryption service");
@@ -231,8 +202,8 @@ public class ElectionGuardCryptoService {
             
             return privateKey;
             
-        } catch (WebClientResponseException e) {
-            System.err.println("ElectionGuard decryption service error: " + e.getStatusCode() + " - " + e.getResponseBodyAsString());
+        } catch (RestClientException e) {
+            System.err.println("ElectionGuard decryption service error: " + e.getMessage());
             throw new RuntimeException("Failed to decrypt private key: " + e.getMessage(), e);
         } catch (Exception e) {
             System.err.println("Error calling ElectionGuard decryption service: " + e.getMessage());
