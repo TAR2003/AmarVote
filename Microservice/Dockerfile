@@ -1,5 +1,5 @@
-# Use official Python image (3.13-slim is not yet available, using 3.12)
-FROM python:3.12
+# Use official Python image
+FROM python:3.12-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
@@ -33,23 +33,23 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Run with optimized settings to prevent deadlock
-# Key changes:
-# - worker-class sync (no threading with multiprocessing)
-# - workers 2 (reduced to minimize memory)
-# - max-requests 100 (recycle workers to prevent memory accumulation)
-# - timeout 300 (5 minutes for crypto operations)
-# - worker-tmp-dir /dev/shm (use shared memory to avoid disk I/O issues)
+# Optimized for 1GB RAM constraint:
+# - workers 1 (single process to minimize memory footprint)
+# - threads 4 (handle concurrent requests within single process)
+# - worker-class gthread (thread-based for better memory efficiency)
+# - max-requests 500 (less frequent recycling to avoid memory spikes)
+# - preload (load app before forking to reduce memory with copy-on-write)
 CMD ["gunicorn", \
     "--bind", "0.0.0.0:5000", \
-    "--workers", "2", \
-    "--worker-class", "sync", \
-    "--threads", "1", \
-    "--max-requests", "100", \
-    "--max-requests-jitter", "20", \
+    "--workers", "1", \
+    "--worker-class", "gthread", \
+    "--threads", "4", \
+    "--max-requests", "500", \
+    "--max-requests-jitter", "50", \
     "--timeout", "300", \
     "--worker-tmp-dir", "/dev/shm", \
     "--graceful-timeout", "30", \
     "--keep-alive", "5", \
+    "--preload", \
     "--log-level", "info", \
     "api:app"]
