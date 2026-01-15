@@ -733,6 +733,19 @@ public class PartialDecryptionService {
                 // MEMORY-EFFICIENT: Clear references to allow garbage collection
                 chunkBallots = null;
                 ballotCipherTexts = null;
+                
+                // GARBAGE COLLECTION: Force GC every 10 chunks to prevent memory buildup
+                if (processedChunks % 10 == 0) {
+                    Runtime runtime = Runtime.getRuntime();
+                    long beforeGC = runtime.totalMemory() - runtime.freeMemory();
+                    System.gc();
+                    System.out.println("🗑️ [GC] Forced garbage collection at chunk " + processedChunks);
+                    // Give GC a moment to run
+                    try { Thread.sleep(100); } catch (InterruptedException ie) {}
+                    long afterGC = runtime.totalMemory() - runtime.freeMemory();
+                    long freedMemory = beforeGC - afterGC;
+                    System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
+                }
             }
             
             System.out.println("=====================================================================");
@@ -1771,14 +1784,23 @@ public class PartialDecryptionService {
                 guardResponse = null;
                 ciphertextTallyString = null;
                 
-                // Force garbage collection to free memory immediately
-                System.gc();
-                
-                // Log memory usage
-                Runtime runtime = Runtime.getRuntime();
-                long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-                long maxMemory = runtime.maxMemory() / (1024 * 1024);
-                System.out.println("💾 Memory after chunk " + processedChunkCount + ": " + usedMemory + "MB / " + maxMemory + "MB");
+                // GARBAGE COLLECTION: Force GC every 10 chunks during combine to prevent memory buildup
+                if (processedChunkCount % 10 == 0) {
+                    Runtime runtime = Runtime.getRuntime();
+                    long beforeGC = runtime.totalMemory() - runtime.freeMemory();
+                    System.gc();
+                    System.out.println("🗑️ [GC] Forced garbage collection at combine chunk " + processedChunkCount);
+                    try { Thread.sleep(100); } catch (InterruptedException ie) {}
+                    long afterGC = runtime.totalMemory() - runtime.freeMemory();
+                    long freedMemory = beforeGC - afterGC;
+                    System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
+                } else {
+                    // Log memory usage without GC for other chunks
+                    Runtime runtime = Runtime.getRuntime();
+                    long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+                    long maxMemory = runtime.maxMemory() / (1024 * 1024);
+                    System.out.println("💾 Memory after chunk " + processedChunkCount + ": " + usedMemory + "MB / " + maxMemory + "MB");
+                }
             }
             
             // Update final progress after all chunks processed

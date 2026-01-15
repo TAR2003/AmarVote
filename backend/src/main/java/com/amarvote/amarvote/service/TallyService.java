@@ -294,6 +294,18 @@ public class TallyService {
                 processedChunks++;
                 updateTallyStatusTransactional(electionId, "in_progress", chunkConfig.getNumChunks(), processedChunks, null);
                 System.out.println("✅ Chunk " + chunkNumber + " completed. Progress: " + processedChunks + "/" + chunkConfig.getNumChunks());
+                
+                // GARBAGE COLLECTION: Force GC every 10 chunks to prevent memory buildup
+                if (processedChunks % 10 == 0) {
+                    Runtime runtime = Runtime.getRuntime();
+                    long beforeGC = runtime.totalMemory() - runtime.freeMemory();
+                    System.gc();
+                    System.out.println("🗑️ [GC] Forced garbage collection at tally chunk " + processedChunks);
+                    try { Thread.sleep(100); } catch (InterruptedException ie) {}
+                    long afterGC = runtime.totalMemory() - runtime.freeMemory();
+                    long freedMemory = beforeGC - afterGC;
+                    System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
+                }
             }
             
             // Update election status in separate transaction
@@ -623,6 +635,7 @@ public class TallyService {
             System.out.println("Number of Guardians: " + numberOfGuardians);
             
             // ✅ Process each chunk in separate isolated transaction
+            int processedSyncChunks = 0;
             for (java.util.Map.Entry<Integer, List<Ballot>> entry : chunks.entrySet()) {
                 int chunkNumber = entry.getKey();
                 List<Ballot> chunkBallots = entry.getValue();
@@ -646,6 +659,20 @@ public class TallyService {
                     election.getElectionQuorum(),
                     numberOfGuardians
                 );
+                
+                processedSyncChunks++;
+                
+                // GARBAGE COLLECTION: Force GC every 10 chunks to prevent memory buildup
+                if (processedSyncChunks % 10 == 0) {
+                    Runtime runtime = Runtime.getRuntime();
+                    long beforeGC = runtime.totalMemory() - runtime.freeMemory();
+                    System.gc();
+                    System.out.println("🗑️ [GC] Forced garbage collection at sync tally chunk " + processedSyncChunks);
+                    try { Thread.sleep(100); } catch (InterruptedException ie) {}
+                    long afterGC = runtime.totalMemory() - runtime.freeMemory();
+                    long freedMemory = beforeGC - afterGC;
+                    System.out.println("💾 [Memory] Before GC: " + (beforeGC / 1024 / 1024) + " MB, After GC: " + (afterGC / 1024 / 1024) + " MB, Freed: " + (freedMemory / 1024 / 1024) + " MB");
+                }
             }
             // ===== CHUNKING LOGIC END =====
             
