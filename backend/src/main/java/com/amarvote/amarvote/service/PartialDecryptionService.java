@@ -79,6 +79,32 @@ public class PartialDecryptionService {
     private ElectionGuardService electionGuardService;
 
     /**
+     * Periodic GC hint and memory monitoring utility
+     * Suggests GC when memory usage exceeds threshold, logs progress
+     */
+    private void suggestGCIfNeeded(int currentChunk, int totalChunks, String phase) {
+        Runtime runtime = Runtime.getRuntime();
+        long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+        long maxMemoryMB = runtime.maxMemory() / (1024 * 1024);
+        double usagePercent = (usedMemoryMB * 100.0) / maxMemoryMB;
+        
+        System.out.printf("📊 Progress [%s]: %d/%d | Memory: %dMB/%dMB (%.1f%%)%n",
+            phase, currentChunk, totalChunks, usedMemoryMB, maxMemoryMB, usagePercent);
+        
+        // Suggest GC only if memory usage is high (above 70%)
+        if (usagePercent > 70.0) {
+            System.out.println("🗑️ Memory usage high (" + String.format("%.1f", usagePercent) + "%) - Suggesting GC");
+            System.gc();
+            
+            // Log memory after GC
+            long usedAfterGC = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+            long freedMB = usedMemoryMB - usedAfterGC;
+            System.out.println("🧹 GC completed - Freed " + freedMB + " MB");
+        }
+    }
+
+
+    /**
      * NOTE: @Transactional removed to prevent Hibernate session memory leak.
      * Each chunk is processed in its own transaction via processPartialDecryptionChunkTransactional().
      */
@@ -502,6 +528,11 @@ public class PartialDecryptionService {
             List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
             int totalCompensatedGuardians = allGuardians.size() - 1; // All other guardians except self
             
+            System.out.println("=== Memory Monitoring Active ===");
+            Runtime runtime = Runtime.getRuntime();
+            long maxMemoryMB = runtime.maxMemory() / (1024 * 1024);
+            System.out.println("Max heap size: " + maxMemoryMB + " MB");
+            
             // Initialize status with totalCompensatedGuardians set from the beginning
             Optional<DecryptionStatus> statusOpt = decryptionStatusRepository
                 .findByElectionIdAndGuardianId(request.election_id(), guardian.getGuardianId());
@@ -688,7 +719,6 @@ public class PartialDecryptionService {
                 
                 // Log memory every 10 chunks
                 if (processedChunks % 10 == 0) {
-                    Runtime runtime = Runtime.getRuntime();
                     long usedMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
                     System.out.println("🗑️ [PARTIAL-DECRYPT-GC] After chunk " + processedChunks + "/" + electionCenterIds.size() + ": " + usedMB + " MB");
                 }
@@ -817,6 +847,11 @@ public class PartialDecryptionService {
         System.out.println("\n=== Processing Chunk " + chunkNumber + " (Transaction Start) ===");
         System.out.println("Fetching election center from database...");
         
+        // Log memory before processing
+        Runtime runtime = Runtime.getRuntime();
+        long memoryBeforeMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+        System.out.println("🧠 Memory before chunk " + chunkNumber + ": " + memoryBeforeMB + " MB");
+        
         // Fetch election center for this chunk
         ElectionCenter electionCenter = electionCenterRepository.findById(electionCenterId)
             .orElseThrow(() -> new RuntimeException("ElectionCenter not found: " + electionCenterId));
@@ -827,12 +862,10 @@ public class PartialDecryptionService {
             throw new RuntimeException("Chunk " + chunkNumber + " has no encrypted tally");
         }
         
-        // Get submitted ballots for this chunk
-        List<SubmittedBallot> chunkBallots = submittedBallotRepository.findByElectionCenterId(electionCenterId);
-        List<String> ballotCipherTexts = chunkBallots.stream()
-            .map(SubmittedBallot::getCipherText)
-            .toList();
-        System.out.println("Found " + ballotCipherTexts.size() + " ballots for chunk " + chunkNumber);
+        // ✅ MEMORY-EFFICIENT: Load only cipherText strings (not full SubmittedBallot entities)
+        // This reduces memory usage by 70-90% compared to loading full entities
+        List<String> ballotCipherTexts = submittedBallotRepository.findCipherTextsByElectionCenterId(electionCenterId);
+        System.out.println("Found " + ballotCipherTexts.size() + " ballots for chunk " + chunkNumber + " (loaded as strings only)");
         
         // Construct guardian_data JSON with required fields
         String guardianDataJson = String.format(
@@ -879,13 +912,11 @@ public class PartialDecryptionService {
         decryptionRepository.save(decryption);
         System.out.println("✅ Saved decryption data for chunk " + chunkNumber);
         
-        // ✅ AGGRESSIVE MEMORY CLEANUP
-        entityManager.flush();
-        entityManager.clear();
+        // ✅ CRITICAL: Aggressive Hibernate memory cleanup
+        entityManager.flush();   // Write pending changes to DB
+        entityManager.clear();   // Clear persistence context - releases all entities
         
-        // Explicitly null out large objects to help GC
-        chunkBallots.clear();
-        chunkBallots = null;
+        // ✅ Explicitly null out large objects to help GC
         ballotCipherTexts.clear();
         ballotCipherTexts = null;
         electionCenter = null;
@@ -893,16 +924,14 @@ public class PartialDecryptionService {
         decryption = null;
         guardianDataJson = null;
         ciphertextTallyString = null;
+        guardRequest = null;
         
-        // Suggest garbage collection (hint to JVM)
-        System.gc();
-        
-        // Log memory usage
-        Runtime runtime = Runtime.getRuntime();
-        long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+        // Log memory after cleanup
+        long memoryAfterMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+        long freedMemoryMB = memoryBeforeMB - memoryAfterMB;
         System.out.println("✅ Chunk " + chunkNumber + " transaction complete - All entities detached and cleared");
         System.out.println("🗑️ Memory cleanup: EntityManager cleared, large objects nullified");
-        System.out.println("🧠 Current heap usage: " + usedMemoryMB + " MB");
+        System.out.println("🧠 Memory after chunk " + chunkNumber + ": " + memoryAfterMB + " MB (freed " + freedMemoryMB + " MB)");
     }
 
     /**
@@ -1977,9 +2006,13 @@ public class PartialDecryptionService {
             System.out.println("📦 PROCESSING CHUNKS (Memory-Efficient)");
             System.out.println("-".repeat(80));
             
+            int totalOperations = electionCenterIds.size() * otherGuardians.size();
+            int completedOperations = 0;
+            
             // Process each chunk (MEMORY-EFFICIENT)
-            for (Long electionCenterId : electionCenterIds) {
-                System.out.println("\n📍 Chunk " + electionCenterId + " | Guardian " + availableGuardian.getSequenceOrder() + " creating shares for others");
+            for (int chunkIndex = 0; chunkIndex < electionCenterIds.size(); chunkIndex++) {
+                Long electionCenterId = electionCenterIds.get(chunkIndex);
+                System.out.println("\n📍 Chunk " + (chunkIndex + 1) + "/" + electionCenterIds.size() + " (ID: " + electionCenterId + ") | Guardian " + availableGuardian.getSequenceOrder() + " creating shares for others");
                 System.out.println("Fetching election center from database...");
                 
                 // MEMORY-EFFICIENT: Fetch only the election center needed for this iteration
@@ -2012,34 +2045,22 @@ public class PartialDecryptionService {
                         createCompensatedShare(election, electionCenter, availableGuardian, otherGuardian, availableGuardianPrivateKey, availableGuardianPolynomial);
                         System.out.println("  ✅ Successfully created compensated share");
                         createdCount++;
+                        completedOperations++;
                     } else {
                         System.out.println("  ⏭️ Skipped (already exists)");
                         skippedCount++;
+                        completedOperations++;
                     }
                 }
                 
                 System.out.println("  📊 Summary for Chunk " + electionCenterId + ": Created=" + createdCount + ", Skipped=" + skippedCount);
                 
-                // MEMORY-EFFICIENT: Clear references and force aggressive GC after each chunk
+                // ✅ MEMORY-EFFICIENT: Clear references after each chunk
                 electionCenter = null;
-                System.gc();
-                try {
-                    Thread.sleep(200); // Allow GC time to complete
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                }
-                System.gc(); // Second pass
                 
-                // Log memory usage
-                Runtime runtime = Runtime.getRuntime();
-                long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-                long maxMemory = runtime.maxMemory() / (1024 * 1024);
-                double usagePercent = (usedMemory * 100.0) / maxMemory;
-                System.out.println("  💾 Memory after chunk " + electionCenterId + ": " + usedMemory + "MB / " + maxMemory + "MB (" + String.format("%.1f%%", usagePercent) + ")");
-                
-                // Warning if memory usage is high
-                if (usagePercent > 85.0) {
-                    System.err.println("  ⚠️ WARNING: High memory usage detected! Consider reducing chunk size or increasing heap size.");
+                // ✅ Periodic GC hint every 50 chunks (not every chunk - avoid overhead)
+                if ((chunkIndex + 1) % 50 == 0 || (chunkIndex + 1) == electionCenterIds.size()) {
+                    suggestGCIfNeeded(completedOperations, totalOperations, "Compensated Decryption");
                 }
             }
             

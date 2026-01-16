@@ -77,6 +77,31 @@ public class TallyService {
     private ObjectMapper objectMapper;
 
     /**
+     * Periodic GC hint and memory monitoring utility
+     * Suggests GC when memory usage exceeds threshold, logs progress
+     */
+    private void suggestGCIfNeeded(int currentChunk, int totalChunks, String phase) {
+        Runtime runtime = Runtime.getRuntime();
+        long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+        long maxMemoryMB = runtime.maxMemory() / (1024 * 1024);
+        double usagePercent = (usedMemoryMB * 100.0) / maxMemoryMB;
+        
+        System.out.printf("📊 Progress [%s]: %d/%d | Memory: %dMB/%dMB (%.1f%%)%n",
+            phase, currentChunk, totalChunks, usedMemoryMB, maxMemoryMB, usagePercent);
+        
+        // Suggest GC only if memory usage is high (above 70%)
+        if (usagePercent > 70.0) {
+            System.out.println("🗑️ Memory usage high (" + String.format("%.1f", usagePercent) + "%) - Suggesting GC");
+            System.gc();
+            
+            // Log memory after GC
+            long usedAfterGC = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+            long freedMB = usedMemoryMB - usedAfterGC;
+            System.out.println("🧹 GC completed - Freed " + freedMB + " MB");
+        }
+    }
+
+    /**
      * Get the current tally creation status for an election
      */
     public TallyCreationStatusResponse getTallyStatus(Long electionId) {
@@ -275,7 +300,8 @@ public class TallyService {
                 .map(ElectionChoice::getOptionTitle)
                 .collect(Collectors.toList());
             
-            int numberOfGuardians = guardianRepository.findByElectionId(election.getElectionId()).size();
+            // ✅ MEMORY-EFFICIENT: Use count query instead of loading all guardians
+            int numberOfGuardians = guardianRepository.countByElectionId(election.getElectionId());
             
             // ✅ Process each chunk in separate isolated transaction
             int processedChunks = 0;
@@ -299,20 +325,9 @@ public class TallyService {
                 processedChunks++;
                 updateTallyStatusTransactional(electionId, "in_progress", chunkConfig.getNumChunks(), processedChunks, null);
                 
-                // ✅ AGGRESSIVE GC AFTER EVERY CHUNK
-                System.gc();
-                try { 
-                    Thread.sleep(300); 
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                }
-                System.gc(); // Second pass
-                
-                // Log memory every 10 chunks
-                if (processedChunks % 10 == 0) {
-                    Runtime runtime = Runtime.getRuntime();
-                    long usedMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
-                    System.out.println("🗑️ [TALLY-GC] After chunk " + processedChunks + "/" + chunkConfig.getNumChunks() + ": " + usedMB + " MB");
+                // ✅ Periodic GC hint every 50 chunks (not every chunk - avoids GC overhead)
+                if (processedChunks % 50 == 0 || processedChunks == chunkConfig.getNumChunks()) {
+                    suggestGCIfNeeded(processedChunks, chunkConfig.getNumChunks(), "Tally Creation");
                 }
                 
                 System.out.println("✅ Chunk " + chunkNumber + " completed. Progress: " + processedChunks + "/" + chunkConfig.getNumChunks());
@@ -691,7 +706,8 @@ public class TallyService {
             System.out.println("✅ Party names (" + partyNames.size() + "): " + partyNames);
             System.out.println("✅ Candidate names (" + candidateNames.size() + "): " + candidateNames);
             
-            int numberOfGuardians = guardianRepository.findByElectionId(election.getElectionId()).size();
+            // ✅ MEMORY-EFFICIENT: Use count query instead of loading all guardians
+            int numberOfGuardians = guardianRepository.countByElectionId(election.getElectionId());
             System.out.println("Number of Guardians: " + numberOfGuardians);
             
             // ✅ Process each chunk in separate isolated transaction
@@ -722,20 +738,9 @@ public class TallyService {
                 
                 processedSyncChunks++;
                 
-                // ✅ AGGRESSIVE GC AFTER EVERY CHUNK
-                System.gc();
-                try { 
-                    Thread.sleep(300); 
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                }
-                System.gc(); // Second pass
-                
-                // Log memory every 10 chunks
-                if (processedSyncChunks % 10 == 0) {
-                    Runtime runtime = Runtime.getRuntime();
-                    long usedMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
-                    System.out.println("🗑️ [TALLY-SYNC-GC] After chunk " + processedSyncChunks + ": " + usedMB + " MB");
+                // ✅ Periodic GC hint every 50 chunks (not every chunk - avoids GC overhead)
+                if (processedSyncChunks % 50 == 0 || processedSyncChunks == chunkConfig.getNumChunks()) {
+                    suggestGCIfNeeded(processedSyncChunks, chunkConfig.getNumChunks(), "Tally Creation (Sync)");
                 }
             }
             // ===== CHUNKING LOGIC END =====

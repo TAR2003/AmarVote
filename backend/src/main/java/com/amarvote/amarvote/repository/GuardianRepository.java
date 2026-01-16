@@ -37,4 +37,8 @@ public interface GuardianRepository extends JpaRepository<Guardian, Long> {
     // Find all guardians who have completed partial decryption for an election
     @Query("SELECT g FROM Guardian g WHERE g.electionId = :electionId AND g.decryptedOrNot = :decryptedOrNot ORDER BY g.sequenceOrder")
     List<Guardian> findByElectionIdAndDecryptedOrNot(@Param("electionId") Long electionId, @Param("decryptedOrNot") Boolean decryptedOrNot);
+    
+    // MEMORY-EFFICIENT: Count guardians without loading entities
+    @Query("SELECT COUNT(g) FROM Guardian g WHERE g.electionId = :electionId")
+    int countByElectionId(@Param("electionId") Long electionId);
 }
