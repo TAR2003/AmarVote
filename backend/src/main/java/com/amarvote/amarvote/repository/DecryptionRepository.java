@@ -12,4 +12,5 @@ public interface DecryptionRepository extends JpaRepository<Decryption, Long> {
     List<Decryption> findByElectionCenterId(Long electionCenterId);
     List<Decryption> findByGuardianId(Long guardianId);
     List<Decryption> findByElectionCenterIdAndGuardianId(Long electionCenterId, Long guardianId);
+    boolean existsByGuardianIdAndElectionCenterId(Long guardianId, Long electionCenterId);
 }

@@ -48,6 +48,8 @@ import com.amarvote.amarvote.service.CloudinaryService;
 import com.amarvote.amarvote.service.ElectionService;
 import com.amarvote.amarvote.service.PartialDecryptionService;
 import com.amarvote.amarvote.service.TallyService;
+import com.amarvote.amarvote.service.TallyQueueService;
+import com.amarvote.amarvote.dto.queue.JobResponse;
 import com.amarvote.amarvote.util.BallotPaddingUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -62,6 +64,7 @@ public class ElectionController {
     private final ElectionService electionService;
     private final BallotService ballotService;
     private final TallyService tallyService;
+    private final TallyQueueService tallyQueueService;
     private final PartialDecryptionService partialDecryptionService;
     private final BlockchainService blockchainService;
     private final CloudinaryService cloudinaryService;
@@ -493,6 +496,55 @@ public class ElectionController {
                     .body(Map.of(
                         "success", false,
                         "message", "Failed to fetch tally status: " + e.getMessage()
+                    ));
+        }
+    }
+
+    /**
+     * Create tally using message queue (Tier 3 - Unlimited Scalability)
+     * 
+     * This endpoint:
+     * 1. Validates election has ended
+     * 2. Creates chunk records
+     * 3. Publishes messages to RabbitMQ
+     * 4. Returns immediately with job ID
+     * 
+     * Workers process chunks in background. Poll /api/jobs/{jobId}/status for progress.
+     */
+    @PostMapping(value = "/create-tally-queue", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> createTallyQueue(
+            @Valid @RequestBody CreateTallyRequest request,
+            HttpServletRequest httpRequest) {
+        
+        // Get user email
+        String userEmail = (String) httpRequest.getAttribute("userEmail");
+        
+        if (userEmail == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+        }
+        
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of(
+                        "success", false,
+                        "message", "User authentication required"
+                    ));
+        }
+        
+        try {
+            JobResponse response = tallyQueueService.createTallyAsync(request, userEmail);
+            return ResponseEntity.ok(response);
+            
+        } catch (Exception e) {
+            System.err.println("Error creating tally queue job: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                        "success", false,
+                        "message", "Failed to create tally: " + e.getMessage()
                     ));
         }
     }

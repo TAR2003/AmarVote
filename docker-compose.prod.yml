@@ -21,6 +21,28 @@ services:
       timeout: 5s
       retries: 5
 
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    container_name: amarvote_rabbitmq
+    restart: unless-stopped
+    environment:
+      - RABBITMQ_DEFAULT_USER=amarvote
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-amarvote_queue_pass}
+      - RABBITMQ_DEFAULT_VHOST=/
+    ports:
+      - "5672:5672"   # AMQP port for workers
+      - "15672:15672" # Management UI (http://localhost:15672)
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.25
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     build:
       context: ./backend
@@ -47,6 +69,10 @@ services:
       - CLOUDINARY_SECRET=${CLOUDINARY_SECRET}
       - LOG_PASSWORD=${LOG_PASSWORD}
       - CREDENTIALS_DIRECTORY=/app/data/credentials
+      - RABBITMQ_HOST=rabbitmq
+      - RABBITMQ_PORT=5672
+      - RABBITMQ_USERNAME=amarvote
+      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-amarvote_queue_pass}
     volumes:
       - maven_repo:/root/.m2
       - credentials_data:/app/data/credentials
@@ -56,6 +82,8 @@ services:
         ipv4_address: 172.20.0.30
     depends_on:
       postgres:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
   # rag-service:
 
@@ -152,6 +180,7 @@ volumes:
   prometheus_data:
   grafana_data:
   credentials_data:
+  rabbitmq_data:
 
 networks:
   election_net:

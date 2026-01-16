@@ -350,10 +350,10 @@ public class TallyService {
     }
 
     /**
-     * Process one tally chunk in isolated transaction
-     * Transaction boundary ensures all entities are released after chunk completion
+     * Process one tally chunk with memory management
+     * Note: No @Transactional here - when called from @Async method, Spring AOP doesn't work.
+     * Repository operations (save) have their own implicit transactions.
      */
-    @Transactional
     private void processTallyChunkTransactional(
             Long electionId,
             int chunkNumber,
@@ -421,7 +421,7 @@ public class TallyService {
         }
         
         // ✅ CRITICAL: Aggressive Hibernate memory cleanup
-        entityManager.flush();
+        // Note: No flush() - repository operations auto-commit in their own transactions
         entityManager.clear();
         
         // ✅ Explicitly clear and null all large object references
