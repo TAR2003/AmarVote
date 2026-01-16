@@ -32,11 +32,16 @@ import com.amarvote.amarvote.repository.SubmittedBallotRepository;
 import com.amarvote.amarvote.repository.TallyCreationStatusRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class TallyService {
+    
+    @PersistenceContext
+    private EntityManager entityManager;
     
     // Concurrent map to track which elections are currently processing tally creation
     private static final ConcurrentHashMap<Long, Boolean> tallyCreationLocks = new ConcurrentHashMap<>();
@@ -516,15 +521,20 @@ public class TallyService {
             System.out.println("✅ Saved " + savedCount + " submitted ballots for chunk " + chunkNumber);
         }
         
-        System.out.println("✅ Chunk " + chunkNumber + " transaction complete - Hibernate session will close and release memory");
+        // ✅ CRITICAL: Clear persistence context to detach all entities and free memory
+        entityManager.flush();
+        entityManager.clear();
         
         // ✅ Explicitly clear large object references to help GC
+        chunkBallots.clear();
         chunkBallots = null;
+        chunkEncryptedBallots.clear();
         chunkEncryptedBallots = null;
         guardResponse = null;
         electionCenter = null;
-        electionCenter = null;
         
+        System.out.println("✅ Chunk " + chunkNumber + " transaction complete - All entities detached and cleared");
+        System.out.println("🗑️ Memory cleanup: EntityManager cleared, large objects nullified");
         // Transaction ends here, Hibernate session closes automatically, all entities released from memory
     }
     

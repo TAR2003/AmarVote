@@ -45,12 +45,17 @@ import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
 @RequiredArgsConstructor
 public class PartialDecryptionService {
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     private final GuardianRepository guardianRepository;
     private final ElectionRepository electionRepository;
@@ -873,7 +878,22 @@ public class PartialDecryptionService {
         
         decryptionRepository.save(decryption);
         System.out.println("✅ Saved decryption data for chunk " + chunkNumber);
-        System.out.println("✅ Chunk " + chunkNumber + " transaction complete - Hibernate session will close and release memory");
+        
+        // ✅ CRITICAL: Clear persistence context to detach all entities and free memory
+        entityManager.flush();
+        entityManager.clear();
+        
+        // Explicitly null out large objects to help GC
+        chunkBallots.clear();
+        chunkBallots = null;
+        ballotCipherTexts.clear();
+        ballotCipherTexts = null;
+        electionCenter = null;
+        guardResponse = null;
+        decryption = null;
+        
+        System.out.println("✅ Chunk " + chunkNumber + " transaction complete - All entities detached and cleared");
+        System.out.println("🗑️ Memory cleanup: EntityManager cleared, large objects nullified");
     }
 
     /**
@@ -1044,6 +1064,14 @@ public class PartialDecryptionService {
                     
                     saveCompensatedDecryptionTransactional(compensatedDecryption);
                     
+                    // Explicitly nullify large objects immediately after save
+                    submittedBallots = null;
+                    ballotCipherTexts = null;
+                    compensatedRequest = null;
+                    compensatedResponse = null;
+                    compensatedDecryption = null;
+                    electionCenter = null;
+                    
                     // Update chunk progress after each chunk
                     processedCompensatedChunks++;
                     System.out.println("📦 Compensated chunk " + chunkNumber + "/" + electionCenterIds.size() 
@@ -1060,12 +1088,26 @@ public class PartialDecryptionService {
                         decryptionStatusRepository.save(status);
                     }
                     
-                    // ✅ Suggest garbage collection periodically
+                    // ✅ AGGRESSIVE GC: Suggest after EVERY compensated chunk (memory-intensive operation)
+                    System.gc();
+                    try { 
+                        Thread.sleep(100); // Brief pause to allow GC to run
+                    } catch (InterruptedException ie) {
+                        Thread.currentThread().interrupt();
+                    }
+                    
+                    // Log memory every 10 chunks
                     if (processedCompensatedChunks % 10 == 0) {
-                        System.gc();
                         Runtime runtime = Runtime.getRuntime();
                         long usedMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
-                        System.out.println("🗑️ [COMPENSATED-DECRYPT-GC] After chunk " + processedCompensatedChunks + "/" + totalCompensatedChunks + ": " + usedMB + " MB");
+                        long maxMB = runtime.maxMemory() / 1024 / 1024;
+                        double usagePercent = (usedMB * 100.0) / maxMB;
+                        System.out.println("🗑️ [COMPENSATED-DECRYPT-GC] After chunk " + processedCompensatedChunks + "/" + totalCompensatedChunks + ": " + usedMB + " MB / " + maxMB + " MB (" + String.format("%.1f%%", usagePercent) + ")");
+                        
+                        // Warning if memory usage is high
+                        if (usagePercent > 85.0) {
+                            System.err.println("⚠️ WARNING: High memory usage detected! Consider reducing chunk size or increasing heap size.");
+                        }
                     }
                 }
                 
@@ -2101,10 +2143,11 @@ public class PartialDecryptionService {
             
             System.out.println("Successfully saved compensated decryption share for chunk " + electionCenter.getElectionCenterId());
             
-            // MEMORY-EFFICIENT: Clear large data structures after use
-            submittedBallots.clear();
-            ballotCipherTexts.clear();
-            electionChoices.clear();
+            // ✅ CRITICAL: Clear persistence context to detach all entities and free memory
+            entityManager.flush();
+            entityManager.clear();
+            
+            System.out.println("🗑️ Memory cleanup: EntityManager cleared for compensated share");
             
         } catch (Exception e) {
             System.err.println("Error creating compensated share: " + e.getMessage());
