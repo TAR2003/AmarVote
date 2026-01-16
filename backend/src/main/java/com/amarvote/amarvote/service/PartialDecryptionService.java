@@ -73,7 +73,10 @@ public class PartialDecryptionService {
     @Autowired
     private ElectionGuardService electionGuardService;
 
-    @Transactional
+    /**
+     * NOTE: @Transactional removed to prevent Hibernate session memory leak.
+     * Each chunk is processed in its own transaction via processPartialDecryptionChunkTransactional().
+     */
     public CreatePartialDecryptionResponse createPartialDecryption(CreatePartialDecryptionRequest request, String userEmail) {
         try {
             System.out.println("=== Starting Partial Decryption Process ===");
@@ -164,90 +167,35 @@ public class PartialDecryptionService {
             int processedChunks = 0;
             
             for (Long electionCenterId : electionCenterIds) {
-                System.out.println("=== PROCESSING CHUNK " + (processedChunks + 1) + " (election_center_id: " + electionCenterId + ") ===");
-                System.out.println("Fetching election center from database...");
+                int chunkNumber = processedChunks + 1;
+                System.out.println("=== PROCESSING CHUNK " + chunkNumber + " (election_center_id: " + electionCenterId + ") ===");
                 
-                // MEMORY-EFFICIENT: Fetch only the election center needed for this iteration
-                Optional<ElectionCenter> electionCenterOpt = electionCenterRepository.findById(electionCenterId);
-                if (!electionCenterOpt.isPresent()) {
-                    System.err.println("❌ Election center not found: " + electionCenterId);
+                try {
+                    // Process chunk in isolated transaction
+                    processPartialDecryptionChunkTransactional(
+                        electionCenterId,
+                        chunkNumber,
+                        guardian,
+                        decryptedPrivateKey,
+                        decryptedPolynomial,
+                        candidateNames,
+                        partyNames,
+                        numberOfGuardians,
+                        election.getJointPublicKey(),
+                        election.getBaseHash(),
+                        election.getElectionQuorum()
+                    );
+                    
+                    processedChunks++;
+                    System.out.println("✅ Chunk " + chunkNumber + " completed successfully");
+                    
+                } catch (Exception e) {
+                    System.err.println("❌ Error processing chunk " + chunkNumber + ": " + e.getMessage());
                     return CreatePartialDecryptionResponse.builder()
                         .success(false)
-                        .message("Chunk " + (processedChunks + 1) + " not found")
+                        .message("Failed to process chunk " + chunkNumber + ": " + e.getMessage())
                         .build();
                 }
-                ElectionCenter electionCenter = electionCenterOpt.get();
-                
-                // Get encrypted tally for this chunk
-                String ciphertextTallyString = electionCenter.getEncryptedTally();
-                if (ciphertextTallyString == null || ciphertextTallyString.trim().isEmpty()) {
-                    System.err.println("❌ No encrypted tally for chunk " + electionCenterId);
-                    return CreatePartialDecryptionResponse.builder()
-                        .success(false)
-                        .message("Chunk " + (processedChunks + 1) + " has no encrypted tally")
-                        .build();
-                }
-                
-                // Get submitted ballots for this chunk
-                List<SubmittedBallot> chunkBallots = submittedBallotRepository.findByElectionCenterId(electionCenterId);
-                List<String> ballotCipherTexts = chunkBallots.stream()
-                    .map(SubmittedBallot::getCipherText)
-                    .toList();
-                System.out.println("Found " + ballotCipherTexts.size() + " ballots for chunk " + electionCenterId);
-                
-                // Construct guardian_data JSON with required fields
-                String guardianDataJson = String.format(
-                    "{\"id\":\"%s\",\"sequence_order\":%d}",
-                    guardian.getSequenceOrder(),
-                    guardian.getSequenceOrder()
-                );
-                
-                // Call ElectionGuard microservice for this chunk
-                ElectionGuardPartialDecryptionRequest guardRequest = ElectionGuardPartialDecryptionRequest.builder()
-                    .guardian_id(String.valueOf(guardian.getSequenceOrder()))
-                    .guardian_data(guardianDataJson)
-                    .private_key(decryptedPrivateKey)
-                    .public_key(guardian.getGuardianPublicKey())
-                    .polynomial(decryptedPolynomial)
-                    .party_names(partyNames)
-                    .candidate_names(candidateNames)
-                    .ciphertext_tally(ciphertextTallyString)
-                    .submitted_ballots(ballotCipherTexts)
-                    .joint_public_key(election.getJointPublicKey())
-                    .commitment_hash(election.getBaseHash())
-                    .number_of_guardians(numberOfGuardians)
-                    .quorum(election.getElectionQuorum())
-                    .build();
-                
-                System.out.println("🚀 Calling ElectionGuard service for chunk " + electionCenterId);
-                ElectionGuardPartialDecryptionResponse guardResponse = callElectionGuardPartialDecryptionService(guardRequest);
-                System.out.println("Received response from ElectionGuard service for chunk " + electionCenterId);
-                
-                // Check if tally_share is null (invalid key)
-                if (guardResponse.tally_share() == null) {
-                    return CreatePartialDecryptionResponse.builder()
-                        .success(false)
-                        .message("The credentials you provided were not right, please provide the right credential file")
-                        .build();
-                }
-                
-                // Store decryption data for this chunk in the Decryption table
-                Decryption decryption = Decryption.builder()
-                    .electionCenterId(electionCenterId)
-                    .guardianId(guardian.getGuardianId())
-                    .tallyShare(guardResponse.tally_share())
-                    .guardianDecryptionKey(guardResponse.guardian_public_key())
-                    .partialDecryptedTally(guardResponse.ballot_shares())
-                    .build();
-                
-                decryptionRepository.save(decryption);
-                System.out.println("✅ Saved decryption data for chunk " + electionCenterId);
-                
-                processedChunks++;
-                
-                // MEMORY-EFFICIENT: Clear references to allow garbage collection
-                chunkBallots = null;
-                ballotCipherTexts = null;
             }
             
             System.out.println("=== PROCESSED " + processedChunks + " CHUNKS SUCCESSFULLY ===");
@@ -436,7 +384,7 @@ public class PartialDecryptionService {
             
         } catch (Exception e) {
             System.err.println("Error initiating decryption: " + e.getMessage());
-            e.printStackTrace();
+            // Stack trace available in exception: e
             return CreatePartialDecryptionResponse.builder()
                 .success(false)
                 .message("Failed to initiate decryption: " + e.getMessage())
@@ -730,25 +678,8 @@ public class PartialDecryptionService {
                 System.out.println("   - Total chunk time: " + chunkTotalDuration + "ms");
                 System.out.println("=====================================================================");
                 
-                // ✅ CRITICAL: Clear ALL large objects immediately to prevent memory leak
-                guardRequest = null;
-                guardResponse = null;
-                decryption = null;
-                chunkBallots = null;
-                ballotCipherTexts = null;
-                electionCenterOpt = null;
-                electionCenter = null;
-                ciphertextTallyString = null;
-                guardianDataJson = null;
-                
-                // ✅ AGGRESSIVE GC AFTER EVERY CHUNK
+                // ✅ Suggest garbage collection after each chunk
                 System.gc();
-                try { 
-                    Thread.sleep(300); 
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                }
-                System.gc(); // Second pass
                 
                 // Log memory every 10 chunks
                 if (processedChunks % 10 == 0) {
@@ -782,7 +713,7 @@ public class PartialDecryptionService {
             
         } catch (Exception e) {
             System.err.println("❌ Error in async decryption: " + e.getClass().getName() + ": " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("Stack trace: " + e);
             
             // Provide user-friendly error message
             String userFriendlyError;
@@ -861,6 +792,102 @@ public class PartialDecryptionService {
     }
 
     /**
+     * Process single partial decryption chunk in isolated transaction
+     * This method is called from createPartialDecryption for each chunk
+     */
+    @Transactional
+    private void processPartialDecryptionChunkTransactional(
+            Long electionCenterId,
+            int chunkNumber,
+            Guardian guardian,
+            String decryptedPrivateKey,
+            String decryptedPolynomial,
+            List<String> candidateNames,
+            List<String> partyNames,
+            int numberOfGuardians,
+            String jointPublicKey,
+            String baseHash,
+            int quorum) {
+        
+        System.out.println("\n=== Processing Chunk " + chunkNumber + " (Transaction Start) ===");
+        System.out.println("Fetching election center from database...");
+        
+        // Fetch election center for this chunk
+        ElectionCenter electionCenter = electionCenterRepository.findById(electionCenterId)
+            .orElseThrow(() -> new RuntimeException("ElectionCenter not found: " + electionCenterId));
+        
+        // Get encrypted tally for this chunk
+        String ciphertextTallyString = electionCenter.getEncryptedTally();
+        if (ciphertextTallyString == null || ciphertextTallyString.trim().isEmpty()) {
+            throw new RuntimeException("Chunk " + chunkNumber + " has no encrypted tally");
+        }
+        
+        // Get submitted ballots for this chunk
+        List<SubmittedBallot> chunkBallots = submittedBallotRepository.findByElectionCenterId(electionCenterId);
+        List<String> ballotCipherTexts = chunkBallots.stream()
+            .map(SubmittedBallot::getCipherText)
+            .toList();
+        System.out.println("Found " + ballotCipherTexts.size() + " ballots for chunk " + chunkNumber);
+        
+        // Construct guardian_data JSON with required fields
+        String guardianDataJson = String.format(
+            "{\"id\":\"%s\",\"sequence_order\":%d}",
+            guardian.getSequenceOrder(),
+            guardian.getSequenceOrder()
+        );
+        
+        // Call ElectionGuard microservice for this chunk
+        ElectionGuardPartialDecryptionRequest guardRequest = ElectionGuardPartialDecryptionRequest.builder()
+            .guardian_id(String.valueOf(guardian.getSequenceOrder()))
+            .guardian_data(guardianDataJson)
+            .private_key(decryptedPrivateKey)
+            .public_key(guardian.getGuardianPublicKey())
+            .polynomial(decryptedPolynomial)
+            .party_names(partyNames)
+            .candidate_names(candidateNames)
+            .ciphertext_tally(ciphertextTallyString)
+            .submitted_ballots(ballotCipherTexts)
+            .joint_public_key(jointPublicKey)
+            .commitment_hash(baseHash)
+            .number_of_guardians(numberOfGuardians)
+            .quorum(quorum)
+            .build();
+        
+        System.out.println("🚀 Calling ElectionGuard service for chunk " + chunkNumber);
+        ElectionGuardPartialDecryptionResponse guardResponse = callElectionGuardPartialDecryptionService(guardRequest);
+        System.out.println("Received response from ElectionGuard service for chunk " + chunkNumber);
+        
+        // Check if tally_share is null (invalid key)
+        if (guardResponse.tally_share() == null) {
+            throw new RuntimeException("Invalid credentials provided");
+        }
+        
+        // Store decryption data for this chunk in the Decryption table
+        Decryption decryption = Decryption.builder()
+            .electionCenterId(electionCenterId)
+            .guardianId(guardian.getGuardianId())
+            .tallyShare(guardResponse.tally_share())
+            .guardianDecryptionKey(guardResponse.guardian_public_key())
+            .partialDecryptedTally(guardResponse.ballot_shares())
+            .build();
+        
+        decryptionRepository.save(decryption);
+        System.out.println("✅ Saved decryption data for chunk " + chunkNumber);
+        System.out.println("✅ Chunk " + chunkNumber + " transaction complete - Hibernate session will close and release memory");
+    }
+
+    /**
+     * Save compensated decryption in a separate transaction
+     */
+    @Transactional
+    private void saveCompensatedDecryptionTransactional(CompensatedDecryption compensatedDecryption) {
+        compensatedDecryptionRepository.save(compensatedDecryption);
+    }
+
+    /**
+     * Process single compensated decryption chunk in isolated transaction
+     */
+    /**
      * Create compensated decryption shares with progress tracking (MEMORY-EFFICIENT)
      */
     private void createCompensatedDecryptionSharesWithProgress(Election election, Guardian guardian, 
@@ -935,8 +962,6 @@ public class PartialDecryptionService {
                     
                     if (existsAlready) {
                         System.out.println("Compensated decryption already exists, skipping...");
-                        // MEMORY-EFFICIENT: Clear reference
-                        electionCenterOpt = null;
                         continue;
                     }
                     
@@ -1017,7 +1042,7 @@ public class PartialDecryptionService {
                         .compensatedBallotShare(compensatedResponse.compensated_ballot_shares())
                         .build();
                     
-                    compensatedDecryptionRepository.save(compensatedDecryption);
+                    saveCompensatedDecryptionTransactional(compensatedDecryption);
                     
                     // Update chunk progress after each chunk
                     processedCompensatedChunks++;
@@ -1035,52 +1060,16 @@ public class PartialDecryptionService {
                         decryptionStatusRepository.save(status);
                     }
                     
-                    // MEMORY-EFFICIENT: Clear references and force garbage collection
-                    if (ballotCipherTexts != null) {
-                        ballotCipherTexts.clear();
-                        ballotCipherTexts = null;
-                    }
-                    electionCenterOpt = null;
-                    electionChoices = null;
-                    candidateNames = null;
-                    partyNames = null;
-                    submittedBallots = null;
-                    availableGuardianDataJson = null;
-                    missingGuardianDataJson = null;
-                    compensatedRequest = null;
-                    compensatedResponse = null;
-                    compensatedDecryption = null;
-                    
-                    // ✅ CRITICAL: Clear references to prevent memory accumulation
-                    electionCenterOpt = null;
-                    electionCenter = null;
-                    submittedBallots = null;
-                    ballotCipherTexts = null;
-                    electionChoices = null;
-                    candidateNames = null;
-                    partyNames = null;
-                    availableGuardianDataJson = null;
-                    missingGuardianDataJson = null;
-                    
-                    // ✅ AGGRESSIVE GC AFTER EVERY COMPENSATED CHUNK
-                    System.gc();
-                    try { 
-                        Thread.sleep(300); 
-                    } catch (InterruptedException ie) {
-                        Thread.currentThread().interrupt();
-                    }
-                    System.gc(); // Second pass
-                    
-                    // Log memory every 10 chunks
+                    // ✅ Suggest garbage collection periodically
                     if (processedCompensatedChunks % 10 == 0) {
+                        System.gc();
                         Runtime runtime = Runtime.getRuntime();
                         long usedMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
                         System.out.println("🗑️ [COMPENSATED-DECRYPT-GC] After chunk " + processedCompensatedChunks + "/" + totalCompensatedChunks + ": " + usedMB + " MB");
                     }
                 }
                 
-                // Force major GC after completing all chunks for this guardian
-                System.gc();
+                // Log memory after completing all chunks for this guardian
                 Runtime runtime = Runtime.getRuntime();
                 long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
                 long maxMemory = runtime.maxMemory() / (1024 * 1024);
@@ -1103,7 +1092,7 @@ public class PartialDecryptionService {
             
         } catch (Exception e) {
             System.err.println("Error creating compensated shares: " + e.getMessage());
-            e.printStackTrace();
+            // Stack trace available in exception: e
         }
     }
 
@@ -1155,10 +1144,6 @@ public class PartialDecryptionService {
             System.out.println("   - Ballot shares present: " + (parsedResponse.ballot_shares() != null));
             System.out.println("=====================================================================");
             
-            // ✅ CRITICAL: Clear response string immediately to free memory
-            response = null;
-            request = null;
-            
             return parsedResponse;
         } catch (Exception e) {
             long duration = System.currentTimeMillis() - startTime;
@@ -1169,7 +1154,7 @@ public class PartialDecryptionService {
             System.err.println("⚠️ Error type: " + e.getClass().getName());
             System.err.println("⚠️ Error message: " + e.getMessage());
             System.err.println("=====================================================================");
-            e.printStackTrace();
+            // Stack trace available in exception: e
             throw new RuntimeException("Failed to call ElectionGuard partial decryption service", e);
         }
     }
@@ -1258,7 +1243,7 @@ public class PartialDecryptionService {
             
         } catch (Exception e) {
             System.err.println("Error initiating combine: " + e.getMessage());
-            e.printStackTrace();
+            // Stack trace available in exception: e
             return CombinePartialDecryptionResponse.builder()
                 .success(false)
                 .message("Failed to initiate combine: " + e.getMessage())
@@ -1297,7 +1282,7 @@ public class PartialDecryptionService {
             
         } catch (Exception e) {
             System.err.println("❌ Error in async combine: " + e.getMessage());
-            e.printStackTrace();
+            System.err.println("Stack trace: " + e);
             updateCombineStatus(electionId, "failed", 0, e.getMessage());
         } finally {
             // Release lock
@@ -1320,10 +1305,10 @@ public class PartialDecryptionService {
                     combineStatus.setProcessedChunks(processedChunks);
                 }
                 
-                if (completedAtOrError instanceof Instant) {
-                    combineStatus.setCompletedAt((Instant) completedAtOrError);
-                } else if (completedAtOrError instanceof String) {
-                    combineStatus.setErrorMessage((String) completedAtOrError);
+                if (completedAtOrError instanceof Instant instant) {
+                    combineStatus.setCompletedAt(instant);
+                } else if (completedAtOrError instanceof String errorMsg) {
+                    combineStatus.setErrorMessage(errorMsg);
                 }
                 
                 combineStatusRepository.save(combineStatus);
@@ -1764,71 +1749,22 @@ public class PartialDecryptionService {
                 System.out.println("✅ Chunk " + processedChunkCount + "/" + electionCenterIds.size() + " processed successfully");
                 
                 // MEMORY-EFFICIENT: Clear references and force garbage collection
-                if (chunkSubmittedBallots != null) {
-                    chunkSubmittedBallots.clear();
-                    chunkSubmittedBallots = null;
-                }
-                if (ballotCipherTexts != null) {
-                    ballotCipherTexts.clear();
-                    ballotCipherTexts = null;
-                }
-                if (decryptions != null) {
-                    decryptions.clear();
-                    decryptions = null;
-                }
-                if (guardianDecryptionMap != null) {
-                    guardianDecryptionMap.clear();
-                    guardianDecryptionMap = null;
-                }
-                if (guardianDataList != null) {
-                    guardianDataList.clear();
-                    guardianDataList = null;
-                }
-                if (availableGuardianIds != null) {
-                    availableGuardianIds.clear();
-                    availableGuardianIds = null;
-                }
-                if (availableGuardianPublicKeys != null) {
-                    availableGuardianPublicKeys.clear();
-                    availableGuardianPublicKeys = null;
-                }
-                if (availableTallyShares != null) {
-                    availableTallyShares.clear();
-                    availableTallyShares = null;
-                }
-                if (availableBallotShares != null) {
-                    availableBallotShares.clear();
-                    availableBallotShares = null;
-                }
-                if (missingGuardianIds != null) {
-                    missingGuardianIds.clear();
-                    missingGuardianIds = null;
-                }
-                if (compensatingGuardianIds != null) {
-                    compensatingGuardianIds.clear();
-                    compensatingGuardianIds = null;
-                }
-                if (compensatedTallyShares != null) {
-                    compensatedTallyShares.clear();
-                    compensatedTallyShares = null;
-                }
-                if (compensatedBallotShares != null) {
-                    compensatedBallotShares.clear();
-                    compensatedBallotShares = null;
-                }
-                electionCenterOpt = null;
-                electionCenter = null;
-                guardRequest = null;
-                guardResponse = null;
-                ciphertextTallyString = null;
+                chunkSubmittedBallots.clear();
+                ballotCipherTexts.clear();
+                decryptions.clear();
+                guardianDecryptionMap.clear();
+                guardianDataList.clear();
+                availableGuardianIds.clear();
+                availableGuardianPublicKeys.clear();
+                availableTallyShares.clear();
+                availableBallotShares.clear();
+                missingGuardianIds.clear();
+                compensatingGuardianIds.clear();
+                compensatedTallyShares.clear();
+                compensatedBallotShares.clear();
                 
                 // ✅ AGGRESSIVE GC AFTER EVERY COMBINE CHUNK
                 System.gc();
-                try { 
-                    Thread.sleep(300); 
-                } catch (InterruptedException ie) {
-                    Thread.currentThread().interrupt();
-                }
                 System.gc(); // Second pass
                 
                 // Log memory every 10 chunks
@@ -1863,7 +1799,7 @@ public class PartialDecryptionService {
 
         } catch (Exception e) {
             System.err.println("Error combining partial decryption: " + e.getMessage());
-            e.printStackTrace();
+            // Stack trace available in exception: e
             return CombinePartialDecryptionResponse.builder()
                 .success(false)
                 .message("Internal server error: " + e.getMessage())
@@ -1908,10 +1844,10 @@ public class PartialDecryptionService {
                         try {
                             // Handle both String and Integer vote counts
                             int voteCount;
-                            if (votesObj instanceof String) {
-                                voteCount = Integer.parseInt((String) votesObj);
-                            } else if (votesObj instanceof Integer) {
-                                voteCount = (Integer) votesObj;
+                            if (votesObj instanceof String str) {
+                                voteCount = Integer.parseInt(str);
+                            } else if (votesObj instanceof Integer num) {
+                                voteCount = num;
                             } else {
                                 voteCount = 0;
                                 System.err.println("Unexpected vote type for candidate " + candidateName + ": " + votesObj.getClass());
@@ -1939,7 +1875,7 @@ public class PartialDecryptionService {
             
         } catch (Exception e) {
             System.err.println("Error updating election choices with results: " + e.getMessage());
-            e.printStackTrace();
+            // Stack trace available in exception: e
             // Don't throw the exception here as we still want to return the results to frontend
         }
     }
@@ -2030,8 +1966,6 @@ public class PartialDecryptionService {
                 System.out.println("  📊 Summary for Chunk " + electionCenterId + ": Created=" + createdCount + ", Skipped=" + skippedCount);
                 
                 // MEMORY-EFFICIENT: Clear references and force GC after each chunk
-                electionCenterOpt = null;
-                electionCenter = null;
                 System.gc();
                 
                 // Log memory usage
@@ -2052,13 +1986,15 @@ public class PartialDecryptionService {
             System.err.println("Guardian: " + availableGuardian.getSequenceOrder());
             System.err.println("Error: " + e.getMessage());
             System.err.println("=".repeat(80));
-            e.printStackTrace();
+            // Stack trace available in exception: e
         }
     }
     
     /**
      * Creates a compensated decryption share for a specific other guardian using a compensating guardian for a specific chunk
+     * Each call processes one compensated share in its own transaction
      */
+    @Transactional
     private void createCompensatedShare(Election election, ElectionCenter electionCenter, Guardian compensatingGuardian, Guardian otherGuardian, String compensatingGuardianPrivateKey, String compensatingGuardianPolynomial) {
         try {
             System.out.println("Creating compensated share for chunk " + electionCenter.getElectionCenterId() + ": compensating=" + compensatingGuardian.getSequenceOrder() + 
@@ -2166,27 +2102,13 @@ public class PartialDecryptionService {
             System.out.println("Successfully saved compensated decryption share for chunk " + electionCenter.getElectionCenterId());
             
             // MEMORY-EFFICIENT: Clear large data structures after use
-            if (submittedBallots != null) {
-                submittedBallots.clear();
-                submittedBallots = null;
-            }
-            if (ballotCipherTexts != null) {
-                ballotCipherTexts.clear();
-                ballotCipherTexts = null;
-            }
-            if (electionChoices != null) {
-                electionChoices.clear();
-                electionChoices = null;
-            }
-            candidateNames = null;
-            partyNames = null;
-            request = null;
-            response = null;
-            compensatedDecryption = null;
+            submittedBallots.clear();
+            ballotCipherTexts.clear();
+            electionChoices.clear();
             
         } catch (Exception e) {
             System.err.println("Error creating compensated share: " + e.getMessage());
-            e.printStackTrace();
+            // Stack trace available in exception: e
         }
     }
     
@@ -2207,9 +2129,6 @@ public class PartialDecryptionService {
             }
 
             ElectionGuardCompensatedDecryptionResponse parsedResponse = objectMapper.readValue(response, ElectionGuardCompensatedDecryptionResponse.class);
-            
-            // ✅ CRITICAL: Clear response string immediately to free memory
-            response = null;
             
             return parsedResponse;
                 
@@ -2252,9 +2171,6 @@ public class PartialDecryptionService {
 
             ElectionGuardCombineDecryptionSharesResponse parsedResponse = objectMapper.readValue(response, ElectionGuardCombineDecryptionSharesResponse.class);
             
-            // ✅ CRITICAL: Clear response string immediately to free memory
-            response = null;
-            
             return parsedResponse;
         } catch (Exception e) {
             System.err.println("Failed to call ElectionGuard combine decryption shares service: " + e.getMessage());
@@ -2289,7 +2205,7 @@ public class PartialDecryptionService {
             
         } catch (Exception e) {
             System.err.println("Error getting election results: " + e.getMessage());
-            e.printStackTrace();
+            // Stack trace available in exception: e
             return null;
         }
     }
@@ -2340,17 +2256,17 @@ public class PartialDecryptionService {
                                 Object value = entry.getValue();
                                 int votes = 0;
                                 
-                                if (value instanceof Number) {
-                                    votes = ((Number) value).intValue();
-                                } else if (value instanceof Map) {
+                                if (value instanceof Number num) {
+                                    votes = num.intValue();
+                                } else if (value instanceof Map map) {
                                     @SuppressWarnings("unchecked")
-                                    Map<String, Object> voteData = (Map<String, Object>) value;
+                                    Map<String, Object> voteData = (Map<String, Object>) map;
                                     Object votesObj = voteData.get("votes");
-                                    if (votesObj instanceof Number) {
-                                        votes = ((Number) votesObj).intValue();
-                                    } else if (votesObj instanceof String) {
+                                    if (votesObj instanceof Number vNum) {
+                                        votes = vNum.intValue();
+                                    } else if (votesObj instanceof String vStr) {
                                         try {
-                                            votes = Integer.parseInt((String) votesObj);
+                                            votes = Integer.parseInt(vStr);
                                         } catch (NumberFormatException e) {
                                             System.err.println("Failed to parse votes for " + candidateName + ": " + votesObj);
                                         }
@@ -2394,18 +2310,18 @@ public class PartialDecryptionService {
                                 
                                 // Handle both simple number and nested object formats
                                 Object value = entry.getValue();
-                                if (value instanceof Number) {
-                                    votes = ((Number) value).intValue();
-                                } else if (value instanceof Map) {
+                                if (value instanceof Number num) {
+                                    votes = num.intValue();
+                                } else if (value instanceof Map map) {
                                     // Extract votes from nested object: {"votes": "2", "percentage": "50.0"}
                                     @SuppressWarnings("unchecked")
-                                    Map<String, Object> voteData = (Map<String, Object>) value;
+                                    Map<String, Object> voteData = (Map<String, Object>) map;
                                     Object votesObj = voteData.get("votes");
-                                    if (votesObj instanceof Number) {
-                                        votes = ((Number) votesObj).intValue();
-                                    } else if (votesObj instanceof String) {
+                                    if (votesObj instanceof Number vNum) {
+                                        votes = vNum.intValue();
+                                    } else if (votesObj instanceof String vStr) {
                                         try {
-                                            votes = Integer.parseInt((String) votesObj);
+                                            votes = Integer.parseInt(vStr);
                                         } catch (NumberFormatException e) {
                                             System.err.println("Failed to parse votes for " + candidateName + ": " + votesObj);
                                         }
@@ -2433,7 +2349,7 @@ public class PartialDecryptionService {
             
         } catch (Exception e) {
             System.err.println("Error building aggregated results: " + e.getMessage());
-            e.printStackTrace();
+            // Stack trace available in exception: e
             return new HashMap<>();
         }
     }

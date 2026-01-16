@@ -767,8 +767,9 @@ public class TallyService {
     /**
      * Utility method to remove duplicate submitted ballots for an election
      * This can be called if duplicates are found in the database
+     * NOTE: @Transactional removed to prevent memory issues with loops.
+     * Consider processing ballots in smaller batches if needed.
      */
-    @Transactional
     public void removeDuplicateSubmittedBallots(Integer electionId) {
         try {
             // TODO: Update to work with chunks - SubmittedBallot now uses election_center_id
@@ -790,8 +791,8 @@ public class TallyService {
                 .collect(Collectors.toList());
             
             if (!ballotsToDelete.isEmpty()) {
-                submittedBallotRepository.deleteAll(ballotsToDelete);
-                System.out.println("Removed " + ballotsToDelete.size() + " duplicate submitted ballots for election: " + electionId);
+                System.out.println("Deleting " + ballotsToDelete.size() + " duplicate submitted ballots");
+                deleteDuplicateBallotsTransactional(ballotsToDelete);
             } else {
                 System.out.println("No duplicate submitted ballots found for election: " + electionId);
             }
@@ -799,5 +800,14 @@ public class TallyService {
             System.err.println("Error removing duplicate submitted ballots for election " + electionId + ": " + e.getMessage());
             throw new RuntimeException("Failed to remove duplicate submitted ballots", e);
         }
+    }
+
+    /**
+     * Delete duplicate ballots in a single transaction
+     */
+    @Transactional
+    private void deleteDuplicateBallotsTransactional(List<SubmittedBallot> ballotsToDelete) {
+        submittedBallotRepository.deleteAll(ballotsToDelete);
+        System.out.println("✅ Deleted " + ballotsToDelete.size() + " duplicate submitted ballots");
     }
 }
