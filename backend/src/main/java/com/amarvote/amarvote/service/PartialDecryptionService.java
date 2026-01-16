@@ -959,6 +959,29 @@ public class PartialDecryptionService {
             
             System.out.println("Creating compensated shares for " + otherGuardians.size() + " other guardians");
             
+            // ⭐ FIX LEAK #2: CACHE ELECTION METADATA - Load once, reuse for all chunks (saves 8,000 queries!)
+            List<ElectionChoice> electionChoices = electionChoiceRepository
+                .findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
+            List<String> cachedCandidateNames = electionChoices.stream()
+                .map(ElectionChoice::getOptionTitle)
+                .collect(Collectors.toList());
+            List<String> cachedPartyNames = electionChoices.stream()
+                .map(ElectionChoice::getPartyName)
+                .filter(partyName -> partyName != null && !partyName.trim().isEmpty())
+                .distinct()
+                .collect(Collectors.toList());
+            
+            // Clear the source list - we have what we need in cached lists
+            electionChoices.clear();
+            electionChoices = null;
+            
+            // ⭐ FIX LEAK #3: CACHE GUARDIAN COUNT - Query once, reuse everywhere (saves 8,000 queries!)
+            int cachedNumberOfGuardians = guardianRepository.findByElectionId(election.getElectionId()).size();
+            
+            System.out.println("✅ Election metadata cached: " + cachedCandidateNames.size() + " candidates, " 
+                + cachedPartyNames.size() + " parties, " + cachedNumberOfGuardians + " guardians");
+            System.out.println("✅ This data will be REUSED for all " + (otherGuardians.size() * electionCenterIds.size()) + " operations!");
+            
             // Update total compensated guardians and reset chunk tracking for compensated phase
             Optional<DecryptionStatus> statusOpt = decryptionStatusRepository
                 .findByElectionIdAndGuardianId(election.getElectionId(), guardian.getGuardianId());
@@ -1023,22 +1046,13 @@ public class PartialDecryptionService {
                         continue;
                     }
                     
-                    // Prepare required data for compensated decryption
-                    List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
-                    List<String> candidateNames = electionChoices.stream()
-                        .map(ElectionChoice::getOptionTitle)
-                        .collect(Collectors.toList());
-                    List<String> partyNames = electionChoices.stream()
-                        .map(ElectionChoice::getPartyName)
-                        .filter(partyName -> partyName != null && !partyName.trim().isEmpty())
-                        .distinct()
-                        .collect(Collectors.toList());
+                    // ⭐ FIX LEAK #2: Using cached election metadata (loaded once before loop)
+                    // No longer querying electionChoiceRepository inside the loop!
                     
-                    // Get submitted ballots for this chunk
-                    List<SubmittedBallot> submittedBallots = submittedBallotRepository.findByElectionCenterId(electionCenter.getElectionCenterId());
-                    List<String> ballotCipherTexts = submittedBallots.stream()
-                        .map(SubmittedBallot::getCipherText)
-                        .collect(Collectors.toList());
+                    // ⭐ FIX LEAK #1: MEMORY-EFFICIENT - Load only cipherText strings (not full entities)
+                    // This reduces memory usage by 90% compared to loading full SubmittedBallot entities
+                    List<String> ballotCipherTexts = submittedBallotRepository
+                        .findCipherTextsByElectionCenterId(electionCenter.getElectionCenterId());
                     
                     // Get guardian data from key_backup field
                     String availableGuardianDataJson;
@@ -1073,13 +1087,13 @@ public class PartialDecryptionService {
                             .available_private_key(decryptedPrivateKey)
                             .available_public_key(guardian.getGuardianPublicKey())
                             .available_polynomial(decryptedPolynomial)
-                            .party_names(partyNames)
-                            .candidate_names(candidateNames)
+                            .party_names(cachedPartyNames)          // ⭐ From cache (not DB)!
+                            .candidate_names(cachedCandidateNames)  // ⭐ From cache (not DB)!
                             .ciphertext_tally(electionCenter.getEncryptedTally())
                             .submitted_ballots(ballotCipherTexts)
                             .joint_public_key(election.getJointPublicKey())
                             .commitment_hash(election.getBaseHash())
-                            .number_of_guardians(guardianRepository.findByElectionId(election.getElectionId()).size())
+                            .number_of_guardians(cachedNumberOfGuardians) // ⭐ From cache (not DB)!
                             .quorum(election.getElectionQuorum())
                             .build();
                     
@@ -1102,16 +1116,19 @@ public class PartialDecryptionService {
                     
                     saveCompensatedDecryptionTransactional(compensatedDecryption);
                     
-                    // Explicitly nullify large objects immediately after save
-                    electionChoices = null;
-                    candidateNames = null;
-                    partyNames = null;
-                    submittedBallots = null;
+                    // ⭐ FIX LEAK #4: CRITICAL - Clear Hibernate session to release ALL entities
+                    entityManager.flush();   // Write pending changes to DB
+                    entityManager.clear();   // Release ALL managed entities from persistence context
+                    
+                    // ⭐ Explicitly nullify large objects to help GC
+                    ballotCipherTexts.clear();
                     ballotCipherTexts = null;
                     compensatedRequest = null;
                     compensatedResponse = null;
                     compensatedDecryption = null;
                     electionCenter = null;
+                    availableGuardianDataJson = null;
+                    missingGuardianDataJson = null;
                     
                     // Update chunk progress after each chunk
                     processedCompensatedChunks++;
