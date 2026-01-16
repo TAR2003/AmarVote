@@ -879,7 +879,7 @@ public class PartialDecryptionService {
         decryptionRepository.save(decryption);
         System.out.println("✅ Saved decryption data for chunk " + chunkNumber);
         
-        // ✅ CRITICAL: Clear persistence context to detach all entities and free memory
+        // ✅ AGGRESSIVE MEMORY CLEANUP
         entityManager.flush();
         entityManager.clear();
         
@@ -891,9 +891,18 @@ public class PartialDecryptionService {
         electionCenter = null;
         guardResponse = null;
         decryption = null;
+        guardianDataJson = null;
+        ciphertextTallyString = null;
         
+        // Suggest garbage collection (hint to JVM)
+        System.gc();
+        
+        // Log memory usage
+        Runtime runtime = Runtime.getRuntime();
+        long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
         System.out.println("✅ Chunk " + chunkNumber + " transaction complete - All entities detached and cleared");
         System.out.println("🗑️ Memory cleanup: EntityManager cleared, large objects nullified");
+        System.out.println("🧠 Current heap usage: " + usedMemoryMB + " MB");
     }
 
     /**
@@ -1065,6 +1074,9 @@ public class PartialDecryptionService {
                     saveCompensatedDecryptionTransactional(compensatedDecryption);
                     
                     // Explicitly nullify large objects immediately after save
+                    electionChoices = null;
+                    candidateNames = null;
+                    partyNames = null;
                     submittedBallots = null;
                     ballotCipherTexts = null;
                     compensatedRequest = null;
@@ -1088,13 +1100,14 @@ public class PartialDecryptionService {
                         decryptionStatusRepository.save(status);
                     }
                     
-                    // ✅ AGGRESSIVE GC: Suggest after EVERY compensated chunk (memory-intensive operation)
+                    // ✅ AGGRESSIVE GC: Run after EVERY compensated chunk (most memory-intensive operation)
                     System.gc();
                     try { 
-                        Thread.sleep(100); // Brief pause to allow GC to run
+                        Thread.sleep(200); // Longer pause to allow GC to complete
                     } catch (InterruptedException ie) {
                         Thread.currentThread().interrupt();
                     }
+                    System.gc(); // Second pass
                     
                     // Log memory every 10 chunks
                     if (processedCompensatedChunks % 10 == 0) {
@@ -2007,14 +2020,27 @@ public class PartialDecryptionService {
                 
                 System.out.println("  📊 Summary for Chunk " + electionCenterId + ": Created=" + createdCount + ", Skipped=" + skippedCount);
                 
-                // MEMORY-EFFICIENT: Clear references and force GC after each chunk
+                // MEMORY-EFFICIENT: Clear references and force aggressive GC after each chunk
+                electionCenter = null;
                 System.gc();
+                try {
+                    Thread.sleep(200); // Allow GC time to complete
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                }
+                System.gc(); // Second pass
                 
                 // Log memory usage
                 Runtime runtime = Runtime.getRuntime();
                 long usedMemory = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
                 long maxMemory = runtime.maxMemory() / (1024 * 1024);
-                System.out.println("  💾 Memory after chunk " + electionCenterId + ": " + usedMemory + "MB / " + maxMemory + "MB");
+                double usagePercent = (usedMemory * 100.0) / maxMemory;
+                System.out.println("  💾 Memory after chunk " + electionCenterId + ": " + usedMemory + "MB / " + maxMemory + "MB (" + String.format("%.1f%%", usagePercent) + ")");
+                
+                // Warning if memory usage is high
+                if (usagePercent > 85.0) {
+                    System.err.println("  ⚠️ WARNING: High memory usage detected! Consider reducing chunk size or increasing heap size.");
+                }
             }
             
             System.out.println("\n" + "=".repeat(80));
@@ -2143,9 +2169,24 @@ public class PartialDecryptionService {
             
             System.out.println("Successfully saved compensated decryption share for chunk " + electionCenter.getElectionCenterId());
             
-            // ✅ CRITICAL: Clear persistence context to detach all entities and free memory
+            // ✅ AGGRESSIVE MEMORY CLEANUP
             entityManager.flush();
             entityManager.clear();
+            
+            // Null out large objects
+            electionChoices = null;
+            candidateNames = null;
+            partyNames = null;
+            submittedBallots.clear();
+            submittedBallots = null;
+            ballotCipherTexts.clear();
+            ballotCipherTexts = null;
+            request = null;
+            response = null;
+            compensatedDecryption = null;
+            
+            // Suggest garbage collection
+            System.gc();
             
             System.out.println("🗑️ Memory cleanup: EntityManager cleared for compensated share");
             

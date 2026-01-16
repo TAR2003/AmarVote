@@ -350,7 +350,12 @@ public class TallyService {
             int quorum,
             int numberOfGuardians) {
         
+        // Log memory before processing
+        Runtime runtime = Runtime.getRuntime();
+        long memoryBefore = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+        
         System.out.println("=== Processing Chunk " + chunkNumber + " (Transaction Start) ===");
+        System.out.println("🧠 Memory before chunk: " + memoryBefore + " MB");
         System.out.println("Fetching " + chunkBallotIds.size() + " ballots from database for this chunk...");
         
         // Fetch only the ballots needed for this chunk
@@ -375,11 +380,15 @@ public class TallyService {
         );
         
         if (!"success".equals(guardResponse.getStatus())) {
+            // Clean up before throwing
+            chunkBallots.clear();
+            chunkEncryptedBallots.clear();
             throw new RuntimeException("ElectionGuard service failed for chunk " + chunkNumber);
         }
         
         // Store encrypted tally
-        electionCenter.setEncryptedTally(guardResponse.getCiphertext_tally());
+        String encryptedTally = guardResponse.getCiphertext_tally();
+        electionCenter.setEncryptedTally(encryptedTally);
         electionCenterRepository.save(electionCenter);
         
         // Save submitted ballots
@@ -396,7 +405,27 @@ public class TallyService {
             }
         }
         
-        System.out.println("✅ Chunk " + chunkNumber + " transaction complete - Hibernate session will close and release memory");
+        // ✅ CRITICAL: Aggressive Hibernate memory cleanup
+        entityManager.flush();
+        entityManager.clear();
+        
+        // ✅ Explicitly clear and null all large object references
+        chunkBallots.clear();
+        chunkEncryptedBallots.clear();
+        chunkBallots = null;
+        chunkEncryptedBallots = null;
+        encryptedTally = null;
+        guardResponse = null;
+        electionCenter = null;
+        
+        // Suggest garbage collection (hint to JVM)
+        System.gc();
+        
+        // Log memory after cleanup
+        long memoryAfter = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+        System.out.println("✅ Chunk " + chunkNumber + " transaction complete - All entities detached and cleared");
+        System.out.println("🗑️ Memory cleanup: EntityManager cleared, large objects nullified");
+        System.out.println("🧠 Memory after chunk: " + memoryAfter + " MB (freed " + (memoryBefore - memoryAfter) + " MB)");
         // Transaction ends here, Hibernate session closes automatically, all entities released from memory
     }
     
@@ -521,20 +550,28 @@ public class TallyService {
             System.out.println("✅ Saved " + savedCount + " submitted ballots for chunk " + chunkNumber);
         }
         
-        // ✅ CRITICAL: Clear persistence context to detach all entities and free memory
+        // ✅ AGGRESSIVE MEMORY CLEANUP
         entityManager.flush();
         entityManager.clear();
         
-        // ✅ Explicitly clear large object references to help GC
+        // ✅ Explicitly clear and null all large object references
         chunkBallots.clear();
-        chunkBallots = null;
         chunkEncryptedBallots.clear();
+        chunkBallots = null;
         chunkEncryptedBallots = null;
+        ciphertextTallyJson = null;
         guardResponse = null;
         electionCenter = null;
         
+        // Suggest garbage collection (hint to JVM)
+        System.gc();
+        
+        // Log memory usage
+        Runtime runtime = Runtime.getRuntime();
+        long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
         System.out.println("✅ Chunk " + chunkNumber + " transaction complete - All entities detached and cleared");
         System.out.println("🗑️ Memory cleanup: EntityManager cleared, large objects nullified");
+        System.out.println("🧠 Current heap usage: " + usedMemoryMB + " MB");
         // Transaction ends here, Hibernate session closes automatically, all entities released from memory
     }
     
