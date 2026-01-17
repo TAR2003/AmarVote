@@ -79,7 +79,7 @@ services:
       - ./backend/src/main/resources/templates:/app/templates:ro
     networks:
       election_net:
-        ipv4_address: 172.20.0.30
+        # ipv4_address: 172.20.0.30
     depends_on:
       postgres:
         condition: service_healthy
