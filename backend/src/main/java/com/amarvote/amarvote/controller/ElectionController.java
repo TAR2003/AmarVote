@@ -554,7 +554,7 @@ public class ElectionController {
     }
 
     @PostMapping(value = "/create-tally", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<CreateTallyResponse> createTally(
+    public ResponseEntity<?> createTally(
             @Valid @RequestBody CreateTallyRequest request,
             HttpServletRequest httpRequest) {
 
@@ -572,15 +572,16 @@ public class ElectionController {
 
         if (userEmail == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(CreateTallyResponse.builder()
-                            .success(false)
-                            .message("User authentication required")
-                            .build());
+                    .body(Map.of(
+                        "success", false,
+                        "message", "User authentication required"
+                    ));
         }
 
         try {
-            // Delegate to new async system
-            CreateTallyResponse response = tallyService.initiateTallyCreation(request, userEmail);
+            // Use queue-based processing (worker does all the work)
+            com.amarvote.amarvote.dto.queue.JobResponse response = 
+                    tallyQueueService.createTallyAsync(request, userEmail);
 
             if (response.isSuccess()) {
                 return ResponseEntity.ok(response);
@@ -588,11 +589,13 @@ public class ElectionController {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
             }
         } catch (Exception e) {
+            System.err.println("Error creating tally: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(CreateTallyResponse.builder()
-                            .success(false)
-                            .message("Internal server error occurred: " + e.getMessage())
-                            .build());
+                    .body(Map.of(
+                        "success", false,
+                        "message", "Internal server error occurred: " + e.getMessage()
+                    ));
         }
     }
 
