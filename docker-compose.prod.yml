@@ -47,7 +47,7 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    container_name: amarvote_backend
+    # container_name: amarvote_backend
     restart: unless-stopped
     ports:
       - "8080:8080"
