@@ -1,38 +1,12 @@
 services:
-  rabbitmq:
-    image: rabbitmq:3-management-alpine
-    container_name: amarvote_rabbitmq_dev
-    restart: unless-stopped
-    environment:
-      - RABBITMQ_DEFAULT_USER=amarvote
-      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD:-amarvote_queue_pass}
-      - RABBITMQ_DEFAULT_VHOST=/
-    ports:
-      - "5672:5672"   # AMQP port for workers
-      - "15672:15672" # Management UI (http://localhost:15672)
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-    networks:
-      election_net:
-        ipv4_address: 172.20.0.25
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
-
   backend:
     build:
       context: ./backend
       dockerfile: Dockerfile.dev
     container_name: amarvote_backend
-    restart: unless-stopped
-    mem_limit: 700m
-    cpus: 0.7
     ports:
       - "8080:8080"
     environment:
-      - SPRING_PROFILES_ACTIVE=api
       - SPRING_DATASOURCE_URL=jdbc:postgresql://${NEON_HOST}:${NEON_PORT}/${NEON_DATABASE}
       - SPRING_DATASOURCE_USERNAME=${NEON_USERNAME}
       - SPRING_DATASOURCE_PASSWORD=${NEON_PASSWORD}
@@ -48,52 +22,12 @@ services:
       - CLOUDINARY_NAME=${CLOUDINARY_NAME}
       - CLOUDINARY_KEY=${CLOUDINARY_KEY}
       - CLOUDINARY_SECRET=${CLOUDINARY_SECRET}
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USERNAME=amarvote
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-amarvote_queue_pass}
-      - JAVA_OPTS=-Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError
     volumes:
       - maven_repo:/root/.m2
       - ./backend/credentials:/app/credentials:rw
     networks:
       election_net:
         ipv4_address: 172.20.0.30
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
-
-  worker:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile.dev
-    container_name: amarvote_worker
-    restart: unless-stopped
-    mem_limit: 900m
-    cpus: 0.8
-    environment:
-      - SPRING_PROFILES_ACTIVE=worker
-      - SPRING_DATASOURCE_URL=jdbc:postgresql://${NEON_HOST}:${NEON_PORT}/${NEON_DATABASE}
-      - SPRING_DATASOURCE_USERNAME=${NEON_USERNAME}
-      - SPRING_DATASOURCE_PASSWORD=${NEON_PASSWORD}
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - RAG_SERVICE_URL=http://rag-service:5001
-      - BLOCKCHAIN_SERVICE_URL=http://voting-api:5002
-      - MASTER_KEY_PQ=${MASTER_KEY_PQ}
-      - RABBITMQ_HOST=rabbitmq
-      - RABBITMQ_PORT=5672
-      - RABBITMQ_USERNAME=amarvote
-      - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-amarvote_queue_pass}
-      - JAVA_OPTS=-Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError
-    volumes:
-      - maven_repo:/root/.m2
-      - ./backend/credentials:/app/credentials:rw
-    networks:
-      election_net:
-        ipv4_address: 172.20.0.31
-    depends_on:
-      rabbitmq:
-        condition: service_healthy
 
   frontend:
     build:
@@ -216,7 +150,6 @@ services:
 
 volumes:
   maven_repo:
-  rabbitmq_data:  # RabbitMQ persistent data storage
   # rag_vectorstore:
   # contract-artifacts:
   # voting-data:

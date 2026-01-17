@@ -827,10 +827,10 @@ public class PartialDecryptionService {
     }
 
     /**
-     * Process single partial decryption chunk with memory management
-     * Note: No @Transactional here - when called from @Async method, Spring AOP doesn't work.
-     * Repository operations (save) have their own implicit transactions.
+     * Process single partial decryption chunk in isolated transaction
+     * This method is called from createPartialDecryption for each chunk
      */
+    @Transactional
     private void processPartialDecryptionChunkTransactional(
             Long electionCenterId,
             int chunkNumber,
@@ -913,7 +913,7 @@ public class PartialDecryptionService {
         System.out.println("✅ Saved decryption data for chunk " + chunkNumber);
         
         // ✅ CRITICAL: Aggressive Hibernate memory cleanup
-        // Note: No flush() - repository operations auto-commit in their own transactions
+        entityManager.flush();   // Write pending changes to DB
         entityManager.clear();   // Clear persistence context - releases all entities
         
         // ✅ Explicitly null out large objects to help GC
@@ -1117,7 +1117,7 @@ public class PartialDecryptionService {
                     saveCompensatedDecryptionTransactional(compensatedDecryption);
                     
                     // ⭐ FIX LEAK #4: CRITICAL - Clear Hibernate session to release ALL entities
-                    // Note: No flush() - repository operations auto-commit in their own transactions
+                    entityManager.flush();   // Write pending changes to DB
                     entityManager.clear();   // Release ALL managed entities from persistence context
                     
                     // ⭐ Explicitly nullify large objects to help GC
@@ -2098,9 +2098,9 @@ public class PartialDecryptionService {
     
     /**
      * Creates a compensated decryption share for a specific other guardian using a compensating guardian for a specific chunk
-     * Note: No @Transactional here - when called from @Async method, Spring AOP doesn't work.
-     * Repository operations (save) have their own implicit transactions.
+     * Each call processes one compensated share in its own transaction
      */
+    @Transactional
     private void createCompensatedShare(Election election, ElectionCenter electionCenter, Guardian compensatingGuardian, Guardian otherGuardian, String compensatingGuardianPrivateKey, String compensatingGuardianPolynomial) {
         try {
             System.out.println("Creating compensated share for chunk " + electionCenter.getElectionCenterId() + ": compensating=" + compensatingGuardian.getSequenceOrder() + 
@@ -2208,7 +2208,7 @@ public class PartialDecryptionService {
             System.out.println("Successfully saved compensated decryption share for chunk " + electionCenter.getElectionCenterId());
             
             // ✅ AGGRESSIVE MEMORY CLEANUP
-            // Note: No flush() - repository operations auto-commit in their own transactions
+            entityManager.flush();
             entityManager.clear();
             
             // Null out large objects
