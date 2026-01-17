@@ -142,15 +142,14 @@ public class DecryptionWorker {
             // Note: No flush() needed - incrementProcessedChunks() has its own @Transactional
             entityManager.clear();
             
-            // Clear references
+            // Clear references (allows GC to collect)
+            // Note: With -XX:+ExplicitGCInvokesConcurrent, we don't need System.gc()
+            // The G1GC collector will clean up automatically without STW pauses
             submittedBallots.clear();
             submittedBallotCipherTexts.clear();
             submittedBallots = null;
             submittedBallotCipherTexts = null;
             response = null;
-            
-            // Suggest GC
-            System.gc();
             
             // Log memory after
             long memoryAfter = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
@@ -232,10 +231,15 @@ public class DecryptionWorker {
     @lombok.NoArgsConstructor
     @lombok.AllArgsConstructor
     public static class DecryptionMetadata {
+        private Long guardianId;
         private String guardianPrivateKey;
         private int guardianSequenceOrder;
+        private String decryptedPrivateKey;
+        private String decryptedPolynomial;
+        private String guardianPublicKey;
         private List<String> partyNames;
         private List<String> candidateNames;
+        private String jointPublicKey;
         private String baseHash;
         private int quorum;
         private int numberOfGuardians;

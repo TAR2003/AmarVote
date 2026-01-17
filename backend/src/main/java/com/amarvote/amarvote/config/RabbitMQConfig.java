@@ -1,6 +1,10 @@
 package com.amarvote.amarvote.config;
 
-import org.springframework.amqp.core.*;
+import org.springframework.amqp.core.Binding;
+import org.springframework.amqp.core.BindingBuilder;
+import org.springframework.amqp.core.Queue;
+import org.springframework.amqp.core.QueueBuilder;
+import org.springframework.amqp.core.TopicExchange;
 import org.springframework.amqp.rabbit.config.SimpleRabbitListenerContainerFactory;
 import org.springframework.amqp.rabbit.connection.ConnectionFactory;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
@@ -129,9 +133,22 @@ public class RabbitMQConfig {
 
     /**
      * Configure listener container for workers
-     * - Acknowledge mode: AUTO (worker must complete successfully)
-     * - Prefetch count: 1 (each worker processes one message at a time)
-     * - Concurrency: 1-10 (can be overridden per listener)
+     * 
+     * NOTE: Concurrency settings here are DEFAULT values.
+     * They are OVERRIDDEN by profile-specific properties:
+     * 
+     * API Profile (application-api.properties):
+     * - spring.rabbitmq.listener.simple.auto-startup=false (listeners disabled)
+     * 
+     * Worker Profile (application-worker.properties):
+     * - spring.rabbitmq.listener.simple.concurrency=1 (ONE chunk at a time)
+     * - spring.rabbitmq.listener.simple.max-concurrency=1 (NO scaling)
+     * - spring.rabbitmq.listener.simple.prefetch=1 (ONE message at a time)
+     * 
+     * This ensures:
+     * - API servers don't consume messages
+     * - Workers process exactly ONE chunk at a time
+     * - Memory usage is bounded and predictable
      */
     @Bean
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(
@@ -139,10 +156,11 @@ public class RabbitMQConfig {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(jsonMessageConverter());
-        factory.setPrefetchCount(1); // Process one message at a time
-        factory.setConcurrentConsumers(1); // Start with 1 consumer
-        factory.setMaxConcurrentConsumers(10); // Scale up to 10 consumers per instance
-        factory.setDefaultRequeueRejected(true); // Requeue failed messages
+        // Default values (overridden by application-worker.properties)
+        factory.setPrefetchCount(1);
+        factory.setConcurrentConsumers(1);
+        factory.setMaxConcurrentConsumers(1);
+        factory.setDefaultRequeueRejected(true);
         return factory;
     }
 }

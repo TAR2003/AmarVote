@@ -21,6 +21,9 @@ FROM eclipse-temurin:21-jre
 
 WORKDIR /app
 
+# Install wget for healthcheck
+RUN apt-get update && apt-get install -y wget && rm -rf /var/lib/apt/lists/*
+
 # Create non-root user for security
 RUN groupadd -r spring && useradd -r -g spring spring
 
@@ -38,14 +41,31 @@ VOLUME /app/logs
 VOLUME /app/data/credentials
 EXPOSE 8080
 
-# Increased heap size for large decryption operations with multiple chunks
-# -Xmx2560m: Max heap 2.5GB (increased from 512MB)
-# -Xms512m: Initial heap 512MB
+# JVM Configuration for Production
+# This Dockerfile supports TWO deployment modes via SPRING_PROFILES_ACTIVE:
+#
+# 1. API MODE (api profile):
+#    - Handles HTTP requests only
+#    - Publishes to RabbitMQ
+#    - Heap: 512MB (fast, stateless)
+#    - Environment: SPRING_PROFILES_ACTIVE=api
+#    - JAVA_OPTS: -Xms256m -Xmx512m
+#
+# 2. WORKER MODE (worker profile):
+#    - Processes chunks from RabbitMQ
+#    - ONE chunk at a time
+#    - Heap: 768MB (bounded, predictable)
+#    - Environment: SPRING_PROFILES_ACTIVE=worker
+#    - JAVA_OPTS: -Xms256m -Xmx768m
+#
+# JVM Flags Explained:
+# -Xms256m: Initial heap (start small)
+# -Xmx512m/768m: Max heap (API=512MB, Worker=768MB)
 # -XX:+UseG1GC: Use G1 garbage collector for better memory management
-# -XX:MaxGCPauseMillis=200: Target max GC pause time
-# -XX:InitiatingHeapOccupancyPercent=45: Start concurrent GC at 45% heap (earlier than default 45%)
-# -XX:+ExplicitGCInvokesConcurrent: CRITICAL - Makes System.gc() run concurrently (prevents STW pauses)
-# -XX:+ExitOnOutOfMemoryError: Exit cleanly on OOM
-ENV JAVA_OPTS="-Xmx2560m -Xms512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:InitiatingHeapOccupancyPercent=45 -XX:+ExplicitGCInvokesConcurrent -XX:+ExitOnOutOfMemoryError"
+# -XX:MaxGCPauseMillis=200: Target max GC pause time (200ms)
+# -XX:+ExitOnOutOfMemoryError: Exit cleanly on OOM (container will restart)
+#
+# Default (if no JAVA_OPTS provided): API mode settings
+ENV JAVA_OPTS="-Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError"
 
 ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]

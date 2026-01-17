@@ -164,15 +164,14 @@ public class TallyWorker {
             // Note: No flush() needed - incrementProcessedChunks() has its own @Transactional
             entityManager.clear();
             
-            // Clear references
+            // Clear references (allows GC to collect)
+            // Note: With -XX:+ExplicitGCInvokesConcurrent, we don't need System.gc()
+            // The G1GC collector will clean up automatically without STW pauses
             chunkBallots.clear();
             encryptedBallots.clear();
             chunkBallots = null;
             encryptedBallots = null;
             response = null;
-            
-            // Suggest GC
-            System.gc();
             
             // Log memory after
             long memoryAfter = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);

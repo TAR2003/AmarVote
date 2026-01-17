@@ -27,12 +27,10 @@ import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
 import com.amarvote.amarvote.dto.CastEncryptedBallotRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
-import com.amarvote.amarvote.dto.CombinePartialDecryptionResponse;
 import com.amarvote.amarvote.dto.CombineStatusResponse;
 import com.amarvote.amarvote.dto.CreateEncryptedBallotRequest;
 import com.amarvote.amarvote.dto.CreateEncryptedBallotResponse;
 import com.amarvote.amarvote.dto.CreatePartialDecryptionRequest;
-import com.amarvote.amarvote.dto.CreatePartialDecryptionResponse;
 import com.amarvote.amarvote.dto.CreateTallyRequest;
 import com.amarvote.amarvote.dto.CreateTallyResponse;
 import com.amarvote.amarvote.dto.ElectionCreationRequest;
@@ -41,15 +39,18 @@ import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.dto.ElectionResultsResponse;
 import com.amarvote.amarvote.dto.EligibilityCheckRequest;
 import com.amarvote.amarvote.dto.EligibilityCheckResponse;
+import com.amarvote.amarvote.dto.queue.JobResponse;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.service.BallotService;
 import com.amarvote.amarvote.service.BlockchainService;
 import com.amarvote.amarvote.service.CloudinaryService;
+import com.amarvote.amarvote.service.CombineDecryptionQueueService;
+import com.amarvote.amarvote.service.CompensatedDecryptionQueueService;
+import com.amarvote.amarvote.service.DecryptionQueueService;
 import com.amarvote.amarvote.service.ElectionService;
 import com.amarvote.amarvote.service.PartialDecryptionService;
-import com.amarvote.amarvote.service.TallyService;
 import com.amarvote.amarvote.service.TallyQueueService;
-import com.amarvote.amarvote.dto.queue.JobResponse;
+import com.amarvote.amarvote.service.TallyService;
 import com.amarvote.amarvote.util.BallotPaddingUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -65,6 +66,9 @@ public class ElectionController {
     private final BallotService ballotService;
     private final TallyService tallyService;
     private final TallyQueueService tallyQueueService;
+    private final DecryptionQueueService decryptionQueueService;
+    private final CompensatedDecryptionQueueService compensatedDecryptionQueueService;
+    private final CombineDecryptionQueueService combineDecryptionQueueService;
     private final PartialDecryptionService partialDecryptionService;
     private final BlockchainService blockchainService;
     private final CloudinaryService cloudinaryService;
@@ -593,7 +597,7 @@ public class ElectionController {
     }
 
     @PostMapping(value = "/create-partial-decryption", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<CreatePartialDecryptionResponse> createPartialDecryption(
+    public ResponseEntity<?> createPartialDecryption(
             @Valid @RequestBody CreatePartialDecryptionRequest request,
             HttpServletRequest httpRequest) {
 
@@ -612,28 +616,30 @@ public class ElectionController {
 
         if (userEmail == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(CreatePartialDecryptionResponse.builder()
-                            .success(false)
-                            .message("User authentication required")
-                            .build());
+                    .body(Map.of(
+                        "success", false,
+                        "message", "User authentication required"
+                    ));
         }
 
         try {
-            CreatePartialDecryptionResponse response = partialDecryptionService.createPartialDecryption(request,
-                    userEmail);
+            // Use queue-based processing instead of synchronous processing
+            com.amarvote.amarvote.dto.queue.JobResponse response = 
+                    decryptionQueueService.createPartialDecryptionAsync(request, userEmail);
 
-            if (response.success()) {
+            if (response.isSuccess()) {
                 return ResponseEntity.ok(response);
             } else {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
             }
         } catch (Exception e) {
             System.err.println("Error creating partial decryption: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(CreatePartialDecryptionResponse.builder()
-                            .success(false)
-                            .message("Internal server error occurred: " + e.getMessage())
-                            .build());
+                    .body(Map.of(
+                        "success", false,
+                        "message", "Internal server error occurred: " + e.getMessage()
+                    ));
         }
     }
 
@@ -641,7 +647,7 @@ public class ElectionController {
      * Initiate guardian decryption process (async, returns immediately)
      */
     @PostMapping(value = "/guardian/initiate-decryption", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<CreatePartialDecryptionResponse> initiateDecryption(
+    public ResponseEntity<?> initiateDecryption(
             @Valid @RequestBody CreatePartialDecryptionRequest request,
             HttpServletRequest httpRequest) {
 
@@ -659,16 +665,18 @@ public class ElectionController {
 
         if (userEmail == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(CreatePartialDecryptionResponse.builder()
-                            .success(false)
-                            .message("User authentication required")
-                            .build());
+                    .body(Map.of(
+                        "success", false,
+                        "message", "User authentication required"
+                    ));
         }
 
         try {
-            CreatePartialDecryptionResponse response = partialDecryptionService.initiateDecryption(request, userEmail);
+            // Use queue-based processing
+            com.amarvote.amarvote.dto.queue.JobResponse response = 
+                    decryptionQueueService.createPartialDecryptionAsync(request, userEmail);
 
-            if (response.success()) {
+            if (response.isSuccess()) {
                 return ResponseEntity.ok(response);
             } else {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
@@ -677,10 +685,10 @@ public class ElectionController {
             System.err.println("Error initiating decryption: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(CreatePartialDecryptionResponse.builder()
-                            .success(false)
-                            .message("Internal server error occurred: " + e.getMessage())
-                            .build());
+                    .body(Map.of(
+                        "success", false,
+                        "message", "Internal server error occurred: " + e.getMessage()
+                    ));
         }
     }
 
@@ -728,7 +736,7 @@ public class ElectionController {
      * Initiate async combine partial decryption process
      */
     @PostMapping(value = "/initiate-combine", produces = "application/json")
-    public ResponseEntity<CombinePartialDecryptionResponse> initiateCombine(
+    public ResponseEntity<?> initiateCombine(
             @RequestParam Long electionId) {
 
         System.out.println("Initiating combine for election ID: " + electionId);
@@ -744,26 +752,30 @@ public class ElectionController {
             
             if (userEmail == null || userEmail.equals("anonymousUser")) {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                        .body(CombinePartialDecryptionResponse.builder()
-                                .success(false)
-                                .message("User not authenticated")
-                                .build());
+                        .body(Map.of(
+                            "success", false,
+                            "message", "User not authenticated"
+                        ));
             }
             
-            CombinePartialDecryptionResponse response = partialDecryptionService.initiateCombine(electionId, userEmail);
+            // Use queue-based processing
+            CombinePartialDecryptionRequest request = new CombinePartialDecryptionRequest(electionId);
+            com.amarvote.amarvote.dto.queue.JobResponse response = 
+                    combineDecryptionQueueService.combinePartialDecryptionAsync(request, userEmail);
 
-            if (response.success()) {
+            if (response.isSuccess()) {
                 return ResponseEntity.ok(response);
             } else {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
             }
         } catch (Exception e) {
             System.err.println("Error initiating combine: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(CombinePartialDecryptionResponse.builder()
-                            .success(false)
-                            .message("Internal server error occurred: " + e.getMessage())
-                            .build());
+                    .body(Map.of(
+                        "success", false,
+                        "message", "Internal server error occurred: " + e.getMessage()
+                    ));
         }
     }
 
@@ -784,26 +796,45 @@ public class ElectionController {
     }
 
     @PostMapping(value = "/combine-partial-decryption", consumes = "application/json", produces = "application/json")
-    public ResponseEntity<CombinePartialDecryptionResponse> combinePartialDecryption(
+    public ResponseEntity<?> combinePartialDecryption(
             @Valid @RequestBody CombinePartialDecryptionRequest request) {
 
         System.out.println("Combining partial decryption for election ID: " + request.election_id());
 
         try {
-            CombinePartialDecryptionResponse response = partialDecryptionService.combinePartialDecryption(request);
+            // Extract user email from authentication context
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            String userEmail = null;
+            
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+            
+            if (userEmail == null || userEmail.equals("anonymousUser")) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of(
+                            "success", false,
+                            "message", "User not authenticated"
+                        ));
+            }
 
-            if (response.success()) {
+            // Use queue-based processing
+            com.amarvote.amarvote.dto.queue.JobResponse response = 
+                    combineDecryptionQueueService.combinePartialDecryptionAsync(request, userEmail);
+
+            if (response.isSuccess()) {
                 return ResponseEntity.ok(response);
             } else {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
             }
         } catch (Exception e) {
             System.err.println("Error combining partial decryption: " + e.getMessage());
+            e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(CombinePartialDecryptionResponse.builder()
-                            .success(false)
-                            .message("Internal server error occurred: " + e.getMessage())
-                            .build());
+                    .body(Map.of(
+                        "success", false,
+                        "message", "Internal server error occurred: " + e.getMessage()
+                    ));
         }
     }
 

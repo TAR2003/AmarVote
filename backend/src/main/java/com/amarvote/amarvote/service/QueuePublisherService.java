@@ -1,5 +1,13 @@
 package com.amarvote.amarvote.service;
 
+import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
+
+import org.springframework.amqp.rabbit.core.RabbitTemplate;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.amarvote.amarvote.config.RabbitMQConfig;
 import com.amarvote.amarvote.dto.queue.ChunkMessage;
 import com.amarvote.amarvote.dto.queue.JobResponse;
@@ -7,15 +15,9 @@ import com.amarvote.amarvote.dto.queue.OperationType;
 import com.amarvote.amarvote.model.ElectionJob;
 import com.amarvote.amarvote.repository.ElectionJobRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
+
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.util.List;
-import java.util.UUID;
 
 /**
  * Service for publishing jobs to RabbitMQ queues
@@ -235,6 +237,82 @@ public class QueuePublisherService {
                 .totalChunks(chunkIds.size())
                 .status("IN_PROGRESS")
                 .message("Combine decryption job started.")
+                .pollUrl("/api/jobs/" + jobId + "/status")
+                .createdAt(Instant.now())
+                .success(true)
+                .build();
+    }
+
+    /**
+     * Publish compensated decryption job to queue
+     * 
+     * @param electionId Election ID
+     * @param sourceGuardianId Guardian creating compensated shares
+     * @param missingGuardianId Guardian being compensated for
+     * @param chunkIds List of ElectionCenter IDs to process
+     * @param metadata JSON metadata containing guardian credentials and election parameters
+     * @param userEmail User who initiated the job
+     * @return JobResponse with job ID and polling URL
+     */
+    @Transactional
+    public JobResponse publishCompensatedDecryptionJob(Long electionId, Long sourceGuardianId, 
+                                                       Long missingGuardianId, List<Long> chunkIds, 
+                                                       String metadata, String userEmail) {
+        
+        log.info("=== Publishing Compensated Decryption Job ===");
+        log.info("Election ID: {}, Source Guardian: {}, Missing Guardian: {}, Chunks: {}", 
+                 electionId, sourceGuardianId, missingGuardianId, chunkIds.size());
+        
+        // Create job record
+        UUID jobId = UUID.randomUUID();
+        ElectionJob job = ElectionJob.builder()
+                .jobId(jobId)
+                .electionId(electionId)
+                .operationType(OperationType.COMPENSATED_DECRYPTION.name())
+                .status("QUEUED")
+                .totalChunks(chunkIds.size())
+                .processedChunks(0)
+                .failedChunks(0)
+                .createdBy(userEmail)
+                .startedAt(Instant.now())
+                .metadata(metadata)
+                .build();
+        
+        jobRepository.save(job);
+        log.info("✅ Created compensated decryption job record: {}", jobId);
+        
+        // Publish messages to queue
+        int publishedCount = 0;
+        for (Long chunkId : chunkIds) {
+            com.amarvote.amarvote.dto.queue.CompensatedDecryptionMessage message = 
+                com.amarvote.amarvote.dto.queue.CompensatedDecryptionMessage.builder()
+                    .jobId(jobId)
+                    .chunkId(chunkId)
+                    .operationType(OperationType.COMPENSATED_DECRYPTION)
+                    .electionId(electionId)
+                    .sourceGuardianId(sourceGuardianId)
+                    .missingGuardianId(missingGuardianId)
+                    .build();
+            
+            rabbitTemplate.convertAndSend(
+                    RabbitMQConfig.ELECTION_EXCHANGE,
+                    RabbitMQConfig.COMPENSATED_DECRYPTION_ROUTING_KEY,
+                    message
+            );
+            publishedCount++;
+        }
+        
+        log.info("✅ Published {} messages to compensated decryption queue", publishedCount);
+        
+        // Update status to IN_PROGRESS
+        job.setStatus("IN_PROGRESS");
+        jobRepository.save(job);
+        
+        return JobResponse.builder()
+                .jobId(jobId)
+                .totalChunks(chunkIds.size())
+                .status("IN_PROGRESS")
+                .message("Compensated decryption job started. Processing " + chunkIds.size() + " chunks in background.")
                 .pollUrl("/api/jobs/" + jobId + "/status")
                 .createdAt(Instant.now())
                 .success(true)
