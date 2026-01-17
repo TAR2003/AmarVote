@@ -225,6 +225,7 @@ volumes:
   grafana_data:
   credentials_data:
   rabbitmq_data:
+  nginx_logs:
 
 networks:
   election_net:
