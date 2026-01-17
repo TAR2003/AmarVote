@@ -42,7 +42,7 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 # - worker-tmp-dir /dev/shm (use shared memory to avoid disk I/O issues)
 CMD ["gunicorn", \
     "--bind", "0.0.0.0:5000", \
-    "--workers", "2", \
+    "--workers", "4", \
     "--worker-class", "sync", \
     "--threads", "1", \
     "--max-requests", "100", \
