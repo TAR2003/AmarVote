@@ -1,4 +1,31 @@
 services:
+  # ===================================================
+  # Nginx Reverse Proxy (Main Entry Point)
+  # ===================================================
+  nginx:
+    image: nginx:alpine
+    container_name: amarvote_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"      # Main HTTP port (exposed to host)
+      - "443:443"    # HTTPS port (if SSL configured)
+    volumes:
+      - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
+      - nginx_logs:/var/log/nginx
+      # Uncomment for SSL certificates:
+      # - ./ssl:/etc/nginx/ssl:ro
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.5
+    depends_on:
+      - backend
+      - frontend
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   postgres:
     image: postgres:15-alpine
     container_name: amarvote_postgres
@@ -47,17 +74,17 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    # container_name: amarvote_backend
+    # container_name: amarvote_backend (removed for scaling)
     restart: unless-stopped
-    ports:
-      - "8080"
+    expose:
+      - "8080"  # Only expose internally to Docker network
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/amarvote_db
       - SPRING_DATASOURCE_USERNAME=amarvote_user
       - SPRING_DATASOURCE_PASSWORD=amarvote_password
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - SPRING_DEVTOOLS_RESTART_ENABLED=true
-      - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
+      - SPRING_DEVTOOLS_RESTART_ENABLED=false
+      - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=false
       - RAG_SERVICE_URL=http://rag-service:5001
       - BLOCKCHAIN_SERVICE_URL=${VOTING_API_URL}
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
@@ -73,13 +100,19 @@ services:
       - RABBITMQ_PORT=5672
       - RABBITMQ_USERNAME=amarvote
       - RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD:-amarvote_queue_pass}
+      - JAVA_OPTS=-Xms512m -Xmx2048m -XX:+UseG1GC -XX:MaxGCPauseMillis=200
     volumes:
       - maven_repo:/root/.m2
       - credentials_data:/app/data/credentials
       - ./backend/src/main/resources/templates:/app/templates:ro
     networks:
       election_net:
-        # ipv4_address: 172.20.0.30
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/actuator/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
     depends_on:
       postgres:
         condition: service_healthy
@@ -93,19 +126,26 @@ services:
       dockerfile: Dockerfile
     container_name: amarvote_frontend
     restart: unless-stopped
-    ports:
-      - "80:80"
+    expose:
+      - "80"  # Only expose internally (accessed through nginx proxy)
     networks:
       election_net:
         ipv4_address: 172.20.0.40
     depends_on:
-      - backend
+      backend:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "wget", "--quiet", "--tries=1", "--spider", "http://localhost:80"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   electionguard:
     build: ./Microservice
     container_name: electionguard_service
-    ports:
-      - "0.0.0.0:5000:5000"
+    restart: unless-stopped
+    expose:
+      - "5000"  # Only expose internally to Docker network
     networks:
       election_net:
         ipv4_address: 172.20.0.10
@@ -113,8 +153,12 @@ services:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
     volumes:
-      # Bind the Microservice/io folder to the container so exports are visible on the host
       - ./Microservice/io:/app/io:rw
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
 
   prometheus:
     image: prom/prometheus:latest
