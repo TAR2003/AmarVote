@@ -17,6 +17,7 @@ import com.amarvote.amarvote.dto.CreateTallyResponse;
 import com.amarvote.amarvote.dto.ElectionGuardTallyRequest;
 import com.amarvote.amarvote.dto.ElectionGuardTallyResponse;
 import com.amarvote.amarvote.dto.TallyCreationStatusResponse;
+import com.amarvote.amarvote.dto.worker.TallyCreationTask;
 import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionCenter;
@@ -75,6 +76,9 @@ public class TallyService {
     
     @Autowired
     private ObjectMapper objectMapper;
+    
+    @Autowired
+    private TaskPublisherService taskPublisherService;
 
     /**
      * Periodic GC hint and memory monitoring utility
@@ -303,6 +307,36 @@ public class TallyService {
             // ✅ MEMORY-EFFICIENT: Use count query instead of loading all guardians
             int numberOfGuardians = guardianRepository.countByElectionId(election.getElectionId());
             
+            // ✅ NEW: Instead of processing in loop, send tasks to RabbitMQ queue
+            System.out.println("=== SENDING TASKS TO RABBITMQ QUEUE ===");
+            for (java.util.Map.Entry<Integer, List<Long>> entry : chunkIdMap.entrySet()) {
+                int chunkNumber = entry.getKey();
+                List<Long> chunkBallotIds = entry.getValue();
+                
+                // Create task message
+                TallyCreationTask task = TallyCreationTask.builder()
+                    .electionId(electionId)
+                    .chunkNumber(chunkNumber)
+                    .ballotIds(chunkBallotIds)
+                    .partyNames(partyNames)
+                    .candidateNames(candidateNames)
+                    .jointPublicKey(election.getJointPublicKey())
+                    .baseHash(election.getBaseHash())
+                    .quorum(election.getElectionQuorum())
+                    .numberOfGuardians(numberOfGuardians)
+                    .build();
+                
+                // Publish to RabbitMQ
+                taskPublisherService.publishTallyCreationTask(task);
+                
+                System.out.println("✅ Task sent for chunk " + chunkNumber + " (" + chunkBallotIds.size() + " ballots)");
+            }
+            
+            System.out.println("=== ALL TASKS SENT TO QUEUE ===");
+            System.out.println("✅ " + chunkConfig.getNumChunks() + " tasks queued for processing");
+            System.out.println("Workers will process chunks one at a time, releasing memory after each chunk");
+            
+            /* OLD CODE - Replaced with RabbitMQ queue-based processing
             // ✅ Process each chunk in separate isolated transaction
             int processedChunks = 0;
             for (java.util.Map.Entry<Integer, List<Long>> entry : chunkIdMap.entrySet()) {
@@ -336,8 +370,9 @@ public class TallyService {
             // Update election status in separate transaction
             updateElectionStatusTransactional(electionId, "completed");
             updateTallyStatusTransactional(electionId, "completed", chunkConfig.getNumChunks(), processedChunks, null);
+            */
             
-            System.out.println("=== Tally Creation Completed Successfully ===");
+            System.out.println("=== Tally Creation Initiated Successfully ===");
             
         } catch (Exception e) {
             System.err.println("❌ Error in async tally creation: " + e.getMessage());

@@ -3,9 +3,19 @@ package com.amarvote.amarvote.config;
 import java.time.Duration;
 import java.util.concurrent.TimeUnit;
 
+import org.apache.hc.client5.http.config.ConnectionConfig;
+import org.apache.hc.client5.http.config.RequestConfig;
+import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
+import org.apache.hc.client5.http.impl.classic.HttpClients;
+import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
+import org.apache.hc.core5.util.Timeout;
+import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
+import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.reactive.function.client.ExchangeStrategies;
 import org.springframework.web.reactive.function.client.WebClient;
 
@@ -16,11 +26,64 @@ import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
 
 /**
- * WebClient configuration for external APIs (DeepSeek, RAG, etc.)
- * Note: ElectionGuard service uses RestTemplate (see RestTemplateConfig)
+ * WebClient and RestTemplate configuration for external APIs
+ * - WebClient: For reactive/async APIs (DeepSeek, etc.)
+ * - RestTemplate: For blocking APIs (RAG service, ElectionGuard)
  */
 @Configuration
 public class ExternalApiWebClientConfig {
+
+    /**
+     * RestTemplate bean for blocking HTTP calls (RAG service)
+     */
+    @Bean
+    public RestTemplate restTemplate(RestTemplateBuilder builder) {
+        return builder
+                .requestFactory(() -> {
+                    SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
+                    factory.setConnectTimeout(30000); // 30 seconds
+                    factory.setReadTimeout(300000);   // 5 minutes for long operations
+                    return factory;
+                })
+                .build();
+    }
+
+    /**
+     * Separate RestTemplate bean for ElectionGuard service
+     * Uses Apache HttpClient with connection pooling for better reliability
+     */
+    @Bean("electionGuardRestTemplate")
+    public RestTemplate electionGuardRestTemplate() {
+        // Configure connection pool
+        PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
+        connectionManager.setMaxTotal(50); // Maximum total connections
+        connectionManager.setDefaultMaxPerRoute(20); // Maximum connections per route
+        
+        // Configure connection timeouts
+        ConnectionConfig connectionConfig = ConnectionConfig.custom()
+                .setConnectTimeout(Timeout.ofSeconds(30))
+                .setSocketTimeout(Timeout.ofMinutes(10)) // 10 minutes for crypto operations
+                .build();
+        connectionManager.setDefaultConnectionConfig(connectionConfig);
+        
+        // Configure request timeouts
+        RequestConfig requestConfig = RequestConfig.custom()
+                .setConnectionRequestTimeout(Timeout.ofSeconds(30))
+                .setResponseTimeout(Timeout.ofMinutes(10))
+                .build();
+        
+        // Create HttpClient with connection pool
+        CloseableHttpClient httpClient = HttpClients.custom()
+                .setConnectionManager(connectionManager)
+                .setDefaultRequestConfig(requestConfig)
+                .evictIdleConnections(Timeout.ofMinutes(2))
+                .build();
+        
+        // Create request factory with HttpClient
+        HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
+        
+        return new RestTemplate(requestFactory);
+    }
 
     @Bean
     public WebClient webClient() {

@@ -6,8 +6,8 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 -- Election Table
 CREATE TABLE IF NOT EXISTS elections (
-    election_id SERIAL PRIMARY KEY,
-    election_title TEXT NOT NULL,
+    election_id BIGSERIAL PRIMARY KEY,
+    election_title VARCHAR(255) NOT NULL,
     election_description TEXT,
     number_of_guardians INTEGER NOT NULL CHECK (number_of_guardians > 0),
     election_quorum INTEGER NOT NULL CHECK (election_quorum > 0),
@@ -30,8 +30,8 @@ CREATE TABLE IF NOT EXISTS elections (
 );
 
 CREATE TABLE IF NOT EXISTS election_center (
-    election_center_id SERIAL PRIMARY KEY,
-    election_id INTEGER NOT NULL,
+    election_center_id BIGSERIAL PRIMARY KEY,
+    election_id BIGINT NOT NULL,
     encrypted_tally TEXT,
     election_result TEXT,
     CONSTRAINT fk_election FOREIGN KEY (election_id) 
@@ -40,7 +40,7 @@ CREATE TABLE IF NOT EXISTS election_center (
 
 -- Allowed Voters Table
 CREATE TABLE IF NOT EXISTS allowed_voters (
-    election_id INTEGER NOT NULL,
+    election_id BIGINT NOT NULL,
     user_email TEXT NOT NULL,
     has_voted BOOLEAN NOT NULL DEFAULT FALSE,
     PRIMARY KEY (election_id, user_email),
@@ -49,8 +49,8 @@ CREATE TABLE IF NOT EXISTS allowed_voters (
 
 -- Guardians Table
 CREATE TABLE IF NOT EXISTS guardians (
-    guardian_id SERIAL PRIMARY KEY,
-    election_id INTEGER NOT NULL,
+    guardian_id BIGSERIAL PRIMARY KEY,
+    election_id BIGINT NOT NULL,
     user_email TEXT NOT NULL,
     key_backup TEXT,
     guardian_public_key TEXT NOT NULL,
@@ -63,8 +63,8 @@ CREATE TABLE IF NOT EXISTS guardians (
 
 -- Election Choices Table
 CREATE TABLE IF NOT EXISTS election_choices (
-    choice_id SERIAL PRIMARY KEY,
-    election_id INTEGER NOT NULL,
+    choice_id BIGSERIAL PRIMARY KEY,
+    election_id BIGINT NOT NULL,
     option_title TEXT NOT NULL,
     option_description TEXT,
     party_name TEXT,
@@ -77,8 +77,8 @@ CREATE TABLE IF NOT EXISTS election_choices (
 
 -- Ballot Table
 CREATE TABLE IF NOT EXISTS ballots (
-    ballot_id SERIAL PRIMARY KEY,
-    election_id INTEGER NOT NULL,
+    ballot_id BIGSERIAL PRIMARY KEY,
+    election_id BIGINT NOT NULL,
     submission_time TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     status TEXT NOT NULL, -- Changed from ballot_status enum
     cipher_text TEXT NOT NULL,
@@ -93,18 +93,18 @@ CREATE TABLE IF NOT EXISTS ballots (
 
 -- Submitted Ballots Table (for ElectionGuard tally results)
 CREATE TABLE IF NOT EXISTS submitted_ballots (
-    submitted_ballot_id SERIAL PRIMARY KEY,
-    election_center_id INTEGER NOT NULL,
+    submitted_ballot_id BIGSERIAL PRIMARY KEY,
+    election_center_id BIGINT NOT NULL,
     cipher_text TEXT NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     CONSTRAINT fk_election_center FOREIGN KEY (election_center_id) REFERENCES election_center(election_center_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS compensated_decryptions (
-    compensated_decryption_id SERIAL PRIMARY KEY,
-    election_center_id INTEGER NOT NULL,
-    compensating_guardian_id INTEGER NOT NULL,
-    missing_guardian_id INTEGER NOT NULL,
+    compensated_decryption_id BIGSERIAL PRIMARY KEY,
+    election_center_id BIGINT NOT NULL,
+    compensating_guardian_id BIGINT NOT NULL,
+    missing_guardian_id BIGINT NOT NULL,
     compensated_tally_share TEXT NOT NULL,
     compensated_ballot_share TEXT NOT NULL,
     CONSTRAINT fk_election_center FOREIGN KEY (election_center_id) REFERENCES election_center(election_center_id) ON DELETE CASCADE,
@@ -114,9 +114,9 @@ CREATE TABLE IF NOT EXISTS compensated_decryptions (
 
 -- Decryption Table
 CREATE TABLE IF NOT EXISTS decryptions (
-    decryption_id SERIAL PRIMARY KEY,
-    election_center_id INTEGER NOT NULL,
-    guardian_id INTEGER NOT NULL,
+    decryption_id BIGSERIAL PRIMARY KEY,
+    election_center_id BIGINT NOT NULL,
+    guardian_id BIGINT NOT NULL,
     partial_decrypted_tally TEXT,
     guardian_decryption_key TEXT,
     tally_share TEXT,
@@ -129,21 +129,21 @@ CREATE TABLE IF NOT EXISTS decryptions (
 
 -- OTP Verification Table
 CREATE TABLE IF NOT EXISTS otp_verifications (
-    otp_id SERIAL PRIMARY KEY,
+    otp_id BIGSERIAL PRIMARY KEY,
     user_email TEXT NOT NULL,
-    otp_code VARCHAR(6) NOT NULL,
+    otp_code VARCHAR(255) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE NOT NULL,
     expires_at TIMESTAMP WITH TIME ZONE NOT NULL,
     is_used BOOLEAN NOT NULL DEFAULT FALSE
 );
 
 CREATE TABLE IF NOT EXISTS decryption_status (
-    decryption_status_id SERIAL PRIMARY KEY,
+    decryption_status_id BIGSERIAL PRIMARY KEY,
 
     election_id BIGINT NOT NULL,
     guardian_id BIGINT NOT NULL,
 
-    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    status VARCHAR(255) NOT NULL DEFAULT 'pending',
     -- Status values: 'pending', 'in_progress', 'completed', 'failed'
 
     -- Progress tracking
@@ -188,11 +188,11 @@ CREATE TABLE IF NOT EXISTS decryption_status (
 );
 
 CREATE TABLE IF NOT EXISTS tally_creation_status (
-    tally_status_id SERIAL PRIMARY KEY,
+    tally_status_id BIGSERIAL PRIMARY KEY,
 
     election_id BIGINT NOT NULL,
 
-    status VARCHAR(50) NOT NULL DEFAULT 'pending',
+    status VARCHAR(255) NOT NULL DEFAULT 'pending',
     -- 'pending', 'in_progress', 'completed', 'failed'
 
     total_chunks INT NOT NULL DEFAULT 0,
@@ -216,7 +216,7 @@ CREATE TABLE IF NOT EXISTS tally_creation_status (
 
 -- Table for tracking combine partial decryption progress
 CREATE TABLE IF NOT EXISTS combine_status (
-    combine_status_id SERIAL PRIMARY KEY,
+    combine_status_id BIGSERIAL PRIMARY KEY,
 
     election_id BIGINT NOT NULL,
 
@@ -241,6 +241,43 @@ CREATE TABLE IF NOT EXISTS combine_status (
         REFERENCES elections(election_id)
         ON DELETE CASCADE
 );
+
+-- Election Jobs table for tracking all background operations (tally, decryption, combine)
+CREATE TABLE IF NOT EXISTS election_jobs (
+    job_id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    election_id BIGINT NOT NULL,
+    operation_type VARCHAR(50) NOT NULL,
+    -- 'TALLY', 'DECRYPTION', 'COMBINE_DECRYPTION'
+    
+    status VARCHAR(50) NOT NULL,
+    -- 'PENDING', 'IN_PROGRESS', 'COMPLETED', 'FAILED'
+    
+    total_chunks INTEGER NOT NULL,
+    processed_chunks INTEGER NOT NULL,
+    failed_chunks INTEGER NOT NULL,
+    
+    created_by VARCHAR(255),
+    started_at TIMESTAMP WITH TIME ZONE NOT NULL,
+    completed_at TIMESTAMP WITH TIME ZONE,
+    
+    error_message TEXT,
+    metadata TEXT,
+    -- JSON metadata for operation-specific data
+    
+    CONSTRAINT fk_election_job
+        FOREIGN KEY (election_id)
+        REFERENCES elections(election_id)
+        ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_election_jobs_election
+    ON election_jobs (election_id);
+
+CREATE INDEX IF NOT EXISTS idx_election_jobs_status
+    ON election_jobs (status);
+
+CREATE INDEX IF NOT EXISTS idx_election_jobs_operation
+    ON election_jobs (operation_type);
 
 CREATE INDEX IF NOT EXISTS idx_combine_election_status
     ON combine_status (election_id, status);

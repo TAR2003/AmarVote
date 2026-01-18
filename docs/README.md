@@ -6,8 +6,67 @@
 [![React](https://img.shields.io/badge/React-19.1.0-blue.svg)](https://react.dev/)
 [![ElectionGuard](https://img.shields.io/badge/ElectionGuard-Enabled-purple.svg)](https://github.com/microsoft/electionguard)
 [![Docker](https://img.shields.io/badge/Docker-Containerized-2496ED.svg)](https://www.docker.com/)
+[![RabbitMQ](https://img.shields.io/badge/RabbitMQ-Worker_Architecture-FF6600.svg)](https://www.rabbitmq.com/)
 
 AmarVote is a cryptographically secure, end-to-end verifiable voting platform that combines **ElectionGuard technology**, **blockchain verification**, and **post-quantum cryptography** to deliver a secure digital voting experience.
+
+---
+
+## 🚀 **NEW: RabbitMQ Worker Architecture for Large-Scale Elections**
+
+**Solves OOM issues for elections with 1000+ chunks**
+
+AmarVote now uses **RabbitMQ worker-based task processing** to handle large-scale elections without memory issues. The backend queues all heavy cryptographic tasks (tally creation, partial decryption, compensated decryption, combine decryption) and processes them one at a time with proper memory cleanup.
+
+### 📚 **Quick Start Documentation**
+
+1. **[RABBITMQ_QUICK_START.md](RABBITMQ_QUICK_START.md)** ⚡  
+   *Start here!* Complete setup guide with installation, configuration, testing, and troubleshooting.
+
+2. **[RABBITMQ_WORKER_ARCHITECTURE.md](RABBITMQ_WORKER_ARCHITECTURE.md)** 🏗️  
+   *Deep dive:* Comprehensive architecture documentation with diagrams, implementation details, memory management strategies, and monitoring.
+
+3. **[CHANGES_SUMMARY.md](CHANGES_SUMMARY.md)** 📋  
+   *What changed:* Complete list of all 11 new files, 3 modified files, and testing checklist.
+
+4. **[PRODUCTION_DEPLOYMENT_4GB.md](PRODUCTION_DEPLOYMENT_4GB.md)** 🚀  
+   *Production ready:* Complete deployment guide optimized for 4GB RAM servers with docker-compose.prod.yml.
+
+### 🎯 **Key Benefits**
+- ✅ Handles 1000+ chunks without OOM errors
+- ✅ Memory cleanup after each task (entityManager.clear + GC)
+- ✅ Sequential processing (concurrency=1) ensures stability
+- ✅ Horizontal scaling capability (add more workers)
+- ✅ Progress tracking per task
+- ✅ Automatic error recovery and retry
+- ✅ Optimized for 4GB RAM servers with proper memory limits
+
+### 🚀 **Quick Production Deployment**
+
+```bash
+# Clone repository
+git clone https://github.com/yourusername/AmarVote.git
+cd AmarVote
+
+# Configure environment
+cp .env.example .env
+nano .env  # Edit with your values
+
+# Deploy with automated script
+chmod +x deploy-prod.sh
+./deploy-prod.sh
+```
+
+**That's it!** The script will:
+- ✅ Check system requirements (4GB RAM, Docker)
+- ✅ Configure swap if needed
+- ✅ Build all Docker images
+- ✅ Start all services with proper memory limits
+- ✅ Verify deployment health
+
+See **[PRODUCTION_DEPLOYMENT_4GB.md](PRODUCTION_DEPLOYMENT_4GB.md)** for detailed instructions.
+
+---
 
 **Youtube Demonstration Links:**
 - 🎥 **Platform Features**: https://youtu.be/ixsvvl_7qVo

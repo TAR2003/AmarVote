@@ -30,13 +30,17 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
       if (otherGuardians > 0) {
         numChunks = Math.floor((status.totalChunks || 0) / otherGuardians);
       } else {
-        // Fallback: if no other guardians (shouldn't happen), use totalChunks
+        // Fallback: if no other guardians (single guardian), use totalChunks
         numChunks = status.totalChunks || 0;
       }
     } else if (status.status === 'completed' || status.currentPhase === 'completed') {
-      // When completed, the backend resets totalChunks to the actual number of ballot chunks (n)
-      // So we can use it directly without any calculation
-      numChunks = status.totalChunks || 0;
+      // When completed, backend keeps totalChunks as-is from last phase
+      // For completed state, use the same logic as compensated phase
+      if (otherGuardians > 0 && (status.totalChunks || 0) > numChunks) {
+        numChunks = Math.floor((status.totalChunks || 0) / otherGuardians);
+      } else {
+        numChunks = status.totalChunks || 0;
+      }
     } else {
       // Fallback for pending/other phases
       numChunks = status.totalChunks || 0;
@@ -53,7 +57,20 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
       completedOperations = status.processedChunks || 0;
     } else if (status.currentPhase === 'compensated_shares_generation') {
       // In Phase 2: add all Phase 1 chunks (n) + current compensated chunks
-      completedOperations = numChunks + (status.processedChunks || 0);
+      // IMPORTANT: Only count if backend has updated totalChunks to n*(m-1)
+      // Otherwise we're in the transition period and should wait
+      const expectedCompensatedTotalChunks = numChunks * otherGuardians;
+      if ((status.totalChunks || 0) === expectedCompensatedTotalChunks) {
+        // Backend has updated totalChunks, safe to calculate
+        completedOperations = numChunks + (status.processedChunks || 0);
+      } else if ((status.totalChunks || 0) === numChunks && (status.processedChunks || 0) === 0) {
+        // Phase just transitioned, backend hasn't updated totalChunks yet
+        // Show only Phase 1 completion
+        completedOperations = numChunks;
+      } else {
+        // Fallback
+        completedOperations = numChunks + (status.processedChunks || 0);
+      }
     } else if (status.status === 'completed') {
       // Completed: all operations done
       completedOperations = totalOperations;

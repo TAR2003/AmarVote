@@ -51,5 +51,6 @@ public class ChunkMessage implements Serializable {
     /**
      * Retry count (incremented on failure)
      */
+    @Builder.Default
     private int retryCount = 0;
 }

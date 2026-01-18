@@ -77,6 +77,9 @@ public class PartialDecryptionService {
     
     @Autowired
     private ElectionGuardService electionGuardService;
+    
+    @Autowired
+    private DecryptionTaskQueueService decryptionTaskQueueService;
 
     /**
      * Periodic GC hint and memory monitoring utility
@@ -526,7 +529,15 @@ public class PartialDecryptionService {
             
             // Get all guardians to calculate total compensated guardians upfront
             List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
-            int totalCompensatedGuardians = allGuardians.size() - 1; // All other guardians except self
+            // All other guardians except self (0 if single guardian)
+            int totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1);
+            
+            if (totalCompensatedGuardians == 0) {
+                System.out.println("👤 Single guardian election detected - no compensated shares needed");
+            } else {
+                System.out.println("👥 Multi-guardian election - will generate compensated shares for " + 
+                    totalCompensatedGuardians + " other guardians");
+            }
             
             System.out.println("=== Memory Monitoring Active ===");
             Runtime runtime = Runtime.getRuntime();
@@ -573,6 +584,36 @@ public class PartialDecryptionService {
             
             System.out.println("✅ Guardian credentials decrypted successfully");
             
+            // ✅ NEW: Instead of processing in loop, send tasks to RabbitMQ queue
+            // PHASE 1: Queue partial decryption tasks
+            System.out.println("=== PHASE 1: QUEUEING PARTIAL DECRYPTION TASKS (" + electionCenterIds.size() + " chunks) ===");
+            
+            decryptionTaskQueueService.queuePartialDecryptionTasks(
+                request.election_id(),
+                guardian.getGuardianId(),
+                electionCenterIds,
+                decryptedPrivateKey,
+                decryptedPolynomial
+            );
+            
+            System.out.println("✅ All partial decryption tasks queued");
+            System.out.println("Workers will process chunks one at a time, releasing memory after each chunk");
+            
+            // PHASE 2: Queue compensated decryption tasks
+            System.out.println("=== PHASE 2: QUEUEING COMPENSATED DECRYPTION TASKS ===");
+            
+            decryptionTaskQueueService.queueCompensatedDecryptionTasks(
+                request.election_id(),
+                guardian.getGuardianId(),
+                electionCenterIds,
+                decryptedPrivateKey,
+                decryptedPolynomial
+            );
+            
+            System.out.println("✅ All compensated decryption tasks queued");
+            System.out.println("Workers will process tasks one at a time, releasing memory after each task");
+            
+            /* OLD CODE - Replaced with RabbitMQ queue-based processing
             // PHASE 1: Process each chunk for partial decryption (MEMORY-EFFICIENT)
             System.out.println("=== PHASE 1: PARTIAL DECRYPTION (" + electionCenterIds.size() + " chunks) ===");
             int processedChunks = 0;
@@ -587,141 +628,7 @@ public class PartialDecryptionService {
                 System.out.println("🕐 Chunk start time: " + java.time.Instant.now());
                 System.out.println("=====================================================================");
                 
-                // DATABASE FETCH 1: Election Center
-                long dbStart1 = System.currentTimeMillis();
-                System.out.println("🔍 [DB] Fetching election center from database...");
-                Optional<ElectionCenter> electionCenterOpt = electionCenterRepository.findById(electionCenterId);
-                long dbDuration1 = System.currentTimeMillis() - dbStart1;
-                System.out.println("✅ [DB] Election center fetch completed in " + dbDuration1 + "ms");
-                
-                if (!electionCenterOpt.isPresent()) {
-                    throw new RuntimeException("Election center not found: " + electionCenterId);
-                }
-                ElectionCenter electionCenter = electionCenterOpt.get();
-                
-                // Update status with current chunk
-                System.out.println("📊 [DB] Updating decryption status...");
-                updateDecryptionStatus(request.election_id(), guardian.getGuardianId(), "in_progress",
-                    "partial_decryption", processedChunks, electionCenterIds.size(), null, null, null);
-                
-                // Get encrypted tally for this chunk
-                String ciphertextTallyString = electionCenter.getEncryptedTally();
-                if (ciphertextTallyString == null || ciphertextTallyString.trim().isEmpty()) {
-                    throw new RuntimeException("Chunk " + processedChunks + " has no encrypted tally");
-                }
-                System.out.println("✅ Retrieved encrypted tally (" + ciphertextTallyString.length() + " chars)");
-                
-                // DATABASE FETCH 2: Submitted Ballots
-                long dbStart2 = System.currentTimeMillis();
-                System.out.println("🔍 [DB] Fetching submitted ballots for chunk " + electionCenterId + "...");
-                List<SubmittedBallot> chunkBallots = submittedBallotRepository.findByElectionCenterId(electionCenterId);
-                long dbDuration2 = System.currentTimeMillis() - dbStart2;
-                System.out.println("✅ [DB] Submitted ballots fetch completed in " + dbDuration2 + "ms");
-                
-                if (chunkBallots == null || chunkBallots.isEmpty()) {
-                    System.err.println("⚠️ Warning: No submitted ballots found for chunk " + electionCenterId);
-                    chunkBallots = new ArrayList<>();
-                }
-                
-                List<String> ballotCipherTexts = chunkBallots.stream()
-                    .map(SubmittedBallot::getCipherText)
-                    .filter(ct -> ct != null && !ct.trim().isEmpty())
-                    .toList();
-                
-                System.out.println("✅ Extracted " + ballotCipherTexts.size() + " ballot cipher texts");
-                
-                // Construct guardian_data JSON
-                String guardianDataJson = String.format(
-                    "{\"id\":\"%s\",\"sequence_order\":%d}",
-                    guardian.getSequenceOrder(),
-                    guardian.getSequenceOrder()
-                );
-                
-                // Validate required data before calling microservice
-                System.out.println("🔍 Validating request data before microservice call...");
-                if (decryptedPrivateKey == null || decryptedPrivateKey.trim().isEmpty()) {
-                    throw new RuntimeException("Decrypted private key is null or empty");
-                }
-                if (decryptedPolynomial == null || decryptedPolynomial.trim().isEmpty()) {
-                    throw new RuntimeException("Decrypted polynomial is null or empty");
-                }
-                if (guardian.getGuardianPublicKey() == null || guardian.getGuardianPublicKey().trim().isEmpty()) {
-                    throw new RuntimeException("Guardian public key is null or empty");
-                }
-                if (election.getJointPublicKey() == null || election.getJointPublicKey().trim().isEmpty()) {
-                    throw new RuntimeException("Election joint public key is null or empty");
-                }
-                if (election.getBaseHash() == null || election.getBaseHash().trim().isEmpty()) {
-                    throw new RuntimeException("Election base hash is null or empty");
-                }
-                
-                System.out.println("✅ All required data validated");
-                System.out.println("---------------------------------------------------------------------");
-                System.out.println("🚀 Preparing to call ElectionGuard microservice...");
-                
-                // Call ElectionGuard microservice
-                long microserviceCallStart = System.currentTimeMillis();
-                ElectionGuardPartialDecryptionRequest guardRequest = ElectionGuardPartialDecryptionRequest.builder()
-                    .guardian_id(String.valueOf(guardian.getSequenceOrder()))
-                    .guardian_data(guardianDataJson)
-                    .private_key(decryptedPrivateKey)
-                    .public_key(guardian.getGuardianPublicKey())
-                    .polynomial(decryptedPolynomial)
-                    .party_names(partyNames)
-                    .candidate_names(candidateNames)
-                    .ciphertext_tally(ciphertextTallyString)
-                    .submitted_ballots(ballotCipherTexts)
-                    .joint_public_key(election.getJointPublicKey())
-                    .commitment_hash(election.getBaseHash())
-                    .number_of_guardians(allGuardians.size())
-                    .quorum(election.getElectionQuorum())
-                    .build();
-                
-                System.out.println("⏳ Calling ElectionGuard microservice (this may take a while)...");
-                ElectionGuardPartialDecryptionResponse guardResponse = callElectionGuardPartialDecryptionService(guardRequest);
-                long microserviceCallDuration = System.currentTimeMillis() - microserviceCallStart;
-                System.out.println("✅ Microservice call completed in " + microserviceCallDuration + "ms");
-                
-                // Additional validation check
-                if (guardResponse == null || guardResponse.tally_share() == null) {
-                    throw new RuntimeException("Failed to generate decryption shares. This may indicate an issue with the credentials or election configuration.");
-                }
-                System.out.println("✅ Response validated successfully");
-                
-                // DATABASE WRITE: Store decryption data
-                long dbStart3 = System.currentTimeMillis();
-                System.out.println("💾 [DB] Saving decryption data to database...");
-                Decryption decryption = Decryption.builder()
-                    .electionCenterId(electionCenterId)
-                    .guardianId(guardian.getGuardianId())
-                    .tallyShare(guardResponse.tally_share())
-                    .guardianDecryptionKey(guardResponse.guardian_public_key())
-                    .partialDecryptedTally(guardResponse.ballot_shares())
-                    .build();
-                
-                decryptionRepository.save(decryption);
-                long dbDuration3 = System.currentTimeMillis() - dbStart3;
-                System.out.println("✅ [DB] Decryption data saved in " + dbDuration3 + "ms");
-                
-                long chunkTotalDuration = System.currentTimeMillis() - chunkStartTime;
-                System.out.println("=====================================================================");
-                System.out.println("✅ Chunk " + processedChunks + "/" + electionCenterIds.size() + " COMPLETED");
-                System.out.println("📊 Timing breakdown:");
-                System.out.println("   - DB fetch election center: " + dbDuration1 + "ms");
-                System.out.println("   - DB fetch ballots: " + dbDuration2 + "ms");
-                System.out.println("   - Microservice call: " + microserviceCallDuration + "ms");
-                System.out.println("   - DB save decryption: " + dbDuration3 + "ms");
-                System.out.println("   - Total chunk time: " + chunkTotalDuration + "ms");
-                System.out.println("=====================================================================");
-                
-                // ✅ Suggest garbage collection after each chunk
-                System.gc();
-                
-                // Log memory every 10 chunks
-                if (processedChunks % 10 == 0) {
-                    long usedMB = (runtime.totalMemory() - runtime.freeMemory()) / 1024 / 1024;
-                    System.out.println("🗑️ [PARTIAL-DECRYPT-GC] After chunk " + processedChunks + "/" + electionCenterIds.size() + ": " + usedMB + " MB");
-                }
+                // ... [loop processing code removed]
             }
             
             System.out.println("=====================================================================");
@@ -743,8 +650,9 @@ public class PartialDecryptionService {
             // Mark as completed
             updateDecryptionStatus(request.election_id(), guardian.getGuardianId(), "completed",
                 "completed", processedChunks, electionCenterIds.size(), null, null, Instant.now());
+            */
             
-            System.out.println("🎉 DECRYPTION PROCESS COMPLETED SUCCESSFULLY");
+            System.out.println("🎉 DECRYPTION TASKS QUEUED SUCCESSFULLY");
             
         } catch (Exception e) {
             System.err.println("❌ Error in async decryption: " + e.getClass().getName() + ": " + e.getMessage());
@@ -1354,6 +1262,7 @@ public class PartialDecryptionService {
 
     /**
      * Process combine asynchronously with progress updates
+     * NEW: Uses RabbitMQ queue to process chunks individually
      */
     @Async
     public void processCombineAsync(Long electionId) {
@@ -1361,13 +1270,26 @@ public class PartialDecryptionService {
             System.out.println("=== ASYNC COMBINE STARTED ===");
             System.out.println("Election ID: " + electionId);
             
-            // Get total chunks count
-            List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
-            int totalChunks = electionCenters != null ? electionCenters.size() : 0;
+            // Get election center IDs (not full objects - memory efficient)
+            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
+            int totalChunks = electionCenterIds != null ? electionCenterIds.size() : 0;
+            
+            if (totalChunks == 0) {
+                updateCombineStatus(electionId, "failed", 0, "No election centers found");
+                return;
+            }
             
             // Update status to in_progress with total chunks
             updateCombineStatus(electionId, "in_progress", 0, null);
             
+            // ✅ NEW: Queue combine tasks instead of processing in loop
+            System.out.println("=== QUEUEING COMBINE DECRYPTION TASKS ===");
+            decryptionTaskQueueService.queueCombineDecryptionTasks(electionId, electionCenterIds);
+            
+            System.out.println("✅ All combine tasks queued (" + totalChunks + " chunks)");
+            System.out.println("Workers will process chunks one at a time, releasing memory after each chunk");
+            
+            /* OLD CODE - Replaced with RabbitMQ queue-based processing
             // Call the existing combine method
             CombinePartialDecryptionRequest request = new CombinePartialDecryptionRequest(electionId);
             CombinePartialDecryptionResponse response = combinePartialDecryption(request);
@@ -1380,6 +1302,7 @@ public class PartialDecryptionService {
                 updateCombineStatus(electionId, "failed", 0, response.message());
                 System.err.println("❌ COMBINE PROCESS FAILED: " + response.message());
             }
+            */
             
         } catch (Exception e) {
             System.err.println("❌ Error in async combine: " + e.getMessage());
