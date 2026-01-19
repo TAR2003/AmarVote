@@ -668,6 +668,32 @@ public class ElectionController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of(
                             "success", false,
+                            "message", "Failed to get decryption status: " + e.getMessage()
+                    ));
+        }
+    }
+
+    /**
+     * Get decryption status by guardian ID (for timeline and admin views)
+     */
+    @GetMapping("/guardian/decryption-status/{electionId}/{guardianId}")
+    public ResponseEntity<?> getDecryptionStatusByGuardianId(
+            @PathVariable Long electionId,
+            @PathVariable Long guardianId) {
+
+        System.out.println("Getting decryption status for election: " + electionId + ", guardianId: " + guardianId);
+
+        try {
+            com.amarvote.amarvote.dto.DecryptionStatusResponse response = 
+                partialDecryptionService.getDecryptionStatus(electionId, guardianId);
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("Error getting decryption status by guardian ID: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "success", false,
                             "message", "Failed to get decryption status: " + e.getMessage()));
         }
     }

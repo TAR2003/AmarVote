@@ -94,7 +94,7 @@ public class TaskWorkerService {
      * Worker for tally creation tasks
      * Processes one chunk of ballots at a time
      */
-    @RabbitListener(queues = RabbitMQConfig.TALLY_CREATION_QUEUE, concurrency = "1")
+    @RabbitListener(queues = RabbitMQConfig.TALLY_CREATION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
     @Transactional
     public void processTallyCreationTask(TallyCreationTask task) {
         String lockKey = "tally_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
@@ -195,7 +195,7 @@ public class TaskWorkerService {
      * Worker for partial decryption tasks
      * Processes one chunk at a time for a specific guardian
      */
-    @RabbitListener(queues = RabbitMQConfig.PARTIAL_DECRYPTION_QUEUE, concurrency = "1")
+    @RabbitListener(queues = RabbitMQConfig.PARTIAL_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
     @Transactional
     public void processPartialDecryptionTask(PartialDecryptionTask task) {
         String lockKey = "partial_" + task.getElectionId() + "_g" + task.getGuardianId() + "_chunk_" + task.getChunkNumber();
@@ -299,7 +299,7 @@ public class TaskWorkerService {
      * Worker for compensated decryption tasks
      * Processes one compensated share at a time
      */
-    @RabbitListener(queues = RabbitMQConfig.COMPENSATED_DECRYPTION_QUEUE, concurrency = "1")
+    @RabbitListener(queues = RabbitMQConfig.COMPENSATED_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
     @Transactional
     public void processCompensatedDecryptionTask(CompensatedDecryptionTask task) {
         String lockKey = "compensated_" + task.getElectionId() + "_g" + task.getSourceGuardianId() + 
@@ -447,7 +447,7 @@ public class TaskWorkerService {
      * Worker for combine decryption tasks
      * Processes one chunk at a time to combine all decryption shares
      */
-    @RabbitListener(queues = RabbitMQConfig.COMBINE_DECRYPTION_QUEUE, concurrency = "1")
+    @RabbitListener(queues = RabbitMQConfig.COMBINE_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
     @Transactional
     public void processCombineDecryptionTask(CombineDecryptionTask task) {
         String lockKey = "combine_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
@@ -634,21 +634,27 @@ public class TaskWorkerService {
                 TallyCreationStatus status = statusOpt.get();
                 // Increment processed count (chunks are 0-based, so +1 to get count)
                 int currentProcessed = status.getProcessedChunks() != null ? status.getProcessedChunks() : 0;
-                status.setProcessedChunks(currentProcessed + 1);
+                int newProcessed = currentProcessed + 1;
+                status.setProcessedChunks(newProcessed);
                 
-                System.out.println("📊 Tally Progress: " + status.getProcessedChunks() + "/" + status.getTotalChunks() + " chunks completed");
+                System.out.println("📊 Tally Progress (Chunk " + completedChunk + "): " + newProcessed + "/" + status.getTotalChunks() + " chunks completed");
                 
                 // Check if all chunks are completed
-                if (status.getProcessedChunks() >= status.getTotalChunks()) {
+                if (newProcessed >= status.getTotalChunks()) {
                     status.setStatus("completed");
                     status.setCompletedAt(Instant.now());
-                    System.out.println("✅ All tally chunks completed for election " + electionId);
+                    System.out.println("✅ All tally chunks completed for election " + electionId + " (" + newProcessed + "/" + status.getTotalChunks() + ")");
+                } else {
+                    System.out.println("⏳ Tally in progress: " + newProcessed + "/" + status.getTotalChunks() + " (" + (status.getTotalChunks() - newProcessed) + " remaining)");
                 }
                 
                 tallyCreationStatusRepository.save(status);
+            } else {
+                System.err.println("⚠️ No TallyCreationStatus found for election " + electionId + " while updating progress");
             }
         } catch (Exception e) {
-            System.err.println("Failed to update tally progress: " + e.getMessage());
+            System.err.println("❌ Failed to update tally progress: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -861,21 +867,27 @@ public class TaskWorkerService {
                 CombineStatus status = statusOpt.get();
                 // Increment processed count (chunks are 0-based, so +1 to get count)
                 int currentProcessed = status.getProcessedChunks() != null ? status.getProcessedChunks() : 0;
-                status.setProcessedChunks(currentProcessed + 1);
+                int newProcessed = currentProcessed + 1;
+                status.setProcessedChunks(newProcessed);
                 
-                System.out.println("📊 Combine Decryption Progress: " + status.getProcessedChunks() + "/" + status.getTotalChunks() + " chunks completed");
+                System.out.println("📊 Combine Decryption Progress (Chunk " + completedChunk + "): " + newProcessed + "/" + status.getTotalChunks() + " chunks completed");
                 
                 // Check if all chunks are completed
-                if (status.getProcessedChunks() >= status.getTotalChunks()) {
+                if (newProcessed >= status.getTotalChunks()) {
                     status.setStatus("completed");
                     status.setCompletedAt(Instant.now());
-                    System.out.println("✅ All combine decryption chunks completed for election " + electionId);
+                    System.out.println("✅ All combine decryption chunks completed for election " + electionId + " (" + newProcessed + "/" + status.getTotalChunks() + ")");
+                } else {
+                    System.out.println("⏳ Combine in progress: " + newProcessed + "/" + status.getTotalChunks() + " (" + (status.getTotalChunks() - newProcessed) + " remaining)");
                 }
                 
                 combineStatusRepository.save(status);
+            } else {
+                System.err.println("⚠️ No CombineStatus found for election " + electionId + " while updating progress");
             }
         } catch (Exception e) {
-            System.err.println("Failed to update combine decryption progress: " + e.getMessage());
+            System.err.println("❌ Failed to update combine decryption progress: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     

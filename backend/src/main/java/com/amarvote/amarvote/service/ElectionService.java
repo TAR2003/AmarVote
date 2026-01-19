@@ -643,6 +643,7 @@ public class ElectionService {
         return guardians.stream()
                 .map(guardian -> {
                     return ElectionDetailResponse.GuardianInfo.builder()
+                            .guardianId(guardian.getGuardianId()) // Added: Include guardian ID
                             .userEmail(guardian.getUserEmail())
                             .userName(guardian.getUserEmail()) // Use email as name
                             .guardianPublicKey(guardian.getGuardianPublicKey())

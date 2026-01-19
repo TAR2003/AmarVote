@@ -1980,32 +1980,31 @@ export default function ElectionPage() {
         setElectionData(data);
         // Check if user has already voted - this info is now handled through eligibilityData
 
-        // Auto-load results if election has ended and is decrypted
+        // Auto-load results if election has ended
         const electionStatus = getElectionStatusFromData(data);
         if (electionStatus === 'Ended') {
           const guardiansSubmitted = data.guardiansSubmitted || 0;
           const electionQuorum = data.electionQuorum || data.totalGuardians || 0;
           const quorumMet = guardiansSubmitted >= electionQuorum;
 
-          // Check if results already exist (election status is 'decrypted')
-          if (data.status === 'decrypted') {
-            console.log('✅ Results already computed. Loading cached results...');
+          console.log('🔍 [Election Status Check] Election status:', data.status, 'Quorum met:', quorumMet);
+          
+          // ✅ FIX: Always try to fetch results if quorum is met, regardless of election status
+          // The backend status field might not be updated, but results could still be available
+          if (quorumMet) {
+            console.log('✅ Quorum met. Checking for available results...');
             
-            // Check combine status to see if we need to show combine button
+            // Try to fetch combine status for UI display, but don't block on it
             try {
               const combineStatusData = await electionApi.getCombineStatus(id);
               console.log('🔍 Combine status:', combineStatusData);
               setCombineStatus(combineStatusData);
-              
-              // If combine is completed, load the results immediately
-              if (combineStatusData.status === 'completed') {
-                console.log('✅ Combine already completed, loading results...');
-              }
             } catch (err) {
               console.warn('No combine status found:', err);
             }
             
-            // Fetch cached results from new endpoint
+            // Always attempt to fetch cached results when quorum is met
+            // The backend will check if all election_center rows have results filled
             try {
               const animatedResultsData = await electionApi.getElectionResults(id);
               console.log('📦 [CACHED RESULTS] Raw data from backend:', {
@@ -2016,7 +2015,7 @@ export default function ElectionPage() {
               });
               
               if (animatedResultsData.success && animatedResultsData.results) {
-                console.log('✅ Loaded cached results with chunk breakdown');
+                console.log('✅ Results available! Auto-loading cached results with chunk breakdown');
                 setAnimatedResults(animatedResultsData);
                 
                 // Extract and properly format ballot data from cached results
@@ -2043,9 +2042,12 @@ export default function ElectionPage() {
                     console.log('✅ Results processed for charts:', processedResults);
                   }
                 }
+              } else {
+                console.log('ℹ️ Results not yet available. User may need to click "Combine Results" button.');
               }
             } catch (err) {
               console.warn('Failed to load cached results:', err);
+              console.log('ℹ️ Results not yet available. User may need to click "Combine Results" button.');
             }
           }
           // NOTE: Auto-combine removed - users must manually click "Combine Partial Decryptions" button
@@ -4476,7 +4478,28 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
                   const totalBallots = processedResults.totalVotedUsers;
                   const totalVotesInChoices = processedResults.totalVotes;
-                  const needsDecryption = totalVotesInChoices !== totalBallots && totalBallots > 0;
+                  
+                  // Check if election is already decrypted or if combine is completed
+                  const isAlreadyDecrypted = electionData.status === 'decrypted';
+                  const isCombineCompleted = combineStatus?.status === 'completed';
+                  // ✅ FIX: Also check if we have animatedResults to determine if decryption is complete
+                  const hasResults = animatedResults?.success && animatedResults?.results?.finalTallies;
+                  // Don't show combine button if: 1) already decrypted, 2) combine completed, 3) we have results, OR 4) still loading
+                  const needsDecryption = !loading && !isAlreadyDecrypted && !isCombineCompleted && !hasResults && totalVotesInChoices !== totalBallots && totalBallots > 0;
+                  
+                  console.log('🔍 [Button Display Logic]', {
+                    electionStatus: electionData.status,
+                    isAlreadyDecrypted,
+                    isCombineCompleted,
+                    combineStatusValue: combineStatus?.status,
+                    hasResults,
+                    hasAnimatedResults: !!animatedResults,
+                    hasAnimatedResultsFinalTallies: !!animatedResults?.results?.finalTallies,
+                    needsDecryption,
+                    totalBallots,
+                    totalVotesInChoices,
+                    loading
+                  });
 
                   // ✅ Fixed: Check if quorum is met instead of requiring all guardians
                   const guardiansSubmitted = electionData.guardiansSubmitted || 0;
@@ -4500,7 +4523,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                         </div>
                       )}
 
-                      {needsDecryption && quorumMet && (!combineStatus || combineStatus.status !== 'completed') && (
+                      {needsDecryption && quorumMet && (
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
                           <div className="text-center">
                             <FiKey className="h-12 w-12 text-blue-500 mx-auto mb-4" />

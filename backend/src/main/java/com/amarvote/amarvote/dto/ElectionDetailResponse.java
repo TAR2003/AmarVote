@@ -60,6 +60,7 @@ public class ElectionDetailResponse {
     @AllArgsConstructor
     @Builder
     public static class GuardianInfo {
+        private Long guardianId; // Added: Guardian ID for API calls
         private String userEmail;
         private String userName;
         private String guardianPublicKey;

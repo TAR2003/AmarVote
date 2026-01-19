@@ -337,6 +337,11 @@ export const electionApi = {
       }, EXTENDED_TIMEOUT);
       return response;
     } catch (error) {
+      // Don't throw 404 errors - results just aren't ready yet
+      if (error.message && error.message.includes('Results not yet available')) {
+        console.log('ℹ️ Results not yet available for election', electionId);
+        return { success: false, results: null };
+      }
       console.error('Error fetching election results:', error);
       throw error;
     }
