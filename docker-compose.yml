@@ -19,6 +19,24 @@ services:
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
 
+  redis:
+    image: redis:7-alpine
+    container_name: amarvote_redis
+    command: redis-server --save "" --maxmemory 256mb --maxmemory-policy allkeys-lru
+    ports:
+      - "6379:6379"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.70
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+
   backend:
     build:
       context: ./backend
@@ -46,8 +64,13 @@ services:
       - RABBITMQ_PORT=5672
       - RABBITMQ_USERNAME=guest
       - RABBITMQ_PASSWORD=guest
+      # Redis Configuration for secure credential storage
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_PASSWORD=
     depends_on:
       - rabbitmq
+      - redis
     volumes:
       - maven_repo:/root/.m2
       - ./backend/credentials:/app/credentials:rw
@@ -177,6 +200,7 @@ services:
 volumes:
   maven_repo:
   rabbitmq_data:
+  redis_data:
   # rag_vectorstore:
   # contract-artifacts:
   # voting-data:

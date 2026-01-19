@@ -1,5 +1,19 @@
 package com.amarvote.amarvote.service;
 
+import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.stream.Collectors;
+
+import org.springframework.amqp.rabbit.annotation.RabbitListener;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
 import com.amarvote.amarvote.config.RabbitMQConfig;
 import com.amarvote.amarvote.dto.ElectionGuardCombineDecryptionSharesRequest;
 import com.amarvote.amarvote.dto.ElectionGuardCombineDecryptionSharesResponse;
@@ -9,25 +23,35 @@ import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionRequest;
 import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionResponse;
 import com.amarvote.amarvote.dto.ElectionGuardTallyRequest;
 import com.amarvote.amarvote.dto.ElectionGuardTallyResponse;
-import com.amarvote.amarvote.dto.worker.*;
-import com.amarvote.amarvote.model.*;
-import com.amarvote.amarvote.repository.*;
+import com.amarvote.amarvote.dto.worker.CombineDecryptionTask;
+import com.amarvote.amarvote.dto.worker.CompensatedDecryptionTask;
+import com.amarvote.amarvote.dto.worker.PartialDecryptionTask;
+import com.amarvote.amarvote.dto.worker.TallyCreationTask;
+import com.amarvote.amarvote.model.Ballot;
+import com.amarvote.amarvote.model.CombineStatus;
+import com.amarvote.amarvote.model.CompensatedDecryption;
+import com.amarvote.amarvote.model.Decryption;
+import com.amarvote.amarvote.model.DecryptionStatus;
+import com.amarvote.amarvote.model.Election;
+import com.amarvote.amarvote.model.ElectionCenter;
+import com.amarvote.amarvote.model.Guardian;
+import com.amarvote.amarvote.model.SubmittedBallot;
+import com.amarvote.amarvote.model.TallyCreationStatus;
+import com.amarvote.amarvote.repository.BallotRepository;
+import com.amarvote.amarvote.repository.CombineStatusRepository;
+import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
+import com.amarvote.amarvote.repository.DecryptionRepository;
+import com.amarvote.amarvote.repository.DecryptionStatusRepository;
+import com.amarvote.amarvote.repository.ElectionCenterRepository;
+import com.amarvote.amarvote.repository.ElectionChoiceRepository;
+import com.amarvote.amarvote.repository.ElectionRepository;
+import com.amarvote.amarvote.repository.GuardianRepository;
+import com.amarvote.amarvote.repository.SubmittedBallotRepository;
+import com.amarvote.amarvote.repository.TallyCreationStatusRepository;
+
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
-import org.springframework.amqp.rabbit.annotation.RabbitListener;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
-
-import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
-import java.util.stream.Collectors;
 
 /**
  * Worker service that processes tasks from RabbitMQ queues.
@@ -52,12 +76,16 @@ public class TaskWorkerService {
     private final ElectionRepository electionRepository;
     private final GuardianRepository guardianRepository;
     private final ElectionChoiceRepository electionChoiceRepository;
+    private final DecryptionTaskQueueService decryptionTaskQueueService;
     
     @Autowired
     private ElectionGuardService electionGuardService;
     
     @Autowired
     private com.fasterxml.jackson.databind.ObjectMapper objectMapper;
+    
+    @Autowired
+    private CredentialCacheService credentialCacheService;
 
     // Track currently processing tasks to prevent duplicates (per election/guardian)
     private static final ConcurrentHashMap<String, Boolean> processingLocks = new ConcurrentHashMap<>();
@@ -658,6 +686,7 @@ public class TaskWorkerService {
                     "partial_decryption".equals(status.getCurrentPhase())) {
                     
                     System.out.println("✅ All partial decryption chunks completed for guardian " + guardianId);
+                    System.out.println("=== PHASE 1 COMPLETED - NOW QUEUEING PHASE 2 (COMPENSATED DECRYPTION) ===");
                     
                     // Check if this is a single guardian election (no compensated shares needed)
                     int totalCompensatedGuardians = status.getTotalCompensatedGuardians() != null ? 
@@ -667,7 +696,11 @@ public class TaskWorkerService {
                         // Single guardian - mark as completed immediately
                         status.setStatus("completed");
                         status.setCurrentPhase("completed");
+                        status.setPartialDecryptionCompletedAt(Instant.now());
                         status.setCompletedAt(Instant.now());
+                        
+                        // Clear credentials from Redis cache
+                        credentialCacheService.clearCredentials(electionId, guardianId);
                         
                         // Mark guardian as decrypted (needed for frontend combine button)
                         markGuardianAsDecrypted(guardianId);
@@ -675,10 +708,68 @@ public class TaskWorkerService {
                         System.out.println("✅ Single guardian election - decryption completed for guardian " + guardianId);
                     } else {
                         // Multiple guardians - transition to compensated shares phase
+                        // and QUEUE compensated tasks NOW
                         status.setCurrentPhase("compensated_shares_generation");
+                        status.setPartialDecryptionCompletedAt(Instant.now());
+                        status.setCompensatedSharesStartedAt(Instant.now());
                         status.setProcessedChunks(0); // Reset for compensated phase tracking
+                        
                         System.out.println("🔄 Transitioning to compensated shares generation phase");
                         System.out.println("📊 Need to generate shares for " + totalCompensatedGuardians + " other guardians");
+                        
+                        // Get stored credentials from Redis (secure in-memory cache)
+                        String decryptedPrivateKey = credentialCacheService.getPrivateKey(electionId, guardianId);
+                        String decryptedPolynomial = credentialCacheService.getPolynomial(electionId, guardianId);
+                        
+                        if (decryptedPrivateKey == null || decryptedPolynomial == null) {
+                            System.err.println("❌ ERROR: Missing credentials in Redis cache (may have expired)");
+                            System.err.println("❌ Cannot queue compensated tasks without credentials");
+                            status.setStatus("failed");
+                            status.setErrorMessage("Internal error: Decryption credentials expired or missing from cache");
+                            decryptionStatusRepository.save(status);
+                            return;
+                        }
+                        
+                        // Save the status first
+                        decryptionStatusRepository.save(status);
+                        
+                        // ✅ CRITICAL FIX: Queue compensated decryption tasks NOW
+                        System.out.println("🚀 Queueing compensated decryption tasks for guardian " + guardianId);
+                        
+                        // Get election center IDs (chunks)
+                        List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
+                        List<Long> electionCenterIds = electionCenters.stream()
+                            .map(ElectionCenter::getElectionCenterId)
+                            .sorted()
+                            .collect(Collectors.toList());
+                        
+                        // Update total chunks for compensated phase
+                        int totalCompensatedTasks = electionCenterIds.size() * totalCompensatedGuardians;
+                        status.setTotalChunks(totalCompensatedTasks);
+                        decryptionStatusRepository.save(status);
+                        
+                        System.out.println("📋 Total compensated tasks to queue: " + totalCompensatedTasks + 
+                            " (" + electionCenterIds.size() + " chunks × " + totalCompensatedGuardians + " guardians)");
+                        
+                        // Queue the tasks
+                        try {
+                            decryptionTaskQueueService.queueCompensatedDecryptionTasks(
+                                electionId,
+                                guardianId,
+                                electionCenterIds,
+                                decryptedPrivateKey,
+                                decryptedPolynomial
+                            );
+                            System.out.println("✅ Compensated decryption tasks queued successfully");
+                        } catch (Exception e) {
+                            System.err.println("❌ Failed to queue compensated tasks: " + e.getMessage());
+                            e.printStackTrace();
+                            status.setStatus("failed");
+                            status.setErrorMessage("Failed to queue compensated tasks: " + e.getMessage());
+                            decryptionStatusRepository.save(status);
+                        }
+                        
+                        return; // Exit early since we saved already
                     }
                 }
                 
@@ -686,6 +777,7 @@ public class TaskWorkerService {
             }
         } catch (Exception e) {
             System.err.println("Failed to update partial decryption progress: " + e.getMessage());
+            e.printStackTrace();
         }
     }
     
@@ -726,12 +818,17 @@ public class TaskWorkerService {
                 if (totalCompensatedTasks > 0 && status.getProcessedChunks() >= totalCompensatedTasks) {
                     status.setStatus("completed");
                     status.setCurrentPhase("completed");
+                    status.setCompensatedSharesCompletedAt(Instant.now());
                     status.setCompletedAt(Instant.now());
+                    
+                    // ✅ Clear credentials from Redis cache now that we're done
+                    credentialCacheService.clearCredentials(electionId, guardianId);
                     
                     // Mark guardian as decrypted (needed for frontend combine button)
                     markGuardianAsDecrypted(guardianId);
                     
                     System.out.println("✅ All compensated decryption tasks completed for guardian " + guardianId);
+                    System.out.println("🔒 Credentials securely removed from Redis cache");
                 }
                 
                 decryptionStatusRepository.save(status);

@@ -36,4 +36,13 @@ public class DecryptionStatusResponse {
     private String startedAt;
     private String completedAt;
     private String errorMessage;
+    
+    // ✅ NEW: Timing information for each phase
+    private String partialDecryptionStartedAt;
+    private String partialDecryptionCompletedAt;
+    private Long partialDecryptionDurationSeconds;
+    private String compensatedSharesStartedAt;
+    private String compensatedSharesCompletedAt;
+    private Long compensatedSharesDurationSeconds;
+    private Long totalDurationSeconds;
 }

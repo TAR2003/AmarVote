@@ -163,6 +163,12 @@ CREATE TABLE IF NOT EXISTS decryption_status (
     total_compensated_guardians INT DEFAULT 0,
     processed_compensated_guardians INT DEFAULT 0,
 
+    -- Timing information for each phase
+    partial_decryption_started_at TIMESTAMP,
+    partial_decryption_completed_at TIMESTAMP,
+    compensated_shares_started_at TIMESTAMP,
+    compensated_shares_completed_at TIMESTAMP,
+
     -- Metadata
     guardian_email VARCHAR(255),
     guardian_name VARCHAR(255),

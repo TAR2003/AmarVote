@@ -83,4 +83,18 @@ public class DecryptionStatus {
     
     @Column(name = "updated_at")
     private Instant updatedAt;
+    
+    // Timing information for partial decryption phase
+    @Column(name = "partial_decryption_started_at")
+    private Instant partialDecryptionStartedAt;
+    
+    @Column(name = "partial_decryption_completed_at")
+    private Instant partialDecryptionCompletedAt;
+    
+    // Timing information for compensated shares generation phase
+    @Column(name = "compensated_shares_started_at")
+    private Instant compensatedSharesStartedAt;
+    
+    @Column(name = "compensated_shares_completed_at")
+    private Instant compensatedSharesCompletedAt;
 }

@@ -80,6 +80,9 @@ public class PartialDecryptionService {
     
     @Autowired
     private DecryptionTaskQueueService decryptionTaskQueueService;
+    
+    @Autowired
+    private CredentialCacheService credentialCacheService;
 
     /**
      * Periodic GC hint and memory monitoring utility
@@ -487,6 +490,29 @@ public class PartialDecryptionService {
             ? (status.getProcessedCompensatedGuardians() * 100.0) / status.getTotalCompensatedGuardians()
             : 0.0;
         
+        // Calculate duration for each phase
+        Long partialDuration = null;
+        if (status.getPartialDecryptionStartedAt() != null) {
+            Instant endTime = status.getPartialDecryptionCompletedAt() != null 
+                ? status.getPartialDecryptionCompletedAt() 
+                : Instant.now();
+            partialDuration = java.time.Duration.between(status.getPartialDecryptionStartedAt(), endTime).getSeconds();
+        }
+        
+        Long compensatedDuration = null;
+        if (status.getCompensatedSharesStartedAt() != null) {
+            Instant endTime = status.getCompensatedSharesCompletedAt() != null 
+                ? status.getCompensatedSharesCompletedAt() 
+                : Instant.now();
+            compensatedDuration = java.time.Duration.between(status.getCompensatedSharesStartedAt(), endTime).getSeconds();
+        }
+        
+        Long totalDuration = null;
+        if (status.getStartedAt() != null) {
+            Instant endTime = status.getCompletedAt() != null ? status.getCompletedAt() : Instant.now();
+            totalDuration = java.time.Duration.between(status.getStartedAt(), endTime).getSeconds();
+        }
+        
         return DecryptionStatusResponse.builder()
             .success(true)
             .status(status.getStatus())
@@ -506,6 +532,13 @@ public class PartialDecryptionService {
             .startedAt(status.getStartedAt() != null ? status.getStartedAt().toString() : null)
             .completedAt(status.getCompletedAt() != null ? status.getCompletedAt().toString() : null)
             .errorMessage(status.getErrorMessage())
+            .partialDecryptionStartedAt(status.getPartialDecryptionStartedAt() != null ? status.getPartialDecryptionStartedAt().toString() : null)
+            .partialDecryptionCompletedAt(status.getPartialDecryptionCompletedAt() != null ? status.getPartialDecryptionCompletedAt().toString() : null)
+            .partialDecryptionDurationSeconds(partialDuration)
+            .compensatedSharesStartedAt(status.getCompensatedSharesStartedAt() != null ? status.getCompensatedSharesStartedAt().toString() : null)
+            .compensatedSharesCompletedAt(status.getCompensatedSharesCompletedAt() != null ? status.getCompensatedSharesCompletedAt().toString() : null)
+            .compensatedSharesDurationSeconds(compensatedDuration)
+            .totalDurationSeconds(totalDuration)
             .build();
     }
 
@@ -544,22 +577,6 @@ public class PartialDecryptionService {
             long maxMemoryMB = runtime.maxMemory() / (1024 * 1024);
             System.out.println("Max heap size: " + maxMemoryMB + " MB");
             
-            // Initialize status with totalCompensatedGuardians set from the beginning
-            Optional<DecryptionStatus> statusOpt = decryptionStatusRepository
-                .findByElectionIdAndGuardianId(request.election_id(), guardian.getGuardianId());
-            if (statusOpt.isPresent()) {
-                DecryptionStatus status = statusOpt.get();
-                status.setStatus("in_progress");
-                status.setCurrentPhase("partial_decryption");
-                status.setProcessedChunks(0);
-                status.setTotalChunks(electionCenterIds.size());
-                status.setCurrentChunkNumber(0);
-                status.setTotalCompensatedGuardians(totalCompensatedGuardians);
-                status.setProcessedCompensatedGuardians(0);
-                status.setUpdatedAt(Instant.now());
-                decryptionStatusRepository.save(status);
-            }
-            
             // Get election and choices
             Optional<Election> electionOpt = electionRepository.findById(request.election_id());
             if (!electionOpt.isPresent()) {
@@ -568,8 +585,12 @@ public class PartialDecryptionService {
             Election election = electionOpt.get();
             
             List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(request.election_id());
-            List<String> candidateNames = choices.stream().map(ElectionChoice::getOptionTitle).toList();
-            List<String> partyNames = choices.stream().map(ElectionChoice::getPartyName).toList();
+            List<String> candidateNames = choices.stream()
+                .map(ElectionChoice::getOptionTitle)
+                .collect(Collectors.toList());
+            List<String> partyNames = choices.stream()
+                .map(ElectionChoice::getPartyName)
+                .collect(Collectors.toList());
             
             // Decrypt guardian credentials
             String guardianCredentials = guardian.getCredentials();
@@ -584,9 +605,34 @@ public class PartialDecryptionService {
             
             System.out.println("✅ Guardian credentials decrypted successfully");
             
-            // ✅ NEW: Instead of processing in loop, send tasks to RabbitMQ queue
-            // PHASE 1: Queue partial decryption tasks
+            // Initialize status with totalCompensatedGuardians and credentials stored
+            Optional<DecryptionStatus> statusOpt = decryptionStatusRepository
+                .findByElectionIdAndGuardianId(request.election_id(), guardian.getGuardianId());
+            if (statusOpt.isPresent()) {
+                DecryptionStatus status = statusOpt.get();
+                status.setStatus("in_progress");
+                status.setCurrentPhase("partial_decryption");
+                status.setProcessedChunks(0);
+                status.setTotalChunks(electionCenterIds.size());
+                status.setCurrentChunkNumber(0);
+                status.setTotalCompensatedGuardians(totalCompensatedGuardians);
+                status.setProcessedCompensatedGuardians(0);
+                status.setPartialDecryptionStartedAt(Instant.now());
+                status.setUpdatedAt(Instant.now());
+                
+                decryptionStatusRepository.save(status);
+            }
+            
+            // ✅ SECURE: Store credentials in Redis (in-memory, auto-expiring) instead of database
+            // Industry best practice for temporary sensitive data - no database breach exposure
+            credentialCacheService.storePrivateKey(request.election_id(), guardian.getGuardianId(), decryptedPrivateKey);
+            credentialCacheService.storePolynomial(request.election_id(), guardian.getGuardianId(), decryptedPolynomial);
+            System.out.println("🔒 Guardian credentials stored securely in Redis with 1-hour TTL");
+            
+            // ✅ CRITICAL FIX: Queue ONLY partial decryption tasks first
+            // Compensated tasks will be queued automatically AFTER all partial tasks complete
             System.out.println("=== PHASE 1: QUEUEING PARTIAL DECRYPTION TASKS (" + electionCenterIds.size() + " chunks) ===");
+            System.out.println("⚠️ IMPORTANT: Compensated decryption tasks will be queued AFTER all partial tasks complete");
             
             decryptionTaskQueueService.queuePartialDecryptionTasks(
                 request.election_id(),
@@ -598,20 +644,7 @@ public class PartialDecryptionService {
             
             System.out.println("✅ All partial decryption tasks queued");
             System.out.println("Workers will process chunks one at a time, releasing memory after each chunk");
-            
-            // PHASE 2: Queue compensated decryption tasks
-            System.out.println("=== PHASE 2: QUEUEING COMPENSATED DECRYPTION TASKS ===");
-            
-            decryptionTaskQueueService.queueCompensatedDecryptionTasks(
-                request.election_id(),
-                guardian.getGuardianId(),
-                electionCenterIds,
-                decryptedPrivateKey,
-                decryptedPolynomial
-            );
-            
-            System.out.println("✅ All compensated decryption tasks queued");
-            System.out.println("Workers will process tasks one at a time, releasing memory after each task");
+            System.out.println("📋 Compensated decryption tasks will be automatically queued after Phase 1 completes");
             
             /* OLD CODE - Replaced with RabbitMQ queue-based processing
             // PHASE 1: Process each chunk for partial decryption (MEMORY-EFFICIENT)
