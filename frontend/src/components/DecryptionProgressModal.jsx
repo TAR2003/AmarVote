@@ -35,10 +35,13 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
       }
     } else if (status.status === 'completed' || status.currentPhase === 'completed') {
       // When completed, backend keeps totalChunks as-is from last phase
-      // For completed state, use the same logic as compensated phase
-      if (otherGuardians > 0 && (status.totalChunks || 0) > numChunks) {
+      // For completed state, determine actual chunks from the phase before completion
+      if (otherGuardians > 0) {
+        // If there were other guardians, the totalChunks was updated to n*(m-1) in compensated phase
+        // So actual chunks = totalChunks / (m-1)
         numChunks = Math.floor((status.totalChunks || 0) / otherGuardians);
       } else {
+        // Single guardian: totalChunks = n
         numChunks = status.totalChunks || 0;
       }
     } else {

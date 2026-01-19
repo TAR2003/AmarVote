@@ -67,6 +67,7 @@ import AnimatedResults from '../components/AnimatedResults';
 import TallyCreationModal from '../components/TallyCreationModal';
 import DecryptionProgressModal from '../components/DecryptionProgressModal';
 import CombineProgressModal from '../components/CombineProgressModal';
+import ElectionTimeline from '../components/ElectionTimeline';
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -279,6 +280,7 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData, ani
 
   const verificationTabs = [
     { id: 'overview', name: 'Overview', icon: FiEye },
+    { id: 'timeline', name: 'Timeline', icon: FiClock },
     { id: 'guardians', name: 'Guardians', icon: FiShield },
     { id: 'chunks', name: 'Chunks & Tallies', icon: FiLayers },
     { id: 'compensated', name: 'Compensated Decryptions', icon: FiRefreshCw },
@@ -384,6 +386,11 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData, ani
         {/* Overview Tab */}
         {verificationSubTab === 'overview' && (
           <OverviewTabContent electionData={electionData} id={id} animatedResults={animatedResults} />
+        )}
+
+        {/* Timeline Tab */}
+        {verificationSubTab === 'timeline' && (
+          <ElectionTimeline electionId={id} electionData={electionData} />
         )}
 
         {/* Guardians Tab */}
@@ -1983,6 +1990,20 @@ export default function ElectionPage() {
           // Check if results already exist (election status is 'decrypted')
           if (data.status === 'decrypted') {
             console.log('✅ Results already computed. Loading cached results...');
+            
+            // Check combine status to see if we need to show combine button
+            try {
+              const combineStatusData = await electionApi.getCombineStatus(id);
+              console.log('🔍 Combine status:', combineStatusData);
+              setCombineStatus(combineStatusData);
+              
+              // If combine is completed, load the results immediately
+              if (combineStatusData.status === 'completed') {
+                console.log('✅ Combine already completed, loading results...');
+              }
+            } catch (err) {
+              console.warn('No combine status found:', err);
+            }
             
             // Fetch cached results from new endpoint
             try {
@@ -4479,7 +4500,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                         </div>
                       )}
 
-                      {needsDecryption && quorumMet && (
+                      {needsDecryption && quorumMet && (!combineStatus || combineStatus.status !== 'completed') && (
                         <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
                           <div className="text-center">
                             <FiKey className="h-12 w-12 text-blue-500 mx-auto mb-4" />

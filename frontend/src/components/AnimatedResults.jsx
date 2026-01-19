@@ -29,6 +29,9 @@ const AnimatedResults = ({ electionResults }) => {
     // Don't re-animate if we've already animated this exact data
     if (dataKey === lastAnimatedDataKey) {
       console.log('⏭️ [AnimatedResults] Skipping animation - same data already animated');
+      // Set final state immediately without animation
+      setCurrentTotals(electionResults.results.finalTallies || {});
+      setIsAnimating(false);
       return;
     }
     
@@ -128,11 +131,6 @@ const AnimatedResults = ({ electionResults }) => {
           <p className="text-blue-100 text-lg">Total Votes Cast: <span className="font-bold text-white">{totalVotes}</span></p>
           <p className="text-blue-100 text-lg">Total Ballots: <span className="font-bold text-white">{totalBallots}</span></p>
         </div>
-        {isAnimating && (
-          <p className="text-sm text-blue-200 mt-2 animate-pulse">
-            Processing chunk {animationStep} of {results.totalChunks}...
-          </p>
-        )}
       </div>
 
       {/* Animated Vote Columns */}

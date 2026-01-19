@@ -234,6 +234,20 @@ export const electionApi = {
     }
   },
 
+  /**
+   * Get guardian decryption status by guardian ID (for timeline)
+   */
+  async getDecryptionStatusByGuardianId(electionId, guardianId) {
+    try {
+      return await apiRequest(`/guardian/decryption-status/${electionId}/${guardianId}`, {
+        method: 'GET',
+      });
+    } catch (error) {
+      console.error('Error getting decryption status by guardian ID:', error);
+      throw error;
+    }
+  },
+
   /**   * Create tally for an election (legacy endpoint, now uses async system)
    */
   async createTally(electionId) {
