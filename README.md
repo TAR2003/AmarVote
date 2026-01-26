@@ -52,9 +52,9 @@ cd AmarVote
 cp .env.example .env
 nano .env  # Edit with your values
 
-# Deploy with automated script
-chmod +x deploy-prod.sh
-./deploy-prod.sh
+# Deploy with automated script (located in docs/)
+chmod +x docs/deploy-prod.sh
+./docs/deploy-prod.sh
 ```
 
 **That's it!** The script will:
@@ -69,24 +69,25 @@ See **[PRODUCTION_DEPLOYMENT_4GB.md](PRODUCTION_DEPLOYMENT_4GB.md)** for detaile
 ---
 
 **Youtube Demonstration Links:**
-- 🎥 **Platform Features**: https://youtu.be/ixsvvl_7qVo
-- 🏗️ **Infrastructure Overview**: https://youtu.be/t8VOLdYIV40
+- 🎥 **Platform Features**: <https://youtu.be/ixsvvl_7qVo>
+- 🏗️ **Infrastructure Overview**: <https://youtu.be/t8VOLdYIV40>
 
 
 ## 🌟 Key Features
 
 ### 🔐 **Cryptographic Security**
 - **ElectionGuard Integration**: Microsoft's open-source end-to-end verifiable voting SDK
-- **Post-Quantum Cryptography**: ML-KEM-1024 encryption for guardian private keys (using pqcrypto library)
+- **Post-Quantum Cryptography**: ML-KEM-1024 (NIST-standardized Kyber) encryption for guardian private keys in ElectionGuard microservice (using pqcrypto library)
 - **Homomorphic Encryption**: Vote tallying without decrypting individual ballots
 - **Zero-Knowledge Proofs**: Mathematical verification using Chaum-Pedersen and Schnorr proofs
 - **Threshold Decryption**: Quorum-based guardian key management with backup compensation
 
-### 🔗 **Blockchain Verification**
-- **Immutable Audit Trail**: Ballot verification using local blockchain (Ganache)
-- **Smart Contract Security**: Solidity contracts for tamper-proof ballot verification
-- **Public Verification**: Anyone can verify ballot authenticity via blockchain API
+### 🔗 **Blockchain Verification** (Optional Feature)
+- **Immutable Audit Trail**: Ballot verification using local blockchain (Ganache) - currently disabled
+- **Smart Contract Security**: Solidity contracts for tamper-proof ballot verification (infrastructure ready)
+- **Public Verification**: Blockchain API available when enabled
 - **Timestamped Records**: All ballots include cryptographic timestamps
+- **Status**: Complete blockchain infrastructure exists but is commented out in docker-compose configurations. Can be enabled by uncommenting relevant services.
 
 ### 🛡️ **Advanced Security Features**
 - **Bot Detection**: FingerprintJS-powered anti-fraud protection during vote casting
@@ -121,17 +122,44 @@ See **[PRODUCTION_DEPLOYMENT_4GB.md](PRODUCTION_DEPLOYMENT_4GB.md)** for detaile
 │   (Port 5173)   │◄──►│  Backend         │◄──►│  Microservice       │
 │                 │    │  (Port 8080)     │    │  (Port 5000)        │
 └─────────────────┘    └──────────────────┘    └─────────────────────┘
-                     /           │                        │
-                    /            │                        │
-                   ▼             ▼                        ▼
+         │                      │                        │
+         │                      │                        │
+         ▼                      ▼                        ▼
 ┌─────────────────┐    ┌──────────────────┐    ┌─────────────────────┐
-│   RAG Service   │    │  PostgreSQL      │    │  Blockchain API     │
-│   (Port 5001)   │    │  Database        │    │  (Optional)         │
-│   [PROD ONLY]   │    │  (Neon Cloud)    │    │  (Port 5002)        │
+│   RabbitMQ      │    │  PostgreSQL      │    │  Redis Cache        │
+│   (Port 5672)   │    │  Database        │    │  (Port 6379)        │
+│   Worker Queue  │    │  Neon/Local      │    │  Credentials        │
 └─────────────────┘    └──────────────────┘    └─────────────────────┘
+         │                      │                        │
+         │                      ▼                        │
+         │             ┌──────────────────┐             │
+         │             │  Prometheus      │◄────────────┘
+         │             │  (Port 9090)     │
+         │             │  Monitoring      │
+         │             └──────────────────┘
+         │                      │
+         │                      ▼
+         │             ┌──────────────────┐
+         └────────────►│   Grafana        │
+                       │   (Port 3000)    │
+                       │   Dashboard      │
+                       └──────────────────┘
+
+┌─────────────────────────────────────────────────────────────┐
+│  Optional Services (Commented out - can be enabled):        │
+│  • RAG Service (Port 5001) - AI Assistant                   │
+│  • Blockchain API (Port 5002) - Ganache + Smart Contracts   │
+│  • Voting API - Blockchain integration service              │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-**Note**: Blockchain services and some auxiliary services are currently commented out in development but available for production deployment.
+**Active Services:**
+- ✅ **Development**: Frontend, Backend, ElectionGuard, RabbitMQ, Redis
+- ✅ **Production**: All development services + Local PostgreSQL, Prometheus, Grafana
+
+**Optional Services** (infrastructure ready, commented out):
+- ⚠️ RAG Service: AI-powered help system
+- ⚠️ Blockchain: Ganache, smart contracts, and blockchain API
 
 ### **Technology Stack**
 
@@ -140,13 +168,17 @@ See **[PRODUCTION_DEPLOYMENT_4GB.md](PRODUCTION_DEPLOYMENT_4GB.md)** for detaile
 | **Frontend**         | React + Vite           | 19.1.0      | User interface and interaction    |
 | **Backend**          | Spring Boot            | 3.5.0       | Core business logic and REST APIs |
 | **Security**         | Spring Security        | 6.x         | Authentication and authorization  |
-| **Database**         | PostgreSQL             | Latest      | Data persistence (Neon Cloud)     |
+| **Database**         | PostgreSQL             | 15          | Data persistence (Neon Cloud or Local) |
 | **Cryptography**     | ElectionGuard          | Python 3.12 | Vote encryption and verification  |
-| **Post-Quantum**     | pqcrypto (ML-KEM-1024) | Latest      | Quantum-resistant encryption      |
-| **Blockchain**       | Ganache + Web3         | Latest      | Immutable audit trail (optional)  |
+| **Post-Quantum**     | pqcrypto (ML-KEM-1024) | Latest      | Guardian key encryption (ElectionGuard) |
+| **Message Queue**    | RabbitMQ               | 3.13        | Async task processing & memory management |
+| **Cache/Storage**    | Redis                  | 7           | Temporary credential storage      |
+| **Monitoring**       | Prometheus + Grafana   | Latest      | Metrics collection and visualization |
+| **Resilience**       | Resilience4j           | 2.1.0       | Circuit breaker and retry logic   |
 | **Containerization** | Docker Compose         | Latest      | Service orchestration             |
 | **Bot Detection**    | FingerprintJS BotD     | 1.9.1       | Anti-fraud protection             |
-| **AI Assistant**     | RAG System             | Custom      | Document-based help system        |
+| **Blockchain**       | Ganache + Web3         | Latest      | Immutable audit trail (optional)  |
+| **AI Assistant**     | RAG System             | Custom      | Document help system (optional)   |
 
 ---
 
@@ -200,45 +232,50 @@ AmarVote/
 │   ├── requirements.txt       # Python dependencies
 │   └── Dockerfile             # Service containerization
 │
-├── 🤖 rag-service/            # AI Assistant Service
+├── 🤖 rag-service/            # AI Assistant Service (Optional)
 │   ├── app.py                 # RAG application
 │   ├── rag_processor.py       # Document processing
 │   ├── setup_rag.py           # Setup and initialization
 │   ├── AmarVote_User_Guide.md # Knowledge base document
 │   ├── requirements.txt       # Dependencies
+│   ├── test_rag.py            # RAG testing utilities
 │   └── Dockerfile             # Service containerization
 │
 ├── 🗄️ Database/               # Database Schema and Scripts
-│   ├── table_creation_file_AmarVote.sql    # Main database schema
-│   ├── table_deletion_file_AmarVote.sql    # Cleanup scripts
-│   ├── fix_duplicate_ballots.sql           # Maintenance scripts
-│   └── alter_delete.sql                    # Schema modifications
+│   ├── creation/              # Table creation scripts
+│   ├── deletion/              # Table deletion scripts
+│   └── init/                  # Database initialization scripts
 │
 ├── 🐳 Docker Configuration
-│   ├── docker-compose.yml     # Development environment
-│   ├── docker-compose.prod.yml # Production environment
-│   └── */Dockerfile*         # Individual service containers
+│   ├── docker-compose.yml     # Development environment (Neon DB + core services)
+│   ├── docker-compose.prod.yml # Production environment (Local PostgreSQL + monitoring)
+│   ├── rabbitmq.conf          # RabbitMQ production configuration
+│   └── */Dockerfile*          # Individual service containers
 │
-├── 📚 docs/                   # Documentation
-│   ├── api.md                 # API documentation
-│   ├── setup.md               # Setup instructions
-│   ├── electionguard_config.md # ElectionGuard configuration
-│   ├── RAG_SETUP.md           # RAG service setup guide
-│   └── usage.md               # Usage examples
+├── 📚 docs/                   # Documentation (90+ files)
+│   ├── RABBITMQ_QUICK_START.md         # RabbitMQ setup guide
+│   ├── RABBITMQ_WORKER_ARCHITECTURE.md # Worker architecture details
+│   ├── PRODUCTION_DEPLOYMENT_4GB.md    # Production deployment guide
+│   ├── api.md                          # API documentation
+│   ├── setup.md                        # Setup instructions
+│   ├── electionguard_config.md         # ElectionGuard configuration
+│   ├── RAG_SETUP.md                    # RAG service setup guide
+│   ├── MEMORY_*.md                     # Memory optimization guides
+│   ├── deploy-prod.sh                  # Production deployment script
+│   └── ... (90+ additional documentation files)
 │
 ├── 🧪 test-results/           # Test execution results
 │
-└── 🔧 Configuration & Documentation
-    ├── README.md              # This file
-    ├── infrastructure.txt     # Detailed technical specifications
-    ├── SYSTEM_STATUS.md       # Current system status
-    ├── BlockChain.md          # Blockchain implementation details
-    ├── BOT_DETECTION_IMPLEMENTATION.md # Bot detection guide
-    ├── GUARDIAN_COMBINED_ENCRYPTION_IMPLEMENTATION.md
-    ├── DUPLICATE_BALLOTS_FIX.md
-    ├── test_api.py            # API testing script
-    ├── debug_partial_decryption.py # Debugging utilities
-    └── setup-rag.sh           # RAG service setup script
+├── 🔧 Configuration Files
+│   ├── README.md              # This file
+│   ├── infrastructure.txt     # Detailed technical specifications
+│   ├── nginx-proxy.conf       # Nginx reverse proxy configuration
+│   ├── package.json           # Root package configuration
+│   └── rabbitmq.conf          # RabbitMQ memory and queue settings
+│
+└── 🔍 Monitoring & Utilities
+    ├── prometheus/            # Prometheus monitoring configuration
+    └── test-results/          # Test execution results and reports
 ```
 
 ---
@@ -267,7 +304,7 @@ AmarVote/
    Create a `.env` file with the following variables:
 
    ```bash
-   # Database Configuration (Required)
+   # Database Configuration (Required for Development)
    NEON_HOST=your-neon-host
    NEON_PORT=5432
    NEON_DATABASE=your-database-name
@@ -275,15 +312,23 @@ AmarVote/
    NEON_PASSWORD=your-password
 
    # Security Configuration (Required)
-   MASTER_KEY_PQ=your-post-quantum-master-key
+   MASTER_KEY_PQ=your-post-quantum-master-key-for-guardians
    JWT_SECRET=your-jwt-secret-key
-   MAIL_PASSWORD=your-email-password
+   MAIL_PASSWORD=your-email-password-for-notifications
+
+   # Cloudinary Configuration (Required for image uploads)
+   CLOUDINARY_NAME=your-cloudinary-cloud-name
+   CLOUDINARY_KEY=your-cloudinary-api-key
+   CLOUDINARY_SECRET=your-cloudinary-api-secret
 
    # API Keys (Optional)
-   DEEPSEEK_API_KEY=your-deepseek-api-key
+   DEEPSEEK_API_KEY=your-deepseek-api-key-for-rag
    
-   # Blockchain Configuration (Optional - for blockchain features)
-   VOTING_API_URL=http://voting-api:5002
+   # Monitoring (Production Only)
+   GF_SECURITY_ADMIN_PASSWORD=your-grafana-admin-password
+   
+   # Note: Production uses local PostgreSQL, development uses Neon Cloud
+   # RabbitMQ and Redis credentials are in docker-compose files
    ```
 
 3. **Start Core Services (Development)**
@@ -326,12 +371,25 @@ AmarVote/
 | **Frontend**       | <http://localhost:5173> | ✅ Active    | Main user interface    |
 | **Backend API**    | <http://localhost:8080> | ✅ Active    | REST API endpoints     |
 | **ElectionGuard**  | <http://localhost:5000> | ✅ Active    | Cryptographic services |
-| **RAG Service**    | <http://localhost:5001> | 🏭 Prod Only | AI assistant           |
-| **Blockchain API** | <http://localhost:5002> | ⚠️ Optional  | Blockchain operations  |
+| **RabbitMQ UI**    | <http://localhost:15672>| ✅ Active    | Message queue management (guest/guest) |
+| **Prometheus**     | <http://localhost:9090> | 🏭 Prod Only | Metrics and monitoring |
+| **Grafana**        | <http://localhost:3000> | 🏭 Prod Only | Monitoring dashboards  |
+| **PostgreSQL**     | localhost:5432          | 🏭 Prod Only | Local database server  |
+| **Redis**          | localhost:6379          | ✅ Active    | Cache & credential storage |
+| **RAG Service**    | <http://localhost:5001> | ⚠️ Optional  | AI assistant (disabled)|
+| **Blockchain API** | <http://localhost:5002> | ⚠️ Optional  | Blockchain ops (disabled)|
+
+**Service Status Guide:**
+- ✅ **Active**: Running in both development and production
+- 🏭 **Prod Only**: Only available in production (docker-compose.prod.yml)
+- ⚠️ **Optional**: Infrastructure exists but commented out, can be enabled
 
 **Development Notes:**
-- RAG service is enabled in production but commented out in development
-- Blockchain services are optional and can be enabled by uncommenting in docker-compose.yml
+- Development uses Neon Cloud PostgreSQL (remote)
+- Production uses local PostgreSQL container
+- Prometheus + Grafana only in production for resource monitoring
+- RabbitMQ and Redis active in both environments
+- Blockchain and RAG services are fully implemented but disabled by default
 - All services use custom Docker bridge network (172.20.0.0/24)
 
 ---
@@ -459,10 +517,10 @@ sequenceDiagram
 | Component | Algorithm | Key Size | Purpose |
 |-----------|-----------|----------|---------|
 | **Vote Encryption** | ElGamal (ElectionGuard) | 4096-bit | Ballot encryption |
-| **Guardian Keys** | Post-Quantum KEM | 1024-bit | Private key protection |
-| **Digital Signatures** | Ed25519 | 256-bit | Transaction signing |
-| **Hash Functions** | SHA3-256 | 256-bit | Data integrity |
-| **Blockchain** | ECDSA | 256-bit | Smart contract security |
+| **Guardian Keys** | ML-KEM-1024 (Kyber) | 1024-bit | Post-quantum key encapsulation |
+| **JWT Authentication** | HMAC-SHA256 | 256-bit | Session token signing |
+| **Hash Functions** | SHA-256 | 256-bit | Data integrity |
+| **Blockchain** | ECDSA | 256-bit | Smart contract security (when enabled) |
 
 ### **Security Auditing**
 
@@ -560,12 +618,13 @@ docker-compose -f docker-compose.prod.yml logs -f
 
 | Environment Variable | Description | Default |
 |---------------------|-------------|---------|
-| `SPRING_DATASOURCE_URL` | Database connection URL | Required |
-| `NEON_USERNAME` | Database username | Required |
-| `NEON_PASSWORD` | Database password | Required |
-| `MASTER_KEY_PQ` | Post-quantum master key | Required |
+| `SPRING_DATASOURCE_URL` | Database connection URL | Neon Cloud (dev) / localhost:5432 (prod) |
+| `NEON_USERNAME` | Database username | Required for development |
+| `NEON_PASSWORD` | Database password | Required for development |
+| `MASTER_KEY_PQ` | Post-quantum master key for ElectionGuard | Required |
 | `JWT_SECRET` | JWT signing key | Generated |
-| `BLOCKCHAIN_NETWORK` | Blockchain network | development |
+| `RABBITMQ_HOST` | RabbitMQ server hostname | rabbitmq (docker) |
+| `SPRING_REDIS_HOST` | Redis server hostname | redis (docker) |
 
 ---
 
@@ -592,10 +651,16 @@ docker-compose -f docker-compose.prod.yml logs -f
 
 | Component   | Minimum | Recommended | Production |
 |-------------|---------|-------------|------------|
-| **CPU**     | 2 cores |   4 cores   |  8+ cores  |
-| **RAM**     |    4GB  |      8GB    |    16+ GB  |
+| **CPU**     | 2 cores |   4 cores   |  4+ cores  |
+| **RAM**     |    4GB  |      8GB    |   8+ GB    |
 | **Storage** |   20GB  |     50GB    |   100+ GB  |
 | **Network** | 10 Mbps |   100 Mbps  |   1+ Gbps  |
+
+**Notes:**
+- Production is optimized for 4GB RAM with RabbitMQ worker architecture
+- ElectionGuard microservice needs 768MB-1280MB for cryptographic operations
+- RabbitMQ, Redis, and backend combined use ~2-3GB
+- Swap space recommended for 4GB systems (see PRODUCTION_DEPLOYMENT_4GB.md)
 
 ---
 
@@ -1076,26 +1141,27 @@ alerts:
 ### **Learning Path**
 
 1. **Getting Started**
-   - [Platform Overview](docs/overview.md)
+   - Platform Overview (see README)
    - [Quick Start Guide](#quick-start-guide)
-   - [Basic Election Creation](docs/basic_election.md)
+   - [Setup Guide](docs/setup.md)
 
 2. **Advanced Features**
-   - [ElectionGuard Deep Dive](docs/electionguard_deep_dive.md)
-   - [Blockchain Integration](docs/blockchain_integration.md)
-   - [Security Architecture](docs/security_architecture.md)
+   - [ElectionGuard Configuration](docs/electionguard_config.md)
+   - [RabbitMQ Worker Architecture](docs/RABBITMQ_WORKER_ARCHITECTURE.md)
+   - [Memory Optimization](docs/MEMORY_OPTIMIZATION_COMPLETE.md)
 
 3. **Development**
    - [API Reference](docs/api.md)
-   - [Contributing Guidelines](CONTRIBUTING.md)
-   - [Development Setup](docs/development.md)
+   - [Testing Guide](frontend/TESTING.md)
+   - [Development Setup](docs/setup.md)
 
 ### **Video Tutorials**
 
-- **Election Creation Walkthrough**: Step-by-step election setup
-- **Voting Process Demo**: User experience demonstration  
-- **Verification Tutorial**: How to verify vote counting
-- **Admin Dashboard Tour**: Election management features
+**Note**: Video tutorials to be created. Platform demonstration includes:
+- Election creation and configuration workflow
+- Voting process with bot detection
+- Guardian key management and decryption
+- Results verification and audit capabilities
 
 ### **Research Papers**
 
@@ -1166,36 +1232,38 @@ alerts:
 
 ### **Getting Help**
 
-|      Channel      |                 Purpose                  | Response Time |
+|      Channel      |                 Purpose                  | Availability |
 |-------------------|------------------------------------------|---------------|
-| **GitHub Issues** | Bug reports and feature requests         |  24-48 hours  |
-| **Discord**       | Real-time community chat                 |  Immediate    |
-| **Email**         | Security issues and enterprise inquiries |  24 hours     |
-| **Documentation** | Self-service help                        |  Immediate    |
+| **GitHub Issues** | Bug reports and feature requests         |  Open Source  |
+| **Documentation** | Self-service help (90+ guides)           |  Immediate    |
+| **Email**         | Security issues and inquiries            |  Contact via GitHub |
 
-### **Community Resources**
-
-- **Discord Server**: [AmarVote Community](https://discord.gg/amarvote)
-- **GitHub Discussions**: [Technical discussions](https://github.com/TAR2003/AmarVote/discussions)
-- **Stack Overflow**: Tag questions with `amarvote`
-- **Reddit**: [r/SecureVoting](https://reddit.com/r/securevoting)
-
-### **Enterprise Support**
-
-For enterprise deployments and custom requirements:
-- **Professional Services**: Implementation assistance
-- **Training Programs**: Staff training and certification
-- **24/7 Support**: Premium support packages
-- **Custom Development**: Feature development services
+**Note**: Community channels (Discord, forums) to be established as project grows.
 
 ---
 
-## 🔮 Roadmap
+## 🔮 Roadmap & Future Enhancements
 
-- **Hyperledger Fabric Blockchain**
-- **Multi Dealer System**
-- **HSM/TPM integration**
-- **Full post-quantum application**
+### **Planned Features**
+- 🔗 **Hyperledger Fabric Integration**: Enterprise blockchain for production environments
+- 🔐 **Multi-Dealer System**: Distributed key generation across multiple dealers
+- 🔒 **HSM/TPM Integration**: Hardware security module support for key storage
+- 🛡️ **Full Post-Quantum Application**: Extend ML-KEM-1024 to entire application stack
+- 🌐 **Load Balancing**: Multi-instance backend deployment with load balancer
+- 📊 **Advanced Analytics**: Real-time voting pattern analysis and anomaly detection
+
+### **Optional Features to Enable**
+- ✅ **RAG AI Assistant**: Uncomment in docker-compose files for intelligent help system
+- ✅ **Blockchain Verification**: Uncomment blockchain services for immutable audit trail
+- ✅ **Horizontal Scaling**: Add more RabbitMQ workers for increased throughput
+
+### **Recently Completed**
+- ✅ RabbitMQ worker architecture for memory-efficient processing
+- ✅ Redis-based secure credential storage
+- ✅ Prometheus + Grafana monitoring stack
+- ✅ Production deployment with 4GB RAM optimization
+- ✅ Comprehensive testing suite (90+ test coverage)
+- ✅ ML-KEM-1024 post-quantum encryption for guardian keys
 
 ---
 
@@ -1223,22 +1291,9 @@ For enterprise deployments and custom requirements:
 
 ### **Open Source License**
 
-AmarVote is released under the **MIT License**, promoting open-source adoption while ensuring commercial viability.
+AmarVote is intended to be released under the **MIT License**, promoting open-source adoption while ensuring commercial viability.
 
-```
-MIT License
-
-Copyright (c) 2025 TAR2003
-
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the "Software"), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
-
-[Full license text...]
-```
+**Note**: Formal LICENSE file to be added. The project incorporates open-source components under their respective licenses:
 
 ### **Third-Party Licenses**
 
@@ -1250,21 +1305,28 @@ furnished to do so, subject to the following conditions:
 
 ### **Compliance & Certifications**
 
-- **SOC 2 Type II**: Security and availability
-- **ISO 27001**: Information security management
-- **NIST Cybersecurity Framework**: Security controls
-- **GDPR Compliant**: Data protection and privacy
-- **Election Standards**: Compliance with voting regulations
+**Note**: Formal security certifications are planned for production deployment. The platform implements:
+- **OWASP Security Practices**: Secure coding standards
+- **NIST Post-Quantum Standards**: ML-KEM-1024 implementation
+- **Election Security Best Practices**: Based on ElectionGuard specifications
+- **GDPR Considerations**: Privacy-preserving cryptographic design
+- **Open Source Transparency**: Full code visibility for auditing
 
 ---
 
 ## 🔗 Useful Links
 
-### **Official Resources**
+### **Project Resources**
 - **GitHub Repository**: [https://github.com/TAR2003/AmarVote](https://github.com/TAR2003/AmarVote)
-- **Documentation Site**: [https://amarvote.github.io/docs](https://amarvote.github.io/docs)
-- **API Reference**: [https://api.amarvote.org/docs](https://api.amarvote.org/docs)
-- **Status Page**: [https://status.amarvote.org](https://status.amarvote.org)
+- **Documentation**: See `docs/` folder (90+ guides and references)
+- **API Documentation**: See [docs/api.md](docs/api.md)
+- **Setup Guide**: See [docs/setup.md](docs/setup.md)
+
+### **Quick Start Guides**
+- **RabbitMQ Architecture**: [docs/RABBITMQ_QUICK_START.md](docs/RABBITMQ_QUICK_START.md)
+- **Production Deployment**: [docs/PRODUCTION_DEPLOYMENT_4GB.md](docs/PRODUCTION_DEPLOYMENT_4GB.md)
+- **Memory Optimization**: [docs/MEMORY_OPTIMIZATION_COMPLETE.md](docs/MEMORY_OPTIMIZATION_COMPLETE.md)
+- **RAG Setup** (optional): [docs/RAG_SETUP.md](docs/RAG_SETUP.md)
 
 ### **Related Projects**
 - **ElectionGuard**: [https://github.com/microsoft/electionguard](https://github.com/microsoft/electionguard)
@@ -1286,31 +1348,70 @@ AmarVote represents a cutting-edge secure voting platform that combines **Electi
 
 **✅ Fully Implemented Core Features:**
 - 🔐 **ElectionGuard Integration**: Complete cryptographic voting system with homomorphic tallying
-- 🚀 **Spring Boot Backend**: Robust REST API with JWT authentication and comprehensive error handling  
-- 📱 **React Frontend**: Modern, responsive user interface with real-time updates and bot detection
-- 🛡️ **Post-Quantum Cryptography**: ML-KEM-1024 encryption for guardian key protection
+- 🚀 **Spring Boot Backend**: Robust REST API with JWT authentication, RabbitMQ workers, and Resilience4j circuit breakers
+- 📱 **React Frontend**: Modern React 19 with Vite, bot detection (FingerprintJS), and comprehensive testing (Vitest)
+- 🛡️ **Post-Quantum Cryptography**: ML-KEM-1024 (NIST-standardized Kyber) encryption in ElectionGuard microservice
 - 🔍 **End-to-End Verifiability**: Complete audit trail from vote casting to result tallying
-- 🧪 **Comprehensive Testing**: Unit, integration, and end-to-end test suites across all components
-- 🐳 **Docker Deployment**: Containerized architecture with development and production configurations
+- 🐰 **RabbitMQ Worker Architecture**: Memory-efficient async processing with 4 specialized queues (tally, partial decrypt, compensated decrypt, combine decrypt)
+- 💾 **Redis Integration**: Secure temporary storage for guardian credentials with TTL expiration
+- 📊 **Production Monitoring**: Prometheus metrics collection + Grafana dashboards (production only)
+- 🧪 **Comprehensive Testing**: 90+ test coverage with unit, integration, and E2E tests across all components
+- 🐳 **Docker Deployment**: Multi-environment configurations (dev with Neon DB, prod with local PostgreSQL)
+- 🔄 **Resilience Patterns**: Circuit breakers, retry logic, and graceful degradation with Resilience4j
 
-**🏭 Production-Ready Optional Features:**
-- 🤖 **RAG AI Assistant**: Document-based help system for user guidance
-- ⛓️ **Blockchain Verification**: Immutable ballot verification using Ganache and Solidity smart contracts
-- 📊 **Advanced Analytics**: Election monitoring and reporting capabilities
+**🏭 Production-Ready Features:**
+- ✅ **Memory Optimization**: 4GB RAM deployment with proper limits and swap configuration
+- ✅ **Local PostgreSQL**: Production uses containerized PostgreSQL 15 for data sovereignty
+- ✅ **Monitoring Stack**: Prometheus + Grafana for real-time system health monitoring
+- ✅ **Async Task Processing**: RabbitMQ handles cryptographic operations with memory cleanup
+- ✅ **Secure Credentials**: Redis-based temporary storage with automatic expiration
+
+**⚠️ Optional Features (Infrastructure Ready, Currently Disabled):**
+- 🤖 **RAG AI Assistant**: Document-based help system using DeepSeek API
+- ⛓️ **Blockchain Verification**: Complete Ganache + Solidity smart contract infrastructure
+- 🔗 **Blockchain API**: Flask-based microservice for blockchain interactions
+- 📋 **Full Audit Trail**: Blockchain-based immutable ballot verification
 
 **🎯 Key Technical Achievements:**
-- **Guardian-Based Security**: Quorum-based threshold decryption with backup compensation
-- **Bot Detection**: FingerprintJS integration for fraud prevention
+- **RabbitMQ Worker Architecture**: Asynchronous task processing with 4 dedicated queues (tally creation, partial decryption, compensated decryption, combine decryption) preventing OOM errors on large elections (1000+ chunks)
+- **Memory Management**: Sequential processing with `entityManager.clear()` + explicit GC after each task ensures stable memory usage even with limited resources
+- **Guardian-Based Security**: Quorum-based threshold decryption with backup compensation using Lagrange interpolation
+- **Bot Detection**: FingerprintJS BotD integration for fraud prevention during vote casting
 - **Cryptographic Proofs**: Chaum-Pedersen and Schnorr zero-knowledge proofs for vote validity
-- **Scalable Architecture**: Microservices design supporting horizontal scaling
-- **Database Integration**: PostgreSQL with Neon Cloud for reliable data persistence
+- **Resilience Patterns**: Circuit breakers, retry logic, and timeout handling with Resilience4j
+- **Redis Credential Storage**: Secure temporary storage for decrypted guardian keys with automatic TTL expiration
+- **Scalable Architecture**: Microservices design with horizontal scaling capability via RabbitMQ worker concurrency
+- **Production Monitoring**: Prometheus + Grafana stack for real-time system health and performance metrics
+- **Database Flexibility**: Neon Cloud for development, local PostgreSQL for production data sovereignty
 
 ### **Deployment Flexibility**
 
 The platform supports multiple deployment configurations:
-- **Development**: Core services (Frontend + Backend + ElectionGuard)
-- **Production**: Full feature set including AI assistant and blockchain verification
-- **Hybrid**: Configurable service selection based on requirements
+
+#### **Development Environment** (docker-compose.yml)
+- ✅ Frontend (React + Vite)
+- ✅ Backend (Spring Boot with RabbitMQ + Redis)
+- ✅ ElectionGuard Microservice (Python + ML-KEM-1024)
+- ✅ RabbitMQ (Message queue for async tasks)
+- ✅ Redis (Credential cache)
+- 🌐 Remote Neon Cloud PostgreSQL
+- ⚠️ RAG Service (commented out)
+- ⚠️ Blockchain Services (commented out)
+
+#### **Production Environment** (docker-compose.prod.yml)
+- ✅ All development services
+- ✅ Local PostgreSQL 15 container (data sovereignty)
+- ✅ Prometheus (metrics collection)
+- ✅ Grafana (monitoring dashboards)
+- ✅ Optimized memory limits for 4GB RAM servers
+- ⚠️ RAG Service (commented out, can be enabled)
+- ⚠️ Blockchain Services (not in prod config, can be added)
+
+#### **Optional Enhancements**
+- Enable RAG: Uncomment rag-service in docker-compose files
+- Enable Blockchain: Uncomment ganache, blockchain-deployer, voting-api services
+- Scale Workers: Adjust RabbitMQ concurrency settings for higher throughput
+- Add Monitoring: Prometheus + Grafana (already in prod)
 
 ### **Security & Compliance**
 
