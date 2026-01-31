@@ -74,6 +74,13 @@ public class RabbitMQConfig {
      * (e.g., Guardian 1 and Guardian 2 can decrypt simultaneously)
      * Per-process sequential processing is ensured by lock keys in TaskWorkerService
      * Concurrency values are configurable via application.properties
+     * 
+     * ⚠️ CRITICAL: prefetchCount=1 is NON-NEGOTIABLE
+     * This ensures workers process only ONE chunk at a time, which is essential for:
+     * - Fair round-robin chunk processing across all task instances
+     * - Preventing starvation of any task
+     * - Memory management and preventing OOM errors
+     * - Bounded unfairness guarantee
      */
     @Bean
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
@@ -82,10 +89,16 @@ public class RabbitMQConfig {
         factory.setMessageConverter(jsonMessageConverter());
         factory.setConcurrentConsumers(minConcurrentConsumers);
         factory.setMaxConcurrentConsumers(maxConcurrentConsumers);
-        factory.setPrefetchCount(1); // Each consumer fetches one message at a time
+        
+        // ⚠️ CRITICAL: MUST be 1 for fair round-robin scheduling
+        // Each worker MUST process only ONE chunk at a time
+        // This is the foundation of the fairness guarantee
+        factory.setPrefetchCount(1);
+        
         factory.setDefaultRequeueRejected(false); // Don't requeue on failure
         
         System.out.println("⚙️ RabbitMQ Worker Concurrency configured: min=" + minConcurrentConsumers + ", max=" + maxConcurrentConsumers);
+        System.out.println("⚠️ PREFETCH COUNT: 1 (ENFORCED - critical for fair scheduling)");
         
         return factory;
     }

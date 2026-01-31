@@ -1,5 +1,11 @@
 package com.amarvote.amarvote.service;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.stream.Collectors;
+
+import org.springframework.stereotype.Service;
+
 import com.amarvote.amarvote.dto.worker.CombineDecryptionTask;
 import com.amarvote.amarvote.dto.worker.CompensatedDecryptionTask;
 import com.amarvote.amarvote.dto.worker.PartialDecryptionTask;
@@ -9,27 +15,28 @@ import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
-import lombok.RequiredArgsConstructor;
-import org.springframework.stereotype.Service;
+import com.fasterxml.jackson.databind.ObjectMapper;
 
-import java.util.List;
-import java.util.stream.Collectors;
+import lombok.RequiredArgsConstructor;
 
 /**
- * Helper service to queue decryption tasks to RabbitMQ
- * This service encapsulates the logic to prepare and submit tasks to the queue
+ * Helper service to register decryption tasks with RoundRobinTaskScheduler
+ * This service encapsulates the logic to prepare and submit tasks to the scheduler
+ * 
+ * IMPORTANT: All tasks are registered with the scheduler, which handles fair round-robin publishing
  */
 @Service
 @RequiredArgsConstructor
 public class DecryptionTaskQueueService {
 
-    private final TaskPublisherService taskPublisherService;
+    private final RoundRobinTaskScheduler roundRobinTaskScheduler;
     private final ElectionRepository electionRepository;
     private final ElectionChoiceRepository electionChoiceRepository;
     private final GuardianRepository guardianRepository;
+    private final ObjectMapper objectMapper;
 
     /**
-     * Queue partial decryption tasks for all chunks
+     * Register partial decryption tasks with round-robin scheduler
      * @param electionId The election ID
      * @param guardianId The guardian ID
      * @param electionCenterIds List of chunk IDs to process
@@ -43,7 +50,7 @@ public class DecryptionTaskQueueService {
             String decryptedPrivateKey,
             String decryptedPolynomial) {
         
-        System.out.println("=== QUEUEING PARTIAL DECRYPTION TASKS ===");
+        System.out.println("=== REGISTERING PARTIAL DECRYPTION TASK WITH SCHEDULER ===");
         System.out.println("Election ID: " + electionId + ", Guardian ID: " + guardianId);
         System.out.println("Number of chunks: " + electionCenterIds.size());
         
@@ -68,7 +75,8 @@ public class DecryptionTaskQueueService {
         // Get guardian count
         int numberOfGuardians = guardianRepository.findByElectionId(electionId).size();
         
-        // Queue tasks for each chunk
+        // Prepare task data for all chunks
+        List<String> taskDataList = new ArrayList<>();
         int chunkNumber = 0;
         for (Long electionCenterId : electionCenterIds) {
             chunkNumber++;
@@ -90,15 +98,34 @@ public class DecryptionTaskQueueService {
                 .quorum(election.getElectionQuorum())
                 .build();
             
-            taskPublisherService.publishPartialDecryptionTask(task);
-            System.out.println("✅ Task sent for chunk " + chunkNumber + " (election_center_id: " + electionCenterId + ")");
+            // Serialize task to JSON
+            try {
+                String taskJson = objectMapper.writeValueAsString(task);
+                taskDataList.add(taskJson);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to serialize task: " + e.getMessage());
+            }
+            
+            System.out.println("✅ Prepared task for chunk " + chunkNumber + " (election_center_id: " + electionCenterId + ")");
         }
         
-        System.out.println("=== ALL PARTIAL DECRYPTION TASKS QUEUED ===");
+        // Register with scheduler
+        String taskInstanceId = roundRobinTaskScheduler.registerTask(
+            com.amarvote.amarvote.model.scheduler.TaskType.PARTIAL_DECRYPTION,
+            electionId,
+            guardianId,
+            null, // no sourceGuardianId
+            null, // no targetGuardianId
+            taskDataList
+        );
+        
+        System.out.println("=== PARTIAL DECRYPTION TASK REGISTERED WITH SCHEDULER ===");
+        System.out.println("✅ Task Instance ID: " + taskInstanceId);
+        System.out.println("Scheduler will publish chunks in fair round-robin order");
     }
 
     /**
-     * Queue compensated decryption tasks for all chunks and all other guardians
+     * Register compensated decryption tasks with round-robin scheduler
      * @param electionId The election ID
      * @param sourceGuardianId The guardian creating compensated shares
      * @param electionCenterIds List of chunk IDs to process
@@ -112,7 +139,7 @@ public class DecryptionTaskQueueService {
             String decryptedPrivateKey,
             String decryptedPolynomial) {
         
-        System.out.println("=== QUEUEING COMPENSATED DECRYPTION TASKS ===");
+        System.out.println("=== REGISTERING COMPENSATED DECRYPTION TASKS WITH SCHEDULER ===");
         System.out.println("Election ID: " + electionId + ", Source Guardian ID: " + sourceGuardianId);
         
         // Fetch source guardian
@@ -150,15 +177,16 @@ public class DecryptionTaskQueueService {
             return;
         }
         
-        System.out.println("Total tasks to queue: " + (otherGuardians.size() * electionCenterIds.size()));
+        System.out.println("Total task instances to register: " + otherGuardians.size() + " (one per target guardian)");
         
-        // Queue tasks for each combination of chunk and target guardian
-        int taskCount = 0;
+        // Register one task instance per target guardian
+        // Each task instance will have chunks for all election centers
         for (Guardian targetGuardian : otherGuardians) {
+            List<String> taskDataList = new ArrayList<>();
             int chunkNumber = 0;
+            
             for (Long electionCenterId : electionCenterIds) {
                 chunkNumber++;
-                taskCount++;
                 
                 CompensatedDecryptionTask task = CompensatedDecryptionTask.builder()
                     .electionId(electionId)
@@ -182,22 +210,40 @@ public class DecryptionTaskQueueService {
                     .quorum(election.getElectionQuorum())
                     .build();
                 
-                taskPublisherService.publishCompensatedDecryptionTask(task);
+                // Serialize task to JSON
+                try {
+                    String taskJson = objectMapper.writeValueAsString(task);
+                    taskDataList.add(taskJson);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to serialize task: " + e.getMessage());
+                }
             }
-            System.out.println("✅ Queued " + electionCenterIds.size() + " tasks for target guardian " + targetGuardian.getSequenceOrder());
+            
+            // Register task instance for this target guardian
+            String taskInstanceId = roundRobinTaskScheduler.registerTask(
+                com.amarvote.amarvote.model.scheduler.TaskType.COMPENSATED_DECRYPTION,
+                electionId,
+                null, // no single guardianId
+                sourceGuardianId,
+                targetGuardian.getGuardianId(),
+                taskDataList
+            );
+            
+            System.out.println("✅ Registered task instance " + taskInstanceId + " for target guardian " + 
+                targetGuardian.getSequenceOrder() + " with " + electionCenterIds.size() + " chunks");
         }
         
-        System.out.println("=== ALL COMPENSATED DECRYPTION TASKS QUEUED ===");
-        System.out.println("✅ Total tasks queued: " + taskCount);
+        System.out.println("=== ALL COMPENSATED DECRYPTION TASKS REGISTERED WITH SCHEDULER ===");
+        System.out.println("Scheduler will publish chunks in fair round-robin order across all task instances");
     }
 
     /**
-     * Queue combine decryption tasks for all chunks
+     * Register combine decryption tasks with round-robin scheduler
      * @param electionId The election ID
      * @param electionCenterIds List of chunk IDs to process
      */
     public void queueCombineDecryptionTasks(Long electionId, List<Long> electionCenterIds) {
-        System.out.println("=== QUEUEING COMBINE DECRYPTION TASKS ===");
+        System.out.println("=== REGISTERING COMBINE DECRYPTION TASKS WITH SCHEDULER ===");
         System.out.println("Election ID: " + electionId);
         System.out.println("Number of chunks: " + electionCenterIds.size());
         
@@ -218,7 +264,8 @@ public class DecryptionTaskQueueService {
         // Get guardian count
         int numberOfGuardians = guardianRepository.findByElectionId(electionId).size();
         
-        // Queue tasks for each chunk
+        // Prepare task data for all chunks
+        List<String> taskDataList = new ArrayList<>();
         int chunkNumber = 0;
         for (Long electionCenterId : electionCenterIds) {
             chunkNumber++;
@@ -235,10 +282,29 @@ public class DecryptionTaskQueueService {
                 .quorum(election.getElectionQuorum())
                 .build();
             
-            taskPublisherService.publishCombineDecryptionTask(task);
-            System.out.println("✅ Task sent for chunk " + chunkNumber + " (election_center_id: " + electionCenterId + ")");
+            // Serialize task to JSON
+            try {
+                String taskJson = objectMapper.writeValueAsString(task);
+                taskDataList.add(taskJson);
+            } catch (Exception e) {
+                throw new RuntimeException("Failed to serialize task: " + e.getMessage());
+            }
+            
+            System.out.println("✅ Prepared task for chunk " + chunkNumber + " (election_center_id: " + electionCenterId + ")");
         }
         
-        System.out.println("=== ALL COMBINE DECRYPTION TASKS QUEUED ===");
+        // Register with scheduler
+        String taskInstanceId = roundRobinTaskScheduler.registerTask(
+            com.amarvote.amarvote.model.scheduler.TaskType.COMBINE_DECRYPTION,
+            electionId,
+            null, // no guardianId
+            null, // no sourceGuardianId
+            null, // no targetGuardianId
+            taskDataList
+        );
+        
+        System.out.println("=== COMBINE DECRYPTION TASK REGISTERED WITH SCHEDULER ===");
+        System.out.println("✅ Task Instance ID: " + taskInstanceId);
+        System.out.println("Scheduler will publish chunks in fair round-robin order");
     }
 }

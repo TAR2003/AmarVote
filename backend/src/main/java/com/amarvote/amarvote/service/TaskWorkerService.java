@@ -76,6 +76,9 @@ public class TaskWorkerService {
     
     @Autowired
     private CredentialCacheService credentialCacheService;
+    
+    @Autowired
+    private RoundRobinTaskScheduler roundRobinTaskScheduler;
 
     // Track currently processing tasks to prevent duplicates (per election/guardian)
     private static final ConcurrentHashMap<String, Boolean> processingLocks = new ConcurrentHashMap<>();
@@ -98,6 +101,16 @@ public class TaskWorkerService {
             System.out.println("=== WORKER: Processing Tally Creation Chunk " + task.getChunkNumber() + " ===");
             System.out.println("Election ID: " + task.getElectionId());
             System.out.println("Ballot IDs: " + task.getBallotIds().size());
+            System.out.println("Chunk ID: " + task.getChunkId());
+            
+            // Report state: PROCESSING
+            if (task.getChunkId() != null) {
+                roundRobinTaskScheduler.updateChunkState(
+                    task.getChunkId(), 
+                    com.amarvote.amarvote.model.scheduler.ChunkState.PROCESSING, 
+                    null
+                );
+            }
             
             // Log memory before
             Runtime runtime = Runtime.getRuntime();
@@ -158,6 +171,15 @@ public class TaskWorkerService {
             
             System.out.println("✅ Chunk " + task.getChunkNumber() + " processing complete");
             
+            // Report state: COMPLETED
+            if (task.getChunkId() != null) {
+                roundRobinTaskScheduler.updateChunkState(
+                    task.getChunkId(), 
+                    com.amarvote.amarvote.model.scheduler.ChunkState.COMPLETED, 
+                    null
+                );
+            }
+            
             // CRITICAL: Aggressive memory cleanup
             entityManager.flush();
             entityManager.clear();
@@ -172,6 +194,15 @@ public class TaskWorkerService {
             
         } catch (Exception e) {
             System.err.println("❌ Error processing tally chunk: " + e.getMessage());
+            
+            // Report state: FAILED
+            if (task.getChunkId() != null) {
+                roundRobinTaskScheduler.updateChunkState(
+                    task.getChunkId(), 
+                    com.amarvote.amarvote.model.scheduler.ChunkState.FAILED, 
+                    e.getMessage()
+                );
+            }
         } finally {
             processingLocks.remove(lockKey);
             System.gc(); // Suggest garbage collection
@@ -195,6 +226,16 @@ public class TaskWorkerService {
         try {
             System.out.println("=== WORKER: Processing Partial Decryption Chunk " + task.getChunkNumber() + " ===");
             System.out.println("Election ID: " + task.getElectionId() + ", Guardian: " + task.getGuardianId());
+            System.out.println("Chunk ID: " + task.getChunkId());
+            
+            // Report state: PROCESSING
+            if (task.getChunkId() != null) {
+                roundRobinTaskScheduler.updateChunkState(
+                    task.getChunkId(), 
+                    com.amarvote.amarvote.model.scheduler.ChunkState.PROCESSING, 
+                    null
+                );
+            }
             
             // Log memory before
             Runtime runtime = Runtime.getRuntime();
@@ -258,6 +299,15 @@ public class TaskWorkerService {
             
             decryptionRepository.save(decryption);
             
+            // Report state: COMPLETED
+            if (task.getChunkId() != null) {
+                roundRobinTaskScheduler.updateChunkState(
+                    task.getChunkId(), 
+                    com.amarvote.amarvote.model.scheduler.ChunkState.COMPLETED, 
+                    null
+                );
+            }
+            
             // Update progress
             updatePartialDecryptionProgress(task.getElectionId(), task.getGuardianId(), task.getChunkNumber());
             
@@ -274,6 +324,15 @@ public class TaskWorkerService {
             
         } catch (Exception e) {
             System.err.println("❌ Error processing partial decryption chunk: " + e.getMessage());
+            
+            // Report state: FAILED
+            if (task.getChunkId() != null) {
+                roundRobinTaskScheduler.updateChunkState(
+                    task.getChunkId(), 
+                    com.amarvote.amarvote.model.scheduler.ChunkState.FAILED, 
+                    e.getMessage()
+                );
+            }
         } finally {
             processingLocks.remove(lockKey);
             System.gc(); // Suggest garbage collection
@@ -298,6 +357,16 @@ public class TaskWorkerService {
         try {
             System.out.println("=== WORKER: Processing Compensated Decryption Chunk " + task.getChunkNumber() + " ===");
             System.out.println("Source Guardian: " + task.getSourceGuardianId() + ", Target Guardian: " + task.getTargetGuardianId());
+            System.out.println("Chunk ID: " + task.getChunkId());
+            
+            // Report state: PROCESSING
+            if (task.getChunkId() != null) {
+                roundRobinTaskScheduler.updateChunkState(
+                    task.getChunkId(), 
+                    com.amarvote.amarvote.model.scheduler.ChunkState.PROCESSING, 
+                    null
+                );
+            }
             
             // Log memory before
             Runtime runtime = Runtime.getRuntime();
@@ -404,6 +473,15 @@ public class TaskWorkerService {
             
             compensatedDecryptionRepository.save(compensatedDecryption);
             
+            // Report state: COMPLETED
+            if (task.getChunkId() != null) {
+                roundRobinTaskScheduler.updateChunkState(
+                    task.getChunkId(), 
+                    com.amarvote.amarvote.model.scheduler.ChunkState.COMPLETED, 
+                    null
+                );
+            }
+            
             // Update progress
             updateCompensatedDecryptionProgress(task.getElectionId(), task.getSourceGuardianId());
             
@@ -420,6 +498,15 @@ public class TaskWorkerService {
             
         } catch (Exception e) {
             System.err.println("❌ Error processing compensated decryption: " + e.getMessage());
+            
+            // Report state: FAILED
+            if (task.getChunkId() != null) {
+                roundRobinTaskScheduler.updateChunkState(
+                    task.getChunkId(), 
+                    com.amarvote.amarvote.model.scheduler.ChunkState.FAILED, 
+                    e.getMessage()
+                );
+            }
         } finally {
             processingLocks.remove(lockKey);
             System.gc(); // Suggest garbage collection
@@ -443,6 +530,16 @@ public class TaskWorkerService {
         try {
             System.out.println("=== WORKER: Processing Combine Decryption Chunk " + task.getChunkNumber() + " ===");
             System.out.println("Election ID: " + task.getElectionId());
+            System.out.println("Chunk ID: " + task.getChunkId());
+            
+            // Report state: PROCESSING
+            if (task.getChunkId() != null) {
+                roundRobinTaskScheduler.updateChunkState(
+                    task.getChunkId(), 
+                    com.amarvote.amarvote.model.scheduler.ChunkState.PROCESSING, 
+                    null
+                );
+            }
             
             // Log memory before
             Runtime runtime = Runtime.getRuntime();
@@ -582,6 +679,15 @@ public class TaskWorkerService {
             electionCenter.setElectionResult(guardResponse.results());
             electionCenterRepository.save(electionCenter);
             
+            // Report state: COMPLETED
+            if (task.getChunkId() != null) {
+                roundRobinTaskScheduler.updateChunkState(
+                    task.getChunkId(), 
+                    com.amarvote.amarvote.model.scheduler.ChunkState.COMPLETED, 
+                    null
+                );
+            }
+            
             // Removed: updateCombineDecryptionProgress - status is now queried directly from database
             System.out.println("✅ Combine chunk " + task.getChunkNumber() + " completed");
             
@@ -600,6 +706,15 @@ public class TaskWorkerService {
             
         } catch (Exception e) {
             System.err.println("❌ Error processing combine decryption: " + e.getMessage());
+            
+            // Report state: FAILED
+            if (task.getChunkId() != null) {
+                roundRobinTaskScheduler.updateChunkState(
+                    task.getChunkId(), 
+                    com.amarvote.amarvote.model.scheduler.ChunkState.FAILED, 
+                    e.getMessage()
+                );
+            }
         } finally {
             processingLocks.remove(lockKey);
             System.gc(); // Suggest garbage collection

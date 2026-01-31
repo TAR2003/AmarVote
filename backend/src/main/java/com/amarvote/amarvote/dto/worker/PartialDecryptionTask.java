@@ -16,8 +16,11 @@ import java.util.List;
 @Builder
 @NoArgsConstructor
 @AllArgsConstructor
-public class PartialDecryptionTask implements Serializable {
-    
+public class PartialDecryptionTask implements Serializable {    
+    /**
+     * Unique chunk identifier for tracking in the scheduler
+     */
+    private String chunkId;    
     private Long electionId;
     private Long electionCenterId; // The chunk to decrypt
     private int chunkNumber;

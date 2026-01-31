@@ -1,6 +1,7 @@
 package com.amarvote.amarvote.service;
 
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
@@ -72,8 +73,13 @@ public class TallyService {
     @Autowired
     private ObjectMapper objectMapper;
     
+    // Note: TaskPublisherService is no longer used (replaced by RoundRobinTaskScheduler)
+    // Kept for backward compatibility - can be removed in future cleanup
+    // @Autowired
+    // private TaskPublisherService taskPublisherService;
+    
     @Autowired
-    private TaskPublisherService taskPublisherService;
+    private RoundRobinTaskScheduler roundRobinTaskScheduler;
 
     /**
      * Periodic GC hint and memory monitoring utility
@@ -269,8 +275,11 @@ public class TallyService {
             // ✅ MEMORY-EFFICIENT: Use count query instead of loading all guardians
             int numberOfGuardians = guardianRepository.countByElectionId(election.getElectionId());
             
-            // ✅ NEW: Instead of processing in loop, send tasks to RabbitMQ queue
-            System.out.println("=== SENDING TASKS TO RABBITMQ QUEUE ===");
+            // ✅ NEW: Register task instance with RoundRobinTaskScheduler
+            System.out.println("=== REGISTERING TALLY TASK WITH ROUND-ROBIN SCHEDULER ===");
+            
+            // Prepare task data for all chunks
+            List<String> taskDataList = new ArrayList<>();
             for (java.util.Map.Entry<Integer, List<Long>> entry : chunkIdMap.entrySet()) {
                 int chunkNumber = entry.getKey();
                 List<Long> chunkBallotIds = entry.getValue();
@@ -288,15 +297,31 @@ public class TallyService {
                     .numberOfGuardians(numberOfGuardians)
                     .build();
                 
-                // Publish to RabbitMQ
-                taskPublisherService.publishTallyCreationTask(task);
+                // Serialize task to JSON
+                try {
+                    String taskJson = objectMapper.writeValueAsString(task);
+                    taskDataList.add(taskJson);
+                } catch (Exception e) {
+                    throw new RuntimeException("Failed to serialize task: " + e.getMessage());
+                }
                 
-                System.out.println("✅ Task sent for chunk " + chunkNumber + " (" + chunkBallotIds.size() + " ballots)");
+                System.out.println("✅ Prepared task for chunk " + chunkNumber + " (" + chunkBallotIds.size() + " ballots)");
             }
             
-            System.out.println("=== ALL TASKS SENT TO QUEUE ===");
-            System.out.println("✅ " + chunkConfig.getNumChunks() + " tasks queued for processing");
-            System.out.println("Workers will process chunks one at a time, releasing memory after each chunk");
+            // Register with scheduler - scheduler will handle fair round-robin publishing
+            String taskInstanceId = roundRobinTaskScheduler.registerTask(
+                com.amarvote.amarvote.model.scheduler.TaskType.TALLY_CREATION,
+                electionId,
+                null, // no guardianId for tally creation
+                null, // no sourceGuardianId
+                null, // no targetGuardianId
+                taskDataList
+            );
+            
+            System.out.println("=== TASK REGISTERED WITH SCHEDULER ===");
+            System.out.println("✅ Task Instance ID: " + taskInstanceId);
+            System.out.println("✅ Total chunks: " + chunkConfig.getNumChunks());
+            System.out.println("Scheduler will publish chunks in fair round-robin order across all active tasks");
             
             /* OLD CODE - Replaced with RabbitMQ queue-based processing
             // ✅ Process each chunk in separate isolated transaction

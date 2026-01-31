@@ -18,6 +18,12 @@ import java.util.List;
 @AllArgsConstructor
 public class TallyCreationTask implements Serializable {
     
+    /**
+     * Unique chunk identifier for tracking in the scheduler
+     * Format: taskType_electionId_timestamp_chunk_N
+     */
+    private String chunkId;
+    
     private Long electionId;
     private int chunkNumber;
     private List<Long> ballotIds; // IDs of ballots to process in this chunk
