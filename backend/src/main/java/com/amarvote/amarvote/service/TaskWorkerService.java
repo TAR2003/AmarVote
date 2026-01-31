@@ -1,6 +1,5 @@
 package com.amarvote.amarvote.service;
 
-import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -28,26 +27,20 @@ import com.amarvote.amarvote.dto.worker.CompensatedDecryptionTask;
 import com.amarvote.amarvote.dto.worker.PartialDecryptionTask;
 import com.amarvote.amarvote.dto.worker.TallyCreationTask;
 import com.amarvote.amarvote.model.Ballot;
-import com.amarvote.amarvote.model.CombineStatus;
 import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Decryption;
-import com.amarvote.amarvote.model.DecryptionStatus;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.model.SubmittedBallot;
-import com.amarvote.amarvote.model.TallyCreationStatus;
 import com.amarvote.amarvote.repository.BallotRepository;
-import com.amarvote.amarvote.repository.CombineStatusRepository;
 import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionStatusRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
-import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
-import com.amarvote.amarvote.repository.TallyCreationStatusRepository;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -70,12 +63,9 @@ public class TaskWorkerService {
     private final SubmittedBallotRepository submittedBallotRepository;
     private final DecryptionRepository decryptionRepository;
     private final CompensatedDecryptionRepository compensatedDecryptionRepository;
-    private final TallyCreationStatusRepository tallyCreationStatusRepository;
     private final DecryptionStatusRepository decryptionStatusRepository;
-    private final CombineStatusRepository combineStatusRepository;
     private final ElectionRepository electionRepository;
     private final GuardianRepository guardianRepository;
-    private final ElectionChoiceRepository electionChoiceRepository;
     private final DecryptionTaskQueueService decryptionTaskQueueService;
     
     @Autowired
@@ -166,8 +156,7 @@ public class TaskWorkerService {
                 }
             }
             
-            // Update progress
-            updateTallyProgress(task.getElectionId(), task.getChunkNumber());
+            System.out.println("✅ Chunk " + task.getChunkNumber() + " processing complete");
             
             // CRITICAL: Aggressive memory cleanup
             entityManager.flush();
@@ -183,8 +172,6 @@ public class TaskWorkerService {
             
         } catch (Exception e) {
             System.err.println("❌ Error processing tally chunk: " + e.getMessage());
-            e.printStackTrace();
-            updateTallyError(task.getElectionId(), e.getMessage());
         } finally {
             processingLocks.remove(lockKey);
             System.gc(); // Suggest garbage collection
@@ -287,8 +274,6 @@ public class TaskWorkerService {
             
         } catch (Exception e) {
             System.err.println("❌ Error processing partial decryption chunk: " + e.getMessage());
-            e.printStackTrace();
-            updatePartialDecryptionError(task.getElectionId(), task.getGuardianId(), e.getMessage());
         } finally {
             processingLocks.remove(lockKey);
             System.gc(); // Suggest garbage collection
@@ -435,8 +420,6 @@ public class TaskWorkerService {
             
         } catch (Exception e) {
             System.err.println("❌ Error processing compensated decryption: " + e.getMessage());
-            e.printStackTrace();
-            updateCompensatedDecryptionError(task.getElectionId(), task.getSourceGuardianId(), e.getMessage());
         } finally {
             processingLocks.remove(lockKey);
             System.gc(); // Suggest garbage collection
@@ -599,8 +582,8 @@ public class TaskWorkerService {
             electionCenter.setElectionResult(guardResponse.results());
             electionCenterRepository.save(electionCenter);
             
-            // Update progress
-            updateCombineDecryptionProgress(task.getElectionId(), task.getChunkNumber());
+            // Removed: updateCombineDecryptionProgress - status is now queried directly from database
+            System.out.println("✅ Combine chunk " + task.getChunkNumber() + " completed");
             
             // CRITICAL: Memory cleanup
             entityManager.flush();
@@ -617,215 +600,113 @@ public class TaskWorkerService {
             
         } catch (Exception e) {
             System.err.println("❌ Error processing combine decryption: " + e.getMessage());
-            e.printStackTrace();
-            updateCombineDecryptionError(task.getElectionId(), e.getMessage());
         } finally {
             processingLocks.remove(lockKey);
             System.gc(); // Suggest garbage collection
         }
     }
 
-    // ========== Progress Tracking Methods ==========
+    // ========== Progress Tracking Methods (Removed - Status Now Queried from Database) ==========
     
-    private void updateTallyProgress(Long electionId, int completedChunk) {
-        try {
-            Optional<TallyCreationStatus> statusOpt = tallyCreationStatusRepository.findByElectionId(electionId);
-            if (statusOpt.isPresent()) {
-                TallyCreationStatus status = statusOpt.get();
-                // Increment processed count (chunks are 0-based, so +1 to get count)
-                int currentProcessed = status.getProcessedChunks() != null ? status.getProcessedChunks() : 0;
-                int newProcessed = currentProcessed + 1;
-                status.setProcessedChunks(newProcessed);
-                
-                System.out.println("📊 Tally Progress (Chunk " + completedChunk + "): " + newProcessed + "/" + status.getTotalChunks() + " chunks completed");
-                
-                // Check if all chunks are completed
-                if (newProcessed >= status.getTotalChunks()) {
-                    status.setStatus("completed");
-                    status.setCompletedAt(Instant.now());
-                    System.out.println("✅ All tally chunks completed for election " + electionId + " (" + newProcessed + "/" + status.getTotalChunks() + ")");
-                } else {
-                    System.out.println("⏳ Tally in progress: " + newProcessed + "/" + status.getTotalChunks() + " (" + (status.getTotalChunks() - newProcessed) + " remaining)");
-                }
-                
-                tallyCreationStatusRepository.save(status);
-            } else {
-                System.err.println("⚠️ No TallyCreationStatus found for election " + electionId + " while updating progress");
-            }
-        } catch (Exception e) {
-            System.err.println("❌ Failed to update tally progress: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
+    // Removed: updateTallyProgress - status is now queried directly from database
+    // No need to update status tables - the frontend queries directly from election_center table
     
-    private void updateTallyError(Long electionId, String errorMessage) {
-        try {
-            Optional<TallyCreationStatus> statusOpt = tallyCreationStatusRepository.findByElectionId(electionId);
-            if (statusOpt.isPresent()) {
-                TallyCreationStatus status = statusOpt.get();
-                status.setStatus("failed");
-                status.setErrorMessage(errorMessage);
-                status.setCompletedAt(Instant.now());
-                tallyCreationStatusRepository.save(status);
-            }
-        } catch (Exception e) {
-            System.err.println("Failed to update tally error: " + e.getMessage());
-        }
-    }
+    // Removed: updateTallyError - errors can be handled without status table
     
     private void updatePartialDecryptionProgress(Long electionId, Long guardianId, int completedChunk) {
         try {
-            Optional<DecryptionStatus> statusOpt = decryptionStatusRepository.findByElectionIdAndGuardianId(electionId, guardianId);
-            if (statusOpt.isPresent()) {
-                DecryptionStatus status = statusOpt.get();
-                // Increment processed count (chunks are 0-based, so +1 to get count)
-                int currentProcessed = status.getProcessedChunks() != null ? status.getProcessedChunks() : 0;
-                status.setProcessedChunks(currentProcessed + 1);
-                status.setCurrentChunkNumber(completedChunk);
-                status.setUpdatedAt(Instant.now());
+            System.out.println("📊 Partial Decryption Progress (Guardian " + guardianId + "): Chunk " + completedChunk + " completed");
+            
+            // Check if all partial decryption chunks are completed by querying database
+            List<Long> allChunks = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
+            long completedCount = decryptionRepository.countByElectionIdAndGuardianId(electionId, guardianId);
+            
+            System.out.println("📊 Completed " + completedCount + "/" + allChunks.size() + " partial decryption chunks");
+            
+            // Check if all partial decryption chunks are completed
+            if (completedCount >= allChunks.size()) {
+                System.out.println("✅ All partial decryption chunks completed for guardian " + guardianId);
+                System.out.println("=== PHASE 1 COMPLETED - NOW QUEUEING PHASE 2 (COMPENSATED DECRYPTION) ===");
                 
-                System.out.println("📊 Partial Decryption Progress (Guardian " + guardianId + "): " + 
-                    status.getProcessedChunks() + "/" + status.getTotalChunks() + " chunks completed");
+                // Check if this is a single guardian election (no compensated shares needed)
+                List<Guardian> allGuardians = guardianRepository.findByElectionId(electionId);
+                int totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1);
                 
-                // Check if all partial decryption chunks are completed
-                if (status.getProcessedChunks() >= status.getTotalChunks() && 
-                    "partial_decryption".equals(status.getCurrentPhase())) {
+                if (totalCompensatedGuardians == 0) {
+                    // Single guardian - mark as completed immediately
+                    credentialCacheService.clearCredentials(electionId, guardianId);
+                    markGuardianAsDecrypted(guardianId);
+                    System.out.println("✅ Single guardian election - decryption completed for guardian " + guardianId);
+                } else {
+                    // Multiple guardians - queue compensated decryption tasks
+                    System.out.println("🔄 Transitioning to compensated shares generation phase");
+                    System.out.println("📊 Need to generate shares for " + totalCompensatedGuardians + " other guardians");
                     
-                    System.out.println("✅ All partial decryption chunks completed for guardian " + guardianId);
-                    System.out.println("=== PHASE 1 COMPLETED - NOW QUEUEING PHASE 2 (COMPENSATED DECRYPTION) ===");
+                    // Get stored credentials from Redis (secure in-memory cache)
+                    String decryptedPrivateKey = credentialCacheService.getPrivateKey(electionId, guardianId);
+                    String decryptedPolynomial = credentialCacheService.getPolynomial(electionId, guardianId);
                     
-                    // Check if this is a single guardian election (no compensated shares needed)
-                    int totalCompensatedGuardians = status.getTotalCompensatedGuardians() != null ? 
-                        status.getTotalCompensatedGuardians() : 0;
+                    if (decryptedPrivateKey == null || decryptedPolynomial == null) {
+                        System.err.println("❌ ERROR: Missing credentials in Redis cache (may have expired)");
+                        System.err.println("❌ Cannot queue compensated tasks without credentials");
+                        return;
+                    }
                     
-                    if (totalCompensatedGuardians == 0) {
-                        // Single guardian - mark as completed immediately
-                        status.setStatus("completed");
-                        status.setCurrentPhase("completed");
-                        status.setPartialDecryptionCompletedAt(Instant.now());
-                        status.setCompletedAt(Instant.now());
-                        
-                        // Clear credentials from Redis cache
-                        credentialCacheService.clearCredentials(electionId, guardianId);
-                        
-                        // Mark guardian as decrypted (needed for frontend combine button)
-                        markGuardianAsDecrypted(guardianId);
-                        
-                        System.out.println("✅ Single guardian election - decryption completed for guardian " + guardianId);
-                    } else {
-                        // Multiple guardians - transition to compensated shares phase
-                        // and QUEUE compensated tasks NOW
-                        status.setCurrentPhase("compensated_shares_generation");
-                        status.setPartialDecryptionCompletedAt(Instant.now());
-                        status.setCompensatedSharesStartedAt(Instant.now());
-                        status.setProcessedChunks(0); // Reset for compensated phase tracking
-                        
-                        System.out.println("🔄 Transitioning to compensated shares generation phase");
-                        System.out.println("📊 Need to generate shares for " + totalCompensatedGuardians + " other guardians");
-                        
-                        // Get stored credentials from Redis (secure in-memory cache)
-                        String decryptedPrivateKey = credentialCacheService.getPrivateKey(electionId, guardianId);
-                        String decryptedPolynomial = credentialCacheService.getPolynomial(electionId, guardianId);
-                        
-                        if (decryptedPrivateKey == null || decryptedPolynomial == null) {
-                            System.err.println("❌ ERROR: Missing credentials in Redis cache (may have expired)");
-                            System.err.println("❌ Cannot queue compensated tasks without credentials");
-                            status.setStatus("failed");
-                            status.setErrorMessage("Internal error: Decryption credentials expired or missing from cache");
-                            decryptionStatusRepository.save(status);
-                            return;
-                        }
-                        
-                        // Save the status first
-                        decryptionStatusRepository.save(status);
-                        
-                        // ✅ CRITICAL FIX: Queue compensated decryption tasks NOW
-                        System.out.println("🚀 Queueing compensated decryption tasks for guardian " + guardianId);
-                        
-                        // Get election center IDs (chunks)
-                        List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
-                        List<Long> electionCenterIds = electionCenters.stream()
-                            .map(ElectionCenter::getElectionCenterId)
-                            .sorted()
-                            .collect(Collectors.toList());
-                        
-                        // Update total chunks for compensated phase
-                        int totalCompensatedTasks = electionCenterIds.size() * totalCompensatedGuardians;
-                        status.setTotalChunks(totalCompensatedTasks);
-                        decryptionStatusRepository.save(status);
-                        
-                        System.out.println("📋 Total compensated tasks to queue: " + totalCompensatedTasks + 
-                            " (" + electionCenterIds.size() + " chunks × " + totalCompensatedGuardians + " guardians)");
-                        
-                        // Queue the tasks
-                        try {
-                            decryptionTaskQueueService.queueCompensatedDecryptionTasks(
-                                electionId,
-                                guardianId,
-                                electionCenterIds,
-                                decryptedPrivateKey,
-                                decryptedPolynomial
-                            );
-                            System.out.println("✅ Compensated decryption tasks queued successfully");
-                        } catch (Exception e) {
-                            System.err.println("❌ Failed to queue compensated tasks: " + e.getMessage());
-                            e.printStackTrace();
-                            status.setStatus("failed");
-                            status.setErrorMessage("Failed to queue compensated tasks: " + e.getMessage());
-                            decryptionStatusRepository.save(status);
-                        }
-                        
-                        return; // Exit early since we saved already
+                    // ✅ Queue compensated decryption tasks NOW
+                    System.out.println("🚀 Queueing compensated decryption tasks for guardian " + guardianId);
+                    
+                    // Get election center IDs (chunks)
+                    List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
+                    List<Long> electionCenterIds = electionCenters.stream()
+                        .map(ElectionCenter::getElectionCenterId)
+                        .sorted()
+                        .collect(Collectors.toList());
+                    
+                    int totalCompensatedTasks = electionCenterIds.size() * totalCompensatedGuardians;
+                    System.out.println("📋 Total compensated tasks to queue: " + totalCompensatedTasks + 
+                        " (" + electionCenterIds.size() + " chunks × " + totalCompensatedGuardians + " guardians)");
+                    
+                    // Queue the tasks
+                    try {
+                        decryptionTaskQueueService.queueCompensatedDecryptionTasks(
+                            electionId,
+                            guardianId,
+                            electionCenterIds,
+                            decryptedPrivateKey,
+                            decryptedPolynomial
+                        );
+                        System.out.println("✅ Compensated decryption tasks queued successfully");
+                    } catch (Exception e) {
+                        System.err.println("❌ Failed to queue compensated tasks: " + e.getMessage());
                     }
                 }
-                
-                decryptionStatusRepository.save(status);
             }
         } catch (Exception e) {
             System.err.println("Failed to update partial decryption progress: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
-    private void updatePartialDecryptionError(Long electionId, Long guardianId, String errorMessage) {
-        try {
-            Optional<DecryptionStatus> statusOpt = decryptionStatusRepository.findByElectionIdAndGuardianId(electionId, guardianId);
-            if (statusOpt.isPresent()) {
-                DecryptionStatus status = statusOpt.get();
-                status.setStatus("failed");
-                status.setErrorMessage(errorMessage);
-                status.setCompletedAt(Instant.now());
-                decryptionStatusRepository.save(status);
-            }
-        } catch (Exception e) {
-            System.err.println("Failed to update partial decryption error: " + e.getMessage());
-        }
-    }
+    // Removed: updatePartialDecryptionError - errors can be handled without status table
     
     private void updateCompensatedDecryptionProgress(Long electionId, Long guardianId) {
         try {
-            Optional<DecryptionStatus> statusOpt = decryptionStatusRepository.findByElectionIdAndGuardianId(electionId, guardianId);
-            if (statusOpt.isPresent()) {
-                DecryptionStatus status = statusOpt.get();
+            System.out.println("📊 Compensated Decryption Progress for guardian " + guardianId);
+            
+            // Query database to check if all compensated decryptions are done
+            List<Long> allChunks = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
+            List<Guardian> allGuardians = guardianRepository.findByElectionId(electionId);
+            int totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1);
+            
+            if (totalCompensatedGuardians > 0) {
+                long compensatedCount = compensatedDecryptionRepository
+                    .countByElectionIdAndCompensatingGuardianId(electionId, guardianId);
+                long totalExpected = (long) allChunks.size() * totalCompensatedGuardians;
                 
-                // Increment processed chunks count (each compensated task is one chunk×guardian combo)
-                int currentProcessed = status.getProcessedChunks() != null ? status.getProcessedChunks() : 0;
-                status.setProcessedChunks(currentProcessed + 1);
-                status.setUpdatedAt(Instant.now());
+                System.out.println("📊 Compensated progress: " + compensatedCount + "/" + totalExpected + " completed");
                 
-                // totalChunks is ALREADY chunks × totalCompensatedGuardians
-                // (set in line 901 of PartialDecryptionService)
-                int totalCompensatedTasks = status.getTotalChunks() != null ? status.getTotalChunks() : 0;
-                
-                System.out.println("📊 Compensated Decryption Progress (Guardian " + guardianId + "): " + 
-                    status.getProcessedChunks() + "/" + totalCompensatedTasks + " tasks completed");
-                
-                // Check if all compensated tasks are completed
-                if (totalCompensatedTasks > 0 && status.getProcessedChunks() >= totalCompensatedTasks) {
-                    status.setStatus("completed");
-                    status.setCurrentPhase("completed");
-                    status.setCompensatedSharesCompletedAt(Instant.now());
-                    status.setCompletedAt(Instant.now());
+                // Check if all compensated shares are completed
+                if (compensatedCount >= totalExpected) {
+                    System.out.println("✅ ALL COMPENSATED SHARES COMPLETED FOR GUARDIAN " + guardianId);
                     
                     // ✅ Clear credentials from Redis cache now that we're done
                     credentialCacheService.clearCredentials(electionId, guardianId);
@@ -833,78 +714,20 @@ public class TaskWorkerService {
                     // Mark guardian as decrypted (needed for frontend combine button)
                     markGuardianAsDecrypted(guardianId);
                     
-                    System.out.println("✅ All compensated decryption tasks completed for guardian " + guardianId);
+                    System.out.println("✅ Decryption fully completed for guardian " + guardianId);
                     System.out.println("🔒 Credentials securely removed from Redis cache");
                 }
-                
-                decryptionStatusRepository.save(status);
             }
         } catch (Exception e) {
             System.err.println("Failed to update compensated decryption progress: " + e.getMessage());
-            e.printStackTrace();
         }
     }
     
-    private void updateCompensatedDecryptionError(Long electionId, Long guardianId, String errorMessage) {
-        try {
-            Optional<DecryptionStatus> statusOpt = decryptionStatusRepository.findByElectionIdAndGuardianId(electionId, guardianId);
-            if (statusOpt.isPresent()) {
-                DecryptionStatus status = statusOpt.get();
-                status.setStatus("failed");
-                status.setErrorMessage(errorMessage);
-                status.setCompletedAt(Instant.now());
-                decryptionStatusRepository.save(status);
-            }
-        } catch (Exception e) {
-            System.err.println("Failed to update compensated decryption error: " + e.getMessage());
-        }
-    }
+    // Removed: updateCompensatedDecryptionError - errors can be handled without status table
     
-    private void updateCombineDecryptionProgress(Long electionId, int completedChunk) {
-        try {
-            Optional<CombineStatus> statusOpt = combineStatusRepository.findByElectionId(electionId);
-            if (statusOpt.isPresent()) {
-                CombineStatus status = statusOpt.get();
-                // Increment processed count (chunks are 0-based, so +1 to get count)
-                int currentProcessed = status.getProcessedChunks() != null ? status.getProcessedChunks() : 0;
-                int newProcessed = currentProcessed + 1;
-                status.setProcessedChunks(newProcessed);
-                
-                System.out.println("📊 Combine Decryption Progress (Chunk " + completedChunk + "): " + newProcessed + "/" + status.getTotalChunks() + " chunks completed");
-                
-                // Check if all chunks are completed
-                if (newProcessed >= status.getTotalChunks()) {
-                    status.setStatus("completed");
-                    status.setCompletedAt(Instant.now());
-                    System.out.println("✅ All combine decryption chunks completed for election " + electionId + " (" + newProcessed + "/" + status.getTotalChunks() + ")");
-                } else {
-                    System.out.println("⏳ Combine in progress: " + newProcessed + "/" + status.getTotalChunks() + " (" + (status.getTotalChunks() - newProcessed) + " remaining)");
-                }
-                
-                combineStatusRepository.save(status);
-            } else {
-                System.err.println("⚠️ No CombineStatus found for election " + electionId + " while updating progress");
-            }
-        } catch (Exception e) {
-            System.err.println("❌ Failed to update combine decryption progress: " + e.getMessage());
-            e.printStackTrace();
-        }
-    }
+    // Removed: updateCombineDecryptionProgress - status is now queried directly from database
     
-    private void updateCombineDecryptionError(Long electionId, String errorMessage) {
-        try {
-            Optional<CombineStatus> statusOpt = combineStatusRepository.findByElectionId(electionId);
-            if (statusOpt.isPresent()) {
-                CombineStatus status = statusOpt.get();
-                status.setStatus("failed");
-                status.setErrorMessage(errorMessage);
-                status.setCompletedAt(Instant.now());
-                combineStatusRepository.save(status);
-            }
-        } catch (Exception e) {
-            System.err.println("Failed to update combine decryption error: " + e.getMessage());
-        }
-    }
+    // Removed: updateCombineDecryptionError - errors can be handled without status table
     
     /**
      * Mark guardian as decrypted in separate transaction

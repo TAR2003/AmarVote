@@ -23,14 +23,12 @@ import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.SubmittedBallot;
-import com.amarvote.amarvote.model.TallyCreationStatus;
 import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
-import com.amarvote.amarvote.repository.TallyCreationStatusRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.EntityManager;
@@ -64,9 +62,6 @@ public class TallyService {
     
     @Autowired
     private ElectionCenterRepository electionCenterRepository;
-    
-    @Autowired
-    private TallyCreationStatusRepository tallyCreationStatusRepository;
     
     @Autowired
     private ChunkingService chunkingService;
@@ -107,24 +102,14 @@ public class TallyService {
 
     /**
      * Get the current tally creation status for an election
+     * Queries database directly to count filled encrypted_tally fields
      */
     public TallyCreationStatusResponse getTallyStatus(Long electionId) {
-        Optional<TallyCreationStatus> statusOpt = tallyCreationStatusRepository.findByElectionId(electionId);
+        // Get total chunks for this election
+        List<ElectionCenter> allChunks = electionCenterRepository.findByElectionId(electionId);
+        int totalChunks = allChunks.size();
         
-        if (statusOpt.isEmpty()) {
-            // Check if tally already exists (old elections that completed before this feature)
-            List<ElectionCenter> existingChunks = electionCenterRepository.findByElectionId(electionId);
-            if (!existingChunks.isEmpty()) {
-                return TallyCreationStatusResponse.builder()
-                    .success(true)
-                    .status("completed")
-                    .message("Tally already exists")
-                    .totalChunks(existingChunks.size())
-                    .processedChunks(existingChunks.size())
-                    .progressPercentage(100.0)
-                    .build();
-            }
-            
+        if (totalChunks == 0) {
             return TallyCreationStatusResponse.builder()
                 .success(true)
                 .status("not_started")
@@ -135,21 +120,29 @@ public class TallyService {
                 .build();
         }
         
-        TallyCreationStatus status = statusOpt.get();
-        double progressPercentage = status.getTotalChunks() > 0 
-            ? (status.getProcessedChunks() * 100.0) / status.getTotalChunks()
+        // Count how many chunks have encrypted_tally filled
+        long processedChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(electionId);
+        
+        // Determine status based on progress
+        String status;
+        if (processedChunks == 0) {
+            status = "pending";
+        } else if (processedChunks < totalChunks) {
+            status = "in_progress";
+        } else {
+            status = "completed";
+        }
+        
+        double progressPercentage = totalChunks > 0 
+            ? (processedChunks * 100.0) / totalChunks
             : 0.0;
         
         return TallyCreationStatusResponse.builder()
             .success(true)
-            .status(status.getStatus())
+            .status(status)
             .message("Tally creation status retrieved successfully")
-            .totalChunks(status.getTotalChunks())
-            .processedChunks(status.getProcessedChunks())
-            .createdBy(status.getCreatedBy())
-            .startedAt(status.getStartedAt() != null ? status.getStartedAt().toString() : null)
-            .completedAt(status.getCompletedAt() != null ? status.getCompletedAt().toString() : null)
-            .errorMessage(status.getErrorMessage())
+            .totalChunks(totalChunks)
+            .processedChunks((int) processedChunks)
             .progressPercentage(progressPercentage)
             .build();
     }
@@ -162,23 +155,19 @@ public class TallyService {
             System.out.println("=== Initiating Tally Creation ===");
             System.out.println("Election ID: " + request.getElection_id() + ", User: " + userEmail);
             
-            // Check if tally already exists or is being created
-            Optional<TallyCreationStatus> existingStatus = tallyCreationStatusRepository.findByElectionId(request.getElection_id());
-            
-            if (existingStatus.isPresent()) {
-                TallyCreationStatus status = existingStatus.get();
+            // Check if tally already exists
+            List<ElectionCenter> existingChunks = electionCenterRepository.findByElectionId(request.getElection_id());
+            if (!existingChunks.isEmpty()) {
+                long completedChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(request.getElection_id());
                 
-                if ("in_progress".equals(status.getStatus())) {
+                if (completedChunks > 0 && completedChunks < existingChunks.size()) {
                     System.out.println("⚠️ Tally creation already in progress");
-                    
                     return CreateTallyResponse.builder()
                         .success(true)
                         .message("Tally creation is already in progress")
-                        .encryptedTally("IN_PROGRESS:" + status.getProcessedChunks() + "/" + status.getTotalChunks())
+                        .encryptedTally("IN_PROGRESS:" + completedChunks + "/" + existingChunks.size())
                         .build();
-                }
-                
-                if ("completed".equals(status.getStatus())) {
+                } else if (completedChunks == existingChunks.size()) {
                     System.out.println("✅ Tally already exists");
                     return CreateTallyResponse.builder()
                         .success(true)
@@ -186,17 +175,6 @@ public class TallyService {
                         .encryptedTally("COMPLETED")
                         .build();
                 }
-            }
-            
-            // Also check if chunks exist (for backwards compatibility)
-            List<ElectionCenter> existingChunks = electionCenterRepository.findByElectionId(request.getElection_id());
-            if (!existingChunks.isEmpty()) {
-                System.out.println("✅ Tally already exists (found existing chunks)");
-                return CreateTallyResponse.builder()
-                    .success(true)
-                    .message("Tally already exists")
-                    .encryptedTally("COMPLETED")
-                    .build();
             }
             
             // Verify election has ended
@@ -216,17 +194,6 @@ public class TallyService {
                     .build();
             }
             
-            // Create initial status record
-            TallyCreationStatus status = TallyCreationStatus.builder()
-                .electionId(request.getElection_id())
-                .status("pending")
-                .totalChunks(0)
-                .processedChunks(0)
-                .createdBy(userEmail)
-                .startedAt(Instant.now())
-                .build();
-            tallyCreationStatusRepository.save(status);
-            
             // Start async processing
             createTallyAsync(request, userEmail);
             
@@ -238,7 +205,7 @@ public class TallyService {
                 
         } catch (Exception e) {
             System.err.println("❌ Error initiating tally creation: " + e.getMessage());
-            e.printStackTrace();
+
             return CreateTallyResponse.builder()
                 .success(false)
                 .message("Failed to initiate tally creation: " + e.getMessage())
@@ -262,8 +229,6 @@ public class TallyService {
         }
         
         try {
-            updateTallyStatusTransactional(electionId, "in_progress", 0, 0, null);
-            
             System.out.println("=== Async Tally Creation Started (Memory-Efficient Mode) ===");
             System.out.println("Election ID: " + electionId);
             
@@ -287,9 +252,6 @@ public class TallyService {
             // Calculate chunks based on count
             ChunkConfiguration chunkConfig = chunkingService.calculateChunks(ballotIds.size());
             System.out.println("✅ Calculated " + chunkConfig.getNumChunks() + " chunks");
-            
-            // Update status with total chunks
-            updateTallyStatusTransactional(electionId, "in_progress", chunkConfig.getNumChunks(), 0, null);
             
             // MEMORY-EFFICIENT: Assign only ballot IDs to chunks (not full Ballot objects)
             java.util.Map<Integer, List<Long>> chunkIdMap = chunkingService.assignIdsToChunks(ballotIds, chunkConfig);
@@ -357,7 +319,6 @@ public class TallyService {
                 );
                 
                 processedChunks++;
-                updateTallyStatusTransactional(electionId, "in_progress", chunkConfig.getNumChunks(), processedChunks, null);
                 
                 // ✅ Periodic GC hint every 50 chunks (not every chunk - avoids GC overhead)
                 if (processedChunks % 50 == 0 || processedChunks == chunkConfig.getNumChunks()) {
@@ -369,15 +330,12 @@ public class TallyService {
             
             // Update election status in separate transaction
             updateElectionStatusTransactional(electionId, "completed");
-            updateTallyStatusTransactional(electionId, "completed", chunkConfig.getNumChunks(), processedChunks, null);
             */
             
             System.out.println("=== Tally Creation Initiated Successfully ===");
             
         } catch (Exception e) {
             System.err.println("❌ Error in async tally creation: " + e.getMessage());
-            e.printStackTrace();
-            updateTallyStatusTransactional(electionId, "failed", 0, 0, e.getMessage());
         } finally {
             // Release lock
             tallyCreationLocks.remove(electionId);
@@ -479,31 +437,7 @@ public class TallyService {
         // Transaction ends here, Hibernate session closes automatically, all entities released from memory
     }
     
-    /**
-     * Update tally creation status in separate transaction
-     */
-    @Transactional
-    private void updateTallyStatusTransactional(Long electionId, String status, int totalChunks, int processedChunks, String errorMessage) {
-        try {
-            Optional<TallyCreationStatus> statusOpt = tallyCreationStatusRepository.findByElectionId(electionId);
-            
-            if (statusOpt.isPresent()) {
-                TallyCreationStatus tallyStatus = statusOpt.get();
-                tallyStatus.setStatus(status);
-                tallyStatus.setTotalChunks(totalChunks);
-                tallyStatus.setProcessedChunks(processedChunks);
-                tallyStatus.setErrorMessage(errorMessage);
-                
-                if ("completed".equals(status) || "failed".equals(status)) {
-                    tallyStatus.setCompletedAt(Instant.now());
-                }
-                
-                tallyCreationStatusRepository.save(tallyStatus);
-            }
-        } catch (Exception e) {
-            System.err.println("⚠️ Failed to update tally status: " + e.getMessage());
-        }
-    }
+    // Removed: updateTallyStatusTransactional - no longer needed as we query database directly
     
     /**
      * Update election status in separate transaction
@@ -794,7 +728,6 @@ public class TallyService {
                 
         } catch (Exception e) {
             System.err.println("❌ EXCEPTION in TallyService.createTally(): " + e.getMessage());
-            e.printStackTrace();
             return CreateTallyResponse.builder()
                 .success(false)
                 .message("Internal server error: " + e.getMessage())
@@ -846,7 +779,6 @@ public class TallyService {
             return parsedResponse;
         } catch (Exception e) {
             System.err.println("❌ EXCEPTION in ElectionGuard service call: " + e.getMessage());
-            e.printStackTrace();
             throw new RuntimeException("Failed to call ElectionGuard service", e);
         }
     }
