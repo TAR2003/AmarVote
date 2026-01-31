@@ -178,6 +178,9 @@ public class RoundRobinTaskScheduler {
         
         // Update timestamps
         switch (newState) {
+            case PENDING:
+                // No timestamp update needed for pending state
+                break;
             case QUEUED:
                 chunk.setQueuedAt(Instant.now());
                 break;
