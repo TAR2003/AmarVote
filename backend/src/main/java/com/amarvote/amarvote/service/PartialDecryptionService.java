@@ -442,10 +442,20 @@ public class PartialDecryptionService {
         List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> electionProgress = 
             decryptionTaskQueueService.getRoundRobinTaskScheduler().getElectionProgress(electionId);
         
-        // Filter for tasks related to this guardian
+        // Filter for tasks related to this specific guardian
+        // CRITICAL FIX: Filter by guardianId to show only THIS guardian's progress
         List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> guardianTasks = electionProgress.stream()
-            .filter(p -> (p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.PARTIAL_DECRYPTION ||
-                         p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.COMPENSATED_DECRYPTION))
+            .filter(p -> {
+                // For partial decryption: check guardianId matches
+                if (p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.PARTIAL_DECRYPTION) {
+                    return guardianId.equals(p.getGuardianId());
+                }
+                // For compensated decryption: check sourceGuardianId matches (the guardian doing the compensation)
+                if (p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.COMPENSATED_DECRYPTION) {
+                    return guardianId.equals(p.getSourceGuardianId());
+                }
+                return false;
+            })
             .collect(Collectors.toList());
         
         if (!guardianTasks.isEmpty()) {
@@ -458,9 +468,14 @@ public class PartialDecryptionService {
                 .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.COMPENSATED_DECRYPTION)
                 .collect(Collectors.toList());
             
+            // Get all guardians to calculate compensated decryptions needed
+            // FIX: Don't use compensatedTasks.size() because during partial decryption phase, 
+            // compensated tasks haven't been scheduled yet, so it would be 0
+            List<Guardian> allGuardians = guardianRepository.findByElectionId(electionId);
+            long totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1); // All except self
+            
             long totalChunks = 0;
             long completedChunks = 0;
-            long totalCompensatedGuardians = compensatedTasks.size();
             String currentPhase = null;
             
             if (partialTasks.isPresent()) {
@@ -491,6 +506,10 @@ public class PartialDecryptionService {
             String status;
             if (totalProcessed == 0) {
                 status = "pending";
+                // If we have partial tasks, we're in partial_decryption phase (even if nothing completed yet)
+                if (currentPhase == null && partialTasks.isPresent()) {
+                    currentPhase = "partial_decryption";
+                }
             } else if (totalProcessed >= totalExpected) {
                 status = "completed";
             } else {
@@ -505,12 +524,26 @@ public class PartialDecryptionService {
                 ? (compensatedCompletedChunks * 100.0) / (totalChunks * totalCompensatedGuardians)
                 : 0.0;
             
+            // Determine what values to return based on current phase
+            int returnTotalChunks;
+            int returnProcessedChunks;
+            
+            if (currentPhase != null && currentPhase.equals("compensated_shares_generation")) {
+                // During compensated phase: totalChunks = n × (m-1), processedChunks = compensated completed
+                returnTotalChunks = (int) (totalChunks * totalCompensatedGuardians);
+                returnProcessedChunks = (int) compensatedCompletedChunks;
+            } else {
+                // During partial decryption phase: totalChunks = n, processedChunks = partial completed
+                returnTotalChunks = (int) totalChunks;
+                returnProcessedChunks = (int) completedChunks;
+            }
+            
             return DecryptionStatusResponse.builder()
                 .success(true)
                 .status(status)
                 .message("Decryption status retrieved successfully")
-                .totalChunks((int) totalChunks)
-                .processedChunks((int) completedChunks)
+                .totalChunks(returnTotalChunks)
+                .processedChunks(returnProcessedChunks)
                 .progressPercentage(progressPercentage)
                 .currentPhase(currentPhase)
                 .totalCompensatedGuardians((int) totalCompensatedGuardians)
@@ -563,6 +596,9 @@ public class PartialDecryptionService {
         
         if (totalProcessed == 0) {
             status = "not_started";
+            // If user has initiated decryption, set phase even if no chunks completed yet
+            // This will be overridden by the scheduler path above if tasks are active
+            currentPhase = null; // Keep as null for not_started status
         } else if (partialDecryptionCount < totalChunks) {
             status = "in_progress";
             currentPhase = "partial_decryption";
@@ -571,6 +607,7 @@ public class PartialDecryptionService {
             currentPhase = "compensated_shares_generation";
         } else if (totalProcessed >= totalExpected) {
             status = "completed";
+            currentPhase = "completed";
         } else {
             status = "in_progress";
         }
@@ -583,12 +620,26 @@ public class PartialDecryptionService {
             ? (compensatedDecryptionCount * 100.0) / (totalChunks * totalCompensatedGuardians)
             : 0.0;
         
+        // Determine what values to return based on current phase
+        int returnTotalChunks;
+        int returnProcessedChunks;
+        
+        if (currentPhase != null && currentPhase.equals("compensated_shares_generation")) {
+            // During compensated phase: totalChunks = n × (m-1), processedChunks = compensated completed
+            returnTotalChunks = totalChunks * totalCompensatedGuardians;
+            returnProcessedChunks = (int) compensatedDecryptionCount;
+        } else {
+            // During partial decryption phase: totalChunks = n, processedChunks = partial completed
+            returnTotalChunks = totalChunks;
+            returnProcessedChunks = (int) partialDecryptionCount;
+        }
+        
         return DecryptionStatusResponse.builder()
             .success(true)
             .status(status)
             .message("Decryption status retrieved successfully")
-            .totalChunks(totalChunks)
-            .processedChunks((int) partialDecryptionCount)
+            .totalChunks(returnTotalChunks)
+            .processedChunks(returnProcessedChunks)
             .progressPercentage(progressPercentage)
             .currentPhase(currentPhase)
             .totalCompensatedGuardians(totalCompensatedGuardians)

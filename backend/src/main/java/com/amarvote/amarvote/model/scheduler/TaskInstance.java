@@ -110,6 +110,9 @@ public class TaskInstance {
         return TaskProgress.builder()
             .taskInstanceId(taskInstanceId)
             .taskType(taskType)
+            .guardianId(guardianId)
+            .sourceGuardianId(sourceGuardianId)
+            .targetGuardianId(targetGuardianId)
             .totalChunks(total)
             .completedChunks(completed)
             .failedChunks(failed)
@@ -129,6 +132,9 @@ public class TaskInstance {
     public static class TaskProgress {
         private String taskInstanceId;
         private TaskType taskType;
+        private Long guardianId;
+        private Long sourceGuardianId;
+        private Long targetGuardianId;
         private long totalChunks;
         private long completedChunks;
         private long failedChunks;

@@ -18,6 +18,10 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
     // Get the number of total guardians (m) = 1 (self) + other guardians
     const totalGuardians = otherGuardians + 1;
     
+    // Backend now returns totalChunks and processedChunks correctly based on phase:
+    // - During partial_decryption: totalChunks = n, processedChunks = partial completed (0...n)
+    // - During compensated_shares_generation: totalChunks = n×(m-1), processedChunks = compensated completed (0...n×(m-1))
+    
     // Determine the actual number of chunks (n)
     let numChunks;
     
@@ -25,7 +29,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
       // In Phase 1, totalChunks = n (actual number of chunks)
       numChunks = status.totalChunks || 0;
     } else if (status.currentPhase === 'compensated_shares_generation') {
-      // In Phase 2, totalChunks = n * (m-1) (chunks × other guardians)
+      // In Phase 2, backend returns totalChunks = n × (m-1)
       // So n = totalChunks / (m-1)
       if (otherGuardians > 0) {
         numChunks = Math.floor((status.totalChunks || 0) / otherGuardians);
@@ -35,10 +39,9 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
       }
     } else if (status.status === 'completed' || status.currentPhase === 'completed') {
       // When completed, backend keeps totalChunks as-is from last phase
-      // For completed state, determine actual chunks from the phase before completion
-      if (otherGuardians > 0) {
-        // If there were other guardians, the totalChunks was updated to n*(m-1) in compensated phase
-        // So actual chunks = totalChunks / (m-1)
+      // Reverse-calculate actual chunks from last phase
+      if (otherGuardians > 0 && (status.totalChunks || 0) > 0) {
+        // If there were compensated guardians, totalChunks was n×(m-1) in last phase
         numChunks = Math.floor((status.totalChunks || 0) / otherGuardians);
       } else {
         // Single guardian: totalChunks = n
@@ -56,24 +59,12 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
     let completedOperations = 0;
     
     if (status.currentPhase === 'partial_decryption') {
-      // In Phase 1: only count processed chunks
+      // In Phase 1: processedChunks = partial decryption completed (0...n)
       completedOperations = status.processedChunks || 0;
     } else if (status.currentPhase === 'compensated_shares_generation') {
-      // In Phase 2: add all Phase 1 chunks (n) + current compensated chunks
-      // IMPORTANT: Only count if backend has updated totalChunks to n*(m-1)
-      // Otherwise we're in the transition period and should wait
-      const expectedCompensatedTotalChunks = numChunks * otherGuardians;
-      if ((status.totalChunks || 0) === expectedCompensatedTotalChunks) {
-        // Backend has updated totalChunks, safe to calculate
-        completedOperations = numChunks + (status.processedChunks || 0);
-      } else if ((status.totalChunks || 0) === numChunks && (status.processedChunks || 0) === 0) {
-        // Phase just transitioned, backend hasn't updated totalChunks yet
-        // Show only Phase 1 completion
-        completedOperations = numChunks;
-      } else {
-        // Fallback
-        completedOperations = numChunks + (status.processedChunks || 0);
-      }
+      // In Phase 2: all Phase 1 complete (n) + compensated processed
+      // Backend returns processedChunks = compensated completed (0...n×(m-1))
+      completedOperations = numChunks + (status.processedChunks || 0);
     } else if (status.status === 'completed') {
       // Completed: all operations done
       completedOperations = totalOperations;
@@ -184,7 +175,16 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
   console.log('Modal is rendering with status:', status);
 
   const getPhaseDisplay = () => {
-    if (!status || !status.currentPhase) return 'Initializing...';
+    if (!status || !status.currentPhase) {
+      // If status is pending or in_progress, show appropriate message
+      if (status && status.status === 'pending') {
+        return '🔐 Processing Partial Decryption';
+      }
+      if (status && status.status === 'in_progress') {
+        return '🔐 Processing Decryption';
+      }
+      return 'Initializing...';
+    }
 
     switch (status.currentPhase) {
       case 'pending':
