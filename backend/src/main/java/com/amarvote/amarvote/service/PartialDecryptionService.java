@@ -474,8 +474,8 @@ public class PartialDecryptionService {
             List<Guardian> allGuardians = guardianRepository.findByElectionId(electionId);
             long totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1); // All except self
             
-            long totalChunks = 0;
-            long completedChunks = 0;
+            long totalChunks;
+            long completedChunks;
             String currentPhase = null;
             
             if (partialTasks.isPresent()) {
@@ -486,17 +486,42 @@ public class PartialDecryptionService {
                 if (!partial.isComplete()) {
                     currentPhase = "partial_decryption";
                 }
+            } else {
+                // Partial task not in scheduler - get chunk count from database
+                List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
+                totalChunks = electionCenterIds.size();
+                completedChunks = decryptionRepository.countByElectionIdAndGuardianId(electionId, guardianId);
+                System.out.println("📊 Partial task not in scheduler - using database: " + completedChunks + "/" + totalChunks);
             }
             
             long compensatedCompletedChunks = compensatedTasks.stream()
                 .mapToLong(com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress::getCompletedChunks)
                 .sum();
             
-            if (partialTasks.isPresent() && partialTasks.get().isComplete() && !compensatedTasks.isEmpty()) {
-                boolean allCompensatedComplete = compensatedTasks.stream()
-                    .allMatch(com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress::isComplete);
-                if (!allCompensatedComplete) {
-                    currentPhase = "compensated_shares_generation";
+            // Determine current phase
+            if (partialTasks.isPresent() && partialTasks.get().isComplete()) {
+                // Partial decryption is complete, check if compensated is needed
+                if (totalCompensatedGuardians > 0) {
+                    // Need compensated decryption for other guardians
+                    // ALWAYS check database first (primary source of truth)
+                    long compensatedDecryptionCount = compensatedDecryptionRepository
+                        .countByElectionIdAndCompensatingGuardianId(electionId, guardianId);
+                    long expectedCompensatedCount = totalChunks * totalCompensatedGuardians;
+                    
+                    System.out.println("📊 Compensated progress check: " + compensatedDecryptionCount + "/" + expectedCompensatedCount);
+                    
+                    if (compensatedDecryptionCount < expectedCompensatedCount) {
+                        // Compensated decryption is still in progress or not started
+                        currentPhase = "compensated_shares_generation";
+                        // Use database count if available, otherwise scheduler count
+                        if (compensatedDecryptionCount > 0) {
+                            compensatedCompletedChunks = compensatedDecryptionCount;
+                        }
+                    } else {
+                        // All compensated decryption complete
+                        System.out.println("✅ All compensated decryption complete");
+                        currentPhase = "completed";
+                    }
                 }
             }
             
@@ -504,15 +529,26 @@ public class PartialDecryptionService {
             long totalProcessed = completedChunks + compensatedCompletedChunks;
             
             String status;
-            if (totalProcessed == 0) {
-                status = "pending";
-                // If we have partial tasks, we're in partial_decryption phase (even if nothing completed yet)
-                if (currentPhase == null && partialTasks.isPresent()) {
-                    currentPhase = "partial_decryption";
+            // Use currentPhase as primary status indicator
+            if (currentPhase == null) {
+                // No phase determined yet
+                if (totalProcessed == 0) {
+                    status = "pending";
+                    // If we have partial tasks, we're in partial_decryption phase
+                    if (partialTasks.isPresent()) {
+                        currentPhase = "partial_decryption";
+                    }
+                } else {
+                    status = "in_progress";
                 }
-            } else if (totalProcessed >= totalExpected) {
+            } else if (currentPhase.equals("completed")) {
+                // Explicitly set to completed
                 status = "completed";
+            } else if (currentPhase.equals("compensated_shares_generation") || currentPhase.equals("partial_decryption")) {
+                // In active phase
+                status = "in_progress";
             } else {
+                // Default
                 status = "in_progress";
             }
             

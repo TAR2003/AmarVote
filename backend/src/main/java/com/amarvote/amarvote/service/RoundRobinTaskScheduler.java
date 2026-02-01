@@ -219,20 +219,16 @@ public class RoundRobinTaskScheduler {
         log.debug("🔄 Chunk state transition: {} | {} -> {} | attempt={}", 
             chunkId, oldState, newState, chunk.getAttemptCount());
         
-        // Check if task instance is complete
+        // Check if task instance is complete (but DON'T remove it)
         TaskInstance taskInstance = taskInstances.get(chunk.getTaskInstanceId());
         if (taskInstance != null && !taskInstance.isActive()) {
             log.info("✅ Task instance COMPLETED: {}", taskInstance.getTaskInstanceId());
             logTaskInstanceProgress(taskInstance);
             
-            // ✅ CRITICAL FIX: Remove completed task instances to prevent endless processing
-            // This ensures the scheduler stops tracking completed tasks
-            log.info("🗑️ Removing completed task instance from scheduler: {}", taskInstance.getTaskInstanceId());
-            taskInstances.remove(taskInstance.getTaskInstanceId());
-            
-            // Clean up chunks for this task instance
-            taskInstance.getChunks().forEach(c -> chunksById.remove(c.getChunkId()));
-            log.info("✅ Task instance and its {} chunks removed from scheduler", taskInstance.getChunks().size());
+            // ✅ KEEP task instance in scheduler for status queries
+            // The scheduler won't publish new chunks (isActive() = false)
+            // But status API can still read progress for display
+            log.info("✅ Task instance kept in memory for status tracking");
         }
     }
 
@@ -333,6 +329,16 @@ public class RoundRobinTaskScheduler {
                 return; // No work to do
             }
             
+            // Log active tasks for debugging
+            if (activeInstances.size() > 1) {
+                log.info("🔄 ROUND-ROBIN: {} active tasks in rotation", activeInstances.size());
+                for (TaskInstance ti : activeInstances) {
+                    log.info("  - Task: {} | Type: {} | Guardian: {} | Progress: {}/{}", 
+                        ti.getTaskInstanceId(), ti.getTaskType(), ti.getGuardianId(),
+                        ti.getProgress().getCompletedChunks(), ti.getProgress().getTotalChunks());
+                }
+            }
+            
             // Round-robin across active task instances
             int startIndex = taskRoundRobinIndex.get() % activeInstances.size();
             int chunksPublished = 0;
@@ -346,6 +352,11 @@ public class RoundRobinTaskScheduler {
                 if (chunk != null) {
                     publishChunk(chunk, taskInstance.getTaskType());
                     chunksPublished++;
+                    
+                    if (activeInstances.size() > 1) {
+                        log.info("📤 Published chunk from Task {} (Guardian {})", 
+                            taskInstance.getTaskInstanceId(), taskInstance.getGuardianId());
+                    }
                 }
             }
             
