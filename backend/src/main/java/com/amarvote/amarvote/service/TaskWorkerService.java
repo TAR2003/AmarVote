@@ -36,7 +36,6 @@ import com.amarvote.amarvote.model.SubmittedBallot;
 import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionRepository;
-import com.amarvote.amarvote.repository.DecryptionStatusRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
@@ -63,7 +62,6 @@ public class TaskWorkerService {
     private final SubmittedBallotRepository submittedBallotRepository;
     private final DecryptionRepository decryptionRepository;
     private final CompensatedDecryptionRepository compensatedDecryptionRepository;
-    private final DecryptionStatusRepository decryptionStatusRepository;
     private final ElectionRepository electionRepository;
     private final GuardianRepository guardianRepository;
     private final DecryptionTaskQueueService decryptionTaskQueueService;

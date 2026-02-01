@@ -224,8 +224,15 @@ public class RoundRobinTaskScheduler {
         if (taskInstance != null && !taskInstance.isActive()) {
             log.info("✅ Task instance COMPLETED: {}", taskInstance.getTaskInstanceId());
             logTaskInstanceProgress(taskInstance);
-            // Optionally remove completed task instances to free memory
-            // taskInstances.remove(taskInstance.getTaskInstanceId());
+            
+            // ✅ CRITICAL FIX: Remove completed task instances to prevent endless processing
+            // This ensures the scheduler stops tracking completed tasks
+            log.info("🗑️ Removing completed task instance from scheduler: {}", taskInstance.getTaskInstanceId());
+            taskInstances.remove(taskInstance.getTaskInstanceId());
+            
+            // Clean up chunks for this task instance
+            taskInstance.getChunks().forEach(c -> chunksById.remove(c.getChunkId()));
+            log.info("✅ Task instance and its {} chunks removed from scheduler", taskInstance.getChunks().size());
         }
     }
 

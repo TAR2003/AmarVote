@@ -13,6 +13,14 @@ import lombok.Builder;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 
+/**
+ * @deprecated This entity is no longer used. Progress tracking is now handled by:
+ * - RoundRobinTaskScheduler for real-time chunk state tracking
+ * - Database queries on Decryption and CompensatedDecryption tables for persistent state
+ * This table can be safely removed from the database in future cleanup.
+ * See: PartialDecryptionService.getDecryptionStatus() for current implementation
+ */
+@Deprecated
 @Entity
 @Table(name = "decryption_status")
 @Data

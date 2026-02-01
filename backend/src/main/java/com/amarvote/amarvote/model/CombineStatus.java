@@ -14,6 +14,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * @deprecated This entity is no longer used. Progress tracking is now handled by:
+ * - RoundRobinTaskScheduler for real-time chunk state tracking
+ * - Database queries on ElectionCenter table for persistent state (electionResult field)
+ * This table can be safely removed from the database in future cleanup.
+ * See: PartialDecryptionService.getCombineStatus() for current implementation
+ */
+@Deprecated
 @Entity
 @Table(name = "combine_status")
 @Getter

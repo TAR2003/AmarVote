@@ -420,7 +420,7 @@ public class PartialDecryptionService {
 
     /**
      * Get current decryption status for a guardian
-     * Queries database directly to count filled decryptions and compensated_decryptions
+     * Queries RoundRobinTaskScheduler for real-time chunk processing state
      */
     public DecryptionStatusResponse getDecryptionStatus(Long electionId, Long guardianId) {
         // Get guardian details
@@ -438,7 +438,90 @@ public class PartialDecryptionService {
         
         Guardian guardian = guardianOpt.get();
         
-        // Get total chunks for this election
+        // Try to get progress from scheduler first (live task tracking)
+        List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> electionProgress = 
+            decryptionTaskQueueService.getRoundRobinTaskScheduler().getElectionProgress(electionId);
+        
+        // Filter for tasks related to this guardian
+        List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> guardianTasks = electionProgress.stream()
+            .filter(p -> (p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.PARTIAL_DECRYPTION ||
+                         p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.COMPENSATED_DECRYPTION))
+            .collect(Collectors.toList());
+        
+        if (!guardianTasks.isEmpty()) {
+            // Active task found in scheduler - return live progress
+            // Separate partial and compensated tasks
+            var partialTasks = guardianTasks.stream()
+                .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.PARTIAL_DECRYPTION)
+                .findFirst();
+            var compensatedTasks = guardianTasks.stream()
+                .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.COMPENSATED_DECRYPTION)
+                .collect(Collectors.toList());
+            
+            long totalChunks = 0;
+            long completedChunks = 0;
+            long totalCompensatedGuardians = compensatedTasks.size();
+            String currentPhase = null;
+            
+            if (partialTasks.isPresent()) {
+                com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress partial = partialTasks.get();
+                totalChunks = partial.getTotalChunks();
+                completedChunks = partial.getCompletedChunks();
+                
+                if (!partial.isComplete()) {
+                    currentPhase = "partial_decryption";
+                }
+            }
+            
+            long compensatedCompletedChunks = compensatedTasks.stream()
+                .mapToLong(com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress::getCompletedChunks)
+                .sum();
+            
+            if (partialTasks.isPresent() && partialTasks.get().isComplete() && !compensatedTasks.isEmpty()) {
+                boolean allCompensatedComplete = compensatedTasks.stream()
+                    .allMatch(com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress::isComplete);
+                if (!allCompensatedComplete) {
+                    currentPhase = "compensated_shares_generation";
+                }
+            }
+            
+            long totalExpected = totalChunks * (1 + totalCompensatedGuardians);
+            long totalProcessed = completedChunks + compensatedCompletedChunks;
+            
+            String status;
+            if (totalProcessed == 0) {
+                status = "pending";
+            } else if (totalProcessed >= totalExpected) {
+                status = "completed";
+            } else {
+                status = "in_progress";
+            }
+            
+            double progressPercentage = totalExpected > 0 
+                ? (totalProcessed * 100.0) / totalExpected
+                : 0.0;
+            
+            double compensatedProgressPercentage = totalCompensatedGuardians > 0 && totalChunks > 0
+                ? (compensatedCompletedChunks * 100.0) / (totalChunks * totalCompensatedGuardians)
+                : 0.0;
+            
+            return DecryptionStatusResponse.builder()
+                .success(true)
+                .status(status)
+                .message("Decryption status retrieved successfully")
+                .totalChunks((int) totalChunks)
+                .processedChunks((int) completedChunks)
+                .progressPercentage(progressPercentage)
+                .currentPhase(currentPhase)
+                .totalCompensatedGuardians((int) totalCompensatedGuardians)
+                .processedCompensatedGuardians((int) (compensatedCompletedChunks / Math.max(1, totalChunks)))
+                .compensatedProgressPercentage(compensatedProgressPercentage)
+                .guardianEmail(guardian.getUserEmail())
+                .guardianName(guardian.getUserEmail())
+                .build();
+        }
+        
+        // No active task in scheduler - check database for completed decryption
         List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
         int totalChunks = electionCenterIds.size();
         
@@ -470,7 +553,6 @@ public class PartialDecryptionService {
         }
         
         // Calculate total expected decryptions per chunk
-        // Each chunk needs: 1 partial decryption + compensated decryptions for other guardians
         long expectedPerChunk = 1 + totalCompensatedGuardians;
         long totalExpected = totalChunks * expectedPerChunk;
         long totalProcessed = partialDecryptionCount + compensatedDecryptionCount;
@@ -971,10 +1053,42 @@ public class PartialDecryptionService {
 
     /**
      * Get current combine status for an election
-     * Queries database directly to count filled electionResult fields
+     * Queries RoundRobinTaskScheduler for real-time chunk processing state
      */
     public CombineStatusResponse getCombineStatus(Long electionId) {
-        // Get total chunks for this election
+        // Try to get progress from scheduler first (live task tracking)
+        List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> electionProgress = 
+            decryptionTaskQueueService.getRoundRobinTaskScheduler().getElectionProgress(electionId);
+        
+        // Filter for combine decryption tasks
+        List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> combineTasks = electionProgress.stream()
+            .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.COMBINE_DECRYPTION)
+            .collect(Collectors.toList());
+        
+        if (!combineTasks.isEmpty()) {
+            // Active task found in scheduler - return live progress
+            com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress progress = combineTasks.get(0);
+            
+            String status;
+            if (progress.getCompletedChunks() == 0 && progress.getProcessingChunks() == 0 && progress.getQueuedChunks() == 0) {
+                status = "pending";
+            } else if (progress.isComplete()) {
+                status = "completed";
+            } else {
+                status = "in_progress";
+            }
+            
+            return CombineStatusResponse.builder()
+                .success(true)
+                .status(status)
+                .message("Combine status retrieved successfully")
+                .totalChunks((int) progress.getTotalChunks())
+                .processedChunks((int) progress.getCompletedChunks())
+                .progressPercentage(progress.getCompletionPercentage())
+                .build();
+        }
+        
+        // No active task in scheduler - check database for completed combination
         List<ElectionCenter> allChunks = electionCenterRepository.findByElectionId(electionId);
         int totalChunks = allChunks.size();
         
@@ -995,8 +1109,9 @@ public class PartialDecryptionService {
         // Determine status based on progress
         String status;
         if (processedChunks == 0) {
-            status = "pending";
+            status = "not_started";
         } else if (processedChunks < totalChunks) {
+            // Task not in scheduler but partially complete - might be stale/interrupted
             status = "in_progress";
         } else {
             status = "completed";

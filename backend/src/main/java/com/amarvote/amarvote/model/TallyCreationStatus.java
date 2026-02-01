@@ -14,6 +14,14 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 
+/**
+ * @deprecated This entity is no longer used. Progress tracking is now handled by:
+ * - RoundRobinTaskScheduler for real-time chunk state tracking
+ * - Database queries on ElectionCenter table for persistent state
+ * This table can be safely removed from the database in future cleanup.
+ * See: TallyService.getTallyStatus() for current implementation
+ */
+@Deprecated
 @Entity
 @Table(name = "tally_creation_status")
 @Getter

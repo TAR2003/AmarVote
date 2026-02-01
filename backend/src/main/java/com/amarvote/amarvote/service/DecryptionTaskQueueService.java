@@ -36,6 +36,13 @@ public class DecryptionTaskQueueService {
     private final ObjectMapper objectMapper;
 
     /**
+     * Get access to the RoundRobinTaskScheduler for progress tracking
+     */
+    public RoundRobinTaskScheduler getRoundRobinTaskScheduler() {
+        return roundRobinTaskScheduler;
+    }
+
+    /**
      * Register partial decryption tasks with round-robin scheduler
      * @param electionId The election ID
      * @param guardianId The guardian ID

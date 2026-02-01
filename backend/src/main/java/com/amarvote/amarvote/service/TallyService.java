@@ -108,10 +108,42 @@ public class TallyService {
 
     /**
      * Get the current tally creation status for an election
-     * Queries database directly to count filled encrypted_tally fields
+     * Queries RoundRobinTaskScheduler for real-time chunk processing state
      */
     public TallyCreationStatusResponse getTallyStatus(Long electionId) {
-        // Get total chunks for this election
+        // Try to get progress from scheduler first (live task tracking)
+        List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> electionProgress = 
+            roundRobinTaskScheduler.getElectionProgress(electionId);
+        
+        // Filter for tally creation tasks
+        List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> tallyTasks = electionProgress.stream()
+            .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.TALLY_CREATION)
+            .collect(Collectors.toList());
+        
+        if (!tallyTasks.isEmpty()) {
+            // Active task found in scheduler - return live progress
+            com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress progress = tallyTasks.get(0);
+            
+            String status;
+            if (progress.getCompletedChunks() == 0 && progress.getProcessingChunks() == 0 && progress.getQueuedChunks() == 0) {
+                status = "pending";
+            } else if (progress.isComplete()) {
+                status = "completed";
+            } else {
+                status = "in_progress";
+            }
+            
+            return TallyCreationStatusResponse.builder()
+                .success(true)
+                .status(status)
+                .message("Tally creation status retrieved successfully")
+                .totalChunks((int) progress.getTotalChunks())
+                .processedChunks((int) progress.getCompletedChunks())
+                .progressPercentage(progress.getCompletionPercentage())
+                .build();
+        }
+        
+        // No active task in scheduler - check database for completed tally
         List<ElectionCenter> allChunks = electionCenterRepository.findByElectionId(electionId);
         int totalChunks = allChunks.size();
         
@@ -132,8 +164,9 @@ public class TallyService {
         // Determine status based on progress
         String status;
         if (processedChunks == 0) {
-            status = "pending";
+            status = "not_started";
         } else if (processedChunks < totalChunks) {
+            // Task not in scheduler but partially complete - might be stale/interrupted
             status = "in_progress";
         } else {
             status = "completed";
@@ -200,13 +233,27 @@ public class TallyService {
                     .build();
             }
             
+            // Calculate chunks upfront to return chunk count to frontend
+            List<Long> ballotIds = ballotRepository.findBallotIdsByElectionIdAndStatus(request.getElection_id(), "cast");
+            if (ballotIds.isEmpty()) {
+                return CreateTallyResponse.builder()
+                    .success(false)
+                    .message("No cast ballots found for this election")
+                    .build();
+            }
+            
+            ChunkConfiguration chunkConfig = chunkingService.calculateChunks(ballotIds.size());
+            int totalChunks = chunkConfig.getNumChunks();
+            
+            System.out.println("✅ Calculated " + totalChunks + " chunks for " + ballotIds.size() + " ballots");
+            
             // Start async processing
             createTallyAsync(request, userEmail);
             
             return CreateTallyResponse.builder()
                 .success(true)
-                .message("Tally creation initiated successfully. Processing in background...")
-                .encryptedTally("INITIATED")
+                .message("Request accepted. Preparing to process " + totalChunks + " chunks...")
+                .encryptedTally("INITIATED:" + totalChunks)
                 .build();
                 
         } catch (Exception e) {

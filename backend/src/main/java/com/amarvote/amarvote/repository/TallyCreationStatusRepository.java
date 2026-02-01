@@ -7,6 +7,13 @@ import org.springframework.stereotype.Repository;
 
 import com.amarvote.amarvote.model.TallyCreationStatus;
 
+/**
+ * @deprecated This repository is no longer used. Progress tracking is now handled by:
+ * - RoundRobinTaskScheduler.getElectionProgress() for real-time state
+ * - ElectionCenterRepository for database queries
+ * Can be safely removed in future cleanup.
+ */
+@Deprecated
 @Repository
 public interface TallyCreationStatusRepository extends JpaRepository<TallyCreationStatus, Long> {
     
