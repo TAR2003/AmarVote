@@ -70,17 +70,55 @@ public class RabbitMQConfig {
 
     /**
      * Configure listener container factory with concurrency settings
-     * Allow multiple concurrent consumers so different processes can run in parallel
-     * (e.g., Guardian 1 and Guardian 2 can decrypt simultaneously)
-     * Per-process sequential processing is ensured by lock keys in TaskWorkerService
-     * Concurrency values are configurable via application.properties
+     * 
+     * HOW IT WORKS:
+     * ============================================================================
+     * The combination of multiple workers + prefetch=1 enables true concurrent 
+     * round-robin processing across all active tasks, even when tasks arrive at 
+     * different times.
+     * 
+     * EXAMPLE SCENARIO:
+     * - Guardian A submits credentials → Task A starts with 100 chunks
+     * - Task A processes 20 chunks (chunks 1-20 complete)
+     * - Guardian B submits credentials → Task B arrives with 100 chunks
+     * 
+     * WITH 6 WORKERS + PREFETCH=1:
+     * - Worker 1: Processing Task A chunk 21
+     * - Worker 2: Processing Task B chunk 1   ← B gets immediate access!
+     * - Worker 3: Processing Task A chunk 22
+     * - Worker 4: Processing Task B chunk 2
+     * - Worker 5: Processing Task A chunk 23
+     * - Worker 6: Processing Task B chunk 3
+     * 
+     * Result: Both tasks progress simultaneously in round-robin fashion!
+     * 
+     * WITH 1 WORKER + PREFETCH=1 (OLD BEHAVIOR):
+     * - Worker 1: Process Task A chunk 21, then A chunk 22, then A chunk 23...
+     * - Task B waits until Task A completes partial decryption
+     * - No true concurrency between tasks
      * 
      * ⚠️ CRITICAL: prefetchCount=1 is NON-NEGOTIABLE
-     * This ensures workers process only ONE chunk at a time, which is essential for:
-     * - Fair round-robin chunk processing across all task instances
-     * - Preventing starvation of any task
-     * - Memory management and preventing OOM errors
-     * - Bounded unfairness guarantee
+     * ============================================================================
+     * prefetch=1 means each worker fetches only ONE chunk at a time from the queue.
+     * This is essential for:
+     * - Fair round-robin chunk distribution (no worker hoards multiple chunks)
+     * - Preventing task starvation (every task gets equal opportunity)
+     * - Memory management (each worker handles one chunk, preventing OOM)
+     * - Bounded unfairness guarantee (no task can advance arbitrarily ahead)
+     * 
+     * The RoundRobinTaskScheduler publishes chunks in round-robin order:
+     * - Publishes 1 chunk from Task A
+     * - Publishes 1 chunk from Task B
+     * - Publishes 1 chunk from Task A
+     * - Publishes 1 chunk from Task B
+     * - ... continues interleaving
+     * 
+     * With multiple workers + prefetch=1, these chunks are processed concurrently,
+     * achieving both fairness AND parallelism!
+     * 
+     * Concurrency values are configurable via application.properties:
+     * - rabbitmq.worker.concurrency.min (default: 6)
+     * - rabbitmq.worker.concurrency.max (default: 6)
      */
     @Bean
     public SimpleRabbitListenerContainerFactory rabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
@@ -91,7 +129,7 @@ public class RabbitMQConfig {
         factory.setMaxConcurrentConsumers(maxConcurrentConsumers);
         
         // ⚠️ CRITICAL: MUST be 1 for fair round-robin scheduling
-        // Each worker MUST process only ONE chunk at a time
+        // Each worker MUST fetch only ONE chunk at a time from the queue
         // This is the foundation of the fairness guarantee
         factory.setPrefetchCount(1);
         
@@ -99,6 +137,7 @@ public class RabbitMQConfig {
         
         System.out.println("⚙️ RabbitMQ Worker Concurrency configured: min=" + minConcurrentConsumers + ", max=" + maxConcurrentConsumers);
         System.out.println("⚠️ PREFETCH COUNT: 1 (ENFORCED - critical for fair scheduling)");
+        System.out.println("✅ Multiple workers + prefetch=1 = Concurrent round-robin processing!");
         
         return factory;
     }

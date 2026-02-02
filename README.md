@@ -35,11 +35,12 @@ AmarVote now uses **RabbitMQ worker-based task processing** to handle large-scal
 ### 🎯 **Key Benefits**
 - ✅ Handles 1000+ chunks without OOM errors
 - ✅ Memory cleanup after each task (entityManager.clear + GC)
-- ✅ Sequential processing (concurrency=1) ensures stability
-- ✅ Horizontal scaling capability (add more workers)
+- ✅ Concurrent fair processing (6 workers with prefetch=1) enables simultaneous guardian decryption
+- ✅ Horizontal scaling capability (adjust worker concurrency as needed)
 - ✅ Progress tracking per task
 - ✅ Automatic error recovery and retry
 - ✅ Optimized for 4GB RAM servers with proper memory limits
+- ✅ Round-robin scheduling ensures no task starvation
 
 ### 🚀 **Quick Production Deployment**
 

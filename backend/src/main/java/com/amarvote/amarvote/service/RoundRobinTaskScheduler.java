@@ -315,7 +315,19 @@ public class RoundRobinTaskScheduler {
      *    - Skip if no pending chunks exist
      * 4. Repeat continuously while work exists
      * 
-     * FAIRNESS: This ensures no task instance can starve others
+     * FAIRNESS WITH CONCURRENT PROCESSING:
+     * ====================================
+     * This scheduler ensures fair chunk distribution, and when combined with
+     * multiple workers (configured in application.properties), enables true
+     * concurrent processing across tasks.
+     * 
+     * Example with 6 workers:
+     * - Cycle 1: Publish A-chunk-1, B-chunk-1, A-chunk-2, B-chunk-2, A-chunk-3, B-chunk-3
+     * - Workers immediately pick up: Worker1→A-1, Worker2→B-1, Worker3→A-2, Worker4→B-2, etc.
+     * - Both tasks progress simultaneously in round-robin fashion!
+     * 
+     * This prevents the old behavior where Task B would wait until Task A completed
+     * an entire phase before starting.
      */
     @Scheduled(fixedDelay = 100, initialDelay = 1000)
     public void scheduleChunks() {
@@ -329,13 +341,16 @@ public class RoundRobinTaskScheduler {
                 return; // No work to do
             }
             
-            // Log active tasks for debugging
+            // Log active tasks for debugging (especially useful when multiple tasks are active)
             if (activeInstances.size() > 1) {
-                log.info("🔄 ROUND-ROBIN: {} active tasks in rotation", activeInstances.size());
+                log.info("🔄 ROUND-ROBIN: {} active tasks being processed concurrently", activeInstances.size());
                 for (TaskInstance ti : activeInstances) {
-                    log.info("  - Task: {} | Type: {} | Guardian: {} | Progress: {}/{}", 
+                    TaskInstance.TaskProgress progress = ti.getProgress();
+                    log.info("  - Task: {} | Type: {} | Guardian: {} | Progress: {}/{} ({:.1f}%) | Processing: {} | Queued: {}", 
                         ti.getTaskInstanceId(), ti.getTaskType(), ti.getGuardianId(),
-                        ti.getProgress().getCompletedChunks(), ti.getProgress().getTotalChunks());
+                        progress.getCompletedChunks(), progress.getTotalChunks(),
+                        progress.getCompletionPercentage(),
+                        progress.getProcessingChunks(), progress.getQueuedChunks());
                 }
             }
             
@@ -354,7 +369,7 @@ public class RoundRobinTaskScheduler {
                     chunksPublished++;
                     
                     if (activeInstances.size() > 1) {
-                        log.info("📤 Published chunk from Task {} (Guardian {})", 
+                        log.info("📤 Published chunk from Task {} (Guardian {}) - Workers can process concurrently", 
                             taskInstance.getTaskInstanceId(), taskInstance.getGuardianId());
                     }
                 }
@@ -364,8 +379,8 @@ public class RoundRobinTaskScheduler {
             taskRoundRobinIndex.incrementAndGet();
             
             if (chunksPublished > 0) {
-                log.debug("📤 Published {} chunks in this cycle | Active tasks: {}", 
-                    chunksPublished, activeInstances.size());
+                log.debug("📤 Published {} chunks in this cycle | Active tasks: {} | These chunks can be processed by {} workers simultaneously", 
+                    chunksPublished, activeInstances.size(), chunksPublished);
             }
         }
     }
