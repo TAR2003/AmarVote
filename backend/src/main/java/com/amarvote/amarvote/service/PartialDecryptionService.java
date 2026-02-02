@@ -568,6 +568,11 @@ public class PartialDecryptionService {
                 // During compensated phase: totalChunks = n × (m-1), processedChunks = compensated completed
                 returnTotalChunks = (int) (totalChunks * totalCompensatedGuardians);
                 returnProcessedChunks = (int) compensatedCompletedChunks;
+            } else if (currentPhase != null && currentPhase.equals("completed")) {
+                // FIXED: When completed, return actual chunk count (n) not compensated calculation
+                // Frontend expects totalChunks = n so it can calculate total operations = n × m
+                returnTotalChunks = (int) totalChunks; // This is the actual number of chunks
+                returnProcessedChunks = (int) completedChunks; // Partial decryption count
             } else {
                 // During partial decryption phase: totalChunks = n, processedChunks = partial completed
                 returnTotalChunks = (int) totalChunks;
@@ -664,6 +669,11 @@ public class PartialDecryptionService {
             // During compensated phase: totalChunks = n × (m-1), processedChunks = compensated completed
             returnTotalChunks = totalChunks * totalCompensatedGuardians;
             returnProcessedChunks = (int) compensatedDecryptionCount;
+        } else if (currentPhase != null && currentPhase.equals("completed")) {
+            // FIXED: When completed, return actual chunk count (n) not compensated calculation
+            // Frontend expects totalChunks = n so it can calculate total operations = n × m
+            returnTotalChunks = totalChunks; // This is the actual number of chunks
+            returnProcessedChunks = (int) partialDecryptionCount; // Partial decryption count
         } else {
             // During partial decryption phase: totalChunks = n, processedChunks = partial completed
             returnTotalChunks = totalChunks;
