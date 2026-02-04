@@ -30,23 +30,44 @@ import lombok.extern.slf4j.Slf4j;
 /**
  * 📜 ROUND-ROBIN TASK SCHEDULER
  * 
- * This service implements fair round-robin chunk processing across all four task types:
+ * This service implements STRICT fair round-robin chunk processing across all four task types:
  * 1. Tally Creation
  * 2. Partial Decryption Share
  * 3. Compensated Decryption Share
  * 4. Combine Decryption Shares
  * 
  * CORE PRINCIPLES (NON-NEGOTIABLE):
+ * - STRICT round-robin: Each task gets exactly 1 chunk queued per rotation
  * - No task type or task instance can starve others
- * - Progress is made across ALL active tasks
+ * - Progress is made across ALL active tasks simultaneously
  * - Workers process one chunk at a time (prefetch=1)
- * - Round-robin interleaving prevents bulk processing
+ * - Equal priority for all tasks regardless of arrival time
  * 
  * FAIRNESS GUARANTEES:
- * - Every active task instance eventually makes progress
- * - No task instance can advance arbitrarily far ahead
- * - Bounded unfairness across all tasks
- * - Maximal utilization when work and workers exist
+ * - Every active task instance gets 1 chunk per round-robin pass
+ * - No task instance can advance more than 1 chunk ahead of others (per pass)
+ * - Maximum bounded unfairness: at most (n-1) chunks, where n = number of concurrent workers
+ * - New tasks entering the system immediately join the rotation
+ * - Task completion order doesn't affect other tasks' progress
+ * 
+ * CONCURRENCY CONTROL:
+ * - Max concurrent workers controlled by application.properties (rabbitmq.worker.concurrency)
+ * - MAX_QUEUED_CHUNKS_PER_TASK=1 ensures strict interleaving
+ * - TARGET_CHUNKS_PER_CYCLE=8 (number of round-robin passes) keeps workers busy
+ * - Scheduling runs every 100ms to maintain optimal queue levels
+ * 
+ * EXAMPLE BEHAVIOR (4 workers, Tasks A=100 chunks, B=20 chunks):
+ * - Initial: Queue A-1, B-1, A-2, B-2 → Workers process all 4 simultaneously
+ * - After A-1 completes: Queue A-3, continue rotation
+ * - After B-1 completes: Queue B-3, continue rotation
+ * - Result: Both A and B progress at equal pace until B finishes
+ * - Then: A uses all available workers to finish remaining chunks
+ * 
+ * NEW TASK ARRIVES (Task C joins while A and B are running):
+ * - Before C: A-10 queued, B-10 queued, A-11 processing, B-11 processing
+ * - After C arrives: Next rotation includes C
+ * - Rotation: A-12, B-12, C-1, A-13, B-13, C-2...
+ * - C immediately gets fair share of worker slots
  */
 @Service
 @RequiredArgsConstructor
@@ -96,12 +117,15 @@ public class RoundRobinTaskScheduler {
     /**
      * Maximum chunks to keep queued per task instance to maintain fairness
      * This prevents one task from flooding the queue while others wait
+     * UPDATED: Reduced to 1 for true round-robin (each task gets 1 chunk queued at a time)
      */
-    private static final int MAX_QUEUED_CHUNKS_PER_TASK = 2;
+    private static final int MAX_QUEUED_CHUNKS_PER_TASK = 1;
     
     /**
      * Target number of chunks to publish per scheduling cycle
      * Should be >= number of workers to keep them busy
+     * UPDATED: This now represents the number of round-robin passes to make
+     * With MAX_QUEUED_CHUNKS_PER_TASK=1, each task gets 1 chunk per pass
      */
     private static final int TARGET_CHUNKS_PER_CYCLE = 8;
 
@@ -317,30 +341,39 @@ public class RoundRobinTaskScheduler {
 
     /**
      * Main scheduling loop - runs every 100ms
-     * Publishes chunks in round-robin order across all active task instances
+     * Publishes chunks in STRICT round-robin order across all active task instances
      * 
-     * ALGORITHM:
+     * ALGORITHM (TRUE ROUND-ROBIN):
      * 1. Get list of all active task instances
-     * 2. Iterate over them in round-robin order, publishing multiple chunks per cycle
-     * 3. For each task instance:
-     *    - Publish pending chunks up to MAX_QUEUED_CHUNKS_PER_TASK limit
-     *    - Skip if already at queue limit
-     * 4. Continue until TARGET_CHUNKS_PER_CYCLE is reached or no more work
+     * 2. Iterate in round-robin order: Task A → Task B → Task C → Task A → Task B → ...
+     * 3. For each task in rotation:
+     *    - Publish 1 chunk if it has pending work and room in queue
+     *    - Skip if no pending chunks or already at queue limit
+     * 4. Continue until we've made enough passes to keep workers busy
      * 
      * FAIRNESS WITH CONCURRENT PROCESSING:
      * ====================================
-     * This scheduler ensures fair chunk distribution by:
-     * - Publishing chunks in round-robin across ALL active tasks
-     * - Limiting queued chunks per task to prevent starvation
-     * - Publishing multiple chunks per cycle to keep all workers busy
+     * This scheduler ensures STRICT fairness by:
+     * - Publishing exactly 1 chunk per task per round-robin pass
+     * - Limiting queued chunks per task to 1 (MAX_QUEUED_CHUNKS_PER_TASK=1)
+     * - Never allowing one task to monopolize workers
      * 
-     * Example with 2 tasks (A, B) and 4 workers:
-     * - Cycle 1: Publish A-1, B-1, A-2, B-2, A-3, B-3, A-4, B-4 (8 chunks total)
-     * - Workers immediately pick up: Worker1→A-1, Worker2→B-1, Worker3→A-2, Worker4→B-2
-     * - As chunks complete, more are queued maintaining round-robin fairness
-     * - Both tasks A and B progress simultaneously from the start!
+     * Example with 3 tasks (A with 100 chunks, B with 20 chunks, C with 10 chunks) and 4 workers:
+     * - Pass 1: Publish A-1, B-1, C-1, A-2 (4 chunks total - fills all 4 workers)
+     * - Workers: Worker1→A-1, Worker2→B-1, Worker3→C-1, Worker4→A-2
+     * - Pass 2 (after A-1 completes): B-2, C-2, A-3, B-3
+     * - Pass 3 (after more complete): C-3, A-4, B-4, C-4
+     * - Pass N (after C finishes all 10): A-X, B-Y, A-X+1, B-Y+1 (only A and B remain)
      * 
-     * This prevents the old behavior where Task B would wait until Task A completed.
+     * When a new task D arrives:
+     * - Immediately enters rotation: A-X, B-Y, D-1, A-X+1, B-Y+1, D-2
+     * 
+     * This ensures:
+     * - All tasks make progress simultaneously
+     * - No task waits for another to complete
+     * - New tasks get immediate attention
+     * - Workers are always busy (if work exists)
+     * - Each task gets equal priority regardless of when it arrived
      */
     @Scheduled(fixedDelay = 100, initialDelay = 1000)
     public void scheduleChunks() {
@@ -356,7 +389,7 @@ public class RoundRobinTaskScheduler {
             
             // Log active tasks for debugging (especially useful when multiple tasks are active)
             if (activeInstances.size() > 1) {
-                log.info("🔄 ROUND-ROBIN: {} active tasks being processed concurrently", activeInstances.size());
+                log.info("🔄 STRICT ROUND-ROBIN: {} active tasks being processed fairly", activeInstances.size());
                 for (TaskInstance ti : activeInstances) {
                     TaskInstance.TaskProgress progress = ti.getProgress();
                     log.info("  - Task: {} | Type: {} | Guardian: {} | Progress: {}/{} ({:.1f}%) | Processing: {} | Queued: {}", 
@@ -367,22 +400,18 @@ public class RoundRobinTaskScheduler {
                 }
             }
             
-            // Round-robin across active task instances, publishing multiple chunks per cycle
+            // TRUE ROUND-ROBIN: Publish 1 chunk per task per pass, rotating through all tasks
             int startIndex = taskRoundRobinIndex.get() % activeInstances.size();
             int chunksPublished = 0;
-            int cycleCount = 0;
-            int maxCycles = TARGET_CHUNKS_PER_CYCLE * activeInstances.size(); // Prevent infinite loops
+            int passCount = 0;
+            int maxPasses = TARGET_CHUNKS_PER_CYCLE; // Number of round-robin passes to make
             
-            // Keep publishing until we hit target or run out of work
-            while (chunksPublished < TARGET_CHUNKS_PER_CYCLE && cycleCount < maxCycles) {
-                boolean publishedInThisCycle = false;
+            // Make multiple passes through the task list to keep workers busy
+            while (passCount < maxPasses) {
+                boolean publishedInThisPass = false;
                 
-                // Round-robin through all active tasks
+                // STRICT ROUND-ROBIN: Process each task once per pass
                 for (int i = 0; i < activeInstances.size(); i++) {
-                    if (chunksPublished >= TARGET_CHUNKS_PER_CYCLE) {
-                        break; // Hit target for this cycle
-                    }
-                    
                     int index = (startIndex + i) % activeInstances.size();
                     TaskInstance taskInstance = activeInstances.get(index);
                     
@@ -392,7 +421,7 @@ public class RoundRobinTaskScheduler {
                         .count();
                     
                     if (currentlyQueued >= MAX_QUEUED_CHUNKS_PER_TASK) {
-                        continue; // This task already has enough queued chunks
+                        continue; // This task already has its quota queued
                     }
                     
                     // Get next pending chunk for this task instance
@@ -400,33 +429,37 @@ public class RoundRobinTaskScheduler {
                     if (chunk != null) {
                         publishChunk(chunk, taskInstance.getTaskType());
                         chunksPublished++;
-                        publishedInThisCycle = true;
+                        publishedInThisPass = true;
                         
                         if (activeInstances.size() > 1) {
-                            log.debug("📤 Published chunk from Task {} (Guardian {}) - Chunk {}/{}", 
-                                taskInstance.getTaskInstanceId(), taskInstance.getGuardianId(),
-                                chunksPublished, TARGET_CHUNKS_PER_CYCLE);
+                            log.debug("📤 [Pass {}] Published from Task {} (Guardian {}) - Total: {}", 
+                                passCount + 1, taskInstance.getTaskInstanceId(), 
+                                taskInstance.getGuardianId(), chunksPublished);
                         }
                     }
                 }
                 
-                cycleCount++;
+                passCount++;
                 
-                // If we didn't publish anything in this cycle, no more work available
-                if (!publishedInThisCycle) {
+                // If we didn't publish anything in this pass, all tasks are either:
+                // - Already at queue limit, or
+                // - Have no more pending chunks
+                // No point in continuing passes
+                if (!publishedInThisPass) {
                     break;
                 }
             }
             
             // Update round-robin index for next scheduling cycle
+            // Move forward by 1 to ensure different starting point each cycle
             taskRoundRobinIndex.incrementAndGet();
             
             if (chunksPublished > 0) {
                 if (activeInstances.size() > 1) {
-                    log.info("📤 Published {} chunks across {} tasks | Workers can process concurrently", 
-                        chunksPublished, activeInstances.size());
+                    log.info("📤 Published {} chunks across {} tasks in {} passes | STRICT ROUND-ROBIN", 
+                        chunksPublished, activeInstances.size(), passCount);
                 } else {
-                    log.debug("📤 Published {} chunks in this cycle | Active tasks: {}", 
+                    log.debug("📤 Published {} chunks | Active tasks: {}", 
                         chunksPublished, activeInstances.size());
                 }
             }

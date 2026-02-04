@@ -9,6 +9,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
   const [error, setError] = useState(null);
 
   // Calculate total operations (n * m where n = chunks, m = guardians)
+  // EDGE CASE: When there's only 1 guardian, no compensated shares are needed
   const calculateTotalOperations = (status) => {
     if (!status) return { total: 0, completed: 0, numChunks: 0, totalGuardians: 0 };
     
@@ -46,8 +47,10 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
       numChunks = status.totalChunks || 0;
     }
     
-    // Total operations = n * m (chunks × total guardians)
-    const totalOperations = numChunks * totalGuardians;
+    // EDGE CASE FIX: When there's only 1 guardian (otherGuardians = 0),
+    // there's no Phase 2 (compensated shares), so total operations = n (just Phase 1)
+    // Otherwise, total operations = n + n×(m-1) = n×m
+    const totalOperations = otherGuardians === 0 ? numChunks : numChunks * totalGuardians;
     
     // Calculate completed operations based on current phase
     let completedOperations = 0;
@@ -74,7 +77,8 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
       totalGuardians,
       numChunks,
       totalOperations,
-      completedOperations
+      completedOperations,
+      singleGuardian: otherGuardians === 0
     });
     
     return { 
@@ -319,6 +323,10 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                           <p className="text-xs text-gray-500 mt-1">
                             {(() => {
                               const { numChunks, totalGuardians } = calculateTotalOperations(status);
+                              // Show appropriate message based on guardian count
+                              if (totalGuardians === 1) {
+                                return `${numChunks} chunks (single guardian - no compensated shares needed)`;
+                              }
                               return `${numChunks} chunks × ${totalGuardians} guardians`;
                             })()}
                           </p>
@@ -501,6 +509,9 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                             <p className="text-green-700 text-xs">
                               {(() => {
                                 const { numChunks, totalGuardians } = calculateTotalOperations(status);
+                                if (totalGuardians === 1) {
+                                  return `${numChunks} chunks (single guardian)`;
+                                }
                                 return `${numChunks} chunks × ${totalGuardians} guardians`;
                               })()}
                             </p>
@@ -508,7 +519,12 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                           <div className="bg-green-50 rounded p-2">
                             <p className="text-green-600 font-semibold">Backup Shares</p>
                             <p className="text-green-900 text-lg font-bold">{status.totalCompensatedGuardians || 0}</p>
-                            <p className="text-green-700 text-xs">for other guardians</p>
+                            <p className="text-green-700 text-xs">
+                              {status.totalCompensatedGuardians === 0
+                                ? 'none needed (single guardian)'
+                                : 'for other guardians'
+                              }
+                            </p>
                           </div>
                         </div>
                       </div>
