@@ -125,17 +125,18 @@ const CreateElection = () => {
     const handleChange = (e) => {
         const { name, value } = e.target;
 
-        // If guardian number changes, auto-adjust quorum to be no more than the new guardian number
+        // If guardian number changes, auto-adjust quorum to default (more than half)
         if (name === 'guardianNumber') {
             const guardianCount = parseInt(value) || 0;
-            const currentQuorum = parseInt(form.quorumNumber) || 0;
+            
+            // Calculate default quorum as more than half
+            const defaultQuorum = guardianCount > 0 ? Math.floor(guardianCount / 2) + 1 : 0;
 
             setForm((prev) => ({
                 ...prev,
                 [name]: value,
-                // If current quorum is greater than new guardian count, reset quorum to guardian count
-                // If guardian count is 0, reset quorum to empty
-                quorumNumber: guardianCount === 0 ? "" : (currentQuorum > guardianCount ? guardianCount.toString() : prev.quorumNumber)
+                // Set quorum to default value
+                quorumNumber: guardianCount === 0 ? "" : defaultQuorum.toString()
             }));
         } else if (name === 'quorumNumber') {
             // Validate quorum number
@@ -180,6 +181,90 @@ const CreateElection = () => {
             }, 3000);
         };
         reader.readAsText(file);
+    };
+
+    // Handle CSV/TXT upload for guardian emails
+    const handleGuardianFileUpload = (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        // Validate file type
+        const validTypes = ['text/plain', 'text/csv', 'application/vnd.ms-excel'];
+        const isValidType = validTypes.includes(file.type) || file.name.endsWith('.txt') || file.name.endsWith('.csv');
+        
+        if (!isValidType) {
+            setError('Please upload a .txt or .csv file');
+            setTimeout(() => setError(""), 3000);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            try {
+                const text = event.target.result;
+                // Split by line, trim, filter empty, and flatten if comma-separated
+                let emails = text
+                    .split(/\r?\n/)
+                    .map(line => line.split(',').map(email => email.trim()))
+                    .flat()
+                    .filter(email => email.length > 0 && email.includes('@'));
+
+                // Validate all emails
+                const validEmails = emails.filter(email => isValidEmail(email));
+                const invalidCount = emails.length - validEmails.length;
+
+                // Deduplicate emails
+                const uniqueEmails = [...new Set(validEmails)];
+                
+                if (uniqueEmails.length === 0) {
+                    setError('No valid email addresses found in the file');
+                    setTimeout(() => setError(""), 3000);
+                    return;
+                }
+
+                if (uniqueEmails.length > 20) {
+                    setError('Maximum 20 guardians allowed. File contains ' + uniqueEmails.length + ' emails.');
+                    setTimeout(() => setError(""), 3000);
+                    return;
+                }
+
+                // Calculate minimum quorum (more than half)
+                const minQuorum = Math.floor(uniqueEmails.length / 2) + 1;
+
+                setForm((prev) => ({ 
+                    ...prev, 
+                    guardianEmails: uniqueEmails,
+                    guardianNumber: uniqueEmails.length.toString(),
+                    quorumNumber: minQuorum.toString()
+                }));
+
+                // Show success message
+                let message = `Successfully uploaded ${uniqueEmails.length} guardian email(s)`;
+                if (invalidCount > 0) {
+                    message += ` (${invalidCount} invalid email(s) skipped)`;
+                }
+                message += `. Quorum set to ${minQuorum}.`;
+                setSuccess(message);
+
+                // Clear success message after 5 seconds
+                setTimeout(() => {
+                    setSuccess("");
+                }, 5000);
+            } catch (error) {
+                setError('Error reading file: ' + error.message);
+                setTimeout(() => setError(""), 3000);
+            }
+        };
+        
+        reader.onerror = () => {
+            setError('Failed to read file');
+            setTimeout(() => setError(""), 3000);
+        };
+        
+        reader.readAsText(file);
+        
+        // Clear the file input so the same file can be selected again
+        e.target.value = null;
     };
 
     // Email validation and suggestion based on common providers
@@ -279,9 +364,24 @@ const CreateElection = () => {
 
         // Check if email is already added
         if (!form.guardianEmails.includes(email)) {
+            const newGuardianEmails = [...form.guardianEmails, email];
+            const newGuardianCount = newGuardianEmails.length;
+            
+            // Check maximum guardians limit
+            if (newGuardianCount > 20) {
+                setError("Maximum 20 guardians allowed");
+                setTimeout(() => setError(""), 3000);
+                return;
+            }
+            
+            // Calculate default quorum (more than half)
+            const defaultQuorum = Math.floor(newGuardianCount / 2) + 1;
+            
             setForm(prev => ({
                 ...prev,
-                guardianEmails: [...prev.guardianEmails, email]
+                guardianEmails: newGuardianEmails,
+                guardianNumber: newGuardianCount.toString(),
+                quorumNumber: defaultQuorum.toString()
             }));
         }
         setSearchQuery("");
@@ -289,9 +389,17 @@ const CreateElection = () => {
     };
 
     const removeGuardianEmail = (email) => {
+        const newGuardianEmails = form.guardianEmails.filter(e => e !== email);
+        const newGuardianCount = newGuardianEmails.length;
+        
+        // Calculate default quorum (more than half)
+        const defaultQuorum = newGuardianCount > 0 ? Math.floor(newGuardianCount / 2) + 1 : 0;
+        
         setForm(prev => ({
             ...prev,
-            guardianEmails: prev.guardianEmails.filter(e => e !== email)
+            guardianEmails: newGuardianEmails,
+            guardianNumber: newGuardianCount > 0 ? newGuardianCount.toString() : "",
+            quorumNumber: newGuardianCount > 0 ? defaultQuorum.toString() : ""
         }));
     };
 
@@ -765,10 +873,11 @@ const CreateElection = () => {
                             min="1"
                             max={form.guardianNumber}
                             className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            placeholder={`Enter quorum (1-${form.guardianNumber})`}
+                            placeholder={form.guardianNumber ? `Enter quorum (1-${form.guardianNumber})` : 'Set guardian count first'}
                         />
                         <p className="text-sm text-gray-600 mt-1">
-                            Minimum number of guardians needed to decrypt the election results (must be ≤ {form.guardianNumber}).
+                            Minimum number of guardians needed to decrypt the election results (must be ≤ {form.guardianNumber || 0}).
+                            Default is set to more than half ({form.guardianNumber ? Math.floor(parseInt(form.guardianNumber) / 2) + 1 : 0}). 
                             This enables fault tolerance - if some guardians are unavailable, the election can still be decrypted.
                         </p>
                         {/* Validation message */}
@@ -786,16 +895,18 @@ const CreateElection = () => {
 
                             if (quorumCount <= 0 && guardianCount > 0) {
                                 return (
-                                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
+                                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700">
                                         ⚠️ Quorum must be at least 1
                                     </div>
                                 );
                             }
 
                             if (quorumCount > 0 && guardianCount > 0 && quorumCount <= guardianCount) {
+                                const isDefault = quorumCount === Math.floor(guardianCount / 2) + 1;
                                 return (
                                     <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
                                         ✓ Valid quorum: {quorumCount} out of {guardianCount} guardians required
+                                        {isDefault && ' (default recommended value)'}
                                     </div>
                                 );
                             }
@@ -809,28 +920,56 @@ const CreateElection = () => {
                             Guardian Emails <span className="text-red-500">*</span>
                         </label>
 
-                        <div className="relative mb-2">
-                            <input
-                                type="text"
-                                value={searchQuery}
-                                onChange={(e) => searchEmails(e.target.value)}
-                                onKeyDown={(e) => {
-                                    if (e.key === 'Enter' && searchQuery.trim()) {
-                                        e.preventDefault();
-                                        // If there are suggestions, add the first one
-                                        if (emailSuggestions.length > 0) {
-                                            addGuardianEmail(emailSuggestions[0].email);
-                                        } else if (isValidEmail(searchQuery.trim())) {
-                                            // Otherwise, if the typed email is valid, add it
-                                            addGuardianEmail(searchQuery.trim());
-                                        }
-                                    }
-                                }}
-                                placeholder="Type email address (e.g., user@gmail.com)..."
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            />
+                        {/* File Upload for Guardian Emails */}
+                        <div className="mb-3 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                            <div className="flex items-center justify-between mb-2">
+                                <div>
+                                    <p className="text-sm font-medium text-gray-700">Upload Guardian Emails (CSV/TXT)</p>
+                                    <p className="text-xs text-gray-600 mt-1">
+                                        Upload a file with one email per line or comma-separated. This will automatically set the guardian count and quorum.
+                                    </p>
+                                </div>
+                                <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                    Choose File
+                                    <input
+                                        type="file"
+                                        accept=".txt,.csv"
+                                        onChange={handleGuardianFileUpload}
+                                        className="hidden"
+                                    />
+                                </label>
+                            </div>
+                            <div className="text-xs text-gray-500 mt-2">
+                                Supported formats: .txt, .csv (max 20 guardians)
+                            </div>
+                        </div>
 
-                            {emailSuggestions.length > 0 && renderEmailSuggestions()}
+                        {/* Manual Email Input */}
+                        <div className="mb-2">
+                            <p className="text-sm font-medium text-gray-700 mb-2">Or add emails manually:</p>
+                            <div className="relative">
+                                <input
+                                    type="text"
+                                    value={searchQuery}
+                                    onChange={(e) => searchEmails(e.target.value)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === 'Enter' && searchQuery.trim()) {
+                                            e.preventDefault();
+                                            // If there are suggestions, add the first one
+                                            if (emailSuggestions.length > 0) {
+                                                addGuardianEmail(emailSuggestions[0].email);
+                                            } else if (isValidEmail(searchQuery.trim())) {
+                                                // Otherwise, if the typed email is valid, add it
+                                                addGuardianEmail(searchQuery.trim());
+                                            }
+                                        }
+                                    }}
+                                    placeholder="Type email address (e.g., user@gmail.com)..."
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                />
+
+                                {emailSuggestions.length > 0 && renderEmailSuggestions()}
+                            </div>
                         </div>
 
                         <div className="border border-gray-300 rounded-md p-3 min-h-[100px]">
@@ -844,8 +983,8 @@ const CreateElection = () => {
                         </div>
 
                         <div className="mt-2 text-sm text-gray-600">
-                            <div>{form.guardianEmails.length} of {form.guardianNumber} guardians added</div>
-                            <div className="text-xs mt-1">💡 Tip: Press Enter to add email or click on a suggestion</div>
+                            <div>{form.guardianEmails.length} of {form.guardianNumber || 0} guardians added</div>
+                            <div className="text-xs mt-1">💡 Tip: Upload a file for bulk import or press Enter to add email manually</div>
                         </div>
                     </div>
                 </div>
