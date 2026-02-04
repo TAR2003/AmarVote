@@ -92,6 +92,18 @@ public class RoundRobinTaskScheduler {
      * Retry delay in milliseconds (exponential backoff)
      */
     private static final long INITIAL_RETRY_DELAY_MS = 5000; // 5 seconds
+    
+    /**
+     * Maximum chunks to keep queued per task instance to maintain fairness
+     * This prevents one task from flooding the queue while others wait
+     */
+    private static final int MAX_QUEUED_CHUNKS_PER_TASK = 2;
+    
+    /**
+     * Target number of chunks to publish per scheduling cycle
+     * Should be >= number of workers to keep them busy
+     */
+    private static final int TARGET_CHUNKS_PER_CYCLE = 8;
 
     // ==================== PUBLIC API ====================
 
@@ -309,25 +321,26 @@ public class RoundRobinTaskScheduler {
      * 
      * ALGORITHM:
      * 1. Get list of all active task instances
-     * 2. Iterate over them in round-robin order
+     * 2. Iterate over them in round-robin order, publishing multiple chunks per cycle
      * 3. For each task instance:
-     *    - Publish at most ONE pending chunk
-     *    - Skip if no pending chunks exist
-     * 4. Repeat continuously while work exists
+     *    - Publish pending chunks up to MAX_QUEUED_CHUNKS_PER_TASK limit
+     *    - Skip if already at queue limit
+     * 4. Continue until TARGET_CHUNKS_PER_CYCLE is reached or no more work
      * 
      * FAIRNESS WITH CONCURRENT PROCESSING:
      * ====================================
-     * This scheduler ensures fair chunk distribution, and when combined with
-     * multiple workers (configured in application.properties), enables true
-     * concurrent processing across tasks.
+     * This scheduler ensures fair chunk distribution by:
+     * - Publishing chunks in round-robin across ALL active tasks
+     * - Limiting queued chunks per task to prevent starvation
+     * - Publishing multiple chunks per cycle to keep all workers busy
      * 
-     * Example with 6 workers:
-     * - Cycle 1: Publish A-chunk-1, B-chunk-1, A-chunk-2, B-chunk-2, A-chunk-3, B-chunk-3
-     * - Workers immediately pick up: Worker1→A-1, Worker2→B-1, Worker3→A-2, Worker4→B-2, etc.
-     * - Both tasks progress simultaneously in round-robin fashion!
+     * Example with 2 tasks (A, B) and 4 workers:
+     * - Cycle 1: Publish A-1, B-1, A-2, B-2, A-3, B-3, A-4, B-4 (8 chunks total)
+     * - Workers immediately pick up: Worker1→A-1, Worker2→B-1, Worker3→A-2, Worker4→B-2
+     * - As chunks complete, more are queued maintaining round-robin fairness
+     * - Both tasks A and B progress simultaneously from the start!
      * 
-     * This prevents the old behavior where Task B would wait until Task A completed
-     * an entire phase before starting.
+     * This prevents the old behavior where Task B would wait until Task A completed.
      */
     @Scheduled(fixedDelay = 100, initialDelay = 1000)
     public void scheduleChunks() {
@@ -354,33 +367,68 @@ public class RoundRobinTaskScheduler {
                 }
             }
             
-            // Round-robin across active task instances
+            // Round-robin across active task instances, publishing multiple chunks per cycle
             int startIndex = taskRoundRobinIndex.get() % activeInstances.size();
             int chunksPublished = 0;
+            int cycleCount = 0;
+            int maxCycles = TARGET_CHUNKS_PER_CYCLE * activeInstances.size(); // Prevent infinite loops
             
-            for (int i = 0; i < activeInstances.size(); i++) {
-                int index = (startIndex + i) % activeInstances.size();
-                TaskInstance taskInstance = activeInstances.get(index);
+            // Keep publishing until we hit target or run out of work
+            while (chunksPublished < TARGET_CHUNKS_PER_CYCLE && cycleCount < maxCycles) {
+                boolean publishedInThisCycle = false;
                 
-                // Get next pending chunk for this task instance
-                Chunk chunk = taskInstance.getNextPendingChunk();
-                if (chunk != null) {
-                    publishChunk(chunk, taskInstance.getTaskType());
-                    chunksPublished++;
-                    
-                    if (activeInstances.size() > 1) {
-                        log.info("📤 Published chunk from Task {} (Guardian {}) - Workers can process concurrently", 
-                            taskInstance.getTaskInstanceId(), taskInstance.getGuardianId());
+                // Round-robin through all active tasks
+                for (int i = 0; i < activeInstances.size(); i++) {
+                    if (chunksPublished >= TARGET_CHUNKS_PER_CYCLE) {
+                        break; // Hit target for this cycle
                     }
+                    
+                    int index = (startIndex + i) % activeInstances.size();
+                    TaskInstance taskInstance = activeInstances.get(index);
+                    
+                    // Check if this task has room for more queued chunks
+                    long currentlyQueued = taskInstance.getChunks().stream()
+                        .filter(c -> c.getState() == ChunkState.QUEUED)
+                        .count();
+                    
+                    if (currentlyQueued >= MAX_QUEUED_CHUNKS_PER_TASK) {
+                        continue; // This task already has enough queued chunks
+                    }
+                    
+                    // Get next pending chunk for this task instance
+                    Chunk chunk = taskInstance.getNextPendingChunk();
+                    if (chunk != null) {
+                        publishChunk(chunk, taskInstance.getTaskType());
+                        chunksPublished++;
+                        publishedInThisCycle = true;
+                        
+                        if (activeInstances.size() > 1) {
+                            log.debug("📤 Published chunk from Task {} (Guardian {}) - Chunk {}/{}", 
+                                taskInstance.getTaskInstanceId(), taskInstance.getGuardianId(),
+                                chunksPublished, TARGET_CHUNKS_PER_CYCLE);
+                        }
+                    }
+                }
+                
+                cycleCount++;
+                
+                // If we didn't publish anything in this cycle, no more work available
+                if (!publishedInThisCycle) {
+                    break;
                 }
             }
             
-            // Update round-robin index for next cycle
+            // Update round-robin index for next scheduling cycle
             taskRoundRobinIndex.incrementAndGet();
             
             if (chunksPublished > 0) {
-                log.debug("📤 Published {} chunks in this cycle | Active tasks: {} | These chunks can be processed by {} workers simultaneously", 
-                    chunksPublished, activeInstances.size(), chunksPublished);
+                if (activeInstances.size() > 1) {
+                    log.info("📤 Published {} chunks across {} tasks | Workers can process concurrently", 
+                        chunksPublished, activeInstances.size());
+                } else {
+                    log.debug("📤 Published {} chunks in this cycle | Active tasks: {}", 
+                        chunksPublished, activeInstances.size());
+                }
             }
         }
     }
