@@ -29,8 +29,34 @@ public class ElectionGuardService {
     @Qualifier("electionGuardRestTemplate")
     private RestTemplate restTemplate;
 
-    @Value("${electionguard.base.url:http://electionguard:5000}")
+    @Value("${electionguard.api.url:http://electionguard-api:5000}")
+    private String apiUrl;
+    
+    @Value("${electionguard.worker.url:http://electionguard-worker:5001}")
+    private String workerUrl;
+    
+    @Value("${electionguard.base.url:http://electionguard-api:5000}")
     private String baseUrl;
+
+    /**
+     * Determine if an endpoint should use the worker service (heavy operations)
+     * Worker endpoints: create_encrypted_tally, create_partial_decryption, 
+     *                   create_compensated_decryption, combine_decryption_shares
+     * API endpoints: All others (setup_guardians, create_encrypted_ballot, benaloh_challenge, etc.)
+     */
+    private boolean isWorkerEndpoint(String endpoint) {
+        return endpoint.contains("/create_encrypted_tally") ||
+               endpoint.contains("/create_partial_decryption") ||
+               endpoint.contains("/create_compensated_decryption") ||
+               endpoint.contains("/combine_decryption_shares");
+    }
+    
+    /**
+     * Get the appropriate base URL for the given endpoint
+     */
+    private String getServiceUrl(String endpoint) {
+        return isWorkerEndpoint(endpoint) ? workerUrl : apiUrl;
+    }
 
     /**
      * Generic POST request to ElectionGuard service with retry logic and extensive logging
@@ -40,10 +66,13 @@ public class ElectionGuardService {
         String threadName = Thread.currentThread().getName();
         long threadId = Thread.currentThread().threadId();
         Instant startTime = Instant.now();
+        String serviceUrl = getServiceUrl(endpoint);
+        String serviceType = isWorkerEndpoint(endpoint) ? "WORKER" : "API";
         
         log.info("[REQ-{}][Thread-{}:{}] ===== STARTING POST REQUEST =====", requestId, threadName, threadId);
+        log.info("[REQ-{}] Service Type: {} ({})", requestId, serviceType, serviceUrl);
         log.info("[REQ-{}] Endpoint: {}", requestId, endpoint);
-        log.info("[REQ-{}] Full URL: {}{}", requestId, baseUrl, endpoint);
+        log.info("[REQ-{}] Full URL: {}{}", requestId, serviceUrl, endpoint);
         log.info("[REQ-{}] Request body class: {}", requestId, requestBody.getClass().getSimpleName());
         
         // Log connection pool stats BEFORE request
@@ -60,7 +89,7 @@ public class ElectionGuardService {
             log.info("[REQ-{}] Calling restTemplate.postForEntity()...", requestId);
             
             ResponseEntity<String> response = restTemplate.postForEntity(
-                baseUrl + endpoint,
+                serviceUrl + endpoint,
                 entity,
                 String.class
             );
@@ -114,13 +143,15 @@ public class ElectionGuardService {
 
     /**
      * Generic GET request to ElectionGuard service with retry logic
+     * GET requests typically go to the API service (health checks, status queries)
      */
     public String getRequest(String endpoint) {
-        log.info("Making GET request to ElectionGuard: {}", endpoint);
+        String serviceUrl = getServiceUrl(endpoint);
+        log.info("Making GET request to ElectionGuard ({}): {}", serviceUrl, endpoint);
 
         try {
             ResponseEntity<String> response = restTemplate.getForEntity(
-                baseUrl + endpoint,
+                serviceUrl + endpoint,
                 String.class
             );
 
@@ -139,15 +170,33 @@ public class ElectionGuardService {
     }
 
     /**
-     * Health check method
+     * Health check method - checks both API and Worker services
      */
     public boolean isHealthy() {
         try {
-            ResponseEntity<String> response = restTemplate.getForEntity(
-                baseUrl + "/health",
+            // Check API service
+            ResponseEntity<String> apiResponse = restTemplate.getForEntity(
+                apiUrl + "/health",
                 String.class
             );
-            return response.getStatusCode().is2xxSuccessful();
+            
+            // Check Worker service
+            ResponseEntity<String> workerResponse = restTemplate.getForEntity(
+                workerUrl + "/health",
+                String.class
+            );
+            
+            boolean apiHealthy = apiResponse.getStatusCode().is2xxSuccessful();
+            boolean workerHealthy = workerResponse.getStatusCode().is2xxSuccessful();
+            
+            if (!apiHealthy) {
+                log.warn("ElectionGuard API service health check failed");
+            }
+            if (!workerHealthy) {
+                log.warn("ElectionGuard Worker service health check failed");
+            }
+            
+            return apiHealthy && workerHealthy;
         } catch (Exception e) {
             log.warn("ElectionGuard health check failed: {}", e.getMessage());
             return false;

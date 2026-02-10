@@ -68,6 +68,9 @@ services:
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - SPRING_REDIS_PASSWORD=
+      # ElectionGuard Service URLs
+      - ELECTIONGUARD_API_URL=http://electionguard-api:5000
+      - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
     depends_on:
       - rabbitmq
       - redis
@@ -94,14 +97,35 @@ services:
       - ./frontend:/app
       - /app/node_modules
 
-  electionguard:
-    build: ./Microservice
-    container_name: electionguard_service
+  electionguard-api:
+    build:
+      context: ./Microservice
+      dockerfile: Dockerfile.api
+    container_name: electionguard_api
+    restart: unless-stopped
     ports:
       - "0.0.0.0:5000:5000"
     networks:
       election_net:
         ipv4_address: 172.20.0.10
+    environment:
+      - FLASK_DEBUG=0
+      - MASTER_KEY_PQ=${MASTER_KEY_PQ}
+    volumes:
+      # Bind the Microservice/io folder to the container so exports are visible on the host
+      - ./Microservice/io:/app/io:rw
+
+  electionguard-worker:
+    build:
+      context: ./Microservice
+      dockerfile: Dockerfile.worker
+    container_name: electionguard_worker
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:5001:5001"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.11
     environment:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}

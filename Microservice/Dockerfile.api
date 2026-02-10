@@ -1,0 +1,58 @@
+# Dockerfile for ElectionGuard API Service
+# Optimized for fast response times and low latency user-facing operations
+# Handles: setup_guardians, create_encrypted_ballot, benaloh_challenge, encrypt, decrypt
+
+FROM python:3.12
+
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_APP=api.py
+ENV FLASK_ENV=production
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    python3-dev \
+    curl \
+    && rm -rf /var/lib/apt/lists/*
+
+# Create and set working directory
+WORKDIR /app
+
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
+COPY . .
+
+# Expose the port
+EXPOSE 5000
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD curl -f http://localhost:5000/health || exit 1
+
+# Run with optimized settings for fast API responses
+# Key changes for API service:
+# - workers 4 (higher for better concurrency and fast response)
+# - worker-class sync (stable and predictable)
+# - threads 2 (allow some parallelism within worker)
+# - timeout 120 (shorter timeout for quick operations)
+# - max-requests 1000 (recycle less frequently for stability)
+CMD ["gunicorn", \
+    "--bind", "0.0.0.0:5000", \
+    "--workers", "4", \
+    "--worker-class", "sync", \
+    "--threads", "2", \
+    "--max-requests", "1000", \
+    "--max-requests-jitter", "50", \
+    "--timeout", "120", \
+    "--worker-tmp-dir", "/dev/shm", \
+    "--access-logfile", "-", \
+    "--error-logfile", "-", \
+    "--log-level", "info", \
+    "api:app"]

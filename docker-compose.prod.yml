@@ -117,6 +117,9 @@ services:
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - SPRING_REDIS_PASSWORD=
+      # ElectionGuard Service URLs
+      - ELECTIONGUARD_API_URL=http://electionguard-api:5000
+      - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
       # JVM Memory Settings for 4GB RAM server (backend gets 1GB max)
       - JAVA_OPTS=-Xms512m -Xmx1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError
     volumes:
@@ -163,9 +166,12 @@ services:
         reservations:
           memory: 128M
 
-  electionguard:
-    build: ./Microservice
-    container_name: electionguard_service
+  electionguard-api:
+    build:
+      context: ./Microservice
+      dockerfile: Dockerfile.api
+    container_name: electionguard_api
+    restart: unless-stopped
     ports:
       - "0.0.0.0:5000:5000"
     networks:
@@ -177,7 +183,32 @@ services:
     volumes:
       # Bind the Microservice/io folder to the container so exports are visible on the host
       - ./Microservice/io:/app/io:rw
-    # Memory limit for 4GB RAM server (ElectionGuard needs more for crypto operations)
+    # Memory limit for 4GB RAM server (API service gets less memory, optimized for speed)
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+        reservations:
+          memory: 256M
+
+  electionguard-worker:
+    build:
+      context: ./Microservice
+      dockerfile: Dockerfile.worker
+    container_name: electionguard_worker
+    restart: unless-stopped
+    ports:
+      - "0.0.0.0:5001:5001"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.11
+    environment:
+      - FLASK_DEBUG=0
+      - MASTER_KEY_PQ=${MASTER_KEY_PQ}
+    volumes:
+      # Bind the Microservice/io folder to the container so exports are visible on the host
+      - ./Microservice/io:/app/io:rw
+    # Memory limit for 4GB RAM server (Worker gets more memory for heavy crypto operations)
     deploy:
       resources:
         limits:
