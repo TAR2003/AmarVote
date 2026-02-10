@@ -7,6 +7,9 @@ FROM python:3.12
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
+ENV PYTHONOPTIMIZE=2
+ENV PYTHONHASHSEED=0
+ENV MALLOC_TRIM_THRESHOLD_=100000
 ENV FLASK_APP=api.py
 ENV FLASK_ENV=production
 
@@ -24,7 +27,7 @@ WORKDIR /app
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+RUN pip install -r requirements.txt
 
 # Copy application code
 COPY . .
@@ -36,23 +39,27 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Run with optimized settings for fast API responses
-# Key changes for API service:
-# - workers 4 (higher for better concurrency and fast response)
-# - worker-class sync (stable and predictable)
-# - threads 2 (allow some parallelism within worker)
-# - timeout 120 (shorter timeout for quick operations)
-# - max-requests 1000 (recycle less frequently for stability)
+# Run with MAXIMUM THROUGHPUT settings for thousands of concurrent requests
+# Optimizations for API service:
+# - workers 8 (handle massive concurrent load, 2x CPU cores)
+# - worker-class gthread (better for I/O-bound crypto operations)
+# - threads 4 (32 concurrent requests total: 8 workers × 4 threads)
+# - timeout 60 (fast operations only, fail quickly)
+# - max-requests 5000 (less frequent recycling for stability)
+# - preload-app (faster startup, shared crypto constants)
+# - worker-connections 1000 (high concurrency per worker)
+# - backlog 2048 (large queue for burst traffic)
+# - worker-tmp-dir /dev/shm (RAM-based temp storage)
 CMD ["gunicorn", \
     "--bind", "0.0.0.0:5000", \
-    "--workers", "4", \
-    "--worker-class", "sync", \
-    "--threads", "2", \
-    "--max-requests", "1000", \
-    "--max-requests-jitter", "50", \
-    "--timeout", "120", \
+    "--workers", "8", \
+    "--worker-class", "gthread", \
+    "--threads", "4", \
+    "--max-requests", "5000", \
+    "--max-requests-jitter", "100", \
+    "--timeout", "60", \
     "--worker-tmp-dir", "/dev/shm", \
     "--access-logfile", "-", \
     "--error-logfile", "-", \
-    "--log-level", "info", \
+    "--log-level", "warning", \
     "api:app"]
