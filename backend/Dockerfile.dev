@@ -9,5 +9,8 @@ RUN mvn dependency:go-offline -B
 # Copy entire project structure (including src)
 COPY src ./src
 
+# OPTIMIZED JVM settings for development (same as production)
+ENV MAVEN_OPTS="-Xmx2048m -Xms1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -XX:G1HeapRegionSize=16m -XX:+UseStringDeduplication -XX:+ParallelRefProcEnabled -XX:MaxMetaspaceSize=256m"
+
 # For development with live reload
 CMD ["mvn", "spring-boot:run"]

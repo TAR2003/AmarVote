@@ -39,23 +39,30 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
      * 4. Whether the user has already voted
      */
     @Query(value = 
-            // Main election data
+            // Main election data - OPTIMIZED: Avoid joining allowed_voters for public elections
+            // This prevents performance issues when elections have 100k+ voters
             "WITH accessible_elections AS (" +
             "    SELECT DISTINCT e.* FROM elections e " +
+            "    WHERE " +
+            "        e.privacy = 'public' " +  // Public elections - no voter check needed
+            "    UNION " +
+            "    SELECT DISTINCT e.* FROM elections e " +
             "    LEFT JOIN allowed_voters av ON e.election_id = av.election_id " +
+            "    WHERE " +
+            "        av.user_email = :userEmail OR " +  // User is in voter list
+            "        e.admin_email = :userEmail " +  // User is admin
+            "    UNION " +
+            "    SELECT DISTINCT e.* FROM elections e " +
             "    LEFT JOIN guardians g ON e.election_id = g.election_id " +
             "    WHERE " +
-            "        e.privacy = 'public' OR " +
-            "        av.user_email = :userEmail OR " +
-            "        e.admin_email = :userEmail OR " +
-            "        g.user_email = :userEmail" +
+            "        g.user_email = :userEmail" +  // User is guardian
             "), " +
             // Admin data - admin_email is stored directly in elections table
             "admin_info AS (" +
             "    SELECT e.election_id, e.admin_email as admin_name " +
             "    FROM accessible_elections e" +
             "), " +
-            // User role data
+            // User role data - OPTIMIZED: Only check roles for non-public elections or user-specific roles
             "user_roles AS (" +
             "    SELECT e.election_id, " +
             "        CASE WHEN e.admin_email = :userEmail THEN true ELSE false END AS is_admin, " +
