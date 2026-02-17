@@ -80,6 +80,9 @@ public class TallyService {
     
     @Autowired
     private RoundRobinTaskScheduler roundRobinTaskScheduler;
+    
+    @Autowired
+    private TaskLogService taskLogService;
 
     /**
      * Periodic GC hint and memory monitoring utility
@@ -281,6 +284,15 @@ public class TallyService {
             return;
         }
         
+        // 🔥 LOG: Tally creation start
+        com.amarvote.amarvote.model.TaskLog tallyTaskLog = taskLogService.logTaskStart(
+            electionId,
+            "TALLY_CREATION",
+            "Creating encrypted tally for all cast ballots",
+            userEmail
+        );
+        System.out.println("📝 Task log created: ID=" + tallyTaskLog.getLogId() + " | Task: Tally Creation | User: " + userEmail);
+        
         try {
             System.out.println("=== Async Tally Creation Started (Memory-Efficient Mode) ===");
             System.out.println("Election ID: " + electionId);
@@ -370,6 +382,10 @@ public class TallyService {
             System.out.println("✅ Total chunks: " + chunkConfig.getNumChunks());
             System.out.println("Scheduler will publish chunks in fair round-robin order across all active tasks");
             
+            // 🔥 LOG: Tally creation complete
+            taskLogService.logTaskComplete(tallyTaskLog);
+            System.out.println("📝 Task log completed: ID=" + tallyTaskLog.getLogId() + " | Duration: " + tallyTaskLog.getDurationMs() + "ms");
+            
             /* OLD CODE - Replaced with RabbitMQ queue-based processing
             // ✅ Process each chunk in separate isolated transaction
             int processedChunks = 0;
@@ -408,6 +424,10 @@ public class TallyService {
             
         } catch (Exception e) {
             System.err.println("❌ Error in async tally creation: " + e.getMessage());
+            
+            // 🔥 LOG: Tally creation failure
+            taskLogService.logTaskFailure(tallyTaskLog, e.getMessage());
+            System.out.println("📝 Task log failed: ID=" + tallyTaskLog.getLogId() + " | Error: " + e.getMessage());
         } finally {
             // Release lock
             tallyCreationLocks.remove(electionId);

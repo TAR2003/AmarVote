@@ -76,6 +76,9 @@ public class PartialDecryptionService {
     
     @Autowired
     private CredentialCacheService credentialCacheService;
+    
+    @Autowired
+    private TaskLogService taskLogService;
 
     /**
      * Periodic GC hint and memory monitoring utility
@@ -121,6 +124,17 @@ public class PartialDecryptionService {
                     .build();
             }
             Guardian guardian = guardians.get(0); // Should be only one
+            
+            // 🔥 LOG: Guardian partial decryption start
+            com.amarvote.amarvote.model.TaskLog partialDecryptionTaskLog = taskLogService.logGuardianTaskStart(
+                request.election_id(),
+                "GUARDIAN_PARTIAL_DECRYPTION",
+                "Guardian " + guardian.getSequenceOrder() + " computing partial decryption shares",
+                userEmail,
+                guardian.getGuardianId()
+            );
+            System.out.println("📝 Task log created: ID=" + partialDecryptionTaskLog.getLogId() + 
+                " | Task: Guardian " + guardian.getSequenceOrder() + " Partial Decryption | User: " + userEmail);
 
             // 3. Get election information
             Optional<Election> electionOpt = electionRepository.findById(request.election_id());
@@ -241,6 +255,11 @@ public class PartialDecryptionService {
             guardian.setDecryptedOrNot(true);
             guardianRepository.save(guardian);
             System.out.println("✅ Guardian marked as fully decrypted (both phases complete)");
+            
+            // 🔥 LOG: Guardian partial decryption complete
+            taskLogService.logTaskComplete(partialDecryptionTaskLog);
+            System.out.println("📝 Task log completed: ID=" + partialDecryptionTaskLog.getLogId() + 
+                " | Duration: " + partialDecryptionTaskLog.getDurationMs() + "ms");
 
             return CreatePartialDecryptionResponse.builder()
                 .success(true)
@@ -1236,6 +1255,15 @@ public class PartialDecryptionService {
         try {
             System.out.println("=== COMBINE PARTIAL DECRYPTION STARTED (Memory-Efficient Mode) ===");
             
+            // 🔥 LOG: Combine decryption start
+            com.amarvote.amarvote.model.TaskLog combineTaskLog = taskLogService.logTaskStart(
+                request.election_id(),
+                "COMBINE_DECRYPTION",
+                "Combining partial decryption shares to compute election results",
+                "system" // TODO: Pass user email from request if available
+            );
+            System.out.println("📝 Task log created: ID=" + combineTaskLog.getLogId() + " | Task: Combine Decryption");
+            
             // 1. Fetch election
             Optional<Election> electionOpt = electionRepository.findById(request.election_id());
             if (!electionOpt.isPresent()) {
@@ -1671,6 +1699,11 @@ public class PartialDecryptionService {
             System.out.println("✅ Updated election status to 'decrypted'");
             System.out.println("✅ Election results are now available for viewing");
             
+            // 🔥 LOG: Combine decryption complete
+            taskLogService.logTaskComplete(combineTaskLog);
+            System.out.println("📝 Task log completed: ID=" + combineTaskLog.getLogId() + 
+                " | Duration: " + combineTaskLog.getDurationMs() + "ms");
+            
             return CombinePartialDecryptionResponse.builder()
                 .success(true)
                 .message("Election results successfully decrypted and ready for viewing")
@@ -1799,64 +1832,80 @@ public class PartialDecryptionService {
             }
             
             System.out.println("\n" + "-".repeat(80));
-            System.out.println("📦 PROCESSING CHUNKS (Memory-Efficient)");
+            System.out.println("📦 PROCESSING COMPENSATED DECRYPTION (Guardian-First Approach)");
             System.out.println("-".repeat(80));
             
-            int totalOperations = electionCenterIds.size() * otherGuardians.size();
-            int completedOperations = 0;
+            String userEmail = availableGuardian.getUserEmail(); // Get user email for logging
             
-            // Process each chunk (MEMORY-EFFICIENT)
-            for (int chunkIndex = 0; chunkIndex < electionCenterIds.size(); chunkIndex++) {
-                Long electionCenterId = electionCenterIds.get(chunkIndex);
-                System.out.println("\n📍 Chunk " + (chunkIndex + 1) + "/" + electionCenterIds.size() + " (ID: " + electionCenterId + ") | Guardian " + availableGuardian.getSequenceOrder() + " creating shares for others");
-                System.out.println("Fetching election center from database...");
+            // 🔥 Process guardian-by-guardian for better logging
+            for (Guardian otherGuardian : otherGuardians) {
+                // 🔥 LOG: Compensated decryption start for this guardian pair
+                com.amarvote.amarvote.model.TaskLog compensatedTaskLog = taskLogService.logTaskStart(
+                    election.getElectionId(),
+                    "COMPENSATED_DECRYPTION",
+                    "Guardian " + availableGuardian.getSequenceOrder() + " creating compensated shares for Guardian " + otherGuardian.getSequenceOrder(),
+                    userEmail
+                );
+                // Store guardian IDs in the task log for reference
+                compensatedTaskLog.setCompensatingGuardianId(availableGuardian.getGuardianId());
+                compensatedTaskLog.setMissingGuardianId(otherGuardian.getGuardianId());
+                compensatedTaskLog = taskLogService.logTaskComplete(compensatedTaskLog); // Update immediately to store guardian IDs
+                compensatedTaskLog.setStatus("STARTED"); // Reset to STARTED
+                compensatedTaskLog.setEndTime(null);
+                compensatedTaskLog.setDurationMs(null);
                 
-                // MEMORY-EFFICIENT: Fetch only the election center needed for this iteration
-                Optional<ElectionCenter> electionCenterOpt = electionCenterRepository.findById(electionCenterId);
-                if (!electionCenterOpt.isPresent()) {
-                    System.err.println("❌ Election center not found: " + electionCenterId);
-                    continue;
-                }
-                ElectionCenter electionCenter = electionCenterOpt.get();
+                System.out.println("\n📝 Task log created: ID=" + compensatedTaskLog.getLogId() + 
+                    " | Task: Guardian " + availableGuardian.getSequenceOrder() + 
+                    " compensating for Guardian " + otherGuardian.getSequenceOrder());
                 
                 int createdCount = 0;
                 int skippedCount = 0;
                 
-                // For each OTHER guardian, create compensated share using the current guardian
-                for (Guardian otherGuardian : otherGuardians) {
-                    // Check if compensated share from THIS SPECIFIC guardian for this chunk already exists
-                    boolean alreadyExists = compensatedDecryptionRepository
-                        .existsByElectionCenterIdAndCompensatingGuardianIdAndMissingGuardianId(
-                            electionCenterId,
-                            availableGuardian.getGuardianId(),
-                            otherGuardian.getGuardianId()
-                        );
-                    
-                    System.out.println("  Checking: Guardian " + availableGuardian.getSequenceOrder() + " → Guardian " + otherGuardian.getSequenceOrder() + 
-                                     " (Exists: " + alreadyExists + ")");
-                    
-                    if (!alreadyExists) {
-                        // Create compensated share from this guardian for the other guardian for this chunk
-                        System.out.println("  🔧 Creating share: Guardian " + availableGuardian.getSequenceOrder() + " compensating for Guardian " + otherGuardian.getSequenceOrder());
-                        createCompensatedShare(election, electionCenter, availableGuardian, otherGuardian, availableGuardianPrivateKey, availableGuardianPolynomial);
-                        System.out.println("  ✅ Successfully created compensated share");
-                        createdCount++;
-                        completedOperations++;
-                    } else {
-                        System.out.println("  ⏭️ Skipped (already exists)");
-                        skippedCount++;
-                        completedOperations++;
+                try {
+                    // Process each chunk for this guardian pair
+                    for (int chunkIndex = 0; chunkIndex < electionCenterIds.size(); chunkIndex++) {
+                        Long electionCenterId = electionCenterIds.get(chunkIndex);
+                        
+                        // MEMORY-EFFICIENT: Fetch only the election center needed for this iteration
+                        Optional<ElectionCenter> electionCenterOpt = electionCenterRepository.findById(electionCenterId);
+                        if (!electionCenterOpt.isPresent()) {
+                            System.err.println("❌ Election center not found: " + electionCenterId);
+                            continue;
+                        }
+                        ElectionCenter electionCenter = electionCenterOpt.get();
+                        
+                        // Check if compensated share from THIS SPECIFIC guardian for this chunk already exists
+                        boolean alreadyExists = compensatedDecryptionRepository
+                            .existsByElectionCenterIdAndCompensatingGuardianIdAndMissingGuardianId(
+                                electionCenterId,
+                                availableGuardian.getGuardianId(),
+                                otherGuardian.getGuardianId()
+                            );
+                        
+                        if (!alreadyExists) {
+                            // Create compensated share from this guardian for the other guardian for this chunk
+                            createCompensatedShare(election, electionCenter, availableGuardian, otherGuardian, availableGuardianPrivateKey, availableGuardianPolynomial);
+                            createdCount++;
+                        } else {
+                            skippedCount++;
+                        }
+                        
+                        // Clear reference
+                        electionCenter = null;
                     }
-                }
-                
-                System.out.println("  📊 Summary for Chunk " + electionCenterId + ": Created=" + createdCount + ", Skipped=" + skippedCount);
-                
-                // ✅ MEMORY-EFFICIENT: Clear references after each chunk
-                electionCenter = null;
-                
-                // ✅ Periodic GC hint every 50 chunks (not every chunk - avoid overhead)
-                if ((chunkIndex + 1) % 50 == 0 || (chunkIndex + 1) == electionCenterIds.size()) {
-                    suggestGCIfNeeded(completedOperations, totalOperations, "Compensated Decryption");
+                    
+                    // 🔥 LOG: Compensated decryption complete for this guardian pair
+                    taskLogService.logTaskComplete(compensatedTaskLog);
+                    System.out.println("✅ Task log completed: ID=" + compensatedTaskLog.getLogId() + 
+                        " | Guardian " + availableGuardian.getSequenceOrder() + " → Guardian " + otherGuardian.getSequenceOrder() +
+                        " | Duration: " + compensatedTaskLog.getDurationMs() + "ms | Created: " + createdCount + ", Skipped: " + skippedCount);
+                        
+                } catch (Exception e) {
+                    // 🔥 LOG: Compensated decryption failure for this guardian pair
+                    taskLogService.logTaskFailure(compensatedTaskLog, e.getMessage());
+                    System.err.println("❌ Task log failed: ID=" + compensatedTaskLog.getLogId() + 
+                        " | Guardian " + availableGuardian.getSequenceOrder() + " → Guardian " + otherGuardian.getSequenceOrder() +
+                        " | Error: " + e.getMessage());
                 }
             }
             

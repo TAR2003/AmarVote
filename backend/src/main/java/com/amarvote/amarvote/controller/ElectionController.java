@@ -66,6 +66,7 @@ public class ElectionController {
     private final BlockchainService blockchainService;
     private final CloudinaryService cloudinaryService;
     private final ObjectMapper objectMapper;
+    private final com.amarvote.amarvote.service.TaskLogService taskLogService;
 
     @PostMapping("/create-election")
     public ResponseEntity<Election> createElection(
@@ -1021,4 +1022,24 @@ public class ElectionController {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(results);
         }
     }
-}
+    
+    /**
+     * Get task logs for an election (tally creation, guardian decryption, compensated decryption, combine decryption)
+     */
+    @GetMapping("/election/{id}/task-logs")
+    public ResponseEntity<Map<String, Object>> getTaskLogs(@PathVariable Long id) {
+        try {
+            List<com.amarvote.amarvote.model.TaskLog> taskLogs = taskLogService.getTaskLogsByElection(id);
+            
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "taskLogs", taskLogs,
+                "count", taskLogs.size()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "error", "Failed to retrieve task logs: " + e.getMessage()
+            ));
+        }
+    }}
