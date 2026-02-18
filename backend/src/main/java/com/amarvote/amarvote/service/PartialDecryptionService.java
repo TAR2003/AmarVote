@@ -479,17 +479,12 @@ public class PartialDecryptionService {
         
         if (!guardianTasks.isEmpty()) {
             // Active task found in scheduler - return live progress
-            // Separate partial and compensated tasks
+            // Check for partial decryption task
             var partialTasks = guardianTasks.stream()
                 .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.PARTIAL_DECRYPTION)
                 .findFirst();
-            var compensatedTasks = guardianTasks.stream()
-                .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.COMPENSATED_DECRYPTION)
-                .collect(Collectors.toList());
             
             // Get all guardians to calculate compensated decryptions needed
-            // FIX: Don't use compensatedTasks.size() because during partial decryption phase, 
-            // compensated tasks haven't been scheduled yet, so it would be 0
             List<Guardian> allGuardians = guardianRepository.findByElectionId(electionId);
             long totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1); // All except self
             
@@ -497,50 +492,53 @@ public class PartialDecryptionService {
             long completedChunks;
             String currentPhase = null;
             
+            // CRITICAL FIX: Always use database as source of truth for progress counts
+            // The scheduler is only used to determine if tasks are active, not for accurate counts
+            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
+            totalChunks = electionCenterIds.size();
+            
+            // Get actual completed count from database (primary source of truth)
+            completedChunks = decryptionRepository.countByElectionIdAndGuardianId(electionId, guardianId);
+            System.out.println("📊 Partial decryption progress from database: " + completedChunks + "/" + totalChunks);
+            
+            // Determine current phase based on scheduler task presence and database completion
             if (partialTasks.isPresent()) {
                 com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress partial = partialTasks.get();
-                totalChunks = partial.getTotalChunks();
-                completedChunks = partial.getCompletedChunks();
                 
-                if (!partial.isComplete()) {
+                if (!partial.isComplete() || completedChunks < totalChunks) {
                     currentPhase = "partial_decryption";
                 }
-            } else {
-                // Partial task not in scheduler - get chunk count from database
-                List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
-                totalChunks = electionCenterIds.size();
-                completedChunks = decryptionRepository.countByElectionIdAndGuardianId(electionId, guardianId);
-                System.out.println("📊 Partial task not in scheduler - using database: " + completedChunks + "/" + totalChunks);
             }
             
-            long compensatedCompletedChunks = compensatedTasks.stream()
-                .mapToLong(com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress::getCompletedChunks)
-                .sum();
+            // CRITICAL FIX: Always use database for compensated decryption count too
+            long compensatedCompletedChunks = 0;
+            if (totalCompensatedGuardians > 0) {
+                compensatedCompletedChunks = compensatedDecryptionRepository
+                    .countByElectionIdAndCompensatingGuardianId(electionId, guardianId);
+                System.out.println("📊 Compensated decryption progress from database: " + compensatedCompletedChunks + "/" + (totalChunks * totalCompensatedGuardians));
+            }
             
             // Determine current phase
-            if (partialTasks.isPresent() && partialTasks.get().isComplete()) {
+            if (partialTasks.isPresent() && partialTasks.get().isComplete() && completedChunks >= totalChunks) {
                 // Partial decryption is complete, check if compensated is needed
                 if (totalCompensatedGuardians > 0) {
                     // Need compensated decryption for other guardians
-                    // ALWAYS check database first (primary source of truth)
-                    long compensatedDecryptionCount = compensatedDecryptionRepository
-                        .countByElectionIdAndCompensatingGuardianId(electionId, guardianId);
+                    // Check if compensated shares are complete (already fetched from database above)
                     long expectedCompensatedCount = totalChunks * totalCompensatedGuardians;
                     
-                    System.out.println("📊 Compensated progress check: " + compensatedDecryptionCount + "/" + expectedCompensatedCount);
+                    System.out.println("📊 Compensated progress check: " + compensatedCompletedChunks + "/" + expectedCompensatedCount);
                     
-                    if (compensatedDecryptionCount < expectedCompensatedCount) {
+                    if (compensatedCompletedChunks < expectedCompensatedCount) {
                         // Compensated decryption is still in progress or not started
                         currentPhase = "compensated_shares_generation";
-                        // Use database count if available, otherwise scheduler count
-                        if (compensatedDecryptionCount > 0) {
-                            compensatedCompletedChunks = compensatedDecryptionCount;
-                        }
                     } else {
                         // All compensated decryption complete
                         System.out.println("✅ All compensated decryption complete");
                         currentPhase = "completed";
                     }
+                } else {
+                    // Single guardian - no compensated shares needed
+                    currentPhase = "completed";
                 }
             }
             
@@ -1172,7 +1170,7 @@ public class PartialDecryptionService {
      * Queries RoundRobinTaskScheduler for real-time chunk processing state
      */
     public CombineStatusResponse getCombineStatus(Long electionId) {
-        // Try to get progress from scheduler first (live task tracking)
+        // Try to get progress from scheduler first (to check if task is active)
         List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> electionProgress = 
             decryptionTaskQueueService.getRoundRobinTaskScheduler().getElectionProgress(electionId);
         
@@ -1181,30 +1179,8 @@ public class PartialDecryptionService {
             .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.COMBINE_DECRYPTION)
             .collect(Collectors.toList());
         
-        if (!combineTasks.isEmpty()) {
-            // Active task found in scheduler - return live progress
-            com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress progress = combineTasks.get(0);
-            
-            String status;
-            if (progress.getCompletedChunks() == 0 && progress.getProcessingChunks() == 0 && progress.getQueuedChunks() == 0) {
-                status = "pending";
-            } else if (progress.isComplete()) {
-                status = "completed";
-            } else {
-                status = "in_progress";
-            }
-            
-            return CombineStatusResponse.builder()
-                .success(true)
-                .status(status)
-                .message("Combine status retrieved successfully")
-                .totalChunks((int) progress.getTotalChunks())
-                .processedChunks((int) progress.getCompletedChunks())
-                .progressPercentage(progress.getCompletionPercentage())
-                .build();
-        }
-        
-        // No active task in scheduler - check database for completed combination
+        // CRITICAL FIX: Always use database as source of truth for progress counts
+        // The scheduler is only used to determine if tasks are active
         List<ElectionCenter> allChunks = electionCenterRepository.findByElectionId(electionId);
         int totalChunks = allChunks.size();
         
@@ -1221,6 +1197,34 @@ public class PartialDecryptionService {
         
         // Count how many chunks have electionResult filled (combination completed)
         long processedChunks = electionCenterRepository.countByElectionIdAndElectionResultNotNull(electionId);
+        System.out.println("📊 Combine progress from database: " + processedChunks + "/" + totalChunks);
+        
+        if (!combineTasks.isEmpty()) {
+            // Active task found in scheduler - return live progress from DATABASE
+            com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress progress = combineTasks.get(0);
+            
+            String status;
+            if (processedChunks == 0) {
+                status = "pending";
+            } else if (progress.isComplete() || processedChunks >= totalChunks) {
+                status = "completed";
+            } else {
+                status = "in_progress";
+            }
+            
+            double progressPercentage = totalChunks > 0 
+                ? (processedChunks * 100.0) / totalChunks
+                : 0.0;
+            
+            return CombineStatusResponse.builder()
+                .success(true)
+                .status(status)
+                .message("Combine status retrieved successfully")
+                .totalChunks(totalChunks)
+                .processedChunks((int) processedChunks)
+                .progressPercentage(progressPercentage)
+                .build();
+        }
         
         // Determine status based on progress
         String status;
