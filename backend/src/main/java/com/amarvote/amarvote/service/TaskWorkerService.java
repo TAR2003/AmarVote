@@ -188,13 +188,8 @@ public class TaskWorkerService {
             // Log memory after
             long memoryAfterMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
             System.out.println("✅ Chunk " + task.getChunkNumber() + " complete. Memory freed: " + (memoryBeforeMB - memoryAfterMB) + " MB");
-            System.out.println("🧠 Memory after: " + memoryAfterMB + " MB");            
-            // CRITICAL: Small delay to let GC catch up
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-            }            
+            System.out.println("🧠 Memory after: " + memoryAfterMB + " MB");
+            
         } catch (Exception e) {
             System.err.println("❌ Error processing tally chunk: " + e.getMessage());
             
@@ -215,12 +210,9 @@ public class TaskWorkerService {
     /**
      * Worker for partial decryption tasks
      * Processes one chunk at a time for a specific guardian
-     * 
-     * CRITICAL: NO @Transactional here to prevent holding DB connections during slow ElectionGuard calls
-     * This prevents connection starvation that blocks API requests.
-     * We use manual transaction boundaries only for the final save operation.
      */
     @RabbitListener(queues = RabbitMQConfig.PARTIAL_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
+    @Transactional
     public void processPartialDecryptionTask(PartialDecryptionTask task) {
         String lockKey = "partial_" + task.getElectionId() + "_g" + task.getGuardianId() + "_chunk_" + task.getChunkNumber();
         
@@ -285,7 +277,7 @@ public class TaskWorkerService {
                 .quorum(task.getQuorum())
                 .build();
             
-            // Call ElectionGuard service (NO transaction held during this slow operation)
+            // Call ElectionGuard service
             System.out.println("🚀 Calling ElectionGuard service for partial decryption");
             String response = electionGuardService.postRequest("/create_partial_decryption", guardRequest);
             ElectionGuardPartialDecryptionResponse guardResponse = objectMapper.readValue(response, ElectionGuardPartialDecryptionResponse.class);
@@ -294,7 +286,7 @@ public class TaskWorkerService {
                 throw new RuntimeException("Invalid credentials provided");
             }
             
-            // Store decryption data with manual transaction (quick DB operation only)
+            // Store decryption data
             Decryption decryption = Decryption.builder()
                 .electionCenterId(task.getElectionCenterId())
                 .guardianId(task.getGuardianId())
@@ -303,7 +295,6 @@ public class TaskWorkerService {
                 .partialDecryptedTally(guardResponse.ballot_shares())
                 .build();
             
-            // Quick transactional save (holds connection for <100ms instead of 10+ seconds)
             decryptionRepository.save(decryption);
             
             // Report state: COMPLETED
@@ -329,13 +320,6 @@ public class TaskWorkerService {
             System.out.println("✅ Chunk " + task.getChunkNumber() + " complete. Memory freed: " + (memoryBeforeMB - memoryAfterMB) + " MB");
             System.out.println("🧠 Memory after: " + memoryAfterMB + " MB");
             
-            // CRITICAL: Small delay to let GC catch up and prevent performance degradation
-            try {
-                Thread.sleep(100); // 100ms pause lets GC run between chunks
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-            }
-            
         } catch (Exception e) {
             System.err.println("❌ Error processing partial decryption chunk: " + e.getMessage());
             
@@ -356,10 +340,9 @@ public class TaskWorkerService {
     /**
      * Worker for compensated decryption tasks
      * Processes one compensated share at a time
-     * 
-     * CRITICAL: NO @Transactional here to prevent holding DB connections during slow ElectionGuard calls
      */
     @RabbitListener(queues = RabbitMQConfig.COMPENSATED_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
+    @Transactional
     public void processCompensatedDecryptionTask(CompensatedDecryptionTask task) {
         String lockKey = "compensated_" + task.getElectionId() + "_g" + task.getSourceGuardianId() + 
                         "_for_" + task.getTargetGuardianId() + "_chunk_" + task.getChunkNumber();
@@ -511,13 +494,6 @@ public class TaskWorkerService {
             System.out.println("✅ Compensated chunk complete. Memory freed: " + (memoryBeforeMB - memoryAfterMB) + " MB");
             System.out.println("🧠 Memory after: " + memoryAfterMB + " MB");
             
-            // CRITICAL: Small delay to let GC catch up
-            try {
-                Thread.sleep(100);
-            } catch (InterruptedException ie) {
-                Thread.currentThread().interrupt();
-            }
-            
         } catch (Exception e) {
             System.err.println("❌ Error processing compensated decryption: " + e.getMessage());
             
@@ -538,10 +514,9 @@ public class TaskWorkerService {
     /**
      * Worker for combine decryption tasks
      * Processes one chunk at a time to combine all decryption shares
-     * 
-     * CRITICAL: NO @Transactional here to prevent holding DB connections during slow ElectionGuard calls
      */
     @RabbitListener(queues = RabbitMQConfig.COMBINE_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
+    @Transactional
     public void processCombineDecryptionTask(CombineDecryptionTask task) {
         String lockKey = "combine_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
         

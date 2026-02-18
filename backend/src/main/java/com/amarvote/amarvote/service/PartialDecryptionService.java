@@ -2082,9 +2082,6 @@ public class PartialDecryptionService {
     /**
      * Get election results from cached election_result data
      * Returns null if results haven't been computed yet
-     * 
-     * CRITICAL FIX: Only return results if ALL chunks are complete.
-     * This prevents showing partial results when combine decryption is still in progress.
      */
     public Object getElectionResults(Long electionId) {
         try {
@@ -2095,27 +2092,16 @@ public class PartialDecryptionService {
                 return null;
             }
             
-            int totalChunks = electionCenters.size();
+            // Check if any chunks have results
+            boolean anyChunkHasResults = electionCenters.stream()
+                .anyMatch(ec -> ec.getElectionResult() != null && !ec.getElectionResult().trim().isEmpty());
             
-            // CRITICAL FIX: Check if ALL chunks have results (not just any chunk)
-            // This prevents showing incomplete results during ongoing combine decryption
-            long completedChunks = electionCenterRepository.countByElectionIdAndElectionResultNotNull(electionId);
-            
-            if (completedChunks == 0) {
+            if (!anyChunkHasResults) {
                 System.out.println("No results computed yet for election: " + electionId);
                 return null;
             }
             
-            // CRITICAL: Only return results if ALL chunks are complete
-            if (completedChunks < totalChunks) {
-                System.out.println("⚠️ Partial results detected: " + completedChunks + "/" + totalChunks + " chunks complete. "
-                    + "NOT returning results until all chunks are processed to prevent showing incomplete data.");
-                return null;
-            }
-            
-            System.out.println("✅ All " + totalChunks + " chunks complete. Returning final aggregated results.");
-            
-            // Build and return aggregated results (only when complete)
+            // Build and return aggregated results
             return buildAggregatedResultsFromChunks(electionCenters);
             
         } catch (Exception e) {
