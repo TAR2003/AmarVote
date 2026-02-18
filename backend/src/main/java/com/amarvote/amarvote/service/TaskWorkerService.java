@@ -84,9 +84,14 @@ public class TaskWorkerService {
     /**
      * Worker for tally creation tasks
      * Processes one chunk of ballots at a time
+     * 
+     * PERFORMANCE OPTIMIZATION:
+     * - No @Transactional on listener method (prevents long-running transactions)
+     * - Programmatic transactions only for specific DB operations
+     * - Mandatory GC breathing room between chunks
+     * - Aggressive memory cleanup after each chunk
      */
     @RabbitListener(queues = RabbitMQConfig.TALLY_CREATION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
     public void processTallyCreationTask(TallyCreationTask task) {
         String lockKey = "tally_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
         
@@ -184,6 +189,11 @@ public class TaskWorkerService {
             
             chunkBallots.clear();
             chunkEncryptedBallots.clear();
+            chunkBallots = null;
+            chunkEncryptedBallots = null;
+            guardRequest = null;
+            guardResponse = null;
+            electionCenter = null;
             
             // Log memory after
             long memoryAfterMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
@@ -210,9 +220,14 @@ public class TaskWorkerService {
     /**
      * Worker for partial decryption tasks
      * Processes one chunk at a time for a specific guardian
+     * 
+     * PERFORMANCE OPTIMIZATION:
+     * - No @Transactional on listener method (prevents long-running transactions)
+     * - Programmatic transactions only for specific DB operations
+     * - Mandatory GC breathing room between chunks
+     * - Aggressive memory cleanup after each chunk
      */
     @RabbitListener(queues = RabbitMQConfig.PARTIAL_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
     public void processPartialDecryptionTask(PartialDecryptionTask task) {
         String lockKey = "partial_" + task.getElectionId() + "_g" + task.getGuardianId() + "_chunk_" + task.getChunkNumber();
         
@@ -309,11 +324,16 @@ public class TaskWorkerService {
             // Update progress
             updatePartialDecryptionProgress(task.getElectionId(), task.getGuardianId(), task.getChunkNumber());
             
-            // CRITICAL: Memory cleanup
+            // CRITICAL: Aggressive memory cleanup
             entityManager.flush();
             entityManager.clear();
             
             ballotCipherTexts.clear();
+            ballotCipherTexts = null;
+            electionCenter = null;
+            guardRequest = null;
+            guardResponse = null;
+            decryption = null;
             
             // Log memory after
             long memoryAfterMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
@@ -333,16 +353,33 @@ public class TaskWorkerService {
             }
         } finally {
             processingLocks.remove(lockKey);
-            System.gc(); // Suggest garbage collection
+            
+            // CRITICAL: Aggressive GC + mandatory breathing room
+            System.gc();
+            System.gc();
+            
+            // MANDATORY: Sleep to give GC time to run
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+            
+            System.out.println("🧹 GC completed + 100ms breathing room provided");
         }
     }
 
     /**
      * Worker for compensated decryption tasks
      * Processes one compensated share at a time
+     * 
+     * PERFORMANCE OPTIMIZATION:
+     * - No @Transactional on listener method (prevents long-running transactions)
+     * - Programmatic transactions only for specific DB operations
+     * - Mandatory GC breathing room between chunks
+     * - Aggressive memory cleanup after each chunk
      */
     @RabbitListener(queues = RabbitMQConfig.COMPENSATED_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
     public void processCompensatedDecryptionTask(CompensatedDecryptionTask task) {
         String lockKey = "compensated_" + task.getElectionId() + "_g" + task.getSourceGuardianId() + 
                         "_for_" + task.getTargetGuardianId() + "_chunk_" + task.getChunkNumber();
@@ -483,11 +520,16 @@ public class TaskWorkerService {
             // Update progress
             updateCompensatedDecryptionProgress(task.getElectionId(), task.getSourceGuardianId());
             
-            // CRITICAL: Memory cleanup
+            // CRITICAL: Aggressive memory cleanup
             entityManager.flush();
             entityManager.clear();
             
             ballotCipherTexts.clear();
+            ballotCipherTexts = null;
+            electionCenter = null;
+            guardRequest = null;
+            guardResponse = null;
+            compensatedDecryption = null;
             
             // Log memory after
             long memoryAfterMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
@@ -507,16 +549,33 @@ public class TaskWorkerService {
             }
         } finally {
             processingLocks.remove(lockKey);
-            System.gc(); // Suggest garbage collection
+            
+            // CRITICAL: Aggressive GC + mandatory breathing room
+            System.gc();
+            System.gc();
+            
+            // MANDATORY: Sleep to give GC time to run
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+            
+            System.out.println("🧹 GC completed + 100ms breathing room provided");
         }
     }
 
     /**
      * Worker for combine decryption tasks
      * Processes one chunk at a time to combine all decryption shares
+     * 
+     * PERFORMANCE OPTIMIZATION:
+     * - No @Transactional on listener method (prevents long-running transactions)
+     * - Programmatic transactions only for specific DB operations
+     * - Mandatory GC breathing room between chunks
+     * - Aggressive memory cleanup after each chunk
      */
     @RabbitListener(queues = RabbitMQConfig.COMBINE_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
     public void processCombineDecryptionTask(CombineDecryptionTask task) {
         String lockKey = "combine_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
         
@@ -689,13 +748,28 @@ public class TaskWorkerService {
             // Removed: updateCombineDecryptionProgress - status is now queried directly from database
             System.out.println("✅ Combine chunk " + task.getChunkNumber() + " completed");
             
-            // CRITICAL: Memory cleanup
+            // CRITICAL: Aggressive memory cleanup
             entityManager.flush();
             entityManager.clear();
             
             ballotCipherTexts.clear();
             decryptions.clear();
             guardianDataList.clear();
+            ballotCipherTexts = null;
+            decryptions = null;
+            guardianDataList = null;
+            availableGuardianIds.clear();
+            availableGuardianIds = null;
+            availableGuardianPublicKeys.clear();
+            availableGuardianPublicKeys = null;
+            availableTallyShares.clear();
+            availableTallyShares = null;
+            availableBallotShares.clear();
+            availableBallotShares = null;
+            election = null;
+            electionCenter = null;
+            guardRequest = null;
+            guardResponse = null;
             
             // Log memory after
             long memoryAfterMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
@@ -715,7 +789,19 @@ public class TaskWorkerService {
             }
         } finally {
             processingLocks.remove(lockKey);
-            System.gc(); // Suggest garbage collection
+            
+            // CRITICAL: Aggressive GC + mandatory breathing room
+            System.gc();
+            System.gc();
+            
+            // MANDATORY: Sleep to give GC time to run
+            try {
+                Thread.sleep(100);
+            } catch (InterruptedException ie) {
+                Thread.currentThread().interrupt();
+            }
+            
+            System.out.println("🧹 GC completed + 100ms breathing room provided");
         }
     }
 
