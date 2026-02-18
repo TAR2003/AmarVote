@@ -51,21 +51,18 @@ public class ExternalApiWebClientConfig {
     /**
      * Separate RestTemplate bean for ElectionGuard service
      * Uses Apache HttpClient with connection pooling for better reliability
-     * Optimized for sustained high-throughput processing (1000+ chunks)
      */
     @Bean("electionGuardRestTemplate")
     public RestTemplate electionGuardRestTemplate() {
-        // Configure connection pool with aggressive idle connection eviction
+        // Configure connection pool
         PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
-        connectionManager.setMaxTotal(100); // Increased for better concurrency
-        connectionManager.setDefaultMaxPerRoute(50); // Increased per-route connections
+        connectionManager.setMaxTotal(50); // Maximum total connections
+        connectionManager.setDefaultMaxPerRoute(20); // Maximum connections per route
         
-        // Configure connection timeouts with aggressive validation
+        // Configure connection timeouts
         ConnectionConfig connectionConfig = ConnectionConfig.custom()
                 .setConnectTimeout(Timeout.ofSeconds(30))
                 .setSocketTimeout(Timeout.ofMinutes(10)) // 10 minutes for crypto operations
-                .setValidateAfterInactivity(Timeout.ofSeconds(5)) // Validate connections quickly
-                .setTimeToLive(Timeout.ofMinutes(5)) // Force connection recycling
                 .build();
         connectionManager.setDefaultConnectionConfig(connectionConfig);
         
@@ -75,18 +72,15 @@ public class ExternalApiWebClientConfig {
                 .setResponseTimeout(Timeout.ofMinutes(10))
                 .build();
         
-        // Create HttpClient with aggressive idle connection eviction and connection reuse
+        // Create HttpClient with connection pool
         CloseableHttpClient httpClient = HttpClients.custom()
                 .setConnectionManager(connectionManager)
                 .setDefaultRequestConfig(requestConfig)
-                .evictIdleConnections(Timeout.ofSeconds(30)) // Aggressively evict idle connections
-                .evictExpiredConnections() // Automatically evict expired connections
-                .setConnectionReuseStrategy((request, response, context) -> true) // Force connection reuse
+                .evictIdleConnections(Timeout.ofMinutes(2))
                 .build();
         
         // Create request factory with HttpClient
         HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
-        requestFactory.setBufferRequestBody(false); // Stream requests to reduce memory
         
         return new RestTemplate(requestFactory);
     }
