@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { FiCheck, FiClock, FiCalendar, FiUsers, FiLock, FiUnlock, FiBox, FiAlertCircle } from 'react-icons/fi';
+import { FiCheck, FiClock, FiCalendar, FiUsers, FiLock, FiUnlock, FiBox } from 'react-icons/fi';
 import { electionApi } from '../utils/electionApi';
 
 const ElectionTimeline = ({ electionId, electionData }) => {
@@ -12,129 +12,6 @@ const ElectionTimeline = ({ electionId, electionData }) => {
         setLoading(true);
         
         const events = [];
-        
-        // Fetch task logs from the new centralized API
-        try {
-          const response = await fetch(`/api/election/${electionId}/task-logs`, {
-            credentials: 'include',
-          });
-          
-          if (response.ok) {
-            const taskLogsData = await response.json();
-            
-            if (taskLogsData.success && taskLogsData.taskLogs) {
-              console.log('📊 Loaded task logs:', taskLogsData.taskLogs.length);
-              
-              // Process each task log
-              taskLogsData.taskLogs.forEach(log => {
-                const baseEvent = {
-                  id: `tasklog-${log.logId}`,
-                  status: log.status === 'COMPLETED' ? 'completed' : log.status === 'FAILED' ? 'failed' : 'in-progress'
-                };
-                
-                // Add start event if startTime exists
-                if (log.startTime) {
-                  const startEvent = {
-                    ...baseEvent,
-                    id: `${baseEvent.id}-start`,
-                    timestamp: new Date(log.startTime),
-                  };
-                  
-                  switch (log.taskType) {
-                    case 'TALLY_CREATION':
-                      startEvent.title = 'Tally Creation Started';
-                      startEvent.icon = FiBox;
-                      startEvent.color = 'purple';
-                      startEvent.description = `Started by ${log.userEmail || 'system'}`;
-                      break;
-                    case 'GUARDIAN_PARTIAL_DECRYPTION':
-                      startEvent.title = `Guardian Partial Decryption Started`;
-                      startEvent.icon = FiLock;
-                      startEvent.color = 'indigo';
-                      startEvent.description = `${log.userEmail || 'Guardian'} started decryption (Guardian ID: ${log.guardianId || 'N/A'})`;
-                      break;
-                    case 'COMPENSATED_DECRYPTION':
-                      startEvent.title = `Compensated Decryption Started`;
-                      startEvent.icon = FiLock;
-                      startEvent.color = 'teal';
-                      startEvent.description = `${log.userEmail || 'Guardian'} compensating for missing guardian (Compensating: ${log.compensatingGuardianId || 'N/A'}, Missing: ${log.missingGuardianId || 'N/A'})`;
-                      break;
-                    case 'COMBINE_DECRYPTION':
-                      startEvent.title = 'Combine Decryption Started';
-                      startEvent.icon = FiUnlock;
-                      startEvent.color = 'pink';
-                      startEvent.description = `Started by ${log.userEmail || 'system'} - combining all partial decryptions`;
-                      break;
-                    default:
-                      startEvent.title = `${log.taskType} Started`;
-                      startEvent.icon = FiClock;
-                      startEvent.color = 'gray';
-                      startEvent.description = log.taskDescription || 'Task started';
-                  }
-                  
-                  events.push(startEvent);
-                }
-                
-                // Add end event if endTime exists
-                if (log.endTime) {
-                  const endEvent = {
-                    ...baseEvent,
-                    id: `${baseEvent.id}-end`,
-                    timestamp: new Date(log.endTime),
-                  };
-                  
-                  const durationText = log.durationMs ? ` (${(log.durationMs / 1000).toFixed(2)}s)` : '';
-                  
-                  switch (log.taskType) {
-                    case 'TALLY_CREATION':
-                      endEvent.title = log.status === 'COMPLETED' ? 'Tally Creation Completed' : 'Tally Creation Failed';
-                      endEvent.icon = log.status === 'COMPLETED' ? FiCheck : FiAlertCircle;
-                      endEvent.color = log.status === 'COMPLETED' ? 'green' : 'red';
-                      endEvent.description = log.status === 'COMPLETED' 
-                        ? `Completed by ${log.userEmail || 'system'}${durationText}`
-                        : `Failed: ${log.errorMessage || 'Unknown error'}`;
-                      break;
-                    case 'GUARDIAN_PARTIAL_DECRYPTION':
-                      endEvent.title = log.status === 'COMPLETED' ? 'Guardian Partial Decryption Completed' : 'Guardian Partial Decryption Failed';
-                      endEvent.icon = log.status === 'COMPLETED' ? FiUnlock : FiAlertCircle;
-                      endEvent.color = log.status === 'COMPLETED' ? 'indigo' : 'red';
-                      endEvent.description = log.status === 'COMPLETED'
-                        ? `${log.userEmail || 'Guardian'} completed${durationText}`
-                        : `Failed: ${log.errorMessage || 'Unknown error'}`;
-                      break;
-                    case 'COMPENSATED_DECRYPTION':
-                      endEvent.title = log.status === 'COMPLETED' ? 'Compensated Decryption Completed' : 'Compensated Decryption Failed';
-                      endEvent.icon = log.status === 'COMPLETED' ? FiUnlock : FiAlertCircle;
-                      endEvent.color = log.status === 'COMPLETED' ? 'teal' : 'red';
-                      endEvent.description = log.status === 'COMPLETED'
-                        ? `${log.userEmail || 'Guardian'} completed backup for missing guardian${durationText}`
-                        : `Failed: ${log.errorMessage || 'Unknown error'}`;
-                      break;
-                    case 'COMBINE_DECRYPTION':
-                      endEvent.title = log.status === 'COMPLETED' ? 'Combine Decryption Completed' : 'Combine Decryption Failed';
-                      endEvent.icon = log.status === 'COMPLETED' ? FiCheck : FiAlertCircle;
-                      endEvent.color = log.status === 'COMPLETED' ? 'green' : 'red';
-                      endEvent.description = log.status === 'COMPLETED'
-                        ? `All partial decryptions combined successfully${durationText}`
-                        : `Failed: ${log.errorMessage || 'Unknown error'}`;
-                      break;
-                    default:
-                      endEvent.title = log.status === 'COMPLETED' ? `${log.taskType} Completed` : `${log.taskType} Failed`;
-                      endEvent.icon = log.status === 'COMPLETED' ? FiCheck : FiAlertCircle;
-                      endEvent.color = log.status === 'COMPLETED' ? 'green' : 'red';
-                      endEvent.description = log.status === 'COMPLETED'
-                        ? `Completed${durationText}`
-                        : `Failed: ${log.errorMessage || 'Unknown error'}`;
-                  }
-                  
-                  events.push(endEvent);
-                }
-              });
-            }
-          }
-        } catch (err) {
-          console.log('Could not fetch task logs, falling back to legacy data:', err);
-        }
         
         // 1. Election Creation
         if (electionData.createdAt) {
@@ -203,48 +80,105 @@ const ElectionTimeline = ({ electionId, electionData }) => {
             });
           }
         } catch (err) {
-          console.log('Could not fetch task logs, falling back to legacy data:', err);
+          console.log('No tally status available:', err);
         }
         
-        // Add election metadata events for context
-        // 1. Election Creation
-        if (electionData.createdAt) {
-          events.push({
-            id: 'creation',
-            title: 'Election Created',
-            timestamp: new Date(electionData.createdAt),
-            icon: FiCalendar,
-            color: 'blue',
-            description: `Election "${electionData.electionTitle}" was created`,
-            status: 'completed'
-          });
+        // 5. Guardian Decryptions (fetch from decryption_status table)
+        if (electionData.guardians && electionData.guardians.length > 0) {
+          for (const guardian of electionData.guardians) {
+            try {
+              const guardianStatus = await electionApi.getDecryptionStatusByGuardianId(electionId, guardian.guardianId);
+              
+              // Partial Decryption Start
+              if (guardianStatus.partialDecryptionStartedAt) {
+                events.push({
+                  id: `guardian-${guardian.guardianId}-partial-start`,
+                  title: `Guardian ${guardian.sequenceOrder} - Partial Decryption Started`,
+                  timestamp: new Date(guardianStatus.partialDecryptionStartedAt),
+                  icon: FiLock,
+                  color: 'indigo',
+                  description: `${guardian.userEmail || 'Guardian'} started decrypting their share`,
+                  status: 'completed',
+                  guardianId: guardian.guardianId
+                });
+              }
+              
+              // Partial Decryption Complete
+              if (guardianStatus.partialDecryptionCompletedAt) {
+                events.push({
+                  id: `guardian-${guardian.guardianId}-partial-complete`,
+                  title: `Guardian ${guardian.sequenceOrder} - Partial Decryption Completed`,
+                  timestamp: new Date(guardianStatus.partialDecryptionCompletedAt),
+                  icon: FiUnlock,
+                  color: 'indigo',
+                  description: `Completed in ${guardianStatus.partialDecryptionDurationSeconds || 0}s`,
+                  status: 'completed',
+                  guardianId: guardian.guardianId
+                });
+              }
+              
+              // Compensated Shares Start
+              if (guardianStatus.compensatedSharesStartedAt) {
+                events.push({
+                  id: `guardian-${guardian.guardianId}-compensated-start`,
+                  title: `Guardian ${guardian.sequenceOrder} - Compensated Shares Started`,
+                  timestamp: new Date(guardianStatus.compensatedSharesStartedAt),
+                  icon: FiLock,
+                  color: 'teal',
+                  description: `Started generating backup shares for other guardians`,
+                  status: 'completed',
+                  guardianId: guardian.guardianId
+                });
+              }
+              
+              // Compensated Shares Complete
+              if (guardianStatus.compensatedSharesCompletedAt) {
+                events.push({
+                  id: `guardian-${guardian.guardianId}-compensated-complete`,
+                  title: `Guardian ${guardian.sequenceOrder} - Compensated Shares Completed`,
+                  timestamp: new Date(guardianStatus.compensatedSharesCompletedAt),
+                  icon: FiUnlock,
+                  color: 'teal',
+                  description: `Completed in ${guardianStatus.compensatedSharesDurationSeconds || 0}s`,
+                  status: 'completed',
+                  guardianId: guardian.guardianId
+                });
+              }
+            } catch (err) {
+              console.log(`No decryption status for guardian ${guardian.guardianId}:`, err);
+            }
+          }
         }
         
-        // 2. Voting Period Start
-        if (electionData.startDate) {
-          events.push({
-            id: 'voting-start',
-            title: 'Voting Period Started',
-            timestamp: new Date(electionData.startDate),
-            icon: FiUsers,
-            color: 'green',
-            description: 'Voters can now cast their encrypted ballots',
-            status: 'completed'
-          });
-        }
-        
-        // 3. Voting Period End
-        if (electionData.endDate) {
-          const votingEnded = new Date() > new Date(electionData.endDate);
-          events.push({
-            id: 'voting-end',
-            title: 'Voting Period Ended',
-            timestamp: new Date(electionData.endDate),
-            icon: FiClock,
-            color: votingEnded ? 'orange' : 'gray',
-            description: 'No more votes can be cast',
-            status: votingEnded ? 'completed' : 'pending'
-          });
+        // 6. Combine Decryption (fetch from combine_status table)
+        try {
+          const combineStatus = await electionApi.getCombineStatus(electionId);
+          
+          if (combineStatus && combineStatus.startedAt) {
+            events.push({
+              id: 'combine-start',
+              title: 'Combine Decryption Started',
+              timestamp: new Date(combineStatus.startedAt),
+              icon: FiUnlock,
+              color: 'pink',
+              description: 'Started combining partial decryptions from all guardians',
+              status: 'completed'
+            });
+          }
+          
+          if (combineStatus && combineStatus.completedAt) {
+            events.push({
+              id: 'combine-complete',
+              title: 'Combine Decryption Completed',
+              timestamp: new Date(combineStatus.completedAt),
+              icon: FiCheck,
+              color: 'green',
+              description: `Final results are now available (${combineStatus.processedChunks || 0} chunks processed)`,
+              status: 'completed'
+            });
+          }
+        } catch (err) {
+          console.log('No combine status available:', err);
         }
         
         // Sort events by timestamp
@@ -289,7 +223,6 @@ const ElectionTimeline = ({ electionId, electionData }) => {
       indigo: 'bg-indigo-100 text-indigo-600 border-indigo-200',
       teal: 'bg-teal-100 text-teal-600 border-teal-200',
       pink: 'bg-pink-100 text-pink-600 border-pink-200',
-      red: 'bg-red-100 text-red-600 border-red-200',
       gray: 'bg-gray-100 text-gray-600 border-gray-200'
     };
     return colors[color] || colors.blue;
@@ -357,14 +290,6 @@ const ElectionTimeline = ({ electionId, electionData }) => {
                         </div>
                       </div>
                     )}
-                    
-                    {event.status === 'failed' && (
-                      <div className="flex-shrink-0 ml-4">
-                        <div className="bg-red-100 text-red-600 rounded-full p-1">
-                          <FiAlertCircle className="h-4 w-4" />
-                        </div>
-                      </div>
-                    )}
                   </div>
                 </div>
               </div>
@@ -376,7 +301,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
       {/* Summary */}
       <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
         <h4 className="font-semibold text-gray-900 mb-2">Timeline Summary</h4>
-        <div className="grid grid-cols-2 md:grid-cols-5 gap-4 text-sm">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div>
             <p className="text-gray-600">Total Events</p>
             <p className="text-lg font-bold text-gray-900">{timelineData.length}</p>
@@ -385,12 +310,6 @@ const ElectionTimeline = ({ electionId, electionData }) => {
             <p className="text-gray-600">Completed</p>
             <p className="text-lg font-bold text-green-600">
               {timelineData.filter(e => e.status === 'completed').length}
-            </p>
-          </div>
-          <div>
-            <p className="text-gray-600">Failed</p>
-            <p className="text-lg font-bold text-red-600">
-              {timelineData.filter(e => e.status === 'failed').length}
             </p>
           </div>
           <div>

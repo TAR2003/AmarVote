@@ -548,7 +548,6 @@ const OverviewTabContent = ({ electionData, id, animatedResults }) => {
 const ChunksTabContent = ({ animatedResults }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedChunks, setExpandedChunks] = useState({});
-  const [displayedChunks, setDisplayedChunks] = useState(20); // Show 20 chunks initially
 
   if (!animatedResults || !animatedResults.results || !animatedResults.results.chunks) {
     return (
@@ -567,38 +566,6 @@ const ChunksTabContent = ({ animatedResults }) => {
     chunk.electionCenterId?.toString().includes(searchTerm) ||
     chunk.chunkIndex?.toString().includes(searchTerm)
   );
-  const visibleChunks = filteredChunks.slice(0, displayedChunks);
-  const hasMore = filteredChunks.length > displayedChunks;
-
-  const loadMoreChunks = () => {
-    setDisplayedChunks(prev => Math.min(prev + 20, filteredChunks.length));
-  };
-
-  const downloadChunkData = (chunk, dataType) => {
-    let data, filename;
-    switch(dataType) {
-      case 'tally':
-        data = JSON.stringify(chunk.candidateVotes || {}, null, 2);
-        filename = `chunk_${chunk.chunkIndex}_tally.json`;
-        break;
-      case 'encrypted':
-        data = chunk.encryptedTally || '';
-        filename = `chunk_${chunk.chunkIndex}_encrypted_tally.txt`;
-        break;
-      default:
-        return;
-    }
-    const blob = new Blob([data], { type: 'text/plain' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-    toast.success(`Downloaded ${filename}`);
-  };
 
   const toggleChunk = (chunkId) => {
     setExpandedChunks(prev => ({
@@ -636,7 +603,7 @@ const ChunksTabContent = ({ animatedResults }) => {
 
       {/* Chunks List */}
       <div className="space-y-3">
-        {visibleChunks.map((chunk, index) => {
+        {filteredChunks.map((chunk, index) => {
           const isExpanded = expandedChunks[chunk.electionCenterId];
           return (
             <div key={chunk.electionCenterId} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
@@ -692,41 +659,13 @@ const ChunksTabContent = ({ animatedResults }) => {
                     </div>
                   </div>
 
-                  {/* Data Download Section */}
+                  {/* Encrypted Tally */}
                   <div className="mb-4">
-                    <h6 className="text-sm font-semibold text-gray-700 mb-3">Download Chunk Data</h6>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                      <div className="bg-white rounded-lg p-4 border border-gray-200">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Chunk {chunk.chunkIndex} Tally</p>
-                            <p className="text-xs text-gray-500 mt-1">Decrypted vote counts (JSON)</p>
-                          </div>
-                          <button
-                            onClick={() => downloadChunkData(chunk, 'tally')}
-                            className="flex items-center space-x-2 px-3 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
-                          >
-                            <FiDownload className="h-4 w-4" />
-                            <span className="text-sm">Download</span>
-                          </button>
-                        </div>
-                      </div>
-                      <div className="bg-white rounded-lg p-4 border border-gray-200">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm font-medium text-gray-900">Encrypted Tally</p>
-                            <p className="text-xs text-gray-500 mt-1">Raw encrypted data</p>
-                          </div>
-                          <button
-                            onClick={() => downloadChunkData(chunk, 'encrypted')}
-                            className="flex items-center space-x-2 px-3 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors"
-                          >
-                            <FiDownload className="h-4 w-4" />
-                            <span className="text-sm">Download</span>
-                          </button>
-                        </div>
-                      </div>
-                    </div>
+                    <DataDisplay
+                      title="Encrypted Tally"
+                      data={chunk.encryptedTally || "Not available"}
+                      type="text"
+                    />
                   </div>
 
                   {/* Information Note */}
@@ -750,22 +689,6 @@ const ChunksTabContent = ({ animatedResults }) => {
         <div className="text-center py-8">
           <FiSearch className="h-12 w-12 text-gray-300 mx-auto mb-3" />
           <p className="text-gray-600">No chunks match your search</p>
-        </div>
-      )}
-      
-      {/* Load More Button */}
-      {hasMore && (
-        <div className="flex justify-center py-6">
-          <button
-            onClick={loadMoreChunks}
-            className="flex items-center space-x-2 px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium shadow-md hover:shadow-lg"
-          >
-            <span>Load More Chunks</span>
-            <FiChevronDown className="h-5 w-5" />
-          </button>
-          <p className="ml-4 text-sm text-gray-600 self-center">
-            Showing {visibleChunks.length} of {filteredChunks.length} chunks
-          </p>
         </div>
       )}
     </div>
@@ -997,7 +920,6 @@ const BallotsInTallySection = ({ resultsData, id }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [blockchainVerifying, setBlockchainVerifying] = useState({}); // Track verification state per ballot
   const [blockchainResults, setBlockchainResults] = useState({}); // Store verification results
-  const [displayedBallots, setDisplayedBallots] = useState(100); // Show 100 ballots initially
 
   // Function to verify ballot on blockchain
   const verifyBallotOnBlockchain = async (trackingCode) => {
@@ -1224,14 +1146,6 @@ const BallotsInTallySection = ({ resultsData, id }) => {
 
   const statusCounts = getStatusCounts();
 
-  // Pagination logic for ballots
-  const visibleBallots = filteredBallots.slice(0, displayedBallots);
-  const hasMore = filteredBallots.length > displayedBallots;
-
-  const loadMoreBallots = () => {
-    setDisplayedBallots(prev => prev + 100);
-  };
-
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
@@ -1316,7 +1230,7 @@ const BallotsInTallySection = ({ resultsData, id }) => {
 
       {/* Ballots Grid */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {visibleBallots.map((ballot, index) => {
+        {filteredBallots.map((ballot, index) => {
           const statusInfo = getVerificationStatus(ballot);
           const StatusIcon = statusInfo.icon;
 
@@ -1472,19 +1386,6 @@ const BallotsInTallySection = ({ resultsData, id }) => {
           );
         })}
       </div>
-
-      {/* Load More Button */}
-      {hasMore && (
-        <div className="mt-6 text-center">
-          <button
-            onClick={loadMoreBallots}
-            className="inline-flex items-center space-x-2 bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition-colors shadow-md hover:shadow-lg"
-          >
-            <FiChevronDown className="h-5 w-5" />
-            <span>Load 100 More Ballots ({visibleBallots.length} of {filteredBallots.length})</span>
-          </button>
-        </div>
-      )}
 
       {filteredBallots.length === 0 && searchTerm && (
         <div className="text-center py-12">

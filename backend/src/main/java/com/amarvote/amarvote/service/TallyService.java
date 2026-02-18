@@ -80,9 +80,6 @@ public class TallyService {
     
     @Autowired
     private RoundRobinTaskScheduler roundRobinTaskScheduler;
-    
-    @Autowired
-    private TaskLogService taskLogService;
 
     /**
      * Periodic GC hint and memory monitoring utility
@@ -114,7 +111,7 @@ public class TallyService {
      * Queries RoundRobinTaskScheduler for real-time chunk processing state
      */
     public TallyCreationStatusResponse getTallyStatus(Long electionId) {
-        // Try to get progress from scheduler first (to check if task is active)
+        // Try to get progress from scheduler first (live task tracking)
         List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> electionProgress = 
             roundRobinTaskScheduler.getElectionProgress(electionId);
         
@@ -123,8 +120,30 @@ public class TallyService {
             .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.TALLY_CREATION)
             .collect(Collectors.toList());
         
-        // CRITICAL FIX: Always use database as source of truth for progress counts
-        // The scheduler is only used to determine if tasks are active
+        if (!tallyTasks.isEmpty()) {
+            // Active task found in scheduler - return live progress
+            com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress progress = tallyTasks.get(0);
+            
+            String status;
+            if (progress.getCompletedChunks() == 0 && progress.getProcessingChunks() == 0 && progress.getQueuedChunks() == 0) {
+                status = "pending";
+            } else if (progress.isComplete()) {
+                status = "completed";
+            } else {
+                status = "in_progress";
+            }
+            
+            return TallyCreationStatusResponse.builder()
+                .success(true)
+                .status(status)
+                .message("Tally creation status retrieved successfully")
+                .totalChunks((int) progress.getTotalChunks())
+                .processedChunks((int) progress.getCompletedChunks())
+                .progressPercentage(progress.getCompletionPercentage())
+                .build();
+        }
+        
+        // No active task in scheduler - check database for completed tally
         List<ElectionCenter> allChunks = electionCenterRepository.findByElectionId(electionId);
         int totalChunks = allChunks.size();
         
@@ -141,34 +160,6 @@ public class TallyService {
         
         // Count how many chunks have encrypted_tally filled
         long processedChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(electionId);
-        System.out.println("📊 Tally creation progress from database: " + processedChunks + "/" + totalChunks);
-        
-        if (!tallyTasks.isEmpty()) {
-            // Active task found in scheduler - return live progress from DATABASE
-            com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress progress = tallyTasks.get(0);
-            
-            String status;
-            if (processedChunks == 0) {
-                status = "pending";
-            } else if (progress.isComplete() || processedChunks >= totalChunks) {
-                status = "completed";
-            } else {
-                status = "in_progress";
-            }
-            
-            double progressPercentage = totalChunks > 0 
-                ? (processedChunks * 100.0) / totalChunks
-                : 0.0;
-            
-            return TallyCreationStatusResponse.builder()
-                .success(true)
-                .status(status)
-                .message("Tally creation status retrieved successfully")
-                .totalChunks(totalChunks)
-                .processedChunks((int) processedChunks)
-                .progressPercentage(progressPercentage)
-                .build();
-        }
         
         // Determine status based on progress
         String status;
@@ -290,15 +281,6 @@ public class TallyService {
             return;
         }
         
-        // 🔥 LOG: Tally creation start
-        com.amarvote.amarvote.model.TaskLog tallyTaskLog = taskLogService.logTaskStart(
-            electionId,
-            "TALLY_CREATION",
-            "Creating encrypted tally for all cast ballots",
-            userEmail
-        );
-        System.out.println("📝 Task log created: ID=" + tallyTaskLog.getLogId() + " | Task: Tally Creation | User: " + userEmail);
-        
         try {
             System.out.println("=== Async Tally Creation Started (Memory-Efficient Mode) ===");
             System.out.println("Election ID: " + electionId);
@@ -388,10 +370,6 @@ public class TallyService {
             System.out.println("✅ Total chunks: " + chunkConfig.getNumChunks());
             System.out.println("Scheduler will publish chunks in fair round-robin order across all active tasks");
             
-            // 🔥 LOG: Tally creation complete
-            taskLogService.logTaskComplete(tallyTaskLog);
-            System.out.println("📝 Task log completed: ID=" + tallyTaskLog.getLogId() + " | Duration: " + tallyTaskLog.getDurationMs() + "ms");
-            
             /* OLD CODE - Replaced with RabbitMQ queue-based processing
             // ✅ Process each chunk in separate isolated transaction
             int processedChunks = 0;
@@ -430,10 +408,6 @@ public class TallyService {
             
         } catch (Exception e) {
             System.err.println("❌ Error in async tally creation: " + e.getMessage());
-            
-            // 🔥 LOG: Tally creation failure
-            taskLogService.logTaskFailure(tallyTaskLog, e.getMessage());
-            System.out.println("📝 Task log failed: ID=" + tallyTaskLog.getLogId() + " | Error: " + e.getMessage());
         } finally {
             // Release lock
             tallyCreationLocks.remove(electionId);

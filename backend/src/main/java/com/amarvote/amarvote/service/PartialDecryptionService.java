@@ -76,9 +76,6 @@ public class PartialDecryptionService {
     
     @Autowired
     private CredentialCacheService credentialCacheService;
-    
-    @Autowired
-    private TaskLogService taskLogService;
 
     /**
      * Periodic GC hint and memory monitoring utility
@@ -124,17 +121,6 @@ public class PartialDecryptionService {
                     .build();
             }
             Guardian guardian = guardians.get(0); // Should be only one
-            
-            // 🔥 LOG: Guardian partial decryption start
-            com.amarvote.amarvote.model.TaskLog partialDecryptionTaskLog = taskLogService.logGuardianTaskStart(
-                request.election_id(),
-                "GUARDIAN_PARTIAL_DECRYPTION",
-                "Guardian " + guardian.getSequenceOrder() + " computing partial decryption shares",
-                userEmail,
-                guardian.getGuardianId()
-            );
-            System.out.println("📝 Task log created: ID=" + partialDecryptionTaskLog.getLogId() + 
-                " | Task: Guardian " + guardian.getSequenceOrder() + " Partial Decryption | User: " + userEmail);
 
             // 3. Get election information
             Optional<Election> electionOpt = electionRepository.findById(request.election_id());
@@ -255,11 +241,6 @@ public class PartialDecryptionService {
             guardian.setDecryptedOrNot(true);
             guardianRepository.save(guardian);
             System.out.println("✅ Guardian marked as fully decrypted (both phases complete)");
-            
-            // 🔥 LOG: Guardian partial decryption complete
-            taskLogService.logTaskComplete(partialDecryptionTaskLog);
-            System.out.println("📝 Task log completed: ID=" + partialDecryptionTaskLog.getLogId() + 
-                " | Duration: " + partialDecryptionTaskLog.getDurationMs() + "ms");
 
             return CreatePartialDecryptionResponse.builder()
                 .success(true)
@@ -479,12 +460,17 @@ public class PartialDecryptionService {
         
         if (!guardianTasks.isEmpty()) {
             // Active task found in scheduler - return live progress
-            // Check for partial decryption task
+            // Separate partial and compensated tasks
             var partialTasks = guardianTasks.stream()
                 .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.PARTIAL_DECRYPTION)
                 .findFirst();
+            var compensatedTasks = guardianTasks.stream()
+                .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.COMPENSATED_DECRYPTION)
+                .collect(Collectors.toList());
             
             // Get all guardians to calculate compensated decryptions needed
+            // FIX: Don't use compensatedTasks.size() because during partial decryption phase, 
+            // compensated tasks haven't been scheduled yet, so it would be 0
             List<Guardian> allGuardians = guardianRepository.findByElectionId(electionId);
             long totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1); // All except self
             
@@ -492,53 +478,50 @@ public class PartialDecryptionService {
             long completedChunks;
             String currentPhase = null;
             
-            // CRITICAL FIX: Always use database as source of truth for progress counts
-            // The scheduler is only used to determine if tasks are active, not for accurate counts
-            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
-            totalChunks = electionCenterIds.size();
-            
-            // Get actual completed count from database (primary source of truth)
-            completedChunks = decryptionRepository.countByElectionIdAndGuardianId(electionId, guardianId);
-            System.out.println("📊 Partial decryption progress from database: " + completedChunks + "/" + totalChunks);
-            
-            // Determine current phase based on scheduler task presence and database completion
             if (partialTasks.isPresent()) {
                 com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress partial = partialTasks.get();
+                totalChunks = partial.getTotalChunks();
+                completedChunks = partial.getCompletedChunks();
                 
-                if (!partial.isComplete() || completedChunks < totalChunks) {
+                if (!partial.isComplete()) {
                     currentPhase = "partial_decryption";
                 }
+            } else {
+                // Partial task not in scheduler - get chunk count from database
+                List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
+                totalChunks = electionCenterIds.size();
+                completedChunks = decryptionRepository.countByElectionIdAndGuardianId(electionId, guardianId);
+                System.out.println("📊 Partial task not in scheduler - using database: " + completedChunks + "/" + totalChunks);
             }
             
-            // CRITICAL FIX: Always use database for compensated decryption count too
-            long compensatedCompletedChunks = 0;
-            if (totalCompensatedGuardians > 0) {
-                compensatedCompletedChunks = compensatedDecryptionRepository
-                    .countByElectionIdAndCompensatingGuardianId(electionId, guardianId);
-                System.out.println("📊 Compensated decryption progress from database: " + compensatedCompletedChunks + "/" + (totalChunks * totalCompensatedGuardians));
-            }
+            long compensatedCompletedChunks = compensatedTasks.stream()
+                .mapToLong(com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress::getCompletedChunks)
+                .sum();
             
             // Determine current phase
-            if (partialTasks.isPresent() && partialTasks.get().isComplete() && completedChunks >= totalChunks) {
+            if (partialTasks.isPresent() && partialTasks.get().isComplete()) {
                 // Partial decryption is complete, check if compensated is needed
                 if (totalCompensatedGuardians > 0) {
                     // Need compensated decryption for other guardians
-                    // Check if compensated shares are complete (already fetched from database above)
+                    // ALWAYS check database first (primary source of truth)
+                    long compensatedDecryptionCount = compensatedDecryptionRepository
+                        .countByElectionIdAndCompensatingGuardianId(electionId, guardianId);
                     long expectedCompensatedCount = totalChunks * totalCompensatedGuardians;
                     
-                    System.out.println("📊 Compensated progress check: " + compensatedCompletedChunks + "/" + expectedCompensatedCount);
+                    System.out.println("📊 Compensated progress check: " + compensatedDecryptionCount + "/" + expectedCompensatedCount);
                     
-                    if (compensatedCompletedChunks < expectedCompensatedCount) {
+                    if (compensatedDecryptionCount < expectedCompensatedCount) {
                         // Compensated decryption is still in progress or not started
                         currentPhase = "compensated_shares_generation";
+                        // Use database count if available, otherwise scheduler count
+                        if (compensatedDecryptionCount > 0) {
+                            compensatedCompletedChunks = compensatedDecryptionCount;
+                        }
                     } else {
                         // All compensated decryption complete
                         System.out.println("✅ All compensated decryption complete");
                         currentPhase = "completed";
                     }
-                } else {
-                    // Single guardian - no compensated shares needed
-                    currentPhase = "completed";
                 }
             }
             
@@ -1170,7 +1153,7 @@ public class PartialDecryptionService {
      * Queries RoundRobinTaskScheduler for real-time chunk processing state
      */
     public CombineStatusResponse getCombineStatus(Long electionId) {
-        // Try to get progress from scheduler first (to check if task is active)
+        // Try to get progress from scheduler first (live task tracking)
         List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> electionProgress = 
             decryptionTaskQueueService.getRoundRobinTaskScheduler().getElectionProgress(electionId);
         
@@ -1179,8 +1162,30 @@ public class PartialDecryptionService {
             .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.COMBINE_DECRYPTION)
             .collect(Collectors.toList());
         
-        // CRITICAL FIX: Always use database as source of truth for progress counts
-        // The scheduler is only used to determine if tasks are active
+        if (!combineTasks.isEmpty()) {
+            // Active task found in scheduler - return live progress
+            com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress progress = combineTasks.get(0);
+            
+            String status;
+            if (progress.getCompletedChunks() == 0 && progress.getProcessingChunks() == 0 && progress.getQueuedChunks() == 0) {
+                status = "pending";
+            } else if (progress.isComplete()) {
+                status = "completed";
+            } else {
+                status = "in_progress";
+            }
+            
+            return CombineStatusResponse.builder()
+                .success(true)
+                .status(status)
+                .message("Combine status retrieved successfully")
+                .totalChunks((int) progress.getTotalChunks())
+                .processedChunks((int) progress.getCompletedChunks())
+                .progressPercentage(progress.getCompletionPercentage())
+                .build();
+        }
+        
+        // No active task in scheduler - check database for completed combination
         List<ElectionCenter> allChunks = electionCenterRepository.findByElectionId(electionId);
         int totalChunks = allChunks.size();
         
@@ -1197,34 +1202,6 @@ public class PartialDecryptionService {
         
         // Count how many chunks have electionResult filled (combination completed)
         long processedChunks = electionCenterRepository.countByElectionIdAndElectionResultNotNull(electionId);
-        System.out.println("📊 Combine progress from database: " + processedChunks + "/" + totalChunks);
-        
-        if (!combineTasks.isEmpty()) {
-            // Active task found in scheduler - return live progress from DATABASE
-            com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress progress = combineTasks.get(0);
-            
-            String status;
-            if (processedChunks == 0) {
-                status = "pending";
-            } else if (progress.isComplete() || processedChunks >= totalChunks) {
-                status = "completed";
-            } else {
-                status = "in_progress";
-            }
-            
-            double progressPercentage = totalChunks > 0 
-                ? (processedChunks * 100.0) / totalChunks
-                : 0.0;
-            
-            return CombineStatusResponse.builder()
-                .success(true)
-                .status(status)
-                .message("Combine status retrieved successfully")
-                .totalChunks(totalChunks)
-                .processedChunks((int) processedChunks)
-                .progressPercentage(progressPercentage)
-                .build();
-        }
         
         // Determine status based on progress
         String status;
@@ -1258,15 +1235,6 @@ public class PartialDecryptionService {
     public CombinePartialDecryptionResponse combinePartialDecryption(CombinePartialDecryptionRequest request) {
         try {
             System.out.println("=== COMBINE PARTIAL DECRYPTION STARTED (Memory-Efficient Mode) ===");
-            
-            // 🔥 LOG: Combine decryption start
-            com.amarvote.amarvote.model.TaskLog combineTaskLog = taskLogService.logTaskStart(
-                request.election_id(),
-                "COMBINE_DECRYPTION",
-                "Combining partial decryption shares to compute election results",
-                "system" // TODO: Pass user email from request if available
-            );
-            System.out.println("📝 Task log created: ID=" + combineTaskLog.getLogId() + " | Task: Combine Decryption");
             
             // 1. Fetch election
             Optional<Election> electionOpt = electionRepository.findById(request.election_id());
@@ -1703,11 +1671,6 @@ public class PartialDecryptionService {
             System.out.println("✅ Updated election status to 'decrypted'");
             System.out.println("✅ Election results are now available for viewing");
             
-            // 🔥 LOG: Combine decryption complete
-            taskLogService.logTaskComplete(combineTaskLog);
-            System.out.println("📝 Task log completed: ID=" + combineTaskLog.getLogId() + 
-                " | Duration: " + combineTaskLog.getDurationMs() + "ms");
-            
             return CombinePartialDecryptionResponse.builder()
                 .success(true)
                 .message("Election results successfully decrypted and ready for viewing")
@@ -1836,80 +1799,64 @@ public class PartialDecryptionService {
             }
             
             System.out.println("\n" + "-".repeat(80));
-            System.out.println("📦 PROCESSING COMPENSATED DECRYPTION (Guardian-First Approach)");
+            System.out.println("📦 PROCESSING CHUNKS (Memory-Efficient)");
             System.out.println("-".repeat(80));
             
-            String userEmail = availableGuardian.getUserEmail(); // Get user email for logging
+            int totalOperations = electionCenterIds.size() * otherGuardians.size();
+            int completedOperations = 0;
             
-            // 🔥 Process guardian-by-guardian for better logging
-            for (Guardian otherGuardian : otherGuardians) {
-                // 🔥 LOG: Compensated decryption start for this guardian pair
-                com.amarvote.amarvote.model.TaskLog compensatedTaskLog = taskLogService.logTaskStart(
-                    election.getElectionId(),
-                    "COMPENSATED_DECRYPTION",
-                    "Guardian " + availableGuardian.getSequenceOrder() + " creating compensated shares for Guardian " + otherGuardian.getSequenceOrder(),
-                    userEmail
-                );
-                // Store guardian IDs in the task log for reference
-                compensatedTaskLog.setCompensatingGuardianId(availableGuardian.getGuardianId());
-                compensatedTaskLog.setMissingGuardianId(otherGuardian.getGuardianId());
-                compensatedTaskLog = taskLogService.logTaskComplete(compensatedTaskLog); // Update immediately to store guardian IDs
-                compensatedTaskLog.setStatus("STARTED"); // Reset to STARTED
-                compensatedTaskLog.setEndTime(null);
-                compensatedTaskLog.setDurationMs(null);
+            // Process each chunk (MEMORY-EFFICIENT)
+            for (int chunkIndex = 0; chunkIndex < electionCenterIds.size(); chunkIndex++) {
+                Long electionCenterId = electionCenterIds.get(chunkIndex);
+                System.out.println("\n📍 Chunk " + (chunkIndex + 1) + "/" + electionCenterIds.size() + " (ID: " + electionCenterId + ") | Guardian " + availableGuardian.getSequenceOrder() + " creating shares for others");
+                System.out.println("Fetching election center from database...");
                 
-                System.out.println("\n📝 Task log created: ID=" + compensatedTaskLog.getLogId() + 
-                    " | Task: Guardian " + availableGuardian.getSequenceOrder() + 
-                    " compensating for Guardian " + otherGuardian.getSequenceOrder());
+                // MEMORY-EFFICIENT: Fetch only the election center needed for this iteration
+                Optional<ElectionCenter> electionCenterOpt = electionCenterRepository.findById(electionCenterId);
+                if (!electionCenterOpt.isPresent()) {
+                    System.err.println("❌ Election center not found: " + electionCenterId);
+                    continue;
+                }
+                ElectionCenter electionCenter = electionCenterOpt.get();
                 
                 int createdCount = 0;
                 int skippedCount = 0;
                 
-                try {
-                    // Process each chunk for this guardian pair
-                    for (int chunkIndex = 0; chunkIndex < electionCenterIds.size(); chunkIndex++) {
-                        Long electionCenterId = electionCenterIds.get(chunkIndex);
-                        
-                        // MEMORY-EFFICIENT: Fetch only the election center needed for this iteration
-                        Optional<ElectionCenter> electionCenterOpt = electionCenterRepository.findById(electionCenterId);
-                        if (!electionCenterOpt.isPresent()) {
-                            System.err.println("❌ Election center not found: " + electionCenterId);
-                            continue;
-                        }
-                        ElectionCenter electionCenter = electionCenterOpt.get();
-                        
-                        // Check if compensated share from THIS SPECIFIC guardian for this chunk already exists
-                        boolean alreadyExists = compensatedDecryptionRepository
-                            .existsByElectionCenterIdAndCompensatingGuardianIdAndMissingGuardianId(
-                                electionCenterId,
-                                availableGuardian.getGuardianId(),
-                                otherGuardian.getGuardianId()
-                            );
-                        
-                        if (!alreadyExists) {
-                            // Create compensated share from this guardian for the other guardian for this chunk
-                            createCompensatedShare(election, electionCenter, availableGuardian, otherGuardian, availableGuardianPrivateKey, availableGuardianPolynomial);
-                            createdCount++;
-                        } else {
-                            skippedCount++;
-                        }
-                        
-                        // Clear reference
-                        electionCenter = null;
-                    }
+                // For each OTHER guardian, create compensated share using the current guardian
+                for (Guardian otherGuardian : otherGuardians) {
+                    // Check if compensated share from THIS SPECIFIC guardian for this chunk already exists
+                    boolean alreadyExists = compensatedDecryptionRepository
+                        .existsByElectionCenterIdAndCompensatingGuardianIdAndMissingGuardianId(
+                            electionCenterId,
+                            availableGuardian.getGuardianId(),
+                            otherGuardian.getGuardianId()
+                        );
                     
-                    // 🔥 LOG: Compensated decryption complete for this guardian pair
-                    taskLogService.logTaskComplete(compensatedTaskLog);
-                    System.out.println("✅ Task log completed: ID=" + compensatedTaskLog.getLogId() + 
-                        " | Guardian " + availableGuardian.getSequenceOrder() + " → Guardian " + otherGuardian.getSequenceOrder() +
-                        " | Duration: " + compensatedTaskLog.getDurationMs() + "ms | Created: " + createdCount + ", Skipped: " + skippedCount);
-                        
-                } catch (Exception e) {
-                    // 🔥 LOG: Compensated decryption failure for this guardian pair
-                    taskLogService.logTaskFailure(compensatedTaskLog, e.getMessage());
-                    System.err.println("❌ Task log failed: ID=" + compensatedTaskLog.getLogId() + 
-                        " | Guardian " + availableGuardian.getSequenceOrder() + " → Guardian " + otherGuardian.getSequenceOrder() +
-                        " | Error: " + e.getMessage());
+                    System.out.println("  Checking: Guardian " + availableGuardian.getSequenceOrder() + " → Guardian " + otherGuardian.getSequenceOrder() + 
+                                     " (Exists: " + alreadyExists + ")");
+                    
+                    if (!alreadyExists) {
+                        // Create compensated share from this guardian for the other guardian for this chunk
+                        System.out.println("  🔧 Creating share: Guardian " + availableGuardian.getSequenceOrder() + " compensating for Guardian " + otherGuardian.getSequenceOrder());
+                        createCompensatedShare(election, electionCenter, availableGuardian, otherGuardian, availableGuardianPrivateKey, availableGuardianPolynomial);
+                        System.out.println("  ✅ Successfully created compensated share");
+                        createdCount++;
+                        completedOperations++;
+                    } else {
+                        System.out.println("  ⏭️ Skipped (already exists)");
+                        skippedCount++;
+                        completedOperations++;
+                    }
+                }
+                
+                System.out.println("  📊 Summary for Chunk " + electionCenterId + ": Created=" + createdCount + ", Skipped=" + skippedCount);
+                
+                // ✅ MEMORY-EFFICIENT: Clear references after each chunk
+                electionCenter = null;
+                
+                // ✅ Periodic GC hint every 50 chunks (not every chunk - avoid overhead)
+                if ((chunkIndex + 1) % 50 == 0 || (chunkIndex + 1) == electionCenterIds.size()) {
+                    suggestGCIfNeeded(completedOperations, totalOperations, "Compensated Decryption");
                 }
             }
             
