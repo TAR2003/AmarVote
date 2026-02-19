@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { useParams } from 'react-router-dom';
 import axios from 'axios';
 import toast from 'react-hot-toast';
@@ -32,6 +32,7 @@ import {
 const WorkerProceedings = ({ electionId }) => {
   const [activeTab, setActiveTab] = useState('tally');
   const [loading, setLoading] = useState(false);
+  const [error, setError] = useState(null);
   const [workerData, setWorkerData] = useState({
     tally: null,
     partialDecryption: null,
@@ -46,31 +47,7 @@ const WorkerProceedings = ({ electionId }) => {
     { id: 'combine', label: 'Combine Decryption', icon: FiPackage, color: 'green' }
   ];
 
-  useEffect(() => {
-    if (electionId) {
-      fetchWorkerLogs();
-    }
-  }, [electionId, activeTab]);
-
-  const fetchWorkerLogs = async () => {
-    setLoading(true);
-    try {
-      const endpoint = getEndpointForTab(activeTab);
-      const response = await axios.get(`${import.meta.env.VITE_API_URL}${endpoint}/${electionId}`);
-      
-      setWorkerData(prev => ({
-        ...prev,
-        [activeTab]: response.data
-      }));
-    } catch (error) {
-      console.error('Error fetching worker logs:', error);
-      toast.error('Failed to fetch worker logs');
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const getEndpointForTab = (tab) => {
+  const getEndpointForTab = useCallback((tab) => {
     const endpoints = {
       tally: '/api/worker-logs/tally',
       partialDecryption: '/api/worker-logs/decryption/partial',
@@ -78,7 +55,88 @@ const WorkerProceedings = ({ electionId }) => {
       combine: '/api/worker-logs/combine'
     };
     return endpoints[tab];
-  };
+  }, []);
+
+  const fetchWorkerLogs = useCallback(async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const endpoint = getEndpointForTab(activeTab);
+      const fullUrl = `${endpoint}/${electionId}`;
+      console.log(`📡 [WorkerProceedings] Fetching from: ${fullUrl}`);
+      console.log(`📡 [WorkerProceedings] Active Tab: ${activeTab}`);
+      console.log(`📡 [WorkerProceedings] Election ID: ${electionId}`);
+      
+      const response = await axios.get(fullUrl);
+      
+      console.log(`✅ [WorkerProceedings] Response received:`, response);
+      console.log(`✅ [WorkerProceedings] Response data:`, response.data);
+      console.log(`✅ [WorkerProceedings] Logs array:`, response.data?.logs);
+      console.log(`✅ [WorkerProceedings] Logs length:`, response.data?.logs?.length);
+      console.log(`✅ [WorkerProceedings] Statistics:`, response.data?.statistics);
+      
+      if (!response.data) {
+        console.warn(`⚠️ [WorkerProceedings] Empty response data received`);
+        setError({ message: 'API returned empty response', details: response });
+        return;
+      }
+      
+      if (!response.data.logs) {
+        console.warn(`⚠️ [WorkerProceedings] Response missing logs array:`, response.data);
+        setError({ message: 'API response missing logs array', details: response.data });
+        return;
+      }
+      
+      setWorkerData(prev => {
+        const newData = {
+          ...prev,
+          [activeTab]: response.data
+        };
+        console.log(`✅ [WorkerProceedings] Updated workerData:`, newData);
+        return newData;
+      });
+      setError(null);
+    } catch (error) {
+      console.error('❌ Error fetching worker logs:', error);
+      console.error('Error details:', {
+        message: error.message,
+        response: error.response?.data,
+        status: error.response?.status
+      });
+      
+      let errorMessage = 'Failed to fetch worker logs';
+      if (error.response?.status === 404) {
+        errorMessage = 'Worker log tables may not exist in database';
+      } else if (error.response?.status === 500) {
+        errorMessage = `Server error: ${error.response?.data?.message || 'Internal server error'}`;
+      } else if (error.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      }
+      
+      // Clear the data for this tab on error
+      setWorkerData(prev => ({
+        ...prev,
+        [activeTab]: null
+      }));
+      setError({ message: errorMessage, details: error.response?.data });
+      toast.error(errorMessage);
+    } finally {
+      setLoading(false);
+    }
+  }, [activeTab, electionId, getEndpointForTab]);
+
+  useEffect(() => {
+    console.log(`🔄 [WorkerProceedings] useEffect triggered`, { electionId, activeTab });
+    if (electionId) {
+      setError(null); // Clear previous errors when switching tabs
+      fetchWorkerLogs();
+    }
+  }, [electionId, activeTab, fetchWorkerLogs]);
+
+  // Debug: Log when workerData changes
+  useEffect(() => {
+    console.log(`📊 [WorkerProceedings] workerData updated:`, workerData);
+  }, [workerData]);
 
   const formatDuration = (milliseconds) => {
     if (!milliseconds) return 'N/A';
@@ -117,6 +175,19 @@ const WorkerProceedings = ({ electionId }) => {
   const currentData = workerData[activeTab];
   const statistics = currentData?.statistics || {};
   const logs = currentData?.logs || [];
+
+  // Debug logging
+  console.log(`🔍 [WorkerProceedings] Render state:`, {
+    activeTab,
+    electionId,
+    hasCurrentData: !!currentData,
+    currentData,
+    statisticsKeys: Object.keys(statistics),
+    logsLength: logs.length,
+    logs,
+    loading,
+    error
+  });
 
   return (
     <div className="w-full min-h-screen bg-gradient-to-br from-gray-50 to-gray-100 dark:from-gray-900 dark:to-gray-800 p-6">
@@ -164,11 +235,65 @@ const WorkerProceedings = ({ electionId }) => {
             <p className="text-gray-600 dark:text-gray-400 text-lg">Loading worker data...</p>
           </div>
         </div>
+      ) : error ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="flex flex-col items-center gap-4 max-w-2xl p-8 bg-red-50 dark:bg-red-900/20 rounded-2xl border-2 border-red-200 dark:border-red-800">
+            <FiAlertTriangle className="text-6xl text-red-500" />
+            <h3 className="text-xl font-bold text-red-800 dark:text-red-200">Error Loading Worker Logs</h3>
+            <p className="text-gray-700 dark:text-gray-300 text-center">{error.message}</p>
+            {error.details && (
+              <details className="mt-4 w-full">
+                <summary className="cursor-pointer text-sm text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200">
+                  Show technical details
+                </summary>
+                <pre className="mt-2 p-4 bg-gray-100 dark:bg-gray-800 rounded text-xs overflow-auto max-h-40">
+                  {JSON.stringify(error.details, null, 2)}
+                </pre>
+              </details>
+            )}
+            <button
+              onClick={() => fetchWorkerLogs()}
+              className="mt-4 px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-semibold flex items-center gap-2 transition-colors"
+            >
+              <FiRefreshCw /> Retry
+            </button>
+            <div className="mt-4 p-4 bg-yellow-50 dark:bg-yellow-900/20 border border-yellow-200 dark:border-yellow-800 rounded-lg">
+              <h4 className="font-semibold text-yellow-800 dark:text-yellow-200 mb-2">💡 Troubleshooting Tips:</h4>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                <li>Make sure the worker log tables exist in the database</li>
+                <li>Run the table creation SQL script if tables are missing</li>
+                <li>Check backend logs for detailed error messages</li>
+                <li>Verify the election ID is correct</li>
+              </ul>
+            </div>
+          </div>
+        </div>
       ) : !currentData ? (
         <div className="flex items-center justify-center h-64">
           <div className="flex flex-col items-center gap-4">
             <FiAlertTriangle className="text-6xl text-yellow-500" />
             <p className="text-gray-600 dark:text-gray-400 text-lg">No data available</p>
+          </div>
+        </div>
+      ) : logs.length === 0 ? (
+        <div className="flex items-center justify-center h-64">
+          <div className="flex flex-col items-center gap-4 max-w-2xl p-8 bg-blue-50 dark:bg-blue-900/20 rounded-2xl border-2 border-blue-200 dark:border-blue-800">
+            <FiActivity className="text-6xl text-blue-500" />
+            <h3 className="text-xl font-bold text-blue-800 dark:text-blue-200">No Processing Logs Yet</h3>
+            <p className="text-gray-700 dark:text-gray-300 text-center">
+              This election hasn't gone through {activeTab === 'tally' ? 'tally processing' 
+                : activeTab === 'partialDecryption' ? 'partial decryption' 
+                : activeTab === 'compensatedDecryption' ? 'compensated decryption' 
+                : 'combine decryption'} yet.
+            </p>
+            <div className="mt-4 p-4 bg-gray-50 dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg">
+              <h4 className="font-semibold text-gray-800 dark:text-gray-200 mb-2">ℹ️ Information:</h4>
+              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-1 list-disc list-inside">
+                <li>Worker logs are created during election processing</li>
+                <li>Only new elections (after worker log tables were created) will have logs</li>
+                <li>Logs appear after tally creation, guardian decryption, or result combining</li>
+              </ul>
+            </div>
           </div>
         </div>
       ) : (

@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Worker Proceedings API Test</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #333;
+            border-bottom: 3px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+        .form-group {
+            margin: 20px 0;
+        }
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: bold;
+            color: #555;
+        }
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 5px;
+            font-size: 16px;
+        }
+        button {
+            background: #4CAF50;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 5px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-right: 10px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        button.secondary {
+            background: #2196F3;
+        }
+        button.secondary:hover {
+            background: #0b7dda;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 20px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            font-family: 'Courier New', monospace;
+            font-size: 14px;
+        }
+        .success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        .error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        .info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-top: 20px;
+        }
+        .stat-card {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 10px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+        .stat-card h3 {
+            margin: 0 0 10px 0;
+            font-size: 14px;
+            opacity: 0.9;
+        }
+        .stat-card p {
+            margin: 0;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        .logs-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .logs-table th,
+        .logs-table td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+        }
+        .logs-table th {
+            background: #4CAF50;
+            color: white;
+            font-weight: bold;
+        }
+        .logs-table tr:hover {
+            background: #f5f5f5;
+        }
+        .status-badge {
+            padding: 5px 10px;
+            border-radius: 15px;
+            font-size: 12px;
+            font-weight: bold;
+        }
+        .status-completed {
+            background: #d4edda;
+            color: #155724;
+        }
+        .status-failed {
+            background: #f8d7da;
+            color: #721c24;
+        }
+        .status-in_progress {
+            background: #fff3cd;
+            color: #856404;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Worker Proceedings API Tester</h1>
+        <p>Test the Worker Proceedings API endpoints to verify data is being returned correctly.</p>
+
+        <div class="form-group">
+            <label for="apiUrl">API Base URL:</label>
+            <input type="text" id="apiUrl" value="http://localhost:5173/api" placeholder="http://localhost:5173/api">
+            <small style="color: #666; display: block; margin-top: 5px;">
+              Use http://localhost:5173/api for Vite dev server or http://localhost:8080/api for direct backend
+            </small>
+        </div>
+
+        <div class="form-group">
+            <label for="electionId">Election ID:</label>
+            <input type="number" id="electionId" value="1" placeholder="1">
+        </div>
+
+        <div class="form-group">
+            <label for="endpoint">Endpoint:</label>
+            <select id="endpoint">
+                <option value="/worker-logs/tally">Tally Processing</option>
+                <option value="/worker-logs/decryption/partial">Partial Decryption</option>
+                <option value="/worker-logs/decryption/compensated">Compensated Decryption</option>
+                <option value="/worker-logs/combine">Combine Decryption</option>
+                <option value="/worker-logs/summary">Summary (All)</option>
+            </select>
+        </div>
+
+        <button onclick="testAPI()">🚀 Test API</button>
+        <button onclick="testAllEndpoints()" class="secondary">🔄 Test All Endpoints</button>
+        <button onclick="clearResults()" class="secondary">🗑️ Clear</button>
+
+        <div id="result"></div>
+    </div>
+
+    <script>
+        function formatDuration(ms) {
+            if (!ms) return 'N/A';
+            const seconds = Math.floor(ms / 1000);
+            const minutes = Math.floor(seconds / 60);
+            const hours = Math.floor(minutes / 60);
+            
+            if (hours > 0) {
+                return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+            } else if (minutes > 0) {
+                return `${minutes}m ${seconds % 60}s`;
+            } else {
+                return `${seconds}s`;
+            }
+        }
+
+        function formatTime(dateString) {
+            if (!dateString) return 'N/A';
+            return new Date(dateString).toLocaleString();
+        }
+
+        function displayResults(data, endpoint) {
+            const resultDiv = document.getElementById('result');
+            
+            let html = '<div class="result success">';
+            html += `<h2>✅ Success - ${endpoint}</h2>`;
+            
+            // Display statistics if available
+            if (data.statistics) {
+                html += '<div class="stats">';
+                html += `<div class="stat-card">
+                    <h3>Total Processing Time</h3>
+                    <p>${formatDuration(data.statistics.totalProcessingTime)}</p>
+                </div>`;
+                html += `<div class="stat-card">
+                    <h3>Average Time</h3>
+                    <p>${formatDuration(data.statistics.averageProcessingTime)}</p>
+                </div>`;
+                html += `<div class="stat-card">
+                    <h3>Total Elapsed</h3>
+                    <p>${formatDuration(data.statistics.totalElapsedTime)}</p>
+                </div>`;
+                html += `<div class="stat-card">
+                    <h3>Completed / Failed</h3>
+                    <p>${data.statistics.completedCount} / ${data.statistics.failedCount || 0}</p>
+                </div>`;
+                html += '</div>';
+            }
+            
+            // Display logs table
+            if (data.logs && data.logs.length > 0) {
+                html += '<h3>Logs:</h3>';
+                html += '<table class="logs-table">';
+                html += '<thead><tr>';
+                html += '<th>Chunk</th>';
+                html += '<th>Start Time</th>';
+                html += '<th>End Time</th>';
+                html += '<th>Duration</th>';
+                html += '<th>Status</th>';
+                html += '</tr></thead><tbody>';
+                
+                data.logs.forEach(log => {
+                    html += '<tr>';
+                    html += `<td><strong>#${log.chunkNumber}</strong></td>`;
+                    html += `<td>${formatTime(log.startTime)}</td>`;
+                    html += `<td>${formatTime(log.endTime)}</td>`;
+                    html += `<td>${formatDuration(log.duration)}</td>`;
+                    html += `<td><span class="status-badge status-${log.status.toLowerCase()}">${log.status}</span></td>`;
+                    html += '</tr>';
+                });
+                
+                html += '</tbody></table>';
+            } else {
+                html += '<p><strong>No logs found for this election/endpoint.</strong></p>';
+            }
+            
+            // Display raw JSON
+            html += '<h3>Raw Response:</h3>';
+            html += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+            html += '</div>';
+            
+            resultDiv.innerHTML = html;
+        }
+
+        function displayError(error, endpoint) {
+            const resultDiv = document.getElementById('result');
+            let html = '<div class="result error">';
+            html += `<h2>❌ Error - ${endpoint}</h2>`;
+            html += `<p><strong>Message:</strong> ${error.message}</p>`;
+            
+            if (error.response) {
+                html += `<p><strong>Status:</strong> ${error.response.status} ${error.response.statusText}</p>`;
+                html += `<h3>Response Data:</h3>`;
+                html += `<pre>${JSON.stringify(error.response.data, null, 2)}</pre>`;
+            }
+            
+            html += '</div>';
+            resultDiv.innerHTML = html;
+        }
+
+        async function testAPI() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const electionId = document.getElementById('electionId').value;
+            const endpoint = document.getElementById('endpoint').value;
+            const fullUrl = `${apiUrl}${endpoint}/${electionId}`;
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="result info">⏳ Loading... Making request to: ' + fullUrl + '</div>';
+            
+            try {
+                console.log('Making request to:', fullUrl);
+                const response = await fetch(fullUrl);
+                console.log('Response status:', response.status);
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const data = await response.json();
+                console.log('Response data:', data);
+                displayResults(data, endpoint);
+            } catch (error) {
+                console.error('Error:', error);
+                displayError(error, endpoint);
+            }
+        }
+
+        async function testAllEndpoints() {
+            const apiUrl = document.getElementById('apiUrl').value;
+            const electionId = document.getElementById('electionId').value;
+            const endpoints = [
+                '/worker-logs/tally',
+                '/worker-logs/decryption/partial',
+                '/worker-logs/decryption/compensated',
+                '/worker-logs/combine'
+            ];
+            
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = '<div class="result info">⏳ Testing all endpoints...</div>';
+            
+            let allResults = '';
+            
+            for (const endpoint of endpoints) {
+                const fullUrl = `${apiUrl}${endpoint}/${electionId}`;
+                try {
+                    const response = await fetch(fullUrl);
+                    const data = await response.json();
+                    allResults += `<div class="result success" style="margin-bottom: 20px;">`;
+                    allResults += `<h3>✅ ${endpoint}</h3>`;
+                    allResults += `<p>Logs: ${data.logs?.length || 0} records</p>`;
+                    allResults += `<p>Completed: ${data.statistics?.completedCount || 0}</p>`;
+                    allResults += `</div>`;
+                } catch (error) {
+                    allResults += `<div class="result error" style="margin-bottom: 20px;">`;
+                    allResults += `<h3>❌ ${endpoint}</h3>`;
+                    allResults += `<p>${error.message}</p>`;
+                    allResults += `</div>`;
+                }
+            }
+            
+            resultDiv.innerHTML = allResults;
+        }
+
+        function clearResults() {
+            document.getElementById('result').innerHTML = '';
+        }
+
+        // Test on page load
+        window.onload = function() {
+            console.log('Worker Proceedings API Tester loaded');
+        };
+    </script>
+</body>
+</html>
