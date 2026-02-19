@@ -15,7 +15,11 @@ public record CombineStatusResponse(
     String createdBy,
     Instant startedAt,
     Instant completedAt,
-    String errorMessage
+    String errorMessage,
+    // Lock metadata - shows who initiated the operation
+    String lockHeldBy,
+    Instant lockStartTime,
+    Boolean isLocked
 ) {
     public static CombineStatusResponse notFound() {
         return CombineStatusResponse.builder()

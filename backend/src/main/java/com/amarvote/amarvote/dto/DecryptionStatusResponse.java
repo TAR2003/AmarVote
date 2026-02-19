@@ -45,4 +45,9 @@ public class DecryptionStatusResponse {
     private String compensatedSharesCompletedAt;
     private Long compensatedSharesDurationSeconds;
     private Long totalDurationSeconds;
+    
+    // Lock metadata - shows who initiated the operation
+    private String lockHeldBy;  // Email of user who holds the lock
+    private String lockStartTime;  // When the lock was acquired
+    private Boolean isLocked;  // Whether a lock exists
 }

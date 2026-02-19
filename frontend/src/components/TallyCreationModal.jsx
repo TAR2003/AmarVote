@@ -159,6 +159,39 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
       
       return (
         <div className="text-center py-8">
+          {/* Lock Metadata Display */}
+          {status.isLocked && status.lockHeldBy && (
+            <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4 mb-6 text-left shadow-sm">
+              <div className="flex items-start gap-3">
+                <div className="text-2xl">🔒</div>
+                <div className="flex-1">
+                  <h4 className="font-semibold text-amber-900 mb-2">
+                    Task In Progress
+                  </h4>
+                  <div className="space-y-1.5 text-sm">
+                    <div className="flex items-center gap-2">
+                      <span className="text-amber-700 font-medium">Initiated by:</span>
+                      <span className="text-amber-900 font-semibold bg-amber-100 px-2 py-0.5 rounded">
+                        {status.lockHeldBy}
+                      </span>
+                    </div>
+                    {status.lockStartTime && (
+                      <div className="flex items-center gap-2">
+                        <span className="text-amber-700 font-medium">Started at:</span>
+                        <span className="text-amber-900 font-semibold">
+                          {new Date(status.lockStartTime).toLocaleString()}
+                        </span>
+                      </div>
+                    )}
+                    <p className="text-amber-700 text-xs mt-2 italic">
+                      This task is currently being processed. Multiple simultaneous requests are prevented to avoid duplicate operations.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+          
           <div className="mb-6 flex justify-center">
             <div style={{ width: 150, height: 150 }}>
               <CircularProgressbar
@@ -184,6 +217,25 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
               <p className="text-sm text-indigo-600 font-medium">
                 ⏱️ Estimated time remaining: {estimatedTime}
               </p>
+            )}
+            {/* Task Metadata */}
+            {(status.createdBy || status.lockHeldBy) && (
+              <div className="mt-3 pt-3 border-t border-gray-200">
+                <p className="text-sm text-gray-600">
+                  <span className="font-medium">Initiated by:</span>{' '}
+                  <span className="text-gray-900 font-semibold">
+                    {status.createdBy || status.lockHeldBy}
+                  </span>
+                </p>
+                {(status.startedAt || status.lockStartTime) && (
+                  <p className="text-sm text-gray-600 mt-1">
+                    <span className="font-medium">Started:</span>{' '}
+                    <span className="text-gray-900">
+                      {new Date(status.startedAt || status.lockStartTime).toLocaleString()}
+                    </span>
+                  </p>
+                )}
+              </div>
             )}
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
               <div

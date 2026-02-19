@@ -5,7 +5,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -24,6 +23,7 @@ import com.amarvote.amarvote.dto.ElectionGuardCompensatedDecryptionRequest;
 import com.amarvote.amarvote.dto.ElectionGuardCompensatedDecryptionResponse;
 import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionRequest;
 import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionResponse;
+import com.amarvote.amarvote.dto.LockMetadata;
 import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Decryption;
 import com.amarvote.amarvote.model.Election;
@@ -62,12 +62,6 @@ public class PartialDecryptionService {
     private final ObjectMapper objectMapper;
     private final ElectionGuardCryptoService cryptoService;
     
-    // Concurrent lock to prevent multiple decryption processes for same guardian
-    private final ConcurrentHashMap<String, Boolean> decryptionLocks = new ConcurrentHashMap<>();
-    
-    // Concurrent lock to prevent multiple combine processes for same election
-    private final ConcurrentHashMap<Long, Boolean> combineLocks = new ConcurrentHashMap<>();
-    
     @Autowired
     private ElectionGuardService electionGuardService;
     
@@ -76,6 +70,12 @@ public class PartialDecryptionService {
     
     @Autowired
     private CredentialCacheService credentialCacheService;
+    
+    @Autowired
+    private RedisLockService redisLockService;
+    
+    @Autowired
+    private com.amarvote.amarvote.repository.ElectionJobRepository jobRepository;
 
     /**
      * Periodic GC hint and memory monitoring utility
@@ -283,63 +283,88 @@ public class PartialDecryptionService {
                     .build();
             }
             
-            // 3. Create lock key
-            String lockKey = request.election_id() + "_" + guardian.getGuardianId();
+            // 3. Try to acquire Redis lock FIRST
+            String lockKey = RedisLockService.buildDecryptionLockKey(
+                request.election_id(), 
+                String.valueOf(guardian.getGuardianId())
+            );
+            boolean lockAcquired = redisLockService.tryAcquireLock(
+                lockKey,
+                userEmail,
+                "GUARDIAN_DECRYPTION",
+                "Election ID: " + request.election_id() + 
+                ", Guardian ID: " + guardian.getGuardianId() + 
+                ", Guardian Email: " + guardian.getUserEmail()
+            );
             
-            // 4. Check if decryption already exists or is in progress by querying database
-            List<Long> allChunks = electionCenterRepository.findElectionCenterIdsByElectionId(request.election_id());
-            long completedPartial = decryptionRepository.countByElectionIdAndGuardianId(request.election_id(), guardian.getGuardianId());
-            List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
-            int totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1);
-            
-            if (completedPartial > 0 && completedPartial < allChunks.size()) {
-                System.out.println("⚠️ Decryption already in progress for guardian " + guardian.getGuardianId());
-                return CreatePartialDecryptionResponse.builder()
-                    .success(true)
-                    .message("Decryption is already in progress")
-                    .build();
+            if (!lockAcquired) {
+                // Lock already exists - get metadata to inform user
+                Optional<LockMetadata> existingLock = redisLockService.getLockMetadata(lockKey);
+                if (existingLock.isPresent()) {
+                    LockMetadata metadata = existingLock.get();
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(true)
+                        .message("Decryption is already in progress. Started by " + 
+                                metadata.getUserEmail() + " at " + metadata.getStartTime())
+                        .build();
+                } else {
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(true)
+                        .message("Decryption is already in progress")
+                        .build();
+                }
             }
             
-            if (completedPartial >= allChunks.size()) {
-                // Check if compensated shares are also done (if multi-guardian)
-                if (totalCompensatedGuardians > 0) {
-                    long completedCompensated = compensatedDecryptionRepository
-                        .countByElectionIdAndCompensatingGuardianId(request.election_id(), guardian.getGuardianId());
-                    long expectedCompensated = (long) allChunks.size() * totalCompensatedGuardians;
-                    
-                    if (completedCompensated >= expectedCompensated) {
+            try {
+                // 4. Lock acquired - now check database to see if work already exists
+                List<Long> allChunks = electionCenterRepository.findElectionCenterIdsByElectionId(request.election_id());
+                long completedPartial = decryptionRepository.countByElectionIdAndGuardianId(request.election_id(), guardian.getGuardianId());
+                List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
+                int totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1);
+                
+                if (completedPartial > 0 && completedPartial < allChunks.size()) {
+                    // Release lock since work already in progress
+                    redisLockService.releaseLock(lockKey);
+                    System.out.println("⚠️ Decryption already in progress for guardian " + guardian.getGuardianId());
+                    return CreatePartialDecryptionResponse.builder()
+                        .success(true)
+                        .message("Decryption is already in progress")
+                        .build();
+                }
+                
+                if (completedPartial >= allChunks.size()) {
+                    // Check if compensated shares are also done (if multi-guardian)
+                    if (totalCompensatedGuardians > 0) {
+                        long completedCompensated = compensatedDecryptionRepository
+                            .countByElectionIdAndCompensatingGuardianId(request.election_id(), guardian.getGuardianId());
+                        long expectedCompensated = (long) allChunks.size() * totalCompensatedGuardians;
+                        
+                        if (completedCompensated >= expectedCompensated) {
+                            // Release lock since work already completed
+                            redisLockService.releaseLock(lockKey);
+                            System.out.println("✅ Decryption already completed for guardian " + guardian.getGuardianId());
+                            return CreatePartialDecryptionResponse.builder()
+                                .success(true)
+                                .message("Decryption already completed for this guardian")
+                                .build();
+                        }
+                    } else {
+                        // Release lock since work already completed
+                        redisLockService.releaseLock(lockKey);
                         System.out.println("✅ Decryption already completed for guardian " + guardian.getGuardianId());
                         return CreatePartialDecryptionResponse.builder()
                             .success(true)
                             .message("Decryption already completed for this guardian")
                             .build();
                     }
-                } else {
-                    System.out.println("✅ Decryption already completed for guardian " + guardian.getGuardianId());
-                    return CreatePartialDecryptionResponse.builder()
-                        .success(true)
-                        .message("Decryption already completed for this guardian")
-                        .build();
                 }
-            }
-            
-            // 5. Try to acquire lock
-            Boolean lockAcquired = decryptionLocks.putIfAbsent(lockKey, true);
-            if (lockAcquired != null) {
-                System.out.println("⚠️ Another decryption process is already running for this guardian");
-                return CreatePartialDecryptionResponse.builder()
-                    .success(true)
-                    .message("Decryption is already in progress")
-                    .build();
-            }
-            
-            try {
-                // 7. Validate credentials BEFORE starting async processing
+                
+                // 5. Validate credentials BEFORE starting async processing
                 System.out.println("🔑 Validating guardian credentials...");
                 try {
                     String guardianCredentials = guardian.getCredentials();
                     if (guardianCredentials == null || guardianCredentials.trim().isEmpty()) {
-                        decryptionLocks.remove(lockKey);
+                        redisLockService.releaseLock(lockKey);
                         return CreatePartialDecryptionResponse.builder()
                             .success(false)
                             .message("Guardian credentials not found in database. Please contact administrator.")
@@ -353,7 +378,7 @@ public class PartialDecryptionService {
                     if (validationResult == null || 
                         validationResult.getPrivateKey() == null || 
                         validationResult.getPrivateKey().trim().isEmpty()) {
-                        decryptionLocks.remove(lockKey);
+                        redisLockService.releaseLock(lockKey);
                         return CreatePartialDecryptionResponse.builder()
                             .success(false)
                             .message("The credential file you provided is incorrect. Please upload the correct credentials.txt file that was sent to you via email.")
@@ -363,7 +388,7 @@ public class PartialDecryptionService {
                     System.out.println("✅ Credentials validated successfully");
                 } catch (Exception validationError) {
                     System.err.println("❌ Credential validation failed: " + validationError.getMessage());
-                    decryptionLocks.remove(lockKey);
+                    redisLockService.releaseLock(lockKey);
                     return CreatePartialDecryptionResponse.builder()
                         .success(false)
                         .message("Invalid credential file. Please ensure you uploaded the correct credentials.txt file sent to you via email.")
@@ -382,7 +407,7 @@ public class PartialDecryptionService {
                     
             } catch (Exception e) {
                 // Release lock on error
-                decryptionLocks.remove(lockKey);
+                redisLockService.releaseLock(lockKey);
                 throw e;
             }
             
@@ -423,6 +448,11 @@ public class PartialDecryptionService {
      * Queries RoundRobinTaskScheduler for real-time chunk processing state
      */
     public DecryptionStatusResponse getDecryptionStatus(Long electionId, Long guardianId) {
+        // Query ElectionJob for task metadata
+        Optional<com.amarvote.amarvote.model.ElectionJob> jobOpt = jobRepository.findByElectionIdAndOperationType(electionId, "DECRYPTION_" + guardianId);
+        String createdBy = jobOpt.map(com.amarvote.amarvote.model.ElectionJob::getCreatedBy).orElse(null);
+        java.time.Instant startedAtJob = jobOpt.map(com.amarvote.amarvote.model.ElectionJob::getStartedAt).orElse(null);
+        
         // Get guardian details
         Optional<Guardian> guardianOpt = guardianRepository.findById(guardianId);
         if (guardianOpt.isEmpty()) {
@@ -437,6 +467,10 @@ public class PartialDecryptionService {
         }
         
         Guardian guardian = guardianOpt.get();
+        
+        // Check for active Redis lock
+        String lockKey = RedisLockService.buildDecryptionLockKey(electionId, String.valueOf(guardianId));
+        Optional<LockMetadata> lockMetadata = redisLockService.getLockMetadata(lockKey);
         
         // Try to get progress from scheduler first (live task tracking)
         List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> electionProgress = 
@@ -592,6 +626,10 @@ public class PartialDecryptionService {
                 .compensatedProgressPercentage(compensatedProgressPercentage)
                 .guardianEmail(guardian.getUserEmail())
                 .guardianName(guardian.getUserEmail())
+                .startedAt(startedAtJob != null ? startedAtJob.toString() : null)
+                .isLocked(lockMetadata.isPresent())
+                .lockHeldBy(lockMetadata.map(LockMetadata::getUserEmail).orElse(null))
+                .lockStartTime(lockMetadata.map(m -> m.getStartTime().toString()).orElse(null))
                 .build();
         }
         
@@ -609,6 +647,9 @@ public class PartialDecryptionService {
                 .progressPercentage(0.0)
                 .guardianEmail(guardian.getUserEmail())
                 .guardianName(guardian.getUserEmail())
+                .isLocked(lockMetadata.isPresent())
+                .lockHeldBy(lockMetadata.map(LockMetadata::getUserEmail).orElse(null))
+                .lockStartTime(lockMetadata.map(m -> m.getStartTime().toString()).orElse(null))
                 .build();
         }
         
@@ -693,6 +734,9 @@ public class PartialDecryptionService {
             .compensatedProgressPercentage(compensatedProgressPercentage)
             .guardianEmail(guardian.getUserEmail())
             .guardianName(guardian.getUserEmail())
+            .isLocked(lockMetadata.isPresent())
+            .lockHeldBy(lockMetadata.map(LockMetadata::getUserEmail).orElse(null))
+            .lockStartTime(lockMetadata.map(m -> m.getStartTime().toString()).orElse(null))
             .build();
     }
 
@@ -704,11 +748,28 @@ public class PartialDecryptionService {
     @Async
     public void processDecryptionAsync(CreatePartialDecryptionRequest request, String userEmail, 
                                        Guardian guardian) {
-        String lockKey = request.election_id() + "_" + guardian.getGuardianId();
+        String lockKey = RedisLockService.buildDecryptionLockKey(
+            request.election_id(), 
+            String.valueOf(guardian.getGuardianId())
+        );
         
         try {
             System.out.println("=== ASYNC DECRYPTION STARTED (Memory-Efficient Mode) ===");
             System.out.println("Election ID: " + request.election_id() + ", Guardian: " + guardian.getUserEmail());
+            
+            // Create ElectionJob record for tracking
+            com.amarvote.amarvote.model.ElectionJob job = com.amarvote.amarvote.model.ElectionJob.builder()
+                .jobId(java.util.UUID.randomUUID())
+                .electionId(request.election_id())
+                .operationType("DECRYPTION_" + guardian.getGuardianId())
+                .status("IN_PROGRESS")
+                .totalChunks(0) // Will be updated below
+                .processedChunks(0)
+                .createdBy(userEmail)
+                .startedAt(java.time.Instant.now())
+                .build();
+            jobRepository.save(job);
+            System.out.println("✅ Created ElectionJob record for tracking");
             
             // MEMORY-EFFICIENT: Fetch only election center IDs (not full objects)
             List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(request.election_id());
@@ -837,9 +898,9 @@ public class PartialDecryptionService {
             
             System.err.println("❌ Decryption failed: " + userFriendlyError);
         } finally {
-            // Release lock
-            decryptionLocks.remove(lockKey);
-            System.out.println("🔓 Lock released for guardian " + guardian.getGuardianId());
+            // Release Redis lock
+            redisLockService.releaseLock(lockKey);
+            System.out.println("🔓 Decryption lock released for guardian " + guardian.getGuardianId());
         }
     }
 
@@ -1033,7 +1094,7 @@ public class PartialDecryptionService {
      */
     public CombinePartialDecryptionResponse initiateCombine(Long electionId, String userEmail) {
         try {
-            // 1. Check if combine already exists or is in progress
+            // 1. Check if election centers exist
             List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
             if (electionCenters == null || electionCenters.isEmpty()) {
                 return CombinePartialDecryptionResponse.builder()
@@ -1042,38 +1103,59 @@ public class PartialDecryptionService {
                     .build();
             }
             
-            long completedChunks = electionCenterRepository.countByElectionIdAndElectionResultNotNull(electionId);
+            // 2. Try to acquire Redis lock FIRST
+            String lockKey = RedisLockService.buildCombineLockKey(electionId);
+            boolean lockAcquired = redisLockService.tryAcquireLock(
+                lockKey,
+                "system", // System-initiated (no specific user)
+                "COMBINE_DECRYPTION",
+                "Election ID: " + electionId
+            );
             
-            if (completedChunks > 0 && completedChunks < electionCenters.size()) {
-                System.out.println("⚠️ Combine already in progress for election " + electionId);
-                return CombinePartialDecryptionResponse.builder()
-                    .success(true)
-                    .message("Combine is already in progress")
-                    .build();
-            }
-            
-            if (completedChunks == electionCenters.size()) {
-                System.out.println("✅ Combine already completed for election " + electionId);
-                return CombinePartialDecryptionResponse.builder()
-                    .success(true)
-                    .message("Combine already completed for this election")
-                    .build();
-            }
-            
-            // 2. Try to acquire lock
-            Boolean lockAcquired = combineLocks.putIfAbsent(electionId, true);
-            if (lockAcquired != null) {
-                System.out.println("⚠️ Another combine process is already running for this election");
-                return CombinePartialDecryptionResponse.builder()
-                    .success(true)
-                    .message("Combine is already in progress")
-                    .build();
+            if (!lockAcquired) {
+                // Lock already exists - get metadata to inform user
+                Optional<LockMetadata> existingLock = redisLockService.getLockMetadata(lockKey);
+                if (existingLock.isPresent()) {
+                    LockMetadata metadata = existingLock.get();
+                    return CombinePartialDecryptionResponse.builder()
+                        .success(true)
+                        .message("Combine is already in progress. Started at " + metadata.getStartTime())
+                        .build();
+                } else {
+                    return CombinePartialDecryptionResponse.builder()
+                        .success(true)
+                        .message("Combine is already in progress")
+                        .build();
+                }
             }
             
             try {
+                // 3. Lock acquired - now check database to see if work already exists
+                long completedChunks = electionCenterRepository.countByElectionIdAndElectionResultNotNull(electionId);
+                
+                if (completedChunks > 0 && completedChunks < electionCenters.size()) {
+                    // Release lock since work already in progress
+                    redisLockService.releaseLock(lockKey);
+                    System.out.println("⚠️ Combine already in progress for election " + electionId);
+                    return CombinePartialDecryptionResponse.builder()
+                        .success(true)
+                        .message("Combine is already in progress")
+                        .build();
+                }
+                
+                if (completedChunks == electionCenters.size()) {
+                    // Release lock since work already completed
+                    redisLockService.releaseLock(lockKey);
+                    System.out.println("✅ Combine already completed for election " + electionId);
+                    return CombinePartialDecryptionResponse.builder()
+                        .success(true)
+                        .message("Combine already completed for this election")
+                        .build();
+                }
+                
                 System.out.println("✅ Starting async processing...");
                 
-                // 3. Start async processing
+                // 4. Start async processing (lock will be held during processing)
                 processCombineAsync(electionId);
                 
                 return CombinePartialDecryptionResponse.builder()
@@ -1083,7 +1165,7 @@ public class PartialDecryptionService {
                     
             } catch (Exception e) {
                 // Release lock on error
-                combineLocks.remove(electionId);
+                redisLockService.releaseLock(lockKey);
                 throw e;
             }
             
@@ -1103,9 +1185,25 @@ public class PartialDecryptionService {
      */
     @Async
     public void processCombineAsync(Long electionId) {
+        String lockKey = RedisLockService.buildCombineLockKey(electionId);
+        
         try {
             System.out.println("=== ASYNC COMBINE STARTED ===");
             System.out.println("Election ID: " + electionId);
+            
+            // Create ElectionJob record for tracking
+            com.amarvote.amarvote.model.ElectionJob job = com.amarvote.amarvote.model.ElectionJob.builder()
+                .jobId(java.util.UUID.randomUUID())
+                .electionId(electionId)
+                .operationType("COMBINE")
+                .status("IN_PROGRESS")
+                .totalChunks(0) // Will be updated below
+                .processedChunks(0)
+                .createdBy("system")
+                .startedAt(java.time.Instant.now())
+                .build();
+            jobRepository.save(job);
+            System.out.println("✅ Created ElectionJob record for tracking");
             
             // Get election center IDs (not full objects - memory efficient)
             List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
@@ -1140,9 +1238,9 @@ public class PartialDecryptionService {
             System.err.println("❌ Error in async combine: " + e.getMessage());
             System.err.println("Stack trace: " + e);
         } finally {
-            // Release lock
-            combineLocks.remove(electionId);
-            System.out.println("🔓 Lock released for election " + electionId);
+            // Release Redis lock
+            redisLockService.releaseLock(lockKey);
+            System.out.println("🔓 Combine lock released for election " + electionId);
         }
     }
 
@@ -1153,6 +1251,15 @@ public class PartialDecryptionService {
      * Queries RoundRobinTaskScheduler for real-time chunk processing state
      */
     public CombineStatusResponse getCombineStatus(Long electionId) {
+        // Query ElectionJob for task metadata
+        Optional<com.amarvote.amarvote.model.ElectionJob> jobOpt = jobRepository.findByElectionIdAndOperationType(electionId, "COMBINE");
+        String createdBy = jobOpt.map(com.amarvote.amarvote.model.ElectionJob::getCreatedBy).orElse(null);
+        java.time.Instant startedAtJob = jobOpt.map(com.amarvote.amarvote.model.ElectionJob::getStartedAt).orElse(null);
+        
+        // Check for active Redis lock
+        String lockKey = RedisLockService.buildCombineLockKey(electionId);
+        Optional<LockMetadata> lockMetadata = redisLockService.getLockMetadata(lockKey);
+        
         // Try to get progress from scheduler first (live task tracking)
         List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> electionProgress = 
             decryptionTaskQueueService.getRoundRobinTaskScheduler().getElectionProgress(electionId);
@@ -1182,6 +1289,11 @@ public class PartialDecryptionService {
                 .totalChunks((int) progress.getTotalChunks())
                 .processedChunks((int) progress.getCompletedChunks())
                 .progressPercentage(progress.getCompletionPercentage())
+                .createdBy(createdBy)
+                .startedAt(startedAtJob)
+                .isLocked(lockMetadata.isPresent())
+                .lockHeldBy(lockMetadata.map(LockMetadata::getUserEmail).orElse(null))
+                .lockStartTime(lockMetadata.map(LockMetadata::getStartTime).orElse(null))
                 .build();
         }
         
@@ -1197,6 +1309,9 @@ public class PartialDecryptionService {
                 .totalChunks(0)
                 .processedChunks(0)
                 .progressPercentage(0.0)
+                .isLocked(lockMetadata.isPresent())
+                .lockHeldBy(lockMetadata.map(LockMetadata::getUserEmail).orElse(null))
+                .lockStartTime(lockMetadata.map(LockMetadata::getStartTime).orElse(null))
                 .build();
         }
         
@@ -1225,6 +1340,9 @@ public class PartialDecryptionService {
             .totalChunks(totalChunks)
             .processedChunks((int) processedChunks)
             .progressPercentage(progressPercentage)
+            .isLocked(lockMetadata.isPresent())
+            .lockHeldBy(lockMetadata.map(LockMetadata::getUserEmail).orElse(null))
+            .lockStartTime(lockMetadata.map(LockMetadata::getStartTime).orElse(null))
             .build();
     }
 

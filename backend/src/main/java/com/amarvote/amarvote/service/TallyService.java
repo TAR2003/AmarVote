@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -17,16 +16,19 @@ import com.amarvote.amarvote.dto.CreateTallyRequest;
 import com.amarvote.amarvote.dto.CreateTallyResponse;
 import com.amarvote.amarvote.dto.ElectionGuardTallyRequest;
 import com.amarvote.amarvote.dto.ElectionGuardTallyResponse;
+import com.amarvote.amarvote.dto.LockMetadata;
 import com.amarvote.amarvote.dto.TallyCreationStatusResponse;
 import com.amarvote.amarvote.dto.worker.TallyCreationTask;
 import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.ElectionChoice;
+import com.amarvote.amarvote.model.ElectionJob;
 import com.amarvote.amarvote.model.SubmittedBallot;
 import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
+import com.amarvote.amarvote.repository.ElectionJobRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
@@ -42,9 +44,6 @@ public class TallyService {
     
     @PersistenceContext
     private EntityManager entityManager;
-    
-    // Concurrent map to track which elections are currently processing tally creation
-    private static final ConcurrentHashMap<Long, Boolean> tallyCreationLocks = new ConcurrentHashMap<>();
 
     @Autowired
     private BallotRepository ballotRepository;
@@ -80,6 +79,12 @@ public class TallyService {
     
     @Autowired
     private RoundRobinTaskScheduler roundRobinTaskScheduler;
+    
+    @Autowired
+    private RedisLockService redisLockService;
+    
+    @Autowired
+    private ElectionJobRepository jobRepository;
 
     /**
      * Periodic GC hint and memory monitoring utility
@@ -111,6 +116,15 @@ public class TallyService {
      * Queries RoundRobinTaskScheduler for real-time chunk processing state
      */
     public TallyCreationStatusResponse getTallyStatus(Long electionId) {
+        // Query ElectionJob for task metadata
+        Optional<ElectionJob> jobOpt = jobRepository.findByElectionIdAndOperationType(electionId, "TALLY");
+        String createdBy = jobOpt.map(ElectionJob::getCreatedBy).orElse(null);
+        Instant startedAt = jobOpt.map(ElectionJob::getStartedAt).orElse(null);
+        
+        // Check for active Redis lock
+        String lockKey = RedisLockService.buildTallyLockKey(electionId);
+        Optional<LockMetadata> lockMetadata = redisLockService.getLockMetadata(lockKey);
+        
         // Try to get progress from scheduler first (live task tracking)
         List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> electionProgress = 
             roundRobinTaskScheduler.getElectionProgress(electionId);
@@ -140,6 +154,11 @@ public class TallyService {
                 .totalChunks((int) progress.getTotalChunks())
                 .processedChunks((int) progress.getCompletedChunks())
                 .progressPercentage(progress.getCompletionPercentage())
+                .createdBy(createdBy)
+                .startedAt(startedAt != null ? startedAt.toString() : null)
+                .isLocked(lockMetadata.isPresent())
+                .lockHeldBy(lockMetadata.map(LockMetadata::getUserEmail).orElse(null))
+                .lockStartTime(lockMetadata.map(m -> m.getStartTime().toString()).orElse(null))
                 .build();
         }
         
@@ -155,6 +174,9 @@ public class TallyService {
                 .totalChunks(0)
                 .processedChunks(0)
                 .progressPercentage(0.0)
+                .isLocked(lockMetadata.isPresent())
+                .lockHeldBy(lockMetadata.map(LockMetadata::getUserEmail).orElse(null))
+                .lockStartTime(lockMetadata.map(m -> m.getStartTime().toString()).orElse(null))
                 .build();
         }
         
@@ -183,6 +205,11 @@ public class TallyService {
             .totalChunks(totalChunks)
             .processedChunks((int) processedChunks)
             .progressPercentage(progressPercentage)
+            .createdBy(createdBy)
+            .startedAt(startedAt != null ? startedAt.toString() : null)
+            .isLocked(lockMetadata.isPresent())
+            .lockHeldBy(lockMetadata.map(LockMetadata::getUserEmail).orElse(null))
+            .lockStartTime(lockMetadata.map(m -> m.getStartTime().toString()).orElse(null))
             .build();
     }
 
@@ -194,29 +221,7 @@ public class TallyService {
             System.out.println("=== Initiating Tally Creation ===");
             System.out.println("Election ID: " + request.getElection_id() + ", User: " + userEmail);
             
-            // Check if tally already exists
-            List<ElectionCenter> existingChunks = electionCenterRepository.findByElectionId(request.getElection_id());
-            if (!existingChunks.isEmpty()) {
-                long completedChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(request.getElection_id());
-                
-                if (completedChunks > 0 && completedChunks < existingChunks.size()) {
-                    System.out.println("⚠️ Tally creation already in progress");
-                    return CreateTallyResponse.builder()
-                        .success(true)
-                        .message("Tally creation is already in progress")
-                        .encryptedTally("IN_PROGRESS:" + completedChunks + "/" + existingChunks.size())
-                        .build();
-                } else if (completedChunks == existingChunks.size()) {
-                    System.out.println("✅ Tally already exists");
-                    return CreateTallyResponse.builder()
-                        .success(true)
-                        .message("Tally already exists")
-                        .encryptedTally("COMPLETED")
-                        .build();
-                }
-            }
-            
-            // Verify election has ended
+            // 1. Verify election has ended
             Optional<Election> electionOpt = electionRepository.findById(request.getElection_id());
             if (electionOpt.isEmpty()) {
                 return CreateTallyResponse.builder()
@@ -233,7 +238,7 @@ public class TallyService {
                     .build();
             }
             
-            // Calculate chunks upfront to return chunk count to frontend
+            // 2. Calculate chunks upfront to return chunk count to frontend
             List<Long> ballotIds = ballotRepository.findBallotIdsByElectionIdAndStatus(request.getElection_id(), "cast");
             if (ballotIds.isEmpty()) {
                 return CreateTallyResponse.builder()
@@ -247,7 +252,62 @@ public class TallyService {
             
             System.out.println("✅ Calculated " + totalChunks + " chunks for " + ballotIds.size() + " ballots");
             
-            // Start async processing
+            // 3. Try to acquire Redis lock FIRST
+            String lockKey = RedisLockService.buildTallyLockKey(request.getElection_id());
+            boolean lockAcquired = redisLockService.tryAcquireLock(
+                lockKey,
+                userEmail,
+                "TALLY_CREATION",
+                "Election ID: " + request.getElection_id() + ", Total chunks: " + totalChunks
+            );
+            
+            if (!lockAcquired) {
+                // Lock already exists - get metadata to inform user
+                Optional<LockMetadata> existingLock = redisLockService.getLockMetadata(lockKey);
+                if (existingLock.isPresent()) {
+                    LockMetadata metadata = existingLock.get();
+                    return CreateTallyResponse.builder()
+                        .success(true)
+                        .message("Tally creation is already in progress. Started by " + 
+                                metadata.getUserEmail() + " at " + metadata.getStartTime())
+                        .encryptedTally("IN_PROGRESS")
+                        .build();
+                } else {
+                    return CreateTallyResponse.builder()
+                        .success(true)
+                        .message("Tally creation is already in progress")
+                        .encryptedTally("IN_PROGRESS")
+                        .build();
+                }
+            }
+            
+            // 4. Lock acquired - now check database to see if work already exists
+            List<ElectionCenter> existingChunks = electionCenterRepository.findByElectionId(request.getElection_id());
+            if (!existingChunks.isEmpty()) {
+                long completedChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(request.getElection_id());
+                
+                if (completedChunks > 0 && completedChunks < existingChunks.size()) {
+                    // Release lock since work already in progress
+                    redisLockService.releaseLock(lockKey);
+                    System.out.println("⚠️ Tally creation already in progress");
+                    return CreateTallyResponse.builder()
+                        .success(true)
+                        .message("Tally creation is already in progress")
+                        .encryptedTally("IN_PROGRESS:" + completedChunks + "/" + existingChunks.size())
+                        .build();
+                } else if (completedChunks == existingChunks.size()) {
+                    // Release lock since work already completed
+                    redisLockService.releaseLock(lockKey);
+                    System.out.println("✅ Tally already exists");
+                    return CreateTallyResponse.builder()
+                        .success(true)
+                        .message("Tally already exists")
+                        .encryptedTally("COMPLETED")
+                        .build();
+                }
+            }
+            
+            // 5. Start async processing (lock will be held during processing)
             createTallyAsync(request, userEmail);
             
             return CreateTallyResponse.builder()
@@ -274,16 +334,25 @@ public class TallyService {
     @Async
     public void createTallyAsync(CreateTallyRequest request, String userEmail) {
         Long electionId = request.getElection_id();
-        
-        // Double-check locking to prevent concurrent processing
-        if (tallyCreationLocks.putIfAbsent(electionId, true) != null) {
-            System.out.println("⚠️ Tally creation already in progress for election: " + electionId);
-            return;
-        }
+        String lockKey = RedisLockService.buildTallyLockKey(electionId);
         
         try {
             System.out.println("=== Async Tally Creation Started (Memory-Efficient Mode) ===");
             System.out.println("Election ID: " + electionId);
+            
+            // Create ElectionJob record for tracking
+            ElectionJob job = ElectionJob.builder()
+                .jobId(java.util.UUID.randomUUID())
+                .electionId(electionId)
+                .operationType("TALLY")
+                .status("IN_PROGRESS")
+                .totalChunks(0) // Will be updated below
+                .processedChunks(0)
+                .createdBy(userEmail)
+                .startedAt(Instant.now())
+                .build();
+            jobRepository.save(job);
+            System.out.println("✅ Created ElectionJob record for tracking");
             
             // Fetch election
             Optional<Election> electionOpt = electionRepository.findById(electionId);
@@ -409,8 +478,9 @@ public class TallyService {
         } catch (Exception e) {
             System.err.println("❌ Error in async tally creation: " + e.getMessage());
         } finally {
-            // Release lock
-            tallyCreationLocks.remove(electionId);
+            // Release Redis lock
+            redisLockService.releaseLock(lockKey);
+            System.out.println("🔓 Tally creation lock released for election: " + electionId);
         }
     }
 

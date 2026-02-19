@@ -189,6 +189,39 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
 
           {status && (
             <>
+              {/* Lock Metadata Display */}
+              {status.isLocked && status.lockHeldBy && (
+                <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4 mb-4 shadow-sm">
+                  <div className="flex items-start gap-3">
+                    <div className="text-2xl">🔒</div>
+                    <div className="flex-1">
+                      <h4 className="font-semibold text-amber-900 mb-2">
+                        Task In Progress
+                      </h4>
+                      <div className="space-y-1.5 text-sm">
+                        <div className="flex items-center gap-2">
+                          <span className="text-amber-700 font-medium">Initiated by:</span>
+                          <span className="text-amber-900 font-semibold bg-amber-100 px-2 py-0.5 rounded">
+                            {status.lockHeldBy}
+                          </span>
+                        </div>
+                        {status.lockStartTime && (
+                          <div className="flex items-center gap-2">
+                            <span className="text-amber-700 font-medium">Started at:</span>
+                            <span className="text-amber-900 font-semibold">
+                              {new Date(status.lockStartTime).toLocaleString()}
+                            </span>
+                          </div>
+                        )}
+                        <p className="text-amber-700 text-xs mt-2 italic">
+                          This task is currently being processed. Multiple simultaneous requests are prevented to avoid duplicate operations.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               {/* Overall Progress */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
@@ -238,17 +271,18 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                           </span>
                         </div>
                       )}
-                      {status.createdBy && (
-                        <div className="flex justify-between text-sm">
+                      {/* Task Metadata */}
+                      {(status.createdBy || status.lockHeldBy) && (
+                        <div className="flex justify-between text-sm pt-2 border-t border-gray-300">
                           <span className="text-gray-600">Initiated By:</span>
-                          <span className="font-semibold text-gray-800">{status.createdBy}</span>
+                          <span className="font-semibold text-gray-800">{status.createdBy || status.lockHeldBy}</span>
                         </div>
                       )}
-                      {status.startedAt && (
+                      {(status.startedAt || status.lockStartTime) && (
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Started:</span>
                           <span className="font-semibold text-gray-800">
-                            {new Date(status.startedAt).toLocaleTimeString()}
+                            {new Date(status.startedAt || status.lockStartTime).toLocaleTimeString()}
                           </span>
                         </div>
                       )}
