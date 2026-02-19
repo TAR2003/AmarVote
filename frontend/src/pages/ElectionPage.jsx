@@ -1995,59 +1995,76 @@ export default function ElectionPage() {
             console.log('✅ Quorum met. Checking for available results...');
             
             // Try to fetch combine status for UI display, but don't block on it
+            let combineStatusData = null;
             try {
-              const combineStatusData = await electionApi.getCombineStatus(id);
+              combineStatusData = await electionApi.getCombineStatus(id);
               console.log('🔍 Combine status:', combineStatusData);
               setCombineStatus(combineStatusData);
             } catch (err) {
               console.warn('No combine status found:', err);
             }
             
-            // Always attempt to fetch cached results when quorum is met
-            // The backend will check if all election_center rows have results filled
-            try {
-              const animatedResultsData = await electionApi.getElectionResults(id);
-              console.log('📦 [CACHED RESULTS] Raw data from backend:', {
-                success: animatedResultsData.success,
-                finalTallies: animatedResultsData.results?.finalTallies,
-                totalBallots: animatedResultsData.results?.total_ballots_cast,
-                chunksCount: animatedResultsData.results?.chunks?.length
-              });
+            // Only attempt to fetch and display cached results if combine operation is completed
+            // This prevents showing partial results when page is reloaded during processing
+            if (combineStatusData && combineStatusData.status === 'completed') {
+              console.log('✅ Combine operation completed. Loading final results...');
               
-              if (animatedResultsData.success && animatedResultsData.results) {
-                console.log('✅ Results available! Auto-loading cached results with chunk breakdown');
-                setAnimatedResults(animatedResultsData);
+              try {
+                const animatedResultsData = await electionApi.getElectionResults(id);
+                console.log('📦 [CACHED RESULTS] Raw data from backend:', {
+                  success: animatedResultsData.success,
+                  finalTallies: animatedResultsData.results?.finalTallies,
+                  totalBallots: animatedResultsData.results?.total_ballots_cast,
+                  chunksCount: animatedResultsData.results?.chunks?.length
+                });
                 
-                // Extract and properly format ballot data from cached results
-                if (animatedResultsData.results.allBallots && animatedResultsData.results.allBallots.length > 0) {
-                  // Build verification data structure to match expected format
-                  const cachedVerificationData = {
-                    verification: {
-                      ballots: animatedResultsData.results.allBallots
-                    },
-                    results: {
-                      finalTallies: animatedResultsData.results.finalTallies,
-                      total_ballots_cast: animatedResultsData.results.total_ballots_cast || animatedResultsData.results.allBallots.length,
-                      total_valid_ballots: animatedResultsData.results.total_valid_ballots || animatedResultsData.results.allBallots.length,
-                      total_eligible_voters: data.voters?.length || 0
-                    }
-                  };
-                  setRawVerificationData(cachedVerificationData);
+                if (animatedResultsData.success && animatedResultsData.results) {
+                  console.log('✅ Results available! Auto-loading cached results with chunk breakdown');
+                  setAnimatedResults(animatedResultsData);
                   
-                  // Process and set results data for charts and statistics
-                  // Pass data directly to avoid stale state issue
-                  const processedResults = processElectionResults(cachedVerificationData, data);
-                  if (processedResults) {
-                    setResultsData(processedResults);
-                    console.log('✅ Results processed for charts:', processedResults);
+                  // Extract and properly format ballot data from cached results
+                  if (animatedResultsData.results.allBallots && animatedResultsData.results.allBallots.length > 0) {
+                    // Build verification data structure to match expected format
+                    const cachedVerificationData = {
+                      verification: {
+                        ballots: animatedResultsData.results.allBallots
+                      },
+                      results: {
+                        finalTallies: animatedResultsData.results.finalTallies,
+                        total_ballots_cast: animatedResultsData.results.total_ballots_cast || animatedResultsData.results.allBallots.length,
+                        total_valid_ballots: animatedResultsData.results.total_valid_ballots || animatedResultsData.results.allBallots.length,
+                        total_eligible_voters: data.voters?.length || 0
+                      }
+                    };
+                    setRawVerificationData(cachedVerificationData);
+                    
+                    // Process and set results data for charts and statistics
+                    // Pass data directly to avoid stale state issue
+                    const processedResults = processElectionResults(cachedVerificationData, data);
+                    if (processedResults) {
+                      setResultsData(processedResults);
+                      console.log('✅ Results processed for charts:', processedResults);
+                    }
                   }
+                } else {
+                  console.log('ℹ️ Results not yet available. User may need to click "Combine Results" button.');
                 }
-              } else {
+              } catch (err) {
+                console.warn('Failed to load cached results:', err);
                 console.log('ℹ️ Results not yet available. User may need to click "Combine Results" button.');
               }
-            } catch (err) {
-              console.warn('Failed to load cached results:', err);
-              console.log('ℹ️ Results not yet available. User may need to click "Combine Results" button.');
+            } else {
+              console.log('ℹ️ Combine operation not completed yet. Results will be available after completion.');
+              console.log(`   Current combine status: ${combineStatusData?.status || 'unknown'}`);
+              
+              // ✅ CRITICAL FIX: Clear any stale results data to prevent showing partial results on reload
+              // Only clear if combine is actively in progress or pending (not failed)
+              if (combineStatusData?.status === 'in_progress' || combineStatusData?.status === 'pending') {
+                console.log('🧹 Clearing stale results data to prevent displaying partial results');
+                setAnimatedResults(null);
+                setResultsData(null);
+                setRawVerificationData(null);
+              }
             }
           }
           // NOTE: Auto-combine removed - users must manually click "Combine Partial Decryptions" button
@@ -4484,8 +4501,9 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                   const isCombineCompleted = combineStatus?.status === 'completed';
                   // ✅ FIX: Also check if we have animatedResults to determine if decryption is complete
                   const hasResults = animatedResults?.success && animatedResults?.results?.finalTallies;
-                  // Don't show combine button if: 1) already decrypted, 2) combine completed, 3) we have results, OR 4) still loading
-                  const needsDecryption = !loading && !isAlreadyDecrypted && !isCombineCompleted && !hasResults && totalVotesInChoices !== totalBallots && totalBallots > 0;
+                  // ✅ FIXED: Removed problematic totalVotesInChoices !== totalBallots condition
+                  // Show combine button when: not loading, not already decrypted, combine not completed, and no results yet
+                  const needsDecryption = !loading && !isAlreadyDecrypted && !isCombineCompleted && !hasResults;
                   
                   console.log('🔍 [Button Display Logic]', {
                     electionStatus: electionData.status,
@@ -4498,13 +4516,23 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                     needsDecryption,
                     totalBallots,
                     totalVotesInChoices,
-                    loading
+                    loading,
+                    shouldShowButton: needsDecryption
                   });
 
                   // ✅ Fixed: Check if quorum is met instead of requiring all guardians
                   const guardiansSubmitted = electionData.guardiansSubmitted || 0;
                   const electionQuorum = electionData.electionQuorum || electionData.totalGuardians || 0;
                   const quorumMet = guardiansSubmitted >= electionQuorum;
+
+                  console.log('🔍 [Combine Button Visibility]', {
+                    needsDecryption,
+                    quorumMet,
+                    guardiansSubmitted,
+                    electionQuorum,
+                    willShowButton: needsDecryption && quorumMet,
+                    willShowWaitingMessage: needsDecryption && !quorumMet
+                  });
 
                   return (
                     <>
