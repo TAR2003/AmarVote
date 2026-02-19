@@ -1,9 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { FiCheck, FiClock, FiCalendar, FiUsers, FiLock, FiUnlock, FiBox } from 'react-icons/fi';
+import { FiCheck, FiClock, FiCalendar, FiUsers, FiLock, FiUnlock, FiBox, FiChevronDown, FiChevronRight, FiZap, FiPackage } from 'react-icons/fi';
 import { electionApi } from '../utils/electionApi';
+import axios from 'axios';
 
 const ElectionTimeline = ({ electionId, electionData }) => {
   const [timelineData, setTimelineData] = useState([]);
+  const [workerLogTasks, setWorkerLogTasks] = useState([]);
+  const [expandedTasks, setExpandedTasks] = useState({});
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
@@ -12,6 +15,188 @@ const ElectionTimeline = ({ electionId, electionData }) => {
         setLoading(true);
         
         const events = [];
+        const workerTasks = [];
+        
+        // Fetch worker logs data
+        try {
+          // Fetch all worker log types
+          const [tallyLogs, partialDecryptionLogs, compensatedDecryptionLogs, combineLogs] = await Promise.all([
+            axios.get(`/api/worker-logs/tally/${electionId}`).catch(() => ({ data: { logs: [] } })),
+            axios.get(`/api/worker-logs/decryption/partial/${electionId}`).catch(() => ({ data: { logs: [] } })),
+            axios.get(`/api/worker-logs/decryption/compensated/${electionId}`).catch(() => ({ data: { logs: [] } })),
+            axios.get(`/api/worker-logs/combine/${electionId}`).catch(() => ({ data: { logs: [] } }))
+          ]);
+
+          console.log('📊 Worker Logs Fetched:', {
+            tally: tallyLogs.data,
+            partial: partialDecryptionLogs.data,
+            compensated: compensatedDecryptionLogs.data,
+            combine: combineLogs.data
+          });
+          
+          console.log('🔍 Guardians Data:', electionData.guardians);
+
+          // Process Tally Creation
+          if (tallyLogs.data.logs && tallyLogs.data.logs.length > 0) {
+            const logs = tallyLogs.data.logs;
+            const sortedLogs = [...logs].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+            const firstLog = sortedLogs[0];
+            const lastLog = sortedLogs[sortedLogs.length - 1];
+            
+            // Only create task if we have valid end times
+            if (firstLog.startTime && lastLog.endTime) {
+              workerTasks.push({
+                id: 'tally-creation',
+                title: 'Tally Creation',
+                type: 'tally',
+                icon: FiBox,
+                color: 'purple',
+                startTime: new Date(firstLog.startTime),
+                endTime: new Date(lastLog.endTime),
+                chunks: sortedLogs.map(log => ({
+                  chunkNumber: log.chunkNumber,
+                  startTime: log.startTime ? new Date(log.startTime) : null,
+                  endTime: log.endTime ? new Date(log.endTime) : null,
+                  duration: log.duration,
+                  status: log.status
+                })),
+                description: `Processed ${logs.length} chunks`,
+                status: 'completed'
+              });
+            }
+          }
+
+          // Process Partial Decryption by Guardian
+          if (partialDecryptionLogs.data.logs && partialDecryptionLogs.data.logs.length > 0) {
+            const logsByGuardian = {};
+            partialDecryptionLogs.data.logs.forEach(log => {
+              if (!logsByGuardian[log.guardianId]) {
+                logsByGuardian[log.guardianId] = [];
+              }
+              logsByGuardian[log.guardianId].push(log);
+            });
+
+            Object.entries(logsByGuardian).forEach(([guardianId, logs]) => {
+              const sortedLogs = [...logs].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+              const firstLog = sortedLogs[0];
+              const lastLog = sortedLogs[sortedLogs.length - 1];
+              
+              // Only create task if we have valid end times
+              if (firstLog.startTime && lastLog.endTime) {
+                // Find guardian info
+                const guardian = electionData.guardians?.find(g => g.guardianId === parseInt(guardianId));
+                const guardianName = guardian ? `Guardian ${guardian.sequenceOrder}` : `Guardian ${guardianId}`;
+                
+                workerTasks.push({
+                  id: `partial-decryption-guardian-${guardianId}`,
+                  title: `Partial Decryption by ${guardianName}`,
+                  type: 'partial-decryption',
+                  icon: FiLock,
+                  color: 'indigo',
+                  startTime: new Date(firstLog.startTime),
+                  endTime: new Date(lastLog.endTime),
+                  guardianId: parseInt(guardianId),
+                  chunks: sortedLogs.map(log => ({
+                    chunkNumber: log.chunkNumber,
+                    startTime: log.startTime ? new Date(log.startTime) : null,
+                    endTime: log.endTime ? new Date(log.endTime) : null,
+                    duration: log.duration,
+                    status: log.status
+                  })),
+                  description: `Decrypted ${logs.length} chunks`,
+                  status: 'completed'
+                });
+              }
+            });
+          }
+
+          // Process Compensated Decryption by Guardian
+          if (compensatedDecryptionLogs.data.logs && compensatedDecryptionLogs.data.logs.length > 0) {
+            const logsByDecryptingGuardianAndTargetGuardian = {};
+            compensatedDecryptionLogs.data.logs.forEach(log => {
+              const key = `${log.decryptingGuardianId}-${log.guardianId}`;
+              if (!logsByDecryptingGuardianAndTargetGuardian[key]) {
+                logsByDecryptingGuardianAndTargetGuardian[key] = [];
+              }
+              logsByDecryptingGuardianAndTargetGuardian[key].push(log);
+            });
+
+            Object.entries(logsByDecryptingGuardianAndTargetGuardian).forEach(([key, logs]) => {
+              const [decryptingGuardianId, targetGuardianId] = key.split('-').map(Number);
+              const sortedLogs = [...logs].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+              const firstLog = sortedLogs[0];
+              const lastLog = sortedLogs[sortedLogs.length - 1];
+              
+              // Only create task if we have valid end times
+              if (firstLog.startTime && lastLog.endTime) {
+                // Find guardian info
+                const decryptingGuardian = electionData.guardians?.find(g => g.guardianId === decryptingGuardianId);
+                const targetGuardian = electionData.guardians?.find(g => g.guardianId === targetGuardianId);
+                const decryptingName = decryptingGuardian ? `Guardian ${decryptingGuardian.sequenceOrder}` : `Guardian ${decryptingGuardianId}`;
+                const targetName = targetGuardian ? `Guardian ${targetGuardian.sequenceOrder}` : `Guardian ${targetGuardianId}`;
+                
+                workerTasks.push({
+                  id: `compensated-decryption-${decryptingGuardianId}-for-${targetGuardianId}`,
+                  title: `Compensated Decryption by ${decryptingName} for ${targetName}`,
+                  type: 'compensated-decryption',
+                  icon: FiZap,
+                  color: 'teal',
+                  startTime: new Date(firstLog.startTime),
+                  endTime: new Date(lastLog.endTime),
+                  decryptingGuardianId,
+                  targetGuardianId,
+                  chunks: sortedLogs.map(log => ({
+                    chunkNumber: log.chunkNumber,
+                    startTime: log.startTime ? new Date(log.startTime) : null,
+                    endTime: log.endTime ? new Date(log.endTime) : null,
+                    duration: log.duration,
+                    status: log.status
+                  })),
+                  description: `Generated backup shares for ${logs.length} chunks`,
+                  status: 'completed'
+                });
+              }
+            });
+          }
+
+          // Process Combine Decryption
+          if (combineLogs.data.logs && combineLogs.data.logs.length > 0) {
+            const logs = combineLogs.data.logs;
+            const sortedLogs = [...logs].sort((a, b) => new Date(a.startTime) - new Date(b.startTime));
+            const firstLog = sortedLogs[0];
+            const lastLog = sortedLogs[sortedLogs.length - 1];
+            
+            // Only create task if we have valid end times
+            if (firstLog.startTime && lastLog.endTime) {
+              workerTasks.push({
+                id: 'combine-decryption',
+                title: 'Combine Decryption Process',
+                type: 'combine',
+                icon: FiPackage,
+                color: 'pink',
+                startTime: new Date(firstLog.startTime),
+                endTime: new Date(lastLog.endTime),
+                chunks: sortedLogs.map(log => ({
+                  chunkNumber: log.chunkNumber,
+                  startTime: log.startTime ? new Date(log.startTime) : null,
+                  endTime: log.endTime ? new Date(log.endTime) : null,
+                  duration: log.duration,
+                  status: log.status
+                })),
+                description: `Combined ${logs.length} chunks to produce final results`,
+                status: 'completed'
+              });
+            }
+          }
+
+          // Sort worker tasks by start time
+          workerTasks.sort((a, b) => a.startTime - b.startTime);
+          console.log('✅ Worker Tasks Created:', workerTasks.length, workerTasks);
+          setWorkerLogTasks(workerTasks);
+
+        } catch (err) {
+          console.error('Error fetching worker logs:', err);
+        }
         
         // 1. Election Creation
         if (electionData.createdAt) {
@@ -27,11 +212,11 @@ const ElectionTimeline = ({ electionId, electionData }) => {
         }
         
         // 2. Voting Period Start
-        if (electionData.startDate) {
+        if (electionData.startingTime) {
           events.push({
             id: 'voting-start',
             title: 'Voting Period Started',
-            timestamp: new Date(electionData.startDate),
+            timestamp: new Date(electionData.startingTime),
             icon: FiUsers,
             color: 'green',
             description: 'Voters can now cast their encrypted ballots',
@@ -40,145 +225,17 @@ const ElectionTimeline = ({ electionId, electionData }) => {
         }
         
         // 3. Voting Period End
-        if (electionData.endDate) {
-          const votingEnded = new Date() > new Date(electionData.endDate);
+        if (electionData.endingTime) {
+          const votingEnded = new Date() > new Date(electionData.endingTime);
           events.push({
             id: 'voting-end',
             title: 'Voting Period Ended',
-            timestamp: new Date(electionData.endDate),
+            timestamp: new Date(electionData.endingTime),
             icon: FiClock,
             color: votingEnded ? 'orange' : 'gray',
             description: 'No more votes can be cast',
             status: votingEnded ? 'completed' : 'pending'
           });
-        }
-        
-        // 4. Tally Creation (fetch from tally_creation_status table)
-        try {
-          const tallyStatus = await electionApi.getTallyStatus(electionId);
-          if (tallyStatus && tallyStatus.startedAt) {
-            events.push({
-              id: 'tally-start',
-              title: 'Tally Creation Started',
-              timestamp: new Date(tallyStatus.startedAt),
-              icon: FiBox,
-              color: 'purple',
-              description: 'Started creating encrypted tally from all ballots',
-              status: 'completed'
-            });
-          }
-          
-          if (tallyStatus && tallyStatus.completedAt) {
-            events.push({
-              id: 'tally-complete',
-              title: 'Tally Creation Completed',
-              timestamp: new Date(tallyStatus.completedAt),
-              icon: FiBox,
-              color: 'purple',
-              description: `Processed ${tallyStatus.processedChunks || 0} chunks`,
-              status: 'completed'
-            });
-          }
-        } catch (err) {
-          console.log('No tally status available:', err);
-        }
-        
-        // 5. Guardian Decryptions (fetch from decryption_status table)
-        if (electionData.guardians && electionData.guardians.length > 0) {
-          for (const guardian of electionData.guardians) {
-            try {
-              const guardianStatus = await electionApi.getDecryptionStatusByGuardianId(electionId, guardian.guardianId);
-              
-              // Partial Decryption Start
-              if (guardianStatus.partialDecryptionStartedAt) {
-                events.push({
-                  id: `guardian-${guardian.guardianId}-partial-start`,
-                  title: `Guardian ${guardian.sequenceOrder} - Partial Decryption Started`,
-                  timestamp: new Date(guardianStatus.partialDecryptionStartedAt),
-                  icon: FiLock,
-                  color: 'indigo',
-                  description: `${guardian.userEmail || 'Guardian'} started decrypting their share`,
-                  status: 'completed',
-                  guardianId: guardian.guardianId
-                });
-              }
-              
-              // Partial Decryption Complete
-              if (guardianStatus.partialDecryptionCompletedAt) {
-                events.push({
-                  id: `guardian-${guardian.guardianId}-partial-complete`,
-                  title: `Guardian ${guardian.sequenceOrder} - Partial Decryption Completed`,
-                  timestamp: new Date(guardianStatus.partialDecryptionCompletedAt),
-                  icon: FiUnlock,
-                  color: 'indigo',
-                  description: `Completed in ${guardianStatus.partialDecryptionDurationSeconds || 0}s`,
-                  status: 'completed',
-                  guardianId: guardian.guardianId
-                });
-              }
-              
-              // Compensated Shares Start
-              if (guardianStatus.compensatedSharesStartedAt) {
-                events.push({
-                  id: `guardian-${guardian.guardianId}-compensated-start`,
-                  title: `Guardian ${guardian.sequenceOrder} - Compensated Shares Started`,
-                  timestamp: new Date(guardianStatus.compensatedSharesStartedAt),
-                  icon: FiLock,
-                  color: 'teal',
-                  description: `Started generating backup shares for other guardians`,
-                  status: 'completed',
-                  guardianId: guardian.guardianId
-                });
-              }
-              
-              // Compensated Shares Complete
-              if (guardianStatus.compensatedSharesCompletedAt) {
-                events.push({
-                  id: `guardian-${guardian.guardianId}-compensated-complete`,
-                  title: `Guardian ${guardian.sequenceOrder} - Compensated Shares Completed`,
-                  timestamp: new Date(guardianStatus.compensatedSharesCompletedAt),
-                  icon: FiUnlock,
-                  color: 'teal',
-                  description: `Completed in ${guardianStatus.compensatedSharesDurationSeconds || 0}s`,
-                  status: 'completed',
-                  guardianId: guardian.guardianId
-                });
-              }
-            } catch (err) {
-              console.log(`No decryption status for guardian ${guardian.guardianId}:`, err);
-            }
-          }
-        }
-        
-        // 6. Combine Decryption (fetch from combine_status table)
-        try {
-          const combineStatus = await electionApi.getCombineStatus(electionId);
-          
-          if (combineStatus && combineStatus.startedAt) {
-            events.push({
-              id: 'combine-start',
-              title: 'Combine Decryption Started',
-              timestamp: new Date(combineStatus.startedAt),
-              icon: FiUnlock,
-              color: 'pink',
-              description: 'Started combining partial decryptions from all guardians',
-              status: 'completed'
-            });
-          }
-          
-          if (combineStatus && combineStatus.completedAt) {
-            events.push({
-              id: 'combine-complete',
-              title: 'Combine Decryption Completed',
-              timestamp: new Date(combineStatus.completedAt),
-              icon: FiCheck,
-              color: 'green',
-              description: `Final results are now available (${combineStatus.processedChunks || 0} chunks processed)`,
-              status: 'completed'
-            });
-          }
-        } catch (err) {
-          console.log('No combine status available:', err);
         }
         
         // Sort events by timestamp
@@ -197,6 +254,13 @@ const ElectionTimeline = ({ electionId, electionData }) => {
     }
   }, [electionId, electionData]);
 
+  const toggleTaskExpansion = (taskId) => {
+    setExpandedTasks(prev => ({
+      ...prev,
+      [taskId]: !prev[taskId]
+    }));
+  };
+
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
@@ -205,7 +269,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
     );
   }
 
-  if (timelineData.length === 0) {
+  if (timelineData.length === 0 && workerLogTasks.length === 0) {
     return (
       <div className="text-center py-12 text-gray-500">
         <FiClock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
@@ -229,6 +293,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
   };
 
   const formatTimestamp = (timestamp) => {
+    if (!timestamp) return 'N/A';
     return new Intl.DateTimeFormat('en-US', {
       year: 'numeric',
       month: 'short',
@@ -240,6 +305,21 @@ const ElectionTimeline = ({ electionId, electionData }) => {
     }).format(timestamp);
   };
 
+  const formatDuration = (milliseconds) => {
+    if (!milliseconds) return 'N/A';
+    const seconds = Math.floor(milliseconds / 1000);
+    if (seconds < 60) return `${seconds}s`;
+    const minutes = Math.floor(seconds / 60);
+    const remainingSeconds = seconds % 60;
+    return `${minutes}m ${remainingSeconds}s`;
+  };
+
+  // Merge timeline events and worker log tasks, sorted by time
+  const allItems = [
+    ...timelineData.map(e => ({ ...e, itemType: 'event', sortTime: e.timestamp })),
+    ...workerLogTasks.map(t => ({ ...t, itemType: 'task', sortTime: t.startTime }))
+  ].sort((a, b) => a.sortTime - b.sortTime);
+
   return (
     <div className="space-y-4">
       {/* Header */}
@@ -249,7 +329,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
           Election Process Timeline
         </h3>
         <p className="text-sm text-gray-600 mt-1">
-          Complete timeline of all election processes with timestamps
+          Complete timeline of all election processes with detailed worker operations
         </p>
       </div>
 
@@ -260,40 +340,142 @@ const ElectionTimeline = ({ electionId, electionData }) => {
 
         {/* Timeline items */}
         <div className="space-y-6">
-          {timelineData.map((event, index) => {
-            const Icon = event.icon;
-            const colorClasses = getColorClasses(event.color);
+          {allItems.map((item) => {
+            if (item.itemType === 'event') {
+              // Regular timeline event
+              const Icon = item.icon;
+              const colorClasses = getColorClasses(item.color);
 
-            return (
-              <div key={event.id} className="relative flex items-start gap-4 pl-0">
-                {/* Icon */}
-                <div className={`relative z-10 flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center border-2 ${colorClasses}`}>
-                  <Icon className="h-5 w-5" />
+              return (
+                <div key={item.id} className="relative flex items-start gap-4 pl-0">
+                  {/* Icon */}
+                  <div className={`relative z-10 flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center border-2 ${colorClasses}`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
+                    <div className="flex items-start justify-between">
+                      <div className="flex-1">
+                        <h4 className="font-semibold text-gray-900 mb-1">{item.title}</h4>
+                        <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                        <div className="flex items-center text-xs text-gray-500">
+                          <FiClock className="h-3 w-3 mr-1" />
+                          {formatTimestamp(item.timestamp)}
+                        </div>
+                      </div>
+                      
+                      {item.status === 'completed' && (
+                        <div className="flex-shrink-0 ml-4">
+                          <div className="bg-green-100 text-green-600 rounded-full p-1">
+                            <FiCheck className="h-4 w-4" />
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  </div>
                 </div>
+              );
+            } else {
+              // Worker log task with expandable chunks
+              const Icon = item.icon;
+              const colorClasses = getColorClasses(item.color);
+              const isExpanded = expandedTasks[item.id];
+              const duration = item.endTime - item.startTime;
 
-                {/* Content */}
-                <div className="flex-1 bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <h4 className="font-semibold text-gray-900 mb-1">{event.title}</h4>
-                      <p className="text-sm text-gray-600 mb-2">{event.description}</p>
-                      <div className="flex items-center text-xs text-gray-500">
-                        <FiClock className="h-3 w-3 mr-1" />
-                        {formatTimestamp(event.timestamp)}
+              return (
+                <div key={item.id} className="relative flex items-start gap-4 pl-0">
+                  {/* Icon */}
+                  <div className={`relative z-10 flex-shrink-0 w-12 h-12 rounded-full flex items-center justify-center border-2 ${colorClasses}`}>
+                    <Icon className="h-5 w-5" />
+                  </div>
+
+                  {/* Content */}
+                  <div className="flex-1">
+                    {/* Main Task Card - Clickable */}
+                    <div 
+                      className="bg-white rounded-lg shadow-sm border border-gray-200 p-4 hover:shadow-md transition-shadow cursor-pointer"
+                      onClick={() => toggleTaskExpansion(item.id)}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div className="flex-1">
+                          <div className="flex items-center gap-2 mb-1">
+                            <h4 className="font-semibold text-gray-900">{item.title}</h4>
+                            {isExpanded ? (
+                              <FiChevronDown className="h-4 w-4 text-gray-500" />
+                            ) : (
+                              <FiChevronRight className="h-4 w-4 text-gray-500" />
+                            )}
+                          </div>
+                          <p className="text-sm text-gray-600 mb-2">{item.description}</p>
+                          <div className="flex items-center gap-4 text-xs text-gray-500">
+                            <div className="flex items-center">
+                              <FiClock className="h-3 w-3 mr-1" />
+                              {formatTimestamp(item.startTime)}
+                            </div>
+                            <div className="text-gray-400">→</div>
+                            <div className="flex items-center">
+                              {formatTimestamp(item.endTime)}
+                            </div>
+                            <div className="bg-blue-100 text-blue-700 px-2 py-1 rounded font-medium">
+                              {formatDuration(duration)}
+                            </div>
+                          </div>
+                        </div>
+                        
+                        <div className="flex-shrink-0 ml-4">
+                          <div className="bg-green-100 text-green-600 rounded-full p-1">
+                            <FiCheck className="h-4 w-4" />
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    
-                    {event.status === 'completed' && (
-                      <div className="flex-shrink-0 ml-4">
-                        <div className="bg-green-100 text-green-600 rounded-full p-1">
-                          <FiCheck className="h-4 w-4" />
-                        </div>
+
+                    {/* Expanded Chunks */}
+                    {isExpanded && item.chunks && item.chunks.length > 0 && (
+                      <div className="mt-3 ml-8 space-y-2">
+                        {item.chunks.map((chunk, idx) => (
+                          <div 
+                            key={idx}
+                            className="bg-gray-50 rounded-lg border border-gray-200 p-3 text-sm"
+                          >
+                            <div className="flex items-center justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-1">
+                                  <span className="font-medium text-gray-700">Chunk {chunk.chunkNumber}</span>
+                                  {chunk.status === 'COMPLETED' ? (
+                                    <span className="bg-green-100 text-green-700 px-2 py-0.5 rounded text-xs font-medium">
+                                      Completed
+                                    </span>
+                                  ) : (
+                                    <span className="bg-red-100 text-red-700 px-2 py-0.5 rounded text-xs font-medium">
+                                      {chunk.status}
+                                    </span>
+                                  )}
+                                </div>
+                                <div className="flex items-center gap-3 text-xs text-gray-500">
+                                  <div className="flex items-center">
+                                    <FiClock className="h-3 w-3 mr-1" />
+                                    {formatTimestamp(chunk.startTime)}
+                                  </div>
+                                  <div className="text-gray-400">→</div>
+                                  <div>{formatTimestamp(chunk.endTime)}</div>
+                                </div>
+                              </div>
+                              <div className="ml-4">
+                                <div className="bg-blue-50 text-blue-700 px-3 py-1 rounded font-medium text-xs">
+                                  {formatDuration(chunk.duration)}
+                                </div>
+                              </div>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     )}
                   </div>
                 </div>
-              </div>
-            );
+              );
+            }
           })}
         </div>
       </div>
@@ -307,17 +489,13 @@ const ElectionTimeline = ({ electionId, electionData }) => {
             <p className="text-lg font-bold text-gray-900">{timelineData.length}</p>
           </div>
           <div>
-            <p className="text-gray-600">Completed</p>
-            <p className="text-lg font-bold text-green-600">
-              {timelineData.filter(e => e.status === 'completed').length}
-            </p>
+            <p className="text-gray-600">Worker Tasks</p>
+            <p className="text-lg font-bold text-purple-600">{workerLogTasks.length}</p>
           </div>
           <div>
-            <p className="text-gray-600">Duration</p>
+            <p className="text-gray-600">Total Chunks</p>
             <p className="text-lg font-bold text-blue-600">
-              {timelineData.length >= 2 
-                ? Math.round((timelineData[timelineData.length - 1].timestamp - timelineData[0].timestamp) / (1000 * 60 * 60)) + 'h'
-                : 'N/A'}
+              {workerLogTasks.reduce((sum, task) => sum + (task.chunks?.length || 0), 0)}
             </p>
           </div>
           <div>
