@@ -42,7 +42,7 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 # Run with MAXIMUM THROUGHPUT settings for thousands of concurrent requests
 # Optimizations for API service:
 # - workers 8 (handle massive concurrent load, 2x CPU cores)
-# - worker-class sync (better for I/O-bound crypto operations)
+# - worker-class gthread (better for I/O-bound crypto operations)
 # - threads 4 (32 concurrent requests total: 8 workers × 4 threads)
 # - timeout 60 (fast operations only, fail quickly)
 # - max-requests 5000 (less frequent recycling for stability)
@@ -53,8 +53,8 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 CMD ["gunicorn", \
     "--bind", "0.0.0.0:5000", \
     "--workers", "8", \
-    "--worker-class", "sync", \
-    "--threads", "1", \
+    "--worker-class", "gthread", \
+    "--threads", "4", \
     "--max-requests", "5000", \
     "--max-requests-jitter", "100", \
     "--timeout", "60", \

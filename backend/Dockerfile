@@ -38,14 +38,18 @@ VOLUME /app/logs
 VOLUME /app/data/credentials
 EXPOSE 8080
 
-# Increased heap size for large decryption operations with multiple chunks
-# -Xmx2560m: Max heap 2.5GB (increased from 512MB)
-# -Xms512m: Initial heap 512MB
-# -XX:+UseG1GC: Use G1 garbage collector for better memory management
-# -XX:MaxGCPauseMillis=200: Target max GC pause time
-# -XX:InitiatingHeapOccupancyPercent=45: Start concurrent GC at 45% heap (earlier than default 45%)
-# -XX:+ExplicitGCInvokesConcurrent: CRITICAL - Makes System.gc() run concurrently (prevents STW pauses)
+# OPTIMIZED JVM settings to prevent performance degradation over time
+# -Xmx2048m: Max heap 2GB (enough for chunk processing)
+# -Xms1024m: Initial heap 1GB (reduces heap resizing overhead)
+# -XX:+UseG1GC: G1 garbage collector for low-latency
+# -XX:MaxGCPauseMillis=100: Target 100ms GC pauses (aggressive)
+# -XX:InitiatingHeapOccupancyPercent=35: Start GC at 35% heap (EARLY to prevent accumulation)
+# -XX:+ExplicitGCInvokesConcurrent: Makes System.gc() concurrent
+# -XX:G1HeapRegionSize=16m: Larger regions for better throughput
+# -XX:+UseStringDeduplication: Reduce memory from duplicate strings
+# -XX:+ParallelRefProcEnabled: Parallel reference processing
+# -XX:MaxMetaspaceSize=256m: Limit metaspace to prevent growth
 # -XX:+ExitOnOutOfMemoryError: Exit cleanly on OOM
-ENV JAVA_OPTS="-Xmx2560m -Xms512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:InitiatingHeapOccupancyPercent=45 -XX:+ExplicitGCInvokesConcurrent -XX:+ExitOnOutOfMemoryError"
+ENV JAVA_OPTS="-Xmx2048m -Xms1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -XX:G1HeapRegionSize=16m -XX:+UseStringDeduplication -XX:+ParallelRefProcEnabled -XX:MaxMetaspaceSize=256m -XX:+ExitOnOutOfMemoryError"
 
 ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]
