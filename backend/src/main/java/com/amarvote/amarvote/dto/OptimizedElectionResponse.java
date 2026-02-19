@@ -44,6 +44,19 @@ public class OptimizedElectionResponse {
     // Indicates if the current user has already voted in this election
     private Boolean hasVoted;
     
+    // Helper: safely convert possible JDBC / query timestamp values to Instant
+    private static Instant toInstant(Object value) {
+        if (value == null) return null;
+        if (value instanceof Instant) return (Instant) value;
+        if (value instanceof java.sql.Timestamp) return ((java.sql.Timestamp) value).toInstant();
+        if (value instanceof java.util.Date) return Instant.ofEpochMilli(((java.util.Date) value).getTime());
+        if (value instanceof Long) return Instant.ofEpochMilli(((Long) value).longValue());
+        if (value instanceof String) {
+            try { return Instant.parse((String) value); } catch (java.time.format.DateTimeParseException ex) { return null; }
+        }
+        return null;
+    }
+    
     /**
      * Factory method to create an OptimizedElectionResponse from database query result
      * 
@@ -59,16 +72,16 @@ public class OptimizedElectionResponse {
         Long electionId = ((Number) result[i++]).longValue();
         String electionTitle = (String) result[i++];
         String electionDescription = (String) result[i++];
-        Integer numberOfGuardians = (Integer) result[i++];
-        Integer electionQuorum = (Integer) result[i++];
-        Integer noOfCandidates = (Integer) result[i++];
+        Integer numberOfGuardians = result[i] != null ? ((Number) result[i]).intValue() : null; i++;
+        Integer electionQuorum = result[i] != null ? ((Number) result[i]).intValue() : null; i++;
+        Integer noOfCandidates = result[i] != null ? ((Number) result[i]).intValue() : null; i++;
         i++; // Skip jointPublicKey
         i++; // Skip manifestHash
         String status = (String) result[i++];
-        Instant startingTime = (Instant) result[i++];
-        Instant endingTime = (Instant) result[i++];
+        Instant startingTime = toInstant(result[i++]);
+        Instant endingTime = toInstant(result[i++]);
         i++; // Skip baseHash
-        Instant createdAt = (Instant) result[i++];
+        Instant createdAt = toInstant(result[i++]);
         String profilePic = (String) result[i++];
         String adminEmail = (String) result[i++];
         String privacy = (String) result[i++];

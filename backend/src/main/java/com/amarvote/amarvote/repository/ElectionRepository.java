@@ -41,7 +41,12 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
     @Query(value = 
             // Main election data
             "WITH accessible_elections AS (" +
-            "    SELECT DISTINCT e.* FROM elections e " +
+            "    SELECT DISTINCT e.election_id, e.election_title, e.election_description, " +
+            "           e.number_of_guardians, e.election_quorum, e.no_of_candidates, " +
+            "           e.joint_public_key, e.manifest_hash, e.status, " +
+            "           e.starting_time, e.ending_time, e.base_hash, e.created_at, " +
+            "           e.profile_pic, e.admin_email, e.privacy, e.eligibility " +
+            "    FROM elections e " +
             "    LEFT JOIN allowed_voters av ON e.election_id = av.election_id " +
             "    LEFT JOIN guardians g ON e.election_id = g.election_id " +
             "    WHERE " +
@@ -71,8 +76,12 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
             "    FROM allowed_voters av " +
             "    WHERE av.user_email = :userEmail" +
             ") " +
-            // Final combined query
-            "SELECT e.*, " +
+            // Final combined query - explicitly list columns in predictable order
+            "SELECT e.election_id, e.election_title, e.election_description, " +
+            "    e.number_of_guardians, e.election_quorum, e.no_of_candidates, " +
+            "    e.joint_public_key, e.manifest_hash, e.status, " +
+            "    e.starting_time, e.ending_time, e.base_hash, e.created_at, " +
+            "    e.profile_pic, e.admin_email, e.privacy, e.eligibility, " +
             "    a.admin_name, " +
             "    r.is_admin, r.is_guardian, r.is_voter, " +
             "    COALESCE(v.has_voted, false) as has_voted " +

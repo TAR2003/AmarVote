@@ -19,9 +19,9 @@ public interface ElectionJobRepository extends JpaRepository<ElectionJob, UUID> 
     List<ElectionJob> findByElectionIdOrderByStartedAtDesc(Long electionId);
     
     /**
-     * Find jobs by election ID and operation type
+     * Find jobs by election ID and operation type (returns most recent)
      */
-    Optional<ElectionJob> findByElectionIdAndOperationType(Long electionId, String operationType);
+    Optional<ElectionJob> findFirstByElectionIdAndOperationTypeOrderByStartedAtDesc(Long electionId, String operationType);
     
     /**
      * Find active jobs (not completed or failed)

@@ -33,6 +33,7 @@ import {
   FiCheck,
   FiLink,
   FiChevronDown,
+  FiActivity,
   FiChevronUp,
   FiSearch
 } from 'react-icons/fi';
@@ -68,6 +69,7 @@ import TallyCreationModal from '../components/TallyCreationModal';
 import DecryptionProgressModal from '../components/DecryptionProgressModal';
 import CombineProgressModal from '../components/CombineProgressModal';
 import ElectionTimeline from '../components/ElectionTimeline';
+import WorkerProceedings from '../components/WorkerProceedings';
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -77,6 +79,7 @@ const subMenus = [
   { name: 'Ballots in Tally', key: 'ballots', path: 'ballots-in-tally', icon: FiDatabase },
   { name: 'Verify Your Vote', key: 'verify', path: 'verify-vote', icon: FiHash },
   { name: 'Verification', key: 'verification', path: 'verification', icon: FiEye },
+  { name: 'Worker Proceedings', key: 'worker-proceedings', path: 'worker-proceedings', icon: FiActivity },
 ];
 
 // Timer Component
@@ -4955,6 +4958,13 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
             electionData={electionData}
             animatedResults={animatedResults}
           />
+        )}
+
+        {/* Worker Proceedings Tab */}
+        {activeTab === 'worker-proceedings' && (
+          <div className="mt-8">
+            <WorkerProceedings electionId={id} />
+          </div>
         )}
 
       </div>

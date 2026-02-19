@@ -449,7 +449,7 @@ public class PartialDecryptionService {
      */
     public DecryptionStatusResponse getDecryptionStatus(Long electionId, Long guardianId) {
         // Query ElectionJob for task metadata
-        Optional<com.amarvote.amarvote.model.ElectionJob> jobOpt = jobRepository.findByElectionIdAndOperationType(electionId, "DECRYPTION_" + guardianId);
+        Optional<com.amarvote.amarvote.model.ElectionJob> jobOpt = jobRepository.findFirstByElectionIdAndOperationTypeOrderByStartedAtDesc(electionId, "DECRYPTION_" + guardianId);
         String createdBy = jobOpt.map(com.amarvote.amarvote.model.ElectionJob::getCreatedBy).orElse(null);
         java.time.Instant startedAtJob = jobOpt.map(com.amarvote.amarvote.model.ElectionJob::getStartedAt).orElse(null);
         
@@ -1252,7 +1252,7 @@ public class PartialDecryptionService {
      */
     public CombineStatusResponse getCombineStatus(Long electionId) {
         // Query ElectionJob for task metadata
-        Optional<com.amarvote.amarvote.model.ElectionJob> jobOpt = jobRepository.findByElectionIdAndOperationType(electionId, "COMBINE");
+        Optional<com.amarvote.amarvote.model.ElectionJob> jobOpt = jobRepository.findFirstByElectionIdAndOperationTypeOrderByStartedAtDesc(electionId, "COMBINE");
         String createdBy = jobOpt.map(com.amarvote.amarvote.model.ElectionJob::getCreatedBy).orElse(null);
         java.time.Instant startedAtJob = jobOpt.map(com.amarvote.amarvote.model.ElectionJob::getStartedAt).orElse(null);
         

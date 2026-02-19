@@ -117,7 +117,7 @@ public class TallyService {
      */
     public TallyCreationStatusResponse getTallyStatus(Long electionId) {
         // Query ElectionJob for task metadata
-        Optional<ElectionJob> jobOpt = jobRepository.findByElectionIdAndOperationType(electionId, "TALLY");
+        Optional<ElectionJob> jobOpt = jobRepository.findFirstByElectionIdAndOperationTypeOrderByStartedAtDesc(electionId, "TALLY");
         String createdBy = jobOpt.map(ElectionJob::getCreatedBy).orElse(null);
         Instant startedAt = jobOpt.map(ElectionJob::getStartedAt).orElse(null);
         

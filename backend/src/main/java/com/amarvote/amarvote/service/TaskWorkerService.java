@@ -40,10 +40,18 @@ import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
+import com.amarvote.amarvote.repository.TallyWorkerLogRepository;
+import com.amarvote.amarvote.repository.DecryptionWorkerLogRepository;
+import com.amarvote.amarvote.repository.CombineWorkerLogRepository;
+import com.amarvote.amarvote.model.TallyWorkerLog;
+import com.amarvote.amarvote.model.DecryptionWorkerLog;
+import com.amarvote.amarvote.model.CombineWorkerLog;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
+
+import java.time.LocalDateTime;
 
 /**
  * Worker service that processes tasks from RabbitMQ queues.
@@ -65,6 +73,9 @@ public class TaskWorkerService {
     private final ElectionRepository electionRepository;
     private final GuardianRepository guardianRepository;
     private final DecryptionTaskQueueService decryptionTaskQueueService;
+    private final TallyWorkerLogRepository tallyWorkerLogRepository;
+    private final DecryptionWorkerLogRepository decryptionWorkerLogRepository;
+    private final CombineWorkerLogRepository combineWorkerLogRepository;
     
     @Autowired
     private ElectionGuardService electionGuardService;
@@ -95,11 +106,33 @@ public class TaskWorkerService {
             return;
         }
         
+        // Initialize worker log
+        TallyWorkerLog workerLog = null;
+        Long electionCenterId = null;
+        
         try {
             System.out.println("=== WORKER: Processing Tally Creation Chunk " + task.getChunkNumber() + " ===");
             System.out.println("Election ID: " + task.getElectionId());
             System.out.println("Ballot IDs: " + task.getBallotIds().size());
             System.out.println("Chunk ID: " + task.getChunkId());
+            
+            // Create election center entry first to get ID
+            ElectionCenter electionCenter = ElectionCenter.builder()
+                .electionId(task.getElectionId())
+                .build();
+            electionCenter = electionCenterRepository.save(electionCenter);
+            electionCenterId = electionCenter.getElectionCenterId();
+            
+            // LOG START TIME - Create worker log entry
+            workerLog = TallyWorkerLog.builder()
+                .electionId(task.getElectionId())
+                .electionCenterId(electionCenterId)
+                .chunkNumber(task.getChunkNumber())
+                .startTime(LocalDateTime.now())
+                .status("IN_PROGRESS")
+                .build();
+            workerLog = tallyWorkerLogRepository.save(workerLog);
+            System.out.println("📊 Tally worker log created: ID=" + workerLog.getTallyWorkerLogId());
             
             // Report state: PROCESSING
             if (task.getChunkId() != null) {
@@ -117,12 +150,6 @@ public class TaskWorkerService {
             
             // Fetch only the ballots needed for this chunk
             List<Ballot> chunkBallots = ballotRepository.findByBallotIdIn(task.getBallotIds());
-            
-            // Create election center entry
-            ElectionCenter electionCenter = ElectionCenter.builder()
-                .electionId(task.getElectionId())
-                .build();
-            electionCenter = electionCenterRepository.save(electionCenter);
             
             // Extract cipher texts
             List<String> chunkEncryptedBallots = chunkBallots.stream()
@@ -169,6 +196,12 @@ public class TaskWorkerService {
             
             System.out.println("✅ Chunk " + task.getChunkNumber() + " processing complete");
             
+            // LOG END TIME - Update worker log with completion
+            workerLog.setEndTime(LocalDateTime.now());
+            workerLog.setStatus("COMPLETED");
+            tallyWorkerLogRepository.save(workerLog);
+            System.out.println("📊 Tally worker log updated: COMPLETED");
+            
             // Report state: COMPLETED
             if (task.getChunkId() != null) {
                 roundRobinTaskScheduler.updateChunkState(
@@ -192,6 +225,15 @@ public class TaskWorkerService {
             
         } catch (Exception e) {
             System.err.println("❌ Error processing tally chunk: " + e.getMessage());
+            
+            // LOG ERROR - Update worker log with failure
+            if (workerLog != null) {
+                workerLog.setEndTime(LocalDateTime.now());
+                workerLog.setStatus("FAILED");
+                workerLog.setErrorMessage(e.getMessage());
+                tallyWorkerLogRepository.save(workerLog);
+                System.out.println("📊 Tally worker log updated: FAILED");
+            }
             
             // Report state: FAILED
             if (task.getChunkId() != null) {
@@ -221,10 +263,27 @@ public class TaskWorkerService {
             return;
         }
         
+        // Initialize worker log
+        DecryptionWorkerLog workerLog = null;
+        
         try {
             System.out.println("=== WORKER: Processing Partial Decryption Chunk " + task.getChunkNumber() + " ===");
             System.out.println("Election ID: " + task.getElectionId() + ", Guardian: " + task.getGuardianId());
             System.out.println("Chunk ID: " + task.getChunkId());
+            
+            // LOG START TIME - Create worker log entry
+            workerLog = DecryptionWorkerLog.builder()
+                .electionId(task.getElectionId())
+                .electionCenterId(task.getElectionCenterId())
+                .guardianId(task.getGuardianId())
+                .decryptingGuardianId(task.getGuardianId()) // Same for partial decryption
+                .decryptionType("PARTIAL")
+                .chunkNumber(task.getChunkNumber())
+                .startTime(LocalDateTime.now())
+                .status("IN_PROGRESS")
+                .build();
+            workerLog = decryptionWorkerLogRepository.save(workerLog);
+            System.out.println("📊 Decryption worker log created: ID=" + workerLog.getDecryptionWorkerLogId());
             
             // Report state: PROCESSING
             if (task.getChunkId() != null) {
@@ -297,6 +356,12 @@ public class TaskWorkerService {
             
             decryptionRepository.save(decryption);
             
+            // LOG END TIME - Update worker log with completion
+            workerLog.setEndTime(LocalDateTime.now());
+            workerLog.setStatus("COMPLETED");
+            decryptionWorkerLogRepository.save(workerLog);
+            System.out.println("📊 Decryption worker log updated: COMPLETED");
+            
             // Report state: COMPLETED
             if (task.getChunkId() != null) {
                 roundRobinTaskScheduler.updateChunkState(
@@ -322,6 +387,15 @@ public class TaskWorkerService {
             
         } catch (Exception e) {
             System.err.println("❌ Error processing partial decryption chunk: " + e.getMessage());
+            
+            // LOG ERROR - Update worker log with failure
+            if (workerLog != null) {
+                workerLog.setEndTime(LocalDateTime.now());
+                workerLog.setStatus("FAILED");
+                workerLog.setErrorMessage(e.getMessage());
+                decryptionWorkerLogRepository.save(workerLog);
+                System.out.println("📊 Decryption worker log updated: FAILED");
+            }
             
             // Report state: FAILED
             if (task.getChunkId() != null) {
@@ -352,10 +426,27 @@ public class TaskWorkerService {
             return;
         }
         
+        // Initialize worker log
+        DecryptionWorkerLog workerLog = null;
+        
         try {
             System.out.println("=== WORKER: Processing Compensated Decryption Chunk " + task.getChunkNumber() + " ===");
             System.out.println("Source Guardian: " + task.getSourceGuardianId() + ", Target Guardian: " + task.getTargetGuardianId());
             System.out.println("Chunk ID: " + task.getChunkId());
+            
+            // LOG START TIME - Create worker log entry
+            workerLog = DecryptionWorkerLog.builder()
+                .electionId(task.getElectionId())
+                .electionCenterId(task.getElectionCenterId())
+                .guardianId(task.getTargetGuardianId()) // Missing guardian being compensated
+                .decryptingGuardianId(task.getSourceGuardianId()) // Guardian doing the compensation
+                .decryptionType("COMPENSATED")
+                .chunkNumber(task.getChunkNumber())
+                .startTime(LocalDateTime.now())
+                .status("IN_PROGRESS")
+                .build();
+            workerLog = decryptionWorkerLogRepository.save(workerLog);
+            System.out.println("📊 Compensated decryption worker log created: ID=" + workerLog.getDecryptionWorkerLogId());
             
             // Report state: PROCESSING
             if (task.getChunkId() != null) {
@@ -471,6 +562,12 @@ public class TaskWorkerService {
             
             compensatedDecryptionRepository.save(compensatedDecryption);
             
+            // LOG END TIME - Update worker log with completion
+            workerLog.setEndTime(LocalDateTime.now());
+            workerLog.setStatus("COMPLETED");
+            decryptionWorkerLogRepository.save(workerLog);
+            System.out.println("📊 Compensated decryption worker log updated: COMPLETED");
+            
             // Report state: COMPLETED
             if (task.getChunkId() != null) {
                 roundRobinTaskScheduler.updateChunkState(
@@ -496,6 +593,15 @@ public class TaskWorkerService {
             
         } catch (Exception e) {
             System.err.println("❌ Error processing compensated decryption: " + e.getMessage());
+            
+            // LOG ERROR - Update worker log with failure
+            if (workerLog != null) {
+                workerLog.setEndTime(LocalDateTime.now());
+                workerLog.setStatus("FAILED");
+                workerLog.setErrorMessage(e.getMessage());
+                decryptionWorkerLogRepository.save(workerLog);
+                System.out.println("📊 Compensated decryption worker log updated: FAILED");
+            }
             
             // Report state: FAILED
             if (task.getChunkId() != null) {
@@ -525,10 +631,24 @@ public class TaskWorkerService {
             return;
         }
         
+        // Initialize worker log
+        CombineWorkerLog workerLog = null;
+        
         try {
             System.out.println("=== WORKER: Processing Combine Decryption Chunk " + task.getChunkNumber() + " ===");
             System.out.println("Election ID: " + task.getElectionId());
             System.out.println("Chunk ID: " + task.getChunkId());
+            
+            // LOG START TIME - Create worker log entry
+            workerLog = CombineWorkerLog.builder()
+                .electionId(task.getElectionId())
+                .electionCenterId(task.getElectionCenterId())
+                .chunkNumber(task.getChunkNumber())
+                .startTime(LocalDateTime.now())
+                .status("IN_PROGRESS")
+                .build();
+            workerLog = combineWorkerLogRepository.save(workerLog);
+            System.out.println("📊 Combine worker log created: ID=" + workerLog.getCombineWorkerLogId());
             
             // Report state: PROCESSING
             if (task.getChunkId() != null) {
@@ -677,6 +797,12 @@ public class TaskWorkerService {
             electionCenter.setElectionResult(guardResponse.results());
             electionCenterRepository.save(electionCenter);
             
+            // LOG END TIME - Update worker log with completion
+            workerLog.setEndTime(LocalDateTime.now());
+            workerLog.setStatus("COMPLETED");
+            combineWorkerLogRepository.save(workerLog);
+            System.out.println("📊 Combine worker log updated: COMPLETED");
+            
             // Report state: COMPLETED
             if (task.getChunkId() != null) {
                 roundRobinTaskScheduler.updateChunkState(
@@ -704,6 +830,15 @@ public class TaskWorkerService {
             
         } catch (Exception e) {
             System.err.println("❌ Error processing combine decryption: " + e.getMessage());
+            
+            // LOG ERROR - Update worker log with failure
+            if (workerLog != null) {
+                workerLog.setEndTime(LocalDateTime.now());
+                workerLog.setStatus("FAILED");
+                workerLog.setErrorMessage(e.getMessage());
+                combineWorkerLogRepository.save(workerLog);
+                System.out.println("📊 Combine worker log updated: FAILED");
+            }
             
             // Report state: FAILED
             if (task.getChunkId() != null) {
