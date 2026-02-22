@@ -90,16 +90,7 @@ public class PartialDecryptionService {
         System.out.printf("📊 Progress [%s]: %d/%d | Memory: %dMB/%dMB (%.1f%%)%n",
             phase, currentChunk, totalChunks, usedMemoryMB, maxMemoryMB, usagePercent);
         
-        // Suggest GC only if memory usage is high (above 70%)
-        if (usagePercent > 70.0) {
-            System.out.println("🗑️ Memory usage high (" + String.format("%.1f", usagePercent) + "%) - Suggesting GC");
-            System.gc();
-            
-            // Log memory after GC
-            long usedAfterGC = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-            long freedMB = usedMemoryMB - usedAfterGC;
-            System.out.println("🧹 GC completed - Freed " + freedMB + " MB");
-        }
+        // GC removed — G1GC manages collection automatically with bounded pause targets.
     }
 
 
@@ -1762,9 +1753,7 @@ public class PartialDecryptionService {
                 compensatedTallyShares.clear();
                 compensatedBallotShares.clear();
                 
-                // ✅ AGGRESSIVE GC AFTER EVERY COMBINE CHUNK
-                System.gc();
-                System.gc(); // Second pass
+                // GC removed — G1GC manages collection automatically.
                 
                 // Log memory every 10 chunks
                 if (processedChunkCount % 10 == 0) {
@@ -2119,9 +2108,6 @@ public class PartialDecryptionService {
             request = null;
             response = null;
             compensatedDecryption = null;
-            
-            // Suggest garbage collection
-            System.gc();
             
             System.out.println("🗑️ Memory cleanup: EntityManager cleared for compensated share");
             

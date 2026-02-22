@@ -243,7 +243,6 @@ public class TaskWorkerService {
             }
         } finally {
             processingLocks.remove(lockKey);
-            System.gc(); // Suggest garbage collection
         }
     }
 
@@ -405,7 +404,6 @@ public class TaskWorkerService {
             }
         } finally {
             processingLocks.remove(lockKey);
-            System.gc(); // Suggest garbage collection
         }
     }
 
@@ -611,7 +609,6 @@ public class TaskWorkerService {
             }
         } finally {
             processingLocks.remove(lockKey);
-            System.gc(); // Suggest garbage collection
         }
     }
 
@@ -848,7 +845,6 @@ public class TaskWorkerService {
             }
         } finally {
             processingLocks.remove(lockKey);
-            System.gc(); // Suggest garbage collection
         }
     }
 
