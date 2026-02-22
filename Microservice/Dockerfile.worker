@@ -42,8 +42,8 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 # - worker-class sync (no threading to prevent deadlock during heavy crypto)
 # - threads 1 (single-threaded for predictable memory usage)
 # - timeout 600 (10 minutes for heavy crypto operations)
-# - max-requests 10 (aggressive worker recycling to prevent memory accumulation)
-# - max-requests-jitter 5 (randomize restart to prevent thundering herd)
+# - max-requests 100 (reduced restart frequency: 10k chunks = 100 restarts vs 1000)
+# - max-requests-jitter 20 (wider jitter to further spread out restarts)
 # - graceful-timeout 120 (allow 2 minutes for graceful shutdown)
 # - preload (load app before forking to share memory and reduce startup time)
 # - worker-tmp-dir /tmp (avoid filling up /dev/shm with long-running operations)
@@ -53,8 +53,8 @@ CMD ["gunicorn", \
     "--workers", "4", \
     "--worker-class", "sync", \
     "--threads", "1", \
-    "--max-requests", "10", \
-    "--max-requests-jitter", "5", \
+    "--max-requests", "1000", \
+    "--max-requests-jitter", "200", \
     "--timeout", "600", \
     "--graceful-timeout", "120", \
     "--keep-alive", "5", \
