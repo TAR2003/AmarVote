@@ -644,15 +644,9 @@ def api_create_encrypted_ballot():
         # ## print_data(response, "./io/create_encrypted_ballot_response.json")  # Disabled
         logger.info(f'Finished encrypting ballot - Status: {ballot_status}')
         
-        # AGGRESSIVE memory cleanup to prevent accumulation across chunks
-        import sys
-        
-        # Clear Python's internal type cache
-        if hasattr(sys, '_clear_type_cache'):
-            sys._clear_type_cache()
-        
-        # Force full garbage collection (generation 2 includes all objects)
-        gc.collect(generation=2)
+        # Light memory cleanup - collect short-lived objects only (generation 0)
+        # gen-2 full collection is too expensive per-request and causes latency spikes
+        gc.collect(0)
         
         return jsonify(response), 200
     
@@ -905,8 +899,8 @@ def api_create_encrypted_tally():
         logger.info(f"[REQ-{request_id}] ⏱️ Total time: {total_time*1000:.2f}ms")
         logger.info("="*80)
         
-        # Force garbage collection to free memory
-        gc.collect()
+        # Light memory cleanup - collect short-lived objects only
+        gc.collect(0)
         
         return jsonify(response), 200
     
@@ -1055,8 +1049,8 @@ def api_create_partial_decryption():
         logger.info(f"[REQ-{request_id}]   - Overhead: {(total_time-deserialization_time-service_time)*1000:.2f}ms")
         logger.info("="*80)
         
-        # Force garbage collection to free memory
-        gc.collect()
+        # Light memory cleanup - collect short-lived objects only
+        gc.collect(0)
         
         return jsonify(response), 200
     
@@ -1173,8 +1167,8 @@ def api_create_compensated_decryption():
         # ## print_data(response, "./io/create_compensated_decryption_response.json")  # Disabled
         logger.info('Finished creating compensated decryption')
         
-        # Force garbage collection to free memory
-        gc.collect()
+        # Light memory cleanup - collect short-lived objects only
+        gc.collect(0)
         
         return jsonify(response), 200
     
@@ -1315,8 +1309,8 @@ def api_combine_decryption_shares():
         # ## print_data(response, "./io/combine_decryption_shares_response.json")  # Disabled
         logger.info('Finished combining decryption shares')
         
-        # Force garbage collection to free memory
-        gc.collect()
+        # Light memory cleanup - collect short-lived objects only
+        gc.collect(0)
         
         return jsonify(response), 200
     
@@ -1554,7 +1548,7 @@ if __name__ == '__main__':
     print("IMPORTANT: Use proper WSGI server and SSL certificates in production!")
     print("Storage Design: encrypted_data (Storage 1) + credentials_with_hmac (Storage 2)")
     print("Configuration: Unlimited payload size, High thread count, Stateless operation")
-    print("Memory Management: Aggressive GC, No state accumulation, Chunk-safe processing")
+    print("Memory Management: Light gen-0 GC per request, No state accumulation, Chunk-safe processing")
     
     # Run with proper configuration to handle concurrent chunk processing
     # threaded=True + high thread count prevents blocking on concurrent requests

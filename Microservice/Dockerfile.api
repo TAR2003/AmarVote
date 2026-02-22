@@ -52,9 +52,9 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 # - worker-tmp-dir /dev/shm (RAM-based temp storage)
 CMD ["gunicorn", \
     "--bind", "0.0.0.0:5000", \
-    "--workers", "8", \
-    "--worker-class", "gthread", \
-    "--threads", "4", \
+    "--workers", "10", \
+    "--worker-class", "sync", \
+    "--threads", "1", \
     "--max-requests", "5000", \
     "--max-requests-jitter", "100", \
     "--timeout", "60", \
