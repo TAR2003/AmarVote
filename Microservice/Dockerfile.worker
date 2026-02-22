@@ -38,28 +38,23 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 
 # Run with optimized settings for heavy processing
 # Key changes for Worker service:
-# - workers 4 (parallel processing for better throughput)
+# - workers 1 (matches rabbitmq.worker.concurrency.max=1 in application.properties)
 # - worker-class sync (no threading to prevent deadlock during heavy crypto)
 # - threads 1 (single-threaded for predictable memory usage)
 # - timeout 600 (10 minutes for heavy crypto operations)
-# - max-requests 100 (reduced restart frequency: 10k chunks = 100 restarts vs 1000)
-# - max-requests-jitter 20 (wider jitter to further spread out restarts)
+# - max-requests 50 (recycle workers frequently to prevent memory accumulation)
 # - graceful-timeout 120 (allow 2 minutes for graceful shutdown)
-# - preload (load app before forking to share memory and reduce startup time)
-# - worker-tmp-dir /tmp (avoid filling up /dev/shm with long-running operations)
-# - keep-alive 5 (keep connections alive to reduce overhead)
+# - worker-tmp-dir /dev/shm (use shared memory for better I/O)
 CMD ["gunicorn", \
     "--bind", "0.0.0.0:5001", \
-    "--workers", "4", \
+    "--workers", "1", \
     "--worker-class", "sync", \
     "--threads", "1", \
-    "--max-requests", "1000", \
-    "--max-requests-jitter", "200", \
+    "--max-requests", "50", \
+    "--max-requests-jitter", "10", \
     "--timeout", "600", \
     "--graceful-timeout", "120", \
-    "--keep-alive", "5", \
-    "--preload", \
-    "--worker-tmp-dir", "/tmp", \
+    "--worker-tmp-dir", "/dev/shm", \
     "--access-logfile", "-", \
     "--error-logfile", "-", \
     "--log-level", "info", \
