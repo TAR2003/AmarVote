@@ -1,5 +1,6 @@
 package com.amarvote.amarvote.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -11,7 +12,6 @@ import java.util.stream.Collectors;
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.transaction.annotation.Transactional;
 
 import com.amarvote.amarvote.config.RabbitMQConfig;
 import com.amarvote.amarvote.dto.ElectionGuardCombineDecryptionSharesRequest;
@@ -27,31 +27,29 @@ import com.amarvote.amarvote.dto.worker.CompensatedDecryptionTask;
 import com.amarvote.amarvote.dto.worker.PartialDecryptionTask;
 import com.amarvote.amarvote.dto.worker.TallyCreationTask;
 import com.amarvote.amarvote.model.Ballot;
+import com.amarvote.amarvote.model.CombineWorkerLog;
 import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Decryption;
+import com.amarvote.amarvote.model.DecryptionWorkerLog;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.model.SubmittedBallot;
+import com.amarvote.amarvote.model.TallyWorkerLog;
 import com.amarvote.amarvote.repository.BallotRepository;
+import com.amarvote.amarvote.repository.CombineWorkerLogRepository;
 import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionRepository;
+import com.amarvote.amarvote.repository.DecryptionWorkerLogRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
 import com.amarvote.amarvote.repository.TallyWorkerLogRepository;
-import com.amarvote.amarvote.repository.DecryptionWorkerLogRepository;
-import com.amarvote.amarvote.repository.CombineWorkerLogRepository;
-import com.amarvote.amarvote.model.TallyWorkerLog;
-import com.amarvote.amarvote.model.DecryptionWorkerLog;
-import com.amarvote.amarvote.model.CombineWorkerLog;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
-
-import java.time.LocalDateTime;
 
 /**
  * Worker service that processes tasks from RabbitMQ queues.
@@ -97,7 +95,7 @@ public class TaskWorkerService {
      * Processes one chunk of ballots at a time
      */
     @RabbitListener(queues = RabbitMQConfig.TALLY_CREATION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
+    
     public void processTallyCreationTask(TallyCreationTask task) {
         String lockKey = "tally_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
         
@@ -254,7 +252,7 @@ public class TaskWorkerService {
      * Processes one chunk at a time for a specific guardian
      */
     @RabbitListener(queues = RabbitMQConfig.PARTIAL_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
+    
     public void processPartialDecryptionTask(PartialDecryptionTask task) {
         String lockKey = "partial_" + task.getElectionId() + "_g" + task.getGuardianId() + "_chunk_" + task.getChunkNumber();
         
@@ -416,7 +414,7 @@ public class TaskWorkerService {
      * Processes one compensated share at a time
      */
     @RabbitListener(queues = RabbitMQConfig.COMPENSATED_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
+    
     public void processCompensatedDecryptionTask(CompensatedDecryptionTask task) {
         String lockKey = "compensated_" + task.getElectionId() + "_g" + task.getSourceGuardianId() + 
                         "_for_" + task.getTargetGuardianId() + "_chunk_" + task.getChunkNumber();
@@ -622,7 +620,7 @@ public class TaskWorkerService {
      * Processes one chunk at a time to combine all decryption shares
      */
     @RabbitListener(queues = RabbitMQConfig.COMBINE_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
+    
     public void processCombineDecryptionTask(CombineDecryptionTask task) {
         String lockKey = "combine_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
         
@@ -981,7 +979,7 @@ public class TaskWorkerService {
      * Mark guardian as decrypted in separate transaction
      * This is needed for the frontend to show the combine button
      */
-    @Transactional
+    
     private void markGuardianAsDecrypted(Long guardianId) {
         try {
             Optional<Guardian> guardianOpt = guardianRepository.findById(guardianId);
