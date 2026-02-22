@@ -68,13 +68,7 @@ public class BallotService {
     @Autowired
     private BlockchainService blockchainService;
 
-    // NOTE: @Transactional intentionally removed.
-    // castBallot calls callElectionGuardService() (an HTTP round-trip of 9+ seconds)
-    // and blockchainService.recordBallot() (another HTTP call). Wrapping them in a
-    // single database transaction holds a HikariCP connection open for the full
-    // duration, triggering "Apparent connection leak detected" and starving the pool.
-    // Spring Data's save() methods manage their own short-lived transactions, and
-    // updateVoterStatus() carries its own @Transactional, so nothing is lost.
+    @Transactional
     public CastBallotResponse castBallot(CastBallotRequest request, String userEmail) {
         try {
             // 0. Validate bot detection data
@@ -535,8 +529,7 @@ public class BallotService {
     /**
      * Create encrypted ballot without casting - for challenge/cast flow
      */
-    // NOTE: @Transactional removed — calls callElectionGuardService() (external HTTP).
-    // Holding a DB connection across an HTTP round-trip causes HikariCP leak warnings.
+    @Transactional
     public CreateEncryptedBallotResponse createEncryptedBallot(CreateEncryptedBallotRequest request, String userEmail) {
         try {
             // 0a. Validate and remove padding (anti-traffic analysis)
@@ -706,7 +699,7 @@ public class BallotService {
     /**
      * Perform Benaloh challenge verification
      */
-    // NOTE: @Transactional removed — calls callElectionGuardBenalohService() (external HTTP).
+    @Transactional
     public BenalohChallengeResponse performBenalohChallenge(BenalohChallengeRequest request, String userEmail) {
         try {
             System.out.println("🔍 [BENALOH] Starting Benaloh challenge for user: " + userEmail);
@@ -853,7 +846,7 @@ public class BallotService {
     /**
      * Cast a pre-encrypted ballot
      */
-    // NOTE: @Transactional removed — calls blockchainService.recordBallot() (external HTTP).
+    @Transactional
     public CastBallotResponse castEncryptedBallot(CastEncryptedBallotRequest request, String userEmail) {
         try {
             // 1. Find election

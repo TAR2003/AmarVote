@@ -99,9 +99,16 @@ public class TallyService {
         System.out.printf("📊 Progress [%s]: %d/%d | Memory: %dMB/%dMB (%.1f%%)%n",
             phase, currentChunk, totalChunks, usedMemoryMB, maxMemoryMB, usagePercent);
         
-        // GC removed — G1GC manages collection automatically with bounded pause targets.
-        // Calling System.gc() explicitly triggers stop-the-world pauses whose duration
-        // grows with heap size across many chunks, causing latency spikes.
+        // Suggest GC only if memory usage is high (above 70%)
+        if (usagePercent > 70.0) {
+            System.out.println("🗑️ Memory usage high (" + String.format("%.1f", usagePercent) + "%) - Suggesting GC");
+            System.gc();
+            
+            // Log memory after GC
+            long usedAfterGC = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
+            long freedMB = usedMemoryMB - usedAfterGC;
+            System.out.println("🧹 GC completed - Freed " + freedMB + " MB");
+        }
     }
 
     /**
@@ -561,6 +568,9 @@ public class TallyService {
         guardResponse = null;
         electionCenter = null;
         
+        // Suggest garbage collection (hint to JVM)
+        System.gc();
+        
         // Log memory after cleanup
         long memoryAfter = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
         System.out.println("✅ Chunk " + chunkNumber + " transaction complete - All entities detached and cleared");
@@ -678,6 +688,9 @@ public class TallyService {
         ciphertextTallyJson = null;
         guardResponse = null;
         electionCenter = null;
+        
+        // Suggest garbage collection (hint to JVM)
+        System.gc();
         
         // Log memory usage
         Runtime runtime = Runtime.getRuntime();
