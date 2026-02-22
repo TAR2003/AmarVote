@@ -71,10 +71,6 @@ services:
       # ElectionGuard Service URLs
       - ELECTIONGUARD_API_URL=http://electionguard-api:5000
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
-      # JVM tuning: G1GC with bounded pause target prevents stop-the-world spikes.
-      # Without explicit heap settings the JVM may use aggressive defaults that
-      # combine poorly with the chunk-processing workload.
-      - JAVA_OPTS=-Xms512m -Xmx1536m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError
     depends_on:
       - rabbitmq
       - redis
