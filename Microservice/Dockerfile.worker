@@ -42,8 +42,11 @@ HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
 # - worker-class sync (no threading to prevent deadlock during heavy crypto)
 # - threads 1 (single-threaded for predictable memory usage)
 # - timeout 600 (10 minutes for heavy crypto operations)
-# - max-requests 10 (aggressive worker recycling to prevent memory accumulation)
-# - max-requests-jitter 5 (randomize restart to prevent thundering herd)
+# - max-requests 1000 (recycle workers only after 1000 requests to avoid expensive
+#   ElectionGuard library reload on every ~10 chunks; previously 10 caused a full
+#   Python process restart every 10 chunks = ~50 restarts/worker for 2000 chunks,
+#   each restart adding 3-5s of library-import overhead and creating spike patterns)
+# - max-requests-jitter 100 (randomize restarts to prevent thundering herd)
 # - graceful-timeout 120 (allow 2 minutes for graceful shutdown)
 # - preload (load app before forking to share memory and reduce startup time)
 # - worker-tmp-dir /tmp (avoid filling up /dev/shm with long-running operations)
@@ -53,8 +56,8 @@ CMD ["gunicorn", \
     "--workers", "4", \
     "--worker-class", "sync", \
     "--threads", "1", \
-    "--max-requests", "10", \
-    "--max-requests-jitter", "5", \
+    "--max-requests", "1000", \
+    "--max-requests-jitter", "100", \
     "--timeout", "600", \
     "--graceful-timeout", "120", \
     "--keep-alive", "5", \

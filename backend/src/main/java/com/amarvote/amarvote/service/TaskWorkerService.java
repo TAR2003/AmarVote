@@ -1,5 +1,6 @@
 package com.amarvote.amarvote.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
@@ -27,31 +28,29 @@ import com.amarvote.amarvote.dto.worker.CompensatedDecryptionTask;
 import com.amarvote.amarvote.dto.worker.PartialDecryptionTask;
 import com.amarvote.amarvote.dto.worker.TallyCreationTask;
 import com.amarvote.amarvote.model.Ballot;
+import com.amarvote.amarvote.model.CombineWorkerLog;
 import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Decryption;
+import com.amarvote.amarvote.model.DecryptionWorkerLog;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.model.SubmittedBallot;
+import com.amarvote.amarvote.model.TallyWorkerLog;
 import com.amarvote.amarvote.repository.BallotRepository;
+import com.amarvote.amarvote.repository.CombineWorkerLogRepository;
 import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionRepository;
+import com.amarvote.amarvote.repository.DecryptionWorkerLogRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
 import com.amarvote.amarvote.repository.TallyWorkerLogRepository;
-import com.amarvote.amarvote.repository.DecryptionWorkerLogRepository;
-import com.amarvote.amarvote.repository.CombineWorkerLogRepository;
-import com.amarvote.amarvote.model.TallyWorkerLog;
-import com.amarvote.amarvote.model.DecryptionWorkerLog;
-import com.amarvote.amarvote.model.CombineWorkerLog;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
-
-import java.time.LocalDateTime;
 
 /**
  * Worker service that processes tasks from RabbitMQ queues.
@@ -96,8 +95,11 @@ public class TaskWorkerService {
      * Worker for tally creation tasks
      * Processes one chunk of ballots at a time
      */
+    // NOTE: @Transactional removed intentionally. Holding a DB transaction open for the full
+    // duration of the HTTP call to ElectionGuard (9-90 s) keeps a HikariCP connection locked
+    // the entire time, starving other services. Spring Data save() calls each open their own
+    // short-lived transactions so no outer transaction is required here.
     @RabbitListener(queues = RabbitMQConfig.TALLY_CREATION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
     public void processTallyCreationTask(TallyCreationTask task) {
         String lockKey = "tally_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
         
@@ -180,18 +182,19 @@ public class TaskWorkerService {
             electionCenter.setEncryptedTally(guardResponse.getCiphertext_tally());
             electionCenterRepository.save(electionCenter);
             
-            // Save submitted ballots
+            // Save submitted ballots in one batch instead of N×2 individual queries.
+            // The ElectionCenter was just created above with a fresh ID, so there cannot
+            // be any pre-existing rows for it — the existsByXxx duplicate check is always
+            // false and only adds 1 extra SELECT per ballot (N+1 pattern at scale).
             if (guardResponse.getSubmitted_ballots() != null) {
-                for (String submittedBallotCipherText : guardResponse.getSubmitted_ballots()) {
-                    if (!submittedBallotRepository.existsByElectionCenterIdAndCipherText(
-                            electionCenter.getElectionCenterId(), submittedBallotCipherText)) {
-                        SubmittedBallot submittedBallot = SubmittedBallot.builder()
-                            .electionCenterId(electionCenter.getElectionCenterId())
-                            .cipherText(submittedBallotCipherText)
-                            .build();
-                        submittedBallotRepository.save(submittedBallot);
-                    }
-                }
+                final Long ecId = electionCenter.getElectionCenterId();
+                List<SubmittedBallot> ballotEntities = java.util.Arrays.stream(guardResponse.getSubmitted_ballots())
+                    .map(cipherText -> SubmittedBallot.builder()
+                        .electionCenterId(ecId)
+                        .cipherText(cipherText)
+                        .build())
+                    .collect(Collectors.toList());
+                submittedBallotRepository.saveAll(ballotEntities);
             }
             
             System.out.println("✅ Chunk " + task.getChunkNumber() + " processing complete");
@@ -211,8 +214,8 @@ public class TaskWorkerService {
                 );
             }
             
-            // CRITICAL: Aggressive memory cleanup
-            entityManager.flush();
+            // Clear JPA first-level cache to release entity references
+            // flush() removed: no outer transaction exists (each save() auto-committed above)
             entityManager.clear();
             
             chunkBallots.clear();
@@ -245,7 +248,10 @@ public class TaskWorkerService {
             }
         } finally {
             processingLocks.remove(lockKey);
-            System.gc(); // Suggest garbage collection
+            // Do NOT call System.gc() here — explicit GC triggers stop-the-world full
+            // collections whose pause time grows with each chunk as the heap fills,
+            // turning a 9-second chunk into 1:27 minutes after 2000 chunks.
+            // G1GC manages memory automatically with bounded pause targets.
         }
     }
 
@@ -253,8 +259,8 @@ public class TaskWorkerService {
      * Worker for partial decryption tasks
      * Processes one chunk at a time for a specific guardian
      */
+    // NOTE: @Transactional removed — see processTallyCreationTask for rationale.
     @RabbitListener(queues = RabbitMQConfig.PARTIAL_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
     public void processPartialDecryptionTask(PartialDecryptionTask task) {
         String lockKey = "partial_" + task.getElectionId() + "_g" + task.getGuardianId() + "_chunk_" + task.getChunkNumber();
         
@@ -374,8 +380,7 @@ public class TaskWorkerService {
             // Update progress
             updatePartialDecryptionProgress(task.getElectionId(), task.getGuardianId(), task.getChunkNumber());
             
-            // CRITICAL: Memory cleanup
-            entityManager.flush();
+            // Clear JPA first-level cache; flush() removed (no outer transaction).
             entityManager.clear();
             
             ballotCipherTexts.clear();
@@ -407,7 +412,7 @@ public class TaskWorkerService {
             }
         } finally {
             processingLocks.remove(lockKey);
-            System.gc(); // Suggest garbage collection
+            // G1GC manages memory automatically — no explicit gc() call needed.
         }
     }
 
@@ -415,8 +420,8 @@ public class TaskWorkerService {
      * Worker for compensated decryption tasks
      * Processes one compensated share at a time
      */
+    // NOTE: @Transactional removed — see processTallyCreationTask for rationale.
     @RabbitListener(queues = RabbitMQConfig.COMPENSATED_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
     public void processCompensatedDecryptionTask(CompensatedDecryptionTask task) {
         String lockKey = "compensated_" + task.getElectionId() + "_g" + task.getSourceGuardianId() + 
                         "_for_" + task.getTargetGuardianId() + "_chunk_" + task.getChunkNumber();
@@ -580,8 +585,7 @@ public class TaskWorkerService {
             // Update progress
             updateCompensatedDecryptionProgress(task.getElectionId(), task.getSourceGuardianId());
             
-            // CRITICAL: Memory cleanup
-            entityManager.flush();
+            // Clear JPA first-level cache; flush() removed (no outer transaction).
             entityManager.clear();
             
             ballotCipherTexts.clear();
@@ -613,7 +617,7 @@ public class TaskWorkerService {
             }
         } finally {
             processingLocks.remove(lockKey);
-            System.gc(); // Suggest garbage collection
+            // G1GC manages memory automatically — no explicit gc() call needed.
         }
     }
 
@@ -621,8 +625,8 @@ public class TaskWorkerService {
      * Worker for combine decryption tasks
      * Processes one chunk at a time to combine all decryption shares
      */
+    // NOTE: @Transactional removed — see processTallyCreationTask for rationale.
     @RabbitListener(queues = RabbitMQConfig.COMBINE_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
     public void processCombineDecryptionTask(CombineDecryptionTask task) {
         String lockKey = "combine_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
         
@@ -815,8 +819,7 @@ public class TaskWorkerService {
             // Removed: updateCombineDecryptionProgress - status is now queried directly from database
             System.out.println("✅ Combine chunk " + task.getChunkNumber() + " completed");
             
-            // CRITICAL: Memory cleanup
-            entityManager.flush();
+            // Clear JPA first-level cache; flush() removed (no outer transaction).
             entityManager.clear();
             
             ballotCipherTexts.clear();
@@ -850,7 +853,7 @@ public class TaskWorkerService {
             }
         } finally {
             processingLocks.remove(lockKey);
-            System.gc(); // Suggest garbage collection
+            // G1GC manages memory automatically — no explicit gc() call needed.
         }
     }
 
