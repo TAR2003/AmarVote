@@ -224,10 +224,16 @@ public class BallotService {
             }
 
             // 10. Save ballot to database
+            // Store encrypted_ballot_with_nonce (binary transport / base64) which is required
+            // by the tally service (from_binary_transport). encrypted_ballot is the sanitized
+            // display version (JSON, nonces stripped) and cannot be tallied.
+            String cipherTextToStore = guardResponse.getEncrypted_ballot_with_nonce() != null
+                    ? guardResponse.getEncrypted_ballot_with_nonce()
+                    : guardResponse.getEncrypted_ballot();
             Ballot ballot = Ballot.builder()
                     .electionId(election.getElectionId())
                     .status("cast")
-                    .cipherText(guardResponse.getEncrypted_ballot())
+                    .cipherText(cipherTextToStore)
                     .hashCode(guardResponse.getBallot_hash())
                     .trackingCode(ballotHashId)
                     .submissionTime(Instant.now())

@@ -166,6 +166,13 @@
             <groupId>org.springframework.boot</groupId>
             <artifactId>spring-boot-starter-data-redis</artifactId>
         </dependency>
+
+        <!-- MessagePack – fast binary serialization for ElectionGuard microservice transport -->
+        <dependency>
+            <groupId>org.msgpack</groupId>
+            <artifactId>jackson-dataformat-msgpack</artifactId>
+            <version>0.9.8</version>
+        </dependency>
     </dependencies>
 
     <build>

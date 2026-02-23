@@ -1,0 +1,483 @@
+{
+  "status": "success",
+  "results": {
+    "election": {
+      "name": "Test Election",
+      "scope_id": "election-1",
+      "type": "ElectionType.general",
+      "start_date": "2025-01-01T00:00:00",
+      "end_date": "2025-01-01T00:00:00",
+      "number_of_guardians": 3,
+      "quorum": 2,
+      "geopolitical_units": [
+        {
+          "id": "county-1",
+          "name": "County 1",
+          "type": "ReportingUnitType.county"
+        }
+      ],
+      "parties": [
+        {
+          "id": "party-1",
+          "name": "Democratic Alliance"
+        },
+        {
+          "id": "party-2",
+          "name": "Progressive Coalition"
+        },
+        {
+          "id": "party-3",
+          "name": "Unity Party"
+        },
+        {
+          "id": "party-4",
+          "name": "Reform League"
+        }
+      ],
+      "candidates": [
+        {
+          "id": "candidate-1",
+          "name": "Alice Johnson",
+          "party_id": "party-1"
+        },
+        {
+          "id": "candidate-2",
+          "name": "Bob Smith",
+          "party_id": "party-2"
+        },
+        {
+          "id": "candidate-3",
+          "name": "Carol Williams",
+          "party_id": "party-3"
+        },
+        {
+          "id": "candidate-4",
+          "name": "David Brown",
+          "party_id": "party-4"
+        }
+      ],
+      "contests": [
+        {
+          "id": "contest-1",
+          "name": "County Executive",
+          "selections": [
+            {
+              "id": "Alice Johnson",
+              "candidate_id": "Alice Johnson"
+            },
+            {
+              "id": "Bob Smith",
+              "candidate_id": "Bob Smith"
+            },
+            {
+              "id": "Carol Williams",
+              "candidate_id": "Carol Williams"
+            },
+            {
+              "id": "David Brown",
+              "candidate_id": "David Brown"
+            }
+          ]
+        }
+      ]
+    },
+    "results": {
+      "total_ballots_cast": 50,
+      "total_valid_ballots": 50,
+      "total_spoiled_ballots": 0,
+      "candidates": {
+        "Alice Johnson": {
+          "votes": "4",
+          "percentage": "8.0"
+        },
+        "Bob Smith": {
+          "votes": "13",
+          "percentage": "26.0"
+        },
+        "Carol Williams": {
+          "votes": "16",
+          "percentage": "32.0"
+        },
+        "David Brown": {
+          "votes": "17",
+          "percentage": "34.0"
+        }
+      },
+      "spoiled_ballots": []
+    },
+    "verification": {
+      "ballots": [
+        {
+          "ballot_id": "ballot-51",
+          "initial_hash": "A3F955BFDC59810F361241DFFEF07D2118347AC435BBB359D9A6993E904D1490",
+          "status": "cast",
+          "decrypted_hash": "A3F955BFDC59810F361241DFFEF07D2118347AC435BBB359D9A6993E904D1490",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-52",
+          "initial_hash": "DAD4A8915C27D864C0FD53AB91F50969179EDB227CA4DE0DB26A2278F2FA48EC",
+          "status": "cast",
+          "decrypted_hash": "DAD4A8915C27D864C0FD53AB91F50969179EDB227CA4DE0DB26A2278F2FA48EC",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-53",
+          "initial_hash": "09E8217D3D75D613E6EB063C7A2EBB699DBCF5A95603D070DAD2FD9E7895BB85",
+          "status": "cast",
+          "decrypted_hash": "09E8217D3D75D613E6EB063C7A2EBB699DBCF5A95603D070DAD2FD9E7895BB85",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-54",
+          "initial_hash": "86842FA30E5C44814AE6703B160C68696226A9E2D3A8888B451E178170430367",
+          "status": "cast",
+          "decrypted_hash": "86842FA30E5C44814AE6703B160C68696226A9E2D3A8888B451E178170430367",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-55",
+          "initial_hash": "9C1BD834F480339C6411CBA99976DAD2E3A7BED38AE7CD1640CF7942121726CF",
+          "status": "cast",
+          "decrypted_hash": "9C1BD834F480339C6411CBA99976DAD2E3A7BED38AE7CD1640CF7942121726CF",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-56",
+          "initial_hash": "AC99B6CE23FCD117C8DF9BB876CF961D5859814FA0EBE04424FBD3B9C44556A4",
+          "status": "cast",
+          "decrypted_hash": "AC99B6CE23FCD117C8DF9BB876CF961D5859814FA0EBE04424FBD3B9C44556A4",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-57",
+          "initial_hash": "E3C3619A1723847BF56EFE02560220DE2E78173DDC80180B8154DA5023C642EC",
+          "status": "cast",
+          "decrypted_hash": "E3C3619A1723847BF56EFE02560220DE2E78173DDC80180B8154DA5023C642EC",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-58",
+          "initial_hash": "3923FE5981F59B7D4E5C56204D6075A802BC3BE67F605E6AC52FD9E9294DA87B",
+          "status": "cast",
+          "decrypted_hash": "3923FE5981F59B7D4E5C56204D6075A802BC3BE67F605E6AC52FD9E9294DA87B",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-59",
+          "initial_hash": "6B5C3304192594454D2914C8B2CCEE780750725D4BB47571DA80045A8C1F771F",
+          "status": "cast",
+          "decrypted_hash": "6B5C3304192594454D2914C8B2CCEE780750725D4BB47571DA80045A8C1F771F",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-60",
+          "initial_hash": "3E0D4B9B1A1FDA54A2F0EA088B4934C4D72853381AFC6E4CADB7D653F7459AB9",
+          "status": "cast",
+          "decrypted_hash": "3E0D4B9B1A1FDA54A2F0EA088B4934C4D72853381AFC6E4CADB7D653F7459AB9",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-61",
+          "initial_hash": "03F70EFBDAB2B5718DD46E2C68A06FDE4506E7CB3CFD74E7096C352000D2F51C",
+          "status": "cast",
+          "decrypted_hash": "03F70EFBDAB2B5718DD46E2C68A06FDE4506E7CB3CFD74E7096C352000D2F51C",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-62",
+          "initial_hash": "CC44729FA1C1F135FBDCCF635D80D83C1A94EBBBBF47F110C50E046B1871CCE0",
+          "status": "cast",
+          "decrypted_hash": "CC44729FA1C1F135FBDCCF635D80D83C1A94EBBBBF47F110C50E046B1871CCE0",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-63",
+          "initial_hash": "FC40F5A931647955BF9BCF7E22404F2AAE3CB64D8BD344680ED0F1EA5B37CFAA",
+          "status": "cast",
+          "decrypted_hash": "FC40F5A931647955BF9BCF7E22404F2AAE3CB64D8BD344680ED0F1EA5B37CFAA",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-64",
+          "initial_hash": "E02986B35E85A3C5645F652443A01526A69E9E32F34CDAE18FF31A29BF3950EA",
+          "status": "cast",
+          "decrypted_hash": "E02986B35E85A3C5645F652443A01526A69E9E32F34CDAE18FF31A29BF3950EA",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-65",
+          "initial_hash": "9A8620B1BD1680A039AA77A420B0F0D5EEE724E14E9DD121FFFA4A058F926A32",
+          "status": "cast",
+          "decrypted_hash": "9A8620B1BD1680A039AA77A420B0F0D5EEE724E14E9DD121FFFA4A058F926A32",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-66",
+          "initial_hash": "79E6EED0ED95D94CC30D7F3FBA694C9FFCFC7F9BDCC994BEE84D562AEAE44936",
+          "status": "cast",
+          "decrypted_hash": "79E6EED0ED95D94CC30D7F3FBA694C9FFCFC7F9BDCC994BEE84D562AEAE44936",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-67",
+          "initial_hash": "A915D5DA772A7CC1C15863C9BCBC48664164FD6AC9F8EC0EBFC56C6772A31913",
+          "status": "cast",
+          "decrypted_hash": "A915D5DA772A7CC1C15863C9BCBC48664164FD6AC9F8EC0EBFC56C6772A31913",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-68",
+          "initial_hash": "A3C9AB7BEDE33E63A470571687F4E5D501AA7C6F55AF91AB72688211A9BBF59D",
+          "status": "cast",
+          "decrypted_hash": "A3C9AB7BEDE33E63A470571687F4E5D501AA7C6F55AF91AB72688211A9BBF59D",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-69",
+          "initial_hash": "3FDA404B87062010197DEEEB36AED55C80525C1760957828C831784C99494469",
+          "status": "cast",
+          "decrypted_hash": "3FDA404B87062010197DEEEB36AED55C80525C1760957828C831784C99494469",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-70",
+          "initial_hash": "7900FE58EA9AFA5834E4340875828690E0E2AA12BB3F2175EFE3329DAFE8BC57",
+          "status": "cast",
+          "decrypted_hash": "7900FE58EA9AFA5834E4340875828690E0E2AA12BB3F2175EFE3329DAFE8BC57",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-71",
+          "initial_hash": "DB63970377C7A230242EC336EDBA706033BBE61630554F33C74F6FBAAD82DA67",
+          "status": "cast",
+          "decrypted_hash": "DB63970377C7A230242EC336EDBA706033BBE61630554F33C74F6FBAAD82DA67",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-72",
+          "initial_hash": "44CC75977783C71A127D32B471EE3F644B1AB841CEB6BE930099E1F59E1022E9",
+          "status": "cast",
+          "decrypted_hash": "44CC75977783C71A127D32B471EE3F644B1AB841CEB6BE930099E1F59E1022E9",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-73",
+          "initial_hash": "AA7068F4704B65A854B8A6C73D9D404755E4C314BAFA5DCD108B757E55147659",
+          "status": "cast",
+          "decrypted_hash": "AA7068F4704B65A854B8A6C73D9D404755E4C314BAFA5DCD108B757E55147659",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-74",
+          "initial_hash": "246E8DE00076B952FFF3E7BE4142DBDE8B6D9925A94B92FDA1B312878F5852C2",
+          "status": "cast",
+          "decrypted_hash": "246E8DE00076B952FFF3E7BE4142DBDE8B6D9925A94B92FDA1B312878F5852C2",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-75",
+          "initial_hash": "AEE797648C363D7768FC21DE7B06477232193DBB04B7824B58E47B40AC722917",
+          "status": "cast",
+          "decrypted_hash": "AEE797648C363D7768FC21DE7B06477232193DBB04B7824B58E47B40AC722917",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-76",
+          "initial_hash": "7601AFF08F7CE503183FE61F7F7CD2C14F7761DDFEAA893633BF1F350D6B64B9",
+          "status": "cast",
+          "decrypted_hash": "7601AFF08F7CE503183FE61F7F7CD2C14F7761DDFEAA893633BF1F350D6B64B9",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-77",
+          "initial_hash": "83F22EB39A64B539B116A8CB34EFC6700B326973E0F1A565C424084B61E89A4A",
+          "status": "cast",
+          "decrypted_hash": "83F22EB39A64B539B116A8CB34EFC6700B326973E0F1A565C424084B61E89A4A",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-78",
+          "initial_hash": "641532E39A035C7A663FE3BE5A98B34F5C616A1752271E134054AEE1C86B55BC",
+          "status": "cast",
+          "decrypted_hash": "641532E39A035C7A663FE3BE5A98B34F5C616A1752271E134054AEE1C86B55BC",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-79",
+          "initial_hash": "8662DE9DA9F55BFFE7ECEB7E163FDE28D76CB9A41444514D636C1B4BDD7A1D20",
+          "status": "cast",
+          "decrypted_hash": "8662DE9DA9F55BFFE7ECEB7E163FDE28D76CB9A41444514D636C1B4BDD7A1D20",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-80",
+          "initial_hash": "1F2330612FE5917CF6BE901F5B91DD2E64EBA53198D98BB96CB2A016168D2F20",
+          "status": "cast",
+          "decrypted_hash": "1F2330612FE5917CF6BE901F5B91DD2E64EBA53198D98BB96CB2A016168D2F20",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-81",
+          "initial_hash": "44D1542C27245AFD8D61D739B00E2DF1D6BF3DB81A091973FD0C92ACBCDC359D",
+          "status": "cast",
+          "decrypted_hash": "44D1542C27245AFD8D61D739B00E2DF1D6BF3DB81A091973FD0C92ACBCDC359D",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-82",
+          "initial_hash": "0F7564B4BCD8946CFE3C1AE70883B3DCD8BE674B4CA5423C8947F6BDB84A088F",
+          "status": "cast",
+          "decrypted_hash": "0F7564B4BCD8946CFE3C1AE70883B3DCD8BE674B4CA5423C8947F6BDB84A088F",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-83",
+          "initial_hash": "70F8237C7C68BD8F6BA6387B57FCC9EB05B0181A9E9ACBFC0383AC50E6ADF1FC",
+          "status": "cast",
+          "decrypted_hash": "70F8237C7C68BD8F6BA6387B57FCC9EB05B0181A9E9ACBFC0383AC50E6ADF1FC",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-84",
+          "initial_hash": "7BDA253229857A3E6C6981865A1A50F881126B5B9F25607B01E700248E935AB7",
+          "status": "cast",
+          "decrypted_hash": "7BDA253229857A3E6C6981865A1A50F881126B5B9F25607B01E700248E935AB7",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-85",
+          "initial_hash": "26631A9D34CBE94A598799EBF76EA449D0C8E6BDF594AB26744A58C882B84B35",
+          "status": "cast",
+          "decrypted_hash": "26631A9D34CBE94A598799EBF76EA449D0C8E6BDF594AB26744A58C882B84B35",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-86",
+          "initial_hash": "5D7735A6832F6C7239781F31C9B63EC26553B3728A23488C1F9C6D59DC4C2BC4",
+          "status": "cast",
+          "decrypted_hash": "5D7735A6832F6C7239781F31C9B63EC26553B3728A23488C1F9C6D59DC4C2BC4",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-87",
+          "initial_hash": "8BC80972441EB75F407FAB6C1824F6AA9DA28E3EDF2109054A2AB8423F510E82",
+          "status": "cast",
+          "decrypted_hash": "8BC80972441EB75F407FAB6C1824F6AA9DA28E3EDF2109054A2AB8423F510E82",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-88",
+          "initial_hash": "1D6383CBB29AB599126A447C09DDF7C1B632BF615AC9824FCDA5D4A9AF8969BB",
+          "status": "cast",
+          "decrypted_hash": "1D6383CBB29AB599126A447C09DDF7C1B632BF615AC9824FCDA5D4A9AF8969BB",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-89",
+          "initial_hash": "316B05E97320B1828456C021A0ADDF33AD34B38EA683EE0043C6AE1DBD002326",
+          "status": "cast",
+          "decrypted_hash": "316B05E97320B1828456C021A0ADDF33AD34B38EA683EE0043C6AE1DBD002326",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-90",
+          "initial_hash": "0FE2AD9EB89CDE8D7E09B92AEC18A225B5094C70D6DDFD96668841B41F5A55CC",
+          "status": "cast",
+          "decrypted_hash": "0FE2AD9EB89CDE8D7E09B92AEC18A225B5094C70D6DDFD96668841B41F5A55CC",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-91",
+          "initial_hash": "66C5422FF004E731C18C879FEDB072FE83BA38AFF33A9C272DD0E0E7B304BB34",
+          "status": "cast",
+          "decrypted_hash": "66C5422FF004E731C18C879FEDB072FE83BA38AFF33A9C272DD0E0E7B304BB34",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-92",
+          "initial_hash": "7BF474D31F0E11AF60B806D3C62FDE4982C738D3DC70CE56D8109AA28C5BE96A",
+          "status": "cast",
+          "decrypted_hash": "7BF474D31F0E11AF60B806D3C62FDE4982C738D3DC70CE56D8109AA28C5BE96A",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-93",
+          "initial_hash": "7CAB1801976873182713CBC5DA63B72ACD7DCCEE78E8A5A9705DA1B731A16A12",
+          "status": "cast",
+          "decrypted_hash": "7CAB1801976873182713CBC5DA63B72ACD7DCCEE78E8A5A9705DA1B731A16A12",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-94",
+          "initial_hash": "67D7AB2DE974DD0B6C5F11396EEDD7BDB76C49656E3198A5FE5667C6A81BDDEC",
+          "status": "cast",
+          "decrypted_hash": "67D7AB2DE974DD0B6C5F11396EEDD7BDB76C49656E3198A5FE5667C6A81BDDEC",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-95",
+          "initial_hash": "2AF43E2D6CDB25EF65034ED7AA993BA9220C57FC5DF9DEE094672083B3D6A0C0",
+          "status": "cast",
+          "decrypted_hash": "2AF43E2D6CDB25EF65034ED7AA993BA9220C57FC5DF9DEE094672083B3D6A0C0",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-96",
+          "initial_hash": "A9723689818B580DB27582ABCECF3E8A7C17B5CE72B652D78D167803C9973843",
+          "status": "cast",
+          "decrypted_hash": "A9723689818B580DB27582ABCECF3E8A7C17B5CE72B652D78D167803C9973843",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-97",
+          "initial_hash": "18970CB20D79AB6E0F53369FD099000D102DC1DC89AD8F9ECDC6CD093CC4C13A",
+          "status": "cast",
+          "decrypted_hash": "18970CB20D79AB6E0F53369FD099000D102DC1DC89AD8F9ECDC6CD093CC4C13A",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-98",
+          "initial_hash": "9BA6421625F33CB015D84D565EF6EA0C342101D7B18A400F721D50C9BE8A2B66",
+          "status": "cast",
+          "decrypted_hash": "9BA6421625F33CB015D84D565EF6EA0C342101D7B18A400F721D50C9BE8A2B66",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-99",
+          "initial_hash": "25A8CDF17FCA7F7CB7C12DE74A4B9764193BC18006B7DBBD4B908F6FFB87C2C6",
+          "status": "cast",
+          "decrypted_hash": "25A8CDF17FCA7F7CB7C12DE74A4B9764193BC18006B7DBBD4B908F6FFB87C2C6",
+          "verification": "success"
+        },
+        {
+          "ballot_id": "ballot-100",
+          "initial_hash": "84E376CB282E705BCA8CE5A358D1DD38597526C0148FAD66891A378C1B7A8DC1",
+          "status": "cast",
+          "decrypted_hash": "84E376CB282E705BCA8CE5A358D1DD38597526C0148FAD66891A378C1B7A8DC1",
+          "verification": "success"
+        }
+      ],
+      "guardians": [
+        {
+          "id": "1",
+          "sequence_order": "1",
+          "public_key": "C28CBD846644529AF3B704888A1CA486599F4A6A59B51AC4961272D9D398DF3CA30239A4838D8E84B4A6EE1DD6090AFF02D53462C1F029BEFECCAD7C0A7B8FD2554C4475C0017CF29CF47034EA67A7379C31694BF6AAC4D568EE368B7EDDB35D8A182FEB5A34D9D679766D3ADD297A613B011DF6AFE71EC99AA58910D2D9F0A9A79DB0B4BEBE8ECF0D41DB4543651D4B1625BB92138C0C102CE63E0967175064E8497484822CD9FBF1DEB44EEFC68222AF05E133A8D64792E7958121A11E82D2E9CA7E31ECB1B44D7BB315AB6FDBB698B5792C0D05870602C65B16879421073A4EECFC54465D558F340AD9087E028E3C2E729594B09294BE787AFA5BB1A5AA393690FB03EEADF4344EE569DA1A448121FC396624A03327B172D881BE426ECE592276D4B3F70782CB5B2764ED304670177DBA2129D1EAF9D8DBD18A28F6172F335B9ACA9DA3DE8550F4CD0CFF70F1A71D9A7B854AE4A5D7190115DBEB605967D8227E40C8D78AE5885826B05CF23C6262EE90430776AA6AFD48D25BD6B2346B6FBBC06DED31A9E039FE39BF103F167C1881F44A28767FA86EDED8F5DDAA631C1DDC518555D1DA4A65CAD0EB6F77DB515A0354E0C71BAB050F2E2FBA22C9C750F977926549C679B98CF4B26EC24B8207D6B059A83E3858D530CAEB05AAB0934F024AEC76E06D5CFF9A9AD5B7B81B4A059374E34114FCE8D82E76FF38764348702D",
+          "status": "available"
+        },
+        {
+          "id": "2",
+          "sequence_order": "2",
+          "public_key": "32E6818D03217196D5CEEA90B08BD5E90F08E22287A3E5AC4977EB0613F7A9A0D69FA19557E86C7A1A869F294EAB8ED994BDBF17DBD5325DCA04914CE46809AEE2826FF1A21EA8D4EC9119B44D5EE13C0190597E1AEDDCAEB532ED2BC42EEF2C02550A3CCDF419F68F8E15D174DB69D64B1B04F40389809EF31556F9ED5C7A52F900C0D357CE2273E1FB4A7795A05D51A66F3E1573B8398A450EA654732AC010F6707A8DAEE970BE453841F9DC4A18D64269B58EDA478AB915E8F023A1B5EAEB9708FF5CEDA8DD9BB8A6F0DBCBC24E3555EF233CE8D0BCE5B9B5284C96F6FA4BAC0B4A30553A16083FBD33DA3E7949BF20FFB22A7E9AF1A92CA3B79901E564EA69452556F458519F004AE37D22424D7572A97583BBA7230CEFB8407276E63300BAFFCACB4C63D2DB0C3FA0CE3BCD199B2213CC2A4B54D801E54345937B4D2FAC557A480C9B4F031A05CECDA09325E6A7F67DF293732E10CBCCB95D1631E368E67C43A234F571F683301865B1ED43B08AA9B9FC49BD356539AFE3A73BC2AC04D2356E794EFE322AE0D9DF0C6B59229EA2D893170F8A497133CE087A6BEAD531A6F32BFDA955AB80946E922874077CD93245881C957D7ABD840DFFD2A7ED09099059A790C8590779C370546CD15392F0C13EE726398945EAA0BA954CDE9F1EF12DF7B5D14BF04B0EDF76A58BAF0A0131E92C91D7B267E8B2ECB97CE3A1741F9B09",
+          "status": "available"
+        },
+        {
+          "id": "3",
+          "sequence_order": "3",
+          "public_key": "51C4E5D546E964384705FDB487693B327BA1A43CA1C10785AE77E7D3847F01B56C9D039449382909ADDDD0F46D9BA34B6D2576002D9BE019E37A67880EDB45E9FE034E007B551609E43074B2ED92F81E92D903E5202886CE3A51667C2E48E33EEFF5C9E80B78978C930B9CE76937BFBFDAF2847947FBF64B251F138815A2F16F44F9A3C38A4819381DCDD6284806B458D0C2407FFF45A7ABAFA75DBA9297F659B99F6FFD59A1CCE06BA713B0140368DF16FC42D2A4CC6B4B63E0B6500C7B5F38820461582E08C5DAC97B06D7A136935A43785BEA3CF83F244A5D36458F3C95586D5E55F40001D5056BFC4CC2AEB858C5B31338A2A40A40213BBB3701CEA935B97C1C6BE305215BEB7A31D5ACA827AE9CAAA5884BCFBC54D67C901E3C0BDF1908E3297EDE177DA75233D52E1EAE02F6176E2D9FADED6AA495052839DC9D26FDF105A02C609C929DCEF827C66522098F4E0BE7EC329403AE26B1964178376F0FAACAC3339307627FCF08D2E5D5A81A9C026FC0289A3EFC7E5015B441A083B93F9CFA43B9138B538A2A1C4FDF4A4B525B72998C208156608A2966F4CD2C95832574181D4290AC3A2469CB8CE507E93F05A2E78CEE5ADF401F10A9DA8895F3C91603646361DEAFE42BDB02DB5CD59A4F78857E48571C909DBBA1669B5A226BFFBDBC84258B2B54E13984B5DE65E1929645EE937D29E02A7F02DB2A03E4D40F0712ED",
+          "status": "missing (compensated)"
+        }
+      ]
+    }
+  }
+}
