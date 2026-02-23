@@ -708,14 +708,21 @@ def api_create_encrypted_ballot():
         
         # Create the complete ballot response for sanitization
         serialization_start = time.time()
+
+        # Keep binary transport as the with-nonce version for casting/tallying.
+        # (base64-encoded msgpack of the full CiphertextBallot, including nonces)
+        encrypted_ballot_with_nonce = result['encrypted_ballot']
+
+        # Decode binary transport -> dict -> JSON string so the ballot_publisher
+        # sanitizer can parse it.  json.dumps on a base64 string would fail.
+        ballot_dict_for_sanitization = from_binary_transport_to_dict(encrypted_ballot_with_nonce)
+        ballot_json_for_sanitization = json.dumps(ballot_dict_for_sanitization)
+
         complete_ballot_response = {
             'status': 'success',
-            'encrypted_ballot': result['encrypted_ballot'],
+            'encrypted_ballot': ballot_json_for_sanitization,
             'ballot_hash': result['ballot_hash']
         }
-        
-        # Keep a copy of the original encrypted ballot with nonces
-        encrypted_ballot_with_nonce = result['encrypted_ballot']
         
         # Apply secure ballot publication based on ballot status
         try:
@@ -787,23 +794,25 @@ def api_create_encrypted_ballot():
         return make_binary_response({'status': 'error', 'message': str(e)}, status=500)
 
 @app.route('/benaloh_challenge', methods=['POST'])
+@track_request('/benaloh_challenge')
 def api_benaloh_challenge():
     """API endpoint to perform Benaloh challenge verification."""
     try:
         print('Benaloh challenge call at the microservice')
-        data = request.json
-        
+        # Accept both application/json and application/msgpack (Java backend sends msgpack)
+        data = get_request_data()
+
         # Validate required fields
         required_fields = [
             'encrypted_ballot_with_nonce', 'party_names', 'candidate_names',
             'candidate_name', 'joint_public_key', 'commitment_hash',
             'number_of_guardians', 'quorum'
         ]
-        
+
         validation_error = validate_input(data, required_fields)
         if validation_error:
-            return jsonify({'status': 'error', 'message': validation_error}), 400
-        
+            return make_binary_response({'status': 'error', 'message': validation_error}, status=400)
+
         encrypted_ballot_with_nonce = data['encrypted_ballot_with_nonce']
         party_names = data['party_names']
         candidate_names = data['candidate_names']
@@ -812,9 +821,9 @@ def api_benaloh_challenge():
         commitment_hash = data['commitment_hash']
         number_of_guardians = safe_int_conversion(data['number_of_guardians'])
         quorum = safe_int_conversion(data['quorum'])
-        
+
         ## print_json(data, "benaloh_challenge_request")
-        
+
         # Call the Benaloh challenge service
         result = benaloh_challenge_service(
             encrypted_ballot_with_nonce=encrypted_ballot_with_nonce,
@@ -826,29 +835,29 @@ def api_benaloh_challenge():
             number_of_guardians=number_of_guardians,
             quorum=quorum
         )
-        
+
         ## print_json(result, "benaloh_challenge_response")
         print('Finished Benaloh challenge call at the microservice')
-        
+
         if result['success']:
-            return jsonify({
+            return make_binary_response({
                 'status': 'success',
                 'match': result['match'],
                 'message': result['message'],
                 'ballot_id': result.get('ballot_id'),
                 'verified_candidate': result.get('verified_candidate'),
                 'expected_candidate': result.get('expected_candidate')
-            }), 200
+            })
         else:
-            return jsonify({
+            return make_binary_response({
                 'status': 'error',
                 'message': result['error']
-            }), 400
-    
+            }, status=400)
+
     except ValueError as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 400
+        return make_binary_response({'status': 'error', 'message': str(e)}, status=400)
     except Exception as e:
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        return make_binary_response({'status': 'error', 'message': str(e)}, status=500)
 
 @app.route('/health', methods=['GET'])
 def api_health_check():

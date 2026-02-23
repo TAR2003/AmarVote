@@ -1,342 +1,395 @@
-﻿import psycopg2
-from psycopg2.extras import RealDictCursor, execute_batch
+﻿#!/usr/bin/env python
+"""
+single_election.py - Full binary (msgpack) transport client for ElectionGuard API.
+
+All HTTP request/response bodies use msgpack (application/msgpack).
+No JSON overhead. No base64 double-wrapping of outer payloads.
+Inner ElectionGuard crypto objects (guardian_public_key, tally_share, etc.)
+remain as base64+msgpack strings - those are handled transparently by the server.
+"""
+
 import requests
-import json
 import msgpack
-from datetime import datetime
+import random
+import time
+from collections import defaultdict
+import urllib3
 
-def get_election_by_id(election_id):
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
+# =========================================================
+# CONFIG
+# =========================================================
+BASE_URL = "http://127.0.0.1:5000"  # explicit IPv4 — avoids localhost→::1 fallback (2s delay on Windows)
+
+NUMBER_OF_GUARDIANS = 3
+QUORUM = 2
+BALLOT_COUNTS = [100]
+
+PARTY_NAMES = ["Democratic Alliance", "Progressive Coalition", "Unity Party", "Reform League"]
+CANDIDATE_NAMES = ["Alice Johnson", "Bob Smith", "Carol Williams", "David Brown"]
+
+CHUNK_SIZE = 50
+
+MSGPACK_HEADERS = {
+    "Content-Type": "application/msgpack",
+    "Accept": "application/msgpack",
+    # No "Connection: close" — reuse persistent connections for speed
+}
+
+# Persistent HTTP session: reuses TCP connections across all API calls (major speedup on Windows)
+_http_session = requests.Session()
+
+# =========================================================
+# HELPERS
+# =========================================================
+
+import os
+import json
+from collections import defaultdict
+
+# ensure the io directory exists (it should already, but just in case)
+os.makedirs(os.path.join(os.path.dirname(__file__), "io"), exist_ok=True)
+
+# counters for naming multiple calls per endpoint (not used when overwriting)
+_log_counters = defaultdict(int)
+
+def log(msg, indent=0):
+    print("  " * indent + msg)
+
+
+def _log_io(api_name: str, payload: object, response: object):
+    """Write the request payload and response to files under io/.
+
+    Overwrites the previous log for a given API name so only the most recent
+    request/response pair is kept.  This keeps the folder trimmed and matches
+    the user's request.
     """
-    Retrieve election row by election_id
-    
-    Args:
-        election_id (int): The election ID to search for
-        
-    Returns:
-        dict: Election data as dictionary, or None if not found
-    """
+    directory = os.path.join(os.path.dirname(__file__), "io")
+    req_path = os.path.join(directory, f"{api_name}_request.json")
+    resp_path = os.path.join(directory, f"{api_name}_response.json")
     try:
-        connection = psycopg2.connect(
-            database="amarvote_db",
-            user="amarvote_user",
-            password="amarvote_password",
-            host="localhost",
-            port="5432"
+        with open(req_path, "w", encoding="utf-8") as f:
+            json.dump(payload, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"⚠️ Failed to write request log for {api_name}: {e}")
+    try:
+        with open(resp_path, "w", encoding="utf-8") as f:
+            json.dump(response, f, indent=2, ensure_ascii=False)
+    except Exception as e:
+        print(f"⚠️ Failed to write response log for {api_name}: {e}")
+
+
+def time_api_call(api_name, url, payload, indent=0):
+    """Send msgpack request and receive msgpack response using persistent connection."""
+    log(f"[API START] {api_name}", indent)
+    start = time.time()
+
+    packed = msgpack.packb(payload, use_bin_type=True, default=str)
+    response = None
+    try:
+        response = _http_session.post(
+            url,
+            data=packed,
+            headers=MSGPACK_HEADERS,
+            verify=False,
+            timeout=None,
         )
-        
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-        
-        query = "SELECT * FROM elections WHERE election_id = %s"
-        cursor.execute(query, (election_id,))
-        
-        election = cursor.fetchone()
-        
-        cursor.close()
-        connection.close()
-        
-        if election:
-            return dict(election)
-        else:
-            print(f"No election found with ID: {election_id}")
-            return None
-            
-    except Exception as error:
-        print(f"Error retrieving election: {error}")
-        return None
-
-
-def get_election_choices(election_id):
-    """
-    Retrieve all choices (candidates) for a given election
-    
-    Args:
-        election_id (int): The election ID
-        
-    Returns:
-        list: List of choice dictionaries, or empty list if error
-    """
-    try:
-        connection = psycopg2.connect(
-            database="amarvote_db",
-            user="amarvote_user",
-            password="amarvote_password",
-            host="localhost",
-            port="5432"
+        elapsed = time.time() - start
+        assert response.status_code == 200, (
+            f"{api_name} failed ({response.status_code}): {response.text[:500]}"
         )
-        
-        cursor = connection.cursor(cursor_factory=RealDictCursor)
-        
-        query = "SELECT * FROM election_choices WHERE election_id = %s ORDER BY choice_id"
-        cursor.execute(query, (election_id,))
-        
-        choices = cursor.fetchall()
-        
-        cursor.close()
-        connection.close()
-        
-        return [dict(choice) for choice in choices]
-            
-    except Exception as error:
-        print(f"Error retrieving election choices: {error}")
-        return []
-
-
-def create_encrypted_ballot(ballot_data, api_url="http://localhost:5000/create_encrypted_ballot"):
-    """
-    Call the ElectionGuard API to create an encrypted ballot.
-
-    The API accepts:
-        party_names, candidate_names, candidate_name, ballot_id,
-        joint_public_key, commitment_hash, number_of_guardians, quorum,
-        ballot_status (optional, default 'CAST')
-
-    The API returns:
-        status, ballot_id, ballot_status, ballot_hash,
-        encrypted_ballot (sanitized, no nonces),
-        encrypted_ballot_with_nonce (full, with nonces - use for storage/tallying),
-        publication_status
-
-    Args:
-        ballot_data (dict): Ballot data to send to API
-        api_url (str): API endpoint URL
-
-    Returns:
-        dict: API response data, or None if error
-    """
-    try:
-        headers = {'Content-Type': 'application/json'}
-        response = requests.post(api_url, json=ballot_data, headers=headers, timeout=300)
-
-        if response.status_code == 200:
-            content_type = response.headers.get('Content-Type', '')
-            if 'msgpack' in content_type:
-                return msgpack.unpackb(response.content, raw=False)
-            else:
-                # Fallback: try JSON, then msgpack
-                try:
-                    return response.json()
-                except Exception:
-                    return msgpack.unpackb(response.content, raw=False)
-        else:
-            print(f"API Error: Status {response.status_code}, Response: {response.text[:500]}")
-            # Try to decode error body as msgpack for a cleaner message
+        data = msgpack.unpackb(response.content, raw=False)
+        # log the request and the decoded response
+        try:
+            _log_io(api_name, payload, data)
+        except Exception as e:
+            print(f"⚠️ logging failure for {api_name}: {e}")
+    finally:
+        if response is not None:
             try:
-                err = msgpack.unpackb(response.content, raw=False)
-                print(f"API Error detail: {err}")
+                response.close()
             except Exception:
                 pass
-            return None
 
-    except Exception as error:
-        print(f"Error calling API: {error}")
-        return None
+    log(f"[API END] {api_name} ({elapsed:.3f}s)", indent)
+    return data, elapsed
 
 
-def add_ballot_to_db(election_id, ballot_id, ballot_hash, cipher_text, user_email):
+def chunk_list(data, size):
+    for i in range(0, len(data), size):
+        yield data[i:i + size]
+
+
+def find_by_guardian_id(data_list, key, gid):
     """
-    Add ballot to database and update allowed_voters
-    
-    Args:
-        election_id (int): The election ID
-        ballot_id (str): Ballot tracking code
-        ballot_hash (str): Hash of the ballot
-        cipher_text (str): Encrypted ballot data
-        user_email (str): Voter email
-        
-    Returns:
-        bool: True if successful, False otherwise
+    Find an item in a list of dicts by a key value.
+    With msgpack transport, all guardian data arrives as native Python dicts.
     """
-    try:
-        connection = psycopg2.connect(
-            database="amarvote_db",
-            user="amarvote_user",
-            password="amarvote_password",
-            host="localhost",
-            port="5432"
+    for item in data_list:
+        if isinstance(item, dict) and item.get(key) == gid:
+            return item
+    raise ValueError(f"Guardian {gid} not found in list (key='{key}')")
+
+
+# =========================================================
+# MAIN WORKFLOW
+# =========================================================
+def run_chunked_election(ballot_count):
+
+    print("\n" + "=" * 120)
+    print(f"STARTING ELECTION - {ballot_count} BALLOTS")
+    print("=" * 120)
+
+    # ------------------------------------------------------------------
+    # STEP 1: SETUP GUARDIANS
+    # ------------------------------------------------------------------
+    print("\n[STEP 1] SETUP GUARDIANS")
+
+    setup_result, _ = time_api_call(
+        "setup_guardians",
+        f"{BASE_URL}/setup_guardians",
+        {
+            "number_of_guardians": NUMBER_OF_GUARDIANS,
+            "quorum": QUORUM,
+            "party_names": PARTY_NAMES,
+            "candidate_names": CANDIDATE_NAMES,
+        },
+        indent=1,
+    )
+
+    guardian_data    = setup_result["guardian_data"]
+    private_keys     = setup_result["private_keys"]
+    public_keys      = setup_result["public_keys"]
+    polynomials      = setup_result["polynomials"]
+    joint_public_key = setup_result["joint_public_key"]
+    commitment_hash  = setup_result["commitment_hash"]
+
+    # ------------------------------------------------------------------
+    # STEP 2: BALLOT ENCRYPTION
+    # ------------------------------------------------------------------
+    print("\n[STEP 2] ENCRYPT BALLOTS")
+
+    encrypted_ballots = []
+
+    for i in range(ballot_count):
+        log(f"Encrypting ballot {i+1}/{ballot_count}", 1)
+
+        result, _ = time_api_call(
+            "create_encrypted_ballot",
+            f"{BASE_URL}/create_encrypted_ballot",
+            {
+                "party_names": PARTY_NAMES,
+                "candidate_names": CANDIDATE_NAMES,
+                "candidate_name": random.choice(CANDIDATE_NAMES),
+                "ballot_id": f"ballot-{i+1}",
+                "joint_public_key": joint_public_key,
+                "commitment_hash": commitment_hash,
+                "number_of_guardians": NUMBER_OF_GUARDIANS,
+                "quorum": QUORUM,
+            },
+            indent=2,
         )
-        
-        cursor = connection.cursor()
-        connection.autocommit = False
-        
-        # Insert ballot
-        insert_ballot_query = """
-        INSERT INTO ballots (election_id, cipher_text, hash_code, tracking_code, status)
-        VALUES (%s, %s, %s, %s, %s)
-        """
-        cursor.execute(insert_ballot_query, 
-                      (election_id, cipher_text, ballot_hash, ballot_id, 'cast'))
-        
-        # Update allowed_voters
-        update_voter_query = """
-        UPDATE allowed_voters 
-        SET has_voted = TRUE 
-        WHERE election_id = %s AND user_email = %s
-        """
-        cursor.execute(update_voter_query, (election_id, user_email))
-        
-        # If voter doesn't exist, insert them
-        if cursor.rowcount == 0:
-            insert_voter_query = """
-            INSERT INTO allowed_voters (election_id, user_email, has_voted)
-            VALUES (%s, %s, TRUE)
-            """
-            cursor.execute(insert_voter_query, (election_id, user_email))
-        
-        connection.commit()
-        cursor.close()
-        connection.close()
-        
-        return True
-        
-    except Exception as error:
-        connection.rollback()
-        print(f"Error adding ballot to database: {error}")
-        return False
 
+        encrypted_ballots.append(result["encrypted_ballot"])
 
-def distribute_ballots_by_candidate(num_ballots, num_candidates):
-    """
-    Distribute ballot counts evenly across candidates
-    
-    Args:
-        num_ballots (int): Total number of ballots
-        num_candidates (int): Number of candidates
-        
-    Returns:
-        list: List of ballot counts per candidate
-    """
-    base_count = num_ballots // num_candidates
-    remainder = num_ballots % num_candidates
-    
-    distribution = [base_count] * num_candidates
-    
-    # Distribute remainder to last candidates
-    for i in range(remainder):
-        distribution[-(i+1)] += 1
-    
-    return distribution
+    # ------------------------------------------------------------------
+    # STEP 3: CHUNKING
+    # ------------------------------------------------------------------
+    print("\n[STEP 3] CHUNKING BALLOTS")
 
+    chunks = list(chunk_list(encrypted_ballots, CHUNK_SIZE))
+    log(f"Total chunks: {len(chunks)}", 1)
 
-def generate_ballots(election_id, num_ballots=1000):
-    """
-    Generate and insert ballots for an election
-    
-    Args:
-        election_id (int): The election ID
-        num_ballots (int): Number of ballots to generate (default: 1000)
-    """
-    print(f"Starting ballot generation for election {election_id}...")
-    
-    # Step 1: Fetch election information
-    election = get_election_by_id(election_id)
-    if not election:
-        print("Failed to fetch election information. Exiting.")
-        return
-    
-    print(f"Election: {election['election_title']}")
-    print(f"Number of Guardians: {election['number_of_guardians']}")
-    print(f"Quorum: {election['election_quorum']}")
-    
-    # Step 2: Fetch election choices
-    choices = get_election_choices(election_id)
-    if not choices:
-        print("No choices found for this election. Exiting.")
-        return
-    
-    num_candidates = len(choices)
-    print(f"\nFound {num_candidates} candidates:")
-    print(choices)
-    # Extract party names and candidate names
-    party_names = [choice.get('party_name', f"Party {i+1}") for i, choice in enumerate(choices)]
-    print('party names ', party_names)
-    candidate_names = [choice.get('option_title', f"Candidate {i+1}") for i, choice in enumerate(choices)]
-    
-    for i, name in enumerate(candidate_names):
-        print(f"  {i+1}. {name} ({party_names[i]})")
-    
-    # Step 3: Distribute ballots across candidates
-    distribution = distribute_ballots_by_candidate(num_ballots, num_candidates)
-    print(f"\nBallot distribution: {distribution}")
-    
-    # Step 4: Generate and process ballots
-    ballot_counter = 1
-    success_count = 0
-    fail_count = 0
-    
-    for candidate_idx, candidate_ballot_count in enumerate(distribution):
-        candidate_name = candidate_names[candidate_idx]
-        print(f"\nGenerating {candidate_ballot_count} ballots for {candidate_name}...")
-        
-        for i in range(candidate_ballot_count):
-            ballot_id = f"ballot-{ballot_counter}"
-            user_email = f"a{ballot_counter}@example.com"
-            
-            # Prepare API request payload
-            payload = {
-                "party_names": party_names,
-                "candidate_names": candidate_names,
-                "candidate_name": candidate_name,
-                "ballot_id": ballot_id,
-                "joint_public_key": election['joint_public_key'],
-                "commitment_hash": election['base_hash'],
-                "number_of_guardians": election['number_of_guardians'],
-                "quorum": election['election_quorum']
-            }
-            
-            print('payload:')
-            with open('payload.json', 'w') as f:
-                json.dump(payload,f)
-            print(payload)
-            # Call ElectionGuard API
-            api_response = create_encrypted_ballot(payload)
-            print('api response: ', api_response)
-            if api_response and api_response.get('status') == 'success':
-                # Extract response data
-                # Use ballot_hash from the published ballot
-                ballot_hash = api_response['ballot_hash']
-                # Use encrypted_ballot_with_nonce for DB storage so the
-                # tally/decryption services receive the full ciphertext.
-                # Fall back to encrypted_ballot if the nonce field is absent.
-                encrypted_ballot = (
-                    api_response.get('encrypted_ballot_with_nonce')
-                    or api_response['encrypted_ballot']
+    # ==================================================================
+    # PHASE 1: CREATE TALLIES (ALL CHUNKS)
+    # ==================================================================
+    print("\n[PHASE 1] CREATE ENCRYPTED TALLIES")
+
+    chunk_tallies = []
+
+    for idx, chunk in enumerate(chunks, start=1):
+        print(f"\n--- TALLY CHUNK {idx}/{len(chunks)} ---")
+
+        tally_result, _ = time_api_call(
+            "create_encrypted_tally",
+            f"{BASE_URL}/create_encrypted_tally",
+            {
+                "party_names": PARTY_NAMES,
+                "candidate_names": CANDIDATE_NAMES,
+                "joint_public_key": joint_public_key,
+                "commitment_hash": commitment_hash,
+                "encrypted_ballots": chunk,
+                "number_of_guardians": NUMBER_OF_GUARDIANS,
+                "quorum": QUORUM,
+            },
+            indent=1,
+        )
+
+        chunk_tallies.append(tally_result)
+
+    # ==================================================================
+    # PHASE 2: PARTIAL DECRYPTIONS (ALL CHUNKS)
+    # ==================================================================
+    print("\n[PHASE 2] PARTIAL DECRYPTIONS")
+
+    available_ids = [str(i + 1) for i in range(QUORUM)]
+    missing_ids   = [str(i + 1) for i in range(QUORUM, NUMBER_OF_GUARDIANS)]
+
+    partial_results = []
+
+    for idx, tally in enumerate(chunk_tallies, start=1):
+        print(f"\n--- PARTIAL DECRYPT CHUNK {idx}/{len(chunk_tallies)} ---")
+
+        ciphertext_tally  = tally["ciphertext_tally"]
+        submitted_ballots = tally["submitted_ballots"]
+
+        shares = {}
+
+        for gid in available_ids:
+            log(f"Guardian {gid} partial decrypt", 1)
+
+            result, _ = time_api_call(
+                "create_partial_decryption",
+                f"{BASE_URL}/create_partial_decryption",
+                {
+                    "guardian_id":   gid,
+                    "guardian_data": find_by_guardian_id(guardian_data, "id", gid),
+                    "private_key":   find_by_guardian_id(private_keys, "guardian_id", gid),
+                    "public_key":    find_by_guardian_id(public_keys, "guardian_id", gid),
+                    "polynomial":    find_by_guardian_id(polynomials, "guardian_id", gid),
+                    "party_names": PARTY_NAMES,
+                    "candidate_names": CANDIDATE_NAMES,
+                    "ciphertext_tally": ciphertext_tally,
+                    "submitted_ballots": submitted_ballots,
+                    "joint_public_key": joint_public_key,
+                    "commitment_hash": commitment_hash,
+                    "number_of_guardians": NUMBER_OF_GUARDIANS,
+                    "quorum": QUORUM,
+                },
+                indent=2,
+            )
+
+            shares[gid] = result
+
+        partial_results.append(shares)
+
+    # ==================================================================
+    # PHASE 3: COMPENSATED DECRYPTIONS (ALL CHUNKS)
+    # ==================================================================
+    print("\n[PHASE 3] COMPENSATED DECRYPTIONS")
+
+    compensated_results = []
+
+    for idx, tally in enumerate(chunk_tallies, start=1):
+        print(f"\n--- COMPENSATED DECRYPT CHUNK {idx}/{len(chunk_tallies)} ---")
+
+        ciphertext_tally  = tally["ciphertext_tally"]
+        submitted_ballots = tally["submitted_ballots"]
+
+        comp_tally   = []
+        comp_ballots = []
+        miss_ids     = []
+        comp_ids     = []
+
+        for mid in missing_ids:
+            for aid in available_ids:
+                log(f"{aid} compensates for {mid}", 1)
+
+                result, _ = time_api_call(
+                    "create_compensated_decryption",
+                    f"{BASE_URL}/create_compensated_decryption",
+                    {
+                        "available_guardian_id":   aid,
+                        "missing_guardian_id":     mid,
+                        "available_guardian_data": find_by_guardian_id(guardian_data, "id", aid),
+                        "missing_guardian_data":   find_by_guardian_id(guardian_data, "id", mid),
+                        "available_private_key":   find_by_guardian_id(private_keys, "guardian_id", aid),
+                        "available_public_key":    find_by_guardian_id(public_keys, "guardian_id", aid),
+                        "available_polynomial":    find_by_guardian_id(polynomials, "guardian_id", aid),
+                        "party_names": PARTY_NAMES,
+                        "candidate_names": CANDIDATE_NAMES,
+                        "ciphertext_tally": ciphertext_tally,
+                        "submitted_ballots": submitted_ballots,
+                        "joint_public_key": joint_public_key,
+                        "commitment_hash": commitment_hash,
+                        "number_of_guardians": NUMBER_OF_GUARDIANS,
+                        "quorum": QUORUM,
+                    },
+                    indent=2,
                 )
 
-                # Add to database
-                success = add_ballot_to_db(
-                    election_id=election_id,
-                    ballot_id=ballot_id,
-                    ballot_hash=ballot_hash,
-                    cipher_text=encrypted_ballot,
-                    user_email=user_email
-                )
-                
-                if success:
-                    success_count += 1
-                    if ballot_counter % 100 == 0:
-                        print(f"  Progress: {ballot_counter}/{num_ballots} ballots processed")
-                else:
-                    fail_count += 1
-                    print(f"  Failed to add ballot {ballot_id} to database")
-            else:
-                fail_count += 1
-                print(f"  Failed to encrypt ballot {ballot_id}")
-            
-            ballot_counter += 1
-    
-    # Summary
-    print(f"\n{'='*50}")
-    print(f"Ballot Generation Complete!")
-    print(f"{'='*50}")
-    print(f"Total ballots requested: {num_ballots}")
-    print(f"Successfully created: {success_count}")
-    print(f"Failed: {fail_count}")
-    print(f"Success rate: {(success_count/num_ballots)*100:.2f}%")
+                miss_ids.append(mid)
+                comp_ids.append(aid)
+                comp_tally.append(result["compensated_tally_share"])
+                comp_ballots.append(result["compensated_ballot_shares"])
+
+        compensated_results.append((miss_ids, comp_ids, comp_tally, comp_ballots))
+
+    # ==================================================================
+    # PHASE 4: COMBINE & AGGREGATE
+    # ==================================================================
+    print("\n[PHASE 4] COMBINE & FINAL TALLY")
+
+    final_aggregate = defaultdict(int)
+
+    for idx, tally in enumerate(chunk_tallies, start=1):
+        print(f"\n--- COMBINE CHUNK {idx}/{len(chunk_tallies)} ---")
+
+        miss_ids, comp_ids, comp_tally, comp_ballots = compensated_results[idx - 1]
+        shares = partial_results[idx - 1]
+
+        combine_result, _ = time_api_call(
+            "combine_decryption_shares",
+            f"{BASE_URL}/combine_decryption_shares",
+            {
+                "party_names": PARTY_NAMES,
+                "candidate_names": CANDIDATE_NAMES,
+                "joint_public_key": joint_public_key,
+                "commitment_hash": commitment_hash,
+                "ciphertext_tally": tally["ciphertext_tally"],
+                "submitted_ballots": tally["submitted_ballots"],
+                "guardian_data": guardian_data,
+                "available_guardian_ids":         available_ids,
+                "available_guardian_public_keys": [shares[g]["guardian_public_key"] for g in available_ids],
+                "available_tally_shares":         [shares[g]["tally_share"] for g in available_ids],
+                "available_ballot_shares":        [shares[g]["ballot_shares"] for g in available_ids],
+                "missing_guardian_ids":           miss_ids,
+                "compensating_guardian_ids":      comp_ids,
+                "compensated_tally_shares":       comp_tally,
+                "compensated_ballot_shares":      comp_ballots,
+                "quorum": QUORUM,
+                "number_of_guardians": NUMBER_OF_GUARDIANS,
+            },
+            indent=1,
+        )
+
+        # results is a plain dict from msgpack response - no decoding needed
+        candidates = combine_result["results"]["results"]["candidates"]
+        for cid, info in candidates.items():
+            final_aggregate[cid] += int(float(info.get("votes", 0)))
+
+    # ------------------------------------------------------------------
+    # FINAL RESULT
+    # ------------------------------------------------------------------
+    print("\n" + "=" * 120)
+    print("FINAL AGGREGATED RESULT")
+    print("=" * 120)
+
+    total = sum(final_aggregate.values())
+    for cid, votes in final_aggregate.items():
+        pct = (votes / total * 100) if total else 0
+        print(f"{cid}: {votes} votes ({pct:.2f}%)")
+
+    print("=" * 120)
 
 
+# =========================================================
+# ENTRY POINT
+# =========================================================
 if __name__ == "__main__":
-    # Set your election ID here
-    ELECTION_ID = 3
-    NUM_BALLOTS = 300
-    
-    generate_ballots(ELECTION_ID, NUM_BALLOTS)
+    try:
+        for ballots in BALLOT_COUNTS:
+            run_chunked_election(ballots)
+    finally:
+        _http_session.close()
