@@ -7,6 +7,6 @@ import lombok.Builder;
 @Builder
 public record ElectionGuardCombineDecryptionSharesResponse(
         @JsonProperty("status") String status,
-        @JsonProperty("results") String results
+        @JsonProperty("results") Object results  // Object - microservice returns dict
 ) {
 }

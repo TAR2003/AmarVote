@@ -1,11 +1,13 @@
 package com.amarvote.amarvote.service;
 
+import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 
 import org.springframework.amqp.rabbit.annotation.RabbitListener;
@@ -27,31 +29,28 @@ import com.amarvote.amarvote.dto.worker.CompensatedDecryptionTask;
 import com.amarvote.amarvote.dto.worker.PartialDecryptionTask;
 import com.amarvote.amarvote.dto.worker.TallyCreationTask;
 import com.amarvote.amarvote.model.Ballot;
+import com.amarvote.amarvote.model.CombineWorkerLog;
 import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Decryption;
-import com.amarvote.amarvote.model.Election;
+import com.amarvote.amarvote.model.DecryptionWorkerLog;
 import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.model.SubmittedBallot;
+import com.amarvote.amarvote.model.TallyWorkerLog;
 import com.amarvote.amarvote.repository.BallotRepository;
+import com.amarvote.amarvote.repository.CombineWorkerLogRepository;
 import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionRepository;
+import com.amarvote.amarvote.repository.DecryptionWorkerLogRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
 import com.amarvote.amarvote.repository.TallyWorkerLogRepository;
-import com.amarvote.amarvote.repository.DecryptionWorkerLogRepository;
-import com.amarvote.amarvote.repository.CombineWorkerLogRepository;
-import com.amarvote.amarvote.model.TallyWorkerLog;
-import com.amarvote.amarvote.model.DecryptionWorkerLog;
-import com.amarvote.amarvote.model.CombineWorkerLog;
 
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
-
-import java.time.LocalDateTime;
 
 /**
  * Worker service that processes tasks from RabbitMQ queues.
@@ -108,7 +107,6 @@ public class TaskWorkerService {
         
         // Initialize worker log
         TallyWorkerLog workerLog = null;
-        Long electionCenterId = null;
         
         try {
             System.out.println("=== WORKER: Processing Tally Creation Chunk " + task.getChunkNumber() + " ===");
@@ -121,12 +119,11 @@ public class TaskWorkerService {
                 .electionId(task.getElectionId())
                 .build();
             electionCenter = electionCenterRepository.save(electionCenter);
-            electionCenterId = electionCenter.getElectionCenterId();
             
             // LOG START TIME - Create worker log entry
             workerLog = TallyWorkerLog.builder()
                 .electionId(task.getElectionId())
-                .electionCenterId(electionCenterId)
+                .electionCenterId(electionCenter.getElectionCenterId())
                 .chunkNumber(task.getChunkNumber())
                 .startTime(LocalDateTime.now())
                 .status("IN_PROGRESS")
@@ -177,13 +174,15 @@ public class TaskWorkerService {
             }
             
             // Store encrypted tally
-            electionCenter.setEncryptedTally(guardResponse.getCiphertext_tally());
+            electionCenter.setEncryptedTally(toJsonString(guardResponse.getCiphertext_tally()));
             electionCenterRepository.save(electionCenter);
             
             // Save submitted ballots
             if (guardResponse.getSubmitted_ballots() != null) {
-                for (String submittedBallotCipherText : guardResponse.getSubmitted_ballots()) {
-                    if (!submittedBallotRepository.existsByElectionCenterIdAndCipherText(
+                for (Object submittedBallotRaw : guardResponse.getSubmitted_ballots()) {
+                    String submittedBallotCipherText = toJsonString(submittedBallotRaw);
+                    if (submittedBallotCipherText != null &&
+                            !submittedBallotRepository.existsByElectionCenterIdAndCipherText(
                             electionCenter.getElectionCenterId(), submittedBallotCipherText)) {
                         SubmittedBallot submittedBallot = SubmittedBallot.builder()
                             .electionCenterId(electionCenter.getElectionCenterId())
@@ -312,24 +311,35 @@ public class TaskWorkerService {
             // Load ballot cipher texts (strings only, not full entities)
             List<String> ballotCipherTexts = submittedBallotRepository.findCipherTextsByElectionCenterId(task.getElectionCenterId());
             
-            // Construct guardian_data JSON
-            String guardianDataJson = String.format(
-                "{\"id\":\"%s\",\"sequence_order\":%s}",
-                task.getGuardianSequenceOrder(),
-                task.getGuardianSequenceOrder()
-            );
+            // Use the full guardian data (key_backup) from the database.
+            // The key_backup contains the serialized ElectionGuard guardian state including backups,
+            // which the microservice needs for partial decryption.
+            // Fall back to minimal JSON only if key_backup is missing.
+            Guardian guardian = guardianRepository.findById(task.getGuardianId())
+                .orElseThrow(() -> new RuntimeException("Guardian not found: " + task.getGuardianId()));
+            String guardianDataJson;
+            if (guardian.getKeyBackup() != null && !guardian.getKeyBackup().trim().isEmpty()) {
+                guardianDataJson = guardian.getKeyBackup();
+            } else {
+                guardianDataJson = String.format(
+                    "{\"id\":\"%s\",\"sequence_order\":%s}",
+                    task.getGuardianSequenceOrder(),
+                    task.getGuardianSequenceOrder()
+                );
+            }
             
-            // Build request
+            // Build request — all complex fields must be parsed from JSON strings to
+            // native Java objects so msgpack encodes them as maps/dicts (not strings)
             ElectionGuardPartialDecryptionRequest guardRequest = ElectionGuardPartialDecryptionRequest.builder()
                 .guardian_id(task.getGuardianSequenceOrder())
-                .guardian_data(guardianDataJson)
-                .private_key(task.getDecryptedPrivateKey())
-                .public_key(task.getGuardianPublicKey())
-                .polynomial(task.getDecryptedPolynomial())
+                .guardian_data(parseJsonToObject(guardianDataJson))
+                .private_key(parseJsonToObject(task.getDecryptedPrivateKey()))
+                .public_key(parseJsonToObject(task.getGuardianPublicKey()))
+                .polynomial(parseJsonToObject(task.getDecryptedPolynomial()))
                 .party_names(task.getPartyNames())
                 .candidate_names(task.getCandidateNames())
-                .ciphertext_tally(ciphertextTallyString)
-                .submitted_ballots(ballotCipherTexts)
+                .ciphertext_tally(parseJsonToObject(ciphertextTallyString))
+                .submitted_ballots(parseJsonStringList(ballotCipherTexts))
                 .joint_public_key(task.getJointPublicKey())
                 .commitment_hash(task.getBaseHash())
                 .number_of_guardians(task.getNumberOfGuardians())
@@ -349,9 +359,9 @@ public class TaskWorkerService {
             Decryption decryption = Decryption.builder()
                 .electionCenterId(task.getElectionCenterId())
                 .guardianId(task.getGuardianId())
-                .tallyShare(guardResponse.tally_share())
+                .tallyShare(toJsonString(guardResponse.tally_share()))
                 .guardianDecryptionKey(guardResponse.guardian_public_key())
-                .partialDecryptedTally(guardResponse.ballot_shares())
+                .partialDecryptedTally(toJsonString(guardResponse.ballot_shares()))
                 .build();
             
             decryptionRepository.save(decryption);
@@ -498,19 +508,20 @@ public class TaskWorkerService {
                 );
             }
             
-            // Build request
+            // Build request — all complex fields must be parsed from JSON strings to
+            // native Java objects so msgpack encodes them as maps/dicts (not strings)
             ElectionGuardCompensatedDecryptionRequest guardRequest = ElectionGuardCompensatedDecryptionRequest.builder()
                 .available_guardian_id(task.getSourceGuardianSequenceOrder())
-                .available_guardian_data(sourceGuardianDataJson)
-                .available_private_key(task.getDecryptedPrivateKey())
-                .available_public_key(task.getSourceGuardianPublicKey())
-                .available_polynomial(task.getDecryptedPolynomial())
+                .available_guardian_data(parseJsonToObject(sourceGuardianDataJson))
+                .available_private_key(parseJsonToObject(task.getDecryptedPrivateKey()))
+                .available_public_key(parseJsonToObject(task.getSourceGuardianPublicKey()))
+                .available_polynomial(parseJsonToObject(task.getDecryptedPolynomial()))
                 .missing_guardian_id(task.getTargetGuardianSequenceOrder())
-                .missing_guardian_data(targetGuardianDataJson)
+                .missing_guardian_data(parseJsonToObject(targetGuardianDataJson))
                 .party_names(task.getPartyNames())
                 .candidate_names(task.getCandidateNames())
-                .ciphertext_tally(ciphertextTallyString)
-                .submitted_ballots(ballotCipherTexts)
+                .ciphertext_tally(parseJsonToObject(ciphertextTallyString))
+                .submitted_ballots(parseJsonStringList(ballotCipherTexts))
                 .joint_public_key(task.getJointPublicKey())
                 .commitment_hash(task.getBaseHash())
                 .number_of_guardians(task.getNumberOfGuardians())
@@ -521,7 +532,6 @@ public class TaskWorkerService {
             System.out.println("🚀 Calling ElectionGuard service for compensated decryption");
             System.out.println("📦 Request size - Ballots: " + ballotCipherTexts.size() + ", Tally length: " + ciphertextTallyString.length());
             
-            String response = null;
             ElectionGuardCompensatedDecryptionResponse guardResponse = null;
             int maxRetries = 3;
             int attempt = 0;
@@ -531,13 +541,16 @@ public class TaskWorkerService {
                     attempt++;
                     if (attempt > 1) {
                         System.out.println("⚠️ Retry attempt " + attempt + "/" + maxRetries);
-                        Thread.sleep(2000 * attempt); // Exponential backoff
+                        TimeUnit.MILLISECONDS.sleep(2000L * attempt); // Exponential backoff
                     }
                     
-                    response = electionGuardService.postRequest("/create_compensated_decryption", guardRequest);
+                    String response = electionGuardService.postRequest("/create_compensated_decryption", guardRequest);
                     guardResponse = objectMapper.readValue(response, ElectionGuardCompensatedDecryptionResponse.class);
                     break; // Success, exit retry loop
                     
+                } catch (InterruptedException ie) {
+                    Thread.currentThread().interrupt();
+                    throw new RuntimeException("Interrupted during compensated decryption retry", ie);
                 } catch (Exception e) {
                     if (attempt >= maxRetries) {
                         System.err.println("❌ All retry attempts failed for compensated decryption");
@@ -547,7 +560,7 @@ public class TaskWorkerService {
                 }
             }
             
-            if (guardResponse.compensated_tally_share() == null) {
+            if (guardResponse == null || guardResponse.compensated_tally_share() == null) {
                 throw new RuntimeException("Failed to generate compensated share");
             }
             
@@ -556,8 +569,8 @@ public class TaskWorkerService {
                 .electionCenterId(task.getElectionCenterId())
                 .missingGuardianId(task.getTargetGuardianId())
                 .compensatingGuardianId(task.getSourceGuardianId())
-                .compensatedTallyShare(guardResponse.compensated_tally_share())
-                .compensatedBallotShare(guardResponse.compensated_ballot_shares())
+                .compensatedTallyShare(toJsonString(guardResponse.compensated_tally_share()))
+                .compensatedBallotShare(toJsonString(guardResponse.compensated_ballot_shares()))
                 .build();
             
             compensatedDecryptionRepository.save(compensatedDecryption);
@@ -664,8 +677,8 @@ public class TaskWorkerService {
             long memoryBeforeMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
             System.out.println("🧠 Memory before: " + memoryBeforeMB + " MB");
             
-            // Fetch election and guardians
-            Election election = electionRepository.findById(task.getElectionId())
+            // Validate election exists, then fetch guardians
+            electionRepository.findById(task.getElectionId())
                 .orElseThrow(() -> new RuntimeException("Election not found"));
             
             List<Guardian> guardians = guardianRepository.findByElectionId(task.getElectionId());
@@ -763,25 +776,26 @@ public class TaskWorkerService {
                 }
             }
             
-            // Build request
+            // Build request — all complex fields must be parsed from JSON strings to
+            // native Java objects so msgpack encodes them as maps/dicts (not strings)
             ElectionGuardCombineDecryptionSharesRequest guardRequest = ElectionGuardCombineDecryptionSharesRequest.builder()
                 .party_names(task.getPartyNames())
                 .candidate_names(task.getCandidateNames())
-                .ciphertext_tally(electionCenter.getEncryptedTally())
-                .submitted_ballots(ballotCipherTexts)
+                .ciphertext_tally(parseJsonToObject(electionCenter.getEncryptedTally()))
+                .submitted_ballots(parseJsonStringList(ballotCipherTexts))
                 .joint_public_key(task.getJointPublicKey())
                 .commitment_hash(task.getBaseHash())
                 .number_of_guardians(task.getNumberOfGuardians())
                 .quorum(task.getQuorum())
-                .guardian_data(guardianDataList)
+                .guardian_data(parseJsonStringList(guardianDataList))
                 .available_guardian_ids(availableGuardianIds)
                 .available_guardian_public_keys(availableGuardianPublicKeys)
-                .available_tally_shares(availableTallyShares)
-                .available_ballot_shares(availableBallotShares)
+                .available_tally_shares(parseJsonStringList(availableTallyShares))
+                .available_ballot_shares(parseJsonStringList(availableBallotShares))
                 .missing_guardian_ids(missingGuardianIds)
                 .compensating_guardian_ids(compensatingGuardianIds)
-                .compensated_tally_shares(compensatedTallyShares)
-                .compensated_ballot_shares(compensatedBallotShares)
+                .compensated_tally_shares(parseJsonStringList(compensatedTallyShares))
+                .compensated_ballot_shares(parseJsonStringList(compensatedBallotShares))
                 .build();
             
             // Call ElectionGuard service
@@ -794,7 +808,7 @@ public class TaskWorkerService {
             }
             
             // Store results
-            electionCenter.setElectionResult(guardResponse.results());
+            electionCenter.setElectionResult(toJsonString(guardResponse.results()));
             electionCenterRepository.save(electionCenter);
             
             // LOG END TIME - Update worker log with completion
@@ -977,6 +991,71 @@ public class TaskWorkerService {
     
     // Removed: updateCombineDecryptionError - errors can be handled without status table
     
+    /**
+     * Recursively walk a parsed Object tree and convert any BigInteger values to their
+     * decimal String representation. msgpack cannot serialize BigInteger > 2^64-1, but
+     * ElectionGuard produces cryptographic integers larger than that. They must be
+     * transmitted as strings.
+     */
+    @SuppressWarnings("unchecked")
+    private Object sanitizeForMsgpack(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof java.math.BigInteger) return obj.toString();
+        if (obj instanceof java.util.Map) {
+            java.util.Map<Object, Object> result = new java.util.LinkedHashMap<>();
+            ((java.util.Map<?, ?>) obj).forEach((k, v) -> result.put(k, sanitizeForMsgpack(v)));
+            return result;
+        }
+        if (obj instanceof java.util.List) {
+            java.util.List<Object> result = new java.util.ArrayList<>();
+            ((java.util.List<?>) obj).forEach(item -> result.add(sanitizeForMsgpack(item)));
+            return result;
+        }
+        return obj;
+    }
+
+    /**
+     * Parse a JSON string to a Java Object (Map/List) so that msgpack serializes it as a
+     * native dict/list (not a string). The Python microservice expects complex fields as
+     * msgpack maps, not msgpack str.
+     */
+    private Object parseJsonToObject(String json) {
+        if (json == null || json.trim().isEmpty()) return null;
+        try {
+            Object parsed = objectMapper.readValue(json, Object.class);
+            return sanitizeForMsgpack(parsed);
+        } catch (Exception e) {
+            return json; // fallback: return as-is
+        }
+    }
+
+    /**
+     * Parse a list of JSON strings to a list of Java Objects for msgpack serialization.
+     */
+    private List<Object> parseJsonStringList(List<String> jsonList) {
+        if (jsonList == null) return new java.util.ArrayList<>();
+        List<Object> result = new java.util.ArrayList<>();
+        for (String json : jsonList) {
+            result.add(parseJsonToObject(json));
+        }
+        return result;
+    }
+
+    /**
+     * Serialize a value returned from the microservice to a JSON string for DB storage.
+     * Handles: already-String values (returned as-is), Object/Map/List (serialized via objectMapper),
+     * and null (returned as null).
+     */
+    private String toJsonString(Object value) {
+        if (value == null) return null;
+        if (value instanceof String s) return s;
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception e) {
+            return value.toString();
+        }
+    }
+
     /**
      * Mark guardian as decrypted in separate transaction
      * This is needed for the frontend to show the combine button

@@ -68,7 +68,7 @@ public class ElectionController {
     private final ObjectMapper objectMapper;
 
     @PostMapping("/create-election")
-    public ResponseEntity<Election> createElection(
+    public ResponseEntity<?> createElection(
             @Valid @RequestBody ElectionCreationRequest request,
             HttpServletRequest httpRequest) {
 
@@ -87,12 +87,23 @@ public class ElectionController {
         System.out.println("Creating election with JWT: " + jwtToken);
         System.out.println("User email: " + userEmail);
 
-        Election election = electionService.createElection(request, jwtToken, userEmail);
-
-        if (election == null) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        try {
+            Election election = electionService.createElection(request, jwtToken, userEmail);
+            if (election == null) {
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                        .body(Map.of("error", "Election creation returned null"));
+            }
+            return ResponseEntity.status(HttpStatus.CREATED).body(election);
+        } catch (IllegalArgumentException e) {
+            System.err.println("Validation error creating election: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("error", e.getMessage()));
+        } catch (Exception e) {
+            System.err.println("Error creating election: " + e.getMessage());
+            e.printStackTrace();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("error", "Election creation failed: " + e.getMessage()));
         }
-        return ResponseEntity.status(HttpStatus.CREATED).body(election);
     }
 
     /**

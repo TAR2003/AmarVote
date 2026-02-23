@@ -2,23 +2,21 @@ package com.amarvote.amarvote.dto;
 
 import java.util.List;
 
-import com.fasterxml.jackson.annotation.JsonRawValue;
-
 import lombok.Builder;
 
 @Builder
 public record ElectionGuardCompensatedDecryptionRequest(
     String available_guardian_id,
     String missing_guardian_id,
-    @JsonRawValue String available_guardian_data,  // ✅ Raw JSON - prevents double escaping
-    @JsonRawValue String missing_guardian_data,    // ✅ Raw JSON - prevents double escaping
-    @JsonRawValue String available_private_key,    // ✅ Raw JSON - prevents double escaping
-    @JsonRawValue String available_public_key,     // ✅ Raw JSON - prevents double escaping
-    @JsonRawValue String available_polynomial,     // ✅ Raw JSON - prevents double escaping
+    Object available_guardian_data,  // Must be Object (map) for msgpack to serialize as dict
+    Object missing_guardian_data,    // Must be Object (map) for msgpack to serialize as dict
+    Object available_private_key,    // Must be Object (map) for msgpack to serialize as dict
+    Object available_public_key,     // Must be Object (map) for msgpack to serialize as dict
+    Object available_polynomial,     // Must be Object (map) for msgpack to serialize as dict
     List<String> party_names,
     List<String> candidate_names,
-    @JsonRawValue String ciphertext_tally,         // ✅ Raw JSON - prevents double escaping
-    List<String> submitted_ballots,
+    Object ciphertext_tally,         // Must be Object (map) for msgpack to serialize as dict
+    List<Object> submitted_ballots,  // Must be List<Object> for msgpack to serialize as list of dicts
     String joint_public_key,
     String commitment_hash,
     int number_of_guardians,

@@ -1468,13 +1468,13 @@ def encrypt_it():
     """
     if not PQ_AVAILABLE:
         logger.error("Post-quantum cryptography not available")
-        return jsonify({'error': 'Post-quantum cryptography not available'}), 501
+        return make_binary_response({'error': 'Post-quantum cryptography not available'}, 501)
 
-    data = request.get_json()
+    data = get_request_data()
     validation_error = validate_input(data, ['private_key'])
     if validation_error:
         logger.warning(f"Validation error: {validation_error}")
-        return jsonify({'error': validation_error}), 400
+        return make_binary_response({'error': validation_error}, 400)
 
     try:
         # Input validation (optimized)
@@ -1546,15 +1546,15 @@ def encrypt_it():
         logger.info(f"Successful encryption for IP: {request.remote_addr}")
         
         # Return only 2 storage items instead of 3
-        return jsonify({
+        return make_binary_response({
             'status': 'success',
             'encrypted_data': base64.b64encode(encrypted_data).decode(),  # Storage 1
             'credentials': base64.b64encode(final_credentials).decode()    # Storage 2 (includes HMAC)
-        }), 200
+        })
 
     except Exception as e:
         logger.error(f"Encryption error: {str(e)}")
-        return jsonify({'status': 'error', 'message': 'Internal server error'}), 500
+        return make_binary_response({'status': 'error', 'message': 'Internal server error'}, 500)
 
 @app.route('/api/decrypt', methods=['POST'])
 # @rate_limit(max_requests=10, window_minutes=1)
@@ -1568,13 +1568,13 @@ def decrypt_it():
     """
     if not PQ_AVAILABLE:
         logger.error("Post-quantum cryptography not available")
-        return jsonify({'error': 'Post-quantum cryptography not available'}), 501
+        return make_binary_response({'error': 'Post-quantum cryptography not available'}, 501)
 
-    data = request.get_json()
+    data = get_request_data()
     validation_error = validate_input(data, ['encrypted_data', 'credentials'])
     if validation_error:
         logger.warning(f"Validation error: {validation_error}")
-        return jsonify({'error': validation_error}), 400
+        return make_binary_response({'error': validation_error}, 400)
 
     try:
         # Fast decode and parse credentials
@@ -1583,11 +1583,11 @@ def decrypt_it():
         
         # Version check
         if credentials.get('version') != '1.0':
-            return jsonify({'error': 'Unsupported credential version'}), 400
+            return make_binary_response({'error': 'Unsupported credential version'}, 400)
         
         # Extract HMAC tag from credentials
         if 'hmac_tag' not in credentials:
-            return jsonify({'error': 'Missing HMAC tag in credentials'}), 400
+            return make_binary_response({'error': 'Missing HMAC tag in credentials'}, 400)
         
         hmac_tag = base64.b64decode(credentials['hmac_tag'])
         
@@ -1628,7 +1628,7 @@ def decrypt_it():
         
         if not verify_hmac(hmac_key, credentials_for_verification_json, hmac_tag):
             logger.warning(f"HMAC verification failed for IP: {request.remote_addr}")
-            return jsonify({'error': 'Authentication failed - credentials tampered'}), 403
+            return make_binary_response({'error': 'Authentication failed - credentials tampered'}, 403)
 
         # Fast decryption of private key
         nonce = base64.b64decode(credentials['nonce'])
@@ -1641,14 +1641,14 @@ def decrypt_it():
 
         logger.info(f"Successful decryption for IP: {request.remote_addr}")
         
-        return jsonify({
+        return make_binary_response({
             'status': 'success',
             'private_key': decrypted_data.decode('utf-8')
-        }), 200
+        })
 
     except Exception as e:
         logger.error(f"Decryption error: {str(e)}")
-        return jsonify({'status': 'error', 'message': 'Decryption failed'}), 400
+        return make_binary_response({'status': 'error', 'message': 'Decryption failed'}, 400)
 
 @app.route('/api/health', methods=['GET'])
 def health_check():

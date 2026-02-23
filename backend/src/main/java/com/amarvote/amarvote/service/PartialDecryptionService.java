@@ -450,7 +450,6 @@ public class PartialDecryptionService {
     public DecryptionStatusResponse getDecryptionStatus(Long electionId, Long guardianId) {
         // Query ElectionJob for task metadata
         Optional<com.amarvote.amarvote.model.ElectionJob> jobOpt = jobRepository.findFirstByElectionIdAndOperationTypeOrderByStartedAtDesc(electionId, "DECRYPTION_" + guardianId);
-        String createdBy = jobOpt.map(com.amarvote.amarvote.model.ElectionJob::getCreatedBy).orElse(null);
         java.time.Instant startedAtJob = jobOpt.map(com.amarvote.amarvote.model.ElectionJob::getStartedAt).orElse(null);
         
         // Get guardian details
@@ -945,24 +944,32 @@ public class PartialDecryptionService {
         List<String> ballotCipherTexts = submittedBallotRepository.findCipherTextsByElectionCenterId(electionCenterId);
         System.out.println("Found " + ballotCipherTexts.size() + " ballots for chunk " + chunkNumber + " (loaded as strings only)");
         
-        // Construct guardian_data JSON with required fields
-        String guardianDataJson = String.format(
-            "{\"id\":\"%s\",\"sequence_order\":%d}",
-            guardian.getSequenceOrder(),
-            guardian.getSequenceOrder()
-        );
+        // Use the full guardian data (key_backup) - the microservice needs the complete
+        // ElectionGuard guardian state including backups for partial decryption.
+        // Fall back to minimal JSON only if key_backup is not yet populated.
+        String guardianDataJson;
+        if (guardian.getKeyBackup() != null && !guardian.getKeyBackup().trim().isEmpty()) {
+            guardianDataJson = guardian.getKeyBackup();
+        } else {
+            guardianDataJson = String.format(
+                "{\"id\":\"%s\",\"sequence_order\":%d}",
+                guardian.getSequenceOrder(),
+                guardian.getSequenceOrder()
+            );
+        }
         
-        // Call ElectionGuard microservice for this chunk
+        // Call ElectionGuard microservice for this chunk — all complex fields must be parsed
+        // from JSON strings to native Java objects so msgpack encodes them as maps/dicts
         ElectionGuardPartialDecryptionRequest guardRequest = ElectionGuardPartialDecryptionRequest.builder()
             .guardian_id(String.valueOf(guardian.getSequenceOrder()))
-            .guardian_data(guardianDataJson)
-            .private_key(decryptedPrivateKey)
-            .public_key(guardian.getGuardianPublicKey())
-            .polynomial(decryptedPolynomial)
+            .guardian_data(parseJsonToObject(guardianDataJson))
+            .private_key(parseJsonToObject(decryptedPrivateKey))
+            .public_key(parseJsonToObject(guardian.getGuardianPublicKey()))
+            .polynomial(parseJsonToObject(decryptedPolynomial))
             .party_names(partyNames)
             .candidate_names(candidateNames)
-            .ciphertext_tally(ciphertextTallyString)
-            .submitted_ballots(ballotCipherTexts)
+            .ciphertext_tally(parseJsonToObject(ciphertextTallyString))
+            .submitted_ballots(parseJsonStringList(ballotCipherTexts))
             .joint_public_key(jointPublicKey)
             .commitment_hash(baseHash)
             .number_of_guardians(numberOfGuardians)
@@ -982,9 +989,9 @@ public class PartialDecryptionService {
         Decryption decryption = Decryption.builder()
             .electionCenterId(electionCenterId)
             .guardianId(guardian.getGuardianId())
-            .tallyShare(guardResponse.tally_share())
+            .tallyShare(toJsonString(guardResponse.tally_share()))
             .guardianDecryptionKey(guardResponse.guardian_public_key())
-            .partialDecryptedTally(guardResponse.ballot_shares())
+            .partialDecryptedTally(toJsonString(guardResponse.ballot_shares()))
             .build();
         
         decryptionRepository.save(decryption);
@@ -994,15 +1001,8 @@ public class PartialDecryptionService {
         entityManager.flush();   // Write pending changes to DB
         entityManager.clear();   // Clear persistence context - releases all entities
         
-        // ✅ Explicitly null out large objects to help GC
+        // ✅ Clear large collections; local variables go out of scope at method end
         ballotCipherTexts.clear();
-        ballotCipherTexts = null;
-        electionCenter = null;
-        guardResponse = null;
-        decryption = null;
-        guardianDataJson = null;
-        ciphertextTallyString = null;
-        guardRequest = null;
         
         // Log memory after cleanup
         long memoryAfterMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
@@ -1012,17 +1012,8 @@ public class PartialDecryptionService {
         System.out.println("🧠 Memory after chunk " + chunkNumber + ": " + memoryAfterMB + " MB (freed " + freedMemoryMB + " MB)");
     }
 
-    /**
-     * Save compensated decryption in a separate transaction
-     */
-    @Transactional
-    private void saveCompensatedDecryptionTransactional(CompensatedDecryption compensatedDecryption) {
-        compensatedDecryptionRepository.save(compensatedDecryption);
-    }
+    // Removed: saveCompensatedDecryptionTransactional - inlined at call site
 
-    /**
-     * Process single compensated decryption chunk in isolated transaction
-     */
     /**
      * Create compensated decryption shares with progress tracking (MEMORY-EFFICIENT)
      */
@@ -1709,22 +1700,24 @@ public class PartialDecryptionService {
                         .build();
                 }
                 
+                // Build request — all complex fields must be parsed from JSON strings to
+                // native Java objects so msgpack encodes them as maps/dicts (not strings)
                 ElectionGuardCombineDecryptionSharesRequest guardRequest = ElectionGuardCombineDecryptionSharesRequest.builder()
                     .party_names(partyNames)
                     .candidate_names(candidateNames)
                     .joint_public_key(election.getJointPublicKey())
                     .commitment_hash(election.getBaseHash())
-                    .ciphertext_tally(ciphertextTallyString)
-                    .submitted_ballots(ballotCipherTexts)
-                    .guardian_data(guardianDataList)
+                    .ciphertext_tally(parseJsonToObject(ciphertextTallyString))
+                    .submitted_ballots(parseJsonStringList(ballotCipherTexts))
+                    .guardian_data(parseJsonStringList(guardianDataList))
                     .available_guardian_ids(availableGuardianIds)
                     .available_guardian_public_keys(availableGuardianPublicKeys)
-                    .available_tally_shares(availableTallyShares)
-                    .available_ballot_shares(availableBallotShares)
+                    .available_tally_shares(parseJsonStringList(availableTallyShares))
+                    .available_ballot_shares(parseJsonStringList(availableBallotShares))
                     .missing_guardian_ids(missingGuardianIds)
                     .compensating_guardian_ids(compensatingGuardianIds)
-                    .compensated_tally_shares(compensatedTallyShares)
-                    .compensated_ballot_shares(compensatedBallotShares)
+                    .compensated_tally_shares(parseJsonStringList(compensatedTallyShares))
+                    .compensated_ballot_shares(parseJsonStringList(compensatedBallotShares))
                     .quorum(quorum)
                     .number_of_guardians(guardians.size())
                     .build();
@@ -1734,7 +1727,7 @@ public class PartialDecryptionService {
                 // Process the response string to extract results and save to election_result
                 if ("success".equals(guardResponse.status())) {
                     // Save chunk result to THIS chunk's election_result
-                    electionCenter.setElectionResult(guardResponse.results());
+                    electionCenter.setElectionResult(toJsonString(guardResponse.results()));
                     electionCenterRepository.save(electionCenter);
                     System.out.println("💾 Saved chunk results to election_center_id: " + electionCenter.getElectionCenterId());
                 } else {
@@ -1969,9 +1962,6 @@ public class PartialDecryptionService {
                 
                 System.out.println("  📊 Summary for Chunk " + electionCenterId + ": Created=" + createdCount + ", Skipped=" + skippedCount);
                 
-                // ✅ MEMORY-EFFICIENT: Clear references after each chunk
-                electionCenter = null;
-                
                 // ✅ Periodic GC hint every 50 chunks (not every chunk - avoid overhead)
                 if ((chunkIndex + 1) % 50 == 0 || (chunkIndex + 1) == electionCenterIds.size()) {
                     suggestGCIfNeeded(completedOperations, totalOperations, "Compensated Decryption");
@@ -2065,18 +2055,20 @@ public class PartialDecryptionService {
                 );
             }
             
+            // Build request — all complex fields must be parsed from JSON strings to
+            // native Java objects so msgpack encodes them as maps/dicts (not strings)
             ElectionGuardCompensatedDecryptionRequest request = ElectionGuardCompensatedDecryptionRequest.builder()
                 .available_guardian_id(String.valueOf(compensatingGuardian.getSequenceOrder()))
                 .missing_guardian_id(String.valueOf(otherGuardian.getSequenceOrder()))
-                .available_guardian_data(availableGuardianDataJson)
-                .missing_guardian_data(missingGuardianDataJson)
-                .available_private_key(compensatingGuardianPrivateKey)
-                .available_public_key(compensatingGuardian.getGuardianPublicKey())
-                .available_polynomial(compensatingGuardianPolynomial)
+                .available_guardian_data(parseJsonToObject(availableGuardianDataJson))
+                .missing_guardian_data(parseJsonToObject(missingGuardianDataJson))
+                .available_private_key(parseJsonToObject(compensatingGuardianPrivateKey))
+                .available_public_key(parseJsonToObject(compensatingGuardian.getGuardianPublicKey()))
+                .available_polynomial(parseJsonToObject(compensatingGuardianPolynomial))
                 .party_names(partyNames)
                 .candidate_names(candidateNames)
-                .ciphertext_tally(electionCenter.getEncryptedTally()) // Use chunk's encrypted tally
-                .submitted_ballots(ballotCipherTexts) // Use chunk's ballots
+                .ciphertext_tally(parseJsonToObject(electionCenter.getEncryptedTally()))
+                .submitted_ballots(parseJsonStringList(ballotCipherTexts))
                 .joint_public_key(election.getJointPublicKey())
                 .commitment_hash(election.getBaseHash())
                 .number_of_guardians(guardianRepository.findByElectionId(election.getElectionId()).size())
@@ -2097,8 +2089,8 @@ public class PartialDecryptionService {
             compensatedDecryption.setCompensatingGuardianId(compensatingGuardian.getGuardianId());
             compensatedDecryption.setMissingGuardianId(otherGuardian.getGuardianId());
             // Note: CompensatedDecryption uses guardian IDs, not sequence numbers directly
-            compensatedDecryption.setCompensatedTallyShare(response.compensated_tally_share());
-            compensatedDecryption.setCompensatedBallotShare(response.compensated_ballot_shares());
+            compensatedDecryption.setCompensatedTallyShare(toJsonString(response.compensated_tally_share()));
+            compensatedDecryption.setCompensatedBallotShare(toJsonString(response.compensated_ballot_shares()));
             
             compensatedDecryptionRepository.save(compensatedDecryption);
             
@@ -2108,17 +2100,9 @@ public class PartialDecryptionService {
             entityManager.flush();
             entityManager.clear();
             
-            // Null out large objects
-            electionChoices = null;
-            candidateNames = null;
-            partyNames = null;
+            // Clear large collections; local variables go out of scope at method end
             submittedBallots.clear();
-            submittedBallots = null;
             ballotCipherTexts.clear();
-            ballotCipherTexts = null;
-            request = null;
-            response = null;
-            compensatedDecryption = null;
             
             // Suggest garbage collection
             System.gc();
@@ -2177,7 +2161,7 @@ public class PartialDecryptionService {
             System.out.println("Submitted ballots count: " + (request.submitted_ballots() != null ? request.submitted_ballots().size() : 0));
             System.out.println("Quorum: " + request.quorum());
             System.out.println("Number of guardians: " + request.number_of_guardians());
-            System.out.println("Has ciphertext_tally: " + (request.ciphertext_tally() != null && !request.ciphertext_tally().trim().isEmpty()));
+            System.out.println("Has ciphertext_tally: " + (request.ciphertext_tally() != null));
             
             String response = electionGuardService.postRequest(url, request);
             
@@ -2355,13 +2339,76 @@ public class PartialDecryptionService {
             aggregatedResult.put("total_valid_ballots", allBallots.size());
             
             System.out.println("✅ Built aggregated results from " + chunkResults.size() + " chunks with " + allBallots.size() + " total ballots");
-            System.out.println("✅ Final tallies: " + finalTallies);
+            System.out.println("\u2705 Final tallies: " + finalTallies);
             return aggregatedResult;
             
         } catch (Exception e) {
             System.err.println("Error building aggregated results: " + e.getMessage());
             // Stack trace available in exception: e
             return new HashMap<>();
+        }
+    }
+
+    /**
+     * Recursively walk a parsed Object tree and convert any BigInteger values to their
+     * decimal String representation. msgpack cannot serialize BigInteger > 2^64-1, but
+     * ElectionGuard produces cryptographic integers larger than that. They must be
+     * transmitted as strings.
+     */
+    @SuppressWarnings("unchecked")
+    private Object sanitizeForMsgpack(Object obj) {
+        if (obj == null) return null;
+        if (obj instanceof java.math.BigInteger) return obj.toString();
+        if (obj instanceof java.util.Map) {
+            java.util.Map<Object, Object> result = new java.util.LinkedHashMap<>();
+            ((java.util.Map<?, ?>) obj).forEach((k, v) -> result.put(k, sanitizeForMsgpack(v)));
+            return result;
+        }
+        if (obj instanceof java.util.List) {
+            java.util.List<Object> result = new java.util.ArrayList<>();
+            ((java.util.List<?>) obj).forEach(item -> result.add(sanitizeForMsgpack(item)));
+            return result;
+        }
+        return obj;
+    }
+
+    /**
+     * Parse a JSON string to a Java Object (Map/List) so that msgpack serializes it as a
+     * native dict/list (not a string). The Python microservice expects complex fields as
+     * msgpack maps, not msgpack str.
+     */
+    private Object parseJsonToObject(String json) {
+        if (json == null || json.trim().isEmpty()) return null;
+        try {
+            Object parsed = objectMapper.readValue(json, Object.class);
+            return sanitizeForMsgpack(parsed);
+        } catch (Exception e) {
+            return json; // fallback: return as-is
+        }
+    }
+
+    /**
+     * Parse a list of JSON strings to a list of Java Objects for msgpack serialization.
+     */
+    private List<Object> parseJsonStringList(List<String> jsonList) {
+        if (jsonList == null) return new java.util.ArrayList<>();
+        List<Object> result = new java.util.ArrayList<>();
+        for (String json : jsonList) {
+            result.add(parseJsonToObject(json));
+        }
+        return result;
+    }
+
+    /**
+     * Serialize a microservice response value to a JSON string for DB storage.
+     */
+    private String toJsonString(Object value) {
+        if (value == null) return null;
+        if (value instanceof String s) return s;
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception e) {
+            return value.toString();
         }
     }
 }

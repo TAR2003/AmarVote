@@ -484,101 +484,7 @@ public class TallyService {
         }
     }
 
-    /**
-     * Process one tally chunk in isolated transaction
-     * Transaction boundary ensures all entities are released after chunk completion
-     */
-    @Transactional
-    private void processTallyChunkTransactional(
-            Long electionId,
-            int chunkNumber,
-            List<Long> chunkBallotIds,
-            List<String> partyNames,
-            List<String> candidateNames,
-            String jointPublicKey,
-            String baseHash,
-            int quorum,
-            int numberOfGuardians) {
-        
-        // Log memory before processing
-        Runtime runtime = Runtime.getRuntime();
-        long memoryBefore = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-        
-        System.out.println("=== Processing Chunk " + chunkNumber + " (Transaction Start) ===");
-        System.out.println("🧠 Memory before chunk: " + memoryBefore + " MB");
-        System.out.println("Fetching " + chunkBallotIds.size() + " ballots from database for this chunk...");
-        
-        // Fetch only the ballots needed for this chunk
-        List<Ballot> chunkBallots = ballotRepository.findByBallotIdIn(chunkBallotIds);
-        
-        // Create election center entry
-        ElectionCenter electionCenter = ElectionCenter.builder()
-            .electionId(electionId)
-            .build();
-        electionCenter = electionCenterRepository.save(electionCenter);
-        
-        // Extract cipher texts
-        List<String> chunkEncryptedBallots = chunkBallots.stream()
-            .map(Ballot::getCipherText)
-            .collect(Collectors.toList());
-        
-        // Call ElectionGuard service (no transaction needed for external HTTP call)
-        ElectionGuardTallyResponse guardResponse = callElectionGuardTallyService(
-            partyNames, candidateNames, jointPublicKey, 
-            baseHash, chunkEncryptedBallots,
-            quorum, numberOfGuardians
-        );
-        
-        if (!"success".equals(guardResponse.getStatus())) {
-            // Clean up before throwing
-            chunkBallots.clear();
-            chunkEncryptedBallots.clear();
-            throw new RuntimeException("ElectionGuard service failed for chunk " + chunkNumber);
-        }
-        
-        // Store encrypted tally
-        String encryptedTally = guardResponse.getCiphertext_tally();
-        electionCenter.setEncryptedTally(encryptedTally);
-        electionCenterRepository.save(electionCenter);
-        
-        // Save submitted ballots
-        if (guardResponse.getSubmitted_ballots() != null) {
-            for (String submittedBallotCipherText : guardResponse.getSubmitted_ballots()) {
-                if (!submittedBallotRepository.existsByElectionCenterIdAndCipherText(
-                        electionCenter.getElectionCenterId(), submittedBallotCipherText)) {
-                    SubmittedBallot submittedBallot = SubmittedBallot.builder()
-                        .electionCenterId(electionCenter.getElectionCenterId())
-                        .cipherText(submittedBallotCipherText)
-                        .build();
-                    submittedBallotRepository.save(submittedBallot);
-                }
-            }
-        }
-        
-        // ✅ CRITICAL: Aggressive Hibernate memory cleanup
-        entityManager.flush();
-        entityManager.clear();
-        
-        // ✅ Explicitly clear and null all large object references
-        chunkBallots.clear();
-        chunkEncryptedBallots.clear();
-        chunkBallots = null;
-        chunkEncryptedBallots = null;
-        encryptedTally = null;
-        guardResponse = null;
-        electionCenter = null;
-        
-        // Suggest garbage collection (hint to JVM)
-        System.gc();
-        
-        // Log memory after cleanup
-        long memoryAfter = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-        System.out.println("✅ Chunk " + chunkNumber + " transaction complete - All entities detached and cleared");
-        System.out.println("🗑️ Memory cleanup: EntityManager cleared, large objects nullified");
-        System.out.println("🧠 Memory after chunk: " + memoryAfter + " MB (freed " + (memoryBefore - memoryAfter) + " MB)");
-        // Transaction ends here, Hibernate session closes automatically, all entities released from memory
-    }
-    
+    // Removed: processTallyChunkTransactional - superseded by async task worker (TaskWorkerService)
     // Removed: updateTallyStatusTransactional - no longer needed as we query database directly
     
     /**
@@ -646,7 +552,7 @@ public class TallyService {
         System.out.println("✅ ElectionGuard service succeeded for chunk " + chunkNumber);
         
         // Store encrypted tally for this chunk
-        String ciphertextTallyJson = guardResponse.getCiphertext_tally();
+        String ciphertextTallyJson = toJsonString(guardResponse.getCiphertext_tally());
         electionCenter.setEncryptedTally(ciphertextTallyJson);
         electionCenterRepository.save(electionCenter);
         System.out.println("✅ Encrypted tally saved for chunk " + chunkNumber);
@@ -656,9 +562,11 @@ public class TallyService {
             System.out.println("Processing " + guardResponse.getSubmitted_ballots().length + " submitted ballots for chunk " + chunkNumber);
             
             int savedCount = 0;
-            for (String submittedBallotCipherText : guardResponse.getSubmitted_ballots()) {
+            for (Object submittedBallotRaw : guardResponse.getSubmitted_ballots()) {
                 try {
-                    if (!submittedBallotRepository.existsByElectionCenterIdAndCipherText(
+                    String submittedBallotCipherText = toJsonString(submittedBallotRaw);
+                    if (submittedBallotCipherText != null &&
+                            !submittedBallotRepository.existsByElectionCenterIdAndCipherText(
                             electionCenter.getElectionCenterId(), submittedBallotCipherText)) {
                         SubmittedBallot submittedBallot = SubmittedBallot.builder()
                             .electionCenterId(electionCenter.getElectionCenterId())
@@ -680,14 +588,9 @@ public class TallyService {
         entityManager.flush();
         entityManager.clear();
         
-        // ✅ Explicitly clear and null all large object references
+        // ✅ Clear large collections; local variables go out of scope at method end
         chunkBallots.clear();
         chunkEncryptedBallots.clear();
-        chunkBallots = null;
-        chunkEncryptedBallots = null;
-        ciphertextTallyJson = null;
-        guardResponse = null;
-        electionCenter = null;
         
         // Suggest garbage collection (hint to JVM)
         System.gc();
@@ -970,5 +873,17 @@ public class TallyService {
     private void deleteDuplicateBallotsTransactional(List<SubmittedBallot> ballotsToDelete) {
         submittedBallotRepository.deleteAll(ballotsToDelete);
         System.out.println("✅ Deleted " + ballotsToDelete.size() + " duplicate submitted ballots");
+    }
+    /**
+     * Serialize a microservice response value to a JSON string for DB storage.
+     */
+    private String toJsonString(Object value) {
+        if (value == null) return null;
+        if (value instanceof String s) return s;
+        try {
+            return objectMapper.writeValueAsString(value);
+        } catch (Exception e) {
+            return value.toString();
+        }
     }
 }

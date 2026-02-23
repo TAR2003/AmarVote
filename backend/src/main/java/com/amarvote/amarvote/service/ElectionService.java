@@ -183,7 +183,7 @@ public class ElectionService {
 
         // Validate guardian email and private key count
         List<String> guardianEmails = request.guardianEmails();
-        List<String> guardianPrivateKeys = guardianResponse.private_keys();
+        List<String> guardianPrivateKeys = toJsonStringList(guardianResponse.private_keys());
 
         // Add null checks
         if (guardianPrivateKeys == null) {
@@ -203,7 +203,7 @@ public class ElectionService {
             String privateKey = guardianPrivateKeys.get(i);
             // Note: Polynomial will be retrieved from ElectionGuard response but not stored
             // in Guardian table
-            String polynomial = guardianResponse.polynomials().get(i);
+            String polynomial = toJsonStringList(guardianResponse.polynomials()).get(i);
 
             // No need to check if user exists - we use email directly
 
@@ -246,8 +246,8 @@ public class ElectionService {
         System.out.println("Email sent to guardians with their private keys.");
 
         // Now save Guardian objects
-        List<String> guardianPublicKeys = guardianResponse.public_keys();
-        List<String> guardianDataList = guardianResponse.guardian_data();
+        List<String> guardianPublicKeys = toJsonStringList(guardianResponse.public_keys());
+        List<String> guardianDataList = toJsonStringList(guardianResponse.guardian_data());
 
         // Add null checks for guardian data
         if (guardianPublicKeys == null) {
@@ -1316,5 +1316,26 @@ public class ElectionService {
                 .message("Internal server error: " + e.getMessage())
                 .build();
         }
+    }
+
+    // -----------------------------------------------------------------------
+    // Internal helpers for deserialization of microservice list responses
+    // -----------------------------------------------------------------------
+
+    /**
+     * Serializes each Object element (dict or primitive) to a JSON string.
+     * Used for guardian_data which must be stored as a JSON blob.
+     */
+    private List<String> toJsonStringList(List<Object> objects) {
+        if (objects == null) return null;
+        List<String> result = new ArrayList<>();
+        for (Object obj : objects) {
+            try {
+                result.add(obj instanceof String s ? s : objectMapper.writeValueAsString(obj));
+            } catch (Exception e) {
+                result.add(obj != null ? obj.toString() : null);
+            }
+        }
+        return result;
     }
 }

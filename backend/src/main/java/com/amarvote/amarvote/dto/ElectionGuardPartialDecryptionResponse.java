@@ -4,9 +4,9 @@ import lombok.Builder;
 
 @Builder
 public record ElectionGuardPartialDecryptionResponse(
-    String ballot_shares,  // ✅ JSON string - NOT raw JSON object
+    Object ballot_shares,       // Object - microservice returns dict
     String guardian_public_key,
     String status,
-    String tally_share  // ✅ JSON string - NOT raw JSON object
+    Object tally_share          // Object - microservice returns dict
 ) {}
 

@@ -7,14 +7,14 @@ import lombok.Builder;
 @Builder
 public record ElectionGuardPartialDecryptionRequest(
     String guardian_id,
-    String guardian_data,  // ✅ JSON string - NOT raw JSON object
-    String private_key,    // ✅ JSON string - NOT raw JSON object
-    String public_key,     // ✅ JSON string - NOT raw JSON object
-    String polynomial,     // ✅ JSON string - NOT raw JSON object
+    Object guardian_data,   // Must be Object (map) for msgpack to serialize as dict, not str
+    Object private_key,     // Must be Object (map) for msgpack to serialize as dict, not str
+    Object public_key,      // Must be Object (map) for msgpack to serialize as dict, not str
+    Object polynomial,      // Must be Object (map) for msgpack to serialize as dict, not str
     List<String> party_names,
     List<String> candidate_names,
-    String ciphertext_tally,  // ✅ JSON string - NOT raw JSON object
-    List<String> submitted_ballots,
+    Object ciphertext_tally,   // Must be Object (map) for msgpack to serialize as dict, not str
+    List<Object> submitted_ballots, // Must be List<Object> for msgpack to serialize as list of dicts
     String joint_public_key,
     String commitment_hash,
     int number_of_guardians,
