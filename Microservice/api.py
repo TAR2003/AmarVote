@@ -361,11 +361,33 @@ def deserialize_list_of_strings_to_list_of_dicts(data, label="list"):
     else:
         raise ValueError(f"Expected list or string, got {type(data)}")
 
+def _bytes_to_str_deep(obj):
+    """Recursively decode bytes → UTF-8 str for dicts/lists coming from msgpack raw=True mode."""
+    if isinstance(obj, bytes):
+        return obj.decode('utf-8', errors='replace')
+    elif isinstance(obj, dict):
+        return {_bytes_to_str_deep(k): _bytes_to_str_deep(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        return [_bytes_to_str_deep(v) for v in obj]
+    return obj
+
+
 def get_request_data():
-    """Parse request body: accepts both application/msgpack and application/json."""
+    """Parse request body: accepts both application/msgpack and application/json.
+
+    Handles both the modern msgpack format (use_bin_type=True / raw=False) and
+    the legacy format (use_bin_type=False / raw=True).  The legacy format stores
+    byte strings as msgpack *raw* type, which cannot be decoded as UTF-8 when
+    ``raw=False`` is used, causing a UnicodeDecodeError / UnpackValueError.  We
+    silently fall back to raw=True and convert all byte values to strings.
+    """
     ct = request.content_type or ''
     if 'msgpack' in ct:
-        return msgpack.unpackb(request.data, raw=False)
+        try:
+            return msgpack.unpackb(request.data, raw=False)
+        except (UnicodeDecodeError, ValueError):
+            raw_data = msgpack.unpackb(request.data, raw=True)
+            return _bytes_to_str_deep(raw_data)
     return request.json
 
 
