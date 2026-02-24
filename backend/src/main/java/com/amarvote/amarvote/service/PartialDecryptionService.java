@@ -149,7 +149,7 @@ public class PartialDecryptionService {
             // ===== CRITICAL CHECK: Tally must exist before guardian key submission =====
             // Check if encrypted tally exists (check election_center table for chunks)
             // MEMORY-EFFICIENT: Fetch only election center IDs first
-            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(request.election_id());
+            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(request.election_id());
             System.out.println("=== TALLY VERIFICATION ===");
             System.out.println("Checking if encrypted tally exists for election " + request.election_id());
             System.out.println("Found " + electionCenterIds.size() + " chunk(s) in election_center table");
@@ -317,7 +317,7 @@ public class PartialDecryptionService {
             
             try {
                 // 4. Lock acquired - now check database to see if work already exists
-                List<Long> allChunks = electionCenterRepository.findElectionCenterIdsByElectionId(request.election_id());
+                List<Long> allChunks = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(request.election_id());
                 long completedPartial = decryptionRepository.countByElectionIdAndGuardianId(request.election_id(), guardian.getGuardianId());
                 List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
                 int totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1);
@@ -521,7 +521,7 @@ public class PartialDecryptionService {
                 }
             } else {
                 // Partial task not in scheduler - get chunk count from database
-                List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
+                List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
                 totalChunks = electionCenterIds.size();
                 completedChunks = decryptionRepository.countByElectionIdAndGuardianId(electionId, guardianId);
                 System.out.println("📊 Partial task not in scheduler - using database: " + completedChunks + "/" + totalChunks);
@@ -633,7 +633,7 @@ public class PartialDecryptionService {
         }
         
         // No active task in scheduler - check database for completed decryption
-        List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
+        List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
         int totalChunks = electionCenterIds.size();
         
         if (totalChunks == 0) {
@@ -770,9 +770,9 @@ public class PartialDecryptionService {
             jobRepository.save(job);
             System.out.println("✅ Created ElectionJob record for tracking");
             
-            // MEMORY-EFFICIENT: Fetch only election center IDs (not full objects)
-            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(request.election_id());
-            System.out.println("✅ Found " + electionCenterIds.size() + " election center IDs (not loading full objects yet)");
+            // MEMORY-EFFICIENT: Fetch only election center IDs that have a completed tally
+            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(request.election_id());
+            System.out.println("✅ Found " + electionCenterIds.size() + " election center IDs with tally (not loading full objects yet)");
             
             // Get all guardians to calculate total compensated guardians upfront
             List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
@@ -1196,8 +1196,8 @@ public class PartialDecryptionService {
             jobRepository.save(job);
             System.out.println("✅ Created ElectionJob record for tracking");
             
-            // Get election center IDs (not full objects - memory efficient)
-            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
+            // Get election center IDs that have a completed tally (not full objects - memory efficient)
+            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
             int totalChunks = electionCenterIds != null ? electionCenterIds.size() : 0;
             
             if (totalChunks == 0) {
@@ -1355,8 +1355,8 @@ public class PartialDecryptionService {
             }
             Election election = electionOpt.get();
 
-            // 2. MEMORY-EFFICIENT: Check if tally exists using IDs first
-            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(request.election_id());
+            // 2. MEMORY-EFFICIENT: Check if tally exists using IDs first (only centres with a completed tally)
+            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(request.election_id());
             if (electionCenterIds == null || electionCenterIds.isEmpty()) {
                 return CombinePartialDecryptionResponse.builder()
                     .success(false)

@@ -880,7 +880,7 @@ public class TaskWorkerService {
             System.out.println("📊 Partial Decryption Progress (Guardian " + guardianId + "): Chunk " + completedChunk + " completed");
             
             // Check if all partial decryption chunks are completed by querying database
-            List<Long> allChunks = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
+            List<Long> allChunks = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
             long completedCount = decryptionRepository.countByElectionIdAndGuardianId(electionId, guardianId);
             
             System.out.println("📊 Completed " + completedCount + "/" + allChunks.size() + " partial decryption chunks");
@@ -918,11 +918,7 @@ public class TaskWorkerService {
                     System.out.println("🚀 Queueing compensated decryption tasks for guardian " + guardianId);
                     
                     // Get election center IDs (chunks)
-                    List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
-                    List<Long> electionCenterIds = electionCenters.stream()
-                        .map(ElectionCenter::getElectionCenterId)
-                        .sorted()
-                        .collect(Collectors.toList());
+                    List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
                     
                     int totalCompensatedTasks = electionCenterIds.size() * totalCompensatedGuardians;
                     System.out.println("📋 Total compensated tasks to queue: " + totalCompensatedTasks + 
@@ -955,7 +951,7 @@ public class TaskWorkerService {
             System.out.println("📊 Compensated Decryption Progress for guardian " + guardianId);
             
             // Query database to check if all compensated decryptions are done
-            List<Long> allChunks = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
+            List<Long> allChunks = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
             List<Guardian> allGuardians = guardianRepository.findByElectionId(electionId);
             int totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1);
             
