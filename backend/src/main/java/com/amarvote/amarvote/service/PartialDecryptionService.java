@@ -317,6 +317,46 @@ public class PartialDecryptionService {
             
             try {
                 // 4. Lock acquired - now check database to see if work already exists
+
+                // 4a. Check for an active ElectionJob (IN_PROGRESS or QUEUED).
+                // If one exists AND the scheduler has live tasks → genuinely in-flight, reject.
+                // If one exists but no live tasks → stale record, clean it up and proceed.
+                String decryptionOpType = "DECRYPTION_" + guardian.getGuardianId();
+                if (jobRepository.existsActiveJob(request.election_id(), decryptionOpType)) {
+                    Long guardianIdVal = guardian.getGuardianId();
+                    boolean hasLiveDecryptionTasks = decryptionTaskQueueService.getRoundRobinTaskScheduler()
+                        .getElectionProgress(request.election_id())
+                        .stream()
+                        .anyMatch(p -> !p.isComplete()
+                            && (p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.PARTIAL_DECRYPTION
+                                || p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.COMPENSATED_DECRYPTION)
+                            && (java.util.Objects.equals(guardianIdVal, p.getGuardianId())
+                                || java.util.Objects.equals(guardianIdVal, p.getSourceGuardianId())));
+
+                    if (hasLiveDecryptionTasks) {
+                        redisLockService.releaseLock(lockKey);
+                        System.out.println("⚠️ Active decryption job with live scheduler tasks for guardian " + guardianIdVal + " - rejecting duplicate");
+                        return CreatePartialDecryptionResponse.builder()
+                            .success(true)
+                            .message("Decryption is already in progress")
+                            .build();
+                    }
+
+                    // Stale: mark old jobs FAILED so they don't block future requests
+                    jobRepository.findByElectionIdOrderByStartedAtDesc(request.election_id())
+                        .stream()
+                        .filter(j -> ("IN_PROGRESS".equals(j.getStatus()) || "QUEUED".equals(j.getStatus()))
+                            && decryptionOpType.equals(j.getOperationType()))
+                        .forEach(j -> {
+                            j.setStatus("FAILED");
+                            j.setErrorMessage("Marked FAILED: process exited without completing (no active scheduler tasks on re-check)");
+                            j.setCompletedAt(java.time.Instant.now());
+                            jobRepository.save(j);
+                        });
+                    System.out.println("🧹 Cleaned up stale DECRYPTION job(s) for guardian " + guardianIdVal + " - proceeding with fresh run");
+                }
+
+                // 4b. Check existing decryption records in database
                 List<Long> allChunks = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(request.election_id());
                 long completedPartial = decryptionRepository.countByElectionIdAndGuardianId(request.election_id(), guardian.getGuardianId());
                 List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
@@ -1123,6 +1163,41 @@ public class PartialDecryptionService {
             
             try {
                 // 3. Lock acquired - now check database to see if work already exists
+
+                // 3a. Check for an active ElectionJob (IN_PROGRESS or QUEUED).
+                // If one exists AND the scheduler has live COMBINE_DECRYPTION tasks → genuinely in-flight, reject.
+                // If one exists but no live tasks → stale record, clean it up and proceed.
+                if (jobRepository.existsActiveJob(electionId, "COMBINE")) {
+                    boolean hasLiveCombineTasks = decryptionTaskQueueService.getRoundRobinTaskScheduler()
+                        .getElectionProgress(electionId)
+                        .stream()
+                        .anyMatch(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.COMBINE_DECRYPTION
+                            && !p.isComplete());
+
+                    if (hasLiveCombineTasks) {
+                        redisLockService.releaseLock(lockKey);
+                        System.out.println("⚠️ Active combine job with live scheduler tasks for election " + electionId + " - rejecting duplicate");
+                        return CombinePartialDecryptionResponse.builder()
+                            .success(true)
+                            .message("Combine is already in progress")
+                            .build();
+                    }
+
+                    // Stale: mark old jobs FAILED so they don't block future requests
+                    jobRepository.findByElectionIdOrderByStartedAtDesc(electionId)
+                        .stream()
+                        .filter(j -> ("IN_PROGRESS".equals(j.getStatus()) || "QUEUED".equals(j.getStatus()))
+                            && "COMBINE".equals(j.getOperationType()))
+                        .forEach(j -> {
+                            j.setStatus("FAILED");
+                            j.setErrorMessage("Marked FAILED: process exited without completing (no active scheduler tasks on re-check)");
+                            j.setCompletedAt(java.time.Instant.now());
+                            jobRepository.save(j);
+                        });
+                    System.out.println("🧹 Cleaned up stale COMBINE job(s) for election " + electionId + " - proceeding with fresh run");
+                }
+
+                // 3b. Check existing combine records in database
                 long completedChunks = electionCenterRepository.countByElectionIdAndElectionResultNotNull(electionId);
                 
                 if (completedChunks > 0 && completedChunks < electionCenters.size()) {

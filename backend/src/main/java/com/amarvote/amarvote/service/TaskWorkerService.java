@@ -88,6 +88,9 @@ public class TaskWorkerService {
     @Autowired
     private RoundRobinTaskScheduler roundRobinTaskScheduler;
 
+    @Autowired
+    private RedisLockService redisLockService;
+
     // Track currently processing tasks to prevent duplicates (per election/guardian)
     private static final ConcurrentHashMap<String, Boolean> processingLocks = new ConcurrentHashMap<>();
 
@@ -875,70 +878,101 @@ public class TaskWorkerService {
     
     // Removed: updateTallyError - errors can be handled without status table
     
+    /**
+     * Called after every partial-decryption chunk completes.
+     *
+     * Race-condition-free design:
+     *   - Uses Redis INCR (atomic) as the completion counter so that exactly one
+     *     worker observes count == totalChunks, no matter how many workers run in
+     *     parallel.
+     *   - Uses Redis SET NX as a one-shot trigger guard so that even if two workers
+     *     somehow both see count >= totalChunks, only the first one queues Phase 2.
+     *   - Falls back to a DB count check when Redis is unavailable, with an extra
+     *     log warning so the operator is aware.
+     */
     private void updatePartialDecryptionProgress(Long electionId, Long guardianId, int completedChunk) {
         try {
             System.out.println("📊 Partial Decryption Progress (Guardian " + guardianId + "): Chunk " + completedChunk + " completed");
-            
-            // Check if all partial decryption chunks are completed by querying database
+
             List<Long> allChunks = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
-            long completedCount = decryptionRepository.countByElectionIdAndGuardianId(electionId, guardianId);
-            
-            System.out.println("📊 Completed " + completedCount + "/" + allChunks.size() + " partial decryption chunks");
-            
-            // Check if all partial decryption chunks are completed
-            if (completedCount >= allChunks.size()) {
-                System.out.println("✅ All partial decryption chunks completed for guardian " + guardianId);
-                System.out.println("=== PHASE 1 COMPLETED - NOW QUEUEING PHASE 2 (COMPENSATED DECRYPTION) ===");
-                
-                // Check if this is a single guardian election (no compensated shares needed)
-                List<Guardian> allGuardians = guardianRepository.findByElectionId(electionId);
-                int totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1);
-                
-                if (totalCompensatedGuardians == 0) {
-                    // Single guardian - mark as completed immediately
-                    credentialCacheService.clearCredentials(electionId, guardianId);
-                    markGuardianAsDecrypted(guardianId);
-                    System.out.println("✅ Single guardian election - decryption completed for guardian " + guardianId);
-                } else {
-                    // Multiple guardians - queue compensated decryption tasks
-                    System.out.println("🔄 Transitioning to compensated shares generation phase");
-                    System.out.println("📊 Need to generate shares for " + totalCompensatedGuardians + " other guardians");
-                    
-                    // Get stored credentials from Redis (secure in-memory cache)
-                    String decryptedPrivateKey = credentialCacheService.getPrivateKey(electionId, guardianId);
-                    String decryptedPolynomial = credentialCacheService.getPolynomial(electionId, guardianId);
-                    
-                    if (decryptedPrivateKey == null || decryptedPolynomial == null) {
-                        System.err.println("❌ ERROR: Missing credentials in Redis cache (may have expired)");
-                        System.err.println("❌ Cannot queue compensated tasks without credentials");
-                        return;
-                    }
-                    
-                    // ✅ Queue compensated decryption tasks NOW
-                    System.out.println("🚀 Queueing compensated decryption tasks for guardian " + guardianId);
-                    
-                    // Get election center IDs (chunks)
-                    List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
-                    
-                    int totalCompensatedTasks = electionCenterIds.size() * totalCompensatedGuardians;
-                    System.out.println("📋 Total compensated tasks to queue: " + totalCompensatedTasks + 
-                        " (" + electionCenterIds.size() + " chunks × " + totalCompensatedGuardians + " guardians)");
-                    
-                    // Queue the tasks
-                    try {
-                        decryptionTaskQueueService.queueCompensatedDecryptionTasks(
-                            electionId,
-                            guardianId,
-                            electionCenterIds,
-                            decryptedPrivateKey,
-                            decryptedPolynomial
-                        );
-                        System.out.println("✅ Compensated decryption tasks queued successfully");
-                    } catch (Exception e) {
-                        System.err.println("❌ Failed to queue compensated tasks: " + e.getMessage());
-                    }
-                }
+            int totalChunks = allChunks.size();
+
+            // ── Atomic counter (Redis INCR) ──────────────────────────────────────────
+            // TTL = 4 hours — safely longer than any expected decryption operation.
+            // The counter is keyed per (election, guardian) so different guardians
+            // are independent.
+            String counterKey = RedisLockService.buildPhase1CounterKey(electionId, guardianId);
+            long atomicCount = redisLockService.incrementCounter(counterKey, 14400);
+
+            if (atomicCount < 0) {
+                // Redis unavailable — fall back to DB count (race condition possible but
+                // better than silently doing nothing)
+                System.err.println("⚠️ Redis unavailable for Phase-1 counter; falling back to DB count (race condition possible!)");
+                atomicCount = decryptionRepository.countByElectionIdAndGuardianId(electionId, guardianId);
             }
+
+            System.out.println("📊 Atomic Phase-1 count: " + atomicCount + "/" + totalChunks + " for guardian " + guardianId);
+
+            if (atomicCount < totalChunks) {
+                return; // Not all chunks done yet
+            }
+
+            // ── Trigger guard (Redis SET NX) ─────────────────────────────────────────
+            // Guarantees exactly-once queuing of Phase 2, even if atomicCount > total
+            // due to message replay.
+            String triggerKey = RedisLockService.buildPhase1TriggerKey(electionId, guardianId);
+            boolean isFirstToTrigger = redisLockService.setFlagIfAbsent(triggerKey, 14400);
+            if (!isFirstToTrigger) {
+                System.out.println("⚠️ Phase-2 trigger already fired for guardian " + guardianId + " — skipping duplicate");
+                return;
+            }
+
+            System.out.println("✅ All partial decryption chunks completed for guardian " + guardianId);
+            System.out.println("=== PHASE 1 COMPLETED - NOW QUEUEING PHASE 2 (COMPENSATED DECRYPTION) ===");
+
+            List<Guardian> allGuardians = guardianRepository.findByElectionId(electionId);
+            int totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1);
+
+            if (totalCompensatedGuardians == 0) {
+                // Single guardian — no compensated shares needed; mark done immediately
+                credentialCacheService.clearCredentials(electionId, guardianId);
+                // Clean up Phase-2 counter/trigger keys (not needed for single guardian)
+                redisLockService.deleteKey(RedisLockService.buildPhase2CounterKey(electionId, guardianId));
+                redisLockService.deleteKey(RedisLockService.buildPhase2TriggerKey(electionId, guardianId));
+                markGuardianAsDecrypted(guardianId);
+                System.out.println("✅ Single guardian election — decryption completed for guardian " + guardianId);
+                return;
+            }
+
+            // Multiple guardians — queue compensated decryption tasks
+            System.out.println("🔄 Transitioning to compensated shares generation phase");
+            System.out.println("📊 Need to generate shares for " + totalCompensatedGuardians + " other guardians");
+
+            String decryptedPrivateKey = credentialCacheService.getPrivateKey(electionId, guardianId);
+            String decryptedPolynomial = credentialCacheService.getPolynomial(electionId, guardianId);
+
+            if (decryptedPrivateKey == null || decryptedPolynomial == null) {
+                System.err.println("❌ ERROR: Guardian credentials missing from Redis cache (expired?) — cannot queue compensated tasks");
+                // Clear the trigger flag so a manual retry can re-enter this branch
+                redisLockService.deleteKey(triggerKey);
+                return;
+            }
+
+            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
+            int totalCompensatedTasks = electionCenterIds.size() * totalCompensatedGuardians;
+            System.out.println("📋 Total compensated tasks to queue: " + totalCompensatedTasks +
+                " (" + electionCenterIds.size() + " chunks × " + totalCompensatedGuardians + " guardians)");
+
+            try {
+                decryptionTaskQueueService.queueCompensatedDecryptionTasks(
+                    electionId, guardianId, electionCenterIds, decryptedPrivateKey, decryptedPolynomial);
+                System.out.println("✅ Compensated decryption tasks queued successfully");
+            } catch (Exception e) {
+                System.err.println("❌ Failed to queue compensated tasks: " + e.getMessage());
+                // Clear the trigger flag so a retry attempt can re-queue
+                redisLockService.deleteKey(triggerKey);
+            }
+
         } catch (Exception e) {
             System.err.println("Failed to update partial decryption progress: " + e.getMessage());
         }
@@ -946,36 +980,65 @@ public class TaskWorkerService {
     
     // Removed: updatePartialDecryptionError - errors can be handled without status table
     
+    /**
+     * Called after every compensated-decryption chunk completes.
+     *
+     * Uses the same Redis INCR + SET NX pattern as updatePartialDecryptionProgress
+     * to guarantee that markGuardianAsDecrypted is called exactly once, regardless
+     * of how many workers run concurrently.
+     */
     private void updateCompensatedDecryptionProgress(Long electionId, Long guardianId) {
         try {
             System.out.println("📊 Compensated Decryption Progress for guardian " + guardianId);
-            
-            // Query database to check if all compensated decryptions are done
+
             List<Long> allChunks = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
             List<Guardian> allGuardians = guardianRepository.findByElectionId(electionId);
             int totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1);
-            
-            if (totalCompensatedGuardians > 0) {
-                long compensatedCount = compensatedDecryptionRepository
-                    .countByElectionIdAndCompensatingGuardianId(electionId, guardianId);
-                long totalExpected = (long) allChunks.size() * totalCompensatedGuardians;
-                
-                System.out.println("📊 Compensated progress: " + compensatedCount + "/" + totalExpected + " completed");
-                
-                // Check if all compensated shares are completed
-                if (compensatedCount >= totalExpected) {
-                    System.out.println("✅ ALL COMPENSATED SHARES COMPLETED FOR GUARDIAN " + guardianId);
-                    
-                    // ✅ Clear credentials from Redis cache now that we're done
-                    credentialCacheService.clearCredentials(electionId, guardianId);
-                    
-                    // Mark guardian as decrypted (needed for frontend combine button)
-                    markGuardianAsDecrypted(guardianId);
-                    
-                    System.out.println("✅ Decryption fully completed for guardian " + guardianId);
-                    System.out.println("🔒 Credentials securely removed from Redis cache");
-                }
+
+            if (totalCompensatedGuardians == 0) {
+                // Should not normally reach here for single-guardian elections
+                // (handled in updatePartialDecryptionProgress), but guard defensively
+                return;
             }
+
+            long totalExpected = (long) allChunks.size() * totalCompensatedGuardians;
+
+            // ── Atomic counter (Redis INCR) ──────────────────────────────────────────
+            String counterKey = RedisLockService.buildPhase2CounterKey(electionId, guardianId);
+            long atomicCount = redisLockService.incrementCounter(counterKey, 14400);
+
+            if (atomicCount < 0) {
+                // Redis unavailable — fall back to DB count
+                System.err.println("⚠️ Redis unavailable for Phase-2 counter; falling back to DB count (race condition possible!)");
+                atomicCount = compensatedDecryptionRepository
+                    .countByElectionIdAndCompensatingGuardianId(electionId, guardianId);
+            }
+
+            System.out.println("📊 Atomic Phase-2 count: " + atomicCount + "/" + totalExpected + " for guardian " + guardianId);
+
+            if (atomicCount < totalExpected) {
+                return; // Not all compensated chunks done yet
+            }
+
+            // ── Trigger guard (Redis SET NX) ─────────────────────────────────────────
+            String triggerKey = RedisLockService.buildPhase2TriggerKey(electionId, guardianId);
+            boolean isFirstToTrigger = redisLockService.setFlagIfAbsent(triggerKey, 14400);
+            if (!isFirstToTrigger) {
+                System.out.println("⚠️ Phase-2 completion trigger already fired for guardian " + guardianId + " — skipping duplicate");
+                return;
+            }
+
+            System.out.println("✅ ALL COMPENSATED SHARES COMPLETED FOR GUARDIAN " + guardianId);
+
+            // Securely wipe credentials from Redis — they are no longer needed
+            credentialCacheService.clearCredentials(electionId, guardianId);
+
+            // Mark guardian as decrypted so the Combine button becomes available
+            markGuardianAsDecrypted(guardianId);
+
+            System.out.println("✅ Decryption fully completed for guardian " + guardianId);
+            System.out.println("🔒 Credentials securely removed from Redis cache");
+
         } catch (Exception e) {
             System.err.println("Failed to update compensated decryption progress: " + e.getMessage());
         }
@@ -1053,11 +1116,16 @@ public class TaskWorkerService {
     }
 
     /**
-     * Mark guardian as decrypted in separate transaction
-     * This is needed for the frontend to show the combine button
+     * Mark guardian as decrypted.
+     *
+     * NOTE: This method is intentionally PUBLIC so that Spring's CGLIB proxy
+     * honours the @Transactional annotation.  Private methods are never intercepted
+     * by the proxy, meaning @Transactional on a private method is silently ignored.
+     * Making this public ensures the guardian update always runs in its own
+     * transaction and commits independently of the caller.
      */
     @Transactional
-    private void markGuardianAsDecrypted(Long guardianId) {
+    public void markGuardianAsDecrypted(Long guardianId) {
         try {
             Optional<Guardian> guardianOpt = guardianRepository.findById(guardianId);
             if (guardianOpt.isPresent()) {

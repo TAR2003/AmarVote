@@ -215,4 +215,82 @@ public class RedisLockService {
     public static String buildCombineLockKey(Long electionId) {
         return "lock:combine:election:" + electionId;
     }
+
+    // =========================================================================
+    // Atomic counter helpers — used to detect phase completion without races
+    // =========================================================================
+
+    /**
+     * Atomically increment a counter and return the new value.
+     * Sets a TTL on the very first increment so stale counters are auto-cleaned.
+     *
+     * @param key              Redis key for the counter
+     * @param expirationSeconds TTL to set on first creation
+     * @return new counter value, or -1 if Redis is unavailable
+     */
+    public long incrementCounter(String key, long expirationSeconds) {
+        try {
+            Long newValue = redisTemplate.opsForValue().increment(key);
+            if (Long.valueOf(1L).equals(newValue)) {
+                // First increment — set expiration so orphaned counters clean themselves up
+                redisTemplate.expire(key, expirationSeconds, TimeUnit.SECONDS);
+            }
+            return newValue != null ? newValue : 0L;
+        } catch (Exception e) {
+            System.err.println("❌ Error incrementing Redis counter [" + key + "]: " + e.getMessage());
+            return -1L;
+        }
+    }
+
+    /**
+     * Atomically set a flag key only if it does not already exist (SET NX).
+     * Returns true if this caller is the first to set it ("wins" the trigger slot).
+     * Used as a one-shot trigger guard to prevent duplicate phase transitions.
+     *
+     * @param key              Redis key for the flag
+     * @param expirationSeconds TTL so orphaned flags are auto-cleaned
+     * @return true if the flag was newly set by this call; false if already existed
+     */
+    public boolean setFlagIfAbsent(String key, long expirationSeconds) {
+        try {
+            Boolean set = redisTemplate.opsForValue().setIfAbsent(key, "1", expirationSeconds, TimeUnit.SECONDS);
+            return Boolean.TRUE.equals(set);
+        } catch (Exception e) {
+            System.err.println("❌ Error setting Redis flag [" + key + "]: " + e.getMessage());
+            return false;
+        }
+    }
+
+    /**
+     * Clear a counter or flag key created by this service.
+     */
+    public void deleteKey(String key) {
+        try {
+            redisTemplate.delete(key);
+        } catch (Exception e) {
+            System.err.println("❌ Error deleting Redis key [" + key + "]: " + e.getMessage());
+        }
+    }
+
+    // ---- Static key builders for progress counters ----
+
+    /** Redis counter key: how many partial-decryption chunks completed for a guardian */
+    public static String buildPhase1CounterKey(Long electionId, Long guardianId) {
+        return "counter:partial_decryption:" + electionId + ":" + guardianId;
+    }
+
+    /** Redis flag key: Phase-2 (compensated decryption) already triggered for a guardian */
+    public static String buildPhase1TriggerKey(Long electionId, Long guardianId) {
+        return "trigger:compensated_queued:" + electionId + ":" + guardianId;
+    }
+
+    /** Redis counter key: how many compensated-decryption chunks completed for a guardian */
+    public static String buildPhase2CounterKey(Long electionId, Long guardianId) {
+        return "counter:compensated_decryption:" + electionId + ":" + guardianId;
+    }
+
+    /** Redis flag key: guardian already marked as decrypted */
+    public static String buildPhase2TriggerKey(Long electionId, Long guardianId) {
+        return "trigger:guardian_marked:" + electionId + ":" + guardianId;
+    }
 }

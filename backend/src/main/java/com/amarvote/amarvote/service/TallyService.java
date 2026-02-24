@@ -282,6 +282,49 @@ public class TallyService {
             }
             
             // 4. Lock acquired - now check database to see if work already exists
+
+            // 4a. Check for an active ElectionJob (IN_PROGRESS or QUEUED).
+            // Strategy:
+            //   - If an active job exists in the DB AND the scheduler has live TALLY
+            //     tasks for this election → genuinely in progress, reject the duplicate.
+            //   - If an active job exists BUT the scheduler has NO live tasks → the
+            //     previous createTallyAsync() died or hit an error without ever marking
+            //     the job COMPLETED/FAILED (stale record). Clean it up and proceed.
+            if (jobRepository.existsActiveJob(request.getElection_id(), "TALLY")) {
+                // Check whether the scheduler actually has live tasks for this election
+                boolean hasLiveSchedulerTasks = roundRobinTaskScheduler.getElectionProgress(request.getElection_id())
+                    .stream()
+                    .anyMatch(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.TALLY_CREATION
+                        && !p.isComplete());
+
+                if (hasLiveSchedulerTasks) {
+                    // Truly in-flight — another process is actively working
+                    redisLockService.releaseLock(lockKey);
+                    System.out.println("⚠️ Active tally job with live scheduler tasks for election: " + request.getElection_id() + " - rejecting duplicate request");
+                    return CreateTallyResponse.builder()
+                        .success(true)
+                        .message("Tally creation is already in progress")
+                        .encryptedTally("IN_PROGRESS")
+                        .build();
+                }
+
+                // Stale jobs: no scheduler tasks but DB job still marked active
+                // Mark them FAILED so they no longer block future requests
+                List<ElectionJob> staleJobs = jobRepository.findByElectionIdOrderByStartedAtDesc(request.getElection_id())
+                    .stream()
+                    .filter(j -> ("IN_PROGRESS".equals(j.getStatus()) || "QUEUED".equals(j.getStatus()))
+                        && "TALLY".equals(j.getOperationType()))
+                    .collect(java.util.stream.Collectors.toList());
+                for (ElectionJob staleJob : staleJobs) {
+                    staleJob.setStatus("FAILED");
+                    staleJob.setErrorMessage("Marked FAILED: process exited without completing (no active scheduler tasks found on re-check)");
+                    staleJob.setCompletedAt(Instant.now());
+                    jobRepository.save(staleJob);
+                }
+                System.out.println("🧹 Cleaned up " + staleJobs.size() + " stale TALLY job(s) for election " + request.getElection_id() + " - proceeding with fresh run");
+            }
+
+            // 4b. Also check ElectionCenter chunks (covers fully-completed tallies)
             List<ElectionCenter> existingChunks = electionCenterRepository.findByElectionId(request.getElection_id());
             if (!existingChunks.isEmpty()) {
                 long completedChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(request.getElection_id());
