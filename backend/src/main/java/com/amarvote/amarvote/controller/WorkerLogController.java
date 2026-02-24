@@ -3,9 +3,11 @@ package com.amarvote.amarvote.controller;
 import com.amarvote.amarvote.model.TallyWorkerLog;
 import com.amarvote.amarvote.model.DecryptionWorkerLog;
 import com.amarvote.amarvote.model.CombineWorkerLog;
+import com.amarvote.amarvote.model.ElectionJob;
 import com.amarvote.amarvote.repository.TallyWorkerLogRepository;
 import com.amarvote.amarvote.repository.DecryptionWorkerLogRepository;
 import com.amarvote.amarvote.repository.CombineWorkerLogRepository;
+import com.amarvote.amarvote.repository.ElectionJobRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
@@ -24,6 +26,7 @@ public class WorkerLogController {
     private final TallyWorkerLogRepository tallyWorkerLogRepository;
     private final DecryptionWorkerLogRepository decryptionWorkerLogRepository;
     private final CombineWorkerLogRepository combineWorkerLogRepository;
+    private final ElectionJobRepository electionJobRepository;
 
     /**
      * Get tally worker logs with statistics for an election
@@ -31,10 +34,18 @@ public class WorkerLogController {
     @GetMapping("/tally/{electionId}")
     public ResponseEntity<Map<String, Object>> getTallyWorkerLogs(@PathVariable Long electionId) {
         List<TallyWorkerLog> logs = tallyWorkerLogRepository.findByElectionIdOrderByStartTimeAsc(electionId);
-        
+
+        String initiatorEmail = electionJobRepository
+            .findFirstByElectionIdAndOperationTypeOrderByStartedAtDesc(electionId, "TALLY")
+            .map(ElectionJob::getCreatedBy)
+            .orElse(null);
+
+        Map<String, Object> stats = new HashMap<>(calculateStatistics(logs));
+        stats.put("initiatorEmail", initiatorEmail);
+
         Map<String, Object> response = new HashMap<>();
         response.put("logs", logs.stream().map(this::mapTallyLog).collect(Collectors.toList()));
-        response.put("statistics", calculateStatistics(logs));
+        response.put("statistics", stats);
         
         return ResponseEntity.ok(response);
     }
@@ -75,10 +86,18 @@ public class WorkerLogController {
     @GetMapping("/combine/{electionId}")
     public ResponseEntity<Map<String, Object>> getCombineWorkerLogs(@PathVariable Long electionId) {
         List<CombineWorkerLog> logs = combineWorkerLogRepository.findByElectionIdOrderByStartTimeAsc(electionId);
-        
+
+        String initiatorEmail = electionJobRepository
+            .findFirstByElectionIdAndOperationTypeOrderByStartedAtDesc(electionId, "COMBINE")
+            .map(ElectionJob::getCreatedBy)
+            .orElse(null);
+
+        Map<String, Object> stats = new HashMap<>(calculateCombineStatistics(logs));
+        stats.put("initiatorEmail", initiatorEmail);
+
         Map<String, Object> response = new HashMap<>();
         response.put("logs", logs.stream().map(this::mapCombineLog).collect(Collectors.toList()));
-        response.put("statistics", calculateCombineStatistics(logs));
+        response.put("statistics", stats);
         
         return ResponseEntity.ok(response);
     }

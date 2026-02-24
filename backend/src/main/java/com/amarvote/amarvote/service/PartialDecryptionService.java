@@ -1096,9 +1096,10 @@ public class PartialDecryptionService {
             
             // 2. Try to acquire Redis lock FIRST
             String lockKey = RedisLockService.buildCombineLockKey(electionId);
+            String initiatorEmail = (userEmail != null && !userEmail.isBlank()) ? userEmail : "system";
             boolean lockAcquired = redisLockService.tryAcquireLock(
                 lockKey,
-                "system", // System-initiated (no specific user)
+                initiatorEmail,
                 "COMBINE_DECRYPTION",
                 "Election ID: " + electionId
             );
@@ -1110,7 +1111,7 @@ public class PartialDecryptionService {
                     LockMetadata metadata = existingLock.get();
                     return CombinePartialDecryptionResponse.builder()
                         .success(true)
-                        .message("Combine is already in progress. Started at " + metadata.getStartTime())
+                        .message("Combine is already in progress. Started by " + metadata.getUserEmail() + " at " + metadata.getStartTime())
                         .build();
                 } else {
                     return CombinePartialDecryptionResponse.builder()
@@ -1147,7 +1148,7 @@ public class PartialDecryptionService {
                 System.out.println("✅ Starting async processing...");
                 
                 // 4. Start async processing (lock will be held during processing)
-                processCombineAsync(electionId);
+                processCombineAsync(electionId, initiatorEmail);
                 
                 return CombinePartialDecryptionResponse.builder()
                     .success(true)
@@ -1175,7 +1176,7 @@ public class PartialDecryptionService {
      * NEW: Uses RabbitMQ queue to process chunks individually
      */
     @Async
-    public void processCombineAsync(Long electionId) {
+    public void processCombineAsync(Long electionId, String userEmail) {
         String lockKey = RedisLockService.buildCombineLockKey(electionId);
         
         try {
@@ -1190,7 +1191,7 @@ public class PartialDecryptionService {
                 .status("IN_PROGRESS")
                 .totalChunks(0) // Will be updated below
                 .processedChunks(0)
-                .createdBy("system")
+                .createdBy(userEmail != null && !userEmail.isBlank() ? userEmail : "system")
                 .startedAt(java.time.Instant.now())
                 .build();
             jobRepository.save(job);

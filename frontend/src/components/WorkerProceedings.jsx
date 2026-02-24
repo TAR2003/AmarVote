@@ -46,6 +46,21 @@ const WorkerProceedings = ({ electionId }) => {
     combine: null
   });
 
+  // Dark mode detection for chart label colors
+  const [isDark, setIsDark] = useState(
+    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
+  );
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setIsDark(document.documentElement.classList.contains('dark'));
+    });
+    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
+    return () => observer.disconnect();
+  }, []);
+  const labelColor = isDark ? '#E5E7EB' : '#374151';
+  const tickColor = isDark ? '#9CA3AF' : '#6B7280';
+  const gridColor = isDark ? '#374151' : '#e5e7eb';
+
   const tabs = [
     { id: 'tally', label: 'Tally Processing', icon: FiBarChart2, color: 'blue' },
     { id: 'partialDecryption', label: 'Partial Decryption', icon: FiActivity, color: 'purple' },
@@ -145,19 +160,25 @@ const WorkerProceedings = ({ electionId }) => {
   }, [workerData]);
 
   const formatDuration = (milliseconds) => {
-    if (!milliseconds) return 'N/A';
-    
-    const seconds = Math.floor(milliseconds / 1000);
-    const minutes = Math.floor(seconds / 60);
-    const hours = Math.floor(minutes / 60);
-    
+    if (!milliseconds || milliseconds <= 0) return 'N/A';
+    const totalSeconds = milliseconds / 1000;
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const secs = totalSeconds % 60;
     if (hours > 0) {
-      return `${hours}h ${minutes % 60}m ${seconds % 60}s`;
+      return `${hours}h ${minutes}m ${Math.round(secs)}s`;
     } else if (minutes > 0) {
-      return `${minutes}m ${seconds % 60}s`;
+      return `${minutes}m ${secs.toFixed(3)}s`;
     } else {
-      return `${seconds}s`;
+      return `${secs.toFixed(3)}s`;
     }
+  };
+
+  // Returns ordinal string: 1 → '1st', 2 → '2nd', 3 → '3rd', 4 → '4th', etc.
+  const getOrdinal = (n) => {
+    const s = ['th', 'st', 'nd', 'rd'];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
   };
 
   const formatTime = (dateTimeString) => {
@@ -244,6 +265,18 @@ const WorkerProceedings = ({ electionId }) => {
         row: Math.floor(log.chunkNumber / 50) // Group chunks into rows for better visualization
       };
     }).sort((a, b) => a.startOffset - b.startOffset);
+  }, [logs]);
+
+  // Prepare data for Processing Time Distribution sorted by completion order
+  const completionOrderedData = useMemo(() => {
+    if (!logs || logs.length === 0) return [];
+    return [...logs]
+      .filter(log => log.duration && log.endTime)
+      .sort((a, b) => new Date(a.endTime) - new Date(b.endTime))
+      .map((log, index) => ({
+        ...log,
+        completionRank: index + 1,   // 1-based rank: 1st, 2nd, 3rd…
+      }));
   }, [logs]);
 
   // Debug logging
@@ -435,6 +468,23 @@ const WorkerProceedings = ({ electionId }) => {
         </div>
       ) : (
         <>
+          {/* Initiator Email Banner */}
+          {statistics.initiatorEmail && (
+            <div className="mb-6 flex items-center gap-3 px-6 py-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
+              <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
+                <FiActivity className="text-lg text-white" />
+              </div>
+              <div>
+                <span className="text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                  {activeTab === 'tally' ? 'Tally Creation' : 'Combine Decryption'} Initiated By
+                </span>
+                <p className="text-base font-black text-gray-800 dark:text-gray-100">
+                  {statistics.initiatorEmail}
+                </p>
+              </div>
+            </div>
+          )}
+
           {/* Modern Statistics Cards with Glassmorphism */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
             {/* Total Processing Time */}
@@ -543,17 +593,17 @@ const WorkerProceedings = ({ electionId }) => {
                       <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.1}/>
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" opacity={0.3} />
+                  <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.3} />
                   <XAxis 
                     dataKey="time" 
-                    stroke="#6B7280"
-                    tick={{ fill: '#6B7280', fontSize: 12 }}
-                    label={{ value: 'Time', position: 'insideBottom', offset: -10, fill: '#374151', fontWeight: 600 }}
+                    stroke={tickColor}
+                    tick={{ fill: tickColor, fontSize: 12 }}
+                    label={{ value: 'Time', position: 'insideBottom', offset: -10, fill: labelColor, fontWeight: 600 }}
                   />
                   <YAxis 
-                    stroke="#6B7280"
-                    tick={{ fill: '#6B7280', fontSize: 12 }}
-                    label={{ value: 'Completed Chunks', angle: -90, position: 'insideLeft', fill: '#374151', fontWeight: 600 }}
+                    stroke={tickColor}
+                    tick={{ fill: tickColor, fontSize: 12 }}
+                    label={{ value: 'Completed Chunks', angle: -90, position: 'insideLeft', fill: labelColor, fontWeight: 600 }}
                   />
                   <Tooltip 
                     contentStyle={{ 
@@ -581,136 +631,145 @@ const WorkerProceedings = ({ electionId }) => {
             </div>
           )}
 
-          {/* NEW GRAPH 2: Processing Schedule Timeline (Gantt-style) */}
-          {timelineData.length > 0 && (
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-10 border border-white/20 dark:border-gray-700/50">
-              <div className="flex items-center justify-between mb-8">
-                <div>
-                  <h3 className="text-3xl font-black bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent mb-2 flex items-center gap-3">
-                    <div className="p-3 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl">
-                      <FiCalendar className="text-2xl text-white" />
+          {/* NEW GRAPH 2: Processing Schedule Timeline (Gantt-style, chunk on X / time on Y) */}
+          {timelineData.length > 0 && (() => {
+            const ganttData = timelineData.map(item => ({
+              name: `${item.chunkNumber}`,
+              spacer: parseFloat(item.startOffset.toFixed(3)),
+              duration: parseFloat(item.duration.toFixed(3)),
+              status: item.status,
+              startTime: item.startTime,
+              endTime: item.endTime,
+              chunkNumber: item.chunkNumber,
+            }));
+            const barWidth = Math.max(6, Math.min(24, Math.floor(900 / (ganttData.length || 1))));
+            const chartWidth = Math.max(900, ganttData.length * (barWidth + 4) + 100);
+            return (
+              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-10 border border-white/20 dark:border-gray-700/50">
+                <div className="flex items-center justify-between mb-8">
+                  <div>
+                    <h3 className="text-3xl font-black bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent mb-2 flex items-center gap-3">
+                      <div className="p-3 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl">
+                        <FiCalendar className="text-2xl text-white" />
+                      </div>
+                      Processing Schedule Timeline
+                    </h3>
+                    <p className="text-gray-600 dark:text-gray-400 ml-1">
+                      Each bar shows the time-span (start → end) of a chunk — chunk on X-axis, time on Y-axis
+                    </p>
+                  </div>
+                  <div className="flex items-center gap-6 text-sm">
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded bg-green-500"></div>
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">Completed</span>
                     </div>
-                    Processing Schedule Timeline
-                  </h3>
-                  <p className="text-gray-600 dark:text-gray-400 ml-1">Visual timeline showing when each chunk was processed</p>
-                </div>
-                <div className="flex items-center gap-6 text-sm">
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-green-500"></div>
-                    <span className="text-gray-600 dark:text-gray-400 font-medium">Completed</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <div className="w-4 h-4 rounded bg-red-500"></div>
-                    <span className="text-gray-600 dark:text-gray-400 font-medium">Failed</span>
+                    <div className="flex items-center gap-2">
+                      <div className="w-4 h-4 rounded bg-red-500"></div>
+                      <span className="text-gray-600 dark:text-gray-400 font-medium">Failed</span>
+                    </div>
                   </div>
                 </div>
-              </div>
-              
-              <div className="overflow-x-auto">
-                <div style={{ minWidth: `${Math.max(800, timelineData.length * 2)}px` }}>
-                  <ResponsiveContainer width="100%" height={Math.max(400, Math.ceil(timelineData.length / 50) * 40 + 100)}>
-                    <ScatterChart margin={{ top: 20, right: 30, bottom: 60, left: 60 }}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" opacity={0.3} />
-                      <XAxis 
-                        type="number" 
-                        dataKey="startOffset" 
-                        name="Time" 
-                        stroke="#6B7280"
-                        tick={{ fill: '#6B7280', fontSize: 12 }}
-                        label={{ 
-                          value: 'Time from Start (seconds)', 
-                          position: 'insideBottom', 
-                          offset: -10,
-                          fill: '#374151',
-                          fontWeight: 600
-                        }}
-                        domain={[0, 'dataMax']}
-                      />
-                      <YAxis 
-                        type="number" 
-                        dataKey="row" 
-                        name="Row" 
-                        stroke="#6B7280"
-                        tick={{ fill: '#6B7280', fontSize: 12 }}
-                        label={{ 
-                          value: 'Chunk Groups (50 chunks per row)', 
-                          angle: -90, 
-                          position: 'insideLeft',
-                          fill: '#374151',
-                          fontWeight: 600
-                        }}
-                      />
-                      <Tooltip 
-                        cursor={{ strokeDasharray: '3 3' }}
-                        contentStyle={{ 
-                          backgroundColor: 'rgba(31, 41, 55, 0.95)', 
-                          border: 'none', 
-                          borderRadius: '16px',
-                          boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-                          backdropFilter: 'blur(10px)',
-                          padding: '16px'
-                        }}
-                        labelStyle={{ color: '#F3F4F6', fontWeight: 'bold' }}
-                        content={({ active, payload }) => {
-                          if (active && payload && payload.length) {
-                            const data = payload[0].payload;
+
+                <div className="overflow-x-auto">
+                  <div style={{ minWidth: `${chartWidth}px` }}>
+                    <ResponsiveContainer width="100%" height={Math.max(400, 300)}>
+                      <BarChart
+                        data={ganttData}
+                        margin={{ top: 20, right: 30, bottom: 60, left: 70 }}
+                        barCategoryGap="10%"
+                      >
+                        <defs>
+                          <pattern id="completedPattern" patternUnits="userSpaceOnUse" width="6" height="6">
+                            <rect width="6" height="6" fill="#10B981" opacity={0.9} />
+                          </pattern>
+                          <pattern id="failedPattern" patternUnits="userSpaceOnUse" width="6" height="6">
+                            <rect width="6" height="6" fill="#EF4444" opacity={0.9} />
+                          </pattern>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.3} vertical={false} />
+                        <XAxis
+                          dataKey="name"
+                          stroke={tickColor}
+                          tick={{ fill: tickColor, fontSize: 10 }}
+                          interval={ganttData.length > 50 ? Math.floor(ganttData.length / 20) : 0}
+                          label={{
+                            value: 'Chunk Number',
+                            position: 'insideBottom',
+                            offset: -10,
+                            fill: labelColor,
+                            fontWeight: 600,
+                            fontSize: 13,
+                          }}
+                        />
+                        <YAxis
+                          stroke={tickColor}
+                          tick={{ fill: tickColor, fontSize: 11 }}
+                          tickFormatter={(v) => `${v.toFixed(1)}s`}
+                          label={{
+                            value: 'Time from Start (s)',
+                            angle: -90,
+                            position: 'insideLeft',
+                            offset: -10,
+                            fill: labelColor,
+                            fontWeight: 600,
+                            fontSize: 13,
+                          }}
+                        />
+                        <Tooltip
+                          contentStyle={{
+                            backgroundColor: 'rgba(17, 24, 39, 0.97)',
+                            border: 'none',
+                            borderRadius: '14px',
+                            boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+                            padding: '14px',
+                          }}
+                          cursor={{ fill: 'rgba(99,102,241,0.08)' }}
+                          content={({ active, payload }) => {
+                            if (!active || !payload || payload.length === 0) return null;
+                            const entry = payload[0]?.payload;
+                            if (!entry) return null;
                             return (
-                              <div className="bg-gray-900/95 backdrop-blur-sm text-white p-4 rounded-2xl shadow-2xl border border-gray-700">
-                                <p className="font-bold text-lg mb-2 text-blue-400">Chunk #{data.chunkNumber}</p>
-                                <p className="text-sm mb-1"><span className="text-gray-400">Start:</span> {formatTimeShort(data.startTime)}</p>
-                                <p className="text-sm mb-1"><span className="text-gray-400">End:</span> {formatTimeShort(data.endTime)}</p>
-                                <p className="text-sm mb-1"><span className="text-gray-400">Duration:</span> {formatDuration(data.duration * 1000)}</p>
-                                <p className="text-sm">
-                                  <span className="text-gray-400">Status:</span> 
-                                  <span className={`ml-2 font-bold ${data.status === 'COMPLETED' ? 'text-green-400' : 'text-red-400'}`}>
-                                    {data.status}
+                              <div className="bg-gray-900/98 text-white p-4 rounded-2xl shadow-2xl border border-gray-700 min-w-[180px]">
+                                <p className="font-bold text-lg mb-2 text-blue-400">Chunk #{entry.chunkNumber}</p>
+                                <p className="text-sm mb-1"><span className="text-gray-400">Starts at:</span> <span className="text-white font-semibold">{entry.spacer.toFixed(3)}s</span></p>
+                                <p className="text-sm mb-1"><span className="text-gray-400">Duration:</span> <span className="text-white font-semibold">{entry.duration.toFixed(3)}s</span></p>
+                                <p className="text-sm mb-1"><span className="text-gray-400">Ends at:</span> <span className="text-white font-semibold">{(entry.spacer + entry.duration).toFixed(3)}s</span></p>
+                                <p className="text-sm"><span className="text-gray-400">Status:</span>
+                                  <span className={`ml-2 font-bold ${entry.status === 'COMPLETED' ? 'text-green-400' : 'text-red-400'}`}>
+                                    {entry.status}
                                   </span>
                                 </p>
                               </div>
                             );
-                          }
-                          return null;
-                        }}
-                      />
-                      <Scatter 
-                        data={timelineData} 
-                        shape={(props) => {
-                          const { cx, cy, payload } = props;
-                          const width = Math.max(4, (payload.duration / 10)); // Scale width based on duration
-                          const height = 20;
-                          const color = payload.status === 'COMPLETED' ? '#10B981' : 
-                                       payload.status === 'FAILED' ? '#EF4444' : '#F59E0B';
-                          
-                          return (
-                            <g>
-                              <rect
-                                x={cx - width/2}
-                                y={cy - height/2}
-                                width={width}
-                                height={height}
-                                fill={color}
-                                opacity={0.8}
-                                rx={4}
-                                className="hover:opacity-100 transition-opacity cursor-pointer"
-                              />
-                            </g>
-                          );
-                        }}
-                      />
-                    </ScatterChart>
-                  </ResponsiveContainer>
+                          }}
+                        />
+                        {/* Invisible spacer bar to push the real bar to the correct Y start */}
+                        <Bar dataKey="spacer" stackId="a" fill="transparent" isAnimationActive={false} />
+                        {/* Actual duration bar colored by status */}
+                        <Bar dataKey="duration" stackId="a" radius={[3, 3, 0, 0]} isAnimationActive={false}>
+                          {ganttData.map((entry, index) => (
+                            <Cell
+                              key={`cell-${index}`}
+                              fill={entry.status === 'COMPLETED' ? '#10B981' : '#EF4444'}
+                              opacity={0.9}
+                            />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </div>
+                </div>
+
+                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                  <p className="text-sm text-gray-700 dark:text-gray-300">
+                    <span className="font-bold text-blue-600 dark:text-blue-400">💡 Tip:</span> Each bar spans from its
+                    <strong> start time</strong> to its <strong>end time</strong> on the Y-axis.
+                    Chunks are sorted by start time left-to-right. Hover for details.
+                  </p>
                 </div>
               </div>
-              
-              <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
-                <p className="text-sm text-gray-700 dark:text-gray-300">
-                  <span className="font-bold text-blue-600 dark:text-blue-400">💡 Tip:</span> Each bar represents a chunk. 
-                  The horizontal position shows when it started, and the width represents processing duration. 
-                  Chunks are grouped into rows (50 chunks per row) for better visualization. Hover over bars for details.
-                </p>
-              </div>
-            </div>
-          )}
+            );
+          })()}
 
           {/* Timeline View */}
           {statistics.firstStartTime && statistics.lastEndTime && (
@@ -749,56 +808,98 @@ const WorkerProceedings = ({ electionId }) => {
             </div>
           )}
 
-          {/* Original Bar Chart - Modernized */}
-          {logs.length > 0 && (
+          {/* Original Bar Chart - Modernized with completion order */}
+          {logs.length > 0 && completionOrderedData.length > 0 && (
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-10 border border-white/20 dark:border-gray-700/50">
-              <h3 className="text-3xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-8 flex items-center gap-3">
+              <h3 className="text-3xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4 flex items-center gap-3">
                 <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl">
                   <FiBarChart2 className="text-2xl text-white" />
                 </div>
                 Processing Time Distribution
               </h3>
-              <ResponsiveContainer width="100%" height={450}>
-                <BarChart data={logs.filter(log => log.duration)}>
-                  <defs>
-                    <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="0%" stopColor="#8B5CF6" stopOpacity={1}/>
-                      <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.8}/>
-                    </linearGradient>
-                  </defs>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" className="dark:stroke-gray-700" opacity={0.3} />
-                  <XAxis 
-                    dataKey="chunkNumber" 
-                    stroke="#6B7280"
-                    tick={{ fill: '#6B7280', fontSize: 12 }}
-                    label={{ value: 'Chunk Number', position: 'insideBottom', offset: -10, fill: '#374151', fontWeight: 600 }}
-                  />
-                  <YAxis 
-                    stroke="#6B7280"
-                    tick={{ fill: '#6B7280', fontSize: 12 }}
-                    tickFormatter={(value) => `${(value / 1000).toFixed(1)}s`}
-                    label={{ value: 'Duration', angle: -90, position: 'insideLeft', fill: '#374151', fontWeight: 600 }}
-                  />
-                  <Tooltip 
-                    contentStyle={{ 
-                      backgroundColor: 'rgba(31, 41, 55, 0.95)', 
-                      border: 'none', 
-                      borderRadius: '16px',
-                      boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-                      backdropFilter: 'blur(10px)',
-                      padding: '16px'
-                    }}
-                    labelStyle={{ color: '#F3F4F6', fontWeight: 'bold' }}
-                    itemStyle={{ color: '#A78BFA', fontWeight: 600 }}
-                    formatter={(value) => [formatDuration(value), 'Duration']}
-                  />
-                  <Bar 
-                    dataKey="duration" 
-                    fill="url(#colorGradient)" 
-                    radius={[12, 12, 0, 0]}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
+              <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 ml-1">
+                Bars sorted by <strong>completion order</strong>. The top label is the chunk number; the bottom label shows when it finished (1st, 2nd, 3rd…).
+              </p>
+              <div className="overflow-x-auto">
+                <div style={{ minWidth: `${Math.max(700, completionOrderedData.length * 28)}px` }}>
+                  <ResponsiveContainer width="100%" height={500}>
+                    <BarChart
+                      data={completionOrderedData}
+                      margin={{ top: 20, right: 30, bottom: 80, left: 70 }}
+                    >
+                      <defs>
+                        <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="0%" stopColor="#8B5CF6" stopOpacity={1}/>
+                          <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.3} />
+                      <XAxis
+                        dataKey="completionRank"
+                        stroke={tickColor}
+                        interval={completionOrderedData.length > 50 ? Math.floor(completionOrderedData.length / 25) : 0}
+                        tick={(props) => {
+                          const { x, y, payload } = props;
+                          const item = completionOrderedData.find(d => d.completionRank === payload.value);
+                          const ordinal = getOrdinal(payload.value);
+                          return (
+                            <g transform={`translate(${x},${y})`}>
+                              <text x={0} y={0} dy={18} textAnchor="middle" fill={labelColor} fontSize={11} fontWeight={700}>
+                                #{item?.chunkNumber ?? payload.value}
+                              </text>
+                              <text x={0} y={0} dy={34} textAnchor="middle" fill={tickColor} fontSize={9} opacity={0.8}>
+                                {ordinal}
+                              </text>
+                            </g>
+                          );
+                        }}
+                        height={60}
+                        label={{
+                          value: 'Chunk  (completion order below)',
+                          position: 'insideBottom',
+                          offset: -55,
+                          fill: labelColor,
+                          fontWeight: 600,
+                          fontSize: 13,
+                        }}
+                      />
+                      <YAxis
+                        stroke={tickColor}
+                        tick={{ fill: tickColor, fontSize: 12 }}
+                        tickFormatter={(value) => `${(value / 1000).toFixed(3)}s`}
+                        label={{ value: 'Duration (s)', angle: -90, position: 'insideLeft', offset: -10, fill: labelColor, fontWeight: 600, fontSize: 13 }}
+                      />
+                      <Tooltip
+                        contentStyle={{
+                          backgroundColor: 'rgba(17, 24, 39, 0.97)',
+                          border: 'none',
+                          borderRadius: '14px',
+                          boxShadow: '0 20px 40px rgba(0,0,0,0.5)',
+                          padding: '14px',
+                        }}
+                        content={({ active, payload }) => {
+                          if (!active || !payload || payload.length === 0) return null;
+                          const entry = payload[0]?.payload;
+                          if (!entry) return null;
+                          return (
+                            <div className="bg-gray-900/98 text-white p-4 rounded-2xl shadow-2xl border border-gray-700">
+                              <p className="font-bold text-base mb-1 text-purple-400">Chunk #{entry.chunkNumber}</p>
+                              <p className="text-sm mb-1"><span className="text-gray-400">Completion order:</span> <span className="text-white font-semibold">{getOrdinal(entry.completionRank)} to finish</span></p>
+                              <p className="text-sm"><span className="text-gray-400">Duration:</span> <span className="text-white font-semibold">{formatDuration(entry.duration)}</span></p>
+                            </div>
+                          );
+                        }}
+                      />
+                      <Bar
+                        dataKey="duration"
+                        fill="url(#colorGradient)"
+                        radius={[10, 10, 0, 0]}
+                        isAnimationActive={false}
+                      />
+                    </BarChart>
+                  </ResponsiveContainer>
+                </div>
+              </div>
             </div>
           )}
 
