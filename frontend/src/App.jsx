@@ -21,6 +21,8 @@ import About from "./pages/About";
 import Features from "./pages/Features";
 import AdminLogin from "./pages/AdminLogin";
 import ApiLogs from "./pages/ApiLogs";
+import Architecture from "./pages/Architecture";
+import Security from "./pages/Security";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -71,6 +73,8 @@ function App() {
         <Route path="/how-it-works" element={<HowItWorks />} />
         <Route path="/about" element={<About />} />
         <Route path="/features" element={<Features />} />
+        <Route path="/architecture" element={<Architecture />} />
+        <Route path="/security" element={<Security />} />
         <Route
           path="/admin-login"
           element={<AdminLogin setUserEmail={setUserEmail} />}

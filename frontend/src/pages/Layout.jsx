@@ -25,7 +25,7 @@ const Layout = ({ children }) => {
               </Link>
             </div>
             <div className="hidden md:block">
-              <div className="ml-10 flex items-center space-x-4">
+              <div className="ml-10 flex items-center space-x-1">
                 <Link
                   to="/features"
                   className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${isActiveRoute('/features')
@@ -45,6 +45,24 @@ const Layout = ({ children }) => {
                   How It Works
                 </Link>
                 <Link
+                  to="/architecture"
+                  className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${isActiveRoute('/architecture')
+                      ? 'text-blue-600 bg-blue-50/80'
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/80'
+                    }`}
+                >
+                  Architecture
+                </Link>
+                <Link
+                  to="/security"
+                  className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${isActiveRoute('/security')
+                      ? 'text-blue-600 bg-blue-50/80'
+                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/80'
+                    }`}
+                >
+                  Security
+                </Link>
+                <Link
                   to="/about"
                   className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${isActiveRoute('/about')
                       ? 'text-blue-600 bg-blue-50/80'
@@ -55,7 +73,19 @@ const Layout = ({ children }) => {
                 </Link>
               </div>
             </div>
-            <div className="flex items-center space-x-4">
+            <div className="flex items-center space-x-3">
+              <Link
+                to="/admin-login"
+                className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 flex items-center gap-1.5 ${isActiveRoute('/admin-login') || isActiveRoute('/api-logs')
+                    ? 'text-purple-700 bg-purple-50/80 border border-purple-200'
+                    : 'text-gray-500 hover:text-purple-700 hover:bg-purple-50/80 border border-transparent hover:border-purple-200'
+                  }`}
+              >
+                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Admin
+              </Link>
               <Link to="/otp-login">
                 <button className="px-4 py-2 text-blue-600 border border-blue-600 rounded-2xl hover:bg-blue-50/80 transition-all duration-300 shadow-sm hover:shadow-md">
                   Sign In
