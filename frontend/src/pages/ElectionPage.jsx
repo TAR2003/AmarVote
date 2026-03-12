@@ -3378,6 +3378,74 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 ))}
               </div>
             </div>
+
+            {/* Voter List */}
+            {electionData.eligibility === 'listed' && electionData.voters && electionData.voters.length > 0 && (
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-base sm:text-lg font-semibold flex items-center">
+                    <FiUsers className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-blue-600" />
+                    Voter List
+                  </h3>
+                  <div className="flex items-center gap-2">
+                    <span className="px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                      {electionData.voters.length} eligible
+                    </span>
+                    <span className="px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                      {electionData.voters.filter(v => v.hasVoted).length} voted
+                    </span>
+                  </div>
+                </div>
+                {/* Summary bar */}
+                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <div className="flex items-center justify-between text-sm mb-2">
+                    <span className="text-blue-700 font-medium">Participation</span>
+                    <span className="text-blue-800 font-bold">
+                      {electionData.voters.filter(v => v.hasVoted).length} / {electionData.voters.length}
+                      {' '}({electionData.voters.length > 0
+                        ? ((electionData.voters.filter(v => v.hasVoted).length / electionData.voters.length) * 100).toFixed(1)
+                        : 0}%)
+                    </span>
+                  </div>
+                  <div className="w-full bg-white rounded-full h-2 border border-blue-200">
+                    <div
+                      className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-700"
+                      style={{ width: `${electionData.voters.length > 0 ? (electionData.voters.filter(v => v.hasVoted).length / electionData.voters.length) * 100 : 0}%` }}
+                    />
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-y-auto pr-1">
+                  {electionData.voters.map((voter, index) => (
+                    <div
+                      key={voter.userEmail || index}
+                      className={`flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all ${
+                        voter.hasVoted
+                          ? 'bg-green-50 border-green-200 hover:border-green-300'
+                          : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                      }`}
+                    >
+                      <div className="flex items-center gap-2 min-w-0">
+                        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                          voter.hasVoted ? 'bg-green-500' : 'bg-gray-300'
+                        }`}>
+                          <FiUser className="h-3.5 w-3.5 text-white" />
+                        </div>
+                        <span className="text-xs sm:text-sm text-gray-700 truncate font-medium">{voter.userEmail}</span>
+                      </div>
+                      {voter.hasVoted ? (
+                        <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
+                          <FiCheckCircle className="h-3 w-3" /> Voted
+                        </span>
+                      ) : (
+                        <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
+                          <FiClock className="h-3 w-3" /> Pending
+                        </span>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
         )}
 
@@ -4625,22 +4693,31 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                       )}
 
                       {/* Results Summary */}
-                      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 sm:gap-4 mb-6">
-                        <div className="p-3 sm:p-4 bg-blue-50 rounded-lg text-center">
-                          <h4 className="font-medium text-blue-900 mb-1 sm:mb-2 text-xs sm:text-sm">Total Votes Cast</h4>
-                          <p className="text-xl sm:text-2xl font-bold text-blue-800">{processedResults.totalVotes}</p>
+                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-6">
+                        <div className="p-3 sm:p-4 bg-blue-50 border border-blue-100 rounded-xl text-center">
+                          <div className="text-2xl mb-1">🗳️</div>
+                          <h4 className="font-medium text-blue-700 mb-1 text-xs sm:text-sm">Total Votes Cast</h4>
+                          <p className="text-xl sm:text-3xl font-extrabold text-blue-800">{processedResults.totalVotes}</p>
                         </div>
-                        <div className="p-3 sm:p-4 bg-green-50 rounded-lg text-center">
-                          <h4 className="font-medium text-green-900 mb-1 sm:mb-2 text-xs sm:text-sm">Eligible Voters</h4>
-                          <p className="text-xl sm:text-2xl font-bold text-green-800">{processedResults.totalEligibleVoters}</p>
+                        <div className="p-3 sm:p-4 bg-teal-50 border border-teal-100 rounded-xl text-center">
+                          <div className="text-2xl mb-1">👥</div>
+                          <h4 className="font-medium text-teal-700 mb-1 text-xs sm:text-sm">Voters Who Voted</h4>
+                          <p className="text-xl sm:text-3xl font-extrabold text-teal-800">{processedResults.totalVotedUsers || 0}</p>
                         </div>
-                        <div className="p-3 sm:p-4 bg-purple-50 rounded-lg text-center">
-                          <h4 className="font-medium text-purple-900 mb-1 sm:mb-2 text-xs sm:text-sm">Voter Turnout</h4>
-                          <p className="text-xl sm:text-2xl font-bold text-purple-800">{processedResults.turnoutRate}%</p>
+                        <div className="p-3 sm:p-4 bg-green-50 border border-green-100 rounded-xl text-center">
+                          <div className="text-2xl mb-1">📋</div>
+                          <h4 className="font-medium text-green-700 mb-1 text-xs sm:text-sm">Eligible Voters</h4>
+                          <p className="text-xl sm:text-3xl font-extrabold text-green-800">{processedResults.totalEligibleVoters}</p>
                         </div>
-                        <div className="p-3 sm:p-4 bg-orange-50 rounded-lg text-center">
-                          <h4 className="font-medium text-orange-900 mb-1 sm:mb-2 text-xs sm:text-sm">Total Candidates</h4>
-                          <p className="text-xl sm:text-2xl font-bold text-orange-800">{processedResults.choices.length}</p>
+                        <div className="p-3 sm:p-4 bg-purple-50 border border-purple-100 rounded-xl text-center">
+                          <div className="text-2xl mb-1">📊</div>
+                          <h4 className="font-medium text-purple-700 mb-1 text-xs sm:text-sm">Voter Turnout</h4>
+                          <p className="text-xl sm:text-3xl font-extrabold text-purple-800">{processedResults.turnoutRate}%</p>
+                        </div>
+                        <div className="p-3 sm:p-4 bg-orange-50 border border-orange-100 rounded-xl text-center">
+                          <div className="text-2xl mb-1">🏆</div>
+                          <h4 className="font-medium text-orange-700 mb-1 text-xs sm:text-sm">Total Candidates</h4>
+                          <p className="text-xl sm:text-3xl font-extrabold text-orange-800">{processedResults.choices.length}</p>
                         </div>
                       </div>
 
@@ -4757,6 +4834,58 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                           </table>
                         </div>
                       </div>
+
+                      {/* Rankings Section */}
+                      {processedResults.chartData && processedResults.chartData.length > 0 && (
+                        <div className="mt-6">
+                          <div className="bg-white rounded-xl border border-blue-100 shadow-sm p-4 sm:p-6">
+                            <h4 className="font-bold text-gray-900 mb-5 flex items-center gap-2 text-base sm:text-lg">
+                              <span className="text-2xl">🏆</span>
+                              Election Rankings
+                            </h4>
+                            <div className="space-y-3">
+                              {[...processedResults.chartData]
+                                .sort((a, b) => b.votes - a.votes)
+                                .map((candidate, index) => {
+                                  const medals = ['🥇', '🥈', '🥉'];
+                                  const rankStyles = [
+                                    { bg: 'bg-gradient-to-r from-yellow-50 to-amber-50', border: 'border-yellow-200', badge: 'bg-yellow-100 text-yellow-800 border border-yellow-300', rank: 'text-yellow-600', bar: 'from-yellow-400 to-amber-500' },
+                                    { bg: 'bg-gradient-to-r from-slate-50 to-gray-50', border: 'border-gray-200', badge: 'bg-gray-100 text-gray-700 border border-gray-300', rank: 'text-gray-500', bar: 'from-slate-400 to-gray-500' },
+                                    { bg: 'bg-gradient-to-r from-orange-50 to-amber-50', border: 'border-orange-200', badge: 'bg-orange-100 text-orange-800 border border-orange-300', rank: 'text-orange-600', bar: 'from-orange-400 to-amber-500' },
+                                    { bg: 'bg-blue-50', border: 'border-blue-100', badge: 'bg-blue-50 text-blue-700 border border-blue-200', rank: 'text-blue-500', bar: 'from-blue-400 to-indigo-500' },
+                                  ];
+                                  const style = rankStyles[Math.min(index, rankStyles.length - 1)];
+                                  return (
+                                    <div key={candidate.name} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border ${style.bg} ${style.border} transition-all hover:shadow-md`}>
+                                      <div className="text-2xl sm:text-3xl w-10 text-center flex-shrink-0">
+                                        {index < 3
+                                          ? medals[index]
+                                          : <span className={`text-base font-extrabold ${style.rank}`}>#{index + 1}</span>
+                                        }
+                                      </div>
+                                      <div className="flex-1 min-w-0">
+                                        <p className="font-bold text-gray-900 text-sm sm:text-base truncate">{candidate.name}</p>
+                                        <p className="text-xs text-gray-500 truncate">{candidate.party || 'Independent'}</p>
+                                        <div className="mt-1.5 w-full bg-white/70 rounded-full h-1.5 overflow-hidden border border-white">
+                                          <div
+                                            className={`h-1.5 rounded-full bg-gradient-to-r ${style.bar} transition-all duration-1000`}
+                                            style={{ width: `${candidate.percentage}%` }}
+                                          />
+                                        </div>
+                                      </div>
+                                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${style.badge}`}>
+                                          {candidate.votes} votes
+                                        </span>
+                                        <span className="text-xs font-semibold text-gray-500">{candidate.percentage}%</span>
+                                      </div>
+                                    </div>
+                                  );
+                                })}
+                            </div>
+                          </div>
+                        </div>
+                      )}
 
                       {/* Chunk Breakdown Section - Modern UI */}
                       {animatedResults && animatedResults.results && animatedResults.results.chunks && animatedResults.results.chunks.length > 0 && (

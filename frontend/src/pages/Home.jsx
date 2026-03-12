@@ -2,10 +2,10 @@ import React, { useState } from "react";
 import { Link } from "react-router-dom";
 
 const StatCard = ({ value, label, sub }) => (
-  <div className="text-center px-6 py-4">
-    <div className="text-3xl md:text-4xl font-extrabold text-blue-400">{value}</div>
-    <div className="text-white font-semibold mt-1">{label}</div>
-    {sub && <div className="text-blue-200 text-xs mt-1">{sub}</div>}
+  <div className="text-center px-6 py-4 bg-white/80 backdrop-blur-sm">
+    <div className="text-2xl md:text-3xl font-extrabold text-blue-600">{value}</div>
+    <div className="text-gray-800 font-semibold mt-1 text-sm">{label}</div>
+    {sub && <div className="text-gray-500 text-xs mt-0.5">{sub}</div>}
   </div>
 );
 
@@ -107,50 +107,51 @@ const Home = () => {
       </nav>
 
       {/* ── Hero ─────────────────────────────────────── */}
-      <section className="relative pt-24 pb-20 px-4 overflow-hidden bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950">
+      <section className="relative pt-24 pb-20 px-4 overflow-hidden bg-gradient-to-br from-white via-blue-50 to-indigo-50">
         <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
+          <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl" />
+          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-400/10 rounded-full blur-3xl" />
+          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-blue-100/20 rounded-full blur-3xl" />
         </div>
         <div className="max-w-6xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-full text-blue-300 text-sm font-medium mb-6">
+          <div className="inline-flex items-center px-4 py-2 bg-blue-100 border border-blue-200 rounded-full text-blue-700 text-sm font-semibold mb-6 shadow-sm">
             <span className="mr-2">🔐</span>Powered by Microsoft ElectionGuard 2.x + NIST FIPS 203 ML-KEM-1024
           </div>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-white leading-tight mb-6">
+          <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-gray-900 leading-tight mb-6">
             The Future of<br />
-            <span className="bg-gradient-to-r from-blue-400 to-indigo-400 bg-clip-text text-transparent">
+            <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
               Secure Voting
             </span>
           </h1>
-          <p className="max-w-3xl mx-auto text-lg md:text-xl text-blue-100/80 mb-4 leading-relaxed">
+          <p className="max-w-3xl mx-auto text-lg md:text-xl text-gray-600 mb-4 leading-relaxed">
             AmarVote is a cryptographically secure, end-to-end verifiable digital voting platform combining
-            <strong className="text-white"> ElectionGuard's 4096-bit ElGamal encryption</strong>,
-            <strong className="text-white"> post-quantum cryptography (ML-KEM-1024)</strong>,
-            a <strong className="text-white">RabbitMQ worker architecture</strong> for large-scale processing,
-            and optional <strong className="text-white">blockchain ballot anchoring</strong>.
+            <strong className="text-blue-700"> ElectionGuard's 4096-bit ElGamal encryption</strong>,
+            <strong className="text-blue-700"> post-quantum cryptography (ML-KEM-1024)</strong>,
+            a <strong className="text-blue-700">RabbitMQ worker architecture</strong> for large-scale processing,
+            and optional <strong className="text-blue-700">blockchain ballot anchoring</strong>.
           </p>
-          <p className="max-w-2xl mx-auto text-blue-300/70 text-sm mb-10">
+          <p className="max-w-2xl mx-auto text-gray-500 text-sm mb-10">
             Zero-knowledge proofs · Homomorphic tallying · Threshold decryption · Benaloh challenge · Bot detection · Traffic padding
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4 mb-16">
             <Link to="/otp-login">
-              <button className="px-8 py-4 bg-blue-600 hover:bg-blue-500 text-white text-lg font-semibold rounded-2xl shadow-xl hover:shadow-blue-500/25 transition-all duration-300 hover:-translate-y-1">
+              <button className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold rounded-2xl shadow-xl shadow-blue-500/20 hover:shadow-blue-600/30 transition-all duration-300 hover:-translate-y-1">
                 Get Started Free
               </button>
             </Link>
             <a href="https://youtu.be/ixsvvl_7qVo" target="_blank" rel="noopener noreferrer">
-              <button className="px-8 py-4 border border-white/20 text-white text-lg font-semibold rounded-2xl hover:bg-white/10 transition-all duration-300 hover:-translate-y-1">
+              <button className="px-8 py-4 border-2 border-blue-200 text-blue-700 text-lg font-semibold rounded-2xl hover:bg-blue-50 hover:border-blue-300 transition-all duration-300 hover:-translate-y-1 bg-white/80">
                 ▶ Watch Demo
               </button>
             </a>
             <Link to="/architecture">
-              <button className="px-8 py-4 border border-blue-400/30 text-blue-300 text-lg font-semibold rounded-2xl hover:bg-blue-500/10 transition-all duration-300 hover:-translate-y-1">
+              <button className="px-8 py-4 border-2 border-indigo-200 text-indigo-700 text-lg font-semibold rounded-2xl hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-300 hover:-translate-y-1 bg-white/80">
                 View Architecture
               </button>
             </Link>
           </div>
           {/* Stats Bar */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-white/10 rounded-2xl overflow-hidden border border-white/10 max-w-4xl mx-auto">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-blue-100 rounded-2xl overflow-hidden border border-blue-200 max-w-4xl mx-auto shadow-md shadow-blue-100">
             <StatCard value="4096-bit" label="ElGamal Encryption" sub="ElectionGuard 2.x" />
             <StatCard value="ML-KEM-1024" label="Post-Quantum Keys" sub="NIST FIPS 203" />
             <StatCard value="200" label="Ballots/Chunk" sub="RabbitMQ chunked" />
@@ -292,7 +293,7 @@ const Home = () => {
       </section>
 
       {/* ── RabbitMQ Architecture ─────────────────────── */}
-      <section className="py-20 bg-gradient-to-br from-slate-900 to-gray-900">
+      <section className="py-20 bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">RabbitMQ Worker Architecture</h2>
@@ -425,7 +426,7 @@ const Home = () => {
       </section>
 
       {/* ── Video Demos ───────────────────────────────── */}
-      <section className="py-20 bg-indigo-900">
+      <section className="py-20 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">Video Demonstrations</h2>
           <p className="text-indigo-200 mb-10">See AmarVote in action — platform walkthrough and infrastructure deep dive</p>
@@ -544,7 +545,7 @@ const Home = () => {
       </section>
 
       {/* ── Footer ────────────────────────────────────── */}
-      <footer className="bg-gray-950 text-gray-400">
+      <footer className="bg-gradient-to-r from-blue-950 to-indigo-950 text-gray-400">
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-8">
             <div className="col-span-2">
