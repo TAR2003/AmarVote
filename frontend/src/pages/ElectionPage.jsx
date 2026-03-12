@@ -3379,66 +3379,82 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
               </div>
             </div>
 
-            {/* Voter List */}
-            {electionData.eligibility === 'listed' && electionData.voters && electionData.voters.length > 0 && (
+            {/* Voter List - For Listed Elections: Show all eligible voters, For Open Elections: Show who voted */}
+            {electionData.voters && electionData.voters.length > 0 && (
               <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                 <div className="flex items-center justify-between mb-4">
                   <h3 className="text-base sm:text-lg font-semibold flex items-center">
                     <FiUsers className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-blue-600" />
-                    Voter List
+                    {electionData.eligibility === 'listed' ? 'Eligible Voters' : 'Voters Who Participated'}
                   </h3>
                   <div className="flex items-center gap-2">
-                    <span className="px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
-                      {electionData.voters.length} eligible
-                    </span>
-                    <span className="px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
-                      {electionData.voters.filter(v => v.hasVoted).length} voted
-                    </span>
+                    {electionData.eligibility === 'listed' ? (
+                      <>
+                        <span className="px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                          {electionData.voters.length} eligible
+                        </span>
+                        <span className="px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                          {electionData.voters.filter(v => v.hasVoted).length} voted
+                        </span>
+                      </>
+                    ) : (
+                      <span className="px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                        {electionData.voters.filter(v => v.hasVoted).length} participated
+                      </span>
+                    )}
                   </div>
                 </div>
-                {/* Summary bar */}
-                <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
-                  <div className="flex items-center justify-between text-sm mb-2">
-                    <span className="text-blue-700 font-medium">Participation</span>
-                    <span className="text-blue-800 font-bold">
-                      {electionData.voters.filter(v => v.hasVoted).length} / {electionData.voters.length}
-                      {' '}({electionData.voters.length > 0
-                        ? ((electionData.voters.filter(v => v.hasVoted).length / electionData.voters.length) * 100).toFixed(1)
-                        : 0}%)
-                    </span>
+                {/* Summary bar - only for listed elections */}
+                {electionData.eligibility === 'listed' && (
+                  <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                    <div className="flex items-center justify-between text-sm mb-2">
+                      <span className="text-blue-700 font-medium">Participation</span>
+                      <span className="text-blue-800 font-bold">
+                        {electionData.voters.filter(v => v.hasVoted).length} / {electionData.voters.length}
+                        {' '}({electionData.voters.length > 0
+                          ? ((electionData.voters.filter(v => v.hasVoted).length / electionData.voters.length) * 100).toFixed(1)
+                          : 0}%)
+                      </span>
+                    </div>
+                    <div className="w-full bg-white rounded-full h-2 border border-blue-200">
+                      <div
+                        className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-700"
+                        style={{ width: `${electionData.voters.length > 0 ? (electionData.voters.filter(v => v.hasVoted).length / electionData.voters.length) * 100 : 0}%` }}
+                      />
+                    </div>
                   </div>
-                  <div className="w-full bg-white rounded-full h-2 border border-blue-200">
-                    <div
-                      className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-700"
-                      style={{ width: `${electionData.voters.length > 0 ? (electionData.voters.filter(v => v.hasVoted).length / electionData.voters.length) * 100 : 0}%` }}
-                    />
-                  </div>
-                </div>
+                )}
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-y-auto pr-1">
-                  {electionData.voters.map((voter, index) => (
+                  {(electionData.eligibility === 'listed' ? electionData.voters : electionData.voters.filter(v => v.hasVoted)).map((voter, index) => (
                     <div
                       key={voter.userEmail || index}
                       className={`flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all ${
-                        voter.hasVoted
+                        voter.hasVoted || electionData.eligibility !== 'listed'
                           ? 'bg-green-50 border-green-200 hover:border-green-300'
                           : 'bg-gray-50 border-gray-200 hover:border-gray-300'
                       }`}
                     >
                       <div className="flex items-center gap-2 min-w-0">
                         <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          voter.hasVoted ? 'bg-green-500' : 'bg-gray-300'
+                          voter.hasVoted || electionData.eligibility !== 'listed' ? 'bg-green-500' : 'bg-gray-300'
                         }`}>
                           <FiUser className="h-3.5 w-3.5 text-white" />
                         </div>
                         <span className="text-xs sm:text-sm text-gray-700 truncate font-medium">{voter.userEmail}</span>
                       </div>
-                      {voter.hasVoted ? (
+                      {electionData.eligibility === 'listed' ? (
+                        voter.hasVoted ? (
+                          <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
+                            <FiCheckCircle className="h-3 w-3" /> Voted
+                          </span>
+                        ) : (
+                          <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
+                            <FiClock className="h-3 w-3" /> Pending
+                          </span>
+                        )
+                      ) : (
                         <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
                           <FiCheckCircle className="h-3 w-3" /> Voted
-                        </span>
-                      ) : (
-                        <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
-                          <FiClock className="h-3 w-3" /> Pending
                         </span>
                       )}
                     </div>
