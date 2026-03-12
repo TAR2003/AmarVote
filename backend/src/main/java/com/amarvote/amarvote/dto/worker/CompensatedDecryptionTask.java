@@ -46,4 +46,5 @@ public class CompensatedDecryptionTask implements Serializable {
     private String jointPublicKey;
     private String baseHash;
     private int quorum;
+    private int maxChoices;
 }

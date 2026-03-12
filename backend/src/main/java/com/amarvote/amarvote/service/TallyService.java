@@ -444,6 +444,7 @@ public class TallyService {
                 List<Long> chunkBallotIds = entry.getValue();
                 
                 // Create task message
+                Integer electionMaxChoices = election.getMaxChoices();
                 TallyCreationTask task = TallyCreationTask.builder()
                     .electionId(electionId)
                     .chunkNumber(chunkNumber)
@@ -454,6 +455,7 @@ public class TallyService {
                     .baseHash(election.getBaseHash())
                     .quorum(election.getElectionQuorum())
                     .numberOfGuardians(numberOfGuardians)
+                    .maxChoices(electionMaxChoices != null ? electionMaxChoices : 1)
                     .build();
                 
                 // Serialize task to JSON

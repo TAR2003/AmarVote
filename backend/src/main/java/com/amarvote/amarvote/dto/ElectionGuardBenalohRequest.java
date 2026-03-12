@@ -15,7 +15,7 @@ public class ElectionGuardBenalohRequest {
     
     private List<String> party_names;
     private List<String> candidate_names;
-    private String candidate_name;
+    private List<String> candidate_names_to_verify;
     private String ballot_id;
     private String joint_public_key;
     private String commitment_hash;

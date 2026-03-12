@@ -34,7 +34,8 @@ const CreateElection = () => {
         candidatePictures: [""],
         partyPictures: [""],
         startingTime: null,
-        endingTime: null
+        endingTime: null,
+        maxChoices: 1
     });
 
     // Store temporary image files for upload after election creation
@@ -561,6 +562,16 @@ const CreateElection = () => {
             return;
         }
 
+        const maxChoicesVal = parseInt(form.maxChoices) || 1;
+        if (maxChoicesVal < 1) {
+            setError("Max choices must be at least 1");
+            return;
+        }
+        if (maxChoicesVal > validCandidateNames.length) {
+            setError(`Max choices (${maxChoicesVal}) cannot exceed the number of candidates (${validCandidateNames.length})`);
+            return;
+        }
+
         if (form.guardianEmails.length === 0 || form.guardianEmails.length < guardianCount) {
             setError(`At least ${guardianCount} guardian emails are required`);
             return;
@@ -734,6 +745,34 @@ const CreateElection = () => {
                                 required
                             />
                         </div>
+                    </div>
+                </div>
+
+                {/* Max Choices Setting */}
+                <div className="bg-white p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Voting Options</h2>
+                    <div className="mb-4">
+                        <label className="block text-gray-700 font-medium mb-2">
+                            Max Choices <span className="text-red-500">*</span>
+                        </label>
+                        <p className="text-sm text-gray-500 mb-2">
+                            How many candidates can each voter select? (1 = single choice, more = multiple choice)
+                        </p>
+                        <input
+                            type="number"
+                            name="maxChoices"
+                            value={form.maxChoices}
+                            onChange={handleChange}
+                            min={1}
+                            max={form.candidateNames.filter(n => n.trim() !== '').length || 1}
+                            className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        />
+                        {form.maxChoices > 1 && (
+                            <p className="text-sm text-blue-600 mt-2">
+                                ℹ️ Voters will be able to select up to {form.maxChoices} candidates.
+                            </p>
+                        )}
                     </div>
                 </div>
 

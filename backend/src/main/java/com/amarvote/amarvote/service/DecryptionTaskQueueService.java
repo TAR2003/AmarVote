@@ -103,6 +103,7 @@ public class DecryptionTaskQueueService {
                 .jointPublicKey(election.getJointPublicKey())
                 .baseHash(election.getBaseHash())
                 .quorum(election.getElectionQuorum())
+                .maxChoices(election.getMaxChoices() != null ? election.getMaxChoices() : 1)
                 .build();
             
             // Serialize task to JSON
@@ -215,6 +216,7 @@ public class DecryptionTaskQueueService {
                     .jointPublicKey(election.getJointPublicKey())
                     .baseHash(election.getBaseHash())
                     .quorum(election.getElectionQuorum())
+                    .maxChoices(election.getMaxChoices() != null ? election.getMaxChoices() : 1)
                     .build();
                 
                 // Serialize task to JSON
@@ -287,6 +289,7 @@ public class DecryptionTaskQueueService {
                 .jointPublicKey(election.getJointPublicKey())
                 .baseHash(election.getBaseHash())
                 .quorum(election.getElectionQuorum())
+                .maxChoices(election.getMaxChoices() != null ? election.getMaxChoices() : 1)
                 .build();
             
             // Serialize task to JSON

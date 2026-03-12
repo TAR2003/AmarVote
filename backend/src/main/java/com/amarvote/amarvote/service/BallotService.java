@@ -3,9 +3,11 @@ package com.amarvote.amarvote.service;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -207,13 +209,16 @@ public class BallotService {
             List<String> candidateNames = choices.stream()
                     .map(ElectionChoice::getOptionTitle)
                     .collect(Collectors.toList());
+            Integer electionMaxChoices = election.getMaxChoices();
+            int maxChoicesCast = (electionMaxChoices != null) ? electionMaxChoices : 1;
 
             // 9. Call ElectionGuard service
             ElectionGuardBallotResponse guardResponse = callElectionGuardService(
-                    partyNames, candidateNames, request.getSelectedCandidate(),
+                    partyNames, candidateNames, List.of(request.getSelectedCandidate()),
                     ballotHashId, election.getJointPublicKey(), election.getBaseHash(),
                     election.getElectionQuorum(),
-                    guardianRepository.findByElectionId(election.getElectionId()).size());
+                    guardianRepository.findByElectionId(election.getElectionId()).size(),
+                    maxChoicesCast);
 
             if (guardResponse == null || !"success".equals(guardResponse.getStatus())) {
                 return CastBallotResponse.builder()
@@ -466,9 +471,9 @@ public class BallotService {
     }
 
     private ElectionGuardBallotResponse callElectionGuardService(
-            List<String> partyNames, List<String> candidateNames, String selectedCandidate,
+            List<String> partyNames, List<String> candidateNames, List<String> selectedCandidates,
             String ballotId, String jointPublicKey, String commitmentHash,
-            int quorum, int numberOfGuardians) {
+            int quorum, int numberOfGuardians, int maxChoices) {
 
         try {
             String url = "/create_encrypted_ballot";
@@ -476,12 +481,13 @@ public class BallotService {
             ElectionGuardBallotRequest request = ElectionGuardBallotRequest.builder()
                     .party_names(partyNames)
                     .candidate_names(candidateNames)
-                    .candidate_name(selectedCandidate)
+                    .candidate_names_to_vote(selectedCandidates)
                     .ballot_id(ballotId)
                     .joint_public_key(jointPublicKey)
                     .commitment_hash(commitmentHash)
                     .number_of_guardians(numberOfGuardians)
                     .quorum(quorum)
+                    .max_choices(maxChoices)
                     .build();
 
             System.out.println("Calling ElectionGuard ballot service at: " + url);
@@ -643,15 +649,44 @@ public class BallotService {
                         .build();
             }
 
-            // 6. Validate candidate choice
+            // 6. Validate candidate choices (multi-select)
             List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
-            // choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
-            boolean isValidChoice = choices.stream()
-                    .anyMatch(choice -> choice.getOptionTitle().equals(request.getSelectedCandidate()));
-            if (!isValidChoice) {
+            List<String> selectedCandidates = request.getSelectedCandidates();
+            if (selectedCandidates == null || selectedCandidates.isEmpty()) {
                 return CreateEncryptedBallotResponse.builder()
                         .success(false)
-                        .message("Invalid candidate selection")
+                        .message("No candidates selected")
+                        .errorReason("No candidates selected")
+                        .build();
+            }
+            // Check for duplicates
+            Set<String> selectedSet = new HashSet<>(selectedCandidates);
+            if (selectedSet.size() != selectedCandidates.size()) {
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("Duplicate candidates selected")
+                        .errorReason("Duplicate selection")
+                        .build();
+            }
+            // Check maxChoices
+            Integer electionMaxChoices = election.getMaxChoices();
+            int maxChoices = (electionMaxChoices != null) ? electionMaxChoices : 1;
+            if (selectedCandidates.size() > maxChoices) {
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("You can select at most " + maxChoices + " candidate(s)")
+                        .errorReason("Too many candidates selected")
+                        .build();
+            }
+            // Validate each candidate exists in election choices
+            Set<String> validChoiceTitles = choices.stream()
+                    .map(ElectionChoice::getOptionTitle)
+                    .collect(Collectors.toSet());
+            boolean allValid = selectedCandidates.stream().allMatch(validChoiceTitles::contains);
+            if (!allValid) {
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("One or more invalid candidate selections")
                         .errorReason("Invalid candidate")
                         .build();
             }
@@ -669,10 +704,11 @@ public class BallotService {
 
             // 9. Call ElectionGuard service
             ElectionGuardBallotResponse guardResponse = callElectionGuardService(
-                    partyNames, candidateNames, request.getSelectedCandidate(),
+                    partyNames, candidateNames, selectedCandidates,
                     ballotHashId, election.getJointPublicKey(), election.getBaseHash(),
                     election.getElectionQuorum(),
-                    guardianRepository.findByElectionId(election.getElectionId()).size());
+                    guardianRepository.findByElectionId(election.getElectionId()).size(),
+                    maxChoices);
 
             if (guardResponse == null || !"success".equals(guardResponse.getStatus())) {
                 return CreateEncryptedBallotResponse.builder()
@@ -710,7 +746,7 @@ public class BallotService {
         try {
             System.out.println("🔍 [BENALOH] Starting Benaloh challenge for user: " + userEmail);
             System.out.println("🔍 [BENALOH] Request data: electionId=" + request.getElectionId() + 
-                              ", candidate=" + request.getCandidate_name());
+                              ", candidates=" + request.getCandidate_names_to_verify());
 
             // 1. Find election
             Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
@@ -725,21 +761,28 @@ public class BallotService {
             Election election = electionOpt.get();
             System.out.println("✅ [BENALOH] Election found: " + election.getElectionTitle());
 
-            // 2. Validate candidate choice
+            // 2. Validate candidate choices
             System.out.println("🔍 [BENALOH] Fetching election choices...");
             List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
-            // choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
             System.out.println("🔍 [BENALOH] Found " + choices.size() + " choices");
-            
             for (ElectionChoice choice : choices) {
                 System.out.println("🔍 [BENALOH] Choice: " + choice.getOptionTitle());
             }
             
-            boolean isValidChoice = choices.stream()
-                    .anyMatch(choice -> choice.getOptionTitle().equals(request.getCandidate_name()));
-            System.out.println("🔍 [BENALOH] Is valid choice: " + isValidChoice + " for candidate: " + request.getCandidate_name());
-            
-            if (!isValidChoice) {
+            List<String> candidatesToVerify = request.getCandidate_names_to_verify();
+            if (candidatesToVerify == null || candidatesToVerify.isEmpty()) {
+                return BenalohChallengeResponse.builder()
+                        .success(false)
+                        .message("No candidates specified for verification")
+                        .errorReason("No candidates")
+                        .build();
+            }
+            Set<String> validChoiceTitles = choices.stream()
+                    .map(ElectionChoice::getOptionTitle)
+                    .collect(Collectors.toSet());
+            boolean allValid = candidatesToVerify.stream().allMatch(validChoiceTitles::contains);
+            System.out.println("🔍 [BENALOH] All candidates valid: " + allValid);
+            if (!allValid) {
                 System.out.println("❌ [BENALOH] Invalid candidate selection");
                 return BenalohChallengeResponse.builder()
                         .success(false)
@@ -765,7 +808,7 @@ public class BallotService {
             // 5. Call ElectionGuard Benaloh challenge service
             System.out.println("📞 [BENALOH] Calling ElectionGuard Benaloh service...");
             ElectionGuardBenalohResponse guardResponse = callElectionGuardBenalohService(
-                    partyNames, candidateNames, request.getCandidate_name(),
+                    partyNames, candidateNames, candidatesToVerify,
                     ballotId, election.getJointPublicKey(), election.getBaseHash(),
                     election.getElectionQuorum(),
                     guardianRepository.findByElectionId(election.getElectionId()).size(),
@@ -808,7 +851,7 @@ public class BallotService {
     }
 
     private ElectionGuardBenalohResponse callElectionGuardBenalohService(
-            List<String> partyNames, List<String> candidateNames, String selectedCandidate,
+            List<String> partyNames, List<String> candidateNames, List<String> candidateNamesToVerify,
             String ballotId, String jointPublicKey, String commitmentHash,
             int quorum, int numberOfGuardians, String encryptedBallotWithNonce) {
 
@@ -820,7 +863,7 @@ public class BallotService {
             ElectionGuardBenalohRequest request = ElectionGuardBenalohRequest.builder()
                     .party_names(partyNames)
                     .candidate_names(candidateNames)
-                    .candidate_name(selectedCandidate)
+                    .candidate_names_to_verify(candidateNamesToVerify)
                     .ballot_id(ballotId)
                     .joint_public_key(jointPublicKey)
                     .commitment_hash(commitmentHash)

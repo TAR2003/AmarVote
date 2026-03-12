@@ -690,7 +690,7 @@ def api_create_encrypted_ballot():
         data = get_request_data()
         party_names = data['party_names']
         candidate_names = data['candidate_names']
-        candidate_name = data['candidate_name']
+        candidate_names_to_vote = data['candidate_names_to_vote']
         ballot_id = data['ballot_id']
         joint_public_key = data['joint_public_key']  # Expecting string
         commitment_hash = data['commitment_hash']    # Expecting string
@@ -706,13 +706,14 @@ def api_create_encrypted_ballot():
         # Get election data with safe int conversion
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
         quorum = safe_int_conversion(data.get('quorum', 1))
+        max_choices = safe_int_conversion(data.get('max_choices', 1))
         
         # Call service function to create the encrypted ballot
         service_start = time.time()
         result = create_encrypted_ballot_service(
             party_names,
             candidate_names,
-            candidate_name,
+            candidate_names_to_vote,
             ballot_id,
             joint_public_key,
             commitment_hash,
@@ -720,7 +721,8 @@ def api_create_encrypted_ballot():
             quorum,
             create_plaintext_ballot,
             create_election_manifest,
-            generate_ballot_hash_electionguard
+            generate_ballot_hash_electionguard,
+            max_choices=max_choices
         )
         service_elapsed = time.time() - service_start
         
@@ -827,7 +829,7 @@ def api_benaloh_challenge():
         # Validate required fields
         required_fields = [
             'encrypted_ballot_with_nonce', 'party_names', 'candidate_names',
-            'candidate_name', 'joint_public_key', 'commitment_hash',
+            'candidate_names_to_verify', 'joint_public_key', 'commitment_hash',
             'number_of_guardians', 'quorum'
         ]
 
@@ -838,7 +840,7 @@ def api_benaloh_challenge():
         encrypted_ballot_with_nonce = data['encrypted_ballot_with_nonce']
         party_names = data['party_names']
         candidate_names = data['candidate_names']
-        candidate_name = data['candidate_name']
+        candidate_names_to_verify = data['candidate_names_to_verify']
         joint_public_key = data['joint_public_key']
         commitment_hash = data['commitment_hash']
         number_of_guardians = safe_int_conversion(data['number_of_guardians'])
@@ -851,7 +853,7 @@ def api_benaloh_challenge():
             encrypted_ballot_with_nonce=encrypted_ballot_with_nonce,
             party_names=party_names,
             candidate_names=candidate_names,
-            candidate_name=candidate_name,
+            candidate_names_to_verify=candidate_names_to_verify,
             joint_public_key=joint_public_key,
             commitment_hash=commitment_hash,
             number_of_guardians=number_of_guardians,
@@ -867,6 +869,7 @@ def api_benaloh_challenge():
                 'match': result['match'],
                 'message': result['message'],
                 'ballot_id': result.get('ballot_id'),
+                'verified_candidates': result.get('verified_candidates', []),
                 'verified_candidate': result.get('verified_candidate'),
                 'expected_candidate': result.get('expected_candidate')
             })
@@ -1022,6 +1025,7 @@ def api_create_encrypted_tally():
         # Get election data with safe int conversion
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
         quorum = safe_int_conversion(data.get('quorum', 1))
+        max_choices = safe_int_conversion(data.get('max_choices', 1))
         
         # Call service function
         service_start = time.time()
@@ -1035,7 +1039,8 @@ def api_create_encrypted_tally():
             number_of_guardians,
             quorum,
             create_election_manifest,
-            ciphertext_tally_to_raw
+            ciphertext_tally_to_raw,
+            max_choices=max_choices
         )
         service_elapsed = time.time() - service_start
         print(f"✅ COMPUTATION COMPLETE: {service_elapsed*1000:.2f}ms")
@@ -1141,6 +1146,7 @@ def api_create_partial_decryption():
         # Get election data with safe int conversion
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
         quorum = safe_int_conversion(data.get('quorum', 1))
+        max_choices = safe_int_conversion(data.get('max_choices', 1))
         
         # Call service function with single guardian data
         service_start = time.time()
@@ -1161,7 +1167,8 @@ def api_create_partial_decryption():
             quorum,
             create_election_manifest,
             raw_to_ciphertext_tally,
-            compute_ballot_shares
+            compute_ballot_shares,
+            max_choices=max_choices
         )
         service_elapsed = time.time() - service_start
         print(f"✅ COMPUTATION COMPLETE: {service_elapsed*1000:.2f}ms")
@@ -1262,6 +1269,7 @@ def api_create_compensated_decryption():
         # Get election data with safe int conversion
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
         quorum = safe_int_conversion(data.get('quorum', 1))
+        max_choices = safe_int_conversion(data.get('max_choices', 1))
         
         deserialize_elapsed = time.time() - deserialize_start
         
@@ -1285,7 +1293,8 @@ def api_create_compensated_decryption():
             quorum,
             create_election_manifest,
             raw_to_ciphertext_tally,
-            compute_compensated_ballot_shares
+            compute_compensated_ballot_shares,
+            max_choices=max_choices
         )
         service_elapsed = time.time() - service_start
 
@@ -1398,6 +1407,7 @@ def api_combine_decryption_shares():
         # Get the required quorum with safe int conversion
         quorum = safe_int_conversion(data.get('quorum', len(guardian_data)))
         number_of_guardians = safe_int_conversion(data.get('number_of_guardians', len(guardian_data)))
+        max_choices = safe_int_conversion(data.get('max_choices', 1))
         
         deserialize_elapsed = time.time() - deserialize_start
         print(f"✅ DESERIALIZATION COMPLETE: {deserialize_elapsed*1000:.2f}ms")
@@ -1450,7 +1460,8 @@ def api_combine_decryption_shares():
             create_election_manifest,
             raw_to_ciphertext_tally,
             generate_ballot_hash,
-            generate_ballot_hash_electionguard
+            generate_ballot_hash_electionguard,
+            max_choices=max_choices
         )
         service_elapsed = time.time() - service_start
         print(f"✅ COMPUTATION COMPLETE: {service_elapsed*1000:.2f}ms")

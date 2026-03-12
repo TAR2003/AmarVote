@@ -15,10 +15,11 @@ public class ElectionGuardBallotRequest {
     
     private List<String> party_names;
     private List<String> candidate_names;
-    private String candidate_name;
+    private List<String> candidate_names_to_vote;
     private String ballot_id;
     private String joint_public_key;
     private String commitment_hash;
     private int number_of_guardians;
     private int quorum;
+    private int max_choices;
 }

@@ -124,7 +124,8 @@ def create_compensated_decryption_service(
     quorum: int,
     create_election_manifest_func,
     raw_to_ciphertext_tally_func,
-    compute_compensated_ballot_shares_func
+    compute_compensated_ballot_shares_func,
+    max_choices: int = 1
 ) -> Dict[str, Any]:
     """
     Service function to compute compensated decryption shares for missing guardians.
@@ -233,10 +234,11 @@ def create_compensated_decryption_service(
         party_names, candidate_names,
         joint_public_key_int, commitment_hash_int,
         number_of_guardians, quorum,
-        create_election_manifest_func
+        create_election_manifest_func,
+        max_choices=max_choices
     )
     # InternalManifest stores manifest only in __post_init__ (InitVar), not as attribute.
-    manifest = cache.get_or_create_manifest(party_names, candidate_names, create_election_manifest_func)
+    manifest = cache.get_or_create_manifest(party_names, candidate_names, create_election_manifest_func, max_choices=max_choices)
     
     ciphertext_tally = raw_to_ciphertext_tally_func(ciphertext_tally_json, manifest=manifest)
     submitted_ballots = []

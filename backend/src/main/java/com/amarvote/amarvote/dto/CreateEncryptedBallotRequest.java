@@ -1,5 +1,7 @@
 package com.amarvote.amarvote.dto;
 
+import java.util.List;
+
 import com.amarvote.amarvote.dto.CastBallotRequest.BotDetectionData;
 
 import lombok.AllArgsConstructor;
@@ -14,7 +16,7 @@ import lombok.NoArgsConstructor;
 public class CreateEncryptedBallotRequest {
     
     private Long electionId;
-    private String selectedCandidate;
+    private List<String> selectedCandidates;
     private BotDetectionData botDetection;
     
     /**

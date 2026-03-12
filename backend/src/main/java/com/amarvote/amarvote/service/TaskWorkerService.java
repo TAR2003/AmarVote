@@ -165,6 +165,7 @@ public class TaskWorkerService {
                 .encrypted_ballots(chunkEncryptedBallots)
                 .quorum(task.getQuorum())
                 .number_of_guardians(task.getNumberOfGuardians())
+                .max_choices(task.getMaxChoices())
                 .build();
             
             // Call ElectionGuard service
@@ -347,6 +348,7 @@ public class TaskWorkerService {
                 .commitment_hash(task.getBaseHash())
                 .number_of_guardians(task.getNumberOfGuardians())
                 .quorum(task.getQuorum())
+                .max_choices(task.getMaxChoices())
                 .build();
             
             // Call ElectionGuard service
@@ -529,6 +531,7 @@ public class TaskWorkerService {
                 .commitment_hash(task.getBaseHash())
                 .number_of_guardians(task.getNumberOfGuardians())
                 .quorum(task.getQuorum())
+                .max_choices(task.getMaxChoices())
                 .build();
             
             // Call ElectionGuard service with retry logic
@@ -799,6 +802,7 @@ public class TaskWorkerService {
                 .compensating_guardian_ids(compensatingGuardianIds)
                 .compensated_tally_shares(parseJsonStringList(compensatedTallyShares))
                 .compensated_ballot_shares(parseJsonStringList(compensatedBallotShares))
+                .max_choices(task.getMaxChoices())
                 .build();
             
             // Call ElectionGuard service

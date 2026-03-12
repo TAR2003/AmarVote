@@ -1,5 +1,7 @@
 package com.amarvote.amarvote.dto;
 
+import java.util.List;
+
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -13,5 +15,5 @@ public class BenalohChallengeRequest {
     
     private Long electionId;
     private String encrypted_ballot_with_nonce;
-    private String candidate_name; // The candidate name user wants to verify
+    private List<String> candidate_names_to_verify; // The candidate names the user wants to verify
 }

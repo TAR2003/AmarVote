@@ -35,4 +35,5 @@ public class TallyCreationTask implements Serializable {
     private String baseHash;
     private int quorum;
     private int numberOfGuardians;
+    private int maxChoices;
 }

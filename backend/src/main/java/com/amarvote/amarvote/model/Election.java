@@ -80,6 +80,10 @@ public class Election {
 
     @Column(name = "eligibility", columnDefinition = "TEXT")
     private String eligibility;
+
+    @Column(name = "max_choices")
+    @Builder.Default
+    private Integer maxChoices = 1;
 }
 
 

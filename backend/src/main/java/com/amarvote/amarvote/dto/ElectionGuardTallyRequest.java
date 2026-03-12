@@ -19,4 +19,5 @@ public class ElectionGuardTallyRequest {
     private List<String> encrypted_ballots;
     private int number_of_guardians;
     private int quorum;
+    private int max_choices;
 }

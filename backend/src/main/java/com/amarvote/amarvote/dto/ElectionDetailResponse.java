@@ -20,6 +20,7 @@ public class ElectionDetailResponse {
     private Integer numberOfGuardians;
     private Integer electionQuorum;
     private Integer noOfCandidates;
+    private Integer maxChoices;
     private String jointPublicKey;
     private String manifestHash;
     private String status;

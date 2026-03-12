@@ -39,4 +39,5 @@ public class PartialDecryptionTask implements Serializable {
     private String jointPublicKey;
     private String baseHash;
     private int quorum;
+    private int maxChoices;
 }

@@ -20,5 +20,6 @@ public record ElectionGuardCompensatedDecryptionRequest(
     String joint_public_key,
     String commitment_hash,
     int number_of_guardians,
-    int quorum
+    int quorum,
+    int max_choices
 ) {}

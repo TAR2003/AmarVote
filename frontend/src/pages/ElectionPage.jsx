@@ -1909,7 +1909,7 @@ export default function ElectionPage() {
     }
   }, [location.pathname]); // Remove activeTab from dependency to prevent infinite loop
 
-  const [selectedCandidate, setSelectedCandidate] = useState('');
+  const [selectedCandidates, setSelectedCandidates] = useState([]);
   const [electionData, setElectionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -1928,7 +1928,7 @@ export default function ElectionPage() {
   const [isCasting, setIsCasting] = useState(false);
   const [isChallenging, setIsChallenging] = useState(false);
   const [showChallengeModal, setShowChallengeModal] = useState(false);
-  const [challengeCandidateChoice, setChallengeCandidateChoice] = useState('');
+  const [challengeCandidateChoices, setChallengeCandidateChoices] = useState([]);
 
   // Bot detection state
   const [botDetection, setBotDetection] = useState({
@@ -2556,7 +2556,7 @@ export default function ElectionPage() {
 
   const handleVoteSubmit = async (e) => {
     e.preventDefault();
-    if (!selectedCandidate) return;
+    if (!selectedCandidates.length) return;
     
     // Instead of showing confirmation modal, create encrypted ballot
     await handleCreateEncryptedBallot();
@@ -2599,22 +2599,23 @@ export default function ElectionPage() {
     }
 
     try {
-      const selectedChoice = electionData.electionChoices.find(
-        choice => choice.choiceId.toString() === selectedCandidate
+      const selectedChoices = electionData.electionChoices.filter(
+        choice => selectedCandidates.includes(choice.choiceId.toString())
       );
+      const optionTitles = selectedChoices.map(c => c.optionTitle);
 
       console.log('📤 [ENCRYPTED BALLOT] Creating encrypted ballot...');
       const result = await electionApi.createEncryptedBallot(
         id,
-        selectedChoice.choiceId,
-        selectedChoice.optionTitle,
+        selectedChoices.length === 1 ? selectedChoices[0].choiceId : null,
+        optionTitles,
         freshBotDetection
       );
 
       // Store encrypted ballot data
       setEncryptedBallotData(result);
       setShowBallotActions(true);
-      setSelectedCandidate(''); // Reset selection
+      setSelectedCandidates([]); // Reset selection
 
       console.log('✅ [ENCRYPTED BALLOT] Encrypted ballot created successfully');
 
@@ -2726,7 +2727,7 @@ export default function ElectionPage() {
   };
 
   const handleConfirmChallenge = async () => {
-    if (!challengeCandidateChoice) return;
+    if (!challengeCandidateChoices.length) return;
     
     setIsChallenging(true);
     setChallengeResult(null);
@@ -2735,18 +2736,18 @@ export default function ElectionPage() {
     try {
       console.log('🔍 [BENALOH CHALLENGE] Performing challenge...');
       
-      // Find the selected candidate name
-      const selectedChoice = electionData.electionChoices.find(
-        choice => choice.choiceId.toString() === challengeCandidateChoice
+      // Find the selected candidate names
+      const selectedChoices = electionData.electionChoices.filter(
+        choice => challengeCandidateChoices.includes(choice.choiceId.toString())
       );
-      const candidateName = selectedChoice ? selectedChoice.optionTitle : 'Unknown Candidate';
+      const candidateNames = selectedChoices.map(c => c.optionTitle);
       
-      console.log('🔍 [BENALOH CHALLENGE] Challenge candidate:', candidateName);
+      console.log('🔍 [BENALOH CHALLENGE] Challenge candidates:', candidateNames);
 
       const result = await electionApi.performBenalohChallenge(
         id,
         encryptedBallotData.encrypted_ballot_with_nonce,
-        candidateName
+        candidateNames
       );
 
       setChallengeResult(result);
@@ -2756,9 +2757,10 @@ export default function ElectionPage() {
       console.log('✅ [BENALOH CHALLENGE] Challenge completed:', result);
 
       if (result.match) {
-        toast.success(`✅ Challenge verification passed! The ballot was encrypted for: ${result.verified_candidate}`);
+        const verifiedList = result.verified_candidates ? result.verified_candidates.join(', ') : result.verified_candidate;
+        toast.success(`✅ Challenge verification passed! The ballot was encrypted for: ${verifiedList}`);
       } else {
-        toast.error(`❌ Challenge verification failed! Expected: ${result.expected_candidate}, but found: ${result.verified_candidate}`);
+        toast.error(`❌ Challenge verification failed! Ballot did not match the expected candidates.`);
       }
 
     } catch (err) {
@@ -2808,7 +2810,7 @@ export default function ElectionPage() {
 
     try {
       const selectedChoice = electionData.electionChoices.find(
-        choice => choice.choiceId.toString() === selectedCandidate
+        choice => choice.choiceId.toString() === (selectedCandidates[0] || '')
       );
 
       console.log('📤 [VOTING] Sending vote request with bot detection data...');
@@ -2826,7 +2828,7 @@ export default function ElectionPage() {
       };
 
       setVoteResult(voteResultWithCandidate);
-      setSelectedCandidate('');
+      setSelectedCandidates([]);
       setShowConfirmModal(false);
 
       console.log('✅ [VOTING] Vote cast successfully');
@@ -3644,8 +3646,10 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                     <div>
                       <h4 className="font-medium text-yellow-900">Voting Instructions</h4>
                       <p className="text-sm text-yellow-800 mt-1">
-                        Select one candidate from the list below and click "Create Encrypted Ballot" to generate your encrypted ballot files.
-                        You can only vote once in this election.
+                        {electionData.maxChoices > 1
+                          ? `Select up to ${electionData.maxChoices} candidates from the list below and click "Create Encrypted Ballot".`
+                          : 'Select one candidate from the list below and click "Create Encrypted Ballot" to generate your encrypted ballot files.'}
+                        {' '}You can only vote once in this election.
                       </p>
                     </div>
                   </div>
@@ -3654,53 +3658,70 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 <form onSubmit={handleVoteSubmit}>
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-3">
-                      Select your candidate:
+                      {electionData.maxChoices > 1
+                        ? `Select up to ${electionData.maxChoices} candidate(s): (${selectedCandidates.length}/${electionData.maxChoices} selected)`
+                        : 'Select your candidate:'}
                     </label>
                     <div className="space-y-3">
-                      {electionData.electionChoices?.map((choice) => (
-                        <div key={choice.choiceId} className={`flex items-center p-4 border-2 rounded-lg cursor-pointer transition-all ${selectedCandidate === choice.choiceId.toString()
-                            ? 'border-blue-500 bg-blue-50'
-                            : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
-                          }`}>
-                          <input
-                            type="radio"
-                            id={choice.choiceId}
-                            name="candidate"
-                            value={choice.choiceId}
-                            checked={selectedCandidate === choice.choiceId.toString()}
-                            onChange={(e) => setSelectedCandidate(e.target.value)}
-                            className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300"
-                          />
-                          <label htmlFor={choice.choiceId} className="ml-4 flex-1 cursor-pointer">
-                            <div className="flex items-center space-x-4">
-                              {choice.candidatePic && (
-                                <img
-                                  src={choice.candidatePic}
-                                  alt={choice.optionTitle}
-                                  className="h-12 w-12 rounded-full object-cover"
-                                />
-                              )}
-                              <div>
-                                <p className="font-medium text-gray-900 text-lg">{choice.optionTitle}</p>
-                                {choice.partyName && (
-                                  <p className="text-sm text-gray-600">{choice.partyName}</p>
+                      {electionData.electionChoices?.map((choice) => {
+                        const isSelected = selectedCandidates.includes(choice.choiceId.toString());
+                        const maxChoices = electionData.maxChoices || 1;
+                        const isDisabled = !isSelected && selectedCandidates.length >= maxChoices;
+                        return (
+                          <div key={choice.choiceId} className={`flex items-center p-4 border-2 rounded-lg transition-all ${
+                              isDisabled ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
+                              : isSelected ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
+                            }`}
+                            onClick={() => {
+                              if (isDisabled) return;
+                              const idStr = choice.choiceId.toString();
+                              setSelectedCandidates(prev =>
+                                prev.includes(idStr) ? prev.filter(x => x !== idStr) : [...prev, idStr]
+                              );
+                            }}
+                          >
+                            <input
+                              type={maxChoices > 1 ? 'checkbox' : 'radio'}
+                              id={choice.choiceId}
+                              name="candidate"
+                              value={choice.choiceId}
+                              checked={isSelected}
+                              disabled={isDisabled}
+                              onChange={() => {}}
+                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 pointer-events-none"
+                            />
+                            <label htmlFor={choice.choiceId} className="ml-4 flex-1 cursor-pointer">
+                              <div className="flex items-center space-x-4">
+                                {choice.candidatePic && (
+                                  <img
+                                    src={choice.candidatePic}
+                                    alt={choice.optionTitle}
+                                    className="h-12 w-12 rounded-full object-cover"
+                                  />
                                 )}
-                                {choice.optionDescription && (
-                                  <p className="text-sm text-gray-500 mt-1">{choice.optionDescription}</p>
-                                )}
+                                <div>
+                                  <p className="font-medium text-gray-900 text-lg">{choice.optionTitle}</p>
+                                  {choice.partyName && (
+                                    <p className="text-sm text-gray-600">{choice.partyName}</p>
+                                  )}
+                                  {choice.optionDescription && (
+                                    <p className="text-sm text-gray-500 mt-1">{choice.optionDescription}</p>
+                                  )}
+                                </div>
                               </div>
-                            </div>
-                          </label>
-                        </div>
-                      ))}
+                            </label>
+                          </div>
+                        );
+                      })}
                     </div>
                   </div>
 
                   <div className="flex justify-center">
                     <button
                       type="submit"
-                      disabled={!selectedCandidate || isSubmitting || botDetection.loading || botDetection.isBot}
-                      className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${!selectedCandidate || isSubmitting || botDetection.loading || botDetection.isBot
+                      disabled={!selectedCandidates.length || isSubmitting || botDetection.loading || botDetection.isBot}
+                      className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${!selectedCandidates.length || isSubmitting || botDetection.loading || botDetection.isBot
                           ? 'bg-gray-400 cursor-not-allowed'
                           : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
                         }`}
@@ -3979,35 +4000,47 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
               
               <div className="mb-3 sm:mb-4">
                 <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
-                  Select the candidate you want to verify against your encrypted ballot. 
-                  This will check if your ballot was encrypted with the correct choice.
+                  Select the candidate(s) you voted for to verify against your encrypted ballot. 
+                  This will check if your ballot was encrypted with the correct choice(s).
                 </p>
                 
                 <div className="space-y-2 sm:space-y-3">
-                  {electionData && electionData.electionChoices && electionData.electionChoices.map((choice) => (
-                    <div 
-                      key={choice.choiceId} 
-                      className={`flex items-center p-2 sm:p-3 border-2 rounded-lg cursor-pointer transition-all ${
-                        challengeCandidateChoice === choice.choiceId.toString()
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
-                      }`}
-                      onClick={() => setChallengeCandidateChoice(choice.choiceId.toString())}
-                    >
-                      <input
-                        type="radio"
-                        name="challengeCandidate"
-                        value={choice.choiceId.toString()}
-                        checked={challengeCandidateChoice === choice.choiceId.toString()}
-                        onChange={(e) => setChallengeCandidateChoice(e.target.value)}
-                        className="mr-2 sm:mr-3"
-                      />
-                      <div className="flex-1 min-w-0">
-                        <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{choice.optionTitle}</div>
-                        <div className="text-xs sm:text-sm text-gray-500 truncate">{choice.partyName}</div>
+                  {electionData && electionData.electionChoices && electionData.electionChoices.map((choice) => {
+                    const isChecked = challengeCandidateChoices.includes(choice.choiceId.toString());
+                    const maxChoices = electionData.maxChoices || 1;
+                    const isDisabled = !isChecked && challengeCandidateChoices.length >= maxChoices;
+                    return (
+                      <div 
+                        key={choice.choiceId} 
+                        className={`flex items-center p-2 sm:p-3 border-2 rounded-lg transition-all ${
+                          isDisabled ? 'border-gray-100 opacity-50 cursor-not-allowed'
+                          : isChecked ? 'border-blue-500 bg-blue-50 cursor-pointer'
+                          : 'border-gray-200 hover:border-gray-300 cursor-pointer'
+                        }`}
+                        onClick={() => {
+                          if (isDisabled) return;
+                          const idStr = choice.choiceId.toString();
+                          setChallengeCandidateChoices(prev =>
+                            prev.includes(idStr) ? prev.filter(x => x !== idStr) : [...prev, idStr]
+                          );
+                        }}
+                      >
+                        <input
+                          type={maxChoices > 1 ? 'checkbox' : 'radio'}
+                          name="challengeCandidate"
+                          value={choice.choiceId.toString()}
+                          checked={isChecked}
+                          disabled={isDisabled}
+                          onChange={() => {}}
+                          className="mr-2 sm:mr-3 pointer-events-none"
+                        />
+                        <div className="flex-1 min-w-0">
+                          <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{choice.optionTitle}</div>
+                          <div className="text-xs sm:text-sm text-gray-500 truncate">{choice.partyName}</div>
+                        </div>
                       </div>
-                    </div>
-                  ))}
+                    );
+                  })}
                 </div>
                 
                 <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
@@ -4025,7 +4058,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 <button
                   onClick={() => {
                     setShowChallengeModal(false);
-                    setChallengeCandidateChoice('');
+                    setChallengeCandidateChoices([]);
                   }}
                   disabled={isChallenging}
                   className="flex-1 bg-gray-200 text-gray-800 py-2 px-3 sm:px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50 text-sm sm:text-base"
@@ -4034,9 +4067,9 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                 </button>
                 <button
                   onClick={handleConfirmChallenge}
-                  disabled={!challengeCandidateChoice || isChallenging}
+                  disabled={!challengeCandidateChoices.length || isChallenging}
                   className={`flex-1 py-2 px-3 sm:px-4 rounded-lg font-medium text-white transition-colors text-sm sm:text-base ${
-                    !challengeCandidateChoice || isChallenging
+                    !challengeCandidateChoices.length || isChallenging
                       ? 'bg-gray-400 cursor-not-allowed'
                       : 'bg-orange-600 hover:bg-orange-700'
                   }`}

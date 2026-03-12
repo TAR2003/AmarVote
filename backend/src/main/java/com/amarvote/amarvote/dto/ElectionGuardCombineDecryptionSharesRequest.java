@@ -24,6 +24,7 @@ public record ElectionGuardCombineDecryptionSharesRequest(
         @JsonProperty("compensated_tally_shares") List<Object> compensated_tally_shares, // Object for msgpack map
         @JsonProperty("compensated_ballot_shares") List<Object> compensated_ballot_shares, // Object for msgpack map
         @JsonProperty("quorum") Integer quorum,
-        @JsonProperty("number_of_guardians") Integer number_of_guardians
+        @JsonProperty("number_of_guardians") Integer number_of_guardians,
+        @JsonProperty("max_choices") Integer max_choices
 ) {
 }

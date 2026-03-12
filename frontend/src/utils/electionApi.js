@@ -83,11 +83,11 @@ export const electionApi = {
    * Create an encrypted ballot without casting it
    * Uses PKCS#7 padding to ensure constant packet size (17520 bytes)
    */
-  async createEncryptedBallot(electionId, choiceId, optionTitle, botDetectionData = null) {
+  async createEncryptedBallot(electionId, choiceId, optionTitles, botDetectionData = null) {
     try {
       const requestBody = {
         electionId,
-        selectedCandidate: optionTitle
+        selectedCandidates: Array.isArray(optionTitles) ? optionTitles : [optionTitles]
       };
 
       // Include bot detection data if provided
@@ -133,12 +133,12 @@ export const electionApi = {
   /**
    * Perform Benaloh challenge on an encrypted ballot
    */
-  async performBenalohChallenge(electionId, encrypted_ballot_with_nonce, candidate_name) {
+  async performBenalohChallenge(electionId, encrypted_ballot_with_nonce, candidateNamesToVerify) {
     try {
       const requestBody = {
         electionId,
         encrypted_ballot_with_nonce,
-        candidate_name
+        candidate_names_to_verify: Array.isArray(candidateNamesToVerify) ? candidateNamesToVerify : [candidateNamesToVerify]
       };
 
       return await apiRequest('/benaloh-challenge', {

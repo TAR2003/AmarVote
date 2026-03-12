@@ -160,6 +160,8 @@ public class ElectionService {
         election.setAdminEmail(userEmail); // Set admin email from request
         election.setPrivacy(request.electionPrivacy()); // Set privacy field
         election.setEligibility(request.electionEligibility()); // Set eligibility field
+        Integer requestedMaxChoices = request.maxChoices();
+        election.setMaxChoices(requestedMaxChoices != null ? requestedMaxChoices : 1);
 
         // ✅ Save to DB to get generated ID
         election = electionRepository.save(election);
@@ -583,6 +585,7 @@ public class ElectionService {
                 .numberOfGuardians(election.getNumberOfGuardians())
                 .electionQuorum(election.getElectionQuorum())
                 .noOfCandidates(election.getNoOfCandidates())
+                .maxChoices(election.getMaxChoices())
                 .jointPublicKey(election.getJointPublicKey())
                 .manifestHash(election.getManifestHash())
                 .status(election.getStatus())
