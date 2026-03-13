@@ -1,5 +1,33 @@
 # 📱 AmarVote Frontend — React Application
 
+## 2026 Update (Client Workflow)
+
+Frontend workflow has been updated to align with the new guardian ceremony model.
+
+### Primary client-facing lifecycle
+
+1. OTP authentication and session bootstrap.
+2. Election browsing/creation.
+3. Guardian key ceremony through `/key-ceremony`:
+
+- Round 1: generate + submit keypair payload.
+- Round 2: generate + submit encrypted backup shares.
+
+1. Voting: create encrypted ballot, optional challenge, cast.
+2. Admin tally/decryption orchestration with progress modals.
+3. Final result viewing and verification.
+
+### Important route correction
+
+The active election route pattern is:
+
+- `/election-page/:id`
+- `/election-page/:id/:tab`
+
+The `/key-ceremony` route is now a first-class operational page for guardians and admins.
+
+---
+
 **Technology:** React 19.1.0 · Vite 6.3.5 · Tailwind CSS 3  
 **Dev Port:** `5173`  
 **Prod Port:** `80` (nginx)  

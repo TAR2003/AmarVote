@@ -1,5 +1,28 @@
 # 🚀 AmarVote Backend — Spring Boot Service
 
+## 2026 Update (Current Architecture)
+
+The backend now orchestrates a **guardian-driven key ceremony lifecycle**:
+
+1. Create election in `key_ceremony_pending`.
+2. Guardian Round 1 keypair generation/submission.
+3. Guardian Round 2 backup-share generation/submission.
+4. Admin activation once all ceremony checks pass.
+
+Key backend endpoints for this lifecycle:
+
+- `GET /api/guardian/key-ceremony/pending`
+- `GET /api/guardian/key-ceremony/generate/{electionId}`
+- `POST /api/guardian/key-ceremony/submit`
+- `POST /api/guardian/key-ceremony/backup/generate/{electionId}`
+- `POST /api/guardian/key-ceremony/backup/submit`
+- `GET /api/admin/key-ceremony/status/{electionId}`
+- `POST /api/admin/key-ceremony/activate`
+
+This replaced the older “single automated server-side ceremony as main path” model and improves accountability, security boundaries, and auditability.
+
+---
+
 **Technology:** Java 21 · Spring Boot 3.5.0 · Maven  
 **Container Port:** `8080`  
 **Network IP:** `172.20.0.30` (both dev and prod)  

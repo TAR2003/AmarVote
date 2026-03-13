@@ -1,12 +1,87 @@
-# React + Vite
+# AmarVote Frontend
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+This React application is the main client experience for:
+- voters
+- guardians
+- election admins
 
-Currently, two official plugins are available:
+It is no longer a template app; it contains production election workflows.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+---
 
-## Expanding the ESLint configuration
+## Main responsibilities
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and [`typescript-eslint`](https://typescript-eslint.io) in your project.
+- OTP login/session UX
+- election discovery and election pages
+- encrypted ballot flow (create, challenge, cast)
+- guardian key ceremony dashboard (Round 1 + Round 2)
+- tally/decryption progress visualization
+- results and verification screens
+
+---
+
+## Important routes
+
+- `/otp-login`
+- `/dashboard`
+- `/create-election`
+- `/key-ceremony`
+- `/election-page/:id`
+- `/election-page/:id/:tab`
+- `/architecture`
+- `/how-it-works`
+- `/security`
+
+---
+
+## Guardian key ceremony UX (updated)
+
+The new guardian workflow is handled in `/key-ceremony`:
+
+### Round 1
+1. Guardian loads pending key ceremony tasks.
+2. Guardian generates ElectionGuard-compatible credentials.
+3. Guardian submits key ceremony data with local encryption password.
+4. `credentials-election-<id>.txt` is downloaded locally.
+
+### Round 2
+1. Opens only after all guardians complete Round 1.
+2. Guardian uploads local credential file.
+3. Guardian generates encrypted backup shares.
+4. Guardian submits backup payload.
+
+Admin monitors status and activates the election only when all required backup shares are complete.
+
+---
+
+## API client modules
+
+- `src/utils/api.js` (generic HTTP helper, CSRF/session handling)
+- `src/utils/electionApi.js` (election + key ceremony + tally/decryption operations)
+- `src/utils/userApi.js`
+
+Key ceremony endpoints used by frontend include:
+- `/api/guardian/key-ceremony/pending`
+- `/api/guardian/key-ceremony/generate/{electionId}`
+- `/api/guardian/key-ceremony/submit`
+- `/api/guardian/key-ceremony/backup/generate/{electionId}`
+- `/api/guardian/key-ceremony/backup/submit`
+- `/api/admin/key-ceremony/status/{electionId}`
+- `/api/admin/key-ceremony/activate`
+
+---
+
+## Run locally
+
+- Install dependencies: `npm install`
+- Run dev server: `npm run dev`
+- Build: `npm run build`
+- Preview build: `npm run preview`
+
+---
+
+## Related docs
+
+- [../README.md](../README.md)
+- [../docs/CLIENT_WORKFLOW.md](../docs/CLIENT_WORKFLOW.md)
+- [../docs/services/FRONTEND.md](../docs/services/FRONTEND.md)

@@ -1,5 +1,28 @@
 # 🔐 ElectionGuard Microservice
 
+## 2026 Update (Current Source of Truth)
+
+The guardian ceremony is now **decentralized and round-based** from the platform perspective:
+
+- Round 1 per guardian: generate credentials + submit key ceremony payload.
+- Round 2 per guardian: generate encrypted backup shares + submit backups.
+- Admin activation combines guardian public keys only after all required submissions.
+
+### Key microservice endpoints now used in this flow
+
+- `POST /generate_guardian_credentials`
+- `POST /generate_guardian_backup_shares`
+- `POST /combine_guardian_public_keys`
+
+Legacy endpoint `POST /setup_guardians` still exists for compatibility/testing, but the primary production ceremony flow now uses the endpoints above through backend orchestration.
+
+### Fast vs worker responsibilities (still valid)
+
+- Fast API: key ceremony helpers, ballot encryption, Benaloh challenge.
+- Worker API: tally creation, partial decryption, compensated decryption, combine decryption shares.
+
+---
+
 **Technology:** Python 3.12 · Flask · Gunicorn · ElectionGuard SDK  
 **Split into two containers:**
 

@@ -1,4 +1,124 @@
-# 🗳️ AmarVote — Next-Generation Secure Voting Platform
+# AmarVote
+
+AmarVote is an end-to-end verifiable election platform built with:
+- React frontend
+- Spring Boot orchestration backend
+- Python ElectionGuard cryptography services
+- RabbitMQ + worker pipeline for heavy tally/decryption jobs
+- PostgreSQL + Redis
+This documentation has been updated for the **new decentralized guardian key ceremony flow**.
+
+---
+
+## What changed (important)
+The platform no longer relies on a single fully automated server-side guardian setup as the primary path.
+
+The new flow is:
+1. Admin creates election in `key_ceremony_pending` state.
+2. Each assigned guardian generates their own credential bundle (Round 1).
+3. Each guardian submits only the required key ceremony payload through backend APIs.
+4. After all Round 1 submissions, guardians run Round 2 encrypted backup-share generation.
+5. Admin activates the election only after all required backups are submitted.
+6. Backend combines guardian public keys into the election joint public key.
+
+This reduces trust concentration and makes guardian participation explicit and auditable.
+---
+
+## Architecture overview
+
+```text
+Browser
+    -> Frontend (React)
+    -> Backend (Spring Boot, API + orchestration)
+             -> ElectionGuard API (fast synchronous cryptographic endpoints)
+             -> RabbitMQ (queues)
+             -> ElectionGuard Worker (heavy async tally/decryption)
+    -> PostgreSQL (persistent state)
+    -> Redis (short-lived credentials, counters, locks)
+```
+
+### Core principle
+- **Fast user operations stay synchronous** (ballot encryption, key ceremony step APIs).
+- **Heavy operations are queued and chunked** (tally creation, partial decryption, compensated decryption, combine).
+
+---
+
+## Why this architecture
+See full rationale in [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md).
+
+Short version:
+- Separation of concerns: UX/API orchestration and cryptographic compute are isolated.
+- Failure isolation: long-running crypto jobs cannot block voter-facing endpoints.
+- Horizontal safety: chunking + queue workers prevent memory spikes.
+- Better trust model: guardian key ceremony is now participatory, not centralized.
+- Operational clarity: each phase has explicit status and progress endpoints.
+
+---
+
+## Current key ceremony workflow (new)
+
+### Round 1 — Keypair generation and submission
+- Guardian fetches pending ceremony tasks.
+- Guardian generates credentials for assigned election.
+- Guardian submits key ceremony payload with local encryption password.
+- System stores encrypted credential metadata and marks guardian as Round-1 submitted.
+
+### Round 2 — Backup-share generation and submission
+- Opens only after all guardians complete Round 1.
+- Guardian uploads downloaded credential file and generates encrypted backup shares.
+- Guardian submits backup payload.
+- Admin waits until all required backups are submitted.
+
+### Activation
+- Admin calls activation endpoint with start/end times.
+- Backend validates quorum and backup completeness.
+- Backend combines all guardian public keys via ElectionGuard microservice.
+- Election moves from `key_ceremony_pending` to active scheduling state.
+
+---
+
+## Frontend client workflow docs
+
+For product/client-facing flow details, read:
+- [docs/CLIENT_WORKFLOW.md](docs/CLIENT_WORKFLOW.md)
+- [docs/services/FRONTEND.md](docs/services/FRONTEND.md)
+
+---
+
+## Service documentation
+
+- [docs/services/BACKEND.md](docs/services/BACKEND.md)
+- [docs/services/ELECTIONGUARD.md](docs/services/ELECTIONGUARD.md)
+- [docs/services/FRONTEND.md](docs/services/FRONTEND.md)
+- [docs/services/RABBITMQ.md](docs/services/RABBITMQ.md)
+- [docs/services/REDIS.md](docs/services/REDIS.md)
+- [docs/services/DATABASE.md](docs/services/DATABASE.md)
+
+---
+
+## Run
+
+Development:
+- `docker compose up --build`
+
+Production compose variant:
+- `docker compose -f docker-compose.prod.yml up --build -d`
+
+---
+
+## Notes for maintainers
+
+If guardian-key flow changes again, update these first:
+1. [README.md](README.md)
+2. [docs/ARCHITECTURE_DECISIONS.md](docs/ARCHITECTURE_DECISIONS.md)
+3. [docs/CLIENT_WORKFLOW.md](docs/CLIENT_WORKFLOW.md)
+4. [docs/services/BACKEND.md](docs/services/BACKEND.md)
+5. [docs/services/ELECTIONGUARD.md](docs/services/ELECTIONGUARD.md)
+6. [docs/services/FRONTEND.md](docs/services/FRONTEND.md)
+
+## Legacy README Archive (Outdated)
+
+> The section below is kept only for historical reference and may not match the current guardian workflow.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Java](https://img.shields.io/badge/Java-21-orange.svg)](https://openjdk.org/projects/jdk/21/)

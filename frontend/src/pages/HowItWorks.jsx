@@ -140,7 +140,7 @@ const HowItWorks = () => {
         {activePhase === "setup" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">Phase 2 â€” Election Setup & Key Ceremony</h2>
-            <p className="text-gray-500 text-center mb-8">Admin creates election â†’ ElectionGuard generates guardian keypairs â†’ credentials emailed</p>
+            <p className="text-gray-500 text-center mb-8">Admin creates election â†’ guardians complete Round 1 and Round 2 ceremony tasks â†’ admin activates election</p>
             <div>
               <Step n="1" title="Election Creation" actor="Admin" color="blue">
                 <p className="text-sm text-gray-700 mb-2">Admin fills the election creation form in the React dashboard.</p>
@@ -149,35 +149,32 @@ const HowItWorks = () => {
                   <SubPoint>Guardian count n (e.g. 5) and quorum threshold k (e.g. 3)</SubPoint>
                   <SubPoint>Eligibility: open / restricted / listed (by email list) / unlisted (private URL)</SubPoint>
                   <SubPoint>Images uploaded to Cloudinary via SDK 1.38.0 (candidates, party logos)</SubPoint>
-                  <SubPoint>POST /api/elections/create â†’ election saved to DB (status = PENDING_SETUP)</SubPoint>
+                  <SubPoint>POST /api/create-election â†’ election saved to DB (status = key_ceremony_pending)</SubPoint>
                 </ul>
               </Step>
-              <Step n="2" title="Guardian Key Ceremony" actor="Spring Boot â†’ EG Fast API" color="green">
-                <p className="text-sm text-gray-700 mb-2">Backend calls ElectionGuard's key ceremony to generate keypairs for all guardians.</p>
+              <Step n="2" title="Guardian Round 1 + Round 2 Ceremony" actor="Guardian + Spring Boot + EG Fast API" color="green">
+                <p className="text-sm text-gray-700 mb-2">Each guardian participates directly: generate own credentials, submit keypair payload, then generate and submit encrypted backup shares.</p>
                 <ul className="space-y-0.5">
-                  <SubPoint>POST to EG Fast API (172.20.0.10:5000) /ceremony/setup with {"{election_id, guardian_count, quorum}"}  </SubPoint>
-                  <SubPoint>EG generates n guardian keypairs: s_i (secret) + K_i = g^s_i mod p (public)</SubPoint>
-                  <SubPoint>Each guardian gets a polynomial backup (degree k-1) for compensated decryption</SubPoint>
-                  <SubPoint>Schnorr commitment proofs generated for all public keys</SubPoint>
-                  <SubPoint>Combined election public key K = K_1 Ã— K_2 Ã— ... Ã— K_n mod p (joint key)</SubPoint>
+                  <SubPoint>Guardian UI calls /api/guardian/key-ceremony/generate/{"{electionId}"} for Round 1 credential generation</SubPoint>
+                  <SubPoint>Round 1 submission: /api/guardian/key-ceremony/submit (public key + encrypted credential metadata path)</SubPoint>
+                  <SubPoint>Round 2 opens only after all guardians finish Round 1</SubPoint>
+                  <SubPoint>Round 2 generation: /api/guardian/key-ceremony/backup/generate/{"{electionId}"}</SubPoint>
+                  <SubPoint>Round 2 submission: /api/guardian/key-ceremony/backup/submit</SubPoint>
                 </ul>
                 <CodeSnip label="Key ceremony response" code={`{
-  "election_public_key": "ac3f...9b2e",  // 4096-bit hex
-  "guardians": [
-    { "id": 1, "public_key": "...", 
-      "polynomial_backup": [...], 
-      "schnorr_proof": {...} },
-    ...
-  ]
+  "currentRound": "keypair_generation | backup_key_sharing",
+  "submittedGuardians": 4,
+  "submittedBackupGuardians": 3,
+  "readyForActivation": false
 }`} />
               </Step>
-              <Step n="3" title="Credential Encryption & Email" actor="Spring Boot" color="purple">
-                <p className="text-sm text-gray-700 mb-2">Guardian private keys are encrypted with post-quantum wrapping and emailed securely.</p>
+              <Step n="3" title="Admin Activation after Ceremony" actor="Admin + Spring Boot" color="purple">
+                <p className="text-sm text-gray-700 mb-2">Admin activates the election only after all guardians have submitted required Round 1 and Round 2 data.</p>
                 <ul className="space-y-0.5">
-                  <SubPoint>For each guardian: ML-KEM-1024 KEM â†’ AES-256-CBC wrap (Scrypt N=65536 KDF) â†’ HMAC-SHA256 tag</SubPoint>
-                  <SubPoint>Guardian email receives a credential.json file with all wrapped key material</SubPoint>
-                  <SubPoint>Spring Boot saves guardian public key + polynomial backup + schnorr proof to DB</SubPoint>
-                  <SubPoint>Election status â†’ ACTIVE; public key and start/end date saved</SubPoint>
+                  <SubPoint>Admin checks /api/admin/key-ceremony/status/{"{electionId}"}</SubPoint>
+                  <SubPoint>Activation endpoint: /api/admin/key-ceremony/activate</SubPoint>
+                  <SubPoint>Backend combines guardian public keys through ElectionGuard combine endpoint</SubPoint>
+                  <SubPoint>Election receives joint public key and schedule, then moves to active lifecycle</SubPoint>
                 </ul>
               </Step>
             </div>
