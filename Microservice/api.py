@@ -1818,7 +1818,7 @@ def encrypt_it():
         logger.error(f"Encryption error: {str(e)}")
         return make_binary_response({'status': 'error', 'message': 'Internal server error'}, 500)
 
-@app.route('/api/decrypt', methods=['POST'])
+@app.route('/api/decrypt', methods=['POST', 'OPTIONS'])
 # @rate_limit(max_requests=10, window_minutes=1)
 def decrypt_it():
     """
@@ -1828,15 +1828,37 @@ def decrypt_it():
     - encrypted_data: The encrypted private key (from Storage 1)
     - credentials: Contains all metadata + HMAC tag (from Storage 2)
     """
+    is_msgpack_client = 'msgpack' in (request.content_type or '')
+
     if not PQ_AVAILABLE:
         logger.error("Post-quantum cryptography not available")
-        return make_binary_response({'error': 'Post-quantum cryptography not available'}, 501)
+        if is_msgpack_client:
+            return make_binary_response({'error': 'Post-quantum cryptography not available'}, 501)
+        response = jsonify({'status': 'error', 'message': 'Post-quantum cryptography not available'})
+        return response, 501
+
+    cors_headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    }
+
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        for k, v in cors_headers.items():
+            response.headers[k] = v
+        return response, 200
 
     data = get_request_data()
     validation_error = validate_input(data, ['encrypted_data', 'credentials'])
     if validation_error:
         logger.warning(f"Validation error: {validation_error}")
-        return make_binary_response({'error': validation_error}, 400)
+        if is_msgpack_client:
+            return make_binary_response({'error': validation_error}, 400)
+        response = jsonify({'status': 'error', 'message': validation_error})
+        for k, v in cors_headers.items():
+            response.headers[k] = v
+        return response, 400
 
     try:
         # Fast decode and parse credentials
@@ -1845,11 +1867,21 @@ def decrypt_it():
         
         # Version check
         if credentials.get('version') != '1.0':
-            return make_binary_response({'error': 'Unsupported credential version'}, 400)
+            if is_msgpack_client:
+                return make_binary_response({'error': 'Unsupported credential version'}, 400)
+            response = jsonify({'status': 'error', 'message': 'Unsupported credential version'})
+            for k, v in cors_headers.items():
+                response.headers[k] = v
+            return response, 400
         
         # Extract HMAC tag from credentials
         if 'hmac_tag' not in credentials:
-            return make_binary_response({'error': 'Missing HMAC tag in credentials'}, 400)
+            if is_msgpack_client:
+                return make_binary_response({'error': 'Missing HMAC tag in credentials'}, 400)
+            response = jsonify({'status': 'error', 'message': 'Missing HMAC tag in credentials'})
+            for k, v in cors_headers.items():
+                response.headers[k] = v
+            return response, 400
         
         hmac_tag = base64.b64decode(credentials['hmac_tag'])
         
@@ -1890,7 +1922,12 @@ def decrypt_it():
         
         if not verify_hmac(hmac_key, credentials_for_verification_json, hmac_tag):
             logger.warning(f"HMAC verification failed for IP: {request.remote_addr}")
-            return make_binary_response({'error': 'Authentication failed - credentials tampered'}, 403)
+            if is_msgpack_client:
+                return make_binary_response({'error': 'Authentication failed - credentials tampered'}, 403)
+            response = jsonify({'status': 'error', 'message': 'Authentication failed - credentials tampered'})
+            for k, v in cors_headers.items():
+                response.headers[k] = v
+            return response, 403
 
         # Fast decryption of private key
         nonce = base64.b64decode(credentials['nonce'])
@@ -1902,15 +1939,29 @@ def decrypt_it():
         decrypted_data = decryptor.update(encrypted_data) + decryptor.finalize()
 
         logger.info(f"Successful decryption for IP: {request.remote_addr}")
+
+        if is_msgpack_client:
+            return make_binary_response({
+                'status': 'success',
+                'private_key': decrypted_data.decode('utf-8')
+            })
         
-        return make_binary_response({
+        response = jsonify({
             'status': 'success',
             'private_key': decrypted_data.decode('utf-8')
         })
+        for k, v in cors_headers.items():
+            response.headers[k] = v
+        return response, 200
 
     except Exception as e:
         logger.error(f"Decryption error: {str(e)}")
-        return make_binary_response({'status': 'error', 'message': 'Decryption failed'}, 400)
+        if is_msgpack_client:
+            return make_binary_response({'status': 'error', 'message': 'Decryption failed'}, 400)
+        response = jsonify({'status': 'error', 'message': 'Decryption failed'})
+        for k, v in cors_headers.items():
+            response.headers[k] = v
+        return response, 400
 
 @app.route('/api/health', methods=['GET'])
 def health_check():

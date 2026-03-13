@@ -113,13 +113,13 @@ export const electionApi = {
     }
   },
 
-  async getGuardianBackupMaterials(electionId) {
+  async getGuardianCredentialMetadata(electionId) {
     try {
-      return await apiRequest(`/guardian/key-ceremony/backup/materials/${electionId}`, {
+      return await apiRequest(`/guardian/key-ceremony/credential-metadata/${electionId}`, {
         method: 'GET',
       }, EXTENDED_TIMEOUT);
     } catch (error) {
-      console.error('Error fetching guardian backup materials:', error);
+      console.error('Error fetching guardian credential metadata:', error);
       throw error;
     }
   },
@@ -154,6 +154,31 @@ export const electionApi = {
       return data;
     } catch (error) {
       console.error('Error generating backup shares from ElectionGuard API:', error);
+      throw error;
+    }
+  },
+
+  async decryptGuardianCredentialWithElectionGuard(encryptedData, credentialMetadata) {
+    try {
+      const response = await fetch(`${ELECTIONGUARD_PUBLIC_URL}/api/decrypt`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          encrypted_data: encryptedData,
+          credentials: credentialMetadata,
+        }),
+      });
+
+      const data = await response.json();
+      if (!response.ok || data?.status !== 'success') {
+        throw new Error(data?.message || data?.error || 'Failed to decrypt uploaded credential file');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error decrypting uploaded credential file:', error);
       throw error;
     }
   },

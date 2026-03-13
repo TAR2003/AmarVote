@@ -42,7 +42,6 @@ import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.dto.ElectionResultsResponse;
 import com.amarvote.amarvote.dto.GuardianKeyCeremonySubmitRequest;
 import com.amarvote.amarvote.dto.GuardianBackupSubmitRequest;
-import com.amarvote.amarvote.dto.GuardianBackupMaterialResponse;
 import com.amarvote.amarvote.dto.KeyCeremonyPendingElectionResponse;
 import com.amarvote.amarvote.dto.KeyCeremonyStatusResponse;
 import com.amarvote.amarvote.dto.EligibilityCheckRequest;
@@ -220,8 +219,8 @@ public class ElectionController {
         }
     }
 
-    @GetMapping("/guardian/key-ceremony/backup/materials/{electionId}")
-    public ResponseEntity<?> getGuardianBackupMaterials(
+    @GetMapping("/guardian/key-ceremony/credential-metadata/{electionId}")
+    public ResponseEntity<?> getGuardianCredentialMetadataForBackup(
             @PathVariable Long electionId,
             HttpServletRequest httpRequest) {
         try {
@@ -238,8 +237,8 @@ public class ElectionController {
                         .body(Map.of("success", false, "message", "User authentication required"));
             }
 
-            GuardianBackupMaterialResponse result = electionService.getGuardianBackupMaterials(electionId, userEmail);
-            return ResponseEntity.ok(Map.of("success", true, "materials", result));
+            Map<String, Object> result = electionService.getGuardianCredentialMetadataForBackup(electionId, userEmail);
+            return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
         } catch (Exception e) {

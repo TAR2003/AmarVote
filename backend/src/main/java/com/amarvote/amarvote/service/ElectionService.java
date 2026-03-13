@@ -13,7 +13,6 @@ import org.springframework.stereotype.Service;
 import com.amarvote.amarvote.dto.BlockchainElectionResponse; // Fixed: Use Spring's HttpHeaders, not Netty's
 import com.amarvote.amarvote.dto.ChunkResultResponse;
 import com.amarvote.amarvote.dto.GuardianBackupSubmitRequest;
-import com.amarvote.amarvote.dto.GuardianBackupMaterialResponse;
 import com.amarvote.amarvote.dto.GuardianKeyCeremonySubmitRequest;
 import com.amarvote.amarvote.dto.KeyCeremonyPendingElectionResponse;
 import com.amarvote.amarvote.dto.KeyCeremonyStatusResponse;
@@ -386,7 +385,6 @@ public class ElectionService {
             guardian.setKeyBackup(request.guardianKeyBackup());
         }
         guardian.setCredentials(encryptionResult.getCredentials());
-        guardian.setEncryptedCredential(encryptionResult.getEncryptedData());
         guardian.setGuardianKeySubmitted(true);
         guardianRepository.save(guardian);
 
@@ -403,59 +401,6 @@ public class ElectionService {
                 "totalGuardians", total,
                 "allSubmitted", submitted == total && total > 0,
                 "backupRoundOpen", submitted == total && total > 0);
-    }
-
-    public GuardianBackupMaterialResponse getGuardianBackupMaterials(Long electionId, String userEmail) {
-        Election election = electionRepository.findById(electionId)
-                .orElseThrow(() -> new IllegalArgumentException("Election not found"));
-
-        if (!"key_ceremony_pending".equals(election.getStatus())) {
-            throw new IllegalArgumentException("Key ceremony is not active for this election");
-        }
-
-        List<Guardian> guardians = guardianRepository.findByElectionIdOrderBySequenceOrder(electionId);
-        if (guardians.isEmpty()) {
-            throw new IllegalArgumentException("No guardians found for election");
-        }
-
-        Guardian currentGuardian = guardians.stream()
-                .filter(g -> userEmail.equals(g.getUserEmail()))
-                .findFirst()
-                .orElseThrow(() -> new IllegalArgumentException("You are not assigned as a guardian for this election"));
-
-        if (!Boolean.TRUE.equals(currentGuardian.getGuardianKeySubmitted())) {
-            throw new IllegalArgumentException("Submit your keypair first before backup key sharing");
-        }
-
-        boolean allKeyPairsSubmitted = guardians.stream().allMatch(g -> Boolean.TRUE.equals(g.getGuardianKeySubmitted()));
-        if (!allKeyPairsSubmitted) {
-            throw new IllegalArgumentException("Backup key sharing starts only after all guardians submit keypairs");
-        }
-
-        String encryptedCredential = currentGuardian.getEncryptedCredential();
-        String credentials = currentGuardian.getCredentials();
-        if (encryptedCredential == null || encryptedCredential.isBlank()) {
-            throw new IllegalArgumentException("Encrypted credential not found for guardian");
-        }
-        if (credentials == null || credentials.isBlank()) {
-            throw new IllegalArgumentException("Credential metadata not found for guardian");
-        }
-
-        ElectionGuardCryptoService.GuardianDecryptionResult decrypted =
-                cryptoService.decryptGuardianData(encryptedCredential, credentials);
-
-        if (decrypted == null || decrypted.getPrivateKey() == null || decrypted.getPolynomial() == null) {
-            throw new IllegalArgumentException("Failed to decrypt guardian credential material");
-        }
-
-        return GuardianBackupMaterialResponse.builder()
-                .electionId(electionId)
-                .guardianId(String.valueOf(currentGuardian.getSequenceOrder()))
-                .sequenceOrder(currentGuardian.getSequenceOrder())
-                .guardianPublicKey(currentGuardian.getGuardianPublicKey())
-                .guardianPrivateKey(decrypted.getPrivateKey())
-                .guardianPolynomial(decrypted.getPolynomial())
-                .build();
     }
 
     public Map<String, Object> getGuardianBackupRoundContext(Long electionId, String userEmail) {
@@ -504,7 +449,8 @@ public class ElectionService {
                 "guardianBackupSubmitted", hasRequiredBackups(currentGuardian, total),
                 "senderGuardian", Map.of(
                         "guardianId", String.valueOf(currentGuardian.getSequenceOrder()),
-                        "sequenceOrder", currentGuardian.getSequenceOrder()
+                    "sequenceOrder", currentGuardian.getSequenceOrder(),
+                    "publicKey", extractPublicKeyValue(currentGuardian.getGuardianPublicKey())
                 ),
                 "recipients", recipients,
                 "message", backupRoundOpen
@@ -555,6 +501,41 @@ public class ElectionService {
                 "totalGuardians", total,
                 "allBackupsSubmitted", submittedBackups == total,
                 "readyForActivation", submittedBackups == total
+        );
+    }
+
+    public Map<String, Object> getGuardianCredentialMetadataForBackup(Long electionId, String userEmail) {
+        Election election = electionRepository.findById(electionId)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found"));
+
+        if (!"key_ceremony_pending".equals(election.getStatus())) {
+            throw new IllegalArgumentException("Key ceremony is not active for this election");
+        }
+
+        List<Guardian> guardians = guardianRepository.findByElectionIdOrderBySequenceOrder(electionId);
+        if (guardians.isEmpty()) {
+            throw new IllegalArgumentException("No guardians found for election");
+        }
+
+        Guardian currentGuardian = guardians.stream()
+                .filter(g -> userEmail.equals(g.getUserEmail()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("You are not assigned as a guardian for this election"));
+
+        if (!Boolean.TRUE.equals(currentGuardian.getGuardianKeySubmitted())) {
+            throw new IllegalArgumentException("Submit your keypair first before backup key sharing");
+        }
+
+        String credentialMetadata = currentGuardian.getCredentials();
+        if (credentialMetadata == null || credentialMetadata.isBlank()) {
+            throw new IllegalArgumentException("Guardian credential metadata is not available");
+        }
+
+        return Map.of(
+                "success", true,
+                "electionId", electionId,
+                "guardianId", String.valueOf(currentGuardian.getSequenceOrder()),
+                "credentialMetadata", credentialMetadata
         );
     }
 

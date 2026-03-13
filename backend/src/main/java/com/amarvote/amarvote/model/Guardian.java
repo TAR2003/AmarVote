@@ -39,9 +39,6 @@ public class Guardian {
     @Column(name = "credentials", columnDefinition = "TEXT")
     private String credentials;
 
-    @Column(name = "encrypted_credential", columnDefinition = "TEXT")
-    private String encryptedCredential;
-
     @Column(name = "guardian_key_submitted", nullable = false)
     @Builder.Default
     private Boolean guardianKeySubmitted = false;
