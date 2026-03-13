@@ -162,7 +162,7 @@ function Features() {
                     ["Chaum-Pedersen", "σ-protocol", "ElectionGuard 2.1", "Decryption ZK proof"],
                     ["Schnorr OR-proof", "σ-protocol", "ElectionGuard 2.1", "Ballot validity ZK proof"],
                     ["msgpack", "binary encoding", "MessagePack spec", "10–50× compact vs JSON"],
-                    ["ECDSA / keccak256", "secp256k1", "Ethereum Yellow Paper", "Blockchain anchoring (opt)"],
+                    ["Audit metadata signatures", "SHA-256 + signed payload", "Internal verification profile", "Supplementary transparency records"],
                   ].map(([algo, key, std, purpose]) => (
                     <tr key={algo} className="border-b border-gray-800">
                       <td className="py-1.5 pr-4 text-blue-300 font-bold">{algo}</td>
@@ -368,7 +368,7 @@ function Features() {
                   "Election audit trail: all ballots, all chunks, all partial shares in DB",
                   "Guardian decrypted_or_not flag: transparency over who participated",
                   "Public tracking code lookup for ballot inclusion verification",
-                  "Optional blockchain anchoring: SHA-256 ballot hash on Ethereum-compatible chain",
+                  "Supplementary public verification artifacts for independent review",
                 ]} />
             </div>
           </div>
@@ -419,15 +419,12 @@ function Features() {
             <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">Optional Platform Extensions</h2>
             <p className="text-gray-500 text-center mb-8">Infrastructure ready — enable by uncommenting in Docker Compose</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-              <FeatureCard icon="⛓️" color="amber" title="Blockchain Ballot Anchoring"
+              <FeatureCard icon="🧾" color="amber" title="Extended Public Audit Metadata"
                 items={[
-                  "VotingContract.sol (Solidity 0.8.19) deployed to local Ganache devnet",
-                  "SHA-256 hash of each encrypted ballot anchored on-chain on cast",
-                  "Immutable audit trail: hash cannot be altered post-recording",
-                  "Voter verifies: call ballots[hash] on public node — returns election ID + timestamp",
-                  "Flask microservice + Web3.py bridges Spring Boot to Ganache",
-                  "/blockchain/verify/{trackingCode} REST endpoint for voter self-verification",
-                  "For production: deploy VotingContract to persistent Ethereum L1/L2",
+                  "Publishes supplementary integrity metadata for external observers",
+                  "Adds optional verification records beyond core ElectionGuard proofs",
+                  "Supports independent audit workflows with signed payload snapshots",
+                  "Designed as an add-on profile; core voting flow remains unchanged",
                 ]} />
               <FeatureCard icon="🤖" color="teal" title="RAG AI Chatbot"
                 items={[

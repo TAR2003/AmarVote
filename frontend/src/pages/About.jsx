@@ -178,7 +178,7 @@ function About() {
                   ["/features", "Features", "6-tab: Cryptography, Architecture, Security, Election, Monitoring, Optional"],
                   ["/how-it-works", "How It Works", "6-phase step-by-step: Auth â†’ Setup â†’ Casting â†’ Tally â†’ Decrypt â†’ Verify"],
                   ["/architecture", "Architecture", "6-tab: Services, Network, DataFlow, RabbitMQ, Redis"],
-                  ["/security", "Security", "8-tab: ElGamal, ML-KEM, ZK Proofs, Benaloh, Auth, Transport, Blockchain"],
+                  ["/security", "Security", "7-tab: ElGamal, ML-KEM, ZK Proofs, Benaloh, Auth, Transport"],
                   ["/about", "About", "This page"],
                 ].map(([path, name, desc]) => (
                   <Link key={path} to={path} className="block rounded-xl border border-gray-200 bg-white p-4 hover:border-blue-300 transition">
@@ -248,9 +248,6 @@ function About() {
                     <TRow label="Grafana" value="latest" sub="Dashboard visualization (optional monitoring)" />
 
                     <tr className="bg-teal-50"><td colSpan={3} className="px-4 py-2 text-xs font-bold text-teal-700 uppercase tracking-wider">Optional Services</td></tr>
-                    <TRow label="Ganache" value="7.x" sub="Local Ethereum blockchain (ballot pre-commitment)" />
-                    <TRow label="Solidity" value="0.8.19" sub="VotingContract.sol â€” on-chain ballot anchor" />
-                    <TRow label="Web3.py" value="6.x" sub="Flask blockchain microservice" />
                     <TRow label="LangChain" value="0.3.x" sub="RAG chatbot orchestration" />
                     <TRow label="ChromaDB" value="0.6.x" sub="Vector store for documentation search" />
                     <TRow label="DeepSeek" value="API" sub="LLM for RAG chatbot responses" />
@@ -282,7 +279,7 @@ function About() {
                 description="Async RabbitMQ consumer. Processes tally.creation, partial.decryption, compensated.decryption, and combine.decryption queues. Each worker handles 1 chunk at a time (prefetch=1)." />
               <ServiceCard icon="ðŸ—ƒï¸" name="PostgreSQL 15" color="teal"
                 tags={["172.20.0.20", "Port 5432", "14-table schema"]}
-                description="Primary persistent store. Tables: users, elections, ballots, encrypted_tally, election_result, partial_decryption, compensated_decryption, guardian_keys, otp, election_jobs, blockchain_records, voting_sessions, voter_eligibility, candidates." />
+                description="Primary persistent store. Tables: users, elections, ballots, encrypted_tally, election_result, partial_decryption, compensated_decryption, guardian_keys, otp, election_jobs, audit_records, voting_sessions, voter_eligibility, candidates." />
               <ServiceCard icon="âš¡" name="Redis 7" color="indigo"
                 tags={["172.20.0.70", "Port 6379", "Replica: 172.20.0.75"]}
                 description="Three use cases: guardian:{id}:key (SET, 6h TTL), tally_complete:{electionId} (INCR atomic counter), lock:chunk:{id}:{guardianId} (SET NX distributed lock). Read replica for high availability." />
@@ -319,7 +316,6 @@ function About() {
                       ["172.20.0.75", "Redis Replica", "6379"],
                       ["172.20.0.90", "Prometheus", "9090"],
                       ["172.20.0.91", "Grafana", "3000"],
-                      ["172.20.0.100", "Blockchain Microservice", "5003"],
                       ["172.20.0.101", "RAG Service", "8000"],
                     ].map(([ip, name, port]) => (
                       <tr key={ip} className="border-b border-gray-100 even:bg-gray-50">
@@ -382,7 +378,7 @@ function About() {
               <Link to="/security">
                 <div className="rounded-2xl border border-purple-200 bg-purple-50 p-5 hover:border-purple-400 transition cursor-pointer">
                   <div className="font-bold text-purple-800 mb-1">ðŸ” Security Deep Dive â†’</div>
-                  <p className="text-sm text-gray-600">Full mathematical proofs, pseudocode for ML-KEM-1024 flow, ZK proof formulas, Benaloh protocol steps, VotingContract.sol</p>
+                  <p className="text-sm text-gray-600">Full mathematical proofs, pseudocode for ML-KEM-1024 flow, ZK proof formulas, and Benaloh protocol steps</p>
                 </div>
               </Link>
               <Link to="/architecture">
@@ -410,8 +406,6 @@ function About() {
                   <div><span className="text-blue-600">frontend/</span> â€” React 19.1 + Vite SPA</div>
                   <div><span className="text-green-600">backend/</span> â€” Spring Boot 3.5 + Java 21</div>
                   <div><span className="text-purple-600">Microservice/</span> â€” EG Fast API + Worker</div>
-                  <div><span className="text-orange-600">blockchain/</span> â€” Truffle + Solidity 0.8.19</div>
-                  <div><span className="text-indigo-600">blockchain-microservice/</span> â€” Flask + Web3.py</div>
                   <div><span className="text-teal-600">rag-service/</span> â€” LangChain + ChromaDB</div>
                   <div><span className="text-red-600">Database/</span> â€” SQL init, cleanup, diagnostics</div>
                   <div><span className="text-gray-600">prometheus/</span> â€” Metrics scraping config</div>

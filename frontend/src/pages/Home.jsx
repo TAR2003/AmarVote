@@ -127,8 +127,7 @@ const Home = () => {
             AmarVote is a cryptographically secure, end-to-end verifiable digital voting platform combining
             <strong className="text-blue-700"> ElectionGuard's 4096-bit ElGamal encryption</strong>,
             <strong className="text-blue-700"> post-quantum cryptography (ML-KEM-1024)</strong>,
-            a <strong className="text-blue-700">RabbitMQ worker architecture</strong> for large-scale processing,
-            and optional <strong className="text-blue-700">blockchain ballot anchoring</strong>.
+            and a <strong className="text-blue-700">RabbitMQ worker architecture</strong> for large-scale processing.
           </p>
           <p className="max-w-2xl mx-auto text-gray-500 text-sm mb-10">
             Zero-knowledge proofs · Homomorphic tallying · Threshold decryption · Benaloh challenge · Bot detection · Traffic padding
@@ -168,7 +167,7 @@ const Home = () => {
               A Complete Microservices Platform
             </h2>
             <p className="text-gray-600 max-w-2xl mx-auto text-lg">
-              Six always-active services orchestrated with Docker Compose, plus optional blockchain and AI chatbot layers
+              Six always-active services orchestrated with Docker Compose, plus optional AI and observability layers
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -189,9 +188,9 @@ const Home = () => {
             <h3 className="text-lg font-bold text-amber-800 mb-4 text-center">⚡ Optional Services (Infrastructure Ready — Uncomment to Enable)</h3>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
               <div className="bg-white rounded-xl p-4 border border-amber-100">
-                <div className="font-bold text-gray-900 mb-1">⛓️ Blockchain Layer</div>
-                <div className="text-xs text-gray-500 font-mono mb-2">Ganache · Solidity 0.8.19 · Web3.py · Flask · Port 5002</div>
-                <p className="text-sm text-gray-700">Ethereum-compatible VotingContract.sol records SHA-256 ballot hashes. Voters verify their ballot at any time using their tracking code. Immutable, append-only audit trail.</p>
+                <div className="font-bold text-gray-900 mb-1">🧾 Extended Audit Layer</div>
+                <div className="text-xs text-gray-500 font-mono mb-2">Enhanced integrity metadata · Optional service profile</div>
+                <p className="text-sm text-gray-700">Adds supplementary public-facing audit metadata and verification helpers for independent observers.</p>
               </div>
               <div className="bg-white rounded-xl p-4 border border-amber-100">
                 <div className="font-bold text-gray-900 mb-1">🤖 RAG AI Chatbot</div>
@@ -255,7 +254,7 @@ const Home = () => {
                       ["Session Tokens", "HMAC-SHA256 / JWT", "RFC 7519"],
                       ["Ballot Hashing", "SHA-256", "FIPS 180-4"],
                       ["Passwords", "BCrypt strength=12", "—"],
-                      ["Blockchain (opt)", "ECDSA / keccak256", "Ethereum EIP-55"],
+                      ["Public Audit Metadata", "SHA-256 + signed records", "Internal audit protocol"],
                       ["ZK Proofs", "Chaum-Pedersen", "ElectionGuard Spec"],
                       ["Ballot Validity", "Schnorr σ-protocol", "ElectionGuard Spec"],
                       ["Serialization", "msgpack binary", "10–50× vs JSON"],
@@ -276,7 +275,7 @@ const Home = () => {
                   ["2", "Ballot Integrity", "Ciphertext matches bulletin board entry"],
                   ["3", "Ballot Counted", "Included in homomorphic encrypted tally"],
                   ["4", "Tally Correct", "Download & verify Chaum-Pedersen proofs"],
-                  ["5", "Blockchain Anchor", "Transaction hash proves pre-election recording (optional)"],
+                  ["5", "Public Audit Trail", "Published verification artifacts support independent auditing"],
                 ].map(([n, title, desc]) => (
                   <div key={n} className="flex items-start mb-3">
                     <div className="w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mr-3 mt-0.5">{n}</div>

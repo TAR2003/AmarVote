@@ -32,7 +32,6 @@ const Security = () => {
             ["benaloh", "🔍 Benaloh Challenge"],
             ["auth", "🪪 Auth & Access"],
             ["transport", "📦 Transport"],
-            ["blockchain", "⛓️ Blockchain"],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -84,7 +83,7 @@ const Security = () => {
                     ["Ballot Tracking", "SHA-256", "NIST FIPS 180-4", "Public bulletin board key"],
                     ["Ballot Padding", "PKCS#7 fixed-size", "RFC 5652", "Traffic-analysis resistance"],
                     ["Serialization", "msgpack binary", "MessagePack spec", "10–50× vs JSON, 4096-bit ints"],
-                    ["Blockchain (opt)", "ECDSA secp256k1 / keccak256", "Ethereum Yellow Paper", "Immutable ballot anchoring"],
+                    ["Public audit records", "SHA-256 + signed payloads", "Internal verification profile", "Supplementary transparency metadata"],
                   ].map(([comp, algo, std, purpose]) => (
                     <tr key={comp} className="border-b border-gray-800 hover:bg-white/5">
                       <td className="py-2 pr-4 text-blue-300 font-semibold">{comp}</td>
@@ -550,89 +549,6 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                     <div><strong>Fields:</strong> method, path, status_code, request_body, response_body, execution_ms, user_email, timestamp</div>
                     <div><strong>Admin view:</strong> /api-logs page in admin dashboard (paginated)</div>
                     <div><strong>Use cases:</strong> Security audit, debugging, performance monitoring</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* ═══════════════════════ BLOCKCHAIN ═══════════════════════ */}
-        {activeTab === "blockchain" && (
-          <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Blockchain Ballot Anchoring (Optional)</h2>
-            <div className="bg-amber-50 border border-amber-300 rounded-2xl p-5 mb-8 text-amber-800">
-              <h3 className="font-bold text-lg mb-2">⚠️ Optional Layer</h3>
-              <p className="text-sm">The blockchain microservice is optional and must be enabled in Docker Compose. When disabled, elections still have full E2E verifiability via ElectionGuard proofs. Blockchain adds a complementary immutable record, not a replacement.</p>
-            </div>
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-              <div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-5">
-                  <h3 className="font-bold text-gray-900 mb-4">VotingContract.sol</h3>
-                  <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs text-gray-300 mb-3">
-                    <pre className="whitespace-pre-wrap">{`// SPDX-License-Identifier: MIT
-pragma solidity ^0.8.19;
-
-contract VotingContract {
-  struct BallotRecord {
-    bytes32 ballotHash;    // SHA-256(encrypted_ballot)
-    uint256 electionId;
-    uint256 timestamp;
-    bool exists;
-  }
-  
-  mapping(bytes32 => BallotRecord) public ballots;
-  
-  event BallotAnchored(
-    bytes32 indexed ballotHash,
-    uint256 electionId,
-    uint256 timestamp
-  );
-  
-  function anchorBallot(
-    bytes32 ballotHash,
-    uint256 electionId
-  ) external onlyOracle {
-    require(!ballots[ballotHash].exists, "Already anchored");
-    ballots[ballotHash] = BallotRecord({
-      ballotHash: ballotHash,
-      electionId: electionId,
-      timestamp: block.timestamp,
-      exists: true
-    });
-    emit BallotAnchored(ballotHash, electionId, block.timestamp);
-  }
-}`}</pre>
-                  </div>
-                </div>
-              </div>
-              <div className="space-y-5">
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-900 mb-4">Infrastructure</h3>
-                  <div className="space-y-2 text-sm text-gray-700">
-                    {[
-                      ["Network", "Ganache (local Ethereum-compatible devnet)"],
-                      ["Smart Contract", "VotingContract.sol (Solidity 0.8.19)"],
-                      ["Compile", "Truffle Suite"],
-                      ["Web3 layer", "Web3.py + Flask microservice", ],
-                      ["Spring Boot", "Calls blockchain microservice via REST"],
-                      ["Ballot hash", "SHA-256 of msgpack-encoded encrypted ballot"],
-                      ["Verification", "/blockchain/verify/{trackingCode} endpoint"],
-                    ].map(([k, v]) => (
-                      <div key={k} className="flex items-start">
-                        <span className="font-semibold text-gray-800 min-w-32 flex-shrink-0">{k}:</span>
-                        <span className="text-gray-600">{v}</span>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-900 mb-4">What Blockchain Adds</h3>
-                  <div className="space-y-3 text-sm text-gray-700">
-                    <div className="flex items-start"><span className="text-green-500 mr-2">✓</span><div><strong>Pre-election proof:</strong> Ballot hash anchored to blockchain before election closes, proving the encrypted ballot wasn't substituted later</div></div>
-                    <div className="flex items-start"><span className="text-green-500 mr-2">✓</span><div><strong>Immutable record:</strong> Once on-chain, the hash cannot be altered (blockchain finality)</div></div>
-                    <div className="flex items-start"><span className="text-green-500 mr-2">✓</span><div><strong>Public verifiability:</strong> Any voter can call ballots[hash] on the public Ganache/Ethereum node to confirm their ballot was anchored</div></div>
-                    <div className="flex items-start"><span className="text-yellow-500 mr-2">⚠</span><div><strong>Note:</strong> In dev mode, Ganache resets between restarts. For production use, deploy VotingContract to a persistent public Ethereum node or L2.</div></div>
                   </div>
                 </div>
               </div>

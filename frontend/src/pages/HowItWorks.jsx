@@ -354,7 +354,7 @@ total_votes[candidate] = Î£ t_c  // sum across all chunks`} />
         {activePhase === "verify" && (
           <div>
             <h2 className="text-2xl font-bold text-gray-900 mb-2 text-center">Phase 6 â€” Results & End-to-End Verification</h2>
-            <p className="text-gray-500 text-center mb-8">Animated results display, independent proof verification, optional blockchain confirmation</p>
+            <p className="text-gray-500 text-center mb-8">Animated results display and independent proof verification</p>
             <div>
               <Step n="1" title="Animated Results Display" actor="React Frontend" color="blue">
                 <p className="text-sm text-gray-700 mb-2">Once DECRYPTED status is returned from the API, results are revealed with animations.</p>
@@ -390,16 +390,6 @@ A^v Â· M_ic^challenge == commitment_b // âœ“?
 
 // If both pass: guardian i used the correct key
 // for chunk c. Decryption was honest.`} />
-              </Step>
-              <Step n="4" title="Blockchain Ballot Verification (Optional)" actor="Voter" color="teal">
-                <p className="text-sm text-gray-700 mb-2">If blockchain is enabled, voters can independently verify their ballot was recorded before election close.</p>
-                <ul className="space-y-0.5">
-                  <SubPoint>GET /api/blockchain/verify/{"{trackingCode}"} â†’ calls blockchain microservice</SubPoint>
-                  <SubPoint>Flask microservice (Web3.py) calls VotingContract.ballots[sha256_hash].exists</SubPoint>
-                  <SubPoint>Returns: {"{anchored: true, electionId: 42, timestamp: 1704067200}"}</SubPoint>
-                  <SubPoint>timestamp proves ballot was recorded BEFORE results were known (pre-commitment)</SubPoint>
-                  <SubPoint>Proves the encrypted ballot wasn't substituted after voting closed</SubPoint>
-                </ul>
               </Step>
             </div>
           </div>

@@ -34,7 +34,7 @@ const Architecture = () => {
             AmarVote Infrastructure
           </h1>
           <p className="text-blue-200/80 text-lg max-w-2xl mx-auto">
-            Six microservices orchestrated via Docker Compose with a private 172.20.0.0/24 overlay network, plus optional blockchain and AI layers.
+            Six microservices orchestrated via Docker Compose with a private 172.20.0.0/24 overlay network, plus optional AI and observability layers.
           </p>
         </div>
       </div>
@@ -142,7 +142,6 @@ const Architecture = () => {
 
                 {/* Optional row */}
                 <div className="flex justify-center gap-4 mt-6 opacity-70">
-                  <SvcBox icon="⛓️" name="Blockchain Microservice" tech="Ganache · Web3.py · Flask" ip="—" port="5002 (opt)" color="border-dashed border-yellow-400" />
                   <SvcBox icon="🤖" name="RAG Service" tech="LangChain · ChromaDB · DeepSeek" ip="—" port="5001 alt (opt)" color="border-dashed border-teal-400" />
                   <SvcBox icon="📊" name="Prometheus / Grafana" tech="Micrometer scrape 15s" ip="—" port="9090 / 3000 (prod)" color="border-dashed border-gray-400" />
                 </div>
@@ -160,7 +159,6 @@ const Architecture = () => {
                     <div className="text-green-400 mb-2"># nginx-proxy.conf routing rules</div>
                     <div><span className="text-yellow-300">location /api/</span> → Spring Boot :8080</div>
                     <div><span className="text-yellow-300">location /electionguard/</span> → EG API :5000</div>
-                    <div><span className="text-yellow-300">location /blockchain/</span> → BC service :5002</div>
                     <div><span className="text-yellow-300">location /rag/</span> → RAG service :5001</div>
                     <div><span className="text-yellow-300">location /</span> → React frontend :80</div>
                   </div>
@@ -345,7 +343,7 @@ const Architecture = () => {
                 </div>
                 <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-sm">
                   <h4 className="font-bold text-amber-800 mb-2">⚠️ Optional Profile Services</h4>
-                  <p className="text-amber-700">Blockchain microservice (Ganache + Solidity), RAG service, and Prometheus/Grafana are enabled via Docker Compose profile overrides. Core 6-service platform runs without them.</p>
+                  <p className="text-amber-700">RAG service and Prometheus/Grafana are enabled via Docker Compose profile overrides. Core 6-service platform runs without them.</p>
                 </div>
               </div>
             </div>
