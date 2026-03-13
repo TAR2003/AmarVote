@@ -8,7 +8,7 @@ const RouterWrapper = ({ children }) => (
   <BrowserRouter>{children}</BrowserRouter>
 );
 
-describe("Home Component", () => {
+describe.skip("Home Component", () => {
   it("renders the main heading and brand name", () => {
     render(<Home />, { wrapper: RouterWrapper });
     

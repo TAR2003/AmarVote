@@ -98,6 +98,17 @@ export const electionApi = {
     }
   },
 
+  async getKeyCeremonyStatus(electionId) {
+    try {
+      return await apiRequest(`/key-ceremony/status/${electionId}`, {
+        method: 'GET',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error fetching key ceremony status:', error);
+      throw error;
+    }
+  },
+
   async getGuardianBackupContext(electionId) {
     try {
       return await apiRequest(`/guardian/key-ceremony/backup/context/${electionId}`, {

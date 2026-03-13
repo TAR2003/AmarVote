@@ -1825,10 +1825,10 @@ export default function ElectionPage() {
       }
     }
 
-    if (isAdmin) {
+    if (isAdmin || isGuardian) {
       try {
-        const adminStatusResp = await electionApi.getAdminKeyCeremonyStatus(id);
-        setAdminKeyCeremonyStatus(adminStatusResp?.status || null);
+        const statusResp = await electionApi.getKeyCeremonyStatus(id);
+        setAdminKeyCeremonyStatus(statusResp?.status || null);
       } catch {
         setAdminKeyCeremonyStatus(null);
       }
@@ -1839,6 +1839,19 @@ export default function ElectionPage() {
   useEffect(() => {
     loadKeyCeremonyProgress();
   }, [loadKeyCeremonyProgress]);
+
+  // Poll key ceremony progress so all guardians see live updates
+  useEffect(() => {
+    if (activeTab !== 'guardian' || electionData?.status !== 'key_ceremony_pending') {
+      return undefined;
+    }
+
+    const intervalId = setInterval(() => {
+      loadKeyCeremonyProgress();
+    }, 5000);
+
+    return () => clearInterval(intervalId);
+  }, [activeTab, electionData?.status, loadKeyCeremonyProgress]);
 
   // Initialize bot detection on component mount
   useEffect(() => {

@@ -5,6 +5,8 @@ import json
 import msgpack
 from datetime import datetime
 
+# pip install psycopg2-binary requests msgpack
+
 def get_election_by_id(election_id):
     """
     Retrieve election row by election_id

@@ -19,11 +19,11 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
 
+import com.amarvote.amarvote.dto.ActivateElectionRequest;
 import com.amarvote.amarvote.dto.BenalohChallengeRequest;
 import com.amarvote.amarvote.dto.BenalohChallengeResponse;
 import com.amarvote.amarvote.dto.BlockchainBallotInfoResponse;
 import com.amarvote.amarvote.dto.BlockchainLogsResponse;
-import com.amarvote.amarvote.dto.ActivateElectionRequest;
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
 import com.amarvote.amarvote.dto.CastEncryptedBallotRequest;
@@ -40,13 +40,13 @@ import com.amarvote.amarvote.dto.ElectionCreationRequest;
 import com.amarvote.amarvote.dto.ElectionDetailResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.dto.ElectionResultsResponse;
-import com.amarvote.amarvote.dto.GuardianKeyCeremonySubmitRequest;
-import com.amarvote.amarvote.dto.GuardianBackupSubmitRequest;
-import com.amarvote.amarvote.dto.GenerateGuardianBackupRequest;
-import com.amarvote.amarvote.dto.KeyCeremonyPendingElectionResponse;
-import com.amarvote.amarvote.dto.KeyCeremonyStatusResponse;
 import com.amarvote.amarvote.dto.EligibilityCheckRequest;
 import com.amarvote.amarvote.dto.EligibilityCheckResponse;
+import com.amarvote.amarvote.dto.GenerateGuardianBackupRequest;
+import com.amarvote.amarvote.dto.GuardianBackupSubmitRequest;
+import com.amarvote.amarvote.dto.GuardianKeyCeremonySubmitRequest;
+import com.amarvote.amarvote.dto.KeyCeremonyPendingElectionResponse;
+import com.amarvote.amarvote.dto.KeyCeremonyStatusResponse;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.service.BallotService;
 import com.amarvote.amarvote.service.BlockchainService;
@@ -324,6 +324,34 @@ public class ElectionController {
             }
 
             KeyCeremonyStatusResponse status = electionService.getKeyCeremonyStatus(electionId, userEmail);
+            return ResponseEntity.ok(Map.of("success", true, "status", status));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/key-ceremony/status/{electionId}")
+    public ResponseEntity<?> getKeyCeremonyStatusForParticipants(
+            @PathVariable Long electionId,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            KeyCeremonyStatusResponse status = electionService.getKeyCeremonyStatusForParticipant(electionId, userEmail);
             return ResponseEntity.ok(Map.of("success", true, "status", status));
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));

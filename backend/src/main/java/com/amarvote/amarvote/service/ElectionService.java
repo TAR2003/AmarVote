@@ -10,20 +10,20 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
-import com.amarvote.amarvote.dto.BlockchainElectionResponse; // Fixed: Use Spring's HttpHeaders, not Netty's
+import com.amarvote.amarvote.dto.ActivateElectionRequest; // Fixed: Use Spring's HttpHeaders, not Netty's
+import com.amarvote.amarvote.dto.BlockchainElectionResponse;
 import com.amarvote.amarvote.dto.ChunkResultResponse;
+import com.amarvote.amarvote.dto.ElectionCreationRequest;
+import com.amarvote.amarvote.dto.ElectionDetailResponse;
+import com.amarvote.amarvote.dto.ElectionGuardianSetupRequest;
+import com.amarvote.amarvote.dto.ElectionGuardianSetupResponse;
+import com.amarvote.amarvote.dto.ElectionResponse; // Added: For setting content type
+import com.amarvote.amarvote.dto.ElectionResultsResponse; // Added: For handling HTTP responses
 import com.amarvote.amarvote.dto.GuardianBackupSubmitRequest;
 import com.amarvote.amarvote.dto.GuardianKeyCeremonySubmitRequest;
 import com.amarvote.amarvote.dto.KeyCeremonyPendingElectionResponse;
 import com.amarvote.amarvote.dto.KeyCeremonyStatusResponse;
-import com.amarvote.amarvote.dto.ElectionCreationRequest;
-import com.amarvote.amarvote.dto.ElectionDetailResponse; // Added: For setting content type
-import com.amarvote.amarvote.dto.ElectionGuardianSetupRequest; // Added: For handling HTTP responses
-import com.amarvote.amarvote.dto.ElectionGuardianSetupResponse;
-import com.amarvote.amarvote.dto.ElectionResponse;
-import com.amarvote.amarvote.dto.ElectionResultsResponse;
 import com.amarvote.amarvote.dto.OptimizedElectionResponse;
-import com.amarvote.amarvote.dto.ActivateElectionRequest;
 import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Decryption;
@@ -678,6 +678,26 @@ public class ElectionService {
         if (election.getAdminEmail() == null || !election.getAdminEmail().equals(userEmail)) {
             throw new IllegalArgumentException("Only the election admin can access waiting room status");
         }
+
+        return buildKeyCeremonyStatus(election);
+    }
+
+    public KeyCeremonyStatusResponse getKeyCeremonyStatusForParticipant(Long electionId, String userEmail) {
+        Election election = electionRepository.findById(electionId)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found"));
+
+        boolean isAdmin = election.getAdminEmail() != null && election.getAdminEmail().equals(userEmail);
+        boolean isGuardian = !guardianRepository.findByElectionIdAndUserEmail(electionId, userEmail).isEmpty();
+
+        if (!isAdmin && !isGuardian) {
+            throw new IllegalArgumentException("Only the election admin or assigned guardians can access key ceremony status");
+        }
+
+        return buildKeyCeremonyStatus(election);
+    }
+
+    private KeyCeremonyStatusResponse buildKeyCeremonyStatus(Election election) {
+        Long electionId = election.getElectionId();
 
         List<Guardian> guardians = guardianRepository.findByElectionId(electionId);
         int total = guardians.size();
