@@ -75,9 +75,9 @@ from electionguard.election_polynomial import (
 from electionguard.encrypt import EncryptionDevice, EncryptionMediator
 from electionguard.guardian import Guardian
 from electionguard.key_ceremony_mediator import KeyCeremonyMediator
-from electionguard.key_ceremony import ElectionKeyPair, ElectionPublicKey
+from electionguard.key_ceremony import ElectionKeyPair, ElectionPublicKey, CeremonyDetails
 from electionguard.ballot_box import BallotBox, get_ballots
-from electionguard.elgamal import ElGamalPublicKey, ElGamalSecretKey, ElGamalCiphertext
+from electionguard.elgamal import ElGamalPublicKey, ElGamalSecretKey, ElGamalCiphertext, elgamal_combine_public_keys
 from electionguard.group import ElementModQ, ElementModP, g_pow_p, int_to_p, int_to_q
 from electionguard.manifest import (
     Manifest,
@@ -816,6 +816,226 @@ def api_create_encrypted_ballot():
         return make_binary_response({'status': 'error', 'message': str(e)}, status=400)
     except Exception as e:
         return make_binary_response({'status': 'error', 'message': str(e)}, status=500)
+
+
+@app.route('/combine_guardian_public_keys', methods=['POST'])
+def api_combine_guardian_public_keys():
+    """Combine guardian public keys generated on client machines into a joint election key."""
+    try:
+        data = get_request_data()
+        raw_public_keys = data.get('public_keys', [])
+        party_names = data.get('party_names', [])
+        candidate_names = data.get('candidate_names', [])
+
+        if not raw_public_keys or len(raw_public_keys) == 0:
+            raise ValueError('public_keys is required')
+
+        parsed_public_keys = [int_to_p(int(k)) for k in raw_public_keys]
+
+        joint_public_key = elgamal_combine_public_keys(parsed_public_keys)
+        commitment_hash = hash_elems(parsed_public_keys)
+        manifest = create_election_manifest(party_names, candidate_names)
+
+        response = {
+            'status': 'success',
+            'joint_public_key': str(int(joint_public_key)),
+            'commitment_hash': str(int(commitment_hash)),
+            'manifest': to_binary_transport(manifest),
+            'number_of_guardians': safe_int_conversion(data.get('number_of_guardians', len(raw_public_keys))),
+            'quorum': safe_int_conversion(data.get('quorum', len(raw_public_keys)))
+        }
+
+        return make_binary_response(response)
+
+    except ValueError as e:
+        return make_binary_response({'status': 'error', 'message': str(e)}, status=400)
+    except Exception as e:
+        return make_binary_response({'status': 'error', 'message': str(e)}, status=500)
+
+
+@app.route('/generate_guardian_credentials', methods=['POST'])
+def api_generate_guardian_credentials():
+    """Generate one guardian credential bundle in ElectionGuard-compatible formats."""
+    try:
+        data = get_request_data()
+
+        guardian_id = str(data.get('guardian_id') or data.get('sequence_order') or '1')
+        sequence_order = safe_int_conversion(data.get('sequence_order', 1))
+        number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
+        quorum = safe_int_conversion(data.get('quorum', 1))
+
+        guardian = Guardian.from_nonce(
+            guardian_id,
+            sequence_order,
+            number_of_guardians,
+            quorum,
+        )
+
+        response = {
+            'status': 'success',
+            'private_key': {
+                'guardian_id': guardian.id,
+                'private_key': str(int(guardian._election_keys.key_pair.secret_key)),
+            },
+            'public_key': {
+                'guardian_id': guardian.id,
+                'public_key': str(int(guardian._election_keys.key_pair.public_key)),
+            },
+            'polynomial': {
+                'guardian_id': guardian.id,
+                'polynomial': to_binary_transport(guardian._election_keys.polynomial),
+            },
+            'guardian_data': {
+                'id': guardian.id,
+                'sequence_order': guardian.sequence_order,
+                'election_public_key': to_binary_transport(guardian.share_key()),
+                'backups': {}
+            }
+        }
+
+        return make_binary_response(response)
+
+    except ValueError as e:
+        return make_binary_response({'status': 'error', 'message': str(e)}, status=400)
+    except Exception as e:
+        return make_binary_response({'status': 'error', 'message': str(e)}, status=500)
+
+
+@app.route('/generate_guardian_backup_shares', methods=['POST', 'OPTIONS'])
+def api_generate_guardian_backup_shares():
+    """
+    Round 2 key ceremony endpoint: generate ElectionGuard encrypted backup shares.
+
+    This endpoint is intentionally browser-friendly for direct frontend calls so
+    sensitive key material does not need to transit the Java backend.
+    """
+    cors_headers = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+    }
+
+    if request.method == 'OPTIONS':
+        response = jsonify({'status': 'ok'})
+        for k, v in cors_headers.items():
+            response.headers[k] = v
+        return response, 200
+
+    try:
+        data = get_request_data()
+
+        sender_guardian_id = str(data.get('sender_guardian_id') or data.get('guardian_id') or '')
+        sender_sequence_order = safe_int_conversion(data.get('sender_sequence_order', data.get('sequence_order', 1)))
+        number_of_guardians = safe_int_conversion(data.get('number_of_guardians', 1))
+        quorum = safe_int_conversion(data.get('quorum', 1))
+
+        sender_private_key_payload = data.get('sender_private_key')
+        sender_public_key_payload = data.get('sender_public_key')
+        sender_polynomial_payload = data.get('sender_polynomial')
+        recipients = data.get('recipients', [])
+
+        if not sender_guardian_id:
+            raise ValueError('sender_guardian_id is required')
+        if not sender_private_key_payload:
+            raise ValueError('sender_private_key is required')
+        if not sender_public_key_payload:
+            raise ValueError('sender_public_key is required')
+        if not sender_polynomial_payload:
+            raise ValueError('sender_polynomial is required')
+        if not isinstance(recipients, list) or len(recipients) == 0:
+            raise ValueError('recipients are required')
+
+        # Normalize sender key payloads (supports both dict and scalar forms)
+        sender_private_key_value = sender_private_key_payload
+        if isinstance(sender_private_key_payload, dict):
+            sender_private_key_value = sender_private_key_payload.get('private_key')
+
+        sender_public_key_value = sender_public_key_payload
+        if isinstance(sender_public_key_payload, dict):
+            sender_public_key_value = sender_public_key_payload.get('public_key')
+
+        sender_private_key = int_to_q(int(sender_private_key_value))
+        sender_public_key = int_to_p(int(sender_public_key_value))
+
+        # Deserialize polynomial payload
+        if isinstance(sender_polynomial_payload, dict):
+            if 'polynomial' in sender_polynomial_payload:
+                polynomial_data = sender_polynomial_payload['polynomial']
+                if isinstance(polynomial_data, dict):
+                    sender_polynomial = from_raw(ElectionPolynomial, json.dumps(polynomial_data))
+                else:
+                    sender_polynomial = from_binary_transport(ElectionPolynomial, polynomial_data)
+            else:
+                sender_polynomial = from_raw(ElectionPolynomial, json.dumps(sender_polynomial_payload))
+        else:
+            sender_polynomial = from_binary_transport(ElectionPolynomial, sender_polynomial_payload)
+
+        ceremony_details = CeremonyDetails(number_of_guardians, quorum)
+        sender_guardian = Guardian(
+            ElectionKeyPair(
+                owner_id=sender_guardian_id,
+                sequence_order=sender_sequence_order,
+                key_pair=ElGamalKeyPair(sender_private_key, sender_public_key),
+                polynomial=sender_polynomial,
+            ),
+            ceremony_details,
+        )
+
+        # Save recipient public keys so ElectionGuard can create encrypted backups
+        for recipient in recipients:
+            recipient_id = str(recipient.get('guardian_id') or recipient.get('guardianId') or '')
+            recipient_sequence_order = safe_int_conversion(recipient.get('sequence_order', recipient.get('sequenceOrder')))
+            recipient_public_key_value = recipient.get('public_key', recipient.get('publicKey'))
+
+            if not recipient_id:
+                raise ValueError('Each recipient must include guardian_id')
+            if recipient_public_key_value is None:
+                raise ValueError(f'Missing public key for recipient {recipient_id}')
+
+            recipient_public_key = ElectionPublicKey(
+                owner_id=recipient_id,
+                sequence_order=recipient_sequence_order,
+                key=int_to_p(int(recipient_public_key_value)),
+                coefficient_commitments=[],
+                coefficient_proofs=[],
+            )
+            sender_guardian.save_guardian_key(recipient_public_key)
+
+        sender_guardian.generate_election_partial_key_backups()
+
+        backups = {}
+        for recipient in recipients:
+            recipient_id = str(recipient.get('guardian_id') or recipient.get('guardianId'))
+            backup = sender_guardian.share_election_partial_key_backup(recipient_id)
+            backup_obj = get_optional(backup)
+            backups[recipient_id] = to_binary_transport(backup_obj)
+
+        response_payload = {
+            'status': 'success',
+            'guardian_data': {
+                'id': sender_guardian.id,
+                'sequence_order': sender_guardian.sequence_order,
+                'election_public_key': to_binary_transport(sender_guardian.share_key()),
+                'backups': backups,
+            },
+            'backup_count': len(backups),
+        }
+
+        response = jsonify(response_payload)
+        for k, v in cors_headers.items():
+            response.headers[k] = v
+        return response, 200
+
+    except ValueError as e:
+        response = jsonify({'status': 'error', 'message': str(e)})
+        for k, v in cors_headers.items():
+            response.headers[k] = v
+        return response, 400
+    except Exception as e:
+        response = jsonify({'status': 'error', 'message': str(e)})
+        for k, v in cors_headers.items():
+            response.headers[k] = v
+        return response, 500
 
 @app.route('/benaloh_challenge', methods=['POST'])
 @track_request('/benaloh_challenge')

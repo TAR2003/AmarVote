@@ -23,6 +23,7 @@ import com.amarvote.amarvote.dto.BenalohChallengeRequest;
 import com.amarvote.amarvote.dto.BenalohChallengeResponse;
 import com.amarvote.amarvote.dto.BlockchainBallotInfoResponse;
 import com.amarvote.amarvote.dto.BlockchainLogsResponse;
+import com.amarvote.amarvote.dto.ActivateElectionRequest;
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
 import com.amarvote.amarvote.dto.CastEncryptedBallotRequest;
@@ -39,6 +40,11 @@ import com.amarvote.amarvote.dto.ElectionCreationRequest;
 import com.amarvote.amarvote.dto.ElectionDetailResponse;
 import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.dto.ElectionResultsResponse;
+import com.amarvote.amarvote.dto.GuardianKeyCeremonySubmitRequest;
+import com.amarvote.amarvote.dto.GuardianBackupSubmitRequest;
+import com.amarvote.amarvote.dto.GuardianBackupMaterialResponse;
+import com.amarvote.amarvote.dto.KeyCeremonyPendingElectionResponse;
+import com.amarvote.amarvote.dto.KeyCeremonyStatusResponse;
 import com.amarvote.amarvote.dto.EligibilityCheckRequest;
 import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.model.Election;
@@ -103,6 +109,254 @@ public class ElectionController {
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("error", "Election creation failed: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/guardian/key-ceremony/pending")
+    public ResponseEntity<?> getPendingKeyCeremonies(HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            List<KeyCeremonyPendingElectionResponse> pending = electionService.getPendingKeyCeremoniesForGuardian(userEmail);
+            return ResponseEntity.ok(Map.of("success", true, "elections", pending));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/guardian/key-ceremony/generate/{electionId}")
+    public ResponseEntity<?> generateGuardianKeyCeremonyCredentials(
+            @PathVariable Long electionId,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            Map<String, Object> generated = electionService.generateGuardianCredentialsForKeyCeremony(electionId, userEmail);
+            return ResponseEntity.ok(generated);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/guardian/key-ceremony/submit", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> submitGuardianKeyCeremony(
+            @Valid @RequestBody GuardianKeyCeremonySubmitRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            Map<String, Object> result = electionService.submitGuardianKeyCeremony(request, userEmail);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/guardian/key-ceremony/backup/context/{electionId}")
+    public ResponseEntity<?> getGuardianBackupContext(
+            @PathVariable Long electionId,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            Map<String, Object> result = electionService.getGuardianBackupRoundContext(electionId, userEmail);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/guardian/key-ceremony/backup/materials/{electionId}")
+    public ResponseEntity<?> getGuardianBackupMaterials(
+            @PathVariable Long electionId,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            GuardianBackupMaterialResponse result = electionService.getGuardianBackupMaterials(electionId, userEmail);
+            return ResponseEntity.ok(Map.of("success", true, "materials", result));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/guardian/key-ceremony/backup/submit", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> submitGuardianBackupRound(
+            @Valid @RequestBody GuardianBackupSubmitRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            Map<String, Object> result = electionService.submitGuardianBackupRound(request, userEmail);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/admin/key-ceremony/status/{electionId}")
+    public ResponseEntity<?> getAdminKeyCeremonyStatus(
+            @PathVariable Long electionId,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            KeyCeremonyStatusResponse status = electionService.getKeyCeremonyStatus(electionId, userEmail);
+            return ResponseEntity.ok(Map.of("success", true, "status", status));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/admin/key-ceremony/activate", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> activateElectionAfterKeyCeremony(
+            @Valid @RequestBody ActivateElectionRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            Map<String, Object> response = electionService.activateElectionAfterKeyCeremony(request, userEmail);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @GetMapping("/guardian/key-ceremony/password/{electionId}")
+    public ResponseEntity<?> getGuardianLocalPassword(
+            @PathVariable Long electionId,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            Map<String, Object> response = electionService.getGuardianLocalDecryptionPassword(electionId, userEmail);
+            return ResponseEntity.ok(response);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", e.getMessage()));
         }
     }
 

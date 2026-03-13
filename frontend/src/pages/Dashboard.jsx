@@ -112,9 +112,9 @@ const ElectionCard = React.memo(({ election, getVoteButtonInfo, handleElectionCl
           </div>
           
           <div className="mt-2 text-xs text-gray-400">
-            {timezoneUtils.formatShortDate(election.startingTime)}
-            {' - '}
-            {timezoneUtils.formatShortDate(election.endingTime)}
+            {election.startingTime && election.endingTime
+              ? `${timezoneUtils.formatShortDate(election.startingTime)} - ${timezoneUtils.formatShortDate(election.endingTime)}`
+              : 'Schedule pending (key ceremony)'}
           </div>
         </div>
         <div className="flex-shrink-0 ml-4">
@@ -154,6 +154,11 @@ const Dashboard = ({ userEmail }) => {
     
     const now = new Date();
     const categorized = elections.reduce((acc, election) => {
+      if (!election.startingTime || !election.endingTime) {
+        acc.upcoming.push(election);
+        return acc;
+      }
+
       const startTime = new Date(election.startingTime);
       const endTime = new Date(election.endingTime);
       
@@ -265,6 +270,14 @@ const Dashboard = ({ userEmail }) => {
 
   // Optimized vote button info using only initial fetch data
   const getVoteButtonInfo = useCallback((election) => {
+    if (!election.startingTime || !election.endingTime) {
+      return {
+        buttonText: "Key Ceremony",
+        buttonStyle: "text-purple-700 bg-purple-100 hover:bg-purple-200 focus:ring-purple-500",
+        isDisabled: false,
+      };
+    }
+
     const now = new Date();
     const startTime = new Date(election.startingTime);
     const endTime = new Date(election.endingTime);

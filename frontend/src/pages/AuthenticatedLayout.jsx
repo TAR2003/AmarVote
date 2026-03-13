@@ -12,6 +12,7 @@ import {
   FiMenu,
   FiX,
   FiPlus,
+  FiKey,
 } from "react-icons/fi";
 import { fetchAllElections } from "../utils/api";
 
@@ -249,6 +250,17 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               >
                 <FiPlus className="h-4 w-4" />
                 <span>Create Election</span>
+              </Link>
+
+              <Link
+                to="/key-ceremony"
+                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/key-ceremony')
+                    ? 'text-blue-700 bg-blue-50/80'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
+                  }`}
+              >
+                <FiKey className="h-4 w-4" />
+                <span>Key Ceremony</span>
               </Link>
             </div>
 
@@ -488,6 +500,18 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
             >
               <FiPlus className="h-5 w-5" />
               <span>Create Election</span>
+            </Link>
+
+            <Link
+              to="/key-ceremony"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium ${isActiveRoute('/key-ceremony')
+                  ? 'text-blue-700 bg-blue-50/80'
+                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
+                }`}
+            >
+              <FiKey className="h-5 w-5" />
+              <span>Key Ceremony</span>
             </Link>
 
             <button

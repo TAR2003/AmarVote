@@ -138,6 +138,22 @@ public class BallotService {
             }
             Election election = electionOpt.get();
 
+            if (election.getJointPublicKey() == null || election.getBaseHash() == null) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("Election is not activated yet. Key ceremony is incomplete.")
+                        .errorReason("Election not activated")
+                        .build();
+            }
+
+            if (election.getStartingTime() == null || election.getEndingTime() == null) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("Election schedule is not set yet")
+                        .errorReason("Election not scheduled")
+                        .build();
+            }
+
             // 3. Check if election is active
             Instant now = Instant.now();
             if (now.isBefore(election.getStartingTime())) {
@@ -304,6 +320,28 @@ public class BallotService {
                         .build();
             }
             Election election = electionOpt.get();
+
+            if (election.getJointPublicKey() == null || election.getBaseHash() == null) {
+                return EligibilityCheckResponse.builder()
+                    .eligible(false)
+                    .message("Election is not activated yet. Key ceremony is incomplete.")
+                    .reason("Election not activated")
+                    .hasVoted(false)
+                    .isElectionActive(false)
+                    .electionStatus("Not Activated")
+                        .build();
+            }
+
+            if (election.getStartingTime() == null || election.getEndingTime() == null) {
+                return EligibilityCheckResponse.builder()
+                    .eligible(false)
+                    .message("Election schedule is not set yet")
+                    .reason("Election not scheduled")
+                    .hasVoted(false)
+                    .isElectionActive(false)
+                    .electionStatus("Not Activated")
+                        .build();
+            }
 
             // 3. Check election status
             Instant now = Instant.now();
@@ -601,6 +639,22 @@ public class BallotService {
                         .build();
             }
             Election election = electionOpt.get();
+
+            if (election.getJointPublicKey() == null || election.getBaseHash() == null) {
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("Election is not activated yet. Key ceremony is incomplete.")
+                        .errorReason("Election not activated")
+                        .build();
+            }
+
+            if (election.getStartingTime() == null || election.getEndingTime() == null) {
+                return CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("Election schedule is not set yet")
+                        .errorReason("Election not scheduled")
+                        .build();
+            }
 
             // 3. Check if election is active
             Instant now = Instant.now();
@@ -908,6 +962,22 @@ public class BallotService {
                         .build();
             }
             Election election = electionOpt.get();
+
+            if (election.getJointPublicKey() == null || election.getBaseHash() == null) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("Election is not activated yet. Key ceremony is incomplete.")
+                        .errorReason("Election not activated")
+                        .build();
+            }
+
+            if (election.getStartingTime() == null || election.getEndingTime() == null) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("Election schedule is not set yet")
+                        .errorReason("Election not scheduled")
+                        .build();
+            }
 
             // 3. Check if election is active
             Instant now = Instant.now();

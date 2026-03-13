@@ -56,10 +56,10 @@ public class Election {
     @Column(name = "status", columnDefinition= "TEXT")
     private String status;
 
-    @Column(name = "starting_time", nullable = false)
+    @Column(name = "starting_time")
     private Instant startingTime;
 
-    @Column(name = "ending_time", nullable = false)
+    @Column(name = "ending_time")
     private Instant endingTime;
 
     @Column(name = "base_hash", columnDefinition = "TEXT")

@@ -4,7 +4,6 @@ import java.time.Instant;
 import java.util.List;
 
 import jakarta.validation.constraints.AssertTrue;
-import jakarta.validation.constraints.Future;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotEmpty;
 
@@ -21,12 +20,15 @@ public record ElectionCreationRequest(
     @NotBlank String electionPrivacy,
     @NotBlank String electionEligibility,
     List<String> voterEmails,
-    @Future Instant startingTime,
-    @Future Instant endingTime,
+    Instant startingTime,
+    Instant endingTime,
     Integer maxChoices
 ) {
     @AssertTrue(message = "Ending time must be after starting time")
     public boolean isEndingAfterStarting() {
+        if (startingTime == null || endingTime == null) {
+            return true;
+        }
         return endingTime.isAfter(startingTime);
     }
     

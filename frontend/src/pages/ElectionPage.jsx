@@ -92,6 +92,15 @@ const ElectionTimer = ({ startTime, endTime }) => {
 
   useEffect(() => {
     const updateTimer = () => {
+      if (!startTime || !endTime) {
+        setTimeInfo({
+          timeLeft: 'Waiting for key ceremony completion and schedule activation',
+          progress: 0,
+          phase: 'upcoming'
+        });
+        return;
+      }
+
       const now = new Date();
       const start = new Date(startTime);
       const end = new Date(endTime);
@@ -2212,6 +2221,7 @@ export default function ElectionPage() {
   // Define functions first
   const getElectionStatus = useCallback(() => {
     if (!electionData) return 'Unknown';
+    if (!electionData.startingTime || !electionData.endingTime) return 'Key Ceremony';
 
     const now = new Date();
     const startDate = new Date(electionData.startingTime);
@@ -3069,11 +3079,13 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
   };
 
   const formatDate = (dateString) => {
+    if (!dateString) return 'Not scheduled yet';
     return timezoneUtils.formatForDisplay(dateString);
   };
 
   const getElectionStatusFromData = (data) => {
     if (!data) return 'Unknown';
+    if (!data.startingTime || !data.endingTime) return 'Key Ceremony';
 
     const now = new Date();
     const startDate = new Date(data.startingTime);
@@ -3086,6 +3098,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
   const getStatusColor = (status) => {
     switch (status) {
+      case 'Key Ceremony': return 'bg-purple-100 text-purple-800';
       case 'Upcoming': return 'bg-yellow-100 text-yellow-800';
       case 'Active': return 'bg-green-100 text-green-800';
       case 'Ended': return 'bg-red-100 text-red-800';

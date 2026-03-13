@@ -5,6 +5,10 @@ import { prepareBallotForTransmission, TARGET_SIZE } from './ballotPadding.js';
 // Extended timeout for computationally intensive operations (5 minutes)
 const EXTENDED_TIMEOUT = 5 * 60 * 1000; // 300,000ms = 5 minutes
 
+const ELECTIONGUARD_PUBLIC_URL =
+  import.meta.env.VITE_ELECTIONGUARD_API_URL ||
+  `${window.location.protocol}//${window.location.hostname}:5000`;
+
 export const electionApi = {
   /**
    * Fetch all elections accessible to the current user
@@ -35,6 +39,144 @@ export const electionApi = {
       }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error creating election:', error);
+      throw error;
+    }
+  },
+
+  async getPendingKeyCeremonies() {
+    try {
+      return await apiRequest('/guardian/key-ceremony/pending', {
+        method: 'GET',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error fetching pending key ceremonies:', error);
+      throw error;
+    }
+  },
+
+  async generateGuardianKeyCeremonyCredentials(electionId) {
+    try {
+      return await apiRequest(`/guardian/key-ceremony/generate/${electionId}`, {
+        method: 'GET',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error generating guardian key ceremony credentials:', error);
+      throw error;
+    }
+  },
+
+  async submitGuardianKeyCeremony(
+    electionId,
+    guardianPublicKey,
+    localEncryptionPassword,
+    guardianPrivateKey,
+    guardianPolynomial,
+    guardianKeyBackup
+  ) {
+    try {
+      return await apiRequest('/guardian/key-ceremony/submit', {
+        method: 'POST',
+        body: JSON.stringify({
+          electionId,
+          guardianPublicKey,
+          guardianPrivateKey,
+          guardianPolynomial,
+          guardianKeyBackup,
+          localEncryptionPassword,
+        }),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error submitting key ceremony data:', error);
+      throw error;
+    }
+  },
+
+  async getAdminKeyCeremonyStatus(electionId) {
+    try {
+      return await apiRequest(`/admin/key-ceremony/status/${electionId}`, {
+        method: 'GET',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error fetching key ceremony waiting room status:', error);
+      throw error;
+    }
+  },
+
+  async getGuardianBackupContext(electionId) {
+    try {
+      return await apiRequest(`/guardian/key-ceremony/backup/context/${electionId}`, {
+        method: 'GET',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error fetching backup round context:', error);
+      throw error;
+    }
+  },
+
+  async getGuardianBackupMaterials(electionId) {
+    try {
+      return await apiRequest(`/guardian/key-ceremony/backup/materials/${electionId}`, {
+        method: 'GET',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error fetching guardian backup materials:', error);
+      throw error;
+    }
+  },
+
+  async submitGuardianBackupShares(electionId, guardianKeyBackup) {
+    try {
+      return await apiRequest('/guardian/key-ceremony/backup/submit', {
+        method: 'POST',
+        body: JSON.stringify({ electionId, guardianKeyBackup }),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error submitting encrypted backup shares:', error);
+      throw error;
+    }
+  },
+
+  async generateGuardianBackupSharesWithElectionGuard(payload) {
+    try {
+      const response = await fetch(`${ELECTIONGUARD_PUBLIC_URL}/generate_guardian_backup_shares`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload),
+      });
+
+      const data = await response.json();
+      if (!response.ok || data?.status !== 'success') {
+        throw new Error(data?.message || 'Failed to generate guardian backup shares');
+      }
+
+      return data;
+    } catch (error) {
+      console.error('Error generating backup shares from ElectionGuard API:', error);
+      throw error;
+    }
+  },
+
+  async activateElectionAfterCeremony(electionId, startingTime, endingTime) {
+    try {
+      return await apiRequest('/admin/key-ceremony/activate', {
+        method: 'POST',
+        body: JSON.stringify({ electionId, startingTime, endingTime }),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error activating election after key ceremony:', error);
+      throw error;
+    }
+  },
+
+  async getGuardianLocalPassword(electionId) {
+    try {
+      return await apiRequest(`/guardian/key-ceremony/password/${electionId}`, {
+        method: 'GET',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error fetching guardian local password:', error);
       throw error;
     }
   },

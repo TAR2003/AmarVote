@@ -528,11 +528,6 @@ const CreateElection = () => {
             return;
         }
 
-        if (!form.startingTime || !form.endingTime) {
-            setError("Both starting and ending times are required");
-            return;
-        }
-
         if (form.electionPrivacy === "private" && form.voterEmails.length === 0) {
             setError("Voter list is required for private elections");
             return;
@@ -584,8 +579,8 @@ const CreateElection = () => {
             // Convert dates to UTC format for backend storage
             const electionData = {
                 ...form,
-                startingTime: timezoneUtils.convertToUTC(form.startingTime),
-                endingTime: timezoneUtils.convertToUTC(form.endingTime)
+                startingTime: form.startingTime ? timezoneUtils.convertToUTC(form.startingTime) : null,
+                endingTime: form.endingTime ? timezoneUtils.convertToUTC(form.endingTime) : null
             };
 
             console.log('Sending election data with UTC times:', {
@@ -713,7 +708,7 @@ const CreateElection = () => {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div>
                             <label className="block text-gray-700 font-medium mb-2">
-                                Start Time <span className="text-red-500">*</span>
+                                Start Time (set later in Waiting Room)
                             </label>
                             <DatePicker
                                 selected={form.startingTime}
@@ -723,14 +718,13 @@ const CreateElection = () => {
                                 timeIntervals={15}
                                 dateFormat="MMMM d, yyyy h:mm aa"
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholderText="Select start date and time"
-                                required
+                                placeholderText="Optional during creation"
                             />
                         </div>
 
                         <div>
                             <label className="block text-gray-700 font-medium mb-2">
-                                End Time <span className="text-red-500">*</span>
+                                End Time (set later in Waiting Room)
                             </label>
                             <DatePicker
                                 selected={form.endingTime}
@@ -742,7 +736,7 @@ const CreateElection = () => {
                                 className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                                 placeholderText="Select end date and time"
                                 minDate={form.startingTime}
-                                required
+                                placeholderText="Optional during creation"
                             />
                         </div>
                     </div>

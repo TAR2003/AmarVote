@@ -15,8 +15,8 @@ CREATE TABLE IF NOT EXISTS elections (
     joint_public_key TEXT,
     manifest_hash TEXT,
     status TEXT NOT NULL DEFAULT 'draft', -- Changed from election_status enum
-    starting_time TIMESTAMP WITH TIME ZONE NOT NULL,
-    ending_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    starting_time TIMESTAMP WITH TIME ZONE,
+    ending_time TIMESTAMP WITH TIME ZONE,
     -- encrypted_tally TEXT, -- Moved to election_center table
     base_hash TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -24,8 +24,11 @@ CREATE TABLE IF NOT EXISTS elections (
     admin_email TEXT, -- Added admin_email field
 	privacy TEXT,
     eligibility TEXT,
-    CONSTRAINT valid_election_times CHECK (ending_time > starting_time),
-    CONSTRAINT valid_status CHECK (status IN ('draft', 'active', 'completed', 'decrypted')),
+    CONSTRAINT valid_election_times CHECK (
+        (starting_time IS NULL AND ending_time IS NULL)
+        OR (starting_time IS NOT NULL AND ending_time IS NOT NULL AND ending_time > starting_time)
+    ),
+    CONSTRAINT valid_status CHECK (status IN ('key_ceremony_pending', 'draft', 'active', 'completed', 'decrypted')),
     CONSTRAINT valid_quorum CHECK (election_quorum <= number_of_guardians AND election_quorum > 0)
 );
 
@@ -53,9 +56,10 @@ CREATE TABLE IF NOT EXISTS guardians (
     election_id BIGINT NOT NULL,
     user_email TEXT NOT NULL,
     key_backup TEXT,
-    guardian_public_key TEXT NOT NULL,
+    guardian_public_key TEXT,
     sequence_order INTEGER NOT NULL CHECK (sequence_order > 0),
     decrypted_or_not BOOLEAN NOT NULL DEFAULT FALSE,
+    guardian_key_submitted BOOLEAN NOT NULL DEFAULT FALSE,
     credentials TEXT, -- Added credentials field
     CONSTRAINT unique_sequence_order UNIQUE (election_id, sequence_order),
     CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE
@@ -203,6 +207,7 @@ CREATE INDEX IF NOT EXISTS idx_guardians_election ON guardians(election_id);
 CREATE INDEX IF NOT EXISTS idx_guardians_email ON guardians(user_email);
 CREATE INDEX IF NOT EXISTS idx_guardians_sequence ON guardians(election_id, sequence_order);
 CREATE INDEX IF NOT EXISTS idx_guardians_decryption_status ON guardians(election_id, decrypted_or_not);
+CREATE INDEX IF NOT EXISTS idx_guardians_key_submitted ON guardians(election_id, guardian_key_submitted);
 
 -- Election Choices table indexes
 CREATE INDEX IF NOT EXISTS idx_choices_election ON election_choices(election_id);

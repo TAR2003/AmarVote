@@ -1,0 +1,494 @@
+import React, { useEffect, useMemo, useState } from 'react';
+import { FiKey, FiClock, FiCheckCircle } from 'react-icons/fi';
+import { electionApi } from '../utils/electionApi';
+
+const generateRandomPassword = (length = 32) => {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{};:,.?/';
+  const bytes = new Uint8Array(length);
+  window.crypto.getRandomValues(bytes);
+  return Array.from(bytes, (b) => chars[b % chars.length]).join('');
+};
+
+const triggerAutoCredentialDownload = ({ electionId, encryptedCredential }) => {
+  const blob = new Blob([String(encryptedCredential || '').trim()], { type: 'text/plain' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `credentials-election-${electionId}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+};
+
+export default function KeyCeremonyDashboard() {
+  const [loading, setLoading] = useState(true);
+  const [pending, setPending] = useState([]);
+  const [allElections, setAllElections] = useState([]);
+  const [guardianForm, setGuardianForm] = useState({});
+  const [adminStatus, setAdminStatus] = useState({});
+  const [activationForm, setActivationForm] = useState({});
+  const [backupForm, setBackupForm] = useState({});
+  const [message, setMessage] = useState('');
+  const [error, setError] = useState('');
+
+  const loadData = async () => {
+    setLoading(true);
+    setError('');
+    try {
+      const [pendingResp, elections] = await Promise.all([
+        electionApi.getPendingKeyCeremonies(),
+        electionApi.getAllElections(),
+      ]);
+
+      setPending(pendingResp?.elections || []);
+      setAllElections(elections || []);
+
+      const adminPending = (elections || []).filter(
+        (e) => e.userRoles?.includes('admin') && e.status === 'key_ceremony_pending'
+      );
+
+      const statusEntries = await Promise.all(
+        adminPending.map(async (e) => {
+          try {
+            const s = await electionApi.getAdminKeyCeremonyStatus(e.electionId);
+            return [e.electionId, s?.status || null];
+          } catch {
+            return [e.electionId, null];
+          }
+        })
+      );
+
+      setAdminStatus(Object.fromEntries(statusEntries));
+    } catch (e) {
+      setError(e.message || 'Failed to load key ceremony dashboard');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadData();
+  }, []);
+
+  const adminPendingElections = useMemo(
+    () => allElections.filter((e) => e.userRoles?.includes('admin') && e.status === 'key_ceremony_pending'),
+    [allElections]
+  );
+
+  const handleGuardianSubmit = async (electionId) => {
+    setError('');
+    setMessage('');
+    const data = guardianForm[electionId] || {};
+
+    if (!data.publicKey || !data.password || !data.privateKey || !data.polynomial) {
+      setError('Private key, public key, polynomial, and local encryption password are required');
+      return;
+    }
+
+    try {
+      const response = await electionApi.submitGuardianKeyCeremony(
+        electionId,
+        data.publicKey,
+        data.password,
+        data.privateKey,
+        data.polynomial,
+        data.keyBackup
+      );
+
+      if (response?.encryptedCredential) {
+        triggerAutoCredentialDownload({
+          electionId,
+          encryptedCredential: response.encryptedCredential,
+        });
+      }
+
+      setMessage('Guardian key submitted successfully. Legacy-compatible credentials.txt was downloaded automatically.');
+      await loadData();
+    } catch (e) {
+      setError(e.message || 'Failed to submit guardian key');
+    }
+  };
+
+  const handleGenerateBackupShares = async (item) => {
+    setError('');
+    setMessage('');
+
+    try {
+      const backupContext = await electionApi.getGuardianBackupContext(item.electionId);
+      if (!backupContext?.backupRoundOpen) {
+        throw new Error('Backup key sharing starts only after all guardians submit keypairs');
+      }
+
+      const materialsResp = await electionApi.getGuardianBackupMaterials(item.electionId);
+      const materials = materialsResp?.materials;
+      if (!materials) {
+        throw new Error('Failed to load decrypted guardian materials from backend');
+      }
+
+      const parseMaybeJson = (value) => {
+        if (typeof value !== 'string') return value;
+        try {
+          return JSON.parse(value);
+        } catch {
+          return value;
+        }
+      };
+
+      const senderPrivateKey = parseMaybeJson(materials.guardianPrivateKey);
+      const senderPublicKey = parseMaybeJson(materials.guardianPublicKey);
+      const senderPolynomial = parseMaybeJson(materials.guardianPolynomial);
+
+      const payload = {
+        sender_guardian_id: String(materials?.guardianId || backupContext?.senderGuardian?.guardianId),
+        sender_sequence_order: materials?.sequenceOrder || backupContext?.senderGuardian?.sequenceOrder,
+        number_of_guardians: item.numberOfGuardians,
+        quorum: item.electionQuorum,
+        sender_private_key: senderPrivateKey,
+        sender_public_key: senderPublicKey,
+        sender_polynomial: senderPolynomial,
+        recipients: (backupContext?.recipients || []).map((r) => ({
+          guardian_id: String(r.guardianId),
+          sequence_order: r.sequenceOrder,
+          public_key: r.publicKey,
+        })),
+      };
+
+      const generated = await electionApi.generateGuardianBackupSharesWithElectionGuard(payload);
+
+      setBackupForm((prev) => ({
+        ...prev,
+        [item.electionId]: {
+          ...(prev[item.electionId] || {}),
+          loadedFromBackend: true,
+          generatedGuardianData: JSON.stringify(generated?.guardian_data || {}, null, 2),
+        },
+      }));
+
+      setMessage(`Encrypted backup shares generated for ${generated?.backup_count || 0} guardian(s) using backend-stored guardian credentials.`);
+    } catch (e) {
+      setError(e.message || 'Failed to generate backup shares');
+    }
+  };
+
+  const handleSubmitBackupShares = async (electionId) => {
+    setError('');
+    setMessage('');
+
+    try {
+      const guardianKeyBackup = backupForm[electionId]?.generatedGuardianData;
+      if (!guardianKeyBackup || !guardianKeyBackup.trim()) {
+        throw new Error('Generate backup shares first');
+      }
+
+      await electionApi.submitGuardianBackupShares(electionId, guardianKeyBackup);
+      setMessage('Encrypted backup shares submitted successfully.');
+      await loadData();
+    } catch (e) {
+      setError(e.message || 'Failed to submit backup shares');
+    }
+  };
+
+  const handleGenerateCredentials = async (item) => {
+    setError('');
+    setMessage('');
+    try {
+      const generated = await electionApi.generateGuardianKeyCeremonyCredentials(item.electionId);
+
+      setGuardianForm((prev) => ({
+        ...prev,
+        [item.electionId]: {
+          ...(prev[item.electionId] || {}),
+          privateKey: generated?.guardianPrivateKey || '',
+          publicKey: generated?.guardianPublicKey || '',
+          polynomial: generated?.guardianPolynomial || '',
+          keyBackup: generated?.guardianKeyBackup || '',
+        },
+      }));
+
+      setMessage('ElectionGuard-compatible credentials generated. You can regenerate until satisfied.');
+    } catch (e) {
+      setError(e.message || 'Failed to generate credentials');
+    }
+  };
+
+  const handleGeneratePassword = (electionId) => {
+    setGuardianForm((prev) => ({
+      ...prev,
+      [electionId]: {
+        ...(prev[electionId] || {}),
+        password: generateRandomPassword(32),
+      },
+    }));
+
+    setMessage('Random password generated. You can regenerate or type your own password.');
+  };
+
+  const handleActivate = async (electionId) => {
+    setError('');
+    setMessage('');
+    const data = activationForm[electionId] || {};
+    if (!data.startingTime || !data.endingTime) {
+      setError('Start and end times are required for activation');
+      return;
+    }
+
+    try {
+      await electionApi.activateElectionAfterCeremony(
+        electionId,
+        new Date(data.startingTime).toISOString(),
+        new Date(data.endingTime).toISOString()
+      );
+      setMessage('Election activated successfully');
+      await loadData();
+    } catch (e) {
+      setError(e.message || 'Failed to activate election');
+    }
+  };
+
+  if (loading) {
+    return <div className="p-6">Loading key ceremony dashboard...</div>;
+  }
+
+  return (
+    <div className="space-y-6 p-4 sm:p-6">
+      <div className="bg-white rounded-lg shadow p-4">
+        <h2 className="text-xl font-semibold flex items-center gap-2">
+          <FiKey /> Key Ceremony Dashboard
+        </h2>
+        <p className="text-sm text-gray-600 mt-1">
+          Keep private key and polynomial on-device. Submit only public key and local encryption password.
+        </p>
+      </div>
+
+      {message && <div className="bg-green-50 border border-green-200 text-green-800 p-3 rounded">{message}</div>}
+      {error && <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded">{error}</div>}
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="font-semibold mb-3">Guardian Key Ceremony Tasks</h3>
+        {pending.length === 0 ? (
+          <p className="text-gray-600 text-sm">No pending key ceremony tasks.</p>
+        ) : (
+          <div className="space-y-4">
+            {pending.map((item) => (
+              <div key={item.electionId} className="border rounded p-3">
+                <div className="font-medium">{item.electionTitle}</div>
+                <div className="text-sm text-gray-600 mb-2">
+                  Round 1 (keypairs): {item.submittedGuardians}/{item.numberOfGuardians}
+                </div>
+                <div className="text-sm text-gray-600 mb-2">
+                  Round 2 (backup sharing): {item.submittedBackupGuardians || 0}/{item.numberOfGuardians}
+                </div>
+
+                {item.currentRound === 'keypair_generation' && (
+                  <>
+                    <div className="flex flex-wrap gap-2 mb-3">
+                      <button
+                        onClick={() => handleGenerateCredentials(item)}
+                        className="px-3 py-2 bg-indigo-600 text-white rounded"
+                      >
+                        Generate Credentials
+                      </button>
+                      <button
+                        onClick={() => handleGeneratePassword(item.electionId)}
+                        className="px-3 py-2 bg-purple-600 text-white rounded"
+                      >
+                        Generate Random Password
+                      </button>
+                    </div>
+
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <textarea
+                        className="border rounded px-3 py-2 min-h-28"
+                        placeholder="Private key (kept locally, do not submit)"
+                        value={guardianForm[item.electionId]?.privateKey || ''}
+                        onChange={(e) =>
+                          setGuardianForm((prev) => ({
+                            ...prev,
+                            [item.electionId]: {
+                              ...(prev[item.electionId] || {}),
+                              privateKey: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+
+                      <textarea
+                        className="border rounded px-3 py-2 min-h-28"
+                        placeholder="Public key JSON (ElectionGuard-compatible)"
+                        value={guardianForm[item.electionId]?.publicKey || ''}
+                        onChange={(e) =>
+                          setGuardianForm((prev) => ({
+                            ...prev,
+                            [item.electionId]: {
+                              ...(prev[item.electionId] || {}),
+                              publicKey: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+
+                      <textarea
+                        className="border rounded px-3 py-2 min-h-28"
+                        placeholder="Polynomial (kept locally, do not submit)"
+                        value={guardianForm[item.electionId]?.polynomial || ''}
+                        onChange={(e) =>
+                          setGuardianForm((prev) => ({
+                            ...prev,
+                            [item.electionId]: {
+                              ...(prev[item.electionId] || {}),
+                              polynomial: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+
+                      <input
+                        className="border rounded px-3 py-2"
+                        placeholder="Random password (you can also type your own)"
+                        value={guardianForm[item.electionId]?.password || ''}
+                        onChange={(e) =>
+                          setGuardianForm((prev) => ({
+                            ...prev,
+                            [item.electionId]: {
+                              ...(prev[item.electionId] || {}),
+                              password: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </div>
+                    <button
+                      onClick={() => handleGuardianSubmit(item.electionId)}
+                      className="mt-3 px-4 py-2 bg-blue-600 text-white rounded"
+                    >
+                      Submit Key Ceremony Data (Round 1)
+                    </button>
+                  </>
+                )}
+
+                {item.currentRound === 'waiting_for_all_keypairs' && (
+                  <div className="mt-2 text-amber-700 bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+                    Your keypair is submitted. Waiting for all guardians to complete Round 1 before backup sharing starts.
+                  </div>
+                )}
+
+                {item.currentRound === 'backup_key_sharing' && (
+                  <div className="mt-3 space-y-3">
+                    <div className="text-sm font-medium">Round 2: Backup Key Sharing</div>
+
+                    <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2">
+                      Private key and polynomial are loaded from your encrypted credential in backend secure storage.
+                      No manual paste is required.
+                    </div>
+
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        onClick={() => handleGenerateBackupShares(item)}
+                        className="px-3 py-2 bg-orange-600 text-white rounded"
+                      >
+                        Generate Backup Key Shares
+                      </button>
+                      <button
+                        onClick={() => handleSubmitBackupShares(item.electionId)}
+                        className="px-3 py-2 bg-emerald-600 text-white rounded"
+                      >
+                        Submit Encrypted Backup Shares
+                      </button>
+                    </div>
+
+                    <textarea
+                      className="border rounded px-3 py-2 min-h-28 w-full"
+                      placeholder="Generated encrypted guardian backup payload"
+                      value={backupForm[item.electionId]?.generatedGuardianData || ''}
+                      onChange={(e) =>
+                        setBackupForm((prev) => ({
+                          ...prev,
+                          [item.electionId]: {
+                            ...(prev[item.electionId] || {}),
+                            generatedGuardianData: e.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                )}
+
+                {item.currentRound === 'backup_submitted_waiting_others' && (
+                  <div className="mt-2 text-blue-700 bg-blue-50 border border-blue-200 rounded p-3 text-sm">
+                    Your encrypted backup shares are submitted. Waiting for other guardians to finish Round 2.
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      <div className="bg-white rounded-lg shadow p-4">
+        <h3 className="font-semibold mb-3 flex items-center gap-2">
+          <FiClock /> Admin Waiting Room
+        </h3>
+        {adminPendingElections.length === 0 ? (
+          <p className="text-gray-600 text-sm">No elections waiting for activation.</p>
+        ) : (
+          <div className="space-y-4">
+            {adminPendingElections.map((e) => {
+              const status = adminStatus[e.electionId];
+              return (
+                <div key={e.electionId} className="border rounded p-3">
+                  <div className="font-medium">{e.electionTitle}</div>
+                  <div className="text-sm text-gray-600 mb-2">
+                    {status ? `${status.submittedGuardians}/${status.totalGuardians} submitted` : 'Loading status...'}
+                  </div>
+                  {status?.readyForActivation && (
+                    <div className="text-green-700 text-sm mb-2 flex items-center gap-1">
+                      <FiCheckCircle /> Ready for activation
+                    </div>
+                  )}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                    <input
+                      type="datetime-local"
+                      className="border rounded px-3 py-2"
+                      value={activationForm[e.electionId]?.startingTime || ''}
+                      onChange={(ev) =>
+                        setActivationForm((prev) => ({
+                          ...prev,
+                          [e.electionId]: {
+                            ...(prev[e.electionId] || {}),
+                            startingTime: ev.target.value,
+                          },
+                        }))
+                      }
+                    />
+                    <input
+                      type="datetime-local"
+                      className="border rounded px-3 py-2"
+                      value={activationForm[e.electionId]?.endingTime || ''}
+                      onChange={(ev) =>
+                        setActivationForm((prev) => ({
+                          ...prev,
+                          [e.electionId]: {
+                            ...(prev[e.electionId] || {}),
+                            endingTime: ev.target.value,
+                          },
+                        }))
+                      }
+                    />
+                  </div>
+                  <button
+                    onClick={() => handleActivate(e.electionId)}
+                    disabled={!status?.readyForActivation}
+                    className="mt-3 px-4 py-2 bg-green-600 text-white rounded disabled:bg-gray-400"
+                  >
+                    Activate Election
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}

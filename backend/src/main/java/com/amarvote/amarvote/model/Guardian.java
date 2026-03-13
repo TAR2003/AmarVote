@@ -26,7 +26,7 @@ public class Guardian {
     @Column(name = "key_backup", columnDefinition = "TEXT")
     private String keyBackup;
 
-    @Column(name = "guardian_public_key", nullable = false, columnDefinition = "TEXT")
+    @Column(name = "guardian_public_key", columnDefinition = "TEXT")
     private String guardianPublicKey;
 
     @Column(name = "sequence_order", nullable = false)
@@ -38,4 +38,11 @@ public class Guardian {
 
     @Column(name = "credentials", columnDefinition = "TEXT")
     private String credentials;
+
+    @Column(name = "encrypted_credential", columnDefinition = "TEXT")
+    private String encryptedCredential;
+
+    @Column(name = "guardian_key_submitted", nullable = false)
+    @Builder.Default
+    private Boolean guardianKeySubmitted = false;
 }
