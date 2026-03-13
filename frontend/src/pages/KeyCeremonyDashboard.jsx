@@ -2,13 +2,6 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { FiKey, FiClock, FiCheckCircle } from 'react-icons/fi';
 import { electionApi } from '../utils/electionApi';
 
-const generateRandomPassword = (length = 32) => {
-  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{};:,.?/';
-  const bytes = new Uint8Array(length);
-  window.crypto.getRandomValues(bytes);
-  return Array.from(bytes, (b) => chars[b % chars.length]).join('');
-};
-
 const triggerAutoCredentialDownload = ({ electionId, encryptedCredential }) => {
   const blob = new Blob([String(encryptedCredential || '').trim()], { type: 'text/plain' });
   const url = URL.createObjectURL(blob);
@@ -122,8 +115,8 @@ export default function KeyCeremonyDashboard() {
     setMessage('');
     const data = guardianForm[electionId] || {};
 
-    if (!data.publicKey || !data.password || !data.privateKey || !data.polynomial) {
-      setError('Private key, public key, polynomial, and local encryption password are required');
+    if (!data.publicKey) {
+      setError('Guardian public key is required');
       return;
     }
 
@@ -131,9 +124,6 @@ export default function KeyCeremonyDashboard() {
       const response = await electionApi.submitGuardianKeyCeremony(
         electionId,
         data.publicKey,
-        data.password,
-        data.privateKey,
-        data.polynomial,
         data.keyBackup
       );
 
@@ -286,18 +276,6 @@ export default function KeyCeremonyDashboard() {
     }
   };
 
-  const handleGeneratePassword = (electionId) => {
-    setGuardianForm((prev) => ({
-      ...prev,
-      [electionId]: {
-        ...(prev[electionId] || {}),
-        password: generateRandomPassword(32),
-      },
-    }));
-
-    setMessage('Random password generated. You can regenerate or type your own password.');
-  };
-
   const handleActivate = async (electionId) => {
     setError('');
     setMessage('');
@@ -331,7 +309,7 @@ export default function KeyCeremonyDashboard() {
           <FiKey /> Key Ceremony Dashboard
         </h2>
         <p className="text-sm text-gray-600 mt-1">
-          Keep private key and polynomial on-device. Submit only public key and local encryption password.
+          Keep private key and polynomial on-device. Submit only public key to backend.
         </p>
       </div>
 
@@ -362,12 +340,6 @@ export default function KeyCeremonyDashboard() {
                         className="px-3 py-2 bg-indigo-600 text-white rounded"
                       >
                         Generate Credentials
-                      </button>
-                      <button
-                        onClick={() => handleGeneratePassword(item.electionId)}
-                        className="px-3 py-2 bg-purple-600 text-white rounded"
-                      >
-                        Generate Random Password
                       </button>
                     </div>
 
@@ -417,20 +389,6 @@ export default function KeyCeremonyDashboard() {
                         }
                       />
 
-                      <input
-                        className="border rounded px-3 py-2"
-                        placeholder="Random password (you can also type your own)"
-                        value={guardianForm[item.electionId]?.password || ''}
-                        onChange={(e) =>
-                          setGuardianForm((prev) => ({
-                            ...prev,
-                            [item.electionId]: {
-                              ...(prev[item.electionId] || {}),
-                              password: e.target.value,
-                            },
-                          }))
-                        }
-                      />
                     </div>
                     <button
                       onClick={() => handleGuardianSubmit(item.electionId)}

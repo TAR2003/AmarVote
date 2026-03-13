@@ -68,9 +68,6 @@ export const electionApi = {
   async submitGuardianKeyCeremony(
     electionId,
     guardianPublicKey,
-    localEncryptionPassword,
-    guardianPrivateKey,
-    guardianPolynomial,
     guardianKeyBackup
   ) {
     try {
@@ -79,10 +76,7 @@ export const electionApi = {
         body: JSON.stringify({
           electionId,
           guardianPublicKey,
-          guardianPrivateKey,
-          guardianPolynomial,
           guardianKeyBackup,
-          localEncryptionPassword,
         }),
       }, EXTENDED_TIMEOUT);
     } catch (error) {

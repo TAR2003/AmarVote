@@ -40,6 +40,7 @@ public class CredentialCacheService {
     // Key prefixes for different credential types
     private static final String PRIVATE_KEY_PREFIX = "guardian:privatekey:";
     private static final String POLYNOMIAL_PREFIX = "guardian:polynomial:";
+    private static final String ENCRYPTED_CREDENTIAL_PREFIX = "guardian:encrypted_credential:";
 
     /**
      * Store guardian's decrypted private key temporarily.
@@ -188,6 +189,53 @@ public class CredentialCacheService {
         }
     }
 
+    public void storeEncryptedCredential(Long electionId, Long guardianId, String encryptedCredential) {
+        String key = buildEncryptedCredentialKey(electionId, guardianId);
+        try {
+            redisTemplate.opsForValue().set(
+                key,
+                encryptedCredential,
+                CREDENTIAL_TTL_MINUTES,
+                TimeUnit.MINUTES
+            );
+            log.info("Stored encrypted credential in Redis for election {} guardian {} with TTL {}m",
+                electionId, guardianId, CREDENTIAL_TTL_MINUTES);
+        } catch (Exception e) {
+            log.error("Failed to store encrypted credential in Redis for election {} guardian {}",
+                electionId, guardianId, e);
+            throw new RuntimeException("Failed to cache encrypted credential", e);
+        }
+    }
+
+    public String getEncryptedCredential(Long electionId, Long guardianId) {
+        String key = buildEncryptedCredentialKey(electionId, guardianId);
+        try {
+            String value = redisTemplate.opsForValue().get(key);
+            if (value != null) {
+                log.info("Retrieved encrypted credential from Redis for election {} guardian {}",
+                    electionId, guardianId);
+            } else {
+                log.warn("Encrypted credential not found or expired in Redis for election {} guardian {}",
+                    electionId, guardianId);
+            }
+            return value;
+        } catch (Exception e) {
+            log.error("Failed to retrieve encrypted credential from Redis for election {} guardian {}",
+                electionId, guardianId, e);
+            return null;
+        }
+    }
+
+    public void clearEncryptedCredential(Long electionId, Long guardianId) {
+        String key = buildEncryptedCredentialKey(electionId, guardianId);
+        try {
+            redisTemplate.delete(key);
+            log.info("Cleared encrypted credential from Redis for election {} guardian {}", electionId, guardianId);
+        } catch (Exception e) {
+            log.error("Failed to clear encrypted credential from Redis for election {} guardian {}", electionId, guardianId, e);
+        }
+    }
+
     // Key building helpers
     private String buildPrivateKeyKey(Long electionId, Long guardianId) {
         return PRIVATE_KEY_PREFIX + electionId + ":" + guardianId;
@@ -195,5 +243,9 @@ public class CredentialCacheService {
 
     private String buildPolynomialKey(Long electionId, Long guardianId) {
         return POLYNOMIAL_PREFIX + electionId + ":" + guardianId;
+    }
+
+    private String buildEncryptedCredentialKey(Long electionId, Long guardianId) {
+        return ENCRYPTED_CREDENTIAL_PREFIX + electionId + ":" + guardianId;
     }
 }

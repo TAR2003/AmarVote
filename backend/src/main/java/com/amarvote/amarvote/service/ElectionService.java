@@ -80,6 +80,9 @@ public class ElectionService {
     @Autowired
     private BlockchainService blockchainService;
 
+    @Autowired
+    private CredentialCacheService credentialCacheService;
+
     @Transactional
     public Election createElection(ElectionCreationRequest request, String jwtToken, String userEmail) {
         // Log the received token and email
@@ -327,6 +330,10 @@ public class ElectionService {
 
         Guardian guardian = matched.get(0);
 
+        if (Boolean.TRUE.equals(guardian.getGuardianKeySubmitted())) {
+            throw new IllegalArgumentException("Guardian key already submitted");
+        }
+
         String response = electionGuardService.postRequest("/generate_guardian_credentials", Map.of(
                 "guardian_id", String.valueOf(guardian.getSequenceOrder()),
                 "sequence_order", guardian.getSequenceOrder(),
@@ -341,14 +348,25 @@ public class ElectionService {
                 throw new RuntimeException("Failed to generate guardian credentials");
             }
 
+            String privateKeyJson = objectMapper.writeValueAsString(generated.get("private_key"));
+            String polynomialJson = objectMapper.writeValueAsString(generated.get("polynomial"));
+
+            ElectionGuardCryptoService.EncryptionResult encryptionResult =
+                    cryptoService.encryptGuardianData(privateKeyJson, polynomialJson);
+
+            guardian.setCredentials(encryptionResult.getCredentials());
+            guardianRepository.save(guardian);
+
+            credentialCacheService.storeEncryptedCredential(electionId, guardian.getGuardianId(), encryptionResult.getEncryptedData());
+
             return Map.of(
                     "success", true,
                     "electionId", electionId,
                     "guardianId", guardian.getGuardianId(),
                     "sequenceOrder", guardian.getSequenceOrder(),
-                    "guardianPrivateKey", objectMapper.writeValueAsString(generated.get("private_key")),
+                    "guardianPrivateKey", privateKeyJson,
                     "guardianPublicKey", objectMapper.writeValueAsString(generated.get("public_key")),
-                    "guardianPolynomial", objectMapper.writeValueAsString(generated.get("polynomial")),
+                    "guardianPolynomial", polynomialJson,
                     "guardianKeyBackup", objectMapper.writeValueAsString(generated.get("guardian_data")));
         } catch (Exception e) {
             throw new RuntimeException("Failed to parse generated guardian credentials", e);
@@ -377,16 +395,24 @@ public class ElectionService {
             throw new IllegalArgumentException("Guardian key already submitted");
         }
 
-        ElectionGuardCryptoService.EncryptionResult encryptionResult = cryptoService
-            .encryptGuardianData(request.guardianPrivateKey(), request.guardianPolynomial());
-
         guardian.setGuardianPublicKey(request.guardianPublicKey());
         if (request.guardianKeyBackup() != null && !request.guardianKeyBackup().isBlank()) {
             guardian.setKeyBackup(request.guardianKeyBackup());
         }
-        guardian.setCredentials(encryptionResult.getCredentials());
+
+        String encryptedCredential = credentialCacheService.getEncryptedCredential(request.electionId(), guardian.getGuardianId());
+        if (encryptedCredential == null || encryptedCredential.isBlank()) {
+            throw new IllegalArgumentException("Credential package expired or missing. Please generate credentials again before submitting.");
+        }
+
+        if (guardian.getCredentials() == null || guardian.getCredentials().isBlank()) {
+            throw new IllegalArgumentException("Credential metadata missing. Please generate credentials again before submitting.");
+        }
+
         guardian.setGuardianKeySubmitted(true);
         guardianRepository.save(guardian);
+
+        credentialCacheService.clearEncryptedCredential(request.electionId(), guardian.getGuardianId());
 
         int total = guardianRepository.countByElectionId(request.electionId());
         int submitted = guardianRepository.countSubmittedKeysByElectionId(request.electionId());
@@ -394,7 +420,7 @@ public class ElectionService {
         return Map.of(
                 "success", true,
                 "message", "Guardian key ceremony data submitted successfully",
-            "encryptedCredential", encryptionResult.getEncryptedData(),
+            "encryptedCredential", encryptedCredential,
             "credentialFormat", "legacy_credentials_txt",
                 "submittedGuardians", submitted,
                 "submittedBackupGuardians", countSubmittedBackups(guardianRepository.findByElectionId(request.electionId())),
