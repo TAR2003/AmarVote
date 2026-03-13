@@ -3,9 +3,6 @@ import { useNavigate } from "react-router-dom";
 import { electionApi } from "../utils/electionApi";
 import { userApi } from "../utils/userApi";
 import { uploadCandidateImage, uploadPartyImage } from "../utils/api";
-import { timezoneUtils } from "../utils/timezoneUtils";
-import DatePicker from "react-datepicker";
-import "react-datepicker/dist/react-datepicker.css";
 import ImageUpload from "../components/ImageUpload";
 
 const CreateElection = () => {
@@ -33,8 +30,6 @@ const CreateElection = () => {
         partyNames: [""],
         candidatePictures: [""],
         partyPictures: [""],
-        startingTime: null,
-        endingTime: null,
         maxChoices: 1
     });
 
@@ -576,18 +571,9 @@ const CreateElection = () => {
         setIsSubmitting(true);
 
         try {
-            // Convert dates to UTC format for backend storage
             const electionData = {
-                ...form,
-                startingTime: form.startingTime ? timezoneUtils.convertToUTC(form.startingTime) : null,
-                endingTime: form.endingTime ? timezoneUtils.convertToUTC(form.endingTime) : null
+                ...form
             };
-
-            console.log('Sending election data with UTC times:', {
-                startingTime: electionData.startingTime,
-                endingTime: electionData.endingTime,
-                userTimezone: timezoneUtils.getUserTimezone()
-            });
 
             const response = await electionApi.createElection(electionData);
             setSuccess("Election created successfully!");
@@ -705,40 +691,8 @@ const CreateElection = () => {
                         />
                     </div>
 
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label className="block text-gray-700 font-medium mb-2">
-                                Start Time (set later in Waiting Room)
-                            </label>
-                            <DatePicker
-                                selected={form.startingTime}
-                                onChange={date => setForm(prev => ({ ...prev, startingTime: date }))}
-                                showTimeSelect
-                                timeFormat="HH:mm"
-                                timeIntervals={15}
-                                dateFormat="MMMM d, yyyy h:mm aa"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholderText="Optional during creation"
-                            />
-                        </div>
-
-                        <div>
-                            <label className="block text-gray-700 font-medium mb-2">
-                                End Time (set later in Waiting Room)
-                            </label>
-                            <DatePicker
-                                selected={form.endingTime}
-                                onChange={date => setForm(prev => ({ ...prev, endingTime: date }))}
-                                showTimeSelect
-                                timeFormat="HH:mm"
-                                timeIntervals={15}
-                                dateFormat="MMMM d, yyyy h:mm aa"
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                placeholderText="Select end date and time"
-                                minDate={form.startingTime}
-                                placeholderText="Optional during creation"
-                            />
-                        </div>
+                    <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                        Election start and end time are set later, after key ceremony completion.
                     </div>
                 </div>
 

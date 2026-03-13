@@ -74,7 +74,7 @@ import WorkerProceedings from '../components/WorkerProceedings';
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
   { name: 'Voting Booth', key: 'voting', path: 'voting-booth', icon: FiCheckCircle },
-  { name: 'Guardian Keys', key: 'guardian', path: 'guardian-keys', icon: FiShield },
+  { name: 'Guardian', key: 'guardian', path: 'guardian', icon: FiShield },
   { name: 'Results', key: 'results', path: 'results', icon: FiTrendingUp },
   { name: 'Ballots in Tally', key: 'ballots', path: 'ballots-in-tally', icon: FiDatabase },
   { name: 'Verify Your Vote', key: 'verify', path: 'verify-vote', icon: FiHash },
@@ -1977,6 +1977,32 @@ export default function ElectionPage() {
   const [guardianDecryptionStatus, setGuardianDecryptionStatus] = useState(null);
   const [isCheckingStatus, setIsCheckingStatus] = useState(false);
 
+  // Key ceremony progress state (shown in Guardian tab)
+  const [guardianKeyCeremonyContext, setGuardianKeyCeremonyContext] = useState(null);
+  const [adminKeyCeremonyStatus, setAdminKeyCeremonyStatus] = useState(null);
+  const [activationSchedule, setActivationSchedule] = useState({ startingTime: '', endingTime: '' });
+  const [activatingElection, setActivatingElection] = useState(false);
+  const [keyCeremonyUiMessage, setKeyCeremonyUiMessage] = useState('');
+  const [keyCeremonyUiError, setKeyCeremonyUiError] = useState('');
+  const [guardianCeremonyForm, setGuardianCeremonyForm] = useState({
+    privateKey: '',
+    publicKey: '',
+    polynomial: '',
+    localEncryptionPassword: '',
+    keyBackup: '',
+  });
+  const [backupCeremonyForm, setBackupCeremonyForm] = useState({
+    credentialContent: '',
+    credentialFileName: '',
+    generatedGuardianData: '',
+  });
+  const [keyCeremonyBusy, setKeyCeremonyBusy] = useState({
+    generatingCredentials: false,
+    submittingRound1: false,
+    generatingBackup: false,
+    submittingBackup: false,
+  });
+
   // Combine progress state
   const [isCombineModalOpen, setIsCombineModalOpen] = useState(false);
   const [combineStatus, setCombineStatus] = useState(null);
@@ -2129,6 +2155,42 @@ export default function ElectionPage() {
       if (pollInterval) clearInterval(pollInterval);
     };
   }, [activeTab, id, electionData?.guardians]);
+
+  const loadKeyCeremonyProgress = useCallback(async () => {
+    if (activeTab !== 'guardian' || !electionData || electionData.status !== 'key_ceremony_pending') {
+      setGuardianKeyCeremonyContext(null);
+      setAdminKeyCeremonyStatus(null);
+      return;
+    }
+
+    const isGuardian = electionData?.userRoles?.includes('guardian');
+    const isAdmin = electionData?.userRoles?.includes('admin');
+
+    if (isGuardian) {
+      try {
+        const pendingResp = await electionApi.getPendingKeyCeremonies();
+        const pendingItems = pendingResp?.elections || [];
+        const current = pendingItems.find((item) => Number(item.electionId) === Number(id));
+        setGuardianKeyCeremonyContext(current || null);
+      } catch {
+        setGuardianKeyCeremonyContext(null);
+      }
+    }
+
+    if (isAdmin) {
+      try {
+        const adminStatusResp = await electionApi.getAdminKeyCeremonyStatus(id);
+        setAdminKeyCeremonyStatus(adminStatusResp?.status || null);
+      } catch {
+        setAdminKeyCeremonyStatus(null);
+      }
+    }
+  }, [activeTab, electionData, id]);
+
+  // Load key ceremony progress (guardian + admin) for Guardian tab
+  useEffect(() => {
+    loadKeyCeremonyProgress();
+  }, [loadKeyCeremonyProgress]);
 
   // Initialize bot detection on component mount
   useEffect(() => {
@@ -3167,6 +3229,240 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
     return canUserViewResults() && resultsData !== null;
   };
 
+  const getKeyCeremonyProgressMessage = () => {
+    const round = guardianKeyCeremonyContext?.currentRound || adminKeyCeremonyStatus?.currentRound;
+    const submittedRound1 = guardianKeyCeremonyContext?.submittedGuardians
+      ?? adminKeyCeremonyStatus?.submittedGuardians
+      ?? 0;
+    const submittedRound2 = guardianKeyCeremonyContext?.submittedBackupGuardians
+      ?? adminKeyCeremonyStatus?.submittedBackupGuardians
+      ?? 0;
+    const totalGuardians = guardianKeyCeremonyContext?.numberOfGuardians
+      ?? adminKeyCeremonyStatus?.totalGuardians
+      ?? electionData?.numberOfGuardians
+      ?? 0;
+
+    switch (round) {
+      case 'keypair_generation':
+        return `Round 1 in progress: ${submittedRound1}/${totalGuardians} guardian(s) generated key pairs.`;
+      case 'waiting_for_all_keypairs':
+        return `Round 1 waiting: ${submittedRound1}/${totalGuardians} guardian(s) submitted key pairs.`;
+      case 'backup_key_sharing':
+        return `Round 2 in progress: ${submittedRound2}/${totalGuardians} guardian(s) shared encrypted backup shares.`;
+      case 'backup_submitted_waiting_others':
+        return `Round 2 waiting: ${submittedRound2}/${totalGuardians} guardian(s) shared encrypted backup shares.`;
+      default:
+        return 'Key ceremony is in progress.';
+    }
+  };
+
+  const getKeyCeremonyStep = () => {
+    const round = guardianKeyCeremonyContext?.currentRound || adminKeyCeremonyStatus?.currentRound;
+    if (round === 'keypair_generation' || round === 'waiting_for_all_keypairs') return 1;
+    if (round === 'backup_key_sharing' || round === 'backup_submitted_waiting_others') return 2;
+    return 0;
+  };
+
+  const getRound1Progress = () => {
+    const submitted = guardianKeyCeremonyContext?.submittedGuardians
+      ?? adminKeyCeremonyStatus?.submittedGuardians
+      ?? 0;
+    const total = guardianKeyCeremonyContext?.numberOfGuardians
+      ?? adminKeyCeremonyStatus?.totalGuardians
+      ?? electionData?.numberOfGuardians
+      ?? 0;
+
+    return total > 0 ? Math.round((submitted / total) * 100) : 0;
+  };
+
+  const getRound2Progress = () => {
+    const submitted = guardianKeyCeremonyContext?.submittedBackupGuardians
+      ?? adminKeyCeremonyStatus?.submittedBackupGuardians
+      ?? 0;
+    const total = guardianKeyCeremonyContext?.numberOfGuardians
+      ?? adminKeyCeremonyStatus?.totalGuardians
+      ?? electionData?.numberOfGuardians
+      ?? 0;
+
+    return total > 0 ? Math.round((submitted / total) * 100) : 0;
+  };
+
+  const triggerAutoCredentialDownload = ({ electionId, encryptedCredential }) => {
+    const blob = new Blob([String(encryptedCredential || '').trim()], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `credentials-election-${electionId}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
+
+  const generateLocalPassword = () => {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}';
+    const bytes = new Uint8Array(32);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
+  };
+
+  const handleGenerateLocalPassword = () => {
+    const generated = generateLocalPassword();
+    setGuardianCeremonyForm((prev) => ({ ...prev, localEncryptionPassword: generated }));
+    setKeyCeremonyUiError('');
+    setKeyCeremonyUiMessage('Local AES-256 password generated.');
+  };
+
+  const handleGenerateKeyCeremonyCredentials = async () => {
+    try {
+      setKeyCeremonyUiError('');
+      setKeyCeremonyUiMessage('');
+      setKeyCeremonyBusy((prev) => ({ ...prev, generatingCredentials: true }));
+      const generated = await electionApi.generateGuardianKeyCeremonyCredentials(id);
+
+      setGuardianCeremonyForm((prev) => ({
+        ...prev,
+        privateKey: generated?.guardianPrivateKey || '',
+        publicKey: generated?.guardianPublicKey || '',
+        polynomial: generated?.guardianPolynomial || '',
+        keyBackup: generated?.guardianKeyBackup || '',
+      }));
+      setKeyCeremonyUiMessage('Credentials generated. Review and submit Round 1.');
+    } catch (err) {
+      setKeyCeremonyUiError(err.message || 'Failed to generate credentials');
+    } finally {
+      setKeyCeremonyBusy((prev) => ({ ...prev, generatingCredentials: false }));
+    }
+  };
+
+  const handleSubmitKeyCeremonyRound1 = async () => {
+    if (!guardianCeremonyForm.publicKey?.trim()) {
+      setKeyCeremonyUiError('Guardian public key is required');
+      return;
+    }
+    if (!guardianCeremonyForm.privateKey?.trim()) {
+      setKeyCeremonyUiError('Guardian private key is required');
+      return;
+    }
+    if (!guardianCeremonyForm.polynomial?.trim()) {
+      setKeyCeremonyUiError('Guardian polynomial is required');
+      return;
+    }
+    if (!guardianCeremonyForm.localEncryptionPassword?.trim()) {
+      setKeyCeremonyUiError('Local encryption password is required');
+      return;
+    }
+
+    try {
+      setKeyCeremonyUiError('');
+      setKeyCeremonyUiMessage('');
+      setKeyCeremonyBusy((prev) => ({ ...prev, submittingRound1: true }));
+      const response = await electionApi.submitGuardianKeyCeremony(
+        id,
+        guardianCeremonyForm.privateKey,
+        guardianCeremonyForm.publicKey,
+        guardianCeremonyForm.polynomial,
+        guardianCeremonyForm.localEncryptionPassword,
+        guardianCeremonyForm.keyBackup
+      );
+
+      if (response?.encryptedCredential) {
+        triggerAutoCredentialDownload({ electionId: id, encryptedCredential: response.encryptedCredential });
+      }
+
+      setKeyCeremonyUiMessage('Round 1 submitted successfully. credentials.txt downloaded.');
+      await fetchElectionData();
+      await loadKeyCeremonyProgress();
+    } catch (err) {
+      setKeyCeremonyUiError(err.message || 'Failed to submit Round 1');
+    } finally {
+      setKeyCeremonyBusy((prev) => ({ ...prev, submittingRound1: false }));
+    }
+  };
+
+  const handleBackupCredentialFileLoad = async (file) => {
+    if (!file) return;
+    try {
+      const content = await file.text();
+      setBackupCeremonyForm((prev) => ({
+        ...prev,
+        credentialContent: content,
+        credentialFileName: file.name,
+      }));
+      setKeyCeremonyUiError('');
+      setKeyCeremonyUiMessage('Credential file loaded.');
+    } catch (err) {
+      setKeyCeremonyUiError(err.message || 'Failed to read credential file');
+    }
+  };
+
+  const handleGenerateBackupShares = async () => {
+    if (!backupCeremonyForm.credentialContent?.trim()) {
+      setKeyCeremonyUiError('Upload credentials.txt first');
+      return;
+    }
+
+    try {
+      setKeyCeremonyUiError('');
+      setKeyCeremonyUiMessage('');
+      setKeyCeremonyBusy((prev) => ({ ...prev, generatingBackup: true }));
+      const generated = await electionApi.generateGuardianBackupShares(id, backupCeremonyForm.credentialContent.trim());
+      setBackupCeremonyForm((prev) => ({
+        ...prev,
+        generatedGuardianData: JSON.stringify(generated?.guardianData || {}, null, 2),
+      }));
+      setKeyCeremonyUiMessage(`Backup shares generated for ${generated?.backupCount || 0} guardian(s).`);
+    } catch (err) {
+      setKeyCeremonyUiError(err.message || 'Failed to generate backup shares');
+    } finally {
+      setKeyCeremonyBusy((prev) => ({ ...prev, generatingBackup: false }));
+    }
+  };
+
+  const handleSubmitBackupShares = async () => {
+    if (!backupCeremonyForm.generatedGuardianData?.trim()) {
+      setKeyCeremonyUiError('Generate backup shares before submitting');
+      return;
+    }
+
+    try {
+      setKeyCeremonyUiError('');
+      setKeyCeremonyUiMessage('');
+      setKeyCeremonyBusy((prev) => ({ ...prev, submittingBackup: true }));
+      await electionApi.submitGuardianBackupShares(id, backupCeremonyForm.generatedGuardianData.trim());
+      setKeyCeremonyUiMessage('Round 2 backup shares submitted successfully.');
+      await fetchElectionData();
+      await loadKeyCeremonyProgress();
+    } catch (err) {
+      setKeyCeremonyUiError(err.message || 'Failed to submit backup shares');
+    } finally {
+      setKeyCeremonyBusy((prev) => ({ ...prev, submittingBackup: false }));
+    }
+  };
+
+  const handleActivateElectionFromGuardianTab = async () => {
+    if (!activationSchedule.startingTime || !activationSchedule.endingTime) {
+      toast.error('Start and end time are required to activate election');
+      return;
+    }
+
+    try {
+      setActivatingElection(true);
+      await electionApi.activateElectionAfterCeremony(
+        id,
+        new Date(activationSchedule.startingTime).toISOString(),
+        new Date(activationSchedule.endingTime).toISOString()
+      );
+      toast.success('Election activated successfully');
+      setActivationSchedule({ startingTime: '', endingTime: '' });
+      await fetchElectionData();
+    } catch (err) {
+      toast.error(err.message || 'Failed to activate election');
+    } finally {
+      setActivatingElection(false);
+    }
+  };
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-50 flex items-center justify-center">
@@ -3341,7 +3637,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
             </div>
 
             {/* Election Statistics */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-6">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
               <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                 <div className="flex items-center">
                   <FiUsers className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500" />
@@ -3357,6 +3653,15 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                   <div className="ml-3 sm:ml-4">
                     <p className="text-xs sm:text-sm font-medium text-gray-600">Guardians</p>
                     <p className="text-xl sm:text-2xl font-semibold text-gray-900">{electionData.guardians?.length || 0}</p>
+                  </div>
+                </div>
+              </div>
+              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+                <div className="flex items-center">
+                  <FiKey className="h-6 w-6 sm:h-8 sm:w-8 text-amber-500" />
+                  <div className="ml-3 sm:ml-4">
+                    <p className="text-xs sm:text-sm font-medium text-gray-600">Quorum</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{electionData.electionQuorum || 0}</p>
                   </div>
                 </div>
               </div>
@@ -4192,7 +4497,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
               <FiShield className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Guardian Credential Submission
             </h3>
-            {!canUserManageGuardian() ? (
+            {!(canUserManageGuardian() || electionData?.userRoles?.includes('admin')) ? (
               <div className="text-center py-8">
                 <FiShield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h4 className="text-lg font-semibold text-gray-700 mb-2">Guardian Access Required</h4>
@@ -4200,6 +4505,218 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
               </div>
             ) : (
               <div className="space-y-6">
+                {electionData?.status === 'key_ceremony_pending' && (
+                  <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-sky-50 p-5 sm:p-6 shadow-sm">
+                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
+                      <div>
+                        <h4 className="text-lg font-semibold text-indigo-900">Key Ceremony</h4>
+                        <p className="text-sm text-indigo-800 mt-1">{getKeyCeremonyProgressMessage()}</p>
+                      </div>
+                      <div className="flex flex-wrap gap-2">
+                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                          Guardians: {electionData.numberOfGuardians}
+                        </span>
+                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
+                          Quorum: {electionData.electionQuorum}
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Modern process stepper */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+                      <div className={`rounded-xl border p-3 ${getKeyCeremonyStep() >= 1 ? 'border-indigo-300 bg-indigo-50' : 'border-gray-200 bg-gray-50'}`}>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 1</p>
+                        <p className="font-medium text-gray-900">Key Pair Generation</p>
+                        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                          <div className="h-2 rounded-full bg-indigo-600" style={{ width: `${getRound1Progress()}%` }}></div>
+                        </div>
+                      </div>
+                      <div className={`rounded-xl border p-3 ${getKeyCeremonyStep() >= 2 ? 'border-violet-300 bg-violet-50' : 'border-gray-200 bg-gray-50'}`}>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 2</p>
+                        <p className="font-medium text-gray-900">Backup Share Exchange</p>
+                        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                          <div className="h-2 rounded-full bg-violet-600" style={{ width: `${getRound2Progress()}%` }}></div>
+                        </div>
+                      </div>
+                      <div className={`rounded-xl border p-3 ${(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation) ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`}>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 3</p>
+                        <p className="font-medium text-gray-900">Activation by Admin</p>
+                        <p className="text-xs text-gray-600 mt-2">
+                          {(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation)
+                            ? 'Ready for schedule setup'
+                            : 'Waiting for all guardians to finish steps 1-2'}
+                        </p>
+                      </div>
+                    </div>
+
+                    {keyCeremonyUiMessage && (
+                      <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+                        {keyCeremonyUiMessage}
+                      </div>
+                    )}
+                    {keyCeremonyUiError && (
+                      <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                        {keyCeremonyUiError}
+                      </div>
+                    )}
+
+                    {/* Guardian full key ceremony actions */}
+                    {electionData?.userRoles?.includes('guardian') && (
+                      <>
+                        {(guardianKeyCeremonyContext?.currentRound === 'keypair_generation') && (
+                          <div className="rounded-xl border border-indigo-200 bg-white p-4 mb-4">
+                            <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
+                              <h5 className="font-semibold text-indigo-900">Round 1: Generate + Submit Keypair</h5>
+                              <button
+                                onClick={handleGenerateKeyCeremonyCredentials}
+                                disabled={keyCeremonyBusy.generatingCredentials}
+                                className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60"
+                              >
+                                {keyCeremonyBusy.generatingCredentials ? 'Generating...' : 'Generate Credentials'}
+                              </button>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                              <textarea
+                                className="border rounded-lg px-3 py-2 min-h-28"
+                                placeholder="Private key"
+                                value={guardianCeremonyForm.privateKey}
+                                onChange={(e) => setGuardianCeremonyForm((prev) => ({ ...prev, privateKey: e.target.value }))}
+                              />
+                              <textarea
+                                className="border rounded-lg px-3 py-2 min-h-28"
+                                placeholder="Public key"
+                                value={guardianCeremonyForm.publicKey}
+                                onChange={(e) => setGuardianCeremonyForm((prev) => ({ ...prev, publicKey: e.target.value }))}
+                              />
+                              <textarea
+                                className="border rounded-lg px-3 py-2 min-h-28"
+                                placeholder="Polynomial"
+                                value={guardianCeremonyForm.polynomial}
+                                onChange={(e) => setGuardianCeremonyForm((prev) => ({ ...prev, polynomial: e.target.value }))}
+                              />
+                              <textarea
+                                className="border rounded-lg px-3 py-2 min-h-28"
+                                placeholder="Guardian backup payload (optional)"
+                                value={guardianCeremonyForm.keyBackup}
+                                onChange={(e) => setGuardianCeremonyForm((prev) => ({ ...prev, keyBackup: e.target.value }))}
+                              />
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                              <input
+                                type="text"
+                                className="border rounded-lg px-3 py-2"
+                                placeholder="Local AES-256 password"
+                                value={guardianCeremonyForm.localEncryptionPassword}
+                                onChange={(e) => setGuardianCeremonyForm((prev) => ({ ...prev, localEncryptionPassword: e.target.value }))}
+                              />
+                              <button
+                                onClick={handleGenerateLocalPassword}
+                                className="px-3 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800"
+                              >
+                                Generate Password
+                              </button>
+                            </div>
+
+                            <button
+                              onClick={handleSubmitKeyCeremonyRound1}
+                              disabled={keyCeremonyBusy.submittingRound1}
+                              className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+                            >
+                              {keyCeremonyBusy.submittingRound1 ? 'Submitting...' : 'Submit Round 1'}
+                            </button>
+                          </div>
+                        )}
+
+                        {(guardianKeyCeremonyContext?.currentRound === 'waiting_for_all_keypairs') && (
+                          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-4 text-sm text-amber-800">
+                            Your Round 1 keypair is submitted. Waiting for all guardians to finish Round 1.
+                          </div>
+                        )}
+
+                        {(guardianKeyCeremonyContext?.currentRound === 'backup_key_sharing') && (
+                          <div className="rounded-xl border border-violet-200 bg-white p-4 mb-4">
+                            <h5 className="font-semibold text-violet-900 mb-3">Round 2: Backup Share Generation + Submission</h5>
+                            <input
+                              type="file"
+                              accept=".txt,.json"
+                              className="w-full border rounded-lg px-3 py-2"
+                              onChange={(e) => handleBackupCredentialFileLoad(e.target.files?.[0])}
+                            />
+
+                            {backupCeremonyForm.credentialFileName && (
+                              <p className="mt-2 text-xs text-green-700">Loaded file: {backupCeremonyForm.credentialFileName}</p>
+                            )}
+
+                            <div className="flex flex-wrap gap-2 mt-3">
+                              <button
+                                onClick={handleGenerateBackupShares}
+                                disabled={keyCeremonyBusy.generatingBackup}
+                                className="px-3 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-60"
+                              >
+                                {keyCeremonyBusy.generatingBackup ? 'Generating...' : 'Generate Backup Shares'}
+                              </button>
+                              <button
+                                onClick={handleSubmitBackupShares}
+                                disabled={keyCeremonyBusy.submittingBackup}
+                                className="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-60"
+                              >
+                                {keyCeremonyBusy.submittingBackup ? 'Submitting...' : 'Submit Round 2'}
+                              </button>
+                            </div>
+
+                            <textarea
+                              className="mt-3 border rounded-lg px-3 py-2 min-h-28 w-full"
+                              placeholder="Generated encrypted backup payload"
+                              value={backupCeremonyForm.generatedGuardianData}
+                              onChange={(e) => setBackupCeremonyForm((prev) => ({ ...prev, generatedGuardianData: e.target.value }))}
+                            />
+                          </div>
+                        )}
+
+                        {(guardianKeyCeremonyContext?.currentRound === 'backup_submitted_waiting_others') && (
+                          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 mb-4 text-sm text-blue-800">
+                            Your Round 2 backup shares are submitted. Waiting for remaining guardians.
+                          </div>
+                        )}
+                      </>
+                    )}
+
+                    {/* Admin activation once ceremony is complete */}
+                    {(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation) &&
+                      electionData?.userRoles?.includes('admin') && (
+                        <div className="mt-1 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                          <h5 className="font-medium text-emerald-900 mb-2">Key ceremony finished</h5>
+                          <p className="text-sm text-emerald-800 mb-3">
+                            Set election schedule now to activate voting.
+                          </p>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <input
+                              type="datetime-local"
+                              value={activationSchedule.startingTime}
+                              onChange={(e) => setActivationSchedule((prev) => ({ ...prev, startingTime: e.target.value }))}
+                              className="px-3 py-2 border border-gray-300 rounded-md"
+                            />
+                            <input
+                              type="datetime-local"
+                              value={activationSchedule.endingTime}
+                              onChange={(e) => setActivationSchedule((prev) => ({ ...prev, endingTime: e.target.value }))}
+                              className="px-3 py-2 border border-gray-300 rounded-md"
+                            />
+                          </div>
+                          <button
+                            onClick={handleActivateElectionFromGuardianTab}
+                            disabled={activatingElection}
+                            className="mt-3 px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-60"
+                          >
+                            {activatingElection ? 'Activating...' : 'Activate Election'}
+                          </button>
+                        </div>
+                      )}
+                  </div>
+                )}
+
                 {/* Tally Creation Section - Only show if election has ended */}
                 {electionData && new Date(electionData.endingTime) < new Date() && (
                   <div className="border border-blue-200 rounded-lg p-6 bg-blue-50">

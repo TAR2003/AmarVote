@@ -2,7 +2,6 @@ import React, { useState, useEffect, useRef } from "react";
 import { Link, Outlet, useNavigate, useLocation } from "react-router-dom";
 import {
   FiHome,
-  FiUsers,
   FiUser,
   FiLogOut,
   FiSearch,
@@ -12,9 +11,10 @@ import {
   FiMenu,
   FiX,
   FiPlus,
-  FiKey,
+  FiBell,
 } from "react-icons/fi";
 import { fetchAllElections } from "../utils/api";
+import { electionApi } from "../utils/electionApi";
 
 const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -23,9 +23,13 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   const [showSuggestions, setShowSuggestions] = useState(false);
   const [allElections, setAllElections] = useState([]);
   const [isLoadingElections, setIsLoadingElections] = useState(false);
+  const [guardianAttentionItems, setGuardianAttentionItems] = useState([]);
+  const [showGuardianAttention, setShowGuardianAttention] = useState(false);
+  const [loadingGuardianAttention, setLoadingGuardianAttention] = useState(false);
   const searchRef = useRef(null);
   const suggestionsRef = useRef(null);
   const mobileSearchRef = useRef(null);
+  const notificationRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -69,9 +73,11 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
       const clickedInsideDesktop = searchRef.current && searchRef.current.contains(event.target);
       const clickedInsideSuggestions = suggestionsRef.current && suggestionsRef.current.contains(event.target);
       const clickedInsideMobile = mobileSearchRef.current && mobileSearchRef.current.contains(event.target);
+      const clickedInsideNotifications = notificationRef.current && notificationRef.current.contains(event.target);
 
-      if (!clickedInsideDesktop && !clickedInsideSuggestions && !clickedInsideMobile) {
+      if (!clickedInsideDesktop && !clickedInsideSuggestions && !clickedInsideMobile && !clickedInsideNotifications) {
         setShowSuggestions(false);
+        setShowGuardianAttention(false);
       }
     };
 
@@ -122,6 +128,10 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   };
 
   const getElectionStatus = (election) => {
+    if (!election?.startingTime || !election?.endingTime) {
+      return { text: 'Key Ceremony', color: 'text-purple-600' };
+    }
+
     const now = new Date();
     const startTime = new Date(election.startingTime);
     const endTime = new Date(election.endingTime);
@@ -131,7 +141,95 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
     return { text: 'Active', color: 'text-green-600' };
   };
 
+  useEffect(() => {
+    const loadGuardianAttentionItems = async () => {
+      if (!userEmail || allElections.length === 0) {
+        setGuardianAttentionItems([]);
+        return;
+      }
+
+      const guardianElections = allElections.filter((e) => e.userRoles?.includes('guardian'));
+      if (guardianElections.length === 0) {
+        setGuardianAttentionItems([]);
+        return;
+      }
+
+      setLoadingGuardianAttention(true);
+      try {
+        const pendingCeremonyResp = await electionApi.getPendingKeyCeremonies().catch(() => ({ elections: [] }));
+        const pendingCeremonies = pendingCeremonyResp?.elections || [];
+        const pendingByElection = new Map(
+          pendingCeremonies.map((item) => [Number(item.electionId), item])
+        );
+
+        const attentionItems = [];
+
+        guardianElections.forEach((election) => {
+          const pending = pendingByElection.get(Number(election.electionId));
+          if (!pending) return;
+
+          if (pending.currentRound === 'keypair_generation') {
+            attentionItems.push({
+              electionId: election.electionId,
+              electionTitle: election.electionTitle,
+              type: 'keypair',
+              detail: `Round 1 key generation: ${pending.submittedGuardians}/${pending.numberOfGuardians} submitted`,
+            });
+          }
+
+          if (pending.currentRound === 'backup_key_sharing') {
+            attentionItems.push({
+              electionId: election.electionId,
+              electionTitle: election.electionTitle,
+              type: 'backup',
+              detail: `Round 2 backup sharing: ${pending.submittedBackupGuardians || 0}/${pending.numberOfGuardians} submitted`,
+            });
+          }
+        });
+
+        const now = new Date();
+        const decryptionCandidates = guardianElections.filter((e) => {
+          if (!e.endingTime) return false;
+          if (e.status === 'key_ceremony_pending') return false;
+          if (String(e.status || '').toLowerCase() === 'decrypted' || String(e.status || '').toLowerCase() === 'completed') return false;
+          return new Date(e.endingTime) < now;
+        });
+
+        const details = await Promise.all(
+          decryptionCandidates.map(async (e) => {
+            try {
+              return await electionApi.getElectionById(e.electionId);
+            } catch {
+              return null;
+            }
+          })
+        );
+
+        details.forEach((detail) => {
+          if (!detail?.guardians) return;
+          const currentGuardian = detail.guardians.find((g) => g.isCurrentUser);
+          if (!currentGuardian) return;
+          if (!currentGuardian.decryptedOrNot) {
+            attentionItems.push({
+              electionId: detail.electionId,
+              electionTitle: detail.electionTitle,
+              type: 'decryption',
+              detail: 'Election ended. Your decryption share is required.',
+            });
+          }
+        });
+
+        setGuardianAttentionItems(attentionItems);
+      } finally {
+        setLoadingGuardianAttention(false);
+      }
+    };
+
+    loadGuardianAttentionItems();
+  }, [userEmail, allElections, location.pathname]);
+
   const formatDate = (dateString) => {
+    if (!dateString) return 'Not scheduled';
     return new Date(dateString).toLocaleDateString('en-US', {
       month: 'short',
       day: 'numeric',
@@ -252,16 +350,6 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                 <span>Create Election</span>
               </Link>
 
-              <Link
-                to="/key-ceremony"
-                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/key-ceremony')
-                    ? 'text-blue-700 bg-blue-50/80'
-                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
-                  }`}
-              >
-                <FiKey className="h-4 w-4" />
-                <span>Key Ceremony</span>
-              </Link>
             </div>
 
             {/* Search Bar - Visible on md and above */}
@@ -358,6 +446,53 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
             {/* User menu */}
             <div className="ml-2 md:ml-4 flex items-center space-x-2 md:space-x-3">
+              <div className="relative" ref={notificationRef}>
+                <button
+                  onClick={() => setShowGuardianAttention((prev) => !prev)}
+                  className="relative flex items-center justify-center p-2 rounded-2xl text-gray-700 hover:bg-gray-100/80 transition-all"
+                  title="Guardian notifications"
+                >
+                  <FiBell className="h-5 w-5" />
+                  {guardianAttentionItems.length > 0 && (
+                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
+                      {guardianAttentionItems.length}
+                    </span>
+                  )}
+                </button>
+
+                {showGuardianAttention && (
+                  <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white border border-gray-200 rounded-2xl shadow-2xl z-50">
+                    <div className="px-4 py-3 border-b border-gray-100">
+                      <h4 className="text-sm font-semibold text-gray-800">Guardian Notifications</h4>
+                      <p className="text-xs text-gray-500 mt-1">
+                        Guardian in {allElections.filter((e) => e.userRoles?.includes('guardian')).length} election(s) · {guardianAttentionItems.length} need attention
+                      </p>
+                    </div>
+                    <div className="max-h-80 overflow-y-auto">
+                      {loadingGuardianAttention ? (
+                        <div className="p-4 text-sm text-gray-500">Loading...</div>
+                      ) : guardianAttentionItems.length === 0 ? (
+                        <div className="p-4 text-sm text-gray-500">No pending guardian actions.</div>
+                      ) : (
+                        guardianAttentionItems.map((item, index) => (
+                          <button
+                            key={`${item.type}-${item.electionId}-${index}`}
+                            onClick={() => {
+                              setShowGuardianAttention(false);
+                              navigate(`/election-page/${item.electionId}/guardian`);
+                            }}
+                            className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
+                          >
+                            <div className="text-sm font-medium text-gray-900 truncate">{item.electionTitle}</div>
+                            <div className="text-xs text-gray-600 mt-1">{item.detail}</div>
+                          </button>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               {/* User Email Display */}
               <div className="flex flex-col items-center p-2 rounded-2xl bg-gray-50/80">
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl flex items-center justify-center shadow-sm">
@@ -500,18 +635,6 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
             >
               <FiPlus className="h-5 w-5" />
               <span>Create Election</span>
-            </Link>
-
-            <Link
-              to="/key-ceremony"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium ${isActiveRoute('/key-ceremony')
-                  ? 'text-blue-700 bg-blue-50/80'
-                  : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
-                }`}
-            >
-              <FiKey className="h-5 w-5" />
-              <span>Key Ceremony</span>
             </Link>
 
             <button
