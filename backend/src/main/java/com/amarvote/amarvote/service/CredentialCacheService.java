@@ -41,6 +41,8 @@ public class CredentialCacheService {
     private static final String PRIVATE_KEY_PREFIX = "guardian:privatekey:";
     private static final String POLYNOMIAL_PREFIX = "guardian:polynomial:";
     private static final String ENCRYPTED_CREDENTIAL_PREFIX = "guardian:encrypted_credential:";
+    private static final String PENDING_CEREMONY_PRIVATE_KEY_PREFIX = "guardian:pending_ceremony:privatekey:";
+    private static final String PENDING_CEREMONY_POLYNOMIAL_PREFIX = "guardian:pending_ceremony:polynomial:";
 
     /**
      * Store guardian's decrypted private key temporarily.
@@ -248,4 +250,80 @@ public class CredentialCacheService {
     private String buildEncryptedCredentialKey(Long electionId, Long guardianId) {
         return ENCRYPTED_CREDENTIAL_PREFIX + electionId + ":" + guardianId;
     }
+
+    public void storePendingKeyCeremonyMaterial(Long electionId, Long guardianId, String privateKey, String polynomial) {
+        String privateKeyKey = buildPendingCeremonyPrivateKeyKey(electionId, guardianId);
+        String polynomialKey = buildPendingCeremonyPolynomialKey(electionId, guardianId);
+
+        try {
+            redisTemplate.opsForValue().set(
+                privateKeyKey,
+                privateKey,
+                CREDENTIAL_TTL_MINUTES,
+                TimeUnit.MINUTES
+            );
+            redisTemplate.opsForValue().set(
+                polynomialKey,
+                polynomial,
+                CREDENTIAL_TTL_MINUTES,
+                TimeUnit.MINUTES
+            );
+            log.info("Stored pending key ceremony material in Redis for election {} guardian {} with TTL {}m",
+                electionId, guardianId, CREDENTIAL_TTL_MINUTES);
+        } catch (Exception e) {
+            log.error("Failed to store pending key ceremony material in Redis for election {} guardian {}",
+                electionId, guardianId, e);
+            throw new RuntimeException("Failed to cache key ceremony material", e);
+        }
+    }
+
+    public PendingKeyCeremonyMaterial getPendingKeyCeremonyMaterial(Long electionId, Long guardianId) {
+        String privateKeyKey = buildPendingCeremonyPrivateKeyKey(electionId, guardianId);
+        String polynomialKey = buildPendingCeremonyPolynomialKey(electionId, guardianId);
+
+        try {
+            String privateKey = redisTemplate.opsForValue().get(privateKeyKey);
+            String polynomial = redisTemplate.opsForValue().get(polynomialKey);
+
+            if (privateKey == null || polynomial == null) {
+                log.warn("Pending key ceremony material not found or expired in Redis for election {} guardian {}",
+                    electionId, guardianId);
+                return null;
+            }
+
+            log.info("Retrieved pending key ceremony material from Redis for election {} guardian {}",
+                electionId, guardianId);
+            return new PendingKeyCeremonyMaterial(privateKey, polynomial);
+        } catch (Exception e) {
+            log.error("Failed to retrieve pending key ceremony material from Redis for election {} guardian {}",
+                electionId, guardianId, e);
+            return null;
+        }
+    }
+
+    public void clearPendingKeyCeremonyMaterial(Long electionId, Long guardianId) {
+        String privateKeyKey = buildPendingCeremonyPrivateKeyKey(electionId, guardianId);
+        String polynomialKey = buildPendingCeremonyPolynomialKey(electionId, guardianId);
+
+        try {
+            redisTemplate.delete(privateKeyKey);
+            redisTemplate.delete(polynomialKey);
+            log.info("Cleared pending key ceremony material from Redis for election {} guardian {}", electionId, guardianId);
+        } catch (Exception e) {
+            log.error("Failed to clear pending key ceremony material from Redis for election {} guardian {}", electionId, guardianId, e);
+        }
+    }
+
+    private String buildPendingCeremonyPrivateKeyKey(Long electionId, Long guardianId) {
+        return PENDING_CEREMONY_PRIVATE_KEY_PREFIX + electionId + ":" + guardianId;
+    }
+
+    private String buildPendingCeremonyPolynomialKey(Long electionId, Long guardianId) {
+        return PENDING_CEREMONY_POLYNOMIAL_PREFIX + electionId + ":" + guardianId;
+    }
+
+    public record PendingKeyCeremonyMaterial(
+        String privateKey,
+        String polynomial
+    ) {}
 }

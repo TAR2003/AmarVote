@@ -351,13 +351,11 @@ public class ElectionService {
             String privateKeyJson = objectMapper.writeValueAsString(generated.get("private_key"));
             String polynomialJson = objectMapper.writeValueAsString(generated.get("polynomial"));
 
-            ElectionGuardCryptoService.EncryptionResult encryptionResult =
-                    cryptoService.encryptGuardianData(privateKeyJson, polynomialJson);
-
-            guardian.setCredentials(encryptionResult.getCredentials());
-            guardianRepository.save(guardian);
-
-            credentialCacheService.storeEncryptedCredential(electionId, guardian.getGuardianId(), encryptionResult.getEncryptedData());
+                credentialCacheService.storePendingKeyCeremonyMaterial(
+                    electionId,
+                    guardian.getGuardianId(),
+                    privateKeyJson,
+                    polynomialJson);
 
             return Map.of(
                     "success", true,
@@ -400,19 +398,28 @@ public class ElectionService {
             guardian.setKeyBackup(request.guardianKeyBackup());
         }
 
-        String encryptedCredential = credentialCacheService.getEncryptedCredential(request.electionId(), guardian.getGuardianId());
-        if (encryptedCredential == null || encryptedCredential.isBlank()) {
-            throw new IllegalArgumentException("Credential package expired or missing. Please generate credentials again before submitting.");
+        if (request.localEncryptionPassword() == null || request.localEncryptionPassword().isBlank()) {
+            throw new IllegalArgumentException("Local encryption password is required");
         }
 
-        if (guardian.getCredentials() == null || guardian.getCredentials().isBlank()) {
-            throw new IllegalArgumentException("Credential metadata missing. Please generate credentials again before submitting.");
+        CredentialCacheService.PendingKeyCeremonyMaterial pendingMaterial =
+                credentialCacheService.getPendingKeyCeremonyMaterial(request.electionId(), guardian.getGuardianId());
+        if (pendingMaterial == null || pendingMaterial.privateKey() == null || pendingMaterial.polynomial() == null) {
+            throw new IllegalArgumentException("Key material expired or missing. Please generate credentials again before submitting.");
         }
+
+        ElectionGuardCryptoService.EncryptionResult encryptionResult =
+                cryptoService.encryptGuardianData(
+                        pendingMaterial.privateKey(),
+                        pendingMaterial.polynomial(),
+                        request.localEncryptionPassword());
+
+        guardian.setCredentials(encryptionResult.getCredentials());
 
         guardian.setGuardianKeySubmitted(true);
         guardianRepository.save(guardian);
 
-        credentialCacheService.clearEncryptedCredential(request.electionId(), guardian.getGuardianId());
+        credentialCacheService.clearPendingKeyCeremonyMaterial(request.electionId(), guardian.getGuardianId());
 
         int total = guardianRepository.countByElectionId(request.electionId());
         int submitted = guardianRepository.countSubmittedKeysByElectionId(request.electionId());
@@ -420,8 +427,8 @@ public class ElectionService {
         return Map.of(
                 "success", true,
                 "message", "Guardian key ceremony data submitted successfully",
-            "encryptedCredential", encryptedCredential,
-            "credentialFormat", "legacy_credentials_txt",
+                "encryptedCredential", encryptionResult.getEncryptedData(),
+                "credentialFormat", "legacy_credentials_txt",
                 "submittedGuardians", submitted,
                 "submittedBackupGuardians", countSubmittedBackups(guardianRepository.findByElectionId(request.electionId())),
                 "totalGuardians", total,

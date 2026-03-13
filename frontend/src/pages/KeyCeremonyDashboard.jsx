@@ -110,6 +110,25 @@ export default function KeyCeremonyDashboard() {
     [allElections]
   );
 
+  const generateLocalPassword = () => {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}';
+    const bytes = new Uint8Array(32);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
+  };
+
+  const handleGenerateLocalPassword = (electionId) => {
+    const generated = generateLocalPassword();
+    setGuardianForm((prev) => ({
+      ...prev,
+      [electionId]: {
+        ...(prev[electionId] || {}),
+        localEncryptionPassword: generated,
+      },
+    }));
+    setMessage('Local AES-256 password generated in browser. It will be sent to backend for ML-KEM protected credential storage.');
+  };
+
   const handleGuardianSubmit = async (electionId) => {
     setError('');
     setMessage('');
@@ -120,10 +139,16 @@ export default function KeyCeremonyDashboard() {
       return;
     }
 
+    if (!data.localEncryptionPassword || !String(data.localEncryptionPassword).trim()) {
+      setError('Local encryption password is required');
+      return;
+    }
+
     try {
       const response = await electionApi.submitGuardianKeyCeremony(
         electionId,
         data.publicKey,
+        data.localEncryptionPassword,
         data.keyBackup
       );
 
@@ -134,7 +159,7 @@ export default function KeyCeremonyDashboard() {
         });
       }
 
-      setMessage('Guardian key submitted successfully. Legacy-compatible credentials.txt was downloaded automatically.');
+      setMessage('Guardian key submitted successfully. Credentials were encrypted using your local password and credentials.txt was downloaded automatically.');
       await loadData();
     } catch (e) {
       setError(e.message || 'Failed to submit guardian key');
@@ -309,7 +334,7 @@ export default function KeyCeremonyDashboard() {
           <FiKey /> Key Ceremony Dashboard
         </h2>
         <p className="text-sm text-gray-600 mt-1">
-          Keep private key and polynomial on-device. Submit only public key to backend.
+          Keep private key and polynomial on-device. Submit public key and your local AES password to backend.
         </p>
       </div>
 
@@ -390,6 +415,30 @@ export default function KeyCeremonyDashboard() {
                       />
 
                     </div>
+
+                    <div className="mt-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
+                      <input
+                        type="text"
+                        className="border rounded px-3 py-2"
+                        placeholder="Local AES-256 password (allowed to send to backend)"
+                        value={guardianForm[item.electionId]?.localEncryptionPassword || ''}
+                        onChange={(e) =>
+                          setGuardianForm((prev) => ({
+                            ...prev,
+                            [item.electionId]: {
+                              ...(prev[item.electionId] || {}),
+                              localEncryptionPassword: e.target.value,
+                            },
+                          }))
+                        }
+                      />
+                      <button
+                        onClick={() => handleGenerateLocalPassword(item.electionId)}
+                        className="px-3 py-2 bg-slate-700 text-white rounded"
+                      >
+                        Generate Random AES-256 Password
+                      </button>
+                    </div>
                     <button
                       onClick={() => handleGuardianSubmit(item.electionId)}
                       className="mt-3 px-4 py-2 bg-blue-600 text-white rounded"
@@ -417,7 +466,7 @@ export default function KeyCeremonyDashboard() {
                     />
 
                     <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2">
-                      Credential file is used locally in browser only. It is never sent to backend.
+                      Credential file is used locally in browser only. It is never sent to backend. Backup generation uses your local ElectionGuard service.
                     </div>
 
                     {backupForm[item.electionId]?.credentialFileName && (

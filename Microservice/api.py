@@ -1744,8 +1744,14 @@ def encrypt_it():
         if not isinstance(private_key, str) or len(private_key) > 100000:
             return jsonify({'error': 'Invalid private key format or size'}), 400
 
-        # Generate optimized password and salt
-        password = generate_strong_password()
+        # Use guardian-provided password when supplied, otherwise generate random password
+        provided_password = data.get('password')
+        if provided_password is not None:
+            if not isinstance(provided_password, str) or len(provided_password) < 32:
+                return jsonify({'error': 'Invalid password format. Minimum length is 32 characters.'}), 400
+            password = provided_password
+        else:
+            password = generate_strong_password()
         salt = os.urandom(SCRYPT_SALT_LENGTH)
         
         # Post-quantum operations (these are the fastest part)

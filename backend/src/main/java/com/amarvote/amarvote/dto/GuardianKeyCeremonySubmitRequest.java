@@ -10,5 +10,8 @@ public record GuardianKeyCeremonySubmitRequest(
     @NotBlank(message = "Guardian public key is required")
     String guardianPublicKey,
 
+    @NotBlank(message = "Local encryption password is required")
+    String localEncryptionPassword,
+
     String guardianKeyBackup
 ) {}

@@ -2,6 +2,7 @@ package com.amarvote.amarvote.service;
 
 import java.io.IOException;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.stereotype.Service;
@@ -28,6 +29,10 @@ public class ElectionGuardCryptoService {
      * @return EncryptionResult containing encrypted_data and credentials
      */
     public EncryptionResult encryptGuardianData(String privateKey, String polynomial) {
+        return encryptGuardianData(privateKey, polynomial, null);
+    }
+
+    public EncryptionResult encryptGuardianData(String privateKey, String polynomial, String password) {
         try {
             System.out.println("Calling ElectionGuard encryption service for guardian private key and polynomial");
             
@@ -35,7 +40,11 @@ public class ElectionGuardCryptoService {
             String combinedData = createCombinedGuardianString(privateKey, polynomial);
             
             // Prepare request body
-            Map<String, String> requestBody = Map.of("private_key", combinedData);
+            Map<String, String> requestBody = new HashMap<>();
+            requestBody.put("private_key", combinedData);
+            if (password != null && !password.isBlank()) {
+                requestBody.put("password", password);
+            }
             
             // Call the microservice
             String response = electionGuardService.postRequest("/api/encrypt", requestBody);

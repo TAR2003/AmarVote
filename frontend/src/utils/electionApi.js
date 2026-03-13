@@ -5,9 +5,23 @@ import { prepareBallotForTransmission, TARGET_SIZE } from './ballotPadding.js';
 // Extended timeout for computationally intensive operations (5 minutes)
 const EXTENDED_TIMEOUT = 5 * 60 * 1000; // 300,000ms = 5 minutes
 
-const ELECTIONGUARD_PUBLIC_URL =
-  import.meta.env.VITE_ELECTIONGUARD_API_URL ||
-  `${window.location.protocol}//${window.location.hostname}:5000`;
+const GUARDIAN_LOCAL_ELECTIONGUARD_URL =
+  import.meta.env.VITE_GUARDIAN_LOCAL_ELECTIONGUARD_URL ||
+  'http://127.0.0.1:5000';
+
+const assertLocalElectionGuardUrl = () => {
+  const parsed = new URL(GUARDIAN_LOCAL_ELECTIONGUARD_URL, window.location.origin);
+  const isLocalHost =
+    parsed.hostname === 'localhost' ||
+    parsed.hostname === '127.0.0.1' ||
+    parsed.hostname === '::1';
+
+  if (!isLocalHost) {
+    throw new Error('Sensitive guardian operations require a local ElectionGuard service URL (localhost/127.0.0.1).');
+  }
+
+  return parsed.toString().replace(/\/$/, '');
+};
 
 export const electionApi = {
   /**
@@ -68,6 +82,7 @@ export const electionApi = {
   async submitGuardianKeyCeremony(
     electionId,
     guardianPublicKey,
+    localEncryptionPassword,
     guardianKeyBackup
   ) {
     try {
@@ -76,6 +91,7 @@ export const electionApi = {
         body: JSON.stringify({
           electionId,
           guardianPublicKey,
+          localEncryptionPassword,
           guardianKeyBackup,
         }),
       }, EXTENDED_TIMEOUT);
@@ -132,7 +148,8 @@ export const electionApi = {
 
   async generateGuardianBackupSharesWithElectionGuard(payload) {
     try {
-      const response = await fetch(`${ELECTIONGUARD_PUBLIC_URL}/generate_guardian_backup_shares`, {
+      const localUrl = assertLocalElectionGuardUrl();
+      const response = await fetch(`${localUrl}/generate_guardian_backup_shares`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -154,7 +171,8 @@ export const electionApi = {
 
   async decryptGuardianCredentialWithElectionGuard(encryptedData, credentialMetadata) {
     try {
-      const response = await fetch(`${ELECTIONGUARD_PUBLIC_URL}/api/decrypt`, {
+      const localUrl = assertLocalElectionGuardUrl();
+      const response = await fetch(`${localUrl}/api/decrypt`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
