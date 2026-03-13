@@ -42,6 +42,7 @@ import com.amarvote.amarvote.dto.ElectionResponse;
 import com.amarvote.amarvote.dto.ElectionResultsResponse;
 import com.amarvote.amarvote.dto.GuardianKeyCeremonySubmitRequest;
 import com.amarvote.amarvote.dto.GuardianBackupSubmitRequest;
+import com.amarvote.amarvote.dto.GenerateGuardianBackupRequest;
 import com.amarvote.amarvote.dto.KeyCeremonyPendingElectionResponse;
 import com.amarvote.amarvote.dto.KeyCeremonyStatusResponse;
 import com.amarvote.amarvote.dto.EligibilityCheckRequest;
@@ -266,6 +267,35 @@ public class ElectionController {
             }
 
             Map<String, Object> result = electionService.submitGuardianBackupRound(request, userEmail);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+        @PostMapping(value = "/guardian/key-ceremony/backup/generate/{electionId}", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> generateGuardianBackupRound(
+            @PathVariable Long electionId,
+            @Valid @RequestBody GenerateGuardianBackupRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            Map<String, Object> result = electionService.generateGuardianBackupRoundShares(electionId, userEmail, request.encrypted_data());
             return ResponseEntity.ok(result);
         } catch (IllegalArgumentException e) {
             return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));

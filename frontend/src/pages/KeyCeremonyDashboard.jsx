@@ -14,47 +14,6 @@ const triggerAutoCredentialDownload = ({ electionId, encryptedCredential }) => {
   URL.revokeObjectURL(url);
 };
 
-const parseMaybeJson = (value) => {
-  if (typeof value !== 'string') return value;
-  const trimmed = value.trim();
-  // Do NOT parse bare numeric strings (large crypto integers overflow JS Number).
-  // Keep them as strings to preserve exact value.
-  if (/^[0-9]+$/.test(trimmed)) {
-    return trimmed;
-  }
-  // Parse only structured JSON payloads.
-  if (!(trimmed.startsWith('{') || trimmed.startsWith('[') || trimmed.startsWith('"'))) {
-    return value;
-  }
-  try {
-    return JSON.parse(trimmed);
-  } catch {
-    return value;
-  }
-};
-
-const parseDecryptedCredentialBundle = (decryptedCombined, fallbackPublicKey = null) => {
-  if (!decryptedCombined || !String(decryptedCombined).trim()) {
-    throw new Error('Failed to decrypt credential payload');
-  }
-
-  const content = String(decryptedCombined).replace(/^\uFEFF/, '').trim();
-
-  const privateMatch = content.match(/===Private Key===\s*([\s\S]*?)\s*===Polynomial===/);
-  const polyMatch = content.match(/===Polynomial===\s*([\s\S]*)$/);
-  if (privateMatch && polyMatch) {
-    const privateKey = parseMaybeJson(privateMatch[1].trim());
-    const polynomial = parseMaybeJson(polyMatch[1].trim());
-    const publicKey = parseMaybeJson(fallbackPublicKey);
-    if (!privateKey || !polynomial) {
-      throw new Error('Credential file missing private key or polynomial');
-    }
-    return { privateKey, publicKey, polynomial };
-  }
-
-  throw new Error('Unsupported decrypted credential format');
-};
-
 export default function KeyCeremonyDashboard() {
   const [loading, setLoading] = useState(true);
   const [pending, setPending] = useState([]);
@@ -139,6 +98,16 @@ export default function KeyCeremonyDashboard() {
       return;
     }
 
+    if (!data.privateKey || !String(data.privateKey).trim()) {
+      setError('Guardian private key is required');
+      return;
+    }
+
+    if (!data.polynomial || !String(data.polynomial).trim()) {
+      setError('Guardian polynomial is required');
+      return;
+    }
+
     if (!data.localEncryptionPassword || !String(data.localEncryptionPassword).trim()) {
       setError('Local encryption password is required');
       return;
@@ -147,7 +116,9 @@ export default function KeyCeremonyDashboard() {
     try {
       const response = await electionApi.submitGuardianKeyCeremony(
         electionId,
+        data.privateKey,
         data.publicKey,
+        data.polynomial,
         data.localEncryptionPassword,
         data.keyBackup
       );
@@ -171,69 +142,22 @@ export default function KeyCeremonyDashboard() {
     setMessage('');
 
     try {
-      const backupContext = await electionApi.getGuardianBackupContext(item.electionId);
-      if (!backupContext?.backupRoundOpen) {
-        throw new Error('Backup key sharing starts only after all guardians submit keypairs');
-      }
-
       const credentialContent = backupForm[item.electionId]?.credentialContent;
       if (!credentialContent || !credentialContent.trim()) {
         throw new Error('Upload your local credentials.txt file first');
       }
 
-      const credentialMetadataResp = await electionApi.getGuardianCredentialMetadata(item.electionId);
-      const credentialMetadata = credentialMetadataResp?.credentialMetadata;
-      if (!credentialMetadata) {
-        throw new Error('Credential metadata is missing on backend');
-      }
-
-      const decryptResult = await electionApi.decryptGuardianCredentialWithElectionGuard(
-        credentialContent.trim(),
-        credentialMetadata
-      );
-
-      const senderPublicKeyFromDb = backupContext?.senderGuardian?.publicKey ?? null;
-      const parsed = parseDecryptedCredentialBundle(decryptResult?.private_key, senderPublicKeyFromDb);
-      const senderPrivateKey = parsed.privateKey;
-      const senderPublicKey = parsed.publicKey;
-      const senderPolynomial = parsed.polynomial;
-
-      if (!senderPublicKey || !String(senderPublicKey).trim()) {
-        throw new Error('Sender public key is missing from backend context');
-      }
-
-      const recipients = (backupContext?.recipients || []).map((r) => ({
-        guardian_id: String(r.guardianId),
-        sequence_order: r.sequenceOrder,
-        public_key: r.publicKey,
-      }));
-
-      if (recipients.some((r) => !r.public_key || !String(r.public_key).trim())) {
-        throw new Error('One or more recipient public keys are missing in backend data');
-      }
-
-      const payload = {
-        sender_guardian_id: String(backupContext?.senderGuardian?.guardianId),
-        sender_sequence_order: backupContext?.senderGuardian?.sequenceOrder,
-        number_of_guardians: item.numberOfGuardians,
-        quorum: item.electionQuorum,
-        sender_private_key: senderPrivateKey,
-        sender_public_key: senderPublicKey,
-        sender_polynomial: senderPolynomial,
-        recipients,
-      };
-
-      const generated = await electionApi.generateGuardianBackupSharesWithElectionGuard(payload);
+      const generated = await electionApi.generateGuardianBackupShares(item.electionId, credentialContent.trim());
 
       setBackupForm((prev) => ({
         ...prev,
         [item.electionId]: {
           ...(prev[item.electionId] || {}),
-          generatedGuardianData: JSON.stringify(generated?.guardian_data || {}, null, 2),
+          generatedGuardianData: JSON.stringify(generated?.guardianData || {}, null, 2),
         },
       }));
 
-      setMessage(`Encrypted backup shares generated for ${generated?.backup_count || 0} guardian(s).`);
+      setMessage(`Encrypted backup shares generated for ${generated?.backupCount || 0} guardian(s).`);
     } catch (e) {
       setError(e.message || 'Failed to generate backup shares');
     }
@@ -254,7 +178,7 @@ export default function KeyCeremonyDashboard() {
           credentialFileName: file.name,
         },
       }));
-      setMessage('Credential file loaded locally. It is not sent to backend.');
+      setMessage('Credential file loaded. It will be sent to backend only when generating Round 2 backup shares.');
     } catch (e) {
       setError(e.message || 'Failed to read credential file');
     }
@@ -466,7 +390,7 @@ export default function KeyCeremonyDashboard() {
                     />
 
                     <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2">
-                      Credential file is used locally in browser only. It is never sent to backend. Backup generation uses your local ElectionGuard service.
+                      Frontend never calls ElectionGuard microservice directly. Uploaded credentials.txt is sent to backend only for Round 2 backup generation.
                     </div>
 
                     {backupForm[item.electionId]?.credentialFileName && (

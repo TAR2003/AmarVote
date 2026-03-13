@@ -909,17 +909,8 @@ def api_generate_guardian_backup_shares():
     This endpoint is intentionally browser-friendly for direct frontend calls so
     sensitive key material does not need to transit the Java backend.
     """
-    cors_headers = {
-        'Access-Control-Allow-Origin': '*',
-        'Access-Control-Allow-Methods': 'POST, OPTIONS',
-        'Access-Control-Allow-Headers': 'Content-Type, Authorization',
-    }
-
     if request.method == 'OPTIONS':
-        response = jsonify({'status': 'ok'})
-        for k, v in cors_headers.items():
-            response.headers[k] = v
-        return response, 200
+        return make_binary_response({'status': 'ok'}, status=200)
 
     try:
         data = get_request_data()
@@ -1021,21 +1012,12 @@ def api_generate_guardian_backup_shares():
             'backup_count': len(backups),
         }
 
-        response = jsonify(response_payload)
-        for k, v in cors_headers.items():
-            response.headers[k] = v
-        return response, 200
+        return make_binary_response(response_payload, status=200)
 
     except ValueError as e:
-        response = jsonify({'status': 'error', 'message': str(e)})
-        for k, v in cors_headers.items():
-            response.headers[k] = v
-        return response, 400
+        return make_binary_response({'status': 'error', 'message': str(e)}, status=400)
     except Exception as e:
-        response = jsonify({'status': 'error', 'message': str(e)})
-        for k, v in cors_headers.items():
-            response.headers[k] = v
-        return response, 500
+        return make_binary_response({'status': 'error', 'message': str(e)}, status=500)
 
 @app.route('/benaloh_challenge', methods=['POST'])
 @track_request('/benaloh_challenge')

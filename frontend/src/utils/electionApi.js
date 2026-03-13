@@ -5,24 +5,6 @@ import { prepareBallotForTransmission, TARGET_SIZE } from './ballotPadding.js';
 // Extended timeout for computationally intensive operations (5 minutes)
 const EXTENDED_TIMEOUT = 5 * 60 * 1000; // 300,000ms = 5 minutes
 
-const GUARDIAN_LOCAL_ELECTIONGUARD_URL =
-  import.meta.env.VITE_GUARDIAN_LOCAL_ELECTIONGUARD_URL ||
-  'http://127.0.0.1:5000';
-
-const assertLocalElectionGuardUrl = () => {
-  const parsed = new URL(GUARDIAN_LOCAL_ELECTIONGUARD_URL, window.location.origin);
-  const isLocalHost =
-    parsed.hostname === 'localhost' ||
-    parsed.hostname === '127.0.0.1' ||
-    parsed.hostname === '::1';
-
-  if (!isLocalHost) {
-    throw new Error('Sensitive guardian operations require a local ElectionGuard service URL (localhost/127.0.0.1).');
-  }
-
-  return parsed.toString().replace(/\/$/, '');
-};
-
 export const electionApi = {
   /**
    * Fetch all elections accessible to the current user
@@ -81,7 +63,9 @@ export const electionApi = {
 
   async submitGuardianKeyCeremony(
     electionId,
+    guardianPrivateKey,
     guardianPublicKey,
+    guardianPolynomial,
     localEncryptionPassword,
     guardianKeyBackup
   ) {
@@ -90,7 +74,9 @@ export const electionApi = {
         method: 'POST',
         body: JSON.stringify({
           electionId,
+          guardianPrivateKey,
           guardianPublicKey,
+          guardianPolynomial,
           localEncryptionPassword,
           guardianKeyBackup,
         }),
@@ -146,51 +132,14 @@ export const electionApi = {
     }
   },
 
-  async generateGuardianBackupSharesWithElectionGuard(payload) {
+  async generateGuardianBackupShares(electionId, encryptedData) {
     try {
-      const localUrl = assertLocalElectionGuardUrl();
-      const response = await fetch(`${localUrl}/generate_guardian_backup_shares`, {
+      return await apiRequest(`/guardian/key-ceremony/backup/generate/${electionId}`, {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(payload),
-      });
-
-      const data = await response.json();
-      if (!response.ok || data?.status !== 'success') {
-        throw new Error(data?.message || 'Failed to generate guardian backup shares');
-      }
-
-      return data;
+        body: JSON.stringify({ encrypted_data: encryptedData }),
+      }, EXTENDED_TIMEOUT);
     } catch (error) {
-      console.error('Error generating backup shares from ElectionGuard API:', error);
-      throw error;
-    }
-  },
-
-  async decryptGuardianCredentialWithElectionGuard(encryptedData, credentialMetadata) {
-    try {
-      const localUrl = assertLocalElectionGuardUrl();
-      const response = await fetch(`${localUrl}/api/decrypt`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          encrypted_data: encryptedData,
-          credentials: credentialMetadata,
-        }),
-      });
-
-      const data = await response.json();
-      if (!response.ok || data?.status !== 'success') {
-        throw new Error(data?.message || data?.error || 'Failed to decrypt uploaded credential file');
-      }
-
-      return data;
-    } catch (error) {
-      console.error('Error decrypting uploaded credential file:', error);
+      console.error('Error generating backup shares:', error);
       throw error;
     }
   },

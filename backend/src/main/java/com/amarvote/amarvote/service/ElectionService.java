@@ -80,9 +80,6 @@ public class ElectionService {
     @Autowired
     private BlockchainService blockchainService;
 
-    @Autowired
-    private CredentialCacheService credentialCacheService;
-
     @Transactional
     public Election createElection(ElectionCreationRequest request, String jwtToken, String userEmail) {
         // Log the received token and email
@@ -351,12 +348,6 @@ public class ElectionService {
             String privateKeyJson = objectMapper.writeValueAsString(generated.get("private_key"));
             String polynomialJson = objectMapper.writeValueAsString(generated.get("polynomial"));
 
-                credentialCacheService.storePendingKeyCeremonyMaterial(
-                    electionId,
-                    guardian.getGuardianId(),
-                    privateKeyJson,
-                    polynomialJson);
-
             return Map.of(
                     "success", true,
                     "electionId", electionId,
@@ -402,24 +393,24 @@ public class ElectionService {
             throw new IllegalArgumentException("Local encryption password is required");
         }
 
-        CredentialCacheService.PendingKeyCeremonyMaterial pendingMaterial =
-                credentialCacheService.getPendingKeyCeremonyMaterial(request.electionId(), guardian.getGuardianId());
-        if (pendingMaterial == null || pendingMaterial.privateKey() == null || pendingMaterial.polynomial() == null) {
-            throw new IllegalArgumentException("Key material expired or missing. Please generate credentials again before submitting.");
+        if (request.guardianPrivateKey() == null || request.guardianPrivateKey().isBlank()) {
+            throw new IllegalArgumentException("Guardian private key is required");
+        }
+
+        if (request.guardianPolynomial() == null || request.guardianPolynomial().isBlank()) {
+            throw new IllegalArgumentException("Guardian polynomial is required");
         }
 
         ElectionGuardCryptoService.EncryptionResult encryptionResult =
                 cryptoService.encryptGuardianData(
-                        pendingMaterial.privateKey(),
-                        pendingMaterial.polynomial(),
+                        request.guardianPrivateKey(),
+                        request.guardianPolynomial(),
                         request.localEncryptionPassword());
 
         guardian.setCredentials(encryptionResult.getCredentials());
 
         guardian.setGuardianKeySubmitted(true);
         guardianRepository.save(guardian);
-
-        credentialCacheService.clearPendingKeyCeremonyMaterial(request.electionId(), guardian.getGuardianId());
 
         int total = guardianRepository.countByElectionId(request.electionId());
         int submitted = guardianRepository.countSubmittedKeysByElectionId(request.electionId());
@@ -535,6 +526,114 @@ public class ElectionService {
                 "allBackupsSubmitted", submittedBackups == total,
                 "readyForActivation", submittedBackups == total
         );
+    }
+
+    @Transactional
+    public Map<String, Object> generateGuardianBackupRoundShares(Long electionId, String userEmail, String encryptedCredential) {
+        Election election = electionRepository.findById(electionId)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found"));
+
+        if (!"key_ceremony_pending".equals(election.getStatus())) {
+            throw new IllegalArgumentException("Key ceremony is not active for this election");
+        }
+
+        List<Guardian> guardians = guardianRepository.findByElectionIdOrderBySequenceOrder(electionId);
+        if (guardians.isEmpty()) {
+            throw new IllegalArgumentException("No guardians found for election");
+        }
+
+        Guardian currentGuardian = guardians.stream()
+                .filter(g -> userEmail.equals(g.getUserEmail()))
+                .findFirst()
+                .orElseThrow(() -> new IllegalArgumentException("You are not assigned as a guardian for this election"));
+
+        if (!Boolean.TRUE.equals(currentGuardian.getGuardianKeySubmitted())) {
+            throw new IllegalArgumentException("Submit your keypair first before backup key sharing");
+        }
+
+        boolean allKeyPairsSubmitted = guardians.stream().allMatch(g -> Boolean.TRUE.equals(g.getGuardianKeySubmitted()));
+        if (!allKeyPairsSubmitted) {
+            throw new IllegalArgumentException("Backup key sharing starts only after all guardians submit keypairs");
+        }
+
+        if (encryptedCredential == null || encryptedCredential.isBlank()) {
+            throw new IllegalArgumentException("Encrypted credential data is required");
+        }
+
+        String credentialMetadata = currentGuardian.getCredentials();
+        if (credentialMetadata == null || credentialMetadata.isBlank()) {
+            throw new IllegalArgumentException("Credential metadata is not available");
+        }
+
+        ElectionGuardCryptoService.GuardianDecryptionResult decrypted =
+                cryptoService.decryptGuardianData(encryptedCredential, credentialMetadata);
+
+        String senderPublicKey = extractPublicKeyValue(currentGuardian.getGuardianPublicKey());
+        if (senderPublicKey == null || senderPublicKey.isBlank()) {
+            throw new IllegalArgumentException("Sender public key is missing");
+        }
+
+        List<Map<String, Object>> recipients = guardians.stream()
+                .filter(g -> !g.getGuardianId().equals(currentGuardian.getGuardianId()))
+                .map(g -> {
+                    String recipientPublicKey = extractPublicKeyValue(g.getGuardianPublicKey());
+                    if (recipientPublicKey == null || recipientPublicKey.isBlank()) {
+                        throw new IllegalArgumentException("Missing public key for recipient guardian " + g.getSequenceOrder());
+                    }
+                    Map<String, Object> item = new HashMap<>();
+                    item.put("guardian_id", String.valueOf(g.getSequenceOrder()));
+                    item.put("sequence_order", g.getSequenceOrder());
+                    item.put("public_key", recipientPublicKey);
+                    return item;
+                })
+                .collect(Collectors.toList());
+
+        Map<String, Object> payload = new HashMap<>();
+        payload.put("sender_guardian_id", String.valueOf(currentGuardian.getSequenceOrder()));
+        payload.put("sender_sequence_order", currentGuardian.getSequenceOrder());
+        payload.put("number_of_guardians", election.getNumberOfGuardians());
+        payload.put("quorum", election.getElectionQuorum());
+        payload.put("sender_private_key", parseJsonToObject(decrypted.getPrivateKey()));
+        payload.put("sender_public_key", senderPublicKey);
+        payload.put("sender_polynomial", parseJsonToObject(decrypted.getPolynomial()));
+        payload.put("recipients", recipients);
+
+        String microserviceResponse = electionGuardService.postRequest("/generate_guardian_backup_shares", payload);
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> parsed = objectMapper.readValue(microserviceResponse, Map.class);
+            if (!"success".equals(String.valueOf(parsed.get("status")))) {
+                throw new IllegalArgumentException(String.valueOf(parsed.get("message")));
+            }
+
+            Object guardianDataObj = parsed.get("guardian_data");
+            if (guardianDataObj == null) {
+                throw new IllegalArgumentException("Microservice did not return guardian_data");
+            }
+
+            String guardianDataJson = objectMapper.writeValueAsString(guardianDataObj);
+            validateBackupPayload(guardianDataJson, currentGuardian, guardians);
+
+            currentGuardian.setKeyBackup(guardianDataJson);
+            guardianRepository.save(currentGuardian);
+
+            int submittedBackups = countSubmittedBackups(guardianRepository.findByElectionIdOrderBySequenceOrder(electionId));
+
+            return Map.of(
+                    "success", true,
+                    "message", "Encrypted backup shares generated successfully",
+                    "guardianData", guardianDataObj,
+                    "backupCount", parsed.getOrDefault("backup_count", recipients.size()),
+                    "submittedBackupGuardians", submittedBackups,
+                    "totalGuardians", guardians.size(),
+                    "allBackupsSubmitted", submittedBackups == guardians.size(),
+                    "readyForActivation", submittedBackups == guardians.size());
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new IllegalArgumentException("Failed to generate guardian backup shares", e);
+        }
     }
 
     public Map<String, Object> getGuardianCredentialMetadataForBackup(Long electionId, String userEmail) {
@@ -716,6 +815,23 @@ public class ElectionService {
             return value == null ? null : String.valueOf(value);
         } catch (Exception e) {
             throw new IllegalArgumentException("Invalid guardian public key format");
+        }
+    }
+
+    private Object parseJsonToObject(String jsonOrText) {
+        if (jsonOrText == null) {
+            return null;
+        }
+
+        String trimmed = jsonOrText.trim();
+        if (trimmed.isBlank()) {
+            return trimmed;
+        }
+
+        try {
+            return objectMapper.readValue(trimmed, Object.class);
+        } catch (Exception e) {
+            return trimmed;
         }
     }
 
