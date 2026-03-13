@@ -523,6 +523,8 @@ def rate_limit(max_requests=10, window_minutes=1):
                 rate_limit_storage[client_ip] = []
             
             if len(rate_limit_storage[client_ip]) >= max_requests:
+                if 'msgpack' in (request.content_type or ''):
+                    return make_binary_response({'error': 'Rate limit exceeded'}, 429)
                 return jsonify({'error': 'Rate limit exceeded'}), 429
             
             rate_limit_storage[client_ip].append(current_time)
@@ -1173,14 +1175,14 @@ def api_list_published_ballots():
 def api_publish_existing_ballot():
     """API endpoint to publish an already created encrypted ballot with specific status."""
     try:
-        data = request.json
+        data = get_request_data()
         
         ballot_id = data.get('ballot_id')
         encrypted_ballot_response = data.get('encrypted_ballot_response')  
         ballot_status = data.get('ballot_status', 'CAST').upper()
         
         if not all([ballot_id, encrypted_ballot_response]):
-            return jsonify({
+            return make_binary_response({
                 "error": "Missing required fields", 
                 "required": ["ballot_id", "encrypted_ballot_response"],
                 "optional": ["ballot_status"]
@@ -1195,10 +1197,10 @@ def api_publish_existing_ballot():
             ballot_status=ballot_status
         )
         
-        return jsonify(result), 200
+        return make_binary_response(result), 200
         
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return make_binary_response({"error": str(e)}), 500
 
 @app.route('/create_encrypted_tally', methods=['POST'])
 @track_request('/create_encrypted_tally')
@@ -1724,13 +1726,13 @@ def encrypt_it():
         # Input validation (optimized)
         private_key = data['private_key']
         if not isinstance(private_key, str) or len(private_key) > 100000:
-            return jsonify({'error': 'Invalid private key format or size'}), 400
+            return make_binary_response({'error': 'Invalid private key format or size'}, 400)
 
         # Use guardian-provided password when supplied, otherwise generate random password
         provided_password = data.get('password')
         if provided_password is not None:
             if not isinstance(provided_password, str) or len(provided_password) < 32:
-                return jsonify({'error': 'Invalid password format. Minimum length is 32 characters.'}), 400
+                return make_binary_response({'error': 'Invalid password format. Minimum length is 32 characters.'}, 400)
             password = provided_password
         else:
             password = generate_strong_password()
@@ -1963,10 +1965,14 @@ def health_check():
 
 @app.errorhandler(413)
 def request_entity_too_large(error):
+    if 'msgpack' in (request.content_type or ''):
+        return make_binary_response({'error': 'Request too large'}, 413)
     return jsonify({'error': 'Request too large'}), 413
 
 @app.errorhandler(429)
 def rate_limit_exceeded(error):
+    if 'msgpack' in (request.content_type or ''):
+        return make_binary_response({'error': 'Rate limit exceeded'}, 429)
     return jsonify({'error': 'Rate limit exceeded'}), 429
 
 if __name__ == '__main__':

@@ -363,7 +363,7 @@ def generate_ballots(election_id, num_ballots=1000):
 
 if __name__ == "__main__":
     # Set your election ID here
-    ELECTION_ID = 2
-    NUM_BALLOTS = 300
+    ELECTION_ID = 1
+    NUM_BALLOTS = 1300
     
     generate_ballots(ELECTION_ID, NUM_BALLOTS)
