@@ -25,16 +25,10 @@ public class JWTService {
 
     public String generateJWTToken(String userEmail) {
 
-        return generateJWTToken(userEmail, expirationMillis);
-
-    }
-
-    public String generateJWTToken(String userEmail, long customExpirationMillis) {
-
         return Jwts.builder()
                 .subject(userEmail)
                 .issuedAt(new Date(System.currentTimeMillis()))
-                .expiration(new Date(System.currentTimeMillis() + customExpirationMillis))
+                .expiration(new Date(System.currentTimeMillis() + expirationMillis))
                 .signWith(getKey())
                 .compact();
 

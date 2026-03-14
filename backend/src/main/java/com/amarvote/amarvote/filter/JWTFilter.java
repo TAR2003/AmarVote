@@ -3,7 +3,6 @@ package com.amarvote.amarvote.filter;
 import java.io.IOException;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -14,8 +13,6 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.amarvote.amarvote.service.JWTService;
 import com.amarvote.amarvote.service.MyUserDetailsService;
 
-import io.jsonwebtoken.ExpiredJwtException;
-import io.jsonwebtoken.JwtException;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.Cookie;
@@ -30,9 +27,6 @@ public class JWTFilter extends OncePerRequestFilter {
 
     @Autowired
     private MyUserDetailsService userDetailsService;
-
-    @Value("${cookie.secure:false}")
-    private boolean cookieSecure;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
@@ -53,16 +47,20 @@ public class JWTFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             jwtToken = authHeader.substring(7);
+            System.out.println("JWT Token from Authorization header: " + jwtToken);
         }
 
         // If not found in header, try cookie
         if (jwtToken == null) {
             Cookie[] cookies = request.getCookies();
+            System.out.println("Cookies: " + (cookies != null ? cookies.length : "null"));
             
             if (cookies != null) {
                 for (Cookie cookie : cookies) {
+                    System.out.println(cookie.getName());
                     if ("jwtToken".equals(cookie.getName())) {
                         jwtToken = cookie.getValue();
+                        System.out.println("JWT Token from cookie: " + jwtToken);
                         break;
                     }
                 }
@@ -72,16 +70,7 @@ public class JWTFilter extends OncePerRequestFilter {
         if (jwtToken != null) {
             try {
                 userEmail = jwtService.extractUserEmailFromToken(jwtToken);
-            } catch (ExpiredJwtException e) {
-                logger.info("Expired JWT received for path " + requestPath);
-                clearJwtCookie(response);
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "JWT expired");
-                return;
-            } catch (JwtException e) {
-                logger.info("Invalid JWT received for path " + requestPath);
-                clearJwtCookie(response);
-                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Invalid JWT");
-                return;
+                System.out.println("Extracted user email: " + userEmail);
             } catch (Exception e) {
                 logger.warn("Failed to extract user from JWT", e);
             }
@@ -103,22 +92,11 @@ public class JWTFilter extends OncePerRequestFilter {
 
         filterChain.doFilter(request, response);
     }
-
-    private void clearJwtCookie(HttpServletResponse response) {
-        Cookie cookie = new Cookie("jwtToken", "");
-        cookie.setHttpOnly(true);
-        cookie.setSecure(cookieSecure);
-        cookie.setPath("/");
-        cookie.setMaxAge(0);
-        cookie.setAttribute("SameSite", "Strict");
-        response.addCookie(cookie);
-    }
     
     private boolean isPublicRoute(String requestPath) {
         String[] publicPaths = {
             "/api/auth/register",
             "/api/auth/login", 
-            "/api/auth/firebase-login",
             "/api/password/forgot-password",
             "/api/password/create-password",
             "/api/verify/send-code",
