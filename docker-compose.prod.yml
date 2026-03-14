@@ -107,6 +107,7 @@ services:
       - CLOUDINARY_KEY=${CLOUDINARY_KEY}
       - CLOUDINARY_SECRET=${CLOUDINARY_SECRET}
       - LOG_PASSWORD=${LOG_PASSWORD}
+      - API_LOG_VIEWERS=${API_LOG_VIEWERS}
       - CREDENTIALS_DIRECTORY=/app/data/credentials
       # RabbitMQ Configuration
       - SPRING_RABBITMQ_HOST=rabbitmq

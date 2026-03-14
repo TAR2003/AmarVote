@@ -64,6 +64,7 @@ services:
       - RABBITMQ_PORT=5672
       - RABBITMQ_USERNAME=guest
       - RABBITMQ_PASSWORD=guest
+        - API_LOG_VIEWERS=${API_LOG_VIEWERS}
       # Redis Configuration for secure credential storage
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
