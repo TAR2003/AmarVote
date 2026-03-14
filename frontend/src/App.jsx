@@ -7,6 +7,7 @@ import {
 } from "react-router-dom";
 
 import OtpLogin from "./pages/OtpLogin";
+import VerifyEmail from "./pages/VerifyEmail";
 import Dashboard from "./pages/Dashboard";
 import Hello from "./pages/Hello";
 import Home from "./pages/Home";
@@ -89,9 +90,23 @@ function App() {
             isAuthenticated ? (
               <Navigate to="/dashboard" replace />
             ) : (
-              <OtpLogin setUserEmail={setUserEmail} />
+              <OtpLogin />
             )
           }
+        />
+        <Route
+          path="/login"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <OtpLogin />
+            )
+          }
+        />
+        <Route
+          path="/verify-email"
+          element={<VerifyEmail setUserEmail={setUserEmail} />}
         />
         {/* Signup route removed per design change */}
 

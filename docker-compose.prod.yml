@@ -102,6 +102,20 @@ services:
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - JWT_SECRET=${JWT_SECRET}
+      - FIREBASE_SERVICE_ACCOUNT_PATH=${FIREBASE_SERVICE_ACCOUNT_PATH_PROD:-/app/data/credentials/firebase-service-account.json}
+      - FIREBASE_SERVICE_ACCOUNT_JSON_B64=${FIREBASE_SERVICE_ACCOUNT_JSON_B64}
+      - FIREBASE_SERVICE_ACCOUNT_JSON=${FIREBASE_SERVICE_ACCOUNT_JSON}
+      - FIREBASE_TYPE=${FIREBASE_TYPE}
+      - FIREBASE_PROJECT_ID=${FIREBASE_PROJECT_ID}
+      - FIREBASE_PRIVATE_KEY_ID=${FIREBASE_PRIVATE_KEY_ID}
+      - FIREBASE_PRIVATE_KEY=${FIREBASE_PRIVATE_KEY}
+      - FIREBASE_CLIENT_EMAIL=${FIREBASE_CLIENT_EMAIL}
+      - FIREBASE_CLIENT_ID=${FIREBASE_CLIENT_ID}
+      - FIREBASE_AUTH_URI=${FIREBASE_AUTH_URI}
+      - FIREBASE_TOKEN_URI=${FIREBASE_TOKEN_URI}
+      - FIREBASE_AUTH_PROVIDER_X509_CERT_URL=${FIREBASE_AUTH_PROVIDER_X509_CERT_URL}
+      - FIREBASE_CLIENT_X509_CERT_URL=${FIREBASE_CLIENT_X509_CERT_URL}
+      - FIREBASE_UNIVERSE_DOMAIN=${FIREBASE_UNIVERSE_DOMAIN}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - CLOUDINARY_NAME=${CLOUDINARY_NAME}
       - CLOUDINARY_KEY=${CLOUDINARY_KEY}
@@ -124,7 +138,7 @@ services:
       - JAVA_OPTS=-Xms512m -Xmx1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError
     volumes:
       - maven_repo:/root/.m2
-      - credentials_data:/app/data/credentials
+      - ./backend/credentials:/app/data/credentials:ro
       - ./backend/src/main/resources/templates:/app/templates:ro
     networks:
       election_net:
@@ -149,6 +163,14 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_FIREBASE_API_KEY: ${VITE_FIREBASE_API_KEY}
+        VITE_FIREBASE_AUTH_DOMAIN: ${VITE_FIREBASE_AUTH_DOMAIN}
+        VITE_FIREBASE_PROJECT_ID: ${VITE_FIREBASE_PROJECT_ID}
+        VITE_FIREBASE_STORAGE_BUCKET: ${VITE_FIREBASE_STORAGE_BUCKET}
+        VITE_FIREBASE_MESSAGING_SENDER_ID: ${VITE_FIREBASE_MESSAGING_SENDER_ID}
+        VITE_FIREBASE_APP_ID: ${VITE_FIREBASE_APP_ID}
+        VITE_FIREBASE_MEASUREMENT_ID: ${VITE_FIREBASE_MEASUREMENT_ID}
     container_name: amarvote_frontend
     restart: unless-stopped
     ports:
@@ -293,7 +315,6 @@ volumes:
   rag_vectorstore:
   prometheus_data:
   grafana_data:
-  credentials_data:
   rabbitmq_data:
   redis_data:
 

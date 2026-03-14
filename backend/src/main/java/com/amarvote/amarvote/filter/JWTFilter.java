@@ -97,6 +97,7 @@ public class JWTFilter extends OncePerRequestFilter {
         String[] publicPaths = {
             "/api/auth/register",
             "/api/auth/login", 
+            "/api/auth/firebase-login",
             "/api/password/forgot-password",
             "/api/password/create-password",
             "/api/verify/send-code",
