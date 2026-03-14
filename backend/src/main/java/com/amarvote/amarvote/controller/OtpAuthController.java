@@ -1,5 +1,6 @@
 package com.amarvote.amarvote.controller;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -36,6 +37,9 @@ public class OtpAuthController {
     @Value("${cookie.secure:false}")
     private boolean cookieSecure;
 
+    @Value("${jwt.expiration}")
+    private long jwtExpirationMillis;
+
     /**
      * Request OTP code to be sent to email
      */
@@ -70,7 +74,7 @@ public class OtpAuthController {
             cookie.setHttpOnly(true);
             cookie.setSecure(cookieSecure); // Configurable via application.properties
             cookie.setPath("/");
-            cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
+            cookie.setMaxAge(getJwtCookieMaxAgeSeconds());
             cookie.setAttribute("SameSite", "Strict");
             response.addCookie(cookie);
             
@@ -106,12 +110,17 @@ public class OtpAuthController {
     public ResponseEntity<OtpResponseDto> logout(HttpServletResponse response) {
         Cookie cookie = new Cookie("jwtToken", null);
         cookie.setHttpOnly(true);
-        cookie.setSecure(true);
+        cookie.setSecure(cookieSecure);
         cookie.setPath("/");
         cookie.setMaxAge(0); // Delete cookie
         cookie.setAttribute("SameSite", "Strict");
         response.addCookie(cookie);
         
         return ResponseEntity.ok(new OtpResponseDto(true, "Logged out successfully"));
+    }
+
+    private int getJwtCookieMaxAgeSeconds() {
+        long maxAgeSeconds = Math.max(1, Duration.ofMillis(jwtExpirationMillis).getSeconds());
+        return (int) Math.min(Integer.MAX_VALUE, maxAgeSeconds);
     }
 }

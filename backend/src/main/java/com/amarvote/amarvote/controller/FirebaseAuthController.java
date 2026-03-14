@@ -1,8 +1,10 @@
 package com.amarvote.amarvote.controller;
 
+import java.time.Duration;
 import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -20,10 +22,14 @@ import jakarta.servlet.http.HttpServletResponse;
 @RequestMapping("/api/auth")
 public class FirebaseAuthController {
 
-    private static final int AMARVOTE_JWT_30_MIN_SECONDS = 30 * 60;
-
     @Autowired
     private FirebaseAuthService firebaseAuthService;
+
+    @Value("${cookie.secure:false}")
+    private boolean cookieSecure;
+
+    @Value("${jwt.expiration}")
+    private long jwtExpirationMillis;
 
     @PostMapping("/firebase-login")
     public ResponseEntity<OtpResponseDto> firebaseLogin(
@@ -44,9 +50,9 @@ public class FirebaseAuthController {
 
         Cookie cookie = new Cookie("jwtToken", amarVoteJwtOpt.get());
         cookie.setHttpOnly(true);
-        cookie.setSecure(true);
+        cookie.setSecure(cookieSecure);
         cookie.setPath("/");
-        cookie.setMaxAge(AMARVOTE_JWT_30_MIN_SECONDS);
+        cookie.setMaxAge(getJwtCookieMaxAgeSeconds());
         cookie.setAttribute("SameSite", "Strict");
         response.addCookie(cookie);
 
@@ -60,5 +66,10 @@ public class FirebaseAuthController {
 
         String token = authorizationHeader.substring(7).trim();
         return token.isEmpty() ? null : token;
+    }
+
+    private int getJwtCookieMaxAgeSeconds() {
+        long maxAgeSeconds = Math.max(1, Duration.ofMillis(jwtExpirationMillis).getSeconds());
+        return (int) Math.min(Integer.MAX_VALUE, maxAgeSeconds);
     }
 }
