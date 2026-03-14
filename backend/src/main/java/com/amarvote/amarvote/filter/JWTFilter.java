@@ -96,7 +96,9 @@ public class JWTFilter extends OncePerRequestFilter {
     private boolean isPublicRoute(String requestPath) {
         String[] publicPaths = {
             "/api/auth/register",
-            "/api/auth/login", 
+            "/api/auth/login",
+            "/api/auth/mfa/confirm-setup",
+            "/api/auth/mfa/verify",
             "/api/password/forgot-password",
             "/api/password/create-password",
             "/api/verify/send-code",

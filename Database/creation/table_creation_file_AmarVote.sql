@@ -3,6 +3,25 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 
 
+-- Users Table (Authentication)
+CREATE TABLE IF NOT EXISTS users (
+    user_id BIGSERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    password_hash VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    mfa_secret VARCHAR(255),
+    is_mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE,
+    mfa_registered BOOLEAN NOT NULL DEFAULT FALSE
+);
+
+-- Backward-compatible MFA column additions for existing users table
+ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS mfa_secret VARCHAR(255);
+ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS is_mfa_enabled BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS mfa_registered BOOLEAN NOT NULL DEFAULT FALSE;
+
+CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+
+
 
 -- Election Table
 CREATE TABLE IF NOT EXISTS elections (

@@ -5,24 +5,32 @@ import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
+import com.amarvote.amarvote.model.AppUser;
+import com.amarvote.amarvote.repository.AppUserRepository;
+
+import lombok.RequiredArgsConstructor;
+
 /**
- * UserDetailsService for OTP-based authentication
- * No User table required - creates UserDetails from email directly
+ * UserDetailsService backed by the users table.
  */
 @Service
+@RequiredArgsConstructor
 public class MyUserDetailsService implements UserDetailsService {
+
+    private final AppUserRepository appUserRepository;
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
         if (email == null || email.trim().isEmpty()) {
             throw new UsernameNotFoundException("Email cannot be empty");
         }
-        
-        // Return UserDetails with just the email
-        // No password needed for OTP authentication
+
+        AppUser user = appUserRepository.findByEmail(email.trim().toLowerCase())
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
+
         return org.springframework.security.core.userdetails.User
-                .withUsername(email)
-                .password("") // No password - OTP-based auth
+                .withUsername(user.getEmail())
+                .password(user.getPasswordHash())
                 .authorities("ROLE_USER")
                 .accountExpired(false)
                 .accountLocked(false)
