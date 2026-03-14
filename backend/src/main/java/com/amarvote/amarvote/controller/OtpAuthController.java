@@ -1,7 +1,7 @@
 package com.amarvote.amarvote.controller;
 
-import java.util.Optional;
 import java.util.Map;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -25,7 +25,10 @@ import com.amarvote.amarvote.dto.OtpLoginResponseDto;
 import com.amarvote.amarvote.dto.OtpRequestDto;
 import com.amarvote.amarvote.dto.OtpResponseDto;
 import com.amarvote.amarvote.dto.OtpVerifyDto;
+import com.amarvote.amarvote.dto.RegisterSendEmailCodeRequestDto;
+import com.amarvote.amarvote.dto.RegisterVerifyEmailCodeRequestDto;
 import com.amarvote.amarvote.dto.UserSession;
+import com.amarvote.amarvote.service.EmailVerificationService;
 import com.amarvote.amarvote.service.MfaAuthService;
 import com.amarvote.amarvote.service.OtpAuthService;
 
@@ -42,20 +45,43 @@ public class OtpAuthController {
     @Autowired
     private OtpAuthService otpAuthService;
 
+    private final EmailVerificationService emailVerificationService;
     private final MfaAuthService mfaAuthService;
     
     @Value("${cookie.secure:false}")
     private boolean cookieSecure;
+
+    @PostMapping("/register/send-email-code")
+    public ResponseEntity<?> sendRegistrationEmailCode(@Valid @RequestBody RegisterSendEmailCodeRequestDto request) {
+        emailVerificationService.sendEmailVerificationCode(request.getEmail());
+        return ResponseEntity.ok(Map.of(
+                "status", "EMAIL_CODE_SENT",
+                "message", "Verification code sent"));
+    }
+
+    @PostMapping("/register/verify-email-code")
+    public ResponseEntity<?> verifyRegistrationEmailCode(@Valid @RequestBody RegisterVerifyEmailCodeRequestDto request) {
+        Optional<String> tokenOpt = emailVerificationService.verifyEmailCodeAndIssueToken(request.getEmail(), request.getCode());
+        if (tokenOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Invalid or expired verification code"));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "status", "EMAIL_VERIFIED",
+                "emailVerificationToken", tokenOpt.get()));
+    }
 
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody AuthRegisterRequestDto request) {
         try {
             Map<String, Object> response = mfaAuthService.registerAndStartMfaSetup(
                     request.getEmail(),
-                    request.getPassword());
+                    request.getPassword(),
+                    request.getEmailVerificationToken());
             return ResponseEntity.ok(response);
         } catch (IllegalArgumentException ex) {
-            return ResponseEntity.status(HttpStatus.CONFLICT)
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("message", ex.getMessage()));
         }
     }

@@ -70,9 +70,14 @@ const Home = () => {
                 </svg>
                 Admin
               </Link>
-              <Link to="/otp-login">
+              <Link to="/login">
+                <button className="px-4 py-2 border border-blue-600 text-blue-600 rounded-xl hover:bg-blue-50 transition-all duration-200 shadow-sm font-medium text-sm">
+                  Log in
+                </button>
+              </Link>
+              <Link to="/register">
                 <button className="px-5 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm font-medium text-sm">
-                  Sign In
+                  Register
                 </button>
               </Link>
               <button className="md:hidden p-2 rounded-lg" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
@@ -101,6 +106,14 @@ const Home = () => {
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
               </svg>
               Admin Login
+            </Link>
+            <Link to="/login" className="block px-3 py-2 rounded-lg text-blue-700 hover:bg-blue-50 font-medium"
+              onClick={() => setMobileMenuOpen(false)}>
+              Log in
+            </Link>
+            <Link to="/register" className="block px-3 py-2 rounded-lg text-blue-700 hover:bg-blue-50 font-medium"
+              onClick={() => setMobileMenuOpen(false)}>
+              Register
             </Link>
           </div>
         )}
@@ -133,7 +146,7 @@ const Home = () => {
             Zero-knowledge proofs · Homomorphic tallying · Threshold decryption · Benaloh challenge · Bot detection · Traffic padding
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4 mb-16">
-            <Link to="/otp-login">
+            <Link to="/register">
               <button className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold rounded-2xl shadow-xl shadow-blue-500/20 hover:shadow-blue-600/30 transition-all duration-300 hover:-translate-y-1">
                 Get Started Free
               </button>
@@ -526,10 +539,10 @@ const Home = () => {
             Ready to run a cryptographically secure election?
           </h2>
           <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
-            Sign in with just your email — no password required. OTP delivered instantly.
+            Register with verified email, set a password, then complete mandatory authenticator-based MFA.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
-            <Link to="/otp-login">
+            <Link to="/register">
               <button className="px-8 py-4 bg-white text-blue-700 text-lg font-bold rounded-2xl hover:bg-blue-50 transition-all duration-300 shadow-xl hover:-translate-y-1">
                 Get Started Free →
               </button>
@@ -565,7 +578,7 @@ const Home = () => {
             <div>
               <h4 className="text-gray-300 font-semibold mb-3 text-sm uppercase tracking-wider">Learn</h4>
               <ul className="space-y-2 text-sm">
-                {[["/about", "About"], ["/api-logs", "API Logs"], ["/otp-login", "Sign In"]].map(([p, l]) => (
+                {[["/about", "About"], ["/api-logs", "API Logs"], ["/login", "Log in"], ["/register", "Register"]].map(([p, l]) => (
                   <li key={p}><Link to={p} className="hover:text-white transition-colors">{l}</Link></li>
                 ))}
               </ul>

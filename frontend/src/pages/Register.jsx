@@ -6,25 +6,107 @@ import OtpInput from "../components/OtpInput";
 export default function Register({ setUserEmail }) {
   const navigate = useNavigate();
 
-  const [step, setStep] = useState(1);
+  const [step, setStep] = useState(1); // 1=email, 2=verify-email-code, 3=set-password, 4=totp-setup
   const [email, setEmail] = useState("");
+  const [emailCode, setEmailCode] = useState("");
+  const [emailVerificationToken, setEmailVerificationToken] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
   const [secret, setSecret] = useState("");
   const [qrCodeDataUri, setQrCodeDataUri] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
+  const handleSendEmailCode = async (e) => {
+    if (e?.preventDefault) {
+      e.preventDefault();
+    }
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/register/send-email-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Failed to send verification code");
+      }
+
+      if (data.status !== "EMAIL_CODE_SENT") {
+        throw new Error("Unexpected response from server");
+      }
+
+      setStep(2);
+    } catch (err) {
+      setError(err.message || "Failed to send verification code");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const verifyEmailCode = async (codeOverride) => {
+    const codeToSubmit = (codeOverride || emailCode).replace(/\D/g, "").slice(0, 6);
+    if (codeToSubmit.length !== 6) return;
+
+    setError("");
+    setLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/register/verify-email-code", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, code: codeToSubmit }),
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.message || "Invalid verification code");
+      }
+
+      if (data.status !== "EMAIL_VERIFIED" || !data.emailVerificationToken) {
+        throw new Error("Unexpected verification response");
+      }
+
+      setEmailVerificationToken(data.emailVerificationToken);
+      setStep(3);
+    } catch (err) {
+      setError(err.message || "Email verification failed");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleVerifyEmailCode = async (e) => {
+    e.preventDefault();
+    await verifyEmailCode();
+  };
+
   const handleRegister = async (e) => {
     e.preventDefault();
     setError("");
+
+    if (password.length < 8) {
+      setError("Password must be at least 8 characters");
+      return;
+    }
+
+    if (password !== confirmPassword) {
+      setError("Password and confirm password do not match");
+      return;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, emailVerificationToken }),
       });
 
       const data = await res.json();
@@ -38,7 +120,7 @@ export default function Register({ setUserEmail }) {
 
       setSecret(data.secret || "");
       setQrCodeDataUri(data.qrCodeDataUri || "");
-      setStep(2);
+      setStep(4);
     } catch (err) {
       setError(err.message || "Registration failed");
     } finally {
@@ -85,12 +167,16 @@ export default function Register({ setUserEmail }) {
       <div className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-10">
         <div className="mx-auto max-w-lg rounded-2xl border border-blue-100 bg-white p-8 shadow-lg">
           <h1 className="text-2xl font-bold text-gray-900">
-            {step === 1 ? "Create your AmarVote account" : "Complete Google Authenticator setup"}
+            {step === 1 && "Create your AmarVote account"}
+            {step === 2 && "Verify your email"}
+            {step === 3 && "Set your password"}
+            {step === 4 && "Complete Google Authenticator setup"}
           </h1>
           <p className="mt-2 text-sm text-gray-600">
-            {step === 1
-              ? "Register with email and password. MFA is mandatory."
-              : "Scan the QR code with Google Authenticator, then enter the 6-digit code."}
+            {step === 1 && "Enter your email to receive a 6-digit verification code."}
+            {step === 2 && `Enter the 6-digit code sent to ${email}.`}
+            {step === 3 && "Create and confirm your password before MFA setup."}
+            {step === 4 && "Scan the QR code with Google Authenticator, then enter the 6-digit code."}
           </p>
 
           {error && (
@@ -99,8 +185,8 @@ export default function Register({ setUserEmail }) {
             </div>
           )}
 
-          {step === 1 ? (
-            <form className="mt-6 space-y-4" onSubmit={handleRegister}>
+          {step === 1 && (
+            <form className="mt-6 space-y-4" onSubmit={handleSendEmailCode}>
               <input
                 type="email"
                 required
@@ -109,6 +195,54 @@ export default function Register({ setUserEmail }) {
                 placeholder="Email"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              >
+                {loading ? "Sending code..." : "Send verification code"}
+              </button>
+
+              <p className="text-center text-sm text-gray-600">
+                Already registered?{" "}
+                <Link className="font-semibold text-blue-600 hover:underline" to="/login">
+                  Sign in
+                </Link>
+              </p>
+            </form>
+          )}
+
+          {step === 2 && (
+            <form className="mt-6 space-y-6" onSubmit={handleVerifyEmailCode}>
+              <OtpInput
+                value={emailCode}
+                onChange={setEmailCode}
+                onComplete={verifyEmailCode}
+                disabled={loading}
+              />
+
+              <button
+                type="submit"
+                disabled={loading || emailCode.replace(/\D/g, "").length !== 6}
+                className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+              >
+                {loading ? "Verifying..." : "Verify email"}
+              </button>
+
+              <button
+                type="button"
+                onClick={handleSendEmailCode}
+                disabled={loading}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+              >
+                Resend code
+              </button>
+            </form>
+          )}
+
+          {step === 3 && (
+            <form className="mt-6 space-y-4" onSubmit={handleRegister}>
               <input
                 type="password"
                 required
@@ -116,6 +250,15 @@ export default function Register({ setUserEmail }) {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password (min 8 chars)"
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              />
+              <input
+                type="password"
+                required
+                minLength={8}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder="Confirm password"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
 
@@ -126,15 +269,10 @@ export default function Register({ setUserEmail }) {
               >
                 {loading ? "Creating account..." : "Continue to MFA setup"}
               </button>
-
-              <p className="text-center text-sm text-gray-600">
-                Already registered?{" "}
-                <Link className="font-semibold text-blue-600 hover:underline" to="/login">
-                  Sign in
-                </Link>
-              </p>
             </form>
-          ) : (
+          )}
+
+          {step === 4 && (
             <form className="mt-6 space-y-6" onSubmit={handleConfirmSetup}>
               {qrCodeDataUri ? (
                 <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">

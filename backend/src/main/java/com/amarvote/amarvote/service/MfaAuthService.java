@@ -2,6 +2,7 @@ package com.amarvote.amarvote.service;
 
 import java.util.LinkedHashMap;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
@@ -26,8 +27,14 @@ public class MfaAuthService {
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
 
     @Transactional
-    public Map<String, Object> registerAndStartMfaSetup(String email, String password) {
+    @SuppressWarnings("null")
+    public Map<String, Object> registerAndStartMfaSetup(String email, String password, String emailVerificationToken) {
         String normalizedEmail = email.trim().toLowerCase();
+
+        Optional<String> verifiedEmailOpt = tempJwtService.extractEmailIfValidVerifiedEmailToken(emailVerificationToken);
+        if (verifiedEmailOpt.isEmpty() || !normalizedEmail.equals(verifiedEmailOpt.get())) {
+            throw new IllegalArgumentException("Email verification is required");
+        }
 
         if (appUserRepository.existsByEmail(normalizedEmail)) {
             throw new IllegalArgumentException("User already exists");
@@ -43,7 +50,7 @@ public class MfaAuthService {
                 .mfaRegistered(false)
                 .build();
 
-        appUserRepository.save(user);
+        appUserRepository.save(Objects.requireNonNull(user));
 
         String otpAuthUri = totpService.buildOtpAuthUri(normalizedEmail, secret);
         String qrCodeDataUri = totpService.generateQrCodeDataUri(otpAuthUri);
