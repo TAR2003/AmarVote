@@ -82,21 +82,57 @@ export default function ApiLogs({ userEmail }) {
   const [sortOrder, setSortOrder]       = useState("desc");
   const [autoRefresh, setAutoRefresh]   = useState(false);
   const [refreshInterval, setRefreshInterval] = useState(10);
+  const [accessChecked, setAccessChecked] = useState(false);
+  const [accessAllowed, setAccessAllowed] = useState(false);
   const refreshTimer = useRef(null);
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (userEmail !== "admin") navigate("/");
-  }, [userEmail, navigate]);
+    let mounted = true;
+
+    async function verifyAccess() {
+      try {
+        const res = await fetch("/api/admin/access-check", { credentials: "include" });
+        const data = await res.json().catch(() => ({}));
+
+        if (!mounted) return;
+
+        if (res.ok && data.allowed) {
+          setAccessAllowed(true);
+          setAccessChecked(true);
+          return;
+        }
+
+        setAccessAllowed(false);
+        setAccessChecked(true);
+        setError(data.message || "Not allowed to view API logs.");
+      } catch {
+        if (!mounted) return;
+        setAccessAllowed(false);
+        setAccessChecked(true);
+        setError("Failed to verify API logs access.");
+      }
+    }
+
+    verifyAccess();
+    return () => {
+      mounted = false;
+    };
+  }, [userEmail]);
 
   useEffect(() => {
+    if (!accessAllowed) return;
     if (autoRefresh) {
       refreshTimer.current = setInterval(() => { fetchLogs(); fetchStats(); }, refreshInterval * 1000);
     }
     return () => { if (refreshTimer.current) clearInterval(refreshTimer.current); };
-  }, [autoRefresh, refreshInterval, page, filters, sortBy, sortOrder]);
+  }, [accessAllowed, autoRefresh, refreshInterval, page, filters, sortBy, sortOrder]);
 
-  useEffect(() => { fetchLogs(); fetchStats(); }, [page, sortBy, sortOrder]);
+  useEffect(() => {
+    if (!accessAllowed) return;
+    fetchLogs();
+    fetchStats();
+  }, [accessAllowed, page, sortBy, sortOrder]);
 
   async function fetchLogs() {
     setLoading(true);
@@ -221,6 +257,33 @@ export default function ApiLogs({ userEmail }) {
       value: stats.totalLogs > 0 ? `${((stats.totalLogs - stats.errorLogs) / stats.totalLogs * 100).toFixed(1)}%` : "—",
       icon: ICONS.shield, border: "border-teal-400", bg: "bg-teal-50", iconColor: "text-teal-500" },
   ];
+
+  if (!accessChecked) {
+    return (
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center p-6 text-gray-600">Checking API logs access...</div>
+      </Layout>
+    );
+  }
+
+  if (!accessAllowed) {
+    return (
+      <Layout>
+        <div className="min-h-screen flex items-center justify-center p-6">
+          <div className="max-w-md rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+            <h2 className="text-lg font-bold text-red-700">Access denied</h2>
+            <p className="mt-2 text-sm text-red-600">{error || "You are not allowed to view API logs."}</p>
+            <button
+              onClick={() => navigate("/dashboard")}
+              className="mt-4 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+            >
+              Back to dashboard
+            </button>
+          </div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout>

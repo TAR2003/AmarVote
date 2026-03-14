@@ -261,6 +261,25 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
     }
   };
 
+  const handleApiLogsAccess = async () => {
+    try {
+      const res = await fetch("/api/admin/access-check", {
+        method: "GET",
+        credentials: "include",
+      });
+
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.allowed) {
+        navigate("/api-logs");
+        return;
+      }
+
+      alert(data.message || "Not allowed to view API logs.");
+    } catch (error) {
+      alert("Failed to verify API logs access.");
+    }
+  };
+
   if (!userEmail) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
@@ -349,6 +368,17 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                 <FiPlus className="h-4 w-4" />
                 <span>Create Election</span>
               </Link>
+
+              <button
+                onClick={handleApiLogsAccess}
+                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/api-logs')
+                    ? 'text-blue-700 bg-blue-50/80'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
+                  }`}
+              >
+                <FiBarChart2 className="h-4 w-4" />
+                <span>API Logs</span>
+              </button>
 
             </div>
 
@@ -636,6 +666,20 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               <FiPlus className="h-5 w-5" />
               <span>Create Election</span>
             </Link>
+
+            <button
+              onClick={() => {
+                setMobileMenuOpen(false);
+                handleApiLogsAccess();
+              }}
+              className={`flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-base font-medium ${isActiveRoute('/api-logs')
+                  ? 'text-blue-700 bg-blue-50/80'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+                }`}
+            >
+              <FiBarChart2 className="h-5 w-5" />
+              <span>API Logs</span>
+            </button>
 
             <button
               onClick={() => {

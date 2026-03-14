@@ -61,15 +61,6 @@ const Home = () => {
               ))}
             </div>
             <div className="flex items-center space-x-3">
-              <Link
-                to="/admin-login"
-                className="hidden md:flex items-center gap-1.5 px-3 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-purple-700 hover:bg-purple-50 border border-transparent hover:border-purple-200 transition-all duration-200"
-              >
-                <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                </svg>
-                Admin
-              </Link>
               <Link to="/login">
                 <button className="px-4 py-2 border border-blue-600 text-blue-600 rounded-xl hover:bg-blue-50 transition-all duration-200 shadow-sm font-medium text-sm">
                   Log in
@@ -100,13 +91,6 @@ const Home = () => {
                 {label}
               </Link>
             ))}
-            <Link to="/admin-login" className="flex items-center gap-2 px-3 py-2 rounded-lg text-purple-700 hover:bg-purple-50 font-medium"
-              onClick={() => setMobileMenuOpen(false)}>
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              Admin Login
-            </Link>
             <Link to="/login" className="block px-3 py-2 rounded-lg text-blue-700 hover:bg-blue-50 font-medium"
               onClick={() => setMobileMenuOpen(false)}>
               Log in
