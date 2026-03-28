@@ -343,10 +343,10 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       {/* Top Navigation Bar */}
       <header className="bg-white/95 backdrop-blur-lg shadow-lg border-b border-white/20 sticky top-0 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex justify-between h-14 sm:h-16 items-center">
             {/* Mobile/Tablet menu button - Show when nav buttons are hidden */}
-            <div className="flex xl:hidden">
+            <div className="flex 2xl:hidden">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="inline-flex items-center justify-center p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
@@ -365,14 +365,14 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
                   <span className="text-white text-lg sm:text-xl font-bold">🗳️</span>
                 </div>
-                <span className="ml-2 sm:ml-3 text-base sm:text-xl font-bold bg-gradient-to-r from-gray-900 to-blue-800 bg-clip-text text-transparent hidden sm:block">
+                <span className="ml-2 sm:ml-3 text-sm sm:text-xl font-bold bg-gradient-to-r from-gray-900 to-blue-800 bg-clip-text text-transparent block">
                   AmarVote
                 </span>
               </Link>
             </div>
 
-            {/* Desktop Navigation Menu - Hidden on medium, shown on xl and above */}
-            <div className="hidden xl:flex items-center space-x-2">
+            {/* Desktop Navigation Menu - shown only on very wide screens */}
+            <div className="hidden 2xl:flex items-center space-x-2">
               <Link
                 to="/dashboard"
                 className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/dashboard')
@@ -432,9 +432,9 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
             </div>
 
-            {/* Search Bar - Visible on md and above */}
-            <div className="hidden md:flex flex-1 items-center justify-center px-2 md:px-4 md:ml-6 md:justify-end">
-              <div className="max-w-lg w-full md:max-w-xs relative" ref={searchRef}>
+            {/* Search Bar - prioritize width on desktop/tablet */}
+            <div className="hidden md:flex flex-1 items-center justify-center px-3 lg:px-6">
+              <div className="w-full max-w-2xl relative" ref={searchRef}>
                 <form onSubmit={handleSearchSubmit} className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <FiSearch className="h-5 w-5 text-gray-400" />
@@ -525,7 +525,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
             </div>
 
             {/* User menu */}
-            <div className="ml-2 md:ml-4 flex items-center space-x-2 md:space-x-3">
+            <div className="ml-2 md:ml-4 mr-1 sm:mr-0 flex items-center space-x-2 md:space-x-3">
               <div className="relative" ref={notificationRef}>
                 <button
                   onClick={() => setShowGuardianAttention((prev) => !prev)}
@@ -603,9 +603,9 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
       {/* Mobile/Tablet menu */}
       {mobileMenuOpen && (
-        <div className="xl:hidden fixed inset-0 z-50 bg-black bg-opacity-50" onClick={() => setMobileMenuOpen(false)}>
+        <div className="2xl:hidden fixed inset-0 z-50 bg-black bg-opacity-50" onClick={() => setMobileMenuOpen(false)}>
           <div className="bg-white/95 backdrop-blur-lg shadow-xl border-b border-white/20 max-h-screen overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="px-4 pt-2 pb-4 space-y-2">
+            <div className="px-4 pt-3 pb-4 space-y-2">
             {/* Mobile Search Bar - Only visible on small screens */}
             <div className="relative mb-4 md:hidden" ref={mobileSearchRef}>
 
@@ -714,7 +714,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               <Link
                 to="/create-election"
                 onClick={() => setMobileMenuOpen(false)}
-                className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium shadow-md ${isActiveRoute('/create-election')
+                className={`mt-2 mb-2 flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium shadow-md ${isActiveRoute('/create-election')
                     ? 'text-white bg-gradient-to-r from-green-600 to-emerald-700'
                     : 'text-white bg-gradient-to-r from-green-500 to-emerald-600'
                   }`}
@@ -750,16 +750,18 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               <span>Authenticated Users</span>
             </Link>
 
-            <button
-              onClick={() => {
-                handleLogout();
-                setMobileMenuOpen(false);
-              }}
-              className="flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50/80 transition-all duration-300"
-            >
-              <FiLogOut className="h-5 w-5" />
-              <span>Logout</span>
-            </button>
+            <div className="pt-3 mt-3 border-t border-gray-200">
+              <button
+                onClick={() => {
+                  handleLogout();
+                  setMobileMenuOpen(false);
+                }}
+                className="flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50/80 transition-all duration-300"
+              >
+                <FiLogOut className="h-5 w-5" />
+                <span>Logout</span>
+              </button>
+            </div>
             </div>
           </div>
         </div>

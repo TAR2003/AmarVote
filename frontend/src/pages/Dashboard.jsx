@@ -341,9 +341,9 @@ const Dashboard = ({ userEmail }) => {
         </div>
         
         {/* Stats Skeleton */}
-        <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white shadow rounded-xl p-6">
+            <div key={i} className="bg-white shadow rounded-xl p-4 sm:p-6">
               <div className="animate-pulse">
                 <div className="h-6 bg-gray-300 rounded w-1/3 mb-4"></div>
                 <div className="h-8 bg-gray-200 rounded w-1/4"></div>
@@ -397,15 +397,14 @@ const Dashboard = ({ userEmail }) => {
     <div className="space-y-6">
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg overflow-hidden">
-        <div className="px-4 py-6 sm:px-6 sm:py-8 sm:p-10">
+        <div className="px-4 py-4 sm:px-6 sm:py-8 sm:p-10">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-xl sm:text-2xl font-bold text-white break-words">
+              <h1 className="text-lg sm:text-2xl font-bold text-white break-words leading-tight">
                 Welcome back, {userEmail.split("@")[0]}!
               </h1>
-              <p className="mt-2 text-sm sm:text-base text-blue-100 max-w-lg">
-                You have {ongoing.length} active elections to participate in. Make your voice
-                heard!
+              <p className="mt-1 text-xs sm:text-base text-blue-100 max-w-lg">
+                You have {ongoing.length} active election{ongoing.length === 1 ? '' : 's'} right now.
               </p>
             </div>
             <div className="hidden sm:block self-start sm:self-auto">
@@ -418,27 +417,27 @@ const Dashboard = ({ userEmail }) => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
         {stats.map((stat) => (
           <div
             key={stat.name}
-            className="bg-white overflow-hidden shadow rounded-xl hover:shadow-md transition-shadow duration-200"
+            className="bg-white overflow-hidden border border-gray-100 shadow-sm rounded-xl hover:shadow-md transition-shadow duration-200"
           >
-            <div className="p-5">
-              <div className="flex items-center">
+            <div className="p-3 sm:p-5">
+              <div className="flex flex-col items-start sm:items-center sm:flex-row gap-1 sm:gap-0">
                 <div className="flex-shrink-0">
-                  <stat.icon className="h-6 w-6 text-blue-600" />
+                  <stat.icon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
                 </div>
-                <div className="ml-5 w-0 flex-1">
-                  <dt className="text-sm font-medium text-gray-500 truncate">
+                <div className="sm:ml-5 w-full sm:w-0 sm:flex-1">
+                  <dt className="text-xs sm:text-sm font-medium text-gray-500 leading-tight">
                     {stat.name}
                   </dt>
-                  <dd className="flex items-baseline">
-                    <div className="text-2xl font-semibold text-gray-900">
+                  <dd className="flex items-baseline mt-0.5">
+                    <div className="text-xl sm:text-2xl font-semibold text-gray-900">
                       {stat.value}
                     </div>
                     <div
-                      className={`ml-2 flex items-baseline text-sm font-semibold ${
+                      className={`ml-2 flex items-baseline text-xs sm:text-sm font-semibold ${
                         stat.changeType === "positive"
                           ? "text-green-600"
                           : stat.changeType === "negative"
