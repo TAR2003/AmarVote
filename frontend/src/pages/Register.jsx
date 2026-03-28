@@ -12,6 +12,7 @@ export default function Register({ setUserEmail }) {
   const [emailVerificationToken, setEmailVerificationToken] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [enableMfa, setEnableMfa] = useState(false);
   const [secret, setSecret] = useState("");
   const [qrCodeDataUri, setQrCodeDataUri] = useState("");
   const [otpCode, setOtpCode] = useState("");
@@ -106,7 +107,7 @@ export default function Register({ setUserEmail }) {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, emailVerificationToken }),
+        body: JSON.stringify({ email, password, emailVerificationToken, enableMfa }),
       });
 
       const data = await res.json();
@@ -114,8 +115,14 @@ export default function Register({ setUserEmail }) {
         throw new Error(data.message || "Registration failed");
       }
 
+      if (data.status === "REGISTERED_NO_MFA") {
+        if (setUserEmail) setUserEmail(email);
+        navigate("/dashboard");
+        return;
+      }
+
       if (data.status !== "MFA_SETUP_REQUIRED") {
-        throw new Error("Unexpected registration response");
+        throw new Error(data.message || "Unexpected registration response");
       }
 
       setSecret(data.secret || "");
@@ -175,7 +182,7 @@ export default function Register({ setUserEmail }) {
           <p className="mt-2 text-sm text-gray-600">
             {step === 1 && "Enter your email to receive a 6-digit verification code."}
             {step === 2 && `Enter the 6-digit code sent to ${email}.`}
-            {step === 3 && "Create and confirm your password before MFA setup."}
+            {step === 3 && "Create and confirm your password. 2FA is optional and can be enabled later in Profile."}
             {step === 4 && "Scan the QR code with Google Authenticator, then enter the 6-digit code."}
           </p>
 
@@ -262,12 +269,25 @@ export default function Register({ setUserEmail }) {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
 
+              <label className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-3">
+                <input
+                  type="checkbox"
+                  checked={enableMfa}
+                  onChange={(e) => setEnableMfa(e.target.checked)}
+                  className="mt-1"
+                />
+                <span className="text-sm text-blue-900">
+                  <strong>Recommended:</strong> Enable two-step verification (Google Authenticator) now.
+                  You can always turn it on or off later from your profile.
+                </span>
+              </label>
+
               <button
                 type="submit"
                 disabled={loading}
                 className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
               >
-                {loading ? "Creating account..." : "Continue to MFA setup"}
+                {loading ? "Creating account..." : (enableMfa ? "Continue to MFA setup" : "Create account")}
               </button>
             </form>
           )}

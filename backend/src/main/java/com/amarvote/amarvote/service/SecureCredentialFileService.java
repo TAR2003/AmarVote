@@ -320,7 +320,7 @@ public class SecureCredentialFileService {
      * Generates a secure filename.
      */
     private String generateFilename(String sanitizedEmail, Long electionId) {
-        return FILE_PREFIX + sanitizedEmail + "_" + electionId + FILE_EXTENSION;
+        return FILE_PREFIX + "credentials_" + sanitizedEmail + "_election_" + electionId + FILE_EXTENSION;
     }
 
     /**

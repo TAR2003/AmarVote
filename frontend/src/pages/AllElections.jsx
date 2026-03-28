@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo, useCallback, memo, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import { fetchAllElections } from "../utils/api";
+import { deleteElection, fetchAllElections } from "../utils/api";
 import { timezoneUtils } from "../utils/timezoneUtils";
-import { FiCalendar, FiClock, FiUsers, FiInfo, FiLoader } from "react-icons/fi";
+import { FiCalendar, FiClock, FiUsers, FiInfo, FiLoader, FiTrash2 } from "react-icons/fi";
 
 /**
  * AllElections Component - Optimized for single API call
@@ -184,9 +184,12 @@ const AllElections = () => {
   const [elections, setElections] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [successMessage, setSuccessMessage] = useState("");
   const [filter, setFilter] = useState("all");
   const [displayLimit, setDisplayLimit] = useState(10); // Limit initial render
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  const [electionToDelete, setElectionToDelete] = useState(null);
+  const [deletingElectionId, setDeletingElectionId] = useState(null);
 
   // Optimized data loading with caching
   useEffect(() => {
@@ -274,6 +277,38 @@ const AllElections = () => {
     // For 'listed' eligibility, only users in voter role can vote
     return false;
   }, []);
+
+  const canDeleteElection = useCallback((election) => {
+    return election?.userRoles?.includes("admin") || election?.userRoles?.includes("guardian");
+  }, []);
+
+  const handleRequestDelete = useCallback((election, event) => {
+    event.stopPropagation();
+    setElectionToDelete(election);
+  }, []);
+
+  const handleConfirmDelete = useCallback(async () => {
+    if (!electionToDelete) return;
+
+    try {
+      setDeletingElectionId(electionToDelete.electionId);
+      setError(null);
+      await deleteElection(electionToDelete.electionId);
+      setElections((prev) => prev.filter((e) => e.electionId !== electionToDelete.electionId));
+      setSuccessMessage(`Election \"${electionToDelete.electionTitle}\" deleted successfully.`);
+      setElectionToDelete(null);
+    } catch (err) {
+      setError(err.message || "Failed to delete election");
+    } finally {
+      setDeletingElectionId(null);
+    }
+  }, [electionToDelete]);
+
+  useEffect(() => {
+    if (!successMessage) return;
+    const timer = setTimeout(() => setSuccessMessage(""), 4000);
+    return () => clearTimeout(timer);
+  }, [successMessage]);
 
   // Memoized filtered elections with progressive loading
   const { filteredElections, hasMore } = useMemo(() => {
@@ -449,6 +484,12 @@ const AllElections = () => {
         </div>
       </div>
 
+      {successMessage && (
+        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
+          {successMessage}
+        </div>
+      )}
+
       {/* Elections List */}
       <div className="bg-white shadow rounded-lg">
         <div className="divide-y divide-gray-200">
@@ -537,6 +578,17 @@ const AllElections = () => {
                     </div>
                     
                     <div className="flex-shrink-0 ml-4">
+                      {canDeleteElection(election) && (
+                        <button
+                          className="mb-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                          onClick={(e) => handleRequestDelete(election, e)}
+                          disabled={deletingElectionId === election.electionId}
+                        >
+                          <FiTrash2 className="h-4 w-4" />
+                          {deletingElectionId === election.electionId ? "Deleting..." : "Delete"}
+                        </button>
+                      )}
+
                       {status === "ongoing" && (
                         <button 
                           className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
@@ -612,6 +664,34 @@ const AllElections = () => {
           </div>
         )}
       </div>
+
+      {electionToDelete && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
+          <div className="w-full max-w-md bg-white rounded-xl shadow-xl p-6">
+            <h3 className="text-lg font-semibold text-gray-900">Delete Election</h3>
+            <p className="mt-2 text-sm text-gray-600">
+              Are you sure you want to permanently delete "{electionToDelete.electionTitle}"?
+              This action cannot be undone.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                onClick={() => setElectionToDelete(null)}
+                className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                disabled={!!deletingElectionId}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDelete}
+                className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                disabled={!!deletingElectionId}
+              >
+                {deletingElectionId ? "Deleting..." : "Confirm Delete"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

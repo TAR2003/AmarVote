@@ -1,298 +1,305 @@
-import React, { useState, useEffect } from "react";
-import { FiUser, FiMail, FiEdit, FiSave, FiX, FiAlertCircle } from "react-icons/fi";
-import { getUserProfile, updateUserProfile, uploadProfilePicture } from "../utils/api";
-import ImageUpload from "../components/ImageUpload";
+import React, { useEffect, useState } from "react";
+import { FiAlertCircle, FiCheckCircle, FiLock, FiShield, FiMail } from "react-icons/fi";
+import OtpInput from "../components/OtpInput";
+import {
+  changePassword,
+  confirmProfileMfaSetup,
+  disableProfileMfa,
+  getProfileSettings,
+  startProfileMfaSetup,
+} from "../utils/api";
 
 const Profile = () => {
   const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [successMessage, setSuccessMessage] = useState(null);
-  const [user, setUser] = useState({
-    userName: "",
-    userEmail: "",
-    profilePic: "",
-    isVerified: false
+  const [error, setError] = useState("");
+  const [success, setSuccess] = useState("");
+  const [profile, setProfile] = useState({
+    email: "",
+    mfaEnabled: false,
+    mfaRegistered: false,
   });
 
-  const [isEditing, setIsEditing] = useState(false);
-  const [tempUser, setTempUser] = useState({ ...user });
+  const [passwordForm, setPasswordForm] = useState({
+    currentPassword: "",
+    newPassword: "",
+    confirmPassword: "",
+  });
+  const [passwordBusy, setPasswordBusy] = useState(false);
 
-  // Fetch user profile on component mount
-  useEffect(() => {
-    const fetchUserProfile = async () => {
-      try {
-        setLoading(true);
-        const userData = await getUserProfile();
-        setUser(userData);
-        setTempUser(userData);
-        setError(null);
-      } catch (err) {
-        console.error("Failed to fetch user profile:", err);
-        setError("Failed to load user profile. Please try again later.");
-      } finally {
-        setLoading(false);
-      }
-    };
+  const [mfaSetup, setMfaSetup] = useState({
+    qrCodeDataUri: "",
+    secret: "",
+  });
+  const [mfaCode, setMfaCode] = useState("");
+  const [mfaBusy, setMfaBusy] = useState(false);
 
-    fetchUserProfile();
-  }, []);
-  
-  // Clear success/error messages after 5 seconds
-  useEffect(() => {
-    if (successMessage) {
-      const timer = setTimeout(() => {
-        setSuccessMessage(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [successMessage]);
-  
-  useEffect(() => {
-    if (error) {
-      const timer = setTimeout(() => {
-        setError(null);
-      }, 5000);
-      return () => clearTimeout(timer);
-    }
-  }, [error]);
-
-  const handleEdit = () => {
-    setTempUser({ ...user });
-    setIsEditing(true);
-  };
-
-  const handleCancel = () => {
-    setTempUser({ ...user });
-    setIsEditing(false);
-  };
-
-  const handleSave = async () => {
+  const loadProfile = async () => {
     try {
       setLoading(true);
-      setError(null);
-      
-      // Validate required fields
-      if (!tempUser.userName || tempUser.userName.trim() === '') {
-        setError("Name is required");
-        setLoading(false);
-        return;
-      }
-      
-      // Create request object with only the fields that can be updated
-      const updateData = {
-        userName: tempUser.userName,
-        profilePic: tempUser.profilePic || null
-      };
-      
-      console.log("Sending profile update:", updateData);
-      const updatedProfile = await updateUserProfile(updateData);
-      setUser(updatedProfile);
-      setSuccessMessage("Profile updated successfully");
-      setIsEditing(false);
+      const data = await getProfileSettings();
+      setProfile({
+        email: data.email || "",
+        mfaEnabled: !!data.mfaEnabled,
+        mfaRegistered: !!data.mfaRegistered,
+      });
+      setError("");
     } catch (err) {
-      console.error("Failed to update profile:", err);
-      setError(err.message || "Failed to update profile. Please try again later.");
+      setError(err.message || "Failed to load profile settings");
     } finally {
       setLoading(false);
     }
   };
 
-  const handleChange = (e) => {
-    setTempUser({
-      ...tempUser,
-      [e.target.name]: e.target.value,
-    });
+  useEffect(() => {
+    loadProfile();
+  }, []);
+
+  useEffect(() => {
+    if (!error) return;
+    const timer = setTimeout(() => setError(""), 5000);
+    return () => clearTimeout(timer);
+  }, [error]);
+
+  useEffect(() => {
+    if (!success) return;
+    const timer = setTimeout(() => setSuccess(""), 5000);
+    return () => clearTimeout(timer);
+  }, [success]);
+
+  const handlePasswordChange = async (e) => {
+    e.preventDefault();
+    setError("");
+    setSuccess("");
+
+    if (passwordForm.newPassword.length < 8) {
+      setError("New password must be at least 8 characters");
+      return;
+    }
+
+    if (passwordForm.newPassword !== passwordForm.confirmPassword) {
+      setError("New password and confirm password do not match");
+      return;
+    }
+
+    try {
+      setPasswordBusy(true);
+      await changePassword(passwordForm.currentPassword, passwordForm.newPassword);
+      setPasswordForm({ currentPassword: "", newPassword: "", confirmPassword: "" });
+      setSuccess("Password changed successfully.");
+    } catch (err) {
+      setError(err.message || "Failed to update password");
+    } finally {
+      setPasswordBusy(false);
+    }
   };
 
-  const handleProfilePictureUpload = async (file) => {
+  const handleStartMfaSetup = async () => {
+    setError("");
+    setSuccess("");
+
     try {
-      setError(null);
-      const response = await uploadProfilePicture(file);
-      
-      // Update the user state with the new image URL
-      const updatedUser = { ...user, profilePic: response.imageUrl };
-      setUser(updatedUser);
-      setTempUser(updatedUser);
-      
-      setSuccessMessage('Profile picture updated successfully!');
+      setMfaBusy(true);
+      const data = await startProfileMfaSetup();
+      setMfaSetup({
+        qrCodeDataUri: data.qrCodeDataUri || "",
+        secret: data.secret || "",
+      });
+      setMfaCode("");
+      setSuccess("Scan the QR code and enter the 6-digit code to enable 2FA.");
     } catch (err) {
-      console.error('Failed to upload profile picture:', err);
-      throw err; // Re-throw to let ImageUpload component handle the error display
+      setError(err.message || "Failed to start 2FA setup");
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const handleConfirmMfa = async (codeOverride) => {
+    const code = (codeOverride || mfaCode).replace(/\D/g, "").slice(0, 6);
+    if (code.length !== 6) return;
+
+    setError("");
+    setSuccess("");
+
+    try {
+      setMfaBusy(true);
+      await confirmProfileMfaSetup(code);
+      setMfaSetup({ qrCodeDataUri: "", secret: "" });
+      setMfaCode("");
+      setSuccess("Two-step verification has been enabled.");
+      await loadProfile();
+    } catch (err) {
+      setError(err.message || "Invalid 2FA code");
+    } finally {
+      setMfaBusy(false);
+    }
+  };
+
+  const handleDisableMfa = async () => {
+    setError("");
+    setSuccess("");
+
+    try {
+      setMfaBusy(true);
+      await disableProfileMfa();
+      setMfaSetup({ qrCodeDataUri: "", secret: "" });
+      setMfaCode("");
+      setSuccess("Two-step verification has been disabled.");
+      await loadProfile();
+    } catch (err) {
+      setError(err.message || "Failed to disable 2FA");
+    } finally {
+      setMfaBusy(false);
     }
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8">
-      {loading && !isEditing && (
-        <div className="flex justify-center items-center py-10">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500"></div>
+    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+      {loading ? (
+        <div className="flex justify-center items-center py-14">
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
         </div>
-      )}
-      
-      {error && (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4 mb-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <FiAlertCircle className="h-5 w-5 text-red-400" />
-            </div>
-            <div className="ml-3">
-              <p className="text-sm text-red-700">{error}</p>
-            </div>
+      ) : null}
+
+      {error ? (
+        <div className="bg-red-50 border-l-4 border-red-500 p-4">
+          <div className="flex items-center gap-3 text-red-700 text-sm">
+            <FiAlertCircle className="h-5 w-5" />
+            <span>{error}</span>
           </div>
         </div>
-      )}
-      
-      {successMessage && (
-        <div className="bg-green-50 border-l-4 border-green-500 p-4 mb-4">
-          <div className="flex">
-            <div className="ml-3">
-              <p className="text-sm text-green-700">{successMessage}</p>
-            </div>
-            <div className="ml-auto pl-3">
-              <div className="-mx-1.5 -my-1.5">
-                <button
-                  onClick={() => setSuccessMessage(null)}
-                  className="inline-flex rounded-md p-1.5 text-green-500 hover:bg-green-100 focus:outline-none"
-                >
-                  <FiX className="h-5 w-5" />
-                </button>
-              </div>
-            </div>
+      ) : null}
+
+      {success ? (
+        <div className="bg-green-50 border-l-4 border-green-500 p-4">
+          <div className="flex items-center gap-3 text-green-700 text-sm">
+            <FiCheckCircle className="h-5 w-5" />
+            <span>{success}</span>
           </div>
         </div>
-      )}
+      ) : null}
 
       <div className="bg-white shadow rounded-lg overflow-hidden">
-        {/* Profile Header */}
         <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white">
-          <div className="flex items-center justify-between">
-            <h1 className="text-2xl font-bold">Profile Settings</h1>
-            {!isEditing ? (
-              <button
-                onClick={handleEdit}
-                className="flex items-center gap-2 px-4 py-2 bg-white bg-opacity-20 rounded-full hover:bg-opacity-30 transition"
-                disabled={loading}
-              >
-                <FiEdit /> Edit Profile
-              </button>
-            ) : (
-              <div className="flex gap-2">
-                <button
-                  onClick={handleCancel}
-                  className="flex items-center gap-2 px-4 py-2 bg-white bg-opacity-20 rounded-full hover:bg-opacity-30 transition"
-                  disabled={loading}
-                >
-                  <FiX /> Cancel
-                </button>
-                <button
-                  onClick={handleSave}
-                  className="flex items-center gap-2 px-4 py-2 bg-white text-blue-600 rounded-full hover:bg-opacity-90 transition"
-                  disabled={loading}
-                >
-                  {loading ? (
-                    <span className="inline-block h-4 w-4 animate-spin rounded-full border-2 border-blue-600 border-t-transparent"></span>
-                  ) : (
-                    <FiSave />
-                  )}
-                  Save Changes
-                </button>
-              </div>
-            )}
+          <h1 className="text-2xl font-bold">Account Security</h1>
+          <p className="mt-1 text-sm text-blue-100">Manage password and two-step verification settings.</p>
+        </div>
+
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-center gap-3 text-gray-700">
+            <FiMail className="h-5 w-5 text-blue-600" />
+            <span className="text-sm font-medium">Email:</span>
+            <span className="text-sm">{profile.email || "-"}</span>
           </div>
         </div>
 
-        {/* Profile Content */}
-        {!loading || isEditing ? (
-          <div className="p-6">
-            <div className="flex flex-col lg:flex-row gap-8">
-              {/* Profile Picture Section */}
-              <div className="lg:w-1/3">
-                {isEditing ? (
-                  <ImageUpload
-                    onImageUpload={handleProfilePictureUpload}
-                    currentImage={user.profilePic}
-                    uploadType="profile"
-                    className="mb-4"
-                  />
-                ) : (
-                  <div className="text-center">
-                    <img
-                      className="w-48 h-48 mx-auto rounded-full object-cover border-4 border-white shadow-lg"
-                      src={user.profilePic || "/default-avatar.png"}
-                      alt="Profile"
-                      onError={(e) => {
-                        e.target.src = "/default-avatar.png";
-                        e.onerror = null;
-                      }}
-                    />
-                    <h2 className="mt-4 text-xl font-semibold text-gray-900">{user.userName}</h2>
-                    <p className="text-gray-500">{user.userEmail}</p>
-                  </div>
-                )}
+        <div className="p-6 border-b border-gray-200">
+          <div className="flex items-start justify-between gap-4">
+            <div>
+              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+                <FiShield className="h-5 w-5 text-indigo-600" />
+                Two-Step Verification
+              </h2>
+              <p className="text-sm text-gray-600 mt-1">
+                Status: {profile.mfaEnabled ? "Enabled" : "Disabled"}
+              </p>
+            </div>
+
+            {profile.mfaEnabled ? (
+              <button
+                type="button"
+                onClick={handleDisableMfa}
+                disabled={mfaBusy}
+                className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-60"
+              >
+                {mfaBusy ? "Disabling..." : "Turn Off"}
+              </button>
+            ) : (
+              <button
+                type="button"
+                onClick={handleStartMfaSetup}
+                disabled={mfaBusy}
+                className="px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+              >
+                {mfaBusy ? "Preparing..." : "Turn On"}
+              </button>
+            )}
+          </div>
+
+          {!profile.mfaEnabled && mfaSetup.qrCodeDataUri ? (
+            <div className="mt-6 rounded-lg border border-indigo-100 bg-indigo-50 p-4">
+              <p className="text-sm text-indigo-900 mb-3">
+                Scan this QR code with Google Authenticator, then confirm with a 6-digit code.
+              </p>
+
+              <div className="bg-white rounded-lg p-4 inline-block">
+                <img src={mfaSetup.qrCodeDataUri} alt="MFA QR" className="h-52 w-52" />
               </div>
 
-              {/* Profile Details */}
-              <div className="lg:w-2/3">
-                <div className="space-y-6">
-                  {/* Name Field */}
-                  <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Full Name
-                  </label>
-                  {isEditing ? (
-                    <input
-                      type="text"
-                      name="userName"
-                      value={tempUser.userName || ""}
-                      onChange={handleChange}
-                      className="w-full px-4 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    />
-                  ) : (
-                    <p className="text-lg font-medium">{user.userName}</p>
-                  )}
-                </div>
+              {mfaSetup.secret ? (
+                <p className="mt-3 text-xs text-indigo-900">
+                  Manual secret: <span className="font-mono font-semibold">{mfaSetup.secret}</span>
+                </p>
+              ) : null}
 
-                {/* Email Field */}
-                <div>
-                  <label className="text-sm font-medium text-gray-500 mb-1 items-center gap-2 inline-flex">
-                    <FiMail /> Email Address
-                  </label>
-                  <p className="text-lg">{user.userEmail}</p>
-                </div>
-
-                {/* Verification Status */}
-                <div>
-                  <label className="block text-sm font-medium text-gray-500 mb-1">
-                    Account Status
-                  </label>
-                  <span 
-                    className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
-                      user.isVerified 
-                        ? 'bg-green-100 text-green-800' 
-                        : 'bg-yellow-100 text-yellow-800'
-                    }`}
-                  >
-                    {user.isVerified ? 'Verified' : 'Not Verified'}
-                  </span>
-                </div>
-
-                </div>
+              <div className="mt-4 max-w-xs">
+                <OtpInput value={mfaCode} onChange={setMfaCode} onComplete={handleConfirmMfa} disabled={mfaBusy} />
+                <button
+                  type="button"
+                  onClick={() => handleConfirmMfa()}
+                  disabled={mfaBusy || mfaCode.replace(/\D/g, "").length !== 6}
+                  className="mt-3 w-full rounded-md bg-indigo-700 text-white py-2 text-sm font-medium hover:bg-indigo-800 disabled:opacity-60"
+                >
+                  {mfaBusy ? "Confirming..." : "Confirm and Enable"}
+                </button>
               </div>
             </div>
-          </div>
-        ) : null}
+          ) : null}
+        </div>
 
-        {/* Account Actions */}
-        <div className="bg-gray-50 px-6 py-4 border-t">
-          <h3 className="text-lg font-medium mb-2">Account Actions</h3>
-          <div className="flex flex-wrap gap-3">
-            <button 
-              className="px-4 py-2 text-sm font-medium text-red-600 bg-red-50 rounded-lg hover:bg-red-100 transition"
-              disabled={loading || isEditing}
+        <div className="p-6">
+          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
+            <FiLock className="h-5 w-5 text-blue-600" />
+            Change Password
+          </h2>
+
+          <form className="mt-4 space-y-4 max-w-lg" onSubmit={handlePasswordChange}>
+            <input
+              type="password"
+              required
+              placeholder="Current password"
+              value={passwordForm.currentPassword}
+              onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            />
+
+            <input
+              type="password"
+              required
+              minLength={8}
+              placeholder="New password (min 8 characters)"
+              value={passwordForm.newPassword}
+              onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            />
+
+            <input
+              type="password"
+              required
+              minLength={8}
+              placeholder="Confirm new password"
+              value={passwordForm.confirmPassword}
+              onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
+              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+            />
+
+            <button
+              type="submit"
+              disabled={passwordBusy}
+              className="rounded-md bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
             >
-              Deactivate Account
+              {passwordBusy ? "Updating..." : "Update Password"}
             </button>
-          </div>
+          </form>
         </div>
       </div>
     </div>

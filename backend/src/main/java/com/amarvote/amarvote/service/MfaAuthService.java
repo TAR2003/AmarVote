@@ -28,7 +28,7 @@ public class MfaAuthService {
 
     @Transactional
     @SuppressWarnings("null")
-    public Map<String, Object> registerAndStartMfaSetup(String email, String password, String emailVerificationToken) {
+    public Map<String, Object> registerAndStartMfaSetup(String email, String password, String emailVerificationToken, boolean enableMfa) {
         String normalizedEmail = email.trim().toLowerCase();
 
         Optional<String> verifiedEmailOpt = tempJwtService.extractEmailIfValidVerifiedEmailToken(emailVerificationToken);
@@ -40,17 +40,27 @@ public class MfaAuthService {
             throw new IllegalArgumentException("User already exists");
         }
 
-        String secret = totpService.generateSecret();
-
         AppUser user = AppUser.builder()
                 .email(normalizedEmail)
                 .passwordHash(passwordEncoder.encode(password))
-                .mfaSecret(secret)
+            .mfaSecret(null)
                 .isMfaEnabled(false)
                 .mfaRegistered(false)
                 .build();
 
         appUserRepository.save(Objects.requireNonNull(user));
+
+        if (!enableMfa) {
+            Map<String, Object> response = new LinkedHashMap<>();
+            response.put("status", "REGISTERED_NO_MFA");
+            response.put("token", jwtService.generateJWTToken(normalizedEmail));
+            response.put("message", "Registration complete. You can enable 2FA later from Profile.");
+            return response;
+        }
+
+        String secret = totpService.generateSecret();
+        user.setMfaSecret(secret);
+        appUserRepository.save(user);
 
         String otpAuthUri = totpService.buildOtpAuthUri(normalizedEmail, secret);
         String qrCodeDataUri = totpService.generateQrCodeDataUri(otpAuthUri);
@@ -103,8 +113,8 @@ public class MfaAuthService {
 
         if (!Boolean.TRUE.equals(user.getIsMfaEnabled())) {
             Map<String, Object> response = new LinkedHashMap<>();
-            response.put("status", "MFA_SETUP_REQUIRED");
-            response.put("message", "MFA must be configured for this account");
+            response.put("status", "LOGIN_SUCCESS");
+            response.put("token", jwtService.generateJWTToken(normalizedEmail));
             return Optional.of(response);
         }
 
@@ -139,5 +149,85 @@ public class MfaAuthService {
         }
 
         return Optional.of(jwtService.generateJWTToken(email));
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> getProfileSettings(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+        AppUser user = appUserRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        Map<String, Object> profile = new LinkedHashMap<>();
+        profile.put("email", user.getEmail());
+        profile.put("mfaEnabled", Boolean.TRUE.equals(user.getIsMfaEnabled()));
+        profile.put("mfaRegistered", Boolean.TRUE.equals(user.getMfaRegistered()));
+        return profile;
+    }
+
+    @Transactional
+    public void changePassword(String email, String currentPassword, String newPassword) {
+        String normalizedEmail = email.trim().toLowerCase();
+        AppUser user = appUserRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        appUserRepository.save(user);
+    }
+
+    @Transactional
+    public Map<String, Object> startProfileMfaSetup(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+        AppUser user = appUserRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        String secret = totpService.generateSecret();
+        user.setMfaSecret(secret);
+        user.setIsMfaEnabled(false);
+        user.setMfaRegistered(false);
+        appUserRepository.save(user);
+
+        String otpAuthUri = totpService.buildOtpAuthUri(normalizedEmail, secret);
+        String qrCodeDataUri = totpService.generateQrCodeDataUri(otpAuthUri);
+
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("status", "MFA_SETUP_REQUIRED");
+        response.put("qrCodeDataUri", qrCodeDataUri);
+        response.put("secret", secret);
+        return response;
+    }
+
+    @Transactional
+    public boolean confirmProfileMfaSetup(String email, String totpCode) {
+        String normalizedEmail = email.trim().toLowerCase();
+        Optional<AppUser> userOpt = appUserRepository.findByEmail(normalizedEmail);
+        if (userOpt.isEmpty()) {
+            return false;
+        }
+
+        AppUser user = userOpt.get();
+        if (user.getMfaSecret() == null || !totpService.verifyCode(user.getMfaSecret(), totpCode)) {
+            return false;
+        }
+
+        user.setMfaRegistered(true);
+        user.setIsMfaEnabled(true);
+        appUserRepository.save(user);
+        return true;
+    }
+
+    @Transactional
+    public void disableProfileMfa(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+        AppUser user = appUserRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        user.setIsMfaEnabled(false);
+        user.setMfaRegistered(false);
+        user.setMfaSecret(null);
+        appUserRepository.save(user);
     }
 }

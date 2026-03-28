@@ -34,6 +34,13 @@ export default function Login({ setUserEmail }) {
 
       const data = await res.json();
 
+      if (res.ok && data.status === "LOGIN_SUCCESS") {
+        setStage(STAGES.SUCCESS);
+        if (setUserEmail) setUserEmail(email);
+        navigate("/dashboard");
+        return;
+      }
+
       if (res.status === 202 && data.status === "MFA_REQUIRED") {
         setTempToken(data.tempToken || "");
         setStage(STAGES.AWAITING_MFA);

@@ -19,12 +19,14 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.amarvote.amarvote.dto.AuthLoginRequestDto;
 import com.amarvote.amarvote.dto.AuthRegisterRequestDto;
+import com.amarvote.amarvote.dto.ChangePasswordRequestDto;
 import com.amarvote.amarvote.dto.MfaConfirmSetupRequestDto;
 import com.amarvote.amarvote.dto.MfaVerifyRequestDto;
 import com.amarvote.amarvote.dto.OtpLoginResponseDto;
 import com.amarvote.amarvote.dto.OtpRequestDto;
 import com.amarvote.amarvote.dto.OtpResponseDto;
 import com.amarvote.amarvote.dto.OtpVerifyDto;
+import com.amarvote.amarvote.dto.ProfileMfaCodeRequestDto;
 import com.amarvote.amarvote.dto.RegisterSendEmailCodeRequestDto;
 import com.amarvote.amarvote.dto.RegisterVerifyEmailCodeRequestDto;
 import com.amarvote.amarvote.dto.UserSession;
@@ -73,13 +75,20 @@ public class OtpAuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody AuthRegisterRequestDto request) {
+    public ResponseEntity<?> register(@Valid @RequestBody AuthRegisterRequestDto request, HttpServletResponse response) {
         try {
-            Map<String, Object> response = mfaAuthService.registerAndStartMfaSetup(
+            boolean enableMfa = Boolean.TRUE.equals(request.getEnableMfa());
+            Map<String, Object> responseMap = mfaAuthService.registerAndStartMfaSetup(
                     request.getEmail(),
                     request.getPassword(),
-                    request.getEmailVerificationToken());
-            return ResponseEntity.ok(response);
+                    request.getEmailVerificationToken(),
+                    enableMfa);
+
+            if ("REGISTERED_NO_MFA".equals(responseMap.get("status")) && responseMap.get("token") != null) {
+                addAuthCookie(response, String.valueOf(responseMap.get("token")));
+            }
+
+            return ResponseEntity.ok(responseMap);
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("message", ex.getMessage()));
@@ -106,20 +115,92 @@ public class OtpAuthController {
     }
 
     @PostMapping("/login")
-    public ResponseEntity<?> loginStepOne(@Valid @RequestBody AuthLoginRequestDto request) {
+    public ResponseEntity<?> loginStepOne(@Valid @RequestBody AuthLoginRequestDto request, HttpServletResponse response) {
         Optional<Map<String, Object>> responseOpt = mfaAuthService.loginStepOne(request.getEmail(), request.getPassword());
         if (responseOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("message", "Invalid credentials"));
         }
 
-        Map<String, Object> response = responseOpt.get();
-        Object status = response.get("status");
+        Map<String, Object> responseMap = responseOpt.get();
+        Object status = responseMap.get("status");
         if ("MFA_REQUIRED".equals(status)) {
-            return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+            return ResponseEntity.status(HttpStatus.ACCEPTED).body(responseMap);
         }
 
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(response);
+        if ("LOGIN_SUCCESS".equals(status) && responseMap.get("token") != null) {
+            addAuthCookie(response, String.valueOf(responseMap.get("token")));
+            return ResponseEntity.ok(responseMap);
+        }
+
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(responseMap);
+    }
+
+    @GetMapping("/profile")
+    public ResponseEntity<?> getProfileSettings() {
+        String userEmail = getAuthenticatedEmail();
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Unauthorized"));
+        }
+
+        return ResponseEntity.ok(mfaAuthService.getProfileSettings(userEmail));
+    }
+
+    @PostMapping("/profile/password")
+    public ResponseEntity<?> changePassword(@Valid @RequestBody ChangePasswordRequestDto request) {
+        String userEmail = getAuthenticatedEmail();
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Unauthorized"));
+        }
+
+        try {
+            mfaAuthService.changePassword(userEmail, request.getCurrentPassword(), request.getNewPassword());
+            return ResponseEntity.ok(Map.of("success", true, "message", "Password updated successfully"));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+        }
+    }
+
+    @PostMapping("/profile/mfa/setup")
+    public ResponseEntity<?> startProfileMfaSetup() {
+        String userEmail = getAuthenticatedEmail();
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Unauthorized"));
+        }
+
+        return ResponseEntity.ok(mfaAuthService.startProfileMfaSetup(userEmail));
+    }
+
+    @PostMapping("/profile/mfa/confirm")
+    public ResponseEntity<?> confirmProfileMfa(@Valid @RequestBody ProfileMfaCodeRequestDto request) {
+        String userEmail = getAuthenticatedEmail();
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Unauthorized"));
+        }
+
+        boolean success = mfaAuthService.confirmProfileMfaSetup(userEmail, request.getTotpCode());
+        if (!success) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", "Invalid 2FA code"));
+        }
+
+        return ResponseEntity.ok(Map.of("success", true, "message", "2FA enabled successfully"));
+    }
+
+    @PostMapping("/profile/mfa/disable")
+    public ResponseEntity<?> disableProfileMfa() {
+        String userEmail = getAuthenticatedEmail();
+        if (userEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Unauthorized"));
+        }
+
+        mfaAuthService.disableProfileMfa(userEmail);
+        return ResponseEntity.ok(Map.of("success", true, "message", "2FA disabled successfully"));
     }
 
     @PostMapping("/mfa/verify")
@@ -236,4 +317,20 @@ public class OtpAuthController {
         cookie.setAttribute("SameSite", "Strict");
         response.addCookie(cookie);
     }
+
+    private String getAuthenticatedEmail() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            return null;
+        }
+
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserDetails userDetails) {
+            return userDetails.getUsername();
+        }
+
+        return authentication.getName();
+    }
+
 }

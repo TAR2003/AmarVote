@@ -2,6 +2,8 @@ package com.amarvote.amarvote.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -69,6 +71,9 @@ public class BallotService {
 
     @Autowired
     private BlockchainService blockchainService;
+
+    @Autowired
+    private EmailService emailService;
 
     @Transactional
     public CastBallotResponse castBallot(CastBallotRequest request, String userEmail) {
@@ -284,6 +289,14 @@ public class BallotService {
             updateVoterStatus(userEmail, election);
 
             // 12. Return success response
+                sendVoteReceiptEmail(
+                    userEmail,
+                    election,
+                    guardResponse.getBallot_hash(),
+                    ballotHashId,
+                    request.getSelectedCandidate(),
+                    findPartyForCandidate(choices, request.getSelectedCandidate()));
+
             return CastBallotResponse.builder()
                     .success(true)
                     .message("Ballot cast successfully")
@@ -1047,6 +1060,14 @@ public class BallotService {
             updateVoterStatus(userEmail, election);
 
             // 9. Return success response
+                sendVoteReceiptEmail(
+                    userEmail,
+                    election,
+                    request.getBallot_hash(),
+                    request.getBallot_tracking_code(),
+                    null,
+                    null);
+
             return CastBallotResponse.builder()
                     .success(true)
                     .message("Ballot cast successfully")
@@ -1061,6 +1082,49 @@ public class BallotService {
                     .errorReason("Internal server error: " + e.getMessage())
                     .build();
         }
+    }
+
+    private String findPartyForCandidate(List<ElectionChoice> choices, String candidateName) {
+        return choices.stream()
+                .filter(c -> c.getOptionTitle().equals(candidateName))
+                .map(ElectionChoice::getPartyName)
+                .findFirst()
+                .orElse("N/A");
+    }
+
+    private void sendVoteReceiptEmail(String userEmail, Election election, String hashCode, String trackingCode,
+            String candidateName, String partyName) {
+        try {
+            String receipt = buildVoteReceiptContent(
+                    election.getElectionTitle(),
+                    hashCode,
+                    trackingCode,
+                    candidateName,
+                    partyName);
+
+            emailService.sendVoteReceiptEmail(
+                    userEmail,
+                    election.getElectionTitle(),
+                    election.getElectionId(),
+                    receipt,
+                    trackingCode);
+        } catch (Exception e) {
+            System.err.println("⚠️ Failed to send vote receipt email: " + e.getMessage());
+        }
+    }
+
+    private String buildVoteReceiptContent(String electionTitle, String hashCode, String trackingCode,
+            String candidateName, String partyName) {
+        String formattedTime = DateTimeFormatter.ISO_LOCAL_DATE_TIME
+                .withZone(ZoneOffset.UTC)
+                .format(Instant.now());
+
+        return ("Election: " + electionTitle + "\n"
+                + "Vote Hash: " + hashCode + "\n"
+                + "Tracking Code: " + trackingCode + "\n"
+                + "Date: " + formattedTime + "\n"
+                + "Candidate: " + (candidateName == null || candidateName.isBlank() ? "Unknown" : candidateName) + "\n"
+                + "Party: " + (partyName == null || partyName.isBlank() ? "N/A" : partyName)).trim();
     }
 }
 

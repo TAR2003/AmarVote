@@ -3,9 +3,11 @@ package com.amarvote.amarvote.service;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Locale;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.FileSystemResource;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -78,7 +80,7 @@ public class EmailService {
             
             // Attach the credential file
             FileSystemResource file = new FileSystemResource(credentialFilePath.toFile());
-            helper.addAttachment("credentials.txt", file);
+            helper.addAttachment(buildGuardianCredentialFilename(electionTitle, electionId), file);
             
             mailSender.send(message);
             
@@ -87,6 +89,31 @@ public class EmailService {
         } catch (MessagingException e) {
             System.err.println("❌ Failed to send guardian credential email to " + toEmail + ": " + e.getMessage());
             throw new RuntimeException("Failed to send guardian credential email", e);
+        }
+    }
+
+    public void sendVoteReceiptEmail(String toEmail, String electionTitle, Long electionId, String receiptContent,
+            String trackingCode) {
+        String subject = "Your AmarVote Receipt - " + electionTitle;
+        String htmlContent = "<p>Your vote was cast successfully.</p>"
+                + "<p>Your receipt is attached as a TXT file. Please keep it for verification.</p>"
+                + "<p><strong>Tracking Code:</strong> " + trackingCode + "</p>";
+
+        try {
+            MimeMessage message = mailSender.createMimeMessage();
+            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
+            helper.setTo(toEmail);
+            helper.setSubject(subject);
+            helper.setText(htmlContent, true);
+            helper.setFrom(fromEmail);
+
+            helper.addAttachment(
+                    buildVoteReceiptFilename(electionTitle, electionId, trackingCode),
+                    new ByteArrayResource(receiptContent.getBytes(StandardCharsets.UTF_8)));
+
+            mailSender.send(message);
+        } catch (MessagingException e) {
+            throw new RuntimeException("Failed to send vote receipt email", e);
         }
     }
 
@@ -102,6 +129,34 @@ public class EmailService {
         } catch (MessagingException e) {
             throw new RuntimeException("Failed to send HTML email", e);
         }
+    }
+
+    private String buildVoteReceiptFilename(String electionTitle, Long electionId, String trackingCode) {
+        String safeTitle = sanitizeForFilename(electionTitle);
+        String safeTracking = sanitizeForFilename(trackingCode);
+        return "vote_receipt_" + safeTitle + "_election_" + electionId + "_" + safeTracking + ".txt";
+    }
+
+    private String buildGuardianCredentialFilename(String electionTitle, Long electionId) {
+        String safeTitle = sanitizeForFilename(electionTitle);
+        return "guardian_credentials_" + safeTitle + "_election_" + electionId + ".txt";
+    }
+
+    private String sanitizeForFilename(String input) {
+        if (input == null || input.isBlank()) {
+            return "unknown";
+        }
+
+        String normalized = input.toLowerCase(Locale.ROOT)
+                .replaceAll("[^a-z0-9]+", "_")
+                .replaceAll("_+", "_")
+                .replaceAll("^_|_$", "");
+
+        if (normalized.isBlank()) {
+            return "unknown";
+        }
+
+        return normalized.length() > 60 ? normalized.substring(0, 60) : normalized;
     }
 
     private String loadResetPasswordTemplate(String resetLink) {

@@ -23,6 +23,7 @@ import Features from "./pages/Features";
 import ApiLogs from "./pages/ApiLogs";
 import Architecture from "./pages/Architecture";
 import Security from "./pages/Security";
+import Profile from "./pages/Profile";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -122,6 +123,7 @@ function App() {
           <Route path="/election-page/:id" element={<ElectionPage />} />
           <Route path="/election-page/:id/:tab" element={<ElectionPage />} />
           <Route path="/all-elections" element={<AllElections />} />
+          <Route path="/profile" element={<Profile />} />
           {/* Add other authenticated routes here */}
         </Route>
       </Routes>

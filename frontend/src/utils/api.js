@@ -521,3 +521,67 @@ export async function uploadPartyPicture(file, choiceId) {
     throw error;
   }
 }
+
+/**
+ * Delete an election (admin or assigned guardian only)
+ * @param {number|string} electionId - Election ID
+ * @returns {Promise<Object>} Deletion result
+ */
+export async function deleteElection(electionId) {
+  return apiRequest(`/election/${electionId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Get profile security settings for current user.
+ * @returns {Promise<Object>}
+ */
+export async function getProfileSettings() {
+  return apiRequest('/auth/profile', { method: 'GET' });
+}
+
+/**
+ * Change current user's password.
+ * @param {string} currentPassword
+ * @param {string} newPassword
+ * @returns {Promise<Object>}
+ */
+export async function changePassword(currentPassword, newPassword) {
+  return apiRequest('/auth/profile/password', {
+    method: 'POST',
+    body: JSON.stringify({ currentPassword, newPassword }),
+  });
+}
+
+/**
+ * Start MFA setup from profile.
+ * @returns {Promise<Object>}
+ */
+export async function startProfileMfaSetup() {
+  return apiRequest('/auth/profile/mfa/setup', {
+    method: 'POST',
+  });
+}
+
+/**
+ * Confirm MFA setup from profile using TOTP code.
+ * @param {string} totpCode
+ * @returns {Promise<Object>}
+ */
+export async function confirmProfileMfaSetup(totpCode) {
+  return apiRequest('/auth/profile/mfa/confirm', {
+    method: 'POST',
+    body: JSON.stringify({ totpCode }),
+  });
+}
+
+/**
+ * Disable MFA from profile.
+ * @returns {Promise<Object>}
+ */
+export async function disableProfileMfa() {
+  return apiRequest('/auth/profile/mfa/disable', {
+    method: 'POST',
+  });
+}

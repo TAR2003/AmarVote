@@ -380,6 +380,17 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                 <span>API Logs</span>
               </button>
 
+              <Link
+                to="/profile"
+                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/profile')
+                    ? 'text-blue-700 bg-blue-50/80'
+                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
+                  }`}
+              >
+                <FiUser className="h-4 w-4" />
+                <span>Profile</span>
+              </Link>
+
             </div>
 
             {/* Search Bar - Visible on md and above */}
@@ -680,6 +691,18 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               <FiBarChart2 className="h-5 w-5" />
               <span>API Logs</span>
             </button>
+
+            <Link
+              to="/profile"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium ${isActiveRoute('/profile')
+                  ? 'text-blue-700 bg-blue-50/80'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+                }`}
+            >
+              <FiUser className="h-5 w-5" />
+              <span>Profile</span>
+            </Link>
 
             <button
               onClick={() => {

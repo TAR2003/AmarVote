@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -494,6 +495,34 @@ public class ElectionController {
             System.err.println("Error fetching election details: " + e.getMessage());
             e.printStackTrace();
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
+    }
+
+    @DeleteMapping("/election/{id}")
+    public ResponseEntity<?> deleteElection(@PathVariable Long id, HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            Map<String, Object> result = electionService.deleteElection(id, userEmail);
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            String message = e.getMessage() == null ? "Invalid request" : e.getMessage();
+            HttpStatus status = "Election not found".equals(message) ? HttpStatus.NOT_FOUND : HttpStatus.FORBIDDEN;
+            return ResponseEntity.status(status).body(Map.of("success", false, "message", message));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to delete election"));
         }
     }
 

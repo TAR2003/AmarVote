@@ -2716,6 +2716,13 @@ export default function ElectionPage() {
   };
 
   const saveVoteDetails = (format = 'txt') => {
+    const normalizedTitle = String(electionData?.electionTitle || 'election')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '')
+      .slice(0, 60) || 'election';
+
     if (format === 'txt') {
       // Standard TXT format for vote receipts
       const txtDetails = `
@@ -2731,7 +2738,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `vote-receipt-${voteResult.trackingCode}.txt`;
+      a.download = `vote_receipt_${normalizedTitle}_election_${electionData?.id || id}_${voteResult.trackingCode}.txt`;
       document.body.appendChild(a);
       a.click();
       URL.revokeObjectURL(url);
@@ -2752,7 +2759,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `vote-receipt-${voteResult.trackingCode}.json`;
+      a.download = `vote_receipt_${normalizedTitle}_election_${electionData?.id || id}_${voteResult.trackingCode}.json`;
       document.body.appendChild(a);
       a.click();
       URL.revokeObjectURL(url);
@@ -2949,11 +2956,18 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
   };
 
   const triggerAutoCredentialDownload = ({ electionId, encryptedCredential }) => {
+    const normalizedTitle = String(electionData?.electionTitle || 'election')
+      .toLowerCase()
+      .replace(/[^a-z0-9]+/g, '_')
+      .replace(/_+/g, '_')
+      .replace(/^_|_$/g, '')
+      .slice(0, 60) || 'election';
+
     const blob = new Blob([String(encryptedCredential || '').trim()], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `credentials-election-${electionId}.txt`;
+    a.download = `guardian_credentials_${normalizedTitle}_election_${electionId}.txt`;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
@@ -3031,7 +3045,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
         triggerAutoCredentialDownload({ electionId: id, encryptedCredential: response.encryptedCredential });
       }
 
-      setKeyCeremonyUiMessage('Round 1 submitted successfully. credentials.txt downloaded.');
+      setKeyCeremonyUiMessage('Round 1 submitted successfully. Guardian credential file downloaded.');
       await fetchElectionData();
       await loadKeyCeremonyProgress();
     } catch (err) {
@@ -3059,7 +3073,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
 
   const handleGenerateBackupShares = async () => {
     if (!backupCeremonyForm.credentialContent?.trim()) {
-      setKeyCeremonyUiError('Upload credentials.txt first');
+      setKeyCeremonyUiError('Upload your guardian credential file first');
       return;
     }
 

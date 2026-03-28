@@ -22,4 +22,6 @@ public class AuthRegisterRequestDto {
 
     @NotBlank(message = "emailVerificationToken is required")
     private String emailVerificationToken;
+
+    private Boolean enableMfa;
 }

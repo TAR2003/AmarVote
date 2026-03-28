@@ -34,11 +34,16 @@ import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.repository.AllowedVoterRepository;
 import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
+import com.amarvote.amarvote.repository.CombineWorkerLogRepository;
 import com.amarvote.amarvote.repository.DecryptionRepository;
+import com.amarvote.amarvote.repository.DecryptionWorkerLogRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
+import com.amarvote.amarvote.repository.ElectionJobRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
+import com.amarvote.amarvote.repository.SubmittedBallotRepository;
+import com.amarvote.amarvote.repository.TallyWorkerLogRepository;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.transaction.Transactional;
@@ -79,6 +84,23 @@ public class ElectionService {
 
     @Autowired
     private BlockchainService blockchainService;
+
+    @Autowired
+    private SubmittedBallotRepository submittedBallotRepository;
+
+    @Autowired
+    private DecryptionWorkerLogRepository decryptionWorkerLogRepository;
+
+
+    @Autowired
+    private CombineWorkerLogRepository combineWorkerLogRepository;
+
+
+    @Autowired
+    private TallyWorkerLogRepository tallyWorkerLogRepository;
+
+    @Autowired
+    private ElectionJobRepository electionJobRepository;
 
     @Transactional
     public Election createElection(ElectionCreationRequest request, String jwtToken, String userEmail) {
@@ -252,6 +274,95 @@ public class ElectionService {
         }
 
         return election;
+    }
+
+    @Transactional
+    public Map<String, Object> deleteElection(Long electionId, String userEmail) {
+        Election election = electionRepository.findById(electionId)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found"));
+
+        boolean isAdmin = userEmail != null && userEmail.equalsIgnoreCase(election.getAdminEmail());
+        boolean isGuardian = !guardianRepository.findByElectionIdAndUserEmail(electionId, userEmail).isEmpty();
+
+        if (!isAdmin && !isGuardian) {
+            throw new IllegalArgumentException("Only election admin or assigned guardian can delete this election");
+        }
+
+        List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
+
+        if (!electionCenterIds.isEmpty()) {
+            for (Long centerId : electionCenterIds) {
+                submittedBallotRepository.deleteByElectionCenterId(centerId);
+            }
+
+            for (Long centerId : electionCenterIds) {
+                List<Decryption> decryptions = decryptionRepository.findByElectionCenterId(centerId);
+                if (!decryptions.isEmpty()) {
+                    decryptionRepository.deleteAll(decryptions);
+                }
+
+                List<CompensatedDecryption> compensated = compensatedDecryptionRepository.findByElectionCenterId(centerId);
+                if (!compensated.isEmpty()) {
+                    compensatedDecryptionRepository.deleteAll(compensated);
+                }
+            }
+        }
+
+        List<ElectionCenter> centers = electionCenterRepository.findByElectionId(electionId);
+        if (!centers.isEmpty()) {
+            electionCenterRepository.deleteAll(centers);
+        }
+
+        List<Guardian> guardians = guardianRepository.findByElectionId(electionId);
+        if (!guardians.isEmpty()) {
+            guardianRepository.deleteAll(guardians);
+        }
+
+        List<AllowedVoter> voters = allowedVoterRepository.findByElectionId(electionId);
+        if (!voters.isEmpty()) {
+            allowedVoterRepository.deleteAll(voters);
+        }
+
+        List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(electionId);
+        if (!choices.isEmpty()) {
+            electionChoiceRepository.deleteAll(choices);
+        }
+
+        List<com.amarvote.amarvote.model.Ballot> ballots = ballotRepository.findByElectionId(electionId);
+        if (!ballots.isEmpty()) {
+            ballotRepository.deleteAll(ballots);
+        }
+
+        List<com.amarvote.amarvote.model.DecryptionWorkerLog> decryptionLogs = decryptionWorkerLogRepository
+                .findByElectionIdOrderByStartTimeAsc(electionId);
+        if (!decryptionLogs.isEmpty()) {
+            decryptionWorkerLogRepository.deleteAll(decryptionLogs);
+        }
+
+        List<com.amarvote.amarvote.model.CombineWorkerLog> combineLogs = combineWorkerLogRepository
+                .findByElectionIdOrderByStartTimeAsc(electionId);
+        if (!combineLogs.isEmpty()) {
+            combineWorkerLogRepository.deleteAll(combineLogs);
+        }
+
+        List<com.amarvote.amarvote.model.TallyWorkerLog> tallyLogs = tallyWorkerLogRepository
+                .findByElectionIdOrderByStartTimeAsc(electionId);
+        if (!tallyLogs.isEmpty()) {
+            tallyWorkerLogRepository.deleteAll(tallyLogs);
+        }
+
+        List<com.amarvote.amarvote.model.ElectionJob> jobs = electionJobRepository
+                .findByElectionIdOrderByStartedAtDesc(electionId);
+        if (!jobs.isEmpty()) {
+            electionJobRepository.deleteAll(jobs);
+        }
+
+        electionRepository.delete(election);
+
+        return Map.of(
+                "success", true,
+                "message", "Election deleted successfully",
+                "electionId", electionId);
     }
 
     public List<KeyCeremonyPendingElectionResponse> getPendingKeyCeremoniesForGuardian(String userEmail) {
