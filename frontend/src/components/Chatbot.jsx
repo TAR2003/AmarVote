@@ -263,12 +263,12 @@ const Chatbot = () => {
 
   if (!isOpen) {
     return (
-      <div className="fixed bottom-6 right-6 z-50">
+      <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50">
         <button
           onClick={() => setIsOpen(true)}
-          className="w-16 h-16 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full shadow-xl transition-all duration-300 hover:scale-110 relative group"
+          className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full shadow-xl transition-all duration-300 hover:scale-110 relative group"
           aria-label="Open chatbot"
-          style={{ position: 'fixed', bottom: '24px', right: '24px', zIndex: 9999 }}
+          style={{ position: 'fixed', bottom: '24px', right: '16px', zIndex: 9999 }}
         >
           <FiMessageCircle className="w-7 h-7 mx-auto" />
           {hasNewMessage && (
@@ -288,8 +288,8 @@ const Chatbot = () => {
     <div 
       className={`fixed transition-all duration-300 ${
         isMaximized 
-          ? 'inset-6' 
-          : 'bottom-6 right-6 w-96 h-[32rem]'
+          ? 'inset-2 md:inset-6' 
+          : 'inset-x-2 bottom-20 top-16 md:top-auto md:inset-x-auto md:bottom-6 md:right-6 md:w-96 md:h-[32rem]'
       }`}
       style={{ zIndex: 9999 }}
     >

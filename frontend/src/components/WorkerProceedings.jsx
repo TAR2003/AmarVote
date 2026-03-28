@@ -913,22 +913,22 @@ const WorkerProceedings = ({ electionId }) => {
               <p className="text-green-50 mt-2">Complete processing details for every chunk</p>
             </div>
             <div className="overflow-x-auto">
-              <table className="w-full">
+              <table className="w-full min-w-[720px]">
                 <thead className="bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600">
                   <tr>
-                    <th className="px-8 py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                       Chunk
                     </th>
-                    <th className="px-8 py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                       Start Time
                     </th>
-                    <th className="px-8 py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                       End Time
                     </th>
-                    <th className="px-8 py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                       Duration
                     </th>
-                    <th className="px-8 py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                       Status
                     </th>
                   </tr>
@@ -939,26 +939,26 @@ const WorkerProceedings = ({ electionId }) => {
                       key={log.id}
                       className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-gray-700 dark:hover:to-gray-600 transition-all duration-200 group"
                     >
-                      <td className="px-8 py-5 whitespace-nowrap">
+                      <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-12 w-12 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-500 rounded-xl flex items-center justify-center text-white font-black shadow-lg group-hover:scale-110 transition-transform">
+                          <div className="flex-shrink-0 h-10 w-10 sm:h-12 sm:w-12 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-500 rounded-xl flex items-center justify-center text-white font-black shadow-lg group-hover:scale-110 transition-transform">
                             {log.chunkNumber}
                           </div>
                         </div>
                       </td>
-                      <td className="px-8 py-5 whitespace-nowrap text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap text-sm font-semibold text-gray-700 dark:text-gray-300">
                         {formatTime(log.startTime)}
                       </td>
-                      <td className="px-8 py-5 whitespace-nowrap text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap text-sm font-semibold text-gray-700 dark:text-gray-300">
                         {formatTime(log.endTime)}
                       </td>
-                      <td className="px-8 py-5 whitespace-nowrap">
+                      <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap">
                         <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900 dark:to-blue-900 text-purple-800 dark:text-purple-200 shadow-md">
                           <FiClock className="mr-2" />
                           {formatDuration(log.duration)}
                         </span>
                       </td>
-                      <td className="px-8 py-5 whitespace-nowrap">
+                      <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap">
                         {log.status === 'COMPLETED' ? (
                           <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900 dark:to-emerald-900 text-green-800 dark:text-green-200 shadow-md">
                             <FiCheckCircle className="mr-2" />

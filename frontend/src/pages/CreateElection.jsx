@@ -645,8 +645,8 @@ const CreateElection = () => {
     );
 
     return (
-        <div className="max-w-4xl mx-auto p-6">
-            <h1 className="text-3xl font-bold mb-6 text-gray-800">Create New Election</h1>
+        <div className="max-w-4xl mx-auto p-3 sm:p-6">
+            <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-800">Create New Election</h1>
 
             {error && (
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
@@ -662,7 +662,7 @@ const CreateElection = () => {
 
             <form onSubmit={handleSubmit} className="space-y-6">
                 {/* Basic Election Information */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-semibold mb-4 text-gray-700">Basic Information</h2>
 
                     <div className="mb-4">
@@ -697,7 +697,7 @@ const CreateElection = () => {
                 </div>
 
                 {/* Max Choices Setting */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-semibold mb-4 text-gray-700">Voting Options</h2>
                     <div className="mb-4">
                         <label className="block text-gray-700 font-medium mb-2">
@@ -713,7 +713,7 @@ const CreateElection = () => {
                             onChange={handleChange}
                             min={1}
                             max={form.candidateNames.filter(n => n.trim() !== '').length || 1}
-                            className="w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full sm:w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
                             required
                         />
                         {form.maxChoices > 1 && (
@@ -725,12 +725,12 @@ const CreateElection = () => {
                 </div>
 
                 {/* Election Privacy Settings */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-semibold mb-4 text-gray-700">Privacy Settings</h2>
 
                     <div className="mb-4">
                         <label className="block text-gray-700 font-medium mb-2">Election Privacy</label>
-                        <div className="flex space-x-4">
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                             <label className="inline-flex items-center">
                                 <input
                                     type="radio"
@@ -759,7 +759,7 @@ const CreateElection = () => {
 
                     <div className="mb-4">
                         <label className="block text-gray-700 font-medium mb-2">Voter Eligibility</label>
-                        <div className="flex space-x-4">
+                        <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
                             <label className="inline-flex items-center">
                                 <input
                                     type="radio"
@@ -794,7 +794,7 @@ const CreateElection = () => {
                             </label>
 
                             <div className="mb-2">
-                                <label className="inline-block px-4 py-2 bg-blue-500 text-white rounded-md cursor-pointer hover:bg-blue-600">
+                                <label className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded-md cursor-pointer hover:bg-blue-600">
                                     <span>Upload CSV</span>
                                     <input
                                         type="file"
@@ -803,7 +803,7 @@ const CreateElection = () => {
                                         className="hidden"
                                     />
                                 </label>
-                                <span className="text-gray-500 text-sm ml-2">Upload a CSV/TXT file with one email per line or comma-separated</span>
+                                <span className="text-gray-500 text-sm block sm:inline sm:ml-2 mt-2 sm:mt-0">Upload a CSV/TXT file with one email per line or comma-separated</span>
                             </div>
 
                             <div className="border border-gray-300 rounded-md p-3 min-h-[100px] max-h-[200px] overflow-auto">
@@ -826,7 +826,7 @@ const CreateElection = () => {
                 </div>
 
                 {/* Guardian Settings */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-semibold mb-4 text-gray-700">Guardian Settings</h2>
 
                     <div className="mb-4">
@@ -909,14 +909,14 @@ const CreateElection = () => {
 
                         {/* File Upload for Guardian Emails */}
                         <div className="mb-3 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                            <div className="flex items-center justify-between mb-2">
+                            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
                                 <div>
                                     <p className="text-sm font-medium text-gray-700">Upload Guardian Emails (CSV/TXT)</p>
                                     <p className="text-xs text-gray-600 mt-1">
                                         Upload a file with one email per line or comma-separated. This will automatically set the guardian count and quorum.
                                     </p>
                                 </div>
-                                <label className="cursor-pointer bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                <label className="cursor-pointer inline-flex items-center justify-center w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                                     Choose File
                                     <input
                                         type="file"
@@ -977,7 +977,7 @@ const CreateElection = () => {
                 </div>
 
                 {/* Candidate Information */}
-                <div className="bg-white p-6 rounded-lg shadow-md">
+                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
                     <h2 className="text-xl font-semibold mb-4 text-gray-700">Candidates</h2>
 
                     {form.candidateNames.map((name, index) => {
@@ -986,7 +986,7 @@ const CreateElection = () => {
 
                         return (
                             <div key={index} className="mb-6 p-4 border border-gray-200 rounded-md">
-                                <div className="flex justify-between mb-2">
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
                                     <h3 className="font-medium">Candidate {index + 1}</h3>
 
                                     {index > 0 && (
@@ -1100,17 +1100,17 @@ const CreateElection = () => {
                     <button
                         type="button"
                         onClick={addCandidate}
-                        className="mt-2 px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
+                        className="mt-2 w-full sm:w-auto px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
                     >
                         + Add Another Candidate
                     </button>
                 </div>
 
-                <div className="flex justify-between">
+                <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-between">
                     <button
                         type="button"
                         onClick={() => navigate(-1)}
-                        className="px-6 py-3 bg-gray-500 text-white rounded-md hover:bg-gray-600"
+                        className="w-full sm:w-auto px-6 py-3 bg-gray-500 text-white rounded-md hover:bg-gray-600"
                     >
                         Cancel
                     </button>
@@ -1118,7 +1118,7 @@ const CreateElection = () => {
                     <button
                         type="submit"
                         disabled={isSubmitting || form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()}
-                        className={`px-6 py-3 text-white rounded-md ${isSubmitting || form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()
+                        className={`w-full sm:w-auto px-6 py-3 text-white rounded-md ${isSubmitting || form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()
                                 ? 'bg-gray-400 cursor-not-allowed'
                                 : 'bg-blue-500 hover:bg-blue-600'
                             }`}

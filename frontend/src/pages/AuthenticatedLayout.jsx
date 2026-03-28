@@ -267,6 +267,13 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
     });
   };
 
+  const mobileNavItems = [
+    { key: 'dashboard', label: 'Home', path: '/dashboard', icon: FiHome },
+    { key: 'all-elections', label: 'Elections', path: '/all-elections', icon: FiBarChart2 },
+    ...(canCreateElections ? [{ key: 'create-election', label: 'Create', path: '/create-election', icon: FiPlus }] : []),
+    { key: 'authenticated-users', label: 'Users', path: '/authenticated-users', icon: FiUsers },
+  ];
+
 
 
   const handleLogout = async () => {
@@ -337,7 +344,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
       {/* Top Navigation Bar */}
       <header className="bg-white/95 backdrop-blur-lg shadow-lg border-b border-white/20 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
+          <div className="flex justify-between h-14 sm:h-16 items-center">
             {/* Mobile/Tablet menu button - Show when nav buttons are hidden */}
             <div className="flex xl:hidden">
               <button
@@ -427,7 +434,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
             {/* Search Bar - Visible on md and above */}
             <div className="hidden md:flex flex-1 items-center justify-center px-2 md:px-4 md:ml-6 md:justify-end">
-              <div className="max-w-lg w-full md:max-w-xs relative" style={{minWidth: '200px'}} ref={searchRef}>
+              <div className="max-w-lg w-full md:max-w-xs relative" ref={searchRef}>
                 <form onSubmit={handleSearchSubmit} className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                     <FiSearch className="h-5 w-5 text-gray-400" />
@@ -570,13 +577,13 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               <button
                 type="button"
                 onClick={() => navigate('/profile')}
-                className="flex flex-col items-center p-2 rounded-2xl bg-gray-50/80 hover:bg-gray-100/90 transition-all"
+                className="flex flex-col items-center p-1.5 sm:p-2 rounded-2xl bg-gray-50/80 hover:bg-gray-100/90 transition-all"
                 title="Open profile"
               >
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl flex items-center justify-center shadow-sm">
                   <FiUser className="text-blue-600 h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
-                <span className="text-xs sm:text-sm font-medium text-gray-700 mt-1 max-w-[120px] truncate">
+                <span className="hidden sm:block text-xs sm:text-sm font-medium text-gray-700 mt-1 max-w-[120px] truncate">
                   {userEmail || 'User'}
                 </span>
               </button>
@@ -760,10 +767,34 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto focus:outline-none">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 md:pb-8">
           <Outlet />
         </div>
       </main>
+
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-lg shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
+        <div className="grid grid-cols-4 gap-1 px-2 py-2">
+          {mobileNavItems.slice(0, 4).map((item) => {
+            const Icon = item.icon;
+            const isActive = isActiveRoute(item.path);
+            return (
+              <button
+                key={item.key}
+                type="button"
+                onClick={() => navigate(item.path)}
+                className={`flex flex-col items-center justify-center rounded-xl py-2 text-[11px] font-medium transition-colors ${
+                  isActive
+                    ? 'bg-blue-50 text-blue-700'
+                    : 'text-gray-600 hover:bg-gray-100'
+                }`}
+              >
+                <Icon className="h-4 w-4 mb-1" />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
     </div>
   );
 };

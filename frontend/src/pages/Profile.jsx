@@ -153,7 +153,7 @@ const Profile = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-8 px-4 sm:px-6 lg:px-8 space-y-6">
+    <div className="max-w-4xl mx-auto py-4 sm:py-8 px-3 sm:px-6 lg:px-8 space-y-6">
       {loading ? (
         <div className="flex justify-center items-center py-14">
           <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
@@ -192,8 +192,8 @@ const Profile = () => {
           </div>
         </div>
 
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-start justify-between gap-4">
+        <div className="p-4 sm:p-6 border-b border-gray-200">
+          <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
                 <FiShield className="h-5 w-5 text-indigo-600" />
@@ -209,7 +209,7 @@ const Profile = () => {
                 type="button"
                 onClick={handleDisableMfa}
                 disabled={mfaBusy}
-                className="px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-60"
+                className="w-full sm:w-auto px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-60"
               >
                 {mfaBusy ? "Disabling..." : "Turn Off"}
               </button>
@@ -218,7 +218,7 @@ const Profile = () => {
                 type="button"
                 onClick={handleStartMfaSetup}
                 disabled={mfaBusy}
-                className="px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+                className="w-full sm:w-auto px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
               >
                 {mfaBusy ? "Preparing..." : "Turn On"}
               </button>
@@ -231,8 +231,8 @@ const Profile = () => {
                 Scan this QR code with Google Authenticator, then confirm with a 6-digit code.
               </p>
 
-              <div className="bg-white rounded-lg p-4 inline-block">
-                <img src={mfaSetup.qrCodeDataUri} alt="MFA QR" className="h-52 w-52" />
+              <div className="bg-white rounded-lg p-4 inline-block max-w-full">
+                <img src={mfaSetup.qrCodeDataUri} alt="MFA QR" className="h-44 w-44 sm:h-52 sm:w-52" />
               </div>
 
               {mfaSetup.secret ? (
@@ -241,7 +241,7 @@ const Profile = () => {
                 </p>
               ) : null}
 
-              <div className="mt-4 max-w-xs">
+              <div className="mt-4 w-full sm:max-w-xs">
                 <OtpInput value={mfaCode} onChange={setMfaCode} onComplete={handleConfirmMfa} disabled={mfaBusy} />
                 <button
                   type="button"
@@ -256,7 +256,7 @@ const Profile = () => {
           ) : null}
         </div>
 
-        <div className="p-6">
+        <div className="p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
             <FiLock className="h-5 w-5 text-blue-600" />
             Change Password
@@ -295,7 +295,7 @@ const Profile = () => {
             <button
               type="submit"
               disabled={passwordBusy}
-              className="rounded-md bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+              className="w-full sm:w-auto rounded-md bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
             >
               {passwordBusy ? "Updating..." : "Update Password"}
             </button>

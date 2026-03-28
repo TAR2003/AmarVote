@@ -76,7 +76,9 @@ export default function ApiLogs() {
   });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedLog, setSelectedLog]   = useState(null);
-  const [viewMode, setViewMode]         = useState("table");
+  const [viewMode, setViewMode]         = useState(() => (
+    typeof window !== "undefined" && window.innerWidth < 768 ? "cards" : "table"
+  ));
   const [sortBy, setSortBy]             = useState("requestTime");
   const [sortOrder, setSortOrder]       = useState("desc");
   const [autoRefresh, setAutoRefresh]   = useState(false);

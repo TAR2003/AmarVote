@@ -444,16 +444,16 @@ const AllElections = () => {
     <div className="space-y-6">
       {/* Header */}
       <div className="bg-white shadow rounded-lg">
-        <div className="px-6 py-4 border-b border-gray-200">
-          <h1 className="text-2xl font-bold text-gray-900">All Elections</h1>
+        <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">All Elections</h1>
           <p className="mt-1 text-sm text-gray-500">
             View and participate in all elections you have access to
           </p>
         </div>
         
         {/* Filter tabs */}
-        <div className="px-6 py-4">
-          <div className="flex flex-wrap gap-2">
+        <div className="px-4 sm:px-6 py-4">
+          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             {[
               { key: "all", label: "All Elections", count: tabCounts.all },
               { key: "upcoming", label: "Upcoming", count: tabCounts.upcoming },
@@ -468,7 +468,7 @@ const AllElections = () => {
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`px-4 py-2 rounded-md text-sm font-medium transition-colors ${
+                className={`whitespace-nowrap px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                   filter === tab.key
                     ? "bg-blue-600 text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
@@ -502,14 +502,14 @@ const AllElections = () => {
                   className="p-6 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
                   onClick={() => handleElectionClick(election.electionId)}
                 >
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1">
-                      <div className="flex items-center">
-                        <h3 className="text-lg font-medium text-gray-900">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex-1 min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <h3 className="text-base sm:text-lg font-medium text-gray-900 break-words">
                           {election.electionTitle}
                         </h3>
                         <span
-                          className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
                             status
                           )}`}
                         >
@@ -517,7 +517,7 @@ const AllElections = () => {
                         </span>
                         {/* Public/Private Indicator */}
                         <span
-                          className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             election.isPublic 
                               ? 'bg-green-100 text-green-800' 
                               : 'bg-orange-100 text-orange-800'
@@ -553,7 +553,7 @@ const AllElections = () => {
                         )}
                       </div>
                       
-                      <div className="mt-4 flex items-center space-x-6 text-sm text-gray-500">
+                      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 text-sm text-gray-500">
                         <div className="flex items-center">
                           <FiCalendar className="h-4 w-4 mr-1" />
                           <span>
@@ -577,10 +577,10 @@ const AllElections = () => {
                       </div>
                     </div>
                     
-                    <div className="flex-shrink-0 ml-4">
+                    <div className="w-full sm:w-auto sm:flex-shrink-0 sm:ml-4 flex flex-col gap-2">
                       {canDeleteElection(election) && (
                         <button
-                          className="mb-3 w-full inline-flex items-center justify-center gap-2 px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                           onClick={(e) => handleRequestDelete(election, e)}
                           disabled={deletingElectionId === election.electionId}
                         >
@@ -591,7 +591,7 @@ const AllElections = () => {
 
                       {status === "ongoing" && (
                         <button 
-                          className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                          className={`w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                             election.hasVoted 
                               ? 'text-gray-700 bg-gray-200 cursor-not-allowed'
                               : (canUserVoteInElection(election) 
@@ -611,7 +611,7 @@ const AllElections = () => {
                       )}
                       {status === "upcoming" && (
                         <button 
-                          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                           onClick={(e) => {
                             e.stopPropagation();
                             // Set reminder functionality can be added here
@@ -622,7 +622,7 @@ const AllElections = () => {
                       )}
                       {status === "completed" && (
                         <button 
-                          className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleElectionClick(election.electionId);
@@ -667,23 +667,23 @@ const AllElections = () => {
 
       {electionToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
-          <div className="w-full max-w-md bg-white rounded-xl shadow-xl p-6">
+          <div className="w-full max-w-md bg-white rounded-xl shadow-xl p-4 sm:p-6">
             <h3 className="text-lg font-semibold text-gray-900">Delete Election</h3>
             <p className="mt-2 text-sm text-gray-600">
               Are you sure you want to permanently delete "{electionToDelete.electionTitle}"?
               This action cannot be undone.
             </p>
-            <div className="mt-6 flex justify-end gap-3">
+            <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <button
                 onClick={() => setElectionToDelete(null)}
-                className="px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="w-full sm:w-auto px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
                 disabled={!!deletingElectionId}
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmDelete}
-                className="px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                className="w-full sm:w-auto px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
                 disabled={!!deletingElectionId}
               >
                 {deletingElectionId ? "Deleting..." : "Confirm Delete"}

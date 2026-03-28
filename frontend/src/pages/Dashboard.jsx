@@ -397,18 +397,18 @@ const Dashboard = ({ userEmail }) => {
     <div className="space-y-6">
       {/* Welcome Banner */}
       <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg overflow-hidden">
-        <div className="px-6 py-8 sm:p-10">
-          <div className="flex items-center justify-between">
+        <div className="px-4 py-6 sm:px-6 sm:py-8 sm:p-10">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold text-white">
+              <h1 className="text-xl sm:text-2xl font-bold text-white break-words">
                 Welcome back, {userEmail.split("@")[0]}!
               </h1>
-              <p className="mt-2 text-blue-100 max-w-lg">
+              <p className="mt-2 text-sm sm:text-base text-blue-100 max-w-lg">
                 You have {ongoing.length} active elections to participate in. Make your voice
                 heard!
               </p>
             </div>
-            <div className="hidden sm:block">
+            <div className="hidden sm:block self-start sm:self-auto">
               <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
                 <FiAward className="w-8 h-8 text-white" />
               </div>
@@ -476,8 +476,8 @@ const Dashboard = ({ userEmail }) => {
                   className="p-4 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
                   onClick={() => handleElectionClick(election.electionId)}
                 >
-                  <div className="flex items-center justify-between">
-                    <div className="flex-1">
+                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                    <div className="flex-1 min-w-0">
                       <div className="flex items-center">
                         <h3 className="text-base font-medium text-gray-900">
                           {election.electionTitle}
@@ -528,12 +528,12 @@ const Dashboard = ({ userEmail }) => {
                         Ends: {timezoneUtils.formatElectionDate(election.endingTime)}
                       </p>
                     </div>
-                    <div className="flex-shrink-0 ml-4">
+                    <div className="w-full sm:w-auto sm:flex-shrink-0 sm:ml-4">
                       {(() => {
                         const { buttonText, buttonStyle, isDisabled } = getVoteButtonInfo(election);
                         return (
                           <button 
-                            className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${buttonStyle}`}
+                            className={`w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 border border-transparent text-xs font-medium rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${buttonStyle}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleElectionClick(election.electionId);
@@ -677,8 +677,8 @@ const Dashboard = ({ userEmail }) => {
                 className="p-4 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
                 onClick={() => handleElectionClick(election.electionId)}
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex-1">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                  <div className="flex-1 min-w-0">
                     <div className="flex items-center">
                       <h3 className="text-base font-medium text-gray-900">
                         {election.electionTitle}
@@ -731,7 +731,7 @@ const Dashboard = ({ userEmail }) => {
                     </div>
                   </div>
                   <button
-                    className="ml-4 px-3 py-1.5 border border-gray-300 shadow-sm text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50"
+                    className="w-full sm:w-auto sm:ml-4 px-3 py-2 border border-gray-300 shadow-sm text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50"
                     onClick={(e) => {
                       e.stopPropagation();
                       // Set reminder functionality would go here
