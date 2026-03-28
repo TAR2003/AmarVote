@@ -13,6 +13,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 import com.amarvote.amarvote.service.JWTService;
 import com.amarvote.amarvote.service.MyUserDetailsService;
+import com.amarvote.amarvote.service.AuthorizedUserService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -28,6 +29,9 @@ public class JWTFilter extends OncePerRequestFilter {
 
     @Autowired
     private MyUserDetailsService userDetailsService;
+
+    @Autowired
+    private AuthorizedUserService authorizedUserService;
 
     @Override
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
@@ -87,6 +91,7 @@ public class JWTFilter extends OncePerRequestFilter {
                     // Store the original JWT token in request attributes for later use
                     request.setAttribute("jwtToken", jwtToken);
                     request.setAttribute("userEmail", userEmail);
+                    authorizedUserService.markLastActive(userEmail);
                 }
             }
         }

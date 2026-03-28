@@ -614,3 +614,62 @@ export async function updateAuthorizedUser(authorizedUserId, payload) {
     body: JSON.stringify(payload),
   });
 }
+
+/**
+ * Create authorized user row.
+ * @param {Object} payload
+ * @returns {Promise<Object>}
+ */
+export async function createAuthorizedUser(payload) {
+  return apiRequest('/authorized-users', {
+    method: 'POST',
+    body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Delete authorized user row.
+ * @param {number|string} authorizedUserId
+ * @returns {Promise<Object>}
+ */
+export async function deleteAuthorizedUser(authorizedUserId) {
+  return apiRequest(`/authorized-users/${authorizedUserId}`, {
+    method: 'DELETE',
+  });
+}
+
+/**
+ * Upload CSV for bulk authorized users creation.
+ * @param {File} file
+ * @returns {Promise<Object>}
+ */
+export async function uploadAuthorizedUsersCsv(file) {
+  const formData = new FormData();
+  formData.append('file', file);
+
+  const response = await fetch('/api/authorized-users/bulk-upload', {
+    method: 'POST',
+    credentials: 'include',
+    body: formData,
+  });
+
+  if (response.status === 401) {
+    handle401Error(response);
+    throw new Error('Session expired. Please login again.');
+  }
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data.message || 'CSV upload failed');
+  }
+
+  return data;
+}
+
+/**
+ * Get recent authorization audit logs.
+ * @returns {Promise<Object>}
+ */
+export async function getAuthorizedUserAuditLogs() {
+  return apiRequest('/authorized-users/audit-logs', { method: 'GET' });
+}

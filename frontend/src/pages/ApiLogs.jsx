@@ -1,6 +1,5 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
-import Layout from "./Layout";
 
 // icons
 const Icon = ({ d, className = "w-5 h-5" }) => (
@@ -62,7 +61,7 @@ function isInvalidToken(log) {
   return log.responseStatus === 401 || log.responseStatus === 403;
 }
 
-export default function ApiLogs({ userEmail }) {
+export default function ApiLogs() {
   const [logs, setLogs]             = useState([]);
   const [stats, setStats]           = useState({ totalLogs: 0, errorLogs: 0 });
   const [loading, setLoading]       = useState(true);
@@ -118,7 +117,7 @@ export default function ApiLogs({ userEmail }) {
     return () => {
       mounted = false;
     };
-  }, [userEmail]);
+  }, []);
 
   useEffect(() => {
     if (!accessAllowed) return;
@@ -260,33 +259,29 @@ export default function ApiLogs({ userEmail }) {
 
   if (!accessChecked) {
     return (
-      <Layout>
-        <div className="min-h-screen flex items-center justify-center p-6 text-gray-600">Checking API logs access...</div>
-      </Layout>
+      <div className="min-h-screen flex items-center justify-center p-6 text-gray-600">Checking API logs access...</div>
     );
   }
 
   if (!accessAllowed) {
     return (
-      <Layout>
-        <div className="min-h-screen flex items-center justify-center p-6">
-          <div className="max-w-md rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
-            <h2 className="text-lg font-bold text-red-700">Access denied</h2>
-            <p className="mt-2 text-sm text-red-600">{error || "You are not allowed to view API logs."}</p>
-            <button
-              onClick={() => navigate("/dashboard")}
-              className="mt-4 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
-            >
-              Back to dashboard
-            </button>
-          </div>
+      <div className="min-h-screen flex items-center justify-center p-6">
+        <div className="max-w-md rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
+          <h2 className="text-lg font-bold text-red-700">Access denied</h2>
+          <p className="mt-2 text-sm text-red-600">{error || "You are not allowed to view API logs."}</p>
+          <button
+            onClick={() => navigate("/dashboard")}
+            className="mt-4 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+          >
+            Back to dashboard
+          </button>
         </div>
-      </Layout>
+      </div>
     );
   }
 
   return (
-    <Layout>
+    <>
       <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 py-6 px-4 sm:px-6 lg:px-8">
         <div className="max-w-[1700px] mx-auto space-y-6">
 
@@ -623,7 +618,7 @@ export default function ApiLogs({ userEmail }) {
       </div>
 
       {selectedLog && <LogDetailModal log={selectedLog} onClose={() => setSelectedLog(null)} />}
-    </Layout>
+    </>
   );
 }
 

@@ -78,10 +78,6 @@ function App() {
         <Route path="/architecture" element={<Architecture />} />
         <Route path="/security" element={<Security />} />
         <Route
-          path="/api-logs"
-          element={<ApiLogs userEmail={userEmail} />}
-        />
-        <Route
           path="/login"
           element={
             isAuthenticated ? (
@@ -126,6 +122,7 @@ function App() {
           <Route path="/all-elections" element={<AllElections />} />
           <Route path="/profile" element={<Profile />} />
           <Route path="/authenticated-users" element={<AuthenticatedUsers />} />
+          <Route path="/api-logs" element={<ApiLogs />} />
           {/* Add other authenticated routes here */}
         </Route>
       </Routes>

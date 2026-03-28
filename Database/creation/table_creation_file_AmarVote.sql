@@ -46,6 +46,19 @@ CREATE INDEX IF NOT EXISTS idx_authorized_users_email ON authorized_users(email)
 CREATE INDEX IF NOT EXISTS idx_authorized_users_type ON authorized_users(user_type);
 CREATE INDEX IF NOT EXISTS idx_authorized_users_allowed ON authorized_users(is_allowed);
 
+-- Authorized Users Audit Logs (admin/owner actions)
+CREATE TABLE IF NOT EXISTS authorized_user_audit_logs (
+    audit_log_id BIGSERIAL PRIMARY KEY,
+    actor_email VARCHAR(255) NOT NULL,
+    target_email VARCHAR(255) NOT NULL,
+    action_type VARCHAR(100) NOT NULL,
+    details TEXT,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS idx_authorized_user_audit_created_at ON authorized_user_audit_logs(created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_authorized_user_audit_actor ON authorized_user_audit_logs(actor_email);
+
 
 
 -- Election Table
