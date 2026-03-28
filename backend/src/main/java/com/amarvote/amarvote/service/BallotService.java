@@ -29,6 +29,7 @@ import com.amarvote.amarvote.dto.ElectionGuardBenalohRequest;
 import com.amarvote.amarvote.dto.ElectionGuardBenalohResponse;
 import com.amarvote.amarvote.dto.EligibilityCheckRequest;
 import com.amarvote.amarvote.dto.EligibilityCheckResponse;
+import com.amarvote.amarvote.dto.worker.VoteReceiptTask;
 import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.Election;
@@ -73,7 +74,7 @@ public class BallotService {
     private BlockchainService blockchainService;
 
     @Autowired
-    private EmailService emailService;
+    private TaskPublisherService taskPublisherService;
 
     @Transactional
     public CastBallotResponse castBallot(CastBallotRequest request, String userEmail) {
@@ -289,7 +290,7 @@ public class BallotService {
             updateVoterStatus(userEmail, election);
 
             // 12. Return success response
-                sendVoteReceiptEmail(
+                queueVoteReceiptEmail(
                     userEmail,
                     election,
                     guardResponse.getBallot_hash(),
@@ -1060,7 +1061,7 @@ public class BallotService {
             updateVoterStatus(userEmail, election);
 
             // 9. Return success response
-                sendVoteReceiptEmail(
+                queueVoteReceiptEmail(
                     userEmail,
                     election,
                     request.getBallot_hash(),
@@ -1092,7 +1093,7 @@ public class BallotService {
                 .orElse("N/A");
     }
 
-    private void sendVoteReceiptEmail(String userEmail, Election election, String hashCode, String trackingCode,
+        private void queueVoteReceiptEmail(String userEmail, Election election, String hashCode, String trackingCode,
             String candidateName, String partyName) {
         try {
             String receipt = buildVoteReceiptContent(
@@ -1102,14 +1103,18 @@ public class BallotService {
                     candidateName,
                     partyName);
 
-            emailService.sendVoteReceiptEmail(
-                    userEmail,
-                    election.getElectionTitle(),
-                    election.getElectionId(),
-                    receipt,
-                    trackingCode);
+            VoteReceiptTask task = VoteReceiptTask.builder()
+                .electionId(election.getElectionId())
+                .electionTitle(election.getElectionTitle())
+                .voterEmail(userEmail)
+                .trackingCode(trackingCode)
+                .hashCode(hashCode)
+                .receiptContent(receipt)
+                .build();
+
+            taskPublisherService.publishVoteReceiptTask(task);
         } catch (Exception e) {
-            System.err.println("⚠️ Failed to send vote receipt email: " + e.getMessage());
+            System.err.println("⚠️ Failed to queue vote receipt email task: " + e.getMessage());
         }
     }
 

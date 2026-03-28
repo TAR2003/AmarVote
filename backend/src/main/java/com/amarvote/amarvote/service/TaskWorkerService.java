@@ -28,6 +28,7 @@ import com.amarvote.amarvote.dto.worker.CombineDecryptionTask;
 import com.amarvote.amarvote.dto.worker.CompensatedDecryptionTask;
 import com.amarvote.amarvote.dto.worker.PartialDecryptionTask;
 import com.amarvote.amarvote.dto.worker.TallyCreationTask;
+import com.amarvote.amarvote.dto.worker.VoteReceiptTask;
 import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.CombineWorkerLog;
 import com.amarvote.amarvote.model.CompensatedDecryption;
@@ -75,6 +76,7 @@ public class TaskWorkerService {
     private final TallyWorkerLogRepository tallyWorkerLogRepository;
     private final DecryptionWorkerLogRepository decryptionWorkerLogRepository;
     private final CombineWorkerLogRepository combineWorkerLogRepository;
+    private final EmailService emailService;
     
     @Autowired
     private ElectionGuardService electionGuardService;
@@ -93,6 +95,28 @@ public class TaskWorkerService {
 
     // Track currently processing tasks to prevent duplicates (per election/guardian)
     private static final ConcurrentHashMap<String, Boolean> processingLocks = new ConcurrentHashMap<>();
+
+    /**
+     * Worker for asynchronous vote receipt email delivery.
+     */
+    @RabbitListener(queues = RabbitMQConfig.VOTE_RECEIPT_QUEUE)
+    public void processVoteReceiptTask(VoteReceiptTask task) {
+        try {
+            System.out.println("=== WORKER: Processing Vote Receipt Email Task ===");
+            System.out.println("Election ID: " + task.getElectionId() + ", Voter: " + task.getVoterEmail());
+
+            emailService.sendVoteReceiptEmail(
+                task.getVoterEmail(),
+                task.getElectionTitle(),
+                task.getElectionId(),
+                task.getReceiptContent(),
+                task.getTrackingCode());
+
+            System.out.println("✅ Vote receipt email task completed for " + task.getVoterEmail());
+        } catch (Exception e) {
+            System.err.println("❌ Vote receipt email task failed for " + task.getVoterEmail() + ": " + e.getMessage());
+        }
+    }
 
     /**
      * Worker for tally creation tasks

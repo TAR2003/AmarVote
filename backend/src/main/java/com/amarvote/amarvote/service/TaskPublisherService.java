@@ -67,4 +67,17 @@ public class TaskPublisherService {
             task
         );
     }
+
+    /**
+     * Publish vote receipt email task to async queue.
+     */
+    public void publishVoteReceiptTask(VoteReceiptTask task) {
+        System.out.println("📤 Publishing vote receipt task for election " + task.getElectionId()
+                + ", voter " + task.getVoterEmail());
+        rabbitTemplate.convertAndSend(
+            RabbitMQConfig.TASK_EXCHANGE,
+            RabbitMQConfig.VOTE_RECEIPT_ROUTING_KEY,
+            task
+        );
+    }
 }

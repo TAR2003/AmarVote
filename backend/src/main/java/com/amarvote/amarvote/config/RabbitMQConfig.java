@@ -34,6 +34,7 @@ public class RabbitMQConfig {
     public static final String PARTIAL_DECRYPTION_QUEUE = "partial.decryption.queue";
     public static final String COMPENSATED_DECRYPTION_QUEUE = "compensated.decryption.queue";
     public static final String COMBINE_DECRYPTION_QUEUE = "combine.decryption.queue";
+    public static final String VOTE_RECEIPT_QUEUE = "vote.receipt.queue";
 
     // Exchange Names
     public static final String TASK_EXCHANGE = "task.exchange";
@@ -43,6 +44,7 @@ public class RabbitMQConfig {
     public static final String PARTIAL_DECRYPTION_ROUTING_KEY = "task.partial.decryption";
     public static final String COMPENSATED_DECRYPTION_ROUTING_KEY = "task.compensated.decryption";
     public static final String COMBINE_DECRYPTION_ROUTING_KEY = "task.combine.decryption";
+    public static final String VOTE_RECEIPT_ROUTING_KEY = "task.vote.receipt";
 
     /**
      * Message converter for JSON serialization/deserialization
@@ -207,5 +209,20 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(combineDecryptionQueue)
             .to(taskExchange)
             .with(COMBINE_DECRYPTION_ROUTING_KEY);
+    }
+
+    // ========== VOTE RECEIPT QUEUE ==========
+
+    @Bean
+    public Queue voteReceiptQueue() {
+        return QueueBuilder.durable(VOTE_RECEIPT_QUEUE)
+            .build();
+    }
+
+    @Bean
+    public Binding voteReceiptBinding(Queue voteReceiptQueue, DirectExchange taskExchange) {
+        return BindingBuilder.bind(voteReceiptQueue)
+            .to(taskExchange)
+            .with(VOTE_RECEIPT_ROUTING_KEY);
     }
 }
