@@ -47,6 +47,10 @@ public class AuthorizedUser {
     @Column(name = "can_create_elections", nullable = false)
     private Boolean canCreateElections = false;
 
+    @Builder.Default
+    @Column(name = "api_log_viewer_allowed", nullable = false)
+    private Boolean apiLogViewerAllowed = false;
+
     @Column(name = "last_login")
     private Instant lastLogin;
 
@@ -76,6 +80,9 @@ public class AuthorizedUser {
         }
         if (canCreateElections == null) {
             canCreateElections = false;
+        }
+        if (apiLogViewerAllowed == null) {
+            apiLogViewerAllowed = false;
         }
     }
 

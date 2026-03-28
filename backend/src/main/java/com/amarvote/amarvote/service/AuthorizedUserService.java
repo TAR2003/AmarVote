@@ -12,6 +12,7 @@ import java.util.regex.Pattern;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -35,13 +36,15 @@ public class AuthorizedUserService {
     public static final String USER_TYPE_OWNER = "owner";
 
     private static final Set<String> MANAGE_ROLES = Set.of(USER_TYPE_ADMIN, USER_TYPE_OWNER);
-    private static final Set<String> API_LOG_ROLES = Set.of(USER_TYPE_ADMIN, USER_TYPE_OWNER);
     private static final Pattern CSV_SPLITTER = Pattern.compile("[\\n\\r,;\\t ]+");
 
     private final AuthorizedUserRepository authorizedUserRepository;
     private final AppUserRepository appUserRepository;
     private final AuthorizedUserAuditLogRepository authorizedUserAuditLogRepository;
     private final SystemSettingService systemSettingService;
+
+    @Value("${ADMIN_EMAILS:}")
+    private String adminEmailsCsv;
 
     public String normalizeEmail(String email) {
         if (email == null) {
@@ -115,7 +118,7 @@ public class AuthorizedUserService {
         String normalized = normalizeEmail(email);
         return authorizedUserRepository.findByEmail(normalized)
                 .filter(record -> Boolean.TRUE.equals(record.getIsAllowed()))
-                .map(record -> API_LOG_ROLES.contains(normalizeRole(record.getUserType())))
+                .map(record -> Boolean.TRUE.equals(record.getApiLogViewerAllowed()))
                 .orElse(false);
     }
 
@@ -165,12 +168,12 @@ public class AuthorizedUserService {
                 .sorted((a, b) -> a.getEmail().compareToIgnoreCase(b.getEmail()))
                 .map(row -> {
                     String targetType = normalizeRole(row.getUserType());
-                    boolean canEditRow = actorCanManage && (USER_TYPE_OWNER.equals(actorType) || !USER_TYPE_OWNER.equals(targetType));
+                    boolean canEditRow = actorCanManage && !USER_TYPE_OWNER.equals(targetType);
 
                     Map<String, Object> item = new LinkedHashMap<>();
                     item.put("authorizedUserId", row.getAuthorizedUserId());
                     item.put("email", row.getEmail());
-                    item.put("apiLogViewerAllowed", API_LOG_ROLES.contains(targetType));
+                    item.put("apiLogViewerAllowed", Boolean.TRUE.equals(row.getApiLogViewerAllowed()));
                     item.put("registeredOrNot", Boolean.TRUE.equals(row.getRegisteredOrNot()));
                     item.put("userType", targetType);
                     item.put("canCreateElections", Boolean.TRUE.equals(row.getCanCreateElections()));
@@ -257,15 +260,23 @@ public class AuthorizedUserService {
         if (USER_TYPE_ADMIN.equals(actorType) && USER_TYPE_OWNER.equals(userType)) {
             throw new IllegalArgumentException("Admin cannot assign owner role.");
         }
+        if (USER_TYPE_OWNER.equals(userType) && !isOwnerEligibleEmail(email)) {
+            throw new IllegalArgumentException("Only emails listed in ADMIN_EMAILS can be owner.");
+        }
 
         boolean registered = appUserRepository.existsByEmail(email);
+        boolean defaultCanCreate = !USER_TYPE_USER.equals(userType);
+        boolean apiLogViewerAllowed = request.getApiLogViewerAllowed() != null
+            ? Boolean.TRUE.equals(request.getApiLogViewerAllowed())
+                : (USER_TYPE_ADMIN.equals(userType) || USER_TYPE_OWNER.equals(userType));
 
         AuthorizedUser saved = authorizedUserRepository.save(AuthorizedUser.builder()
                 .email(email)
                 .isAllowed(true)
                 .registeredOrNot(registered)
                 .userType(userType)
-            .canCreateElections(!USER_TYPE_USER.equals(userType))
+                .canCreateElections(defaultCanCreate)
+                .apiLogViewerAllowed(apiLogViewerAllowed)
                 .build());
 
         appendAudit(actorEmail, email, "ADD_USER", "Added authorized user with role " + userType);
@@ -291,8 +302,8 @@ public class AuthorizedUserService {
                 .orElseThrow(() -> new IllegalArgumentException("Authorized user not found"));
 
         String targetRole = normalizeRole(target.getUserType());
-        if (USER_TYPE_ADMIN.equals(actorType) && USER_TYPE_OWNER.equals(targetRole)) {
-            throw new IllegalArgumentException("Admin cannot remove owner records.");
+        if (USER_TYPE_OWNER.equals(targetRole)) {
+            throw new IllegalArgumentException("Owner records are immutable and cannot be removed.");
         }
         if (normalizeEmail(actorEmail).equals(target.getEmail())) {
             throw new IllegalArgumentException("You cannot remove your own authorized record.");
@@ -365,8 +376,8 @@ public class AuthorizedUserService {
                 .orElseThrow(() -> new IllegalArgumentException("Authorized user not found"));
 
         String targetType = normalizeRole(target.getUserType());
-        if (USER_TYPE_ADMIN.equals(actorType) && USER_TYPE_OWNER.equals(targetType)) {
-            throw new IllegalArgumentException("Admin cannot modify owner records.");
+        if (USER_TYPE_OWNER.equals(targetType)) {
+            throw new IllegalArgumentException("Owner records are immutable and cannot be modified.");
         }
 
         if (request.getUserType() != null) {
@@ -374,6 +385,9 @@ public class AuthorizedUserService {
             String requestedType = normalizeRole(request.getUserType());
             if (USER_TYPE_ADMIN.equals(actorType) && USER_TYPE_OWNER.equals(requestedType)) {
                 throw new IllegalArgumentException("Admin cannot assign owner role.");
+            }
+            if (USER_TYPE_OWNER.equals(requestedType) && !isOwnerEligibleEmail(target.getEmail())) {
+                throw new IllegalArgumentException("Only emails listed in ADMIN_EMAILS can be owner.");
             }
             target.setUserType(requestedType);
 
@@ -396,6 +410,12 @@ public class AuthorizedUserService {
                 "Set canCreateElections to " + request.getCanCreateElections());
         }
 
+        if (request.getApiLogViewerAllowed() != null) {
+            target.setApiLogViewerAllowed(request.getApiLogViewerAllowed());
+            appendAudit(actorEmail, target.getEmail(), "UPDATE_API_LOG_VIEWER_ALLOWED",
+                    "Set apiLogViewerAllowed to " + request.getApiLogViewerAllowed());
+        }
+
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
             String newEmail = normalizeEmail(request.getEmail());
             if (!newEmail.equals(target.getEmail()) && authorizedUserRepository.existsByEmail(newEmail)) {
@@ -410,7 +430,7 @@ public class AuthorizedUserService {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("authorizedUserId", saved.getAuthorizedUserId());
         response.put("email", saved.getEmail());
-        response.put("apiLogViewerAllowed", API_LOG_ROLES.contains(normalizeRole(saved.getUserType())));
+        response.put("apiLogViewerAllowed", Boolean.TRUE.equals(saved.getApiLogViewerAllowed()));
         response.put("registeredOrNot", Boolean.TRUE.equals(saved.getRegisteredOrNot()));
         response.put("userType", normalizeRole(saved.getUserType()));
         response.put("canCreateElections", Boolean.TRUE.equals(saved.getCanCreateElections()));
@@ -459,10 +479,9 @@ public class AuthorizedUserService {
             boolean alreadyRegistered = appUserRepository.existsByEmail(email);
             authorizedUserRepository.findByEmail(email).ifPresentOrElse(record -> {
                 record.setIsAllowed(true);
-                if (!USER_TYPE_OWNER.equals(normalizeRole(record.getUserType()))) {
-                    record.setUserType(USER_TYPE_ADMIN);
-                }
+                record.setUserType(USER_TYPE_OWNER);
                 record.setCanCreateElections(true);
+                record.setApiLogViewerAllowed(true);
                 if (alreadyRegistered) {
                     record.setRegisteredOrNot(true);
                 }
@@ -472,8 +491,9 @@ public class AuthorizedUserService {
                         .email(email)
                         .isAllowed(true)
                         .registeredOrNot(alreadyRegistered)
-                        .userType(USER_TYPE_ADMIN)
-                    .canCreateElections(true)
+                        .userType(USER_TYPE_OWNER)
+                        .canCreateElections(true)
+                        .apiLogViewerAllowed(true)
                         .build();
                 authorizedUserRepository.save(row);
             });
@@ -511,6 +531,10 @@ public class AuthorizedUserService {
             return USER_TYPE_USER;
         }
         return normalized;
+    }
+
+    private boolean isOwnerEligibleEmail(String email) {
+        return parseEmailCsv(adminEmailsCsv).contains(normalizeEmail(email));
     }
 
     private void appendAudit(String actorEmail, String targetEmail, String actionType, String details) {

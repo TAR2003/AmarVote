@@ -16,4 +16,6 @@ public class AuthorizedUserUpdateRequestDto {
     private String userType;
 
     private Boolean canCreateElections;
+
+    private Boolean apiLogViewerAllowed;
 }
