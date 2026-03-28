@@ -673,3 +673,15 @@ export async function uploadAuthorizedUsersCsv(file) {
 export async function getAuthorizedUserAuditLogs() {
   return apiRequest('/authorized-users/audit-logs', { method: 'GET' });
 }
+
+/**
+ * Update permission settings (registration mode + election creation scope).
+ * @param {Object} payload
+ * @returns {Promise<Object>}
+ */
+export async function updatePermissionSettings(payload) {
+  return apiRequest('/authorized-users/permission-settings', {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}

@@ -14,4 +14,6 @@ public class AuthorizedUserUpdateRequestDto {
 
     @Pattern(regexp = "^(user|admin|owner)$", message = "userType must be one of: user, admin, owner")
     private String userType;
+
+    private Boolean canCreateElections;
 }

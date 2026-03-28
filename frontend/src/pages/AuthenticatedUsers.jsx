@@ -16,6 +16,7 @@ import {
   deleteAuthorizedUser,
   getAuthorizedUserAuditLogs,
   getAuthorizedUsers,
+  updatePermissionSettings,
   updateAuthorizedUser,
   uploadAuthorizedUsersCsv,
 } from "../utils/api";
@@ -33,6 +34,10 @@ const AuthenticatedUsers = () => {
   const [currentUserType, setCurrentUserType] = useState("user");
   const [users, setUsers] = useState([]);
   const [auditLogs, setAuditLogs] = useState([]);
+  const [settings, setSettings] = useState({
+    registrationOpenToAll: false,
+    electionCreationPermissionScope: "all_admins_owners",
+  });
 
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserType, setNewUserType] = useState("user");
@@ -48,6 +53,10 @@ const AuthenticatedUsers = () => {
       setCanManage(!!usersData.canManage);
       setCurrentUserType(usersData.currentUserType || "user");
       setUsers(Array.isArray(usersData.users) ? usersData.users : []);
+      setSettings(usersData.settings || {
+        registrationOpenToAll: false,
+        electionCreationPermissionScope: "all_admins_owners",
+      });
       setAuditLogs(Array.isArray(auditData.logs) ? auditData.logs : []);
       setError("");
     } catch (err) {
@@ -85,6 +94,21 @@ const AuthenticatedUsers = () => {
 
   const canAssignOwner = currentUserType === "owner";
 
+  const handlePermissionSettingsSave = async () => {
+    if (!canManage) return;
+    try {
+      const updated = await updatePermissionSettings({
+        registrationOpenToAll: !!settings.registrationOpenToAll,
+        electionCreationPermissionScope: settings.electionCreationPermissionScope,
+      });
+      setSettings(updated);
+      setSuccess("Permission settings updated.");
+      await loadAll();
+    } catch (err) {
+      setError(err.message || "Failed to update permission settings.");
+    }
+  };
+
   const handleRoleChange = async (row, nextType) => {
     if (!canManage || !row.canEdit) return;
 
@@ -98,6 +122,24 @@ const AuthenticatedUsers = () => {
       await loadAll();
     } catch (err) {
       setError(err.message || "Failed to update role.");
+    } finally {
+      setSavingId(null);
+    }
+  };
+
+  const handleCanCreateElectionsChange = async (row, nextValue) => {
+    if (!canManage || !row.canEdit) return;
+    try {
+      setSavingId(row.authorizedUserId);
+      await updateAuthorizedUser(row.authorizedUserId, {
+        email: row.email,
+        userType: row.userType,
+        canCreateElections: nextValue,
+      });
+      setSuccess(`Updated election-creation permission for ${row.email}`);
+      await loadAll();
+    } catch (err) {
+      setError(err.message || "Failed to update can-create-elections flag.");
     } finally {
       setSavingId(null);
     }
@@ -247,6 +289,55 @@ const AuthenticatedUsers = () => {
                 </div>
               </div>
             ) : null}
+
+            {canManage ? (
+              <div className="mt-2 rounded-xl border border-indigo-200 bg-indigo-50 p-3">
+                <h3 className="text-sm font-semibold text-indigo-800 mb-2">Permission Settings</h3>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs text-indigo-700 mb-1">Permission to Register</label>
+                    <select
+                      value={settings.registrationOpenToAll ? "all" : "authenticated"}
+                      onChange={(e) => setSettings((prev) => ({
+                        ...prev,
+                        registrationOpenToAll: e.target.value === "all",
+                      }))}
+                      className="w-full rounded-lg border border-indigo-300 px-2.5 py-2 text-sm"
+                    >
+                      <option value="all">Allow all emails</option>
+                      <option value="authenticated">Allow only authenticated users</option>
+                    </select>
+                  </div>
+
+                  <div>
+                    <label className="block text-xs text-indigo-700 mb-1">Permission to Create Elections</label>
+                    <select
+                      value={settings.electionCreationPermissionScope || "all_admins_owners"}
+                      onChange={(e) => setSettings((prev) => ({
+                        ...prev,
+                        electionCreationPermissionScope: e.target.value,
+                      }))}
+                      className="w-full rounded-lg border border-indigo-300 px-2.5 py-2 text-sm"
+                    >
+                      <option value="all_users">All users</option>
+                      <option value="all_authenticated_users">All authenticated users</option>
+                      <option value="all_admins_owners">All admins and owners</option>
+                      <option value="owner">Owner only</option>
+                    </select>
+                  </div>
+                </div>
+
+                <div className="mt-3">
+                  <button
+                    type="button"
+                    onClick={handlePermissionSettingsSave}
+                    className="px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+                  >
+                    Save Permission Settings
+                  </button>
+                </div>
+              </div>
+            ) : null}
           </div>
 
           {error ? (
@@ -271,6 +362,7 @@ const AuthenticatedUsers = () => {
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">API Log Viewer Allowed</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Registered</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">User Type</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Can Create Elections</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Last Active</th>
                   <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Actions</th>
                 </tr>
@@ -279,11 +371,11 @@ const AuthenticatedUsers = () => {
               <tbody className="bg-white divide-y divide-gray-100">
                 {loading ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-sm text-gray-500 text-center">Loading users...</td>
+                    <td colSpan={7} className="px-4 py-8 text-sm text-gray-500 text-center">Loading users...</td>
                   </tr>
                 ) : filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={6} className="px-4 py-8 text-sm text-gray-500 text-center">No users match your search.</td>
+                    <td colSpan={7} className="px-4 py-8 text-sm text-gray-500 text-center">No users match your search.</td>
                   </tr>
                 ) : (
                   filteredUsers.map((row) => {
@@ -321,6 +413,24 @@ const AuthenticatedUsers = () => {
                           ) : (
                             <span className={`text-xs px-2 py-1 rounded-full ${row.userType === "owner" ? "bg-purple-100 text-purple-700" : row.userType === "admin" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
                               {row.userType}
+                            </span>
+                          )}
+                        </td>
+
+                        <td className="px-4 py-3">
+                          {rowEditable ? (
+                            <select
+                              disabled={busy}
+                              value={row.canCreateElections ? "yes" : "no"}
+                              onChange={(e) => handleCanCreateElectionsChange(row, e.target.value === "yes")}
+                              className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm"
+                            >
+                              <option value="yes">Yes</option>
+                              <option value="no">No</option>
+                            </select>
+                          ) : (
+                            <span className={`text-xs px-2 py-1 rounded-full ${row.canCreateElections ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-700"}`}>
+                              {row.canCreateElections ? "Yes" : "No"}
                             </span>
                           )}
                         </td>

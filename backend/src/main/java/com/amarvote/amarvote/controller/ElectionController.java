@@ -55,6 +55,7 @@ import com.amarvote.amarvote.service.CloudinaryService;
 import com.amarvote.amarvote.service.ElectionService;
 import com.amarvote.amarvote.service.PartialDecryptionService;
 import com.amarvote.amarvote.service.TallyService;
+import com.amarvote.amarvote.service.AuthorizedUserService;
 import com.amarvote.amarvote.util.BallotPaddingUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -72,6 +73,7 @@ public class ElectionController {
     private final PartialDecryptionService partialDecryptionService;
     private final BlockchainService blockchainService;
     private final CloudinaryService cloudinaryService;
+    private final AuthorizedUserService authorizedUserService;
     private final ObjectMapper objectMapper;
 
     @PostMapping("/create-election")
@@ -93,6 +95,16 @@ public class ElectionController {
 
         System.out.println("Creating election with JWT: " + jwtToken);
         System.out.println("User email: " + userEmail);
+
+        if (userEmail == null || userEmail.isBlank()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("error", "User authentication required"));
+        }
+
+        if (!authorizedUserService.canUserCreateElection(userEmail)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("error", "You do not have permission to create elections."));
+        }
 
         try {
             Election election = electionService.createElection(request, jwtToken, userEmail);

@@ -43,6 +43,10 @@ public class AuthorizedUser {
     @Column(name = "user_type", nullable = false, length = 20)
     private String userType = "user";
 
+    @Builder.Default
+    @Column(name = "can_create_elections", nullable = false)
+    private Boolean canCreateElections = false;
+
     @Column(name = "last_login")
     private Instant lastLogin;
 
@@ -69,6 +73,9 @@ public class AuthorizedUser {
         }
         if (userType == null || userType.isBlank()) {
             userType = "user";
+        }
+        if (canCreateElections == null) {
+            canCreateElections = false;
         }
     }
 

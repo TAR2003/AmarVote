@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.amarvote.amarvote.dto.AuthorizedUserCreateRequestDto;
+import com.amarvote.amarvote.dto.PermissionSettingsUpdateRequestDto;
 import com.amarvote.amarvote.dto.AuthorizedUserUpdateRequestDto;
 import com.amarvote.amarvote.service.AuthorizedUserService;
 
@@ -83,6 +84,26 @@ public class AuthorizedUserController {
 
         try {
             return ResponseEntity.ok(authorizedUserService.addAuthorizedUser(actorEmail, request));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", ex.getMessage()));
+        }
+    }
+
+    @PutMapping("/permission-settings")
+    public ResponseEntity<?> updatePermissionSettings(@RequestBody PermissionSettingsUpdateRequestDto request) {
+        String actorEmail = getAuthenticatedEmail();
+        if (actorEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Unauthorized"));
+        }
+
+        try {
+            return ResponseEntity.ok(
+                    authorizedUserService.updatePermissionSettings(
+                            actorEmail,
+                            request.getRegistrationOpenToAll(),
+                            request.getElectionCreationPermissionScope()));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("message", ex.getMessage()));

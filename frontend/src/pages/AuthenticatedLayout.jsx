@@ -27,6 +27,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   const [guardianAttentionItems, setGuardianAttentionItems] = useState([]);
   const [showGuardianAttention, setShowGuardianAttention] = useState(false);
   const [loadingGuardianAttention, setLoadingGuardianAttention] = useState(false);
+  const [canCreateElections, setCanCreateElections] = useState(false);
   const searchRef = useRef(null);
   const suggestionsRef = useRef(null);
   const mobileSearchRef = useRef(null);
@@ -56,6 +57,34 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
     };
 
     loadElections();
+  }, [userEmail]);
+
+  useEffect(() => {
+    const loadCreatePermission = async () => {
+      if (!userEmail) {
+        setCanCreateElections(false);
+        return;
+      }
+
+      try {
+        const res = await fetch("/api/authorized-users/me", {
+          method: "GET",
+          credentials: "include",
+        });
+
+        if (!res.ok) {
+          setCanCreateElections(false);
+          return;
+        }
+
+        const data = await res.json();
+        setCanCreateElections(!!data.canCreateElections);
+      } catch {
+        setCanCreateElections(false);
+      }
+    };
+
+    loadCreatePermission();
   }, [userEmail]);
 
   // Clear search on refresh/navigation and page load
@@ -359,16 +388,18 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                 <span>All Elections</span>
               </Link>
 
-              <Link
-                to="/create-election"
-                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 ${isActiveRoute('/create-election')
-                    ? 'text-white bg-gradient-to-r from-green-600 to-emerald-700'
-                    : 'text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
-                  }`}
-              >
-                <FiPlus className="h-4 w-4" />
-                <span>Create Election</span>
-              </Link>
+              {canCreateElections ? (
+                <Link
+                  to="/create-election"
+                  className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 ${isActiveRoute('/create-election')
+                      ? 'text-white bg-gradient-to-r from-green-600 to-emerald-700'
+                      : 'text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
+                    }`}
+                >
+                  <FiPlus className="h-4 w-4" />
+                  <span>Create Election</span>
+                </Link>
+              ) : null}
 
               <button
                 onClick={handleApiLogsAccess}
@@ -672,17 +703,19 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               <span>All Elections</span>
             </Link>
 
-            <Link
-              to="/create-election"
-              onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium shadow-md ${isActiveRoute('/create-election')
-                  ? 'text-white bg-gradient-to-r from-green-600 to-emerald-700'
-                  : 'text-white bg-gradient-to-r from-green-500 to-emerald-600'
-                }`}
-            >
-              <FiPlus className="h-5 w-5" />
-              <span>Create Election</span>
-            </Link>
+            {canCreateElections ? (
+              <Link
+                to="/create-election"
+                onClick={() => setMobileMenuOpen(false)}
+                className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium shadow-md ${isActiveRoute('/create-election')
+                    ? 'text-white bg-gradient-to-r from-green-600 to-emerald-700'
+                    : 'text-white bg-gradient-to-r from-green-500 to-emerald-600'
+                  }`}
+              >
+                <FiPlus className="h-5 w-5" />
+                <span>Create Election</span>
+              </Link>
+            ) : null}
 
             <button
               onClick={() => {

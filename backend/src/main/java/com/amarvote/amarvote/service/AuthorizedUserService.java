@@ -41,6 +41,7 @@ public class AuthorizedUserService {
     private final AuthorizedUserRepository authorizedUserRepository;
     private final AppUserRepository appUserRepository;
     private final AuthorizedUserAuditLogRepository authorizedUserAuditLogRepository;
+    private final SystemSettingService systemSettingService;
 
     public String normalizeEmail(String email) {
         if (email == null) {
@@ -51,6 +52,10 @@ public class AuthorizedUserService {
 
     @Transactional(readOnly = true)
     public void ensureAllowedForRegistration(String email) {
+        if (systemSettingService.isRegistrationOpenToAll()) {
+            return;
+        }
+
         AuthorizedUser authorizedUser = getAllowedRecordOrThrow(email);
         if (Boolean.TRUE.equals(authorizedUser.getRegisteredOrNot())) {
             throw new IllegalArgumentException("This authorized email is already registered. Please login.");
@@ -59,6 +64,10 @@ public class AuthorizedUserService {
 
     @Transactional(readOnly = true)
     public void ensureAllowedForLogin(String email) {
+        if (systemSettingService.isRegistrationOpenToAll()) {
+            return;
+        }
+
         AuthorizedUser authorizedUser = getAllowedRecordOrThrow(email);
         if (!Boolean.TRUE.equals(authorizedUser.getRegisteredOrNot())) {
             throw new IllegalArgumentException("Your authorized account is not registered yet.");
@@ -68,10 +77,16 @@ public class AuthorizedUserService {
     @Transactional
     public void markRegistered(String email) {
         String normalized = normalizeEmail(email);
-        authorizedUserRepository.findByEmail(normalized).ifPresent(record -> {
-            record.setRegisteredOrNot(true);
-            authorizedUserRepository.save(record);
-        });
+        AuthorizedUser record = authorizedUserRepository.findByEmail(normalized)
+                .orElseGet(() -> AuthorizedUser.builder()
+                        .email(normalized)
+                        .isAllowed(true)
+                        .registeredOrNot(false)
+                        .userType(USER_TYPE_USER)
+                        .canCreateElections(false)
+                        .build());
+        record.setRegisteredOrNot(true);
+        authorizedUserRepository.save(record);
     }
 
     @Transactional
@@ -82,11 +97,17 @@ public class AuthorizedUserService {
     @Transactional
     public void markLastActive(String email) {
         String normalized = normalizeEmail(email);
-        authorizedUserRepository.findByEmail(normalized).ifPresent(record -> {
-            record.setRegisteredOrNot(true);
-            record.setLastLogin(Instant.now());
-            authorizedUserRepository.save(record);
-        });
+        AuthorizedUser record = authorizedUserRepository.findByEmail(normalized)
+                .orElseGet(() -> AuthorizedUser.builder()
+                        .email(normalized)
+                        .isAllowed(true)
+                        .registeredOrNot(false)
+                        .userType(USER_TYPE_USER)
+                        .canCreateElections(false)
+                        .build());
+        record.setRegisteredOrNot(true);
+        record.setLastLogin(Instant.now());
+        authorizedUserRepository.save(record);
     }
 
     @Transactional(readOnly = true)
@@ -110,7 +131,27 @@ public class AuthorizedUserService {
         response.put("isAllowed", recordOpt.map(r -> Boolean.TRUE.equals(r.getIsAllowed())).orElse(false));
         response.put("canManageAuthorizedUsers", MANAGE_ROLES.contains(currentUserType));
         response.put("canViewApiLogs", canViewApiLogs(normalized));
+        response.put("canCreateElections", canUserCreateElection(normalized));
         return response;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean canUserCreateElection(String email) {
+        String normalized = normalizeEmail(email);
+        String scope = systemSettingService.getElectionCreationPermissionScope();
+
+        Optional<AuthorizedUser> recordOpt = authorizedUserRepository.findByEmail(normalized);
+        String role = recordOpt.map(r -> normalizeRole(r.getUserType())).orElse(USER_TYPE_USER);
+        boolean perUserFlag = recordOpt.map(r -> Boolean.TRUE.equals(r.getCanCreateElections())).orElse(false);
+
+        return switch (scope) {
+            case SystemSettingService.SCOPE_ALL_USERS -> true;
+            case SystemSettingService.SCOPE_ALL_AUTHENTICATED_USERS -> recordOpt.isPresent() && perUserFlag;
+            case SystemSettingService.SCOPE_ALL_ADMINS_OWNERS ->
+                    (USER_TYPE_ADMIN.equals(role) || USER_TYPE_OWNER.equals(role)) && perUserFlag;
+            case SystemSettingService.SCOPE_OWNER -> USER_TYPE_OWNER.equals(role) && perUserFlag;
+            default -> false;
+        };
     }
 
     @Transactional(readOnly = true)
@@ -132,6 +173,7 @@ public class AuthorizedUserService {
                     item.put("apiLogViewerAllowed", API_LOG_ROLES.contains(targetType));
                     item.put("registeredOrNot", Boolean.TRUE.equals(row.getRegisteredOrNot()));
                     item.put("userType", targetType);
+                    item.put("canCreateElections", Boolean.TRUE.equals(row.getCanCreateElections()));
                     item.put("lastActive", row.getLastLogin());
                     item.put("createdAt", row.getCreatedAt());
                     item.put("updatedAt", row.getUpdatedAt());
@@ -145,7 +187,30 @@ public class AuthorizedUserService {
         response.put("currentUserType", actorType);
         response.put("canManage", actorCanManage);
         response.put("users", users);
+        response.put("settings", systemSettingService.getSettingsForUi());
         return response;
+    }
+
+    @Transactional
+    public Map<String, Object> updatePermissionSettings(String actorEmail,
+                                                        Boolean registrationOpenToAll,
+                                                        String electionCreationPermissionScope) {
+        AuthorizedUser actor = getAllowedRecordOrThrow(actorEmail);
+        String actorType = normalizeRole(actor.getUserType());
+        if (!MANAGE_ROLES.contains(actorType)) {
+            throw new IllegalArgumentException("Only admin or owner can update permission settings.");
+        }
+
+        Map<String, Object> updated = systemSettingService.updateSettings(
+                registrationOpenToAll,
+                electionCreationPermissionScope);
+
+        appendAudit(actorEmail,
+                "system-settings",
+                "UPDATE_PERMISSION_SETTINGS",
+                "Updated permission settings: " + updated);
+
+        return updated;
     }
 
     @Transactional(readOnly = true)
@@ -200,6 +265,7 @@ public class AuthorizedUserService {
                 .isAllowed(true)
                 .registeredOrNot(registered)
                 .userType(userType)
+            .canCreateElections(!USER_TYPE_USER.equals(userType))
                 .build());
 
         appendAudit(actorEmail, email, "ADD_USER", "Added authorized user with role " + userType);
@@ -276,6 +342,7 @@ public class AuthorizedUserService {
                     .isAllowed(true)
                     .registeredOrNot(registered)
                     .userType(USER_TYPE_USER)
+                    .canCreateElections(false)
                     .build());
             created++;
         }
@@ -310,6 +377,10 @@ public class AuthorizedUserService {
             }
             target.setUserType(requestedType);
 
+            if (USER_TYPE_ADMIN.equals(requestedType) || USER_TYPE_OWNER.equals(requestedType)) {
+                target.setCanCreateElections(true);
+            }
+
             if (!requestedType.equals(previousType)) {
                 String action = USER_TYPE_ADMIN.equals(requestedType) ? "PROMOTE_TO_ADMIN"
                         : USER_TYPE_USER.equals(requestedType) && USER_TYPE_ADMIN.equals(previousType) ? "DEMOTE_TO_USER"
@@ -317,6 +388,12 @@ public class AuthorizedUserService {
                 appendAudit(actorEmail, target.getEmail(), action,
                         "Changed role from " + previousType + " to " + requestedType);
             }
+        }
+
+        if (request.getCanCreateElections() != null) {
+            target.setCanCreateElections(request.getCanCreateElections());
+            appendAudit(actorEmail, target.getEmail(), "UPDATE_CAN_CREATE_ELECTIONS",
+                "Set canCreateElections to " + request.getCanCreateElections());
         }
 
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
@@ -336,6 +413,7 @@ public class AuthorizedUserService {
         response.put("apiLogViewerAllowed", API_LOG_ROLES.contains(normalizeRole(saved.getUserType())));
         response.put("registeredOrNot", Boolean.TRUE.equals(saved.getRegisteredOrNot()));
         response.put("userType", normalizeRole(saved.getUserType()));
+        response.put("canCreateElections", Boolean.TRUE.equals(saved.getCanCreateElections()));
         response.put("lastActive", saved.getLastLogin());
         response.put("updatedAt", saved.getUpdatedAt());
         return response;
@@ -367,6 +445,7 @@ public class AuthorizedUserService {
                         .isAllowed(true)
                         .registeredOrNot(true)
                         .userType(USER_TYPE_USER)
+                    .canCreateElections(false)
                         .build();
                 authorizedUserRepository.save(row);
             });
@@ -383,6 +462,7 @@ public class AuthorizedUserService {
                 if (!USER_TYPE_OWNER.equals(normalizeRole(record.getUserType()))) {
                     record.setUserType(USER_TYPE_ADMIN);
                 }
+                record.setCanCreateElections(true);
                 if (alreadyRegistered) {
                     record.setRegisteredOrNot(true);
                 }
@@ -393,6 +473,7 @@ public class AuthorizedUserService {
                         .isAllowed(true)
                         .registeredOrNot(alreadyRegistered)
                         .userType(USER_TYPE_ADMIN)
+                    .canCreateElections(true)
                         .build();
                 authorizedUserRepository.save(row);
             });

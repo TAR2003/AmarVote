@@ -28,6 +28,7 @@ CREATE TABLE IF NOT EXISTS authorized_users (
     is_allowed BOOLEAN NOT NULL DEFAULT TRUE,
     registered_or_not BOOLEAN NOT NULL DEFAULT FALSE,
     user_type VARCHAR(20) NOT NULL DEFAULT 'user',
+    can_create_elections BOOLEAN NOT NULL DEFAULT FALSE,
     last_login TIMESTAMP WITH TIME ZONE,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -38,6 +39,7 @@ CREATE TABLE IF NOT EXISTS authorized_users (
 ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS is_allowed BOOLEAN NOT NULL DEFAULT TRUE;
 ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS registered_or_not BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS user_type VARCHAR(20) NOT NULL DEFAULT 'user';
+ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS can_create_elections BOOLEAN NOT NULL DEFAULT FALSE;
 ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE;
 ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
 ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
@@ -45,6 +47,15 @@ ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS updated_at TIMES
 CREATE INDEX IF NOT EXISTS idx_authorized_users_email ON authorized_users(email);
 CREATE INDEX IF NOT EXISTS idx_authorized_users_type ON authorized_users(user_type);
 CREATE INDEX IF NOT EXISTS idx_authorized_users_allowed ON authorized_users(is_allowed);
+CREATE INDEX IF NOT EXISTS idx_authorized_users_can_create_elections ON authorized_users(can_create_elections);
+
+-- System settings table (key-value configuration)
+CREATE TABLE IF NOT EXISTS system_settings (
+    setting_key VARCHAR(100) PRIMARY KEY,
+    setting_value VARCHAR(255) NOT NULL,
+    description TEXT,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
 
 -- Authorized Users Audit Logs (admin/owner actions)
 CREATE TABLE IF NOT EXISTS authorized_user_audit_logs (
