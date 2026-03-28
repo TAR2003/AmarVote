@@ -24,6 +24,7 @@ import ApiLogs from "./pages/ApiLogs";
 import Architecture from "./pages/Architecture";
 import Security from "./pages/Security";
 import Profile from "./pages/Profile";
+import AuthenticatedUsers from "./pages/AuthenticatedUsers";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -124,6 +125,7 @@ function App() {
           <Route path="/election-page/:id/:tab" element={<ElectionPage />} />
           <Route path="/all-elections" element={<AllElections />} />
           <Route path="/profile" element={<Profile />} />
+          <Route path="/authenticated-users" element={<AuthenticatedUsers />} />
           {/* Add other authenticated routes here */}
         </Route>
       </Routes>

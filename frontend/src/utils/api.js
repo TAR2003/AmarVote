@@ -585,3 +585,32 @@ export async function disableProfileMfa() {
     method: 'POST',
   });
 }
+
+/**
+ * Get authorized-users access metadata for current user.
+ * @returns {Promise<Object>}
+ */
+export async function getAuthorizedUsersAccess() {
+  return apiRequest('/authorized-users/me', { method: 'GET' });
+}
+
+/**
+ * Get authenticated/authorized users table data.
+ * @returns {Promise<Object>}
+ */
+export async function getAuthorizedUsers() {
+  return apiRequest('/authorized-users', { method: 'GET' });
+}
+
+/**
+ * Update an authorized user row.
+ * @param {number|string} authorizedUserId
+ * @param {Object} payload
+ * @returns {Promise<Object>}
+ */
+export async function updateAuthorizedUser(authorizedUserId, payload) {
+  return apiRequest(`/authorized-users/${authorizedUserId}`, {
+    method: 'PUT',
+    body: JSON.stringify(payload),
+  });
+}

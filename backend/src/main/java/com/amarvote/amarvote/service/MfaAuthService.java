@@ -23,6 +23,7 @@ public class MfaAuthService {
     private final TempJwtService tempJwtService;
     private final JWTService jwtService;
     private final EmailService emailService;
+    private final AuthorizedUserService authorizedUserService;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
 
@@ -30,6 +31,8 @@ public class MfaAuthService {
     @SuppressWarnings("null")
     public Map<String, Object> registerAndStartMfaSetup(String email, String password, String emailVerificationToken, boolean enableMfa) {
         String normalizedEmail = email.trim().toLowerCase();
+
+        authorizedUserService.ensureAllowedForRegistration(normalizedEmail);
 
         Optional<String> verifiedEmailOpt = tempJwtService.extractEmailIfValidVerifiedEmailToken(emailVerificationToken);
         if (verifiedEmailOpt.isEmpty() || !normalizedEmail.equals(verifiedEmailOpt.get())) {
@@ -49,6 +52,7 @@ public class MfaAuthService {
                 .build();
 
         appUserRepository.save(Objects.requireNonNull(user));
+        authorizedUserService.markRegistered(normalizedEmail);
 
         if (!enableMfa) {
             Map<String, Object> response = new LinkedHashMap<>();
@@ -92,6 +96,7 @@ public class MfaAuthService {
         user.setMfaRegistered(true);
         user.setIsMfaEnabled(true);
         appUserRepository.save(user);
+        authorizedUserService.markRegistered(normalizedEmail);
 
         emailService.sendSignupVerificationEmail(normalizedEmail, "Welcome! 2FA is successfully enabled");
 
@@ -100,6 +105,7 @@ public class MfaAuthService {
 
     public Optional<Map<String, Object>> loginStepOne(String email, String password) {
         String normalizedEmail = email.trim().toLowerCase();
+        authorizedUserService.ensureAllowedForLogin(normalizedEmail);
         Optional<AppUser> userOpt = appUserRepository.findByEmail(normalizedEmail);
 
         if (userOpt.isEmpty()) {
@@ -115,6 +121,7 @@ public class MfaAuthService {
             Map<String, Object> response = new LinkedHashMap<>();
             response.put("status", "LOGIN_SUCCESS");
             response.put("token", jwtService.generateJWTToken(normalizedEmail));
+            authorizedUserService.markSuccessfulLogin(normalizedEmail);
             return Optional.of(response);
         }
 
@@ -147,6 +154,8 @@ public class MfaAuthService {
         if (!valid) {
             return Optional.empty();
         }
+
+        authorizedUserService.markSuccessfulLogin(email);
 
         return Optional.of(jwtService.generateJWTToken(email));
     }

@@ -1,13 +1,9 @@
 package com.amarvote.amarvote.controller;
 
 import java.util.HashMap;
-import java.util.HashSet;
 import java.util.Map;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +17,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.amarvote.amarvote.model.ApiLog;
 import com.amarvote.amarvote.service.ApiLogService;
+import com.amarvote.amarvote.service.AuthorizedUserService;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -29,8 +26,8 @@ public class AdminController {
     @Autowired
     private ApiLogService apiLogService;
 
-    @Value("${amarvote.api-logs.allowed-emails:}")
-    private String allowedApiLogViewerEmails;
+    @Autowired
+    private AuthorizedUserService authorizedUserService;
 
     @GetMapping("/access-check")
     public ResponseEntity<?> checkApiLogAccess() {
@@ -40,7 +37,7 @@ public class AdminController {
                     .body(Map.of("allowed", false, "message", "Unauthorized"));
         }
 
-        boolean allowed = isAllowedViewer(currentEmail);
+        boolean allowed = authorizedUserService.canViewApiLogs(currentEmail);
         if (!allowed) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("allowed", false, "message", "Not allowed", "email", currentEmail));
@@ -65,7 +62,7 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
         }
 
-        if (!isAllowedViewer(currentEmail)) {
+        if (!authorizedUserService.canViewApiLogs(currentEmail)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body("Access denied. You are not allowed to view API logs.");
         }
@@ -95,7 +92,7 @@ public class AdminController {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
         }
 
-        if (!isAllowedViewer(currentEmail)) {
+        if (!authorizedUserService.canViewApiLogs(currentEmail)) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body("Access denied. You are not allowed to view API log stats.");
         }
@@ -122,24 +119,4 @@ public class AdminController {
         return authentication.getName();
     }
 
-    private boolean isAllowedViewer(String email) {
-        if (email == null || email.isBlank()) {
-            return false;
-        }
-
-        Set<String> allowedSet = parseAllowedEmails();
-        return allowedSet.contains(email.trim().toLowerCase());
-    }
-
-    private Set<String> parseAllowedEmails() {
-        if (allowedApiLogViewerEmails == null || allowedApiLogViewerEmails.isBlank()) {
-            return Set.of();
-        }
-
-        return java.util.Arrays.stream(allowedApiLogViewerEmails.split(","))
-                .map(String::trim)
-                .filter(s -> !s.isEmpty())
-                .map(String::toLowerCase)
-                .collect(Collectors.toCollection(HashSet::new));
-    }
 }

@@ -12,6 +12,7 @@ import {
   FiX,
   FiPlus,
   FiBell,
+  FiUsers,
 } from "react-icons/fi";
 import { fetchAllElections } from "../utils/api";
 import { electionApi } from "../utils/electionApi";
@@ -381,14 +382,14 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               </button>
 
               <Link
-                to="/profile"
-                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/profile')
+                to="/authenticated-users"
+                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/authenticated-users')
                     ? 'text-blue-700 bg-blue-50/80'
                     : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
                   }`}
               >
-                <FiUser className="h-4 w-4" />
-                <span>Profile</span>
+                <FiUsers className="h-4 w-4" />
+                <span>Authenticated Users</span>
               </Link>
 
             </div>
@@ -535,14 +536,19 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               </div>
 
               {/* User Email Display */}
-              <div className="flex flex-col items-center p-2 rounded-2xl bg-gray-50/80">
+              <button
+                type="button"
+                onClick={() => navigate('/profile')}
+                className="flex flex-col items-center p-2 rounded-2xl bg-gray-50/80 hover:bg-gray-100/90 transition-all"
+                title="Open profile"
+              >
                 <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl flex items-center justify-center shadow-sm">
                   <FiUser className="text-blue-600 h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
                 <span className="text-xs sm:text-sm font-medium text-gray-700 mt-1 max-w-[120px] truncate">
                   {userEmail || 'User'}
                 </span>
-              </div>
+              </button>
 
               {/* Logout Button */}
               <button
@@ -693,15 +699,15 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
             </button>
 
             <Link
-              to="/profile"
+              to="/authenticated-users"
               onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium ${isActiveRoute('/profile')
+              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium ${isActiveRoute('/authenticated-users')
                   ? 'text-blue-700 bg-blue-50/80'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
                 }`}
             >
-              <FiUser className="h-5 w-5" />
-              <span>Profile</span>
+              <FiUsers className="h-5 w-5" />
+              <span>Authenticated Users</span>
             </Link>
 
             <button

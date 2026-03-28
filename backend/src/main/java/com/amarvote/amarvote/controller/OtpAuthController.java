@@ -31,6 +31,7 @@ import com.amarvote.amarvote.dto.RegisterSendEmailCodeRequestDto;
 import com.amarvote.amarvote.dto.RegisterVerifyEmailCodeRequestDto;
 import com.amarvote.amarvote.dto.UserSession;
 import com.amarvote.amarvote.service.EmailVerificationService;
+import com.amarvote.amarvote.service.AuthorizedUserService;
 import com.amarvote.amarvote.service.MfaAuthService;
 import com.amarvote.amarvote.service.OtpAuthService;
 
@@ -49,6 +50,7 @@ public class OtpAuthController {
 
     private final EmailVerificationService emailVerificationService;
     private final MfaAuthService mfaAuthService;
+    private final AuthorizedUserService authorizedUserService;
     
     @Value("${cookie.secure:false}")
     private boolean cookieSecure;
@@ -77,6 +79,7 @@ public class OtpAuthController {
     @PostMapping("/register")
     public ResponseEntity<?> register(@Valid @RequestBody AuthRegisterRequestDto request, HttpServletResponse response) {
         try {
+            authorizedUserService.ensureAllowedForRegistration(request.getEmail());
             boolean enableMfa = Boolean.TRUE.equals(request.getEnableMfa());
             Map<String, Object> responseMap = mfaAuthService.registerAndStartMfaSetup(
                     request.getEmail(),
@@ -116,24 +119,29 @@ public class OtpAuthController {
 
     @PostMapping("/login")
     public ResponseEntity<?> loginStepOne(@Valid @RequestBody AuthLoginRequestDto request, HttpServletResponse response) {
-        Optional<Map<String, Object>> responseOpt = mfaAuthService.loginStepOne(request.getEmail(), request.getPassword());
-        if (responseOpt.isEmpty()) {
-            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(Map.of("message", "Invalid credentials"));
-        }
+        try {
+            Optional<Map<String, Object>> responseOpt = mfaAuthService.loginStepOne(request.getEmail(), request.getPassword());
+            if (responseOpt.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("message", "Invalid credentials"));
+            }
 
-        Map<String, Object> responseMap = responseOpt.get();
-        Object status = responseMap.get("status");
-        if ("MFA_REQUIRED".equals(status)) {
-            return ResponseEntity.status(HttpStatus.ACCEPTED).body(responseMap);
-        }
+            Map<String, Object> responseMap = responseOpt.get();
+            Object status = responseMap.get("status");
+            if ("MFA_REQUIRED".equals(status)) {
+                return ResponseEntity.status(HttpStatus.ACCEPTED).body(responseMap);
+            }
 
-        if ("LOGIN_SUCCESS".equals(status) && responseMap.get("token") != null) {
-            addAuthCookie(response, String.valueOf(responseMap.get("token")));
-            return ResponseEntity.ok(responseMap);
-        }
+            if ("LOGIN_SUCCESS".equals(status) && responseMap.get("token") != null) {
+                addAuthCookie(response, String.valueOf(responseMap.get("token")));
+                return ResponseEntity.ok(responseMap);
+            }
 
-        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(responseMap);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(responseMap);
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", ex.getMessage()));
+        }
     }
 
     @GetMapping("/profile")
@@ -234,6 +242,13 @@ public class OtpAuthController {
      */
     @PostMapping("/request-otp")
     public ResponseEntity<OtpResponseDto> requestOtp(@Valid @RequestBody OtpRequestDto request) {
+        try {
+            authorizedUserService.ensureAllowedForLogin(request.getEmail());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new OtpResponseDto(false, ex.getMessage()));
+        }
+
         boolean success = otpAuthService.sendOtp(request.getEmail());
         
         if (success) {
@@ -251,6 +266,13 @@ public class OtpAuthController {
     public ResponseEntity<OtpLoginResponseDto> verifyOtp(
             @Valid @RequestBody OtpVerifyDto request,
             HttpServletResponse response) {
+
+        try {
+            authorizedUserService.ensureAllowedForLogin(request.getEmail());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new OtpLoginResponseDto(false, ex.getMessage(), null));
+        }
         
         Optional<String> tokenOpt = otpAuthService.verifyOtpAndGenerateToken(
                 request.getEmail(), request.getOtpCode());
@@ -266,6 +288,8 @@ public class OtpAuthController {
             cookie.setMaxAge(7 * 24 * 60 * 60); // 7 days
             cookie.setAttribute("SameSite", "Strict");
             response.addCookie(cookie);
+
+            authorizedUserService.markSuccessfulLogin(request.getEmail());
             
             return ResponseEntity.ok(new OtpLoginResponseDto(true, "Login successful", token));
         } else {
@@ -287,7 +311,13 @@ public class OtpAuthController {
         }
 
         UserDetails userDetails = (UserDetails) authentication.getPrincipal();
-        UserSession session = new UserSession(userDetails.getUsername());
+        String email = userDetails.getUsername();
+        Map<String, Object> access = authorizedUserService.getCurrentUserAccess(email);
+        UserSession session = new UserSession(
+            email,
+            String.valueOf(access.getOrDefault("userType", "user")),
+            Boolean.TRUE.equals(access.get("canViewApiLogs")),
+            Boolean.TRUE.equals(access.get("canManageAuthorizedUsers")));
 
         return ResponseEntity.ok(session);
     }

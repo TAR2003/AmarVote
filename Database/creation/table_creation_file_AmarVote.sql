@@ -21,6 +21,31 @@ ALTER TABLE IF EXISTS users ADD COLUMN IF NOT EXISTS mfa_registered BOOLEAN NOT 
 
 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
 
+-- Authorized Users Table (Global allowlist + role management)
+CREATE TABLE IF NOT EXISTS authorized_users (
+    authorized_user_id BIGSERIAL PRIMARY KEY,
+    email VARCHAR(255) NOT NULL UNIQUE,
+    is_allowed BOOLEAN NOT NULL DEFAULT TRUE,
+    registered_or_not BOOLEAN NOT NULL DEFAULT FALSE,
+    user_type VARCHAR(20) NOT NULL DEFAULT 'user',
+    last_login TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT chk_authorized_user_type CHECK (user_type IN ('user', 'admin', 'owner'))
+);
+
+-- Backward-compatible authorized_users column additions
+ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS is_allowed BOOLEAN NOT NULL DEFAULT TRUE;
+ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS registered_or_not BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS user_type VARCHAR(20) NOT NULL DEFAULT 'user';
+ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS last_login TIMESTAMP WITH TIME ZONE;
+ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE IF EXISTS authorized_users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP;
+
+CREATE INDEX IF NOT EXISTS idx_authorized_users_email ON authorized_users(email);
+CREATE INDEX IF NOT EXISTS idx_authorized_users_type ON authorized_users(user_type);
+CREATE INDEX IF NOT EXISTS idx_authorized_users_allowed ON authorized_users(is_allowed);
+
 
 
 -- Election Table
