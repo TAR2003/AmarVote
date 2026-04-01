@@ -20,13 +20,13 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    # Memory limit for 4GB RAM server
+    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 192M
         reservations:
-          memory: 256M
+          memory: 96M
 
   redis:
     image: redis:7-alpine
@@ -45,13 +45,13 @@ services:
       retries: 3
     volumes:
       - redis_data:/data
-    # Memory limit for 4GB RAM server
+    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 96M
         reservations:
-          memory: 128M
+          memory: 48M
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -74,13 +74,13 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
-    # Memory limit for 4GB RAM server
+    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 192M
         reservations:
-          memory: 256M
+          memory: 96M
 
   backend:
     build:
@@ -121,8 +121,8 @@ services:
       # ElectionGuard Service URLs
       - ELECTIONGUARD_API_URL=http://electionguard-api:5000
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
-      # JVM Memory Settings for 4GB RAM server (backend gets 1GB max)
-      - JAVA_OPTS=-Xms512m -Xmx1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError
+      # JVM Memory Settings for 2GB RAM server
+      - JAVA_OPTS=-Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError
     volumes:
       - maven_repo:/root/.m2
       - credentials_data:/app/data/credentials
@@ -137,13 +137,13 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Memory limit for 4GB RAM server
+    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
-          memory: 1280M
+          memory: 384M
         reservations:
-          memory: 768M
+          memory: 192M
   # rag-service:
 
   frontend:
@@ -159,13 +159,13 @@ services:
         ipv4_address: 172.20.0.40
     depends_on:
       - backend
-    # Memory limit for 4GB RAM server
+    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 96M
         reservations:
-          memory: 128M
+          memory: 48M
 
   electionguard-api:
     build:
@@ -184,13 +184,13 @@ services:
     volumes:
       # Bind the Microservice/io folder to the container so exports are visible on the host
       - ./Microservice/io:/app/io:rw
-    # Memory limit for 4GB RAM server (API gets less but handles more workers)
+    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
-          memory: 768M
+          memory: 192M
         reservations:
-          memory: 384M
+          memory: 96M
 
   electionguard-worker:
     build:
@@ -209,13 +209,13 @@ services:
     volumes:
       # Bind the Microservice/io folder to the container so exports are visible on the host
       - ./Microservice/io:/app/io:rw
-    # Memory limit for 4GB RAM server (Worker gets maximum memory for heavy crypto)
+    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
-          memory: 1536M
+          memory: 384M
         reservations:
-          memory: 1024M
+          memory: 192M
 
   prometheus:
     image: prom/prometheus:latest
@@ -236,13 +236,13 @@ services:
         ipv4_address: 172.20.0.50  # Add explicit IP
     depends_on:
       - backend
-    # Memory limit for 4GB RAM server
+    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 96M
         reservations:
-          memory: 128M
+          memory: 48M
 
   grafana:
     image: grafana/grafana:latest
@@ -262,13 +262,13 @@ services:
         ipv4_address: 172.20.0.60  # Add explicit IP
     depends_on:
       - prometheus
-    # Memory limit for 4GB RAM server
+    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 96M
         reservations:
-          memory: 128M
+          memory: 48M
 
 
 
