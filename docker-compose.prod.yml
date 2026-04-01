@@ -10,8 +10,9 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./Database/creation/:/docker-entrypoint-initdb.d/:ro
-    ports:
-      - "5432:5432"
+    # No public port — only reachable inside election_net
+    expose:
+      - "5432"
     networks:
       election_net:
         ipv4_address: 172.20.0.20
@@ -20,7 +21,6 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
-    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
@@ -32,9 +32,10 @@ services:
     image: redis:7-alpine
     container_name: amarvote_redis
     restart: unless-stopped
-    command: redis-server --save "" --maxmemory 256mb --maxmemory-policy allkeys-lru
+    # maxmemory must stay below the container memory limit (96M)
+    command: redis-server --save "" --maxmemory 80mb --maxmemory-policy allkeys-lru
     ports:
-      - "6379:6379"
+      - "127.0.0.1:6379:6379"   # Bound to localhost only — use SSH tunnel to access
     networks:
       election_net:
         ipv4_address: 172.20.0.75
@@ -45,7 +46,6 @@ services:
       retries: 3
     volumes:
       - redis_data:/data
-    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
@@ -61,8 +61,8 @@ services:
       - RABBITMQ_DEFAULT_USER=amarvote_user
       - RABBITMQ_DEFAULT_PASS=amarvote_password
     ports:
-      - "5672:5672"      # AMQP protocol
-      - "15672:15672"    # Management UI
+      - "5672:5672"                    # AMQP — public (as requested)
+      - "127.0.0.1:15672:15672"        # Management UI — localhost only, use SSH tunnel
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
       - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
@@ -74,7 +74,6 @@ services:
       interval: 10s
       timeout: 10s
       retries: 5
-    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
@@ -88,15 +87,16 @@ services:
       dockerfile: Dockerfile
     container_name: amarvote_backend
     restart: unless-stopped
-    ports:
-      - "8080:8080"
+    # No public port — nginx proxies to this internally
+    expose:
+      - "8080"
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/amarvote_db
       - SPRING_DATASOURCE_USERNAME=amarvote_user
       - SPRING_DATASOURCE_PASSWORD=amarvote_password
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
-      - SPRING_DEVTOOLS_RESTART_ENABLED=true
-      - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
+      - SPRING_DEVTOOLS_RESTART_ENABLED=false
+      - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=false
       - RAG_SERVICE_URL=http://rag-service:5001
       - BLOCKCHAIN_SERVICE_URL=${VOTING_API_URL}
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
@@ -114,15 +114,16 @@ services:
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=amarvote_user
       - SPRING_RABBITMQ_PASSWORD=amarvote_password
-      # Redis Configuration for secure credential storage
+      # Redis Configuration
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - SPRING_REDIS_PASSWORD=
       # ElectionGuard Service URLs
       - ELECTIONGUARD_API_URL=http://electionguard-api:5000
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
-      # JVM Memory Settings for 2GB RAM server
-      - JAVA_OPTS=-Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError
+      # JVM heap must fit inside 384M container limit
+      # JVM overhead is ~60-80M on top of heap, so Xmx=300m is the safe ceiling
+      - JAVA_OPTS=-Xms128m -Xmx300m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication
     volumes:
       - maven_repo:/root/.m2
       - credentials_data:/app/data/credentials
@@ -137,14 +138,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
           memory: 384M
         reservations:
           memory: 192M
-  # rag-service:
 
   frontend:
     build:
@@ -152,14 +151,14 @@ services:
       dockerfile: Dockerfile
     container_name: amarvote_frontend
     restart: unless-stopped
-    ports:
-      - "80:80"
+    # No public port — nginx proxies to this internally
+    expose:
+      - "80"
     networks:
       election_net:
         ipv4_address: 172.20.0.40
     depends_on:
       - backend
-    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
@@ -167,14 +166,38 @@ services:
         reservations:
           memory: 48M
 
+  nginx:
+    image: nginx:alpine
+    container_name: amarvote_nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"     # HTTP (redirects to HTTPS)
+      - "443:443"   # HTTPS
+    volumes:
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx/certs:/etc/letsencrypt:ro         # Mount your SSL certs here
+      - ./nginx/certbot-webroot:/var/www/certbot  # For certbot HTTP-01 challenge
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.45
+    depends_on:
+      - frontend
+      - backend
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+        reservations:
+          memory: 32M
+
   electionguard-api:
     build:
       context: ./Microservice
       dockerfile: Dockerfile.api
     container_name: electionguard_api
     restart: unless-stopped
-    ports:
-      - "0.0.0.0:5000:5000"
+    expose:
+      - "5000"
     networks:
       election_net:
         ipv4_address: 172.20.0.10
@@ -182,9 +205,7 @@ services:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
     volumes:
-      # Bind the Microservice/io folder to the container so exports are visible on the host
       - ./Microservice/io:/app/io:rw
-    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
@@ -198,8 +219,8 @@ services:
       dockerfile: Dockerfile.worker
     container_name: electionguard_worker
     restart: unless-stopped
-    ports:
-      - "0.0.0.0:5001:5001"
+    expose:
+      - "5001"
     networks:
       election_net:
         ipv4_address: 172.20.0.11
@@ -207,9 +228,7 @@ services:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
     volumes:
-      # Bind the Microservice/io folder to the container so exports are visible on the host
       - ./Microservice/io:/app/io:rw
-    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
@@ -229,14 +248,15 @@ services:
       - '--storage.tsdb.path=/prometheus'
       - '--web.console.libraries=/etc/prometheus/console_libraries'
       - '--web.console.templates=/etc/prometheus/consoles'
+      - '--storage.tsdb.retention.time=3d'
+    # localhost only — use SSH tunnel to access
     ports:
-      - "9090:9090"
+      - "127.0.0.1:9090:9090"
     networks:
       election_net:
-        ipv4_address: 172.20.0.50  # Add explicit IP
+        ipv4_address: 172.20.0.50
     depends_on:
       - backend
-    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
@@ -255,38 +275,20 @@ services:
       - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
       - GF_USERS_ALLOW_SIGN_UP=false
       - GF_SERVER_ROOT_URL=http://localhost:3000
+    # localhost only — use SSH tunnel to access
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     networks:
       election_net:
-        ipv4_address: 172.20.0.60  # Add explicit IP
+        ipv4_address: 172.20.0.60
     depends_on:
       - prometheus
-    # Memory limit for 2GB RAM server
     deploy:
       resources:
         limits:
           memory: 96M
         reservations:
           memory: 48M
-
-
-
-# rag-service:
-#   build: ./rag-service
-#   container_name: rag_service
-#   restart: unless-stopped
-#   expose:
-#     - "5001"
-#   networks:
-#     - election_net
-#   environment:
-#     - FLASK_ENV=production
-#     - FLASK_DEBUG=False
-#     - RAG_SERVICE_PORT=5001
-#   volumes:
-#     - ./backend/src/main/resources/pdf:/app/data
-#     - rag_vectorstore:/app/vectorstore
 
 volumes:
   postgres_data:
@@ -306,5 +308,3 @@ networks:
       config:
         - subnet: 172.20.0.0/24
           gateway: 172.20.0.1
-  # voting-network:
-  #   driver: bridge
