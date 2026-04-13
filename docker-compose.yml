@@ -1,92 +1,65 @@
 services:
   postgres:
     image: postgres:15-alpine
-    container_name: amarvote_postgres
+    container_name: amarvote_postgres_dev
     restart: unless-stopped
     environment:
       - POSTGRES_DB=amarvote_db
       - POSTGRES_USER=amarvote_user
       - POSTGRES_PASSWORD=amarvote_password
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres_data_dev:/var/lib/postgresql/data
       - ./Database/creation/:/docker-entrypoint-initdb.d/:ro
     ports:
       - "5432:5432"
     networks:
-      election_net:
-        ipv4_address: 172.20.0.20
+      - dev_net
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U amarvote_user -d amarvote_db"]
       interval: 5s
       timeout: 5s
       retries: 5
-    # Memory limit for 2GB RAM server
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-        reservations:
-          memory: 96M
-
-  rabbitmq:
-    image: rabbitmq:3.13-management-alpine
-    container_name: amarvote_rabbitmq
-    restart: unless-stopped
-    ports:
-      - "5672:5672"      # AMQP protocol
-      - "15672:15672"    # Management UI
-    environment:
-      - RABBITMQ_DEFAULT_USER=amarvote_user
-      - RABBITMQ_DEFAULT_PASS=amarvote_password
-    volumes:
-      - rabbitmq_data:/var/lib/rabbitmq
-      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
-    networks:
-      election_net:
-        ipv4_address: 172.20.0.25
-    healthcheck:
-      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
-      interval: 10s
-      timeout: 10s
-      retries: 5
-    # Memory limit for 2GB RAM server
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-        reservations:
-          memory: 96M
 
   redis:
     image: redis:7-alpine
-    container_name: amarvote_redis
-    command: redis-server --save "" --maxmemory 256mb --maxmemory-policy allkeys-lru
+    container_name: amarvote_redis_dev
+    restart: unless-stopped
+    command: redis-server --save "" --maxmemory 80mb --maxmemory-policy allkeys-lru
     ports:
       - "6379:6379"
     networks:
-      election_net:
-        ipv4_address: 172.20.0.75
+      - dev_net
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s
       timeout: 3s
       retries: 3
-    volumes:
-      - redis_data:/data
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: amarvote_rabbitmq_dev
     restart: unless-stopped
-    # Memory limit for 2GB RAM server
-    deploy:
-      resources:
-        limits:
-          memory: 96M
-        reservations:
-          memory: 48M
+    environment:
+      - RABBITMQ_DEFAULT_USER=amarvote_user
+      - RABBITMQ_DEFAULT_PASS=amarvote_password
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    volumes:
+      - rabbitmq_data_dev:/var/lib/rabbitmq
+    networks:
+      - dev_net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 5
 
   backend:
     build:
       context: ./backend
-      dockerfile: Dockerfile.dev
-    container_name: amarvote_backend
+      dockerfile: Dockerfile
+    container_name: amarvote_backend_dev
     restart: unless-stopped
     ports:
       - "8080:8080"
@@ -98,39 +71,33 @@ services:
       - SPRING_DEVTOOLS_RESTART_ENABLED=true
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=true
       - RAG_SERVICE_URL=http://rag-service:5001
-      - BLOCKCHAIN_SERVICE_URL=${VOTING_API_URL}
-      - MASTER_KEY_PQ=${MASTER_KEY_PQ}
-      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
-      - JWT_SECRET=${JWT_SECRET}
-      - MAIL_PASSWORD=${MAIL_PASSWORD}
-      - CLOUDINARY_NAME=${CLOUDINARY_NAME}
-      - CLOUDINARY_KEY=${CLOUDINARY_KEY}
-      - CLOUDINARY_SECRET=${CLOUDINARY_SECRET}
-      - LOG_PASSWORD=${LOG_PASSWORD}
-      - ADMIN_EMAILS=${ADMIN_EMAILS}
-      - API_LOG_VIEWERS=${API_LOG_VIEWERS}
+      - BLOCKCHAIN_SERVICE_URL=${VOTING_API_URL:-http://localhost:3001}
+      - MASTER_KEY_PQ=${MASTER_KEY_PQ:-dev_master_key}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY:-}
+      - JWT_SECRET=${JWT_SECRET:-dev_jwt_secret_change_in_prod}
+      - MAIL_PASSWORD=${MAIL_PASSWORD:-}
+      - CLOUDINARY_NAME=${CLOUDINARY_NAME:-}
+      - CLOUDINARY_KEY=${CLOUDINARY_KEY:-}
+      - CLOUDINARY_SECRET=${CLOUDINARY_SECRET:-}
+      - LOG_PASSWORD=${LOG_PASSWORD:-devpassword}
+      - ADMIN_EMAILS=${ADMIN_EMAILS:-admin@localhost}
       - CREDENTIALS_DIRECTORY=/app/data/credentials
-      # RabbitMQ Configuration
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=amarvote_user
       - SPRING_RABBITMQ_PASSWORD=amarvote_password
-      # Redis Configuration for secure credential storage
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - SPRING_REDIS_PASSWORD=
-      # ElectionGuard Service URLs
       - ELECTIONGUARD_API_URL=http://electionguard-api:5000
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
-      # JVM Memory Settings for 2GB RAM server
-      - JAVA_OPTS=-Xms256m -Xmx512m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError
+      - JAVA_OPTS=-Xms64m -Xmx256m -XX:+UseG1GC
     volumes:
-      - maven_repo:/root/.m2
-      - credentials_data:/app/data/credentials
+      - maven_repo_dev:/root/.m2
+      - credentials_data_dev:/app/data/credentials
       - ./backend/src/main/resources/templates:/app/templates:ro
     networks:
-      election_net:
-        ipv4_address: 172.20.0.30
+      - dev_net
     depends_on:
       postgres:
         condition: service_healthy
@@ -138,246 +105,58 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
-    # Memory limit for 2GB RAM server
-    deploy:
-      resources:
-        limits:
-          memory: 384M
-        reservations:
-          memory: 192M
 
   frontend:
     build:
       context: ./frontend
-      dockerfile: Dockerfile.dev
-    container_name: amarvote_frontend
+      dockerfile: Dockerfile
+    container_name: amarvote_frontend_dev
     restart: unless-stopped
     ports:
-      - "0.0.0.0:5173:5173"
+      - "3000:80"
     networks:
-      election_net:
-        ipv4_address: 172.20.0.40
+      - dev_net
     depends_on:
       - backend
-    volumes:
-      - ./frontend:/app
-      - /app/node_modules
-    # Memory limit for 2GB RAM server
-    deploy:
-      resources:
-        limits:
-          memory: 96M
-        reservations:
-          memory: 48M
 
   electionguard-api:
     build:
       context: ./Microservice
       dockerfile: Dockerfile.api
-    container_name: electionguard_api
+    container_name: electionguard_api_dev
     restart: unless-stopped
     ports:
-      - "0.0.0.0:5000:5000"
+      - "5000:5000"
     networks:
-      election_net:
-        ipv4_address: 172.20.0.10
+      - dev_net
     environment:
-      - FLASK_DEBUG=0
-      - MASTER_KEY_PQ=${MASTER_KEY_PQ}
+      - FLASK_DEBUG=1
+      - MASTER_KEY_PQ=${MASTER_KEY_PQ:-dev_master_key}
     volumes:
-      # Bind the Microservice/io folder to the container so exports are visible on the host
       - ./Microservice/io:/app/io:rw
-    # Memory limit for 2GB RAM server
-    deploy:
-      resources:
-        limits:
-          memory: 192M
-        reservations:
-          memory: 96M
 
   electionguard-worker:
     build:
       context: ./Microservice
       dockerfile: Dockerfile.worker
-    container_name: electionguard_worker
+    container_name: electionguard_worker_dev
     restart: unless-stopped
     ports:
-      - "0.0.0.0:5001:5001"
+      - "5001:5001"
     networks:
-      election_net:
-        ipv4_address: 172.20.0.11
+      - dev_net
     environment:
-      - FLASK_DEBUG=0
-      - MASTER_KEY_PQ=${MASTER_KEY_PQ}
+      - FLASK_DEBUG=1
+      - MASTER_KEY_PQ=${MASTER_KEY_PQ:-dev_master_key}
     volumes:
-      # Bind the Microservice/io folder to the container so exports are visible on the host
       - ./Microservice/io:/app/io:rw
-    # Memory limit for 2GB RAM server
-    deploy:
-      resources:
-        limits:
-          memory: 384M
-        reservations:
-          memory: 192M
-
-  prometheus:
-    image: prom/prometheus:latest
-    container_name: amarvote_prometheus
-    restart: unless-stopped
-    volumes:
-      - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
-      - prometheus_data:/prometheus
-    command:
-      - '--config.file=/etc/prometheus/prometheus.yml'
-      - '--storage.tsdb.path=/prometheus'
-      - '--web.console.libraries=/etc/prometheus/console_libraries'
-      - '--web.console.templates=/etc/prometheus/consoles'
-    ports:
-      - "9090:9090"
-    networks:
-      election_net:
-        ipv4_address: 172.20.0.50
-    depends_on:
-      - backend
-    # Memory limit for 2GB RAM server
-    deploy:
-      resources:
-        limits:
-          memory: 96M
-        reservations:
-          memory: 48M
-
-  grafana:
-    image: grafana/grafana:latest
-    container_name: amarvote_grafana
-    restart: unless-stopped
-    volumes:
-      - grafana_data:/var/lib/grafana
-    environment:
-      - GF_SECURITY_ADMIN_USER=admin
-      - GF_SECURITY_ADMIN_PASSWORD=${GF_SECURITY_ADMIN_PASSWORD}
-      - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_SERVER_ROOT_URL=http://localhost:3000
-    ports:
-      - "3000:3000"
-    networks:
-      election_net:
-        ipv4_address: 172.20.0.60
-    depends_on:
-      - prometheus
-    # Memory limit for 2GB RAM server
-    deploy:
-      resources:
-        limits:
-          memory: 96M
-        reservations:
-          memory: 48M
-
-  # rag-service:
-  #   build: ./rag-service
-  #   container_name: rag_service
-  #   ports:
-  #     - "5001:5001"
-  #   networks:
-  #     election_net:
-  #       ipv4_address: 172.20.0.50
-  #   environment:
-  #     - FLASK_ENV=production
-  #     - FLASK_DEBUG=False
-  #     - RAG_SERVICE_PORT=5001
-  #   volumes:
-  #     - ./backend/src/main/resources/pdf:/app/data
-  #     - rag_vectorstore:/app/vectorstore
-
-  # ganache:
-  #   image: trufflesuite/ganache:latest
-  #   container_name: voting-ganache
-  #   ports:
-  #     - "8545:8545"
-  #   environment:
-  #     - GANACHE_ACCOUNTS=10
-  #     - GANACHE_DETERMINISTIC=true
-  #     - GANACHE_MNEMONIC=abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about
-  #     - GANACHE_NETWORK_ID=1337
-  #     - GANACHE_GAS_LIMIT=6721975
-  #     - GANACHE_GAS_PRICE=20000000000
-  #   command: >
-  #     --host 0.0.0.0
-  #     --port 8545
-  #     --accounts 10
-  #     --mnemonic "abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon abandon about"
-  #     --networkId 1337
-  #     --gasLimit 6721975
-  #     --gasPrice 20000000000
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:8545 || exit 1"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #   networks:
-  #     voting-network:
-  #     election_net:
-
-  # blockchain-deployer:
-  #   build:
-  #     context: ./blockchain
-  #     dockerfile: Dockerfile
-  #   container_name: voting-blockchain-deployer
-  #   depends_on:
-  #     - ganache
-  #   environment:
-  #     - GANACHE_URL=http://ganache:8545
-  #     - NETWORK_ID=1337
-  #   volumes:
-  #     - contract-artifacts:/app/build
-  #   networks:
-  #     voting-network:
-  #     election_net:
-
-  # voting-api:
-  #   build:
-  #     context: ./blockchain-microservice
-  #     dockerfile: Dockerfile
-  #   container_name: voting-api
-  #   ports:
-  #     - "5002:5002"
-  #   depends_on:
-  #     - ganache
-  #     - blockchain-deployer
-  #   environment:
-  #     - FLASK_ENV=production
-  #     - GANACHE_URL=http://ganache:8545
-  #     - NETWORK_ID=1337
-  #     - CONTRACT_ARTIFACTS_PATH=/app/contracts
-  #   volumes:
-  #     - contract-artifacts:/app/contracts:ro
-  #     - voting-data:/app/data
-  #   healthcheck:
-  #     test: ["CMD-SHELL", "curl -f http://localhost:5002/health || exit 1"]
-  #     interval: 10s
-  #     timeout: 5s
-  #     retries: 5
-  #   networks:
-  #     voting-network:
-  #     election_net:
 
 volumes:
-  postgres_data:
-  maven_repo:
-  prometheus_data:
-  grafana_data:
-  credentials_data:
-  rabbitmq_data:
-  redis_data:
-  # rag_vectorstore:
-  # contract-artifacts:
-  # voting-data:
+  postgres_data_dev:
+  maven_repo_dev:
+  rabbitmq_data_dev:
+  credentials_data_dev:
 
 networks:
-  election_net:
+  dev_net:
     driver: bridge
-    ipam:
-      driver: default
-      config:
-        - subnet: 172.20.0.0/24
-          gateway: 172.20.0.1

@@ -1,1 +1,12 @@
 .env
+
+# SSL certs (generated on server, not stored in git)
+nginx/certs/live/
+nginx/certs/archive/
+nginx/certs/renewal/
+nginx/certs/dhparam.pem
+
+# Certbot webroot challenge files
+nginx/certbot-webroot/*
+!nginx/certbot-webroot/.gitkeep
+!nginx/certs/.gitkeep

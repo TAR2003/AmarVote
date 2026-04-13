@@ -202,6 +202,18 @@ services:
         reservations:
           memory: 32M
 
+  certbot:
+    image: certbot/certbot:latest
+    container_name: amarvote_certbot
+    volumes:
+      - ./nginx/certs:/etc/letsencrypt
+      - ./nginx/certbot-webroot:/var/www/certbot
+    entrypoint: /bin/sh -c "trap exit TERM; while :; do certbot renew --quiet --webroot --webroot-path=/var/www/certbot; sleep 12h & wait $${!}; done"
+    deploy:
+      resources:
+        limits:
+          memory: 64M
+
   electionguard-api:
     build:
       context: ./Microservice
