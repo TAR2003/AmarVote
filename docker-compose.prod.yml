@@ -174,7 +174,7 @@ services:
       - "80:80"     # HTTP (redirects to HTTPS)
       - "443:443"   # HTTPS
     volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./nginx-proxy.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/certs:/etc/letsencrypt:ro         # Mount your SSL certs here
       - ./nginx/certbot-webroot:/var/www/certbot  # For certbot HTTP-01 challenge
     networks:
