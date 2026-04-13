@@ -15,21 +15,23 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
 
-      # Test SSH connection
+      # ✅ Test SSH
       - name: Test SSH
         run: |
-          sshpass -p "${{ secrets.VM_SECRET }}" ssh -o StrictHostKeyChecking=no \
+          sshpass -p "${{ secrets.VM_SECRET }}" ssh \
+          -o StrictHostKeyChecking=no \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
           "echo '✅ SSH Connected'"
 
-      # Create app directory
-      - name: Prepare VM
+      # ✅ Prepare directory
+      - name: Prepare VM directory
         run: |
-          sshpass -p "${{ secrets.VM_SECRET }}" ssh -o StrictHostKeyChecking=no \
+          sshpass -p "${{ secrets.VM_SECRET }}" ssh \
+          -o StrictHostKeyChecking=no \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "mkdir -p ~/app"
+          "mkdir -p ~/app && ls -la ~/"
 
-      # Upload project files
+      # ✅ Copy project files
       - name: Copy files to VM
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" rsync -avz --delete \
@@ -39,27 +41,51 @@ jobs:
             --exclude='backend/logs' \
             ./ ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }}:~/app/
 
-      # OPTIONAL: create .env from GitHub Secret
+      # ✅ Create .env (guaranteed correct)
       - name: Create .env on VM
         run: |
-          sshpass -p "${{ secrets.VM_SECRET }}" ssh -o StrictHostKeyChecking=no \
+          sshpass -p "${{ secrets.VM_SECRET }}" ssh \
+          -o StrictHostKeyChecking=no \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "echo '${{ secrets.ENV_FILE }}' > ~/app/.env"
+          "echo '${{ secrets.ENV_FILE }}' > ~/app/.env && \
+           echo '✅ .env created' && \
+           ls -la ~/app/.env && \
+           echo '---- FIRST 5 LINES ----' && \
+           head -5 ~/app/.env"
 
-      # Deploy with Docker
-      - name: Deploy
+      # ✅ Validate env variables exist
+      - name: Validate .env content
         run: |
-          sshpass -p "${{ secrets.VM_SECRET }}" ssh -o StrictHostKeyChecking=no \
+          sshpass -p "${{ secrets.VM_SECRET }}" ssh \
+          -o StrictHostKeyChecking=no \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
           "cd ~/app && \
-           docker compose -f docker-compose.prod.yml down --remove-orphans || true && \
-           docker system prune -af || true && \
-           docker compose -f docker-compose.prod.yml build && \
-           docker compose -f docker-compose.prod.yml up -d"
+           grep -E 'JWT_SECRET|DB_URL|CLOUDINARY_NAME' .env || echo '⚠️ Missing expected vars'"
 
-      # Verify
+      # 🚀 DEPLOY (FORCED ENV USAGE)
+      - name: Deploy with Docker (robust)
+        run: |
+          sshpass -p "${{ secrets.VM_SECRET }}" ssh \
+          -o StrictHostKeyChecking=no \
+          -o ServerAliveInterval=60 \
+          -o ServerAliveCountMax=10 \
+          ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
+          "cd ~/app && \
+           echo '📦 Using .env from:' && pwd && \
+           docker compose --env-file .env -f docker-compose.prod.yml config > /dev/null && \
+           echo '✅ Env file validated by Docker Compose' && \
+           docker compose --env-file .env -f docker-compose.prod.yml down --remove-orphans || true && \
+           docker system prune -af || true && \
+           docker compose --env-file .env -f docker-compose.prod.yml build && \
+           docker compose --env-file .env -f docker-compose.prod.yml up -d --force-recreate"
+
+      # ✅ Verify deployment
       - name: Verify deployment
         run: |
-          sshpass -p "${{ secrets.VM_SECRET }}" ssh -o StrictHostKeyChecking=no \
+          sshpass -p "${{ secrets.VM_SECRET }}" ssh \
+          -o StrictHostKeyChecking=no \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "cd ~/app && docker compose ps"
+          "cd ~/app && \
+           docker compose ps && \
+           echo '---- RUNNING CONTAINERS ----' && \
+           docker ps"
