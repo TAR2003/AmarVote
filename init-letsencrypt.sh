@@ -5,7 +5,7 @@
 set -e
 
 DOMAIN="amarvote2026.me"
-EMAIL="your-email@example.com"   # change this before running
+EMAIL="tawkir2003@gmail.com"   # change this before running
 CERTBOT_WEBROOT="./nginx/certbot-webroot"
 CERTS_DIR="./nginx/certs"
 
