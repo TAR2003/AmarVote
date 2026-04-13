@@ -157,6 +157,9 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        NODE_IMAGE: ${FRONTEND_NODE_IMAGE:-node:18-alpine3.20}
+        NGINX_IMAGE: ${FRONTEND_NGINX_IMAGE:-nginx:1.27-alpine}
     container_name: amarvote_frontend
     restart: unless-stopped
     env_file:
@@ -177,7 +180,7 @@ services:
           memory: 48M
 
   nginx:
-    image: nginx:alpine
+    image: nginx:1.27-alpine
     container_name: amarvote_nginx
     restart: unless-stopped
     env_file:
