@@ -1,7 +1,5 @@
 # Build stage
-ARG NODE_IMAGE=node:18-alpine3.20
-ARG NGINX_IMAGE=nginx:1.27-alpine
-FROM ${NODE_IMAGE} AS build
+FROM node:18-alpine AS build
 
 WORKDIR /app
 COPY package*.json ./
@@ -12,7 +10,7 @@ COPY . .
 RUN NODE_OPTIONS="--max-old-space-size=8192" npm run build
 
 # Production stage
-FROM ${NGINX_IMAGE}
+FROM nginx:alpine
 
 # Remove default nginx config
 RUN rm -rf /etc/nginx/conf.d/*

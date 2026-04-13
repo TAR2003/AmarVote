@@ -73,25 +73,7 @@ jobs:
           "cd ~/app && \
            docker compose --env-file .env -f docker-compose.prod.yml down --remove-orphans || true && \
            docker image prune -af || true && \
-           retry() { \
-             n=1; \
-             max=5; \
-             delay=10; \
-             while true; do \
-               \"$@\" && break; \
-               if [ \$n -ge \$max ]; then \
-                 echo \"Command failed after \$n attempts: $*\"; \
-                 return 1; \
-               fi; \
-               echo \"Attempt \$n failed. Retrying in \$delay seconds...\"; \
-               n=\$((n+1)); \
-               sleep \$delay; \
-               delay=\$((delay*2)); \
-             done; \
-           } && \
-           retry docker pull node:18-alpine && \
-           retry docker pull nginx:alpine && \
-           retry docker compose --env-file .env -f docker-compose.prod.yml build --pull && \
+           docker compose --env-file .env -f docker-compose.prod.yml build && \
            docker compose --env-file .env -f docker-compose.prod.yml up -d --force-recreate"
 
       # ✅ Verify
