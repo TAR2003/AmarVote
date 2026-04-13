@@ -9,7 +9,7 @@ import org.springframework.boot.test.context.SpringBootTest;
 class AmarvoteApplicationTests {
     // @Test
     // void contextLoads() {
-        // Just verify Spring context loads 
+        // Just verify Spring context loads
         // force
         
     // }    
