@@ -29,7 +29,7 @@ jobs:
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
           -o StrictHostKeyChecking=no \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "mkdir -p ~/app && ls -la ~/"
+          "mkdir -p ~/app"
 
       # ✅ Copy project files
       - name: Copy files to VM
@@ -41,19 +41,19 @@ jobs:
             --exclude='backend/logs' \
             ./ ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }}:~/app/
 
-      # ✅ Create .env (guaranteed correct)
-      - name: Create .env on VM
+      # ✅ COPY EXISTING .env (THIS IS THE KEY FIX)
+      - name: Copy .env from home to app
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
           -o StrictHostKeyChecking=no \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "echo '${{ secrets.ENV_FILE }}' > ~/app/.env && \
-           echo '✅ .env created' && \
+          "cp ~/.env ~/app/.env && \
+           echo '✅ .env copied' && \
            ls -la ~/app/.env && \
            echo '---- FIRST 5 LINES ----' && \
            head -5 ~/app/.env"
 
-      # ✅ Validate env variables exist
+      # ✅ Validate env
       - name: Validate .env content
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
@@ -62,8 +62,8 @@ jobs:
           "cd ~/app && \
            grep -E 'JWT_SECRET|DB_URL|CLOUDINARY_NAME' .env || echo '⚠️ Missing expected vars'"
 
-      # 🚀 DEPLOY (FORCED ENV USAGE)
-      - name: Deploy with Docker (robust)
+      # 🚀 Deploy
+      - name: Deploy with Docker
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
           -o StrictHostKeyChecking=no \
@@ -71,21 +71,15 @@ jobs:
           -o ServerAliveCountMax=10 \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
           "cd ~/app && \
-           echo '📦 Using .env from:' && pwd && \
-           docker compose --env-file .env -f docker-compose.prod.yml config > /dev/null && \
-           echo '✅ Env file validated by Docker Compose' && \
            docker compose --env-file .env -f docker-compose.prod.yml down --remove-orphans || true && \
            docker system prune -af || true && \
            docker compose --env-file .env -f docker-compose.prod.yml build && \
            docker compose --env-file .env -f docker-compose.prod.yml up -d --force-recreate"
 
-      # ✅ Verify deployment
+      # ✅ Verify
       - name: Verify deployment
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
           -o StrictHostKeyChecking=no \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "cd ~/app && \
-           docker compose ps && \
-           echo '---- RUNNING CONTAINERS ----' && \
-           docker ps"
+          "cd ~/app && docker compose ps"
