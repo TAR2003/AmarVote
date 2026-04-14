@@ -30,7 +30,6 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   const [canCreateElections, setCanCreateElections] = useState(false);
   const searchRef = useRef(null);
   const suggestionsRef = useRef(null);
-  const mobileSearchRef = useRef(null);
   const notificationRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
@@ -97,15 +96,12 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   // Handle clicks outside search to close suggestions
   useEffect(() => {
     const handleClickOutside = (event) => {
-      // If click is outside BOTH the desktop search area and the mobile search area,
-      // then close suggestions. This prevents mobile suggestion clicks from being
-      // dismissed by the global mousedown handler before the button's click runs.
+      // Close floating panels when clicking outside their containers.
       const clickedInsideDesktop = searchRef.current && searchRef.current.contains(event.target);
       const clickedInsideSuggestions = suggestionsRef.current && suggestionsRef.current.contains(event.target);
-      const clickedInsideMobile = mobileSearchRef.current && mobileSearchRef.current.contains(event.target);
       const clickedInsideNotifications = notificationRef.current && notificationRef.current.contains(event.target);
 
-      if (!clickedInsideDesktop && !clickedInsideSuggestions && !clickedInsideMobile && !clickedInsideNotifications) {
+      if (!clickedInsideDesktop && !clickedInsideSuggestions && !clickedInsideNotifications) {
         setShowSuggestions(false);
         setShowGuardianAttention(false);
       }
@@ -170,6 +166,25 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
     if (now > endTime) return { text: 'Ended', color: 'text-gray-600' };
     return { text: 'Active', color: 'text-green-600' };
   };
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+    setShowGuardianAttention(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const handleEscapeClose = (event) => {
+      if (event.key === "Escape") {
+        setMobileMenuOpen(false);
+        setShowGuardianAttention(false);
+      }
+    };
+
+    document.addEventListener("keydown", handleEscapeClose);
+    return () => {
+      document.removeEventListener("keydown", handleEscapeClose);
+    };
+  }, []);
 
   useEffect(() => {
     const loadGuardianAttentionItems = async () => {
@@ -342,109 +357,45 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       {/* Top Navigation Bar */}
-      <header className="bg-white/95 backdrop-blur-lg shadow-lg border-b border-white/20 sticky top-0 z-50">
+      <header className="bg-white/95 backdrop-blur-lg shadow-lg border-b border-white/20 sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-14 sm:h-16 items-center">
-            {/* Mobile/Tablet menu button - Show when nav buttons are hidden */}
-            <div className="flex 2xl:hidden">
+          <div className="flex justify-between h-12 sm:h-14 md:h-16 items-center gap-2 sm:gap-3">
+            <div className="flex-shrink-0">
               <button
                 onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
                 className="inline-flex items-center justify-center p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                aria-label="Toggle menu"
               >
                 {mobileMenuOpen ? (
-                  <FiX className="h-6 w-6" />
+                  <FiX className="h-5 w-5 sm:h-6 sm:w-6" />
                 ) : (
-                  <FiMenu className="h-6 w-6" />
+                  <FiMenu className="h-5 w-5 sm:h-6 sm:w-6" />
                 )}
               </button>
             </div>
 
-            {/* Logo */}
-            <div className="flex items-center">
-              <Link to="/dashboard" className="flex-shrink-0 flex items-center group">
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
-                  <span className="text-white text-lg sm:text-xl font-bold">🗳️</span>
-                </div>
-                <span className="ml-2 sm:ml-3 text-sm sm:text-xl font-bold bg-gradient-to-r from-gray-900 to-blue-800 bg-clip-text text-transparent block">
-                  AmarVote
-                </span>
-              </Link>
-            </div>
+            <Link to="/dashboard" className="flex-shrink-0 flex items-center group">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
+                <span className="text-white text-sm sm:text-base font-bold">🗳️</span>
+              </div>
+              <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm font-bold bg-gradient-to-r from-gray-900 to-blue-800 bg-clip-text text-transparent">
+                AmarVote
+              </span>
+            </Link>
 
-            {/* Desktop Navigation Menu - shown only on very wide screens */}
-            <div className="hidden 2xl:flex items-center space-x-2">
-              <Link
-                to="/dashboard"
-                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/dashboard')
-                    ? 'text-blue-700 bg-blue-50/80'
-                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
-                  }`}
-              >
-                <FiHome className="h-4 w-4" />
-                <span>Dashboard</span>
-              </Link>
-
-              <Link
-                to="/all-elections"
-                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/all-elections')
-                    ? 'text-blue-700 bg-blue-50/80'
-                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
-                  }`}
-              >
-                <FiBarChart2 className="h-4 w-4" />
-                <span>All Elections</span>
-              </Link>
-
-              {canCreateElections ? (
-                <Link
-                  to="/create-election"
-                  className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-md hover:shadow-lg transform hover:scale-105 ${isActiveRoute('/create-election')
-                      ? 'text-white bg-gradient-to-r from-green-600 to-emerald-700'
-                      : 'text-white bg-gradient-to-r from-green-500 to-emerald-600 hover:from-green-600 hover:to-emerald-700'
-                    }`}
-                >
-                  <FiPlus className="h-4 w-4" />
-                  <span>Create Election</span>
-                </Link>
-              ) : null}
-
-              <button
-                onClick={handleApiLogsAccess}
-                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/api-logs')
-                    ? 'text-blue-700 bg-blue-50/80'
-                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
-                  }`}
-              >
-                <FiBarChart2 className="h-4 w-4" />
-                <span>API Logs</span>
-              </button>
-
-              <Link
-                to="/authenticated-users"
-                className={`flex items-center space-x-2 px-4 py-2 rounded-2xl text-sm font-medium transition-all duration-300 shadow-sm hover:shadow-md ${isActiveRoute('/authenticated-users')
-                    ? 'text-blue-700 bg-blue-50/80'
-                    : 'text-gray-700 hover:text-gray-900 hover:bg-gray-100/80'
-                  }`}
-              >
-                <FiUsers className="h-4 w-4" />
-                <span>Authenticated Users</span>
-              </Link>
-
-            </div>
-
-            {/* Search Bar - prioritize width on desktop/tablet */}
-            <div className="hidden md:flex flex-1 items-center justify-center px-3 lg:px-6">
-              <div className="w-full max-w-2xl relative" ref={searchRef}>
+            {/* Search Bar */}
+            <div className="flex-1 min-w-0 items-center justify-center">
+              <div className="w-full max-w-3xl relative mx-auto" ref={searchRef}>
                 <form onSubmit={handleSearchSubmit} className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                    <FiSearch className="h-5 w-5 text-gray-400" />
+                  <div className="absolute inset-y-0 left-0 pl-2.5 sm:pl-3 flex items-center pointer-events-none">
+                    <FiSearch className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
                   </div>
                   <input
                     type="text"
                     placeholder="Search elections..."
                     value={searchQuery}
                     onChange={handleSearchInputChange}
-                    className="block w-full pl-10 pr-4 py-2.5 border border-gray-200/80 rounded-2xl leading-5 bg-white/80 backdrop-blur-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 sm:text-sm transition-all duration-300 shadow-sm hover:shadow-md"
+                    className="block w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2.5 border border-gray-200/80 rounded-xl sm:rounded-2xl leading-5 bg-white/80 backdrop-blur-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-xs sm:text-sm transition-all duration-300 shadow-sm hover:shadow-md"
                   />
                 </form>
 
@@ -524,172 +475,65 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               </div>
             </div>
 
-            {/* User menu */}
-            <div className="ml-2 md:ml-4 mr-1 sm:mr-0 flex items-center space-x-2 md:space-x-3">
-              <div className="relative" ref={notificationRef}>
-                <button
-                  onClick={() => setShowGuardianAttention((prev) => !prev)}
-                  className="relative flex items-center justify-center p-2 rounded-2xl text-gray-700 hover:bg-gray-100/80 transition-all"
-                  title="Guardian notifications"
-                >
-                  <FiBell className="h-5 w-5" />
-                  {guardianAttentionItems.length > 0 && (
-                    <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center">
-                      {guardianAttentionItems.length}
-                    </span>
-                  )}
-                </button>
-
-                {showGuardianAttention && (
-                  <div className="absolute right-0 mt-2 w-80 max-w-[90vw] bg-white border border-gray-200 rounded-2xl shadow-2xl z-50">
-                    <div className="px-4 py-3 border-b border-gray-100">
-                      <h4 className="text-sm font-semibold text-gray-800">Guardian Notifications</h4>
-                      <p className="text-xs text-gray-500 mt-1">
-                        Guardian in {allElections.filter((e) => e.userRoles?.includes('guardian')).length} election(s) · {guardianAttentionItems.length} need attention
-                      </p>
-                    </div>
-                    <div className="max-h-80 overflow-y-auto">
-                      {loadingGuardianAttention ? (
-                        <div className="p-4 text-sm text-gray-500">Loading...</div>
-                      ) : guardianAttentionItems.length === 0 ? (
-                        <div className="p-4 text-sm text-gray-500">No pending guardian actions.</div>
-                      ) : (
-                        guardianAttentionItems.map((item, index) => (
-                          <button
-                            key={`${item.type}-${item.electionId}-${index}`}
-                            onClick={() => {
-                              setShowGuardianAttention(false);
-                              navigate(`/election-page/${item.electionId}/guardian`);
-                            }}
-                            className="w-full text-left px-4 py-3 hover:bg-gray-50 border-b border-gray-100 last:border-b-0"
-                          >
-                            <div className="text-sm font-medium text-gray-900 truncate">{item.electionTitle}</div>
-                            <div className="text-xs text-gray-600 mt-1">{item.detail}</div>
-                          </button>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* User Email Display */}
+            {/* Profile Button */}
+            <div className="ml-1 sm:ml-2 mr-0.5 sm:mr-0 flex items-center">
               <button
                 type="button"
                 onClick={() => navigate('/profile')}
-                className="flex flex-col items-center p-1.5 sm:p-2 rounded-2xl bg-gray-50/80 hover:bg-gray-100/90 transition-all"
+                className="flex flex-col items-center p-1 sm:p-1.5 rounded-xl sm:rounded-2xl bg-gray-50/80 hover:bg-gray-100/90 transition-all"
                 title="Open profile"
               >
-                <div className="w-8 h-8 sm:w-10 sm:h-10 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-2xl flex items-center justify-center shadow-sm">
-                  <FiUser className="text-blue-600 h-4 w-4 sm:h-5 sm:w-5" />
+                <div className="w-7 h-7 sm:w-9 sm:h-9 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-sm">
+                  <FiUser className="text-blue-600 h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
                 </div>
-                <span className="hidden sm:block text-xs sm:text-sm font-medium text-gray-700 mt-1 max-w-[120px] truncate">
+                <span className="hidden md:block text-xs font-medium text-gray-700 mt-1 max-w-[100px] truncate">
                   {userEmail || 'User'}
                 </span>
-              </button>
-
-              {/* Logout Button */}
-              <button
-                onClick={handleLogout}
-                className="flex items-center space-x-1 sm:space-x-2 px-2 sm:px-4 py-2 rounded-2xl text-sm font-medium text-red-600 hover:text-red-700 hover:bg-red-50/80 transition-all duration-300 shadow-sm hover:shadow-md"
-              >
-                <FiLogOut className="h-4 w-4" />
-                <span className="hidden sm:block">Logout</span>
               </button>
             </div>
           </div>
         </div>
       </header>
 
-      {/* Mobile/Tablet menu */}
-      {mobileMenuOpen && (
-        <div className="2xl:hidden fixed inset-0 z-50 bg-black bg-opacity-50" onClick={() => setMobileMenuOpen(false)}>
-          <div className="bg-white/95 backdrop-blur-lg shadow-xl border-b border-white/20 max-h-screen overflow-y-auto" onClick={(e) => e.stopPropagation()}>
-            <div className="px-4 pt-3 pb-4 space-y-2">
-            {/* Mobile Search Bar - Only visible on small screens */}
-            <div className="relative mb-4 md:hidden" ref={mobileSearchRef}>
-
-              <form onSubmit={handleSearchSubmit} className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                  <FiSearch className="h-5 w-5 text-gray-400" />
+      {/* Sidebar Menu */}
+      <div
+        className={`fixed inset-0 z-50 transition-all duration-300 ${mobileMenuOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
+        aria-hidden={!mobileMenuOpen}
+      >
+        <div
+          className={`absolute inset-0 bg-slate-900/45 backdrop-blur-[2px] transition-opacity duration-300 ${mobileMenuOpen ? 'opacity-100' : 'opacity-0'}`}
+          onClick={() => setMobileMenuOpen(false)}
+        />
+        <aside
+          className={`absolute left-0 top-0 h-full w-[88vw] max-w-sm sm:max-w-md bg-white/95 backdrop-blur-xl border-r border-blue-100 shadow-2xl transition-transform duration-300 ease-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          onClick={(e) => e.stopPropagation()}
+        >
+          <div className="h-full flex flex-col">
+            <div className="px-4 sm:px-5 py-4 border-b border-blue-100 flex items-center justify-between">
+              <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 group">
+                <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
+                  <span className="text-white text-base font-bold">🗳️</span>
                 </div>
-                <input
-                  type="text"
-                  placeholder="Search elections..."
-                  value={searchQuery}
-                  onChange={handleSearchInputChange}
-                  className="block w-full pl-10 pr-3 py-2.5 border border-gray-200/80 rounded-2xl leading-5 bg-white/80 backdrop-blur-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 sm:text-sm transition-all duration-300"
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter') {
-                      e.preventDefault();
-                      handleSearchSubmit(e);
-                    }
-                  }}
-                />
-              </form>
-
-              {/* Mobile Search Suggestions Dropdown */}
-              {showSuggestions && searchSuggestions.length > 0 && (
-                <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl max-h-60 overflow-y-auto">
-                  {searchSuggestions.map((election, idx) => {
-                    const status = getElectionStatus(election);
-                    return (
-                      <button
-                        type="button"
-                        key={election.electionId}
-                        onClick={() => {
-                          handleElectionSelect(election.electionId);
-                          setMobileMenuOpen(false);
-                        }}
-                        className="w-full text-left p-3 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150 focus:bg-blue-50 outline-none"
-                        tabIndex={0}
-                      >
-                        <div className="flex items-start justify-between">
-                          <div className="flex-1 min-w-0">
-                            <h4 className="text-sm font-medium text-gray-900 truncate">
-                              {election.electionTitle}
-                            </h4>
-                            <p className="text-xs text-gray-500 mt-1 overflow-hidden" style={{
-                              display: '-webkit-box',
-                              WebkitLineClamp: 2,
-                              WebkitBoxOrient: 'vertical'
-                            }}>
-                              {election.electionDescription}
-                            </p>
-                            <div className="flex items-center mt-2 space-x-3 text-xs text-gray-400">
-                              <div className="flex items-center">
-                                <FiCalendar className="h-3 w-3 mr-1" />
-                                <span>{formatDate(election.startingTime)}</span>
-                              </div>
-                            </div>
-                          </div>
-                          <div className="flex flex-col items-end ml-3">
-                            <span className={`text-xs font-medium ${status.color}`}>
-                              {status.text}
-                            </span>
-                          </div>
-                        </div>
-                      </button>
-                    );
-                  })}
+                <div>
+                  <p className="text-sm font-semibold text-slate-900">AmarVote</p>
+                  <p className="text-xs text-slate-500">Navigation</p>
                 </div>
-              )}
-
-              {/* Mobile No Results Message */}
-              {showSuggestions && searchQuery.trim() && searchSuggestions.length === 0 && !isLoadingElections && (
-                <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl">
-                  <div className="p-3 text-center text-gray-500 text-sm">
-                    No elections found matching "{searchQuery}"
-                  </div>
-                </div>
-              )}
+              </Link>
+              <button
+                type="button"
+                onClick={() => setMobileMenuOpen(false)}
+                className="p-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                aria-label="Close menu"
+              >
+                <FiX className="h-5 w-5" />
+              </button>
             </div>
 
-            {/* Mobile Navigation Links */}
+            <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
             <Link
               to="/dashboard"
               onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium shadow-sm ${isActiveRoute('/dashboard')
+              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium shadow-sm ${isActiveRoute('/dashboard')
                   ? 'text-blue-700 bg-blue-50/80'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
                 }`}
@@ -701,7 +545,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
             <Link
               to="/all-elections"
               onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium ${isActiveRoute('/all-elections')
+              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/all-elections')
                   ? 'text-blue-700 bg-blue-50/80'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
                 }`}
@@ -714,7 +558,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               <Link
                 to="/create-election"
                 onClick={() => setMobileMenuOpen(false)}
-                className={`mt-2 mb-2 flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium shadow-md ${isActiveRoute('/create-election')
+                className={`mt-2 mb-2 flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium shadow-md ${isActiveRoute('/create-election')
                     ? 'text-white bg-gradient-to-r from-green-600 to-emerald-700'
                     : 'text-white bg-gradient-to-r from-green-500 to-emerald-600'
                   }`}
@@ -729,7 +573,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                 setMobileMenuOpen(false);
                 handleApiLogsAccess();
               }}
-              className={`flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-base font-medium ${isActiveRoute('/api-logs')
+              className={`flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/api-logs')
                   ? 'text-blue-700 bg-blue-50/80'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
                 }`}
@@ -741,7 +585,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
             <Link
               to="/authenticated-users"
               onClick={() => setMobileMenuOpen(false)}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-base font-medium ${isActiveRoute('/authenticated-users')
+              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/authenticated-users')
                   ? 'text-blue-700 bg-blue-50/80'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
                 }`}
@@ -750,22 +594,89 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               <span>Authenticated Users</span>
             </Link>
 
-            <div className="pt-3 mt-3 border-t border-gray-200">
+            <Link
+              to="/profile"
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/profile')
+                  ? 'text-blue-700 bg-blue-50/80'
+                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+                }`}
+            >
+              <FiUser className="h-5 w-5" />
+              <span>Profile</span>
+            </Link>
+
+            <div className="pt-2" ref={notificationRef}>
+              <button
+                type="button"
+                onClick={() => setShowGuardianAttention((prev) => !prev)}
+                className="w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm sm:text-base font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300"
+              >
+                <span className="flex items-center space-x-3">
+                  <FiBell className="h-5 w-5" />
+                  <span>Guardian Notifications</span>
+                </span>
+                {guardianAttentionItems.length > 0 ? (
+                  <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[22px] text-center">
+                    {guardianAttentionItems.length}
+                  </span>
+                ) : null}
+              </button>
+
+              {showGuardianAttention && (
+                <div className="mt-2 mx-1 bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-slate-200">
+                    <h4 className="text-sm font-semibold text-gray-800">Guardian Notifications</h4>
+                    <p className="text-xs text-gray-500 mt-1">
+                      Guardian in {allElections.filter((e) => e.userRoles?.includes('guardian')).length} election(s) · {guardianAttentionItems.length} need attention
+                    </p>
+                  </div>
+                  <div className="max-h-72 overflow-y-auto">
+                    {loadingGuardianAttention ? (
+                      <div className="p-4 text-sm text-gray-500">Loading...</div>
+                    ) : guardianAttentionItems.length === 0 ? (
+                      <div className="p-4 text-sm text-gray-500">No pending guardian actions.</div>
+                    ) : (
+                      guardianAttentionItems.map((item, index) => (
+                        <button
+                          key={`${item.type}-${item.electionId}-${index}`}
+                          onClick={() => {
+                            setShowGuardianAttention(false);
+                            setMobileMenuOpen(false);
+                            navigate(`/election-page/${item.electionId}/guardian`);
+                          }}
+                          className="w-full text-left px-4 py-3 hover:bg-white border-b border-slate-200 last:border-b-0"
+                        >
+                          <div className="text-sm font-medium text-gray-900 truncate">{item.electionTitle}</div>
+                          <div className="text-xs text-gray-600 mt-1">{item.detail}</div>
+                        </button>
+                      ))
+                    )}
+                  </div>
+                </div>
+              )}
+            </div>
+            </div>
+
+            <div className="p-3 border-t border-blue-100 bg-white/80 backdrop-blur-sm">
+              <div className="px-3 pb-3">
+                <p className="text-xs text-slate-500">Signed in as</p>
+                <p className="text-sm font-medium text-slate-700 truncate">{userEmail || 'User'}</p>
+              </div>
               <button
                 onClick={() => {
                   handleLogout();
                   setMobileMenuOpen(false);
                 }}
-                className="flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50/80 transition-all duration-300"
+                className="flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50/80 transition-all duration-300"
               >
                 <FiLogOut className="h-5 w-5" />
                 <span>Logout</span>
               </button>
             </div>
-            </div>
           </div>
-        </div>
-      )}
+        </aside>
+      </div>
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto focus:outline-none">
