@@ -10,3 +10,6 @@ nginx/certs/dhparam.pem
 nginx/certbot-webroot/*
 !nginx/certbot-webroot/.gitkeep
 !nginx/certs/.gitkeep
+
+node_modules/
+dist/
