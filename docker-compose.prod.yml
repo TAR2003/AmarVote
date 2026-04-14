@@ -214,6 +214,32 @@ services:
         limits:
           memory: 64M
 
+  nginx-reloader:
+    image: alpine:3.19
+    container_name: amarvote_nginx_reloader
+    restart: unless-stopped
+    volumes:
+      - ./nginx/certs:/etc/letsencrypt:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        apk add --no-cache inotify-tools docker-cli
+        while inotifywait -e close_write,moved_to,create /etc/letsencrypt/live/amarvote2026.me/; do
+          echo "Cert changed - reloading nginx"
+          docker exec amarvote_nginx nginx -s reload
+        done
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.46
+    depends_on:
+      - nginx
+    deploy:
+      resources:
+        limits:
+          memory: 32M
+
   electionguard-api:
     build:
       context: ./Microservice
