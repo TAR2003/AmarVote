@@ -185,37 +185,63 @@ const Dashboard = ({ userEmail }) => {
     };
   }, [elections]);
 
-  // Optimized stats calculation with reduced calculations
+  // Compute dashboard counters from all elections using only start/end timestamps.
+  const electionCounts = useMemo(() => {
+    const now = new Date();
+    let upcomingCount = 0;
+    let availableCount = 0;
+    let completedCount = 0;
+
+    elections.forEach((election) => {
+      if (!election.startingTime || !election.endingTime) return;
+
+      const startTime = new Date(election.startingTime);
+      const endTime = new Date(election.endingTime);
+
+      if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) {
+        return;
+      }
+
+      if (startTime > now) {
+        upcomingCount += 1;
+      } else if (startTime <= now && endTime > now) {
+        availableCount += 1;
+      } else if (endTime <= now) {
+        completedCount += 1;
+      }
+    });
+
+    return {
+      upcomingCount,
+      availableCount,
+      completedCount,
+      totalCount: upcomingCount + availableCount + completedCount,
+    };
+  }, [elections]);
+
+  // Dashboard stats should reflect actual time-based election states.
   const stats = useMemo(() => [
     {
       name: "Upcoming Elections",
-      value: upcoming.length.toString(),
+      value: electionCounts.upcomingCount.toString(),
       icon: FiCalendar,
-      change: "+2",
-      changeType: "positive",
     },
     {
       name: "Available Elections", 
-      value: ongoing.length.toString(),
+      value: electionCounts.availableCount.toString(),
       icon: FiCheckCircle,
-      change: "+1",
-      changeType: "positive",
     },
     {
       name: "Total Elections",
-      value: elections.length.toString(),
+      value: electionCounts.totalCount.toString(),
       icon: FiBarChart2,
-      change: `+${elections.length}`,
-      changeType: "positive",
     },
     {
       name: "Completed",
-      value: completed.length.toString(),
+      value: electionCounts.completedCount.toString(),
       icon: FiClock,
-      change: "0",
-      changeType: "neutral",
     },
-  ], [upcoming.length, ongoing.length, elections.length, completed.length]);
+  ], [electionCounts]);
 
   // Optimized data loading with caching
   useEffect(() => {
@@ -436,17 +462,19 @@ const Dashboard = ({ userEmail }) => {
                     <div className="text-xl sm:text-2xl font-semibold text-gray-900">
                       {stat.value}
                     </div>
-                    <div
-                      className={`ml-2 flex items-baseline text-xs sm:text-sm font-semibold ${
-                        stat.changeType === "positive"
-                          ? "text-green-600"
-                          : stat.changeType === "negative"
-                          ? "text-red-600"
-                          : "text-gray-500"
-                      }`}
-                    >
-                      {stat.change}
-                    </div>
+                    {stat.change && (
+                      <div
+                        className={`ml-2 flex items-baseline text-xs sm:text-sm font-semibold ${
+                          stat.changeType === "positive"
+                            ? "text-green-600"
+                            : stat.changeType === "negative"
+                            ? "text-red-600"
+                            : "text-gray-500"
+                        }`}
+                      >
+                        {stat.change}
+                      </div>
+                    )}
                   </dd>
                 </div>
               </div>
