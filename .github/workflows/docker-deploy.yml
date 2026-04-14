@@ -39,6 +39,7 @@ jobs:
             --exclude='node_modules' \
             --exclude='.env' \
             --exclude='backend/logs' \
+            --exclude='nginx/certs' \
             ./ ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }}:~/app/
 
       # ✅ COPY EXISTING .env (THIS IS THE KEY FIX)
@@ -53,14 +54,7 @@ jobs:
            echo '---- FIRST 5 LINES ----' && \
            head -5 ~/app/.env"
 
-      # ✅ Validate env
-      - name: Validate .env content
-        run: |
-          sshpass -p "${{ secrets.VM_SECRET }}" ssh \
-          -o StrictHostKeyChecking=no \
-          ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "cd ~/app && \
-           grep -E 'JWT_SECRET|DB_URL|CLOUDINARY_NAME' .env || echo '⚠️ Missing expected vars'"
+    
 
       # 🚀 Deploy
       - name: Deploy with Docker
