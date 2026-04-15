@@ -222,9 +222,9 @@ services:
     deploy:
       resources:
         limits:
-          memory: 192M
+          memory: 384M
         reservations:
-          memory: 96M
+          memory: 192M
 
   electionguard-worker:
     build:
