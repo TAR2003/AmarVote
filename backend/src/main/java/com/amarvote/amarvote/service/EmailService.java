@@ -3,6 +3,7 @@ package com.amarvote.amarvote.service;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.Base64;
 import java.util.Locale;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -13,6 +14,12 @@ import org.springframework.core.io.FileSystemResource;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
+import org.springframework.util.StringUtils;
+
+import com.resend.Resend;
+import com.resend.core.exception.ResendException;
+import com.resend.services.emails.model.Attachment;
+import com.resend.services.emails.model.CreateEmailOptions;
 
 import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
@@ -25,6 +32,12 @@ public class EmailService {
 
     @Value("${spring.mail.username}")
     private String fromEmail;
+
+    @Value("${resend.api.key:}")
+    private String resendApiKey;
+
+    @Value("${resend.from.email:AmarVote Team <hello@mail.amarvote2026.me>}")
+    private String resendFromEmail;
 
     // Package-private setter for testing
     void setFromEmail(String fromEmail) {
@@ -75,6 +88,11 @@ public class EmailService {
     public void sendGuardianCredentialEmail(String toEmail, String electionTitle, String electionDescription, Path credentialFilePath, Long electionId) {
         String subject = "🛡️ Your Guardian Credentials for Election: " + electionTitle;
         String htmlContent = loadGuardianCredentialTemplate(electionTitle, electionDescription, electionId);
+
+        if (isResendConfigured()) {
+            sendGuardianCredentialEmailWithResend(toEmail, subject, htmlContent, electionTitle, electionId, credentialFilePath);
+            return;
+        }
         
         try {
             MimeMessage message = mailSender.createMimeMessage();
@@ -106,6 +124,11 @@ public class EmailService {
                 + "<p>Your receipt is attached as a TXT file. Please keep it for verification.</p>"
                 + "<p><strong>Tracking Code:</strong> " + trackingCode + "</p>";
 
+        if (isResendConfigured()) {
+            sendVoteReceiptEmailWithResend(toEmail, subject, htmlContent, electionTitle, electionId, receiptContent, trackingCode);
+            return;
+        }
+
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
@@ -125,6 +148,76 @@ public class EmailService {
     }
 
     private void sendHtmlEmail(String toEmail, String subject, String htmlContent) {
+        if (isResendConfigured()) {
+            sendHtmlEmailWithResend(toEmail, subject, htmlContent);
+            return;
+        }
+
+        sendHtmlEmailWithSmtp(toEmail, subject, htmlContent);
+    }
+
+    private boolean isResendConfigured() {
+        return StringUtils.hasText(resendApiKey);
+    }
+
+    private void sendHtmlEmailWithResend(String toEmail, String subject, String htmlContent) {
+        CreateEmailOptions options = CreateEmailOptions.builder()
+                .from(resendFromEmail)
+                .to(toEmail)
+                .subject(subject)
+                .html(htmlContent)
+                .build();
+
+        sendWithResend(options, "Failed to send HTML email with Resend");
+        }
+
+        private void sendGuardianCredentialEmailWithResend(String toEmail, String subject, String htmlContent,
+            String electionTitle, Long electionId, Path credentialFilePath) {
+        Attachment attachment = Attachment.builder()
+            .fileName(buildGuardianCredentialFilename(electionTitle, electionId))
+            .path(credentialFilePath.toString())
+            .build();
+
+        CreateEmailOptions options = CreateEmailOptions.builder()
+            .from(resendFromEmail)
+            .to(toEmail)
+            .subject(subject)
+            .html(htmlContent)
+            .addAttachment(attachment)
+            .build();
+
+        sendWithResend(options, "Failed to send guardian credential email with Resend");
+        }
+
+        private void sendVoteReceiptEmailWithResend(String toEmail, String subject, String htmlContent,
+            String electionTitle, Long electionId, String receiptContent, String trackingCode) {
+        Attachment attachment = Attachment.builder()
+            .fileName(buildVoteReceiptFilename(electionTitle, electionId, trackingCode))
+            .content(Base64.getEncoder().encodeToString(receiptContent.getBytes(StandardCharsets.UTF_8)))
+            .build();
+
+        CreateEmailOptions options = CreateEmailOptions.builder()
+            .from(resendFromEmail)
+            .to(toEmail)
+            .subject(subject)
+            .html(htmlContent)
+            .addAttachment(attachment)
+            .build();
+
+        sendWithResend(options, "Failed to send vote receipt email with Resend");
+        }
+
+        private void sendWithResend(CreateEmailOptions options, String errorMessage) {
+        Resend resend = new Resend(resendApiKey);
+
+        try {
+            resend.emails().send(options);
+        } catch (ResendException e) {
+            throw new RuntimeException(errorMessage, e);
+        }
+    }
+
+    private void sendHtmlEmailWithSmtp(String toEmail, String subject, String htmlContent) {
         try {
             MimeMessage message = mailSender.createMimeMessage();
             MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
