@@ -132,14 +132,6 @@ const Layout = ({ children }) => {
                     Documentation
                   </Link>
                 </li>
-                <li>
-                  <Link
-                    to="/faq"
-                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
-                  >
-                    FAQ
-                  </Link>
-                </li>
               </ul>
             </div>
             <div>
@@ -167,23 +159,23 @@ const Layout = ({ children }) => {
             </div>
             <div>
               <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">
-                Legal
+                Platform
               </h3>
               <ul className="mt-4 space-y-4">
                 <li>
                   <Link
-                    to="/privacy"
+                    to="/architecture"
                     className="text-base text-gray-300 hover:text-white transition-colors duration-300"
                   >
-                    Privacy
+                    Architecture
                   </Link>
                 </li>
                 <li>
                   <Link
-                    to="/terms"
+                    to="/security"
                     className="text-base text-gray-300 hover:text-white transition-colors duration-300"
                   >
-                    Terms
+                    Security
                   </Link>
                 </li>
               </ul>

@@ -1,4 +1,4 @@
-﻿import React, { useState } from "react";
+import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "./Layout";
 
@@ -55,7 +55,7 @@ function About() {
       {/* Hero */}
       <div className="bg-gradient-to-br from-gray-900 to-blue-950 py-16 px-4 text-center">
         <div className="inline-flex items-center px-4 py-2 bg-blue-500/10 border border-blue-400/30 rounded-full text-blue-300 text-sm font-medium mb-6">
-          <span className="mr-2">ðŸ—³ï¸</span>End-to-End Verifiable E-Voting Platform
+          <span className="mr-2">🗳️</span>End-to-End Verifiable E-Voting Platform
         </div>
         <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">About AmarVote</h1>
         <p className="text-blue-200/80 text-lg max-w-3xl mx-auto mb-8">
@@ -64,16 +64,16 @@ function About() {
         </p>
         <div className="flex flex-wrap justify-center gap-3">
           <a href="https://youtu.be/ixsvvl_7qVo" target="_blank" rel="noreferrer">
-            <button className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition text-sm">â–¶ Demo Video 1</button>
+            <button className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition text-sm">▶ Demo Video 1</button>
           </a>
           <a href="https://youtu.be/t8VOLdYIV40" target="_blank" rel="noreferrer">
-            <button className="px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition text-sm">â–¶ Demo Video 2</button>
+            <button className="px-5 py-2.5 bg-indigo-600 text-white font-semibold rounded-xl hover:bg-indigo-700 transition text-sm">▶ Demo Video 2</button>
           </a>
           <Link to="/architecture">
-            <button className="px-5 py-2.5 border border-blue-300/40 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">Architecture â†’</button>
+            <button className="px-5 py-2.5 border border-blue-300/40 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">Architecture →</button>
           </Link>
           <Link to="/security">
-            <button className="px-5 py-2.5 border border-blue-300/40 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">Security â†’</button>
+            <button className="px-5 py-2.5 border border-blue-300/40 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">Security →</button>
           </Link>
         </div>
       </div>
@@ -82,11 +82,11 @@ function About() {
       <div className="border-b border-gray-200 bg-white sticky top-16 z-20">
         <div className="max-w-6xl mx-auto px-4 flex overflow-x-auto">
           {[
-            ["overview", "ðŸ“– Overview"],
-            ["stack", "ðŸ›  Tech Stack"],
-            ["services", "ðŸ”§ Services"],
-            ["crypto", "ðŸ” Cryptography"],
-            ["team", "ðŸ‘¥ Project"],
+            ["overview", "📖 Overview"],
+            ["stack", "🛠 Tech Stack"],
+            ["services", "🔧 Services"],
+            ["crypto", "🔐 Cryptography"],
+            ["team", "👥 Project"],
           ].map(([id, label]) => (
             <button
               key={id}
@@ -137,33 +137,33 @@ function About() {
               <h2 className="text-xl font-bold text-gray-900 mb-4">Three Participant Roles</h2>
               <div className="grid md:grid-cols-3 gap-5">
                 <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5">
-                  <div className="font-bold text-blue-800 mb-2 text-lg">ðŸªª Voter</div>
+                  <div className="font-bold text-blue-800 mb-2 text-lg">🪪 Voter</div>
                   <ul className="text-sm text-gray-700 space-y-1">
-                    <li>â†’ OTP login (email, no password)</li>
-                    <li>â†’ Browse eligible elections</li>
-                    <li>â†’ Cast encrypted ballot or challenge (Benaloh)</li>
-                    <li>â†’ Verify ballot inclusion via tracking code</li>
-                    <li>â†’ View animated results after decryption</li>
+                    <li>→ OTP login (email, no password)</li>
+                    <li>→ Browse eligible elections</li>
+                    <li>→ Cast encrypted ballot or challenge (Benaloh)</li>
+                    <li>→ Verify ballot inclusion via tracking code</li>
+                    <li>→ View animated results after decryption</li>
                   </ul>
                 </div>
                 <div className="rounded-2xl border border-purple-200 bg-purple-50 p-5">
-                  <div className="font-bold text-purple-800 mb-2 text-lg">ðŸ”‘ Guardian</div>
+                  <div className="font-bold text-purple-800 mb-2 text-lg">🔑 Guardian</div>
                   <ul className="text-sm text-gray-700 space-y-1">
-                    <li>â†’ Receives ML-KEM-1024 encrypted credential.json</li>
-                    <li>â†’ Holds ElGamal private key share s_i</li>
-                    <li>â†’ Submits credentials for decryption phase</li>
-                    <li>â†’ Minimum quorum k must participate</li>
-                    <li>â†’ Absent guardians covered by Lagrange compensation</li>
+                    <li>→ Receives ML-KEM-1024 encrypted credential.json</li>
+                    <li>→ Holds ElGamal private key share s_i</li>
+                    <li>→ Submits credentials for decryption phase</li>
+                    <li>→ Minimum quorum k must participate</li>
+                    <li>→ Absent guardians covered by Lagrange compensation</li>
                   </ul>
                 </div>
                 <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5">
-                  <div className="font-bold text-orange-800 mb-2 text-lg">âš™ Admin</div>
+                  <div className="font-bold text-orange-800 mb-2 text-lg">⚙ Admin</div>
                   <ul className="text-sm text-gray-700 space-y-1">
-                    <li>â†’ Create elections with guardian parameters</li>
-                    <li>â†’ Manage voter eligibility lists</li>
-                    <li>â†’ Monitor RabbitMQ + Redis via dashboard</li>
-                    <li>â†’ Initiate tally and guardian prompts</li>
-                    <li>â†’ Export results PDF (jsPDF + autotable)</li>
+                    <li>→ Create elections with guardian parameters</li>
+                    <li>→ Manage voter eligibility lists</li>
+                    <li>→ Monitor RabbitMQ + Redis via dashboard</li>
+                    <li>→ Initiate tally and guardian prompts</li>
+                    <li>→ Export results PDF (jsPDF + autotable)</li>
                   </ul>
                 </div>
               </div>
@@ -176,7 +176,7 @@ function About() {
                 {[
                   ["/", "Home", "Platform overview, architecture, RabbitMQ, roles, video demos"],
                   ["/features", "Features", "6-tab: Cryptography, Architecture, Security, Election, Monitoring, Optional"],
-                  ["/how-it-works", "How It Works", "6-phase step-by-step: Auth â†’ Setup â†’ Casting â†’ Tally â†’ Decrypt â†’ Verify"],
+                  ["/how-it-works", "How It Works", "6-phase step-by-step: Auth → Setup → Casting → Tally → Decrypt → Verify"],
                   ["/architecture", "Architecture", "6-tab: Services, Network, DataFlow, RabbitMQ, Redis"],
                   ["/security", "Security", "7-tab: ElGamal, ML-KEM, ZK Proofs, Benaloh, Auth, Transport"],
                   ["/about", "About", "This page"],
@@ -226,7 +226,7 @@ function About() {
                     <TRow label="PostgreSQL driver" value="42.7" sub="JDBC driver for Postgres 15" />
                     <TRow label="Spring Data JPA" value="3.5" sub="ORM + repository layer (Hibernate)" />
                     <TRow label="RabbitMQ AMQP" value="3.13" sub="Async message broker for election jobs" />
-                    <TRow label="Spring Data Redis" value="3.x" sub="Redis client (Lettuce) â€” keys, counters, locks" />
+                    <TRow label="Spring Data Redis" value="3.x" sub="Redis client (Lettuce) — keys, counters, locks" />
                     <TRow label="Bouncy Castle" value="1.78" sub="ML-KEM-1024, AES-256-CBC, Scrypt, HMAC-SHA256" />
                     <TRow label="Spring Mail" value="3.x" sub="OTP + credential delivery via Gmail SMTP" />
                     <TRow label="msgpack" value="1.1" sub="Compact binary serialization for ballot blobs" />
@@ -239,7 +239,7 @@ function About() {
                     <TRow label="msgpack-python" value="1.1" sub="Ballot blob deserialization in workers" />
 
                     <tr className="bg-orange-50"><td colSpan={3} className="px-4 py-2 text-xs font-bold text-orange-700 uppercase tracking-wider">Infrastructure</td></tr>
-                    <TRow label="PostgreSQL" value="15" sub="Primary relational DB â€” 14-table schema" />
+                    <TRow label="PostgreSQL" value="15" sub="Primary relational DB — 14-table schema" />
                     <TRow label="Redis" value="7 Alpine" sub="Guardian key cache (6h TTL), atomic counters, SET NX locks" />
                     <TRow label="RabbitMQ" value="3.13" sub="4 durable queues, prefetch=1, management UI on :15672" />
                     <TRow label="Nginx" value="Alpine" sub="Reverse proxy + TLS termination; routes /api/* and /ws/*" />
@@ -265,30 +265,30 @@ function About() {
             <p className="text-gray-600 text-sm mb-6">All services run as isolated Docker containers on a 172.20.0.0/24 overlay network with static IPs.</p>
 
             <div className="grid md:grid-cols-2 gap-5">
-              <ServiceCard icon="ðŸŒ" name="React Frontend" color="blue"
+              <ServiceCard icon="🌐" name="React Frontend" color="blue"
                 tags={["172.20.0.40", "Vite dev server / Nginx prod"]}
                 description="React 19.1 + Vite 6 SPA. Handles ballot encryption, bot detection, eligibility UI, animated results, and PDF export. Communicates only with Spring Boot via REST." />
-              <ServiceCard icon="â˜•" name="Spring Boot Backend" color="green"
+              <ServiceCard icon="☕" name="Spring Boot Backend" color="green"
                 tags={["172.20.0.30", "Port 8080", "Java 21", "REST + RabbitMQ producer"]}
                 description="Core orchestration layer. Manages authentication (OTP + JWT), election lifecycle, guardian credential processing, ballot storage, and RabbitMQ job publishing with fair round-robin scheduler." />
-              <ServiceCard icon="âš¡" name="EG Fast API" color="purple"
+              <ServiceCard icon="⚡" name="EG Fast API" color="purple"
                 tags={["172.20.0.10", "Port 5000", "FastAPI", "Python 3.12"]}
                 description="Synchronous ElectionGuard endpoints: /ceremony/setup, /ballot/encrypt, /ballot/challenge, and ZK proof generation. Handles key ceremony and per-voter encryption requests." />
-              <ServiceCard icon="âš™ï¸" name="EG Worker" color="orange"
+              <ServiceCard icon="⚙️" name="EG Worker" color="orange"
                 tags={["172.20.0.11", "Port 5001", "Celery", "4 consumers"]}
                 description="Async RabbitMQ consumer. Processes tally.creation, partial.decryption, compensated.decryption, and combine.decryption queues. Each worker handles 1 chunk at a time (prefetch=1)." />
-              <ServiceCard icon="ðŸ—ƒï¸" name="PostgreSQL 15" color="teal"
+              <ServiceCard icon="🗃️" name="PostgreSQL 15" color="teal"
                 tags={["172.20.0.20", "Port 5432", "14-table schema"]}
                 description="Primary persistent store. Tables: users, elections, ballots, encrypted_tally, election_result, partial_decryption, compensated_decryption, guardian_keys, otp, election_jobs, audit_records, voting_sessions, voter_eligibility, candidates." />
-              <ServiceCard icon="âš¡" name="Redis 7" color="indigo"
+              <ServiceCard icon="⚡" name="Redis 7" color="indigo"
                 tags={["172.20.0.70", "Port 6379", "Replica: 172.20.0.75"]}
                 description="Three use cases: guardian:{id}:key (SET, 6h TTL), tally_complete:{electionId} (INCR atomic counter), lock:chunk:{id}:{guardianId} (SET NX distributed lock). Read replica for high availability." />
-              <ServiceCard icon="ðŸ‡" name="RabbitMQ 3.13" color="red"
+              <ServiceCard icon="🐇" name="RabbitMQ 3.13" color="red"
                 tags={["172.20.0.60", ":5672 AMQP", ":15672 Mgmt"]}
                 description="Message broker with 4 durable queues: tally.creation, partial.decryption, compensated.decryption, combine.decryption. prefetch=1 ensures fair load across 4 concurrent consumers. Dead letter exchange configured for failed jobs." />
-              <ServiceCard icon="ðŸ”€" name="Nginx Reverse Proxy" color="gray"
+              <ServiceCard icon="🔀" name="Nginx Reverse Proxy" color="gray"
                 tags={["172.20.0.80", "Port 80/443"]}
-                description="TLS termination + request routing. /api/* â†’ Spring Boot :8080. /ws/* â†’ WebSocket connections. /* â†’ React app. Upstream keepalive 32. Also serves static files in production." />
+                description="TLS termination + request routing. /api/* → Spring Boot :8080. /ws/* → WebSocket connections. /* → React app. Upstream keepalive 32. Also serves static files in production." />
             </div>
 
             {/* Network table */}
@@ -347,18 +347,18 @@ function About() {
                 </thead>
                 <tbody>
                   {[
-                    ["ElGamal (exponential)", "NIST SP 800-186", "Ballot encryption â€” (Î±, Î²) ciphertext pairs per selection"],
-                    ["Homomorphic multiplication", "ElGamal property", "Tally: âˆÎ±_i mod p, âˆÎ²_i mod p â€” no decryption needed"],
-                    ["Schnorr OR-proof", "IETF RFC 8235", "Proves each ballot selection âˆˆ {0,1} without revealing m"],
+                    ["ElGamal (exponential)", "NIST SP 800-186", "Ballot encryption — (α, β) ciphertext pairs per selection"],
+                    ["Homomorphic multiplication", "ElGamal property", "Tally: ∏α_i mod p, ∏β_i mod p — no decryption needed"],
+                    ["Schnorr OR-proof", "IETF RFC 8235", "Proves each ballot selection ∈ {0,1} without revealing m"],
                     ["Chaum-Pedersen proof", "Chaum-Pedersen 1992", "Proves guardian applied correct key during decryption"],
                     ["Lagrange interpolation", "Shamir Secret Sharing", "Compensated decryption for absent guardians"],
-                    ["Benaloh challenge", "Benaloh 2006", "Cast-or-spoil audit â€” voter can challenge encryption"],
+                    ["Benaloh challenge", "Benaloh 2006", "Cast-or-spoil audit — voter can challenge encryption"],
                     ["ML-KEM-1024", "NIST FIPS 203", "Post-quantum KEM wrapping guardian ElGamal private keys"],
                     ["AES-256-CBC", "FIPS 197 / NIST", "Symmetric encryption of private key material"],
                     ["Scrypt (N=65536)", "RFC 7914", "Key derivation function for AES key from guardian password"],
                     ["HMAC-SHA256", "RFC 2104", "Integrity check on guardian credential.json files"],
                     ["BCrypt (strength=12)", "IETF", "Password hashing (admin/guardian account passwords)"],
-                    ["JWT (HMAC-SHA256)", "RFC 7519", "Session tokens â€” 7-day expiry, HttpOnly cookie"],
+                    ["JWT (HMAC-SHA256)", "RFC 7519", "Session tokens — 7-day expiry, HttpOnly cookie"],
                     ["Java SecureRandom", "CSPRNG", "OTP generation, ballot shuffle, key ceremony nonces"],
                     ["SHA-256", "FIPS 180-4", "Ballot tracking code (hash of all ciphertext pairs)"],
                     ["PKCS#7 padding", "RFC 5652", "Ballot request body padding to prevent traffic analysis"],
@@ -377,13 +377,13 @@ function About() {
             <div className="grid sm:grid-cols-2 gap-4">
               <Link to="/security">
                 <div className="rounded-2xl border border-purple-200 bg-purple-50 p-5 hover:border-purple-400 transition cursor-pointer">
-                  <div className="font-bold text-purple-800 mb-1">ðŸ” Security Deep Dive â†’</div>
+                  <div className="font-bold text-purple-800 mb-1">🔐 Security Deep Dive →</div>
                   <p className="text-sm text-gray-600">Full mathematical proofs, pseudocode for ML-KEM-1024 flow, ZK proof formulas, and Benaloh protocol steps</p>
                 </div>
               </Link>
               <Link to="/architecture">
                 <div className="rounded-2xl border border-blue-200 bg-blue-50 p-5 hover:border-blue-400 transition cursor-pointer">
-                  <div className="font-bold text-blue-800 mb-1">ðŸ— Architecture Details â†’</div>
+                  <div className="font-bold text-blue-800 mb-1">🏗 Architecture Details →</div>
                   <p className="text-sm text-gray-600">Service map, Docker network topology, 4-phase data flow, RabbitMQ queue configs, Redis key patterns</p>
                 </div>
               </Link>
@@ -401,32 +401,32 @@ function About() {
 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="rounded-2xl border border-gray-200 p-6">
-                <h3 className="font-bold text-gray-900 mb-3">ðŸ—‚ Repository Structure</h3>
+                <h3 className="font-bold text-gray-900 mb-3">🗂 Repository Structure</h3>
                 <div className="font-mono text-xs text-gray-700 space-y-1 bg-gray-50 rounded-xl p-4">
-                  <div><span className="text-blue-600">frontend/</span> â€” React 19.1 + Vite SPA</div>
-                  <div><span className="text-green-600">backend/</span> â€” Spring Boot 3.5 + Java 21</div>
-                  <div><span className="text-purple-600">Microservice/</span> â€” EG Fast API + Worker</div>
-                  <div><span className="text-teal-600">rag-service/</span> â€” LangChain + ChromaDB</div>
-                  <div><span className="text-red-600">Database/</span> â€” SQL init, cleanup, diagnostics</div>
-                  <div><span className="text-gray-600">prometheus/</span> â€” Metrics scraping config</div>
-                  <div><span className="text-gray-500">docker-compose.yml</span> â€” Dev configuration</div>
-                  <div><span className="text-gray-500">docker-compose.prod.yml</span> â€” Production config</div>
+                  <div><span className="text-blue-600">frontend/</span> — React 19.1 + Vite SPA</div>
+                  <div><span className="text-green-600">backend/</span> — Spring Boot 3.5 + Java 21</div>
+                  <div><span className="text-purple-600">Microservice/</span> — EG Fast API + Worker</div>
+                  <div><span className="text-teal-600">rag-service/</span> — LangChain + ChromaDB</div>
+                  <div><span className="text-red-600">Database/</span> — SQL init, cleanup, diagnostics</div>
+                  <div><span className="text-gray-600">prometheus/</span> — Metrics scraping config</div>
+                  <div><span className="text-gray-500">docker-compose.yml</span> — Dev configuration</div>
+                  <div><span className="text-gray-500">docker-compose.prod.yml</span> — Production config</div>
                 </div>
               </div>
               <div className="rounded-2xl border border-gray-200 p-6">
-                <h3 className="font-bold text-gray-900 mb-3">ðŸ“‹ License & Compliance</h3>
+                <h3 className="font-bold text-gray-900 mb-3">📋 License & Compliance</h3>
                 <div className="space-y-3">
                   <div className="rounded-xl bg-green-50 border border-green-200 p-3">
                     <div className="font-semibold text-green-800 text-sm">AmarVote</div>
-                    <div className="text-xs text-gray-600">MIT License â€” free to use, modify, and distribute</div>
+                    <div className="text-xs text-gray-600">MIT License — free to use, modify, and distribute</div>
                   </div>
                   <div className="rounded-xl bg-blue-50 border border-blue-200 p-3">
                     <div className="font-semibold text-blue-800 text-sm">ElectionGuard SDK</div>
-                    <div className="text-xs text-gray-600">MIT License (Microsoft) â€” open-source cryptographic library</div>
+                    <div className="text-xs text-gray-600">MIT License (Microsoft) — open-source cryptographic library</div>
                   </div>
                   <div className="rounded-xl bg-purple-50 border border-purple-200 p-3">
                     <div className="font-semibold text-purple-800 text-sm">NIST FIPS 203 / ML-KEM-1024</div>
-                    <div className="text-xs text-gray-600">CRYSTALS-Kyber â€” standardized post-quantum KEM algorithm</div>
+                    <div className="text-xs text-gray-600">CRYSTALS-Kyber — standardized post-quantum KEM algorithm</div>
                   </div>
                   <div className="rounded-xl bg-orange-50 border border-orange-200 p-3">
                     <div className="font-semibold text-orange-800 text-sm">Spring Boot / Java 21</div>
@@ -438,17 +438,17 @@ function About() {
 
             {/* Video demos */}
             <div>
-              <h3 className="font-bold text-gray-900 mb-3 text-lg">ðŸŽ¥ Demo Videos</h3>
+              <h3 className="font-bold text-gray-900 mb-3 text-lg">🎥 Demo Videos</h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 <a href="https://youtu.be/ixsvvl_7qVo" target="_blank" rel="noreferrer"
                   className="block rounded-2xl border border-gray-200 bg-gray-50 p-5 hover:border-blue-300 transition">
-                  <div className="font-bold text-gray-900">Demo 1 â€” Full Election Walkthrough</div>
+                  <div className="font-bold text-gray-900">Demo 1 — Full Election Walkthrough</div>
                   <div className="text-xs text-blue-600 mt-1">youtu.be/ixsvvl_7qVo</div>
                   <p className="text-sm text-gray-600 mt-2">Admin election creation, voter ballot casting, Benaloh challenge, decryption phase, and results animation.</p>
                 </a>
                 <a href="https://youtu.be/t8VOLdYIV40" target="_blank" rel="noreferrer"
                   className="block rounded-2xl border border-gray-200 bg-gray-50 p-5 hover:border-blue-300 transition">
-                  <div className="font-bold text-gray-900">Demo 2 â€” Guardian Decryption</div>
+                  <div className="font-bold text-gray-900">Demo 2 — Guardian Decryption</div>
                   <div className="text-xs text-blue-600 mt-1">youtu.be/t8VOLdYIV40</div>
                   <p className="text-sm text-gray-600 mt-2">Guardian credential submission, ML-KEM-1024 decryption flow, RabbitMQ worker processing, Lagrange combination, and result reveal.</p>
                 </a>
@@ -462,17 +462,17 @@ function About() {
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
               <h2 className="text-xl font-bold text-white mb-2">Explore the full platform</h2>
-              <p className="text-gray-400 text-sm">Every section of AmarVote is open and auditable â€” from source code to cryptographic proofs.</p>
+              <p className="text-gray-400 text-sm">Every section of AmarVote is open and auditable — from source code to cryptographic proofs.</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Link to="/architecture">
-                <button className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition text-sm">Architecture â†’</button>
+                <button className="px-5 py-2.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-700 transition text-sm">Architecture →</button>
               </Link>
               <Link to="/security">
-                <button className="px-5 py-2.5 bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-700 transition text-sm">Security â†’</button>
+                <button className="px-5 py-2.5 bg-purple-600 text-white font-semibold rounded-xl hover:bg-purple-700 transition text-sm">Security →</button>
               </Link>
               <Link to="/how-it-works">
-                <button className="px-5 py-2.5 border border-white/30 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">How It Works â†’</button>
+                <button className="px-5 py-2.5 border border-white/30 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">How It Works →</button>
               </Link>
             </div>
           </div>

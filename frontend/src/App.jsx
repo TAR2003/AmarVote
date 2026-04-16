@@ -26,6 +26,7 @@ import Architecture from "./pages/Architecture";
 import Security from "./pages/Security";
 import Profile from "./pages/Profile";
 import AuthenticatedUsers from "./pages/AuthenticatedUsers";
+import Documentation from "./pages/Documentation";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -78,6 +79,7 @@ function App() {
         <Route path="/features" element={<Features />} />
         <Route path="/architecture" element={<Architecture />} />
         <Route path="/security" element={<Security />} />
+        <Route path="/documentation" element={<Documentation />} />
         <Route
           path="/login"
           element={
