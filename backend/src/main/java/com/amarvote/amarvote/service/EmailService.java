@@ -36,7 +36,7 @@ public class EmailService {
     @Value("${resend.api.key:}")
     private String resendApiKey;
 
-    @Value("${resend.from.email:AmarVote Team <hello@mail.amarvote2026.me>}")
+    @Value("${resend.from.email:AmarVote Team <noreply@mail.amarvote2026.me>}")
     private String resendFromEmail;
 
     // Package-private setter for testing
