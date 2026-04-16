@@ -31,12 +31,21 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   const searchRef = useRef(null);
   const suggestionsRef = useRef(null);
   const notificationRef = useRef(null);
+  const menuToggleButtonRef = useRef(null);
   const navigate = useNavigate();
   const location = useLocation();
 
   // Helper function to check if a route is active
   const isActiveRoute = (path) => {
     return location.pathname === path;
+  };
+
+  const closeMobileMenu = () => {
+    setMobileMenuOpen(false);
+    setShowGuardianAttention(false);
+    requestAnimationFrame(() => {
+      menuToggleButtonRef.current?.focus();
+    });
   };
 
   // Load elections when component mounts
@@ -175,8 +184,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   useEffect(() => {
     const handleEscapeClose = (event) => {
       if (event.key === "Escape") {
-        setMobileMenuOpen(false);
-        setShowGuardianAttention(false);
+        closeMobileMenu();
       }
     };
 
@@ -362,7 +370,15 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
           <div className="flex justify-between h-12 sm:h-14 md:h-16 items-center gap-2 sm:gap-3">
             <div className="flex-shrink-0">
               <button
-                onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+                ref={menuToggleButtonRef}
+                onClick={() => {
+                  if (mobileMenuOpen) {
+                    closeMobileMenu();
+                    return;
+                  }
+
+                  setMobileMenuOpen(true);
+                }}
                 className="inline-flex items-center justify-center p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
                 aria-label="Toggle menu"
               >
@@ -496,21 +512,21 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
       </header>
 
       {/* Sidebar Menu */}
+      {mobileMenuOpen && (
       <div
-        className={`fixed inset-0 z-50 transition-all duration-300 ${mobileMenuOpen ? 'pointer-events-auto' : 'pointer-events-none'}`}
-        aria-hidden={!mobileMenuOpen}
+        className="fixed inset-0 z-50 transition-all duration-300 pointer-events-auto"
       >
         <div
-          className={`absolute inset-0 bg-slate-900/45 backdrop-blur-[2px] transition-opacity duration-300 ${mobileMenuOpen ? 'opacity-100' : 'opacity-0'}`}
-          onClick={() => setMobileMenuOpen(false)}
+          className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px] transition-opacity duration-300 opacity-100"
+          onClick={closeMobileMenu}
         />
         <aside
-          className={`absolute left-0 top-0 h-full w-[88vw] max-w-sm sm:max-w-md bg-white/95 backdrop-blur-xl border-r border-blue-100 shadow-2xl transition-transform duration-300 ease-out ${mobileMenuOpen ? 'translate-x-0' : '-translate-x-full'}`}
+          className="absolute left-0 top-0 h-full w-[88vw] max-w-sm sm:max-w-md bg-white/95 backdrop-blur-xl border-r border-blue-100 shadow-2xl transition-transform duration-300 ease-out translate-x-0"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="h-full flex flex-col">
             <div className="px-4 sm:px-5 py-4 border-b border-blue-100 flex items-center justify-between">
-              <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-3 group">
+              <Link to="/dashboard" onClick={closeMobileMenu} className="flex items-center gap-3 group">
                 <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
                   <span className="text-white text-base font-bold">🗳️</span>
                 </div>
@@ -521,7 +537,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               </Link>
               <button
                 type="button"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={closeMobileMenu}
                 className="p-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100"
                 aria-label="Close menu"
               >
@@ -532,7 +548,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
             <div className="flex-1 overflow-y-auto px-3 py-4 space-y-1.5">
             <Link
               to="/dashboard"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={closeMobileMenu}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium shadow-sm ${isActiveRoute('/dashboard')
                   ? 'text-blue-700 bg-blue-50/80'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
@@ -544,7 +560,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
             <Link
               to="/all-elections"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={closeMobileMenu}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/all-elections')
                   ? 'text-blue-700 bg-blue-50/80'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
@@ -557,7 +573,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
             {canCreateElections ? (
               <Link
                 to="/create-election"
-                onClick={() => setMobileMenuOpen(false)}
+                onClick={closeMobileMenu}
                 className={`mt-2 mb-2 flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium shadow-md ${isActiveRoute('/create-election')
                     ? 'text-white bg-gradient-to-r from-green-600 to-emerald-700'
                     : 'text-white bg-gradient-to-r from-green-500 to-emerald-600'
@@ -570,7 +586,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
             <button
               onClick={() => {
-                setMobileMenuOpen(false);
+                closeMobileMenu();
                 handleApiLogsAccess();
               }}
               className={`flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/api-logs')
@@ -584,7 +600,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
             <Link
               to="/authenticated-users"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={closeMobileMenu}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/authenticated-users')
                   ? 'text-blue-700 bg-blue-50/80'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
@@ -596,7 +612,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
             <Link
               to="/profile"
-              onClick={() => setMobileMenuOpen(false)}
+              onClick={closeMobileMenu}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/profile')
                   ? 'text-blue-700 bg-blue-50/80'
                   : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
@@ -642,7 +658,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
                           key={`${item.type}-${item.electionId}-${index}`}
                           onClick={() => {
                             setShowGuardianAttention(false);
-                            setMobileMenuOpen(false);
+                            closeMobileMenu();
                             navigate(`/election-page/${item.electionId}/guardian`);
                           }}
                           className="w-full text-left px-4 py-3 hover:bg-white border-b border-slate-200 last:border-b-0"
@@ -666,7 +682,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               <button
                 onClick={() => {
                   handleLogout();
-                  setMobileMenuOpen(false);
+                  closeMobileMenu();
                 }}
                 className="flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50/80 transition-all duration-300"
               >
@@ -677,6 +693,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
           </div>
         </aside>
       </div>
+      )}
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto focus:outline-none">
