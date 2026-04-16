@@ -8,6 +8,7 @@ import {
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
+import ForgotPassword from "./pages/ForgotPassword";
 import Dashboard from "./pages/Dashboard";
 import Hello from "./pages/Hello";
 import Home from "./pages/Home";
@@ -98,6 +99,16 @@ function App() {
               <Navigate to="/dashboard" replace />
             ) : (
               <Register setUserEmail={setUserEmail} />
+            )
+          }
+        />
+        <Route
+          path="/forgot-password"
+          element={
+            isAuthenticated ? (
+              <Navigate to="/dashboard" replace />
+            ) : (
+              <ForgotPassword />
             )
           }
         />

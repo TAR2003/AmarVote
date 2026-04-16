@@ -22,6 +22,7 @@ public class TempJwtService {
 
     private static final long TEMP_TOKEN_VALIDITY_MILLIS = 2 * 60 * 1000;
     private static final long EMAIL_VERIFICATION_TOKEN_VALIDITY_MILLIS = 10 * 60 * 1000;
+    private static final long PASSWORD_RESET_TOKEN_VALIDITY_MILLIS = 10 * 60 * 1000;
 
     public String generateMfaPendingToken(String email) {
         long now = System.currentTimeMillis();
@@ -82,6 +83,42 @@ public class TempJwtService {
 
             Object scope = claims.get("scope");
             if (!"register".equals(scope)) {
+                return Optional.empty();
+            }
+
+            return Optional.ofNullable(claims.getSubject());
+        } catch (JwtException | IllegalArgumentException ex) {
+            return Optional.empty();
+        }
+    }
+
+    public String generatePasswordResetToken(String email) {
+        long now = System.currentTimeMillis();
+        return Jwts.builder()
+                .subject(email)
+                .issuedAt(new Date(now))
+                .expiration(new Date(now + PASSWORD_RESET_TOKEN_VALIDITY_MILLIS))
+                .claim("password_reset", true)
+                .claim("scope", "password_reset")
+                .signWith(getKey())
+                .compact();
+    }
+
+    public Optional<String> extractEmailIfValidPasswordResetToken(String token) {
+        try {
+            Claims claims = Jwts.parser()
+                    .verifyWith(getKey())
+                    .build()
+                    .parseSignedClaims(token)
+                    .getPayload();
+
+            Object claim = claims.get("password_reset");
+            if (!Boolean.TRUE.equals(claim)) {
+                return Optional.empty();
+            }
+
+            Object scope = claims.get("scope");
+            if (!"password_reset".equals(scope)) {
                 return Optional.empty();
             }
 

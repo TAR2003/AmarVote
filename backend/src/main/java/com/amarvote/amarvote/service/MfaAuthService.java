@@ -239,4 +239,19 @@ public class MfaAuthService {
         user.setMfaSecret(null);
         appUserRepository.save(user);
     }
+
+    @Transactional
+    public void resetPasswordWithToken(String resetToken, String newPassword) {
+        Optional<String> emailOpt = tempJwtService.extractEmailIfValidPasswordResetToken(resetToken);
+        if (emailOpt.isEmpty()) {
+            throw new IllegalArgumentException("Invalid or expired reset token");
+        }
+
+        String normalizedEmail = emailOpt.get().trim().toLowerCase();
+        AppUser user = appUserRepository.findByEmail(normalizedEmail)
+                .orElseThrow(() -> new IllegalArgumentException("User not found"));
+
+        user.setPasswordHash(passwordEncoder.encode(newPassword));
+        appUserRepository.save(user);
+    }
 }

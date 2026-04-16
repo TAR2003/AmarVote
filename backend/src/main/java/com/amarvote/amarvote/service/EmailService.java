@@ -38,6 +38,13 @@ public class EmailService {
         sendHtmlEmail(toEmail, subject, htmlContent);
     }
 
+    public void sendPasswordResetCodeEmail(String toEmail, String code) {
+        String subject = "🔐 Password Reset Verification Code";
+        String htmlContent = loadPasswordResetCodeTemplate(code);
+
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
     public void sendForgotPasswordEmail(String toEmail, String resetLink) {
         String subject = "🔐 Password Reset Request";
         String htmlContent = loadResetPasswordTemplate(resetLink);
@@ -231,6 +238,40 @@ public class EmailService {
                 "            <div class='otp-code'>" + otpCode + "</div>" +
                 "            <p>This code will expire in <strong>5 minutes</strong>.</p>" +
                 "            <p>If you did not request this code, please ignore this email.</p>" +
+                "        </div>" +
+                "        <div class='footer'>" +
+                "            <p>© 2026 AmarVote - Secure Online Voting System</p>" +
+                "        </div>" +
+                "    </div>" +
+                "</body>" +
+                "</html>";
+    }
+
+    private String loadPasswordResetCodeTemplate(String code) {
+        return "<!DOCTYPE html>" +
+                "<html>" +
+                "<head>" +
+                "    <meta charset='UTF-8'>" +
+                "    <style>" +
+                "        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }" +
+                "        .container { max-width: 600px; margin: 50px auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }" +
+                "        .header { text-align: center; margin-bottom: 30px; }" +
+                "        .header h1 { color: #2563eb; margin: 0; }" +
+                "        .content { text-align: center; }" +
+                "        .code { font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 10px; margin: 30px 0; padding: 20px; background-color: #eff6ff; border-radius: 8px; }" +
+                "        .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #999999; }" +
+                "    </style>" +
+                "</head>" +
+                "<body>" +
+                "    <div class='container'>" +
+                "        <div class='header'>" +
+                "            <h1>🔐 AmarVote Password Reset</h1>" +
+                "        </div>" +
+                "        <div class='content'>" +
+                "            <p>Use this verification code to reset your password:</p>" +
+                "            <div class='code'>" + code + "</div>" +
+                "            <p>This code will expire in <strong>10 minutes</strong>.</p>" +
+                "            <p>If you did not request a password reset, you can ignore this email.</p>" +
                 "        </div>" +
                 "        <div class='footer'>" +
                 "            <p>© 2026 AmarVote - Secure Online Voting System</p>" +

@@ -26,6 +26,7 @@ import com.amarvote.amarvote.dto.OtpLoginResponseDto;
 import com.amarvote.amarvote.dto.OtpRequestDto;
 import com.amarvote.amarvote.dto.OtpResponseDto;
 import com.amarvote.amarvote.dto.OtpVerifyDto;
+import com.amarvote.amarvote.dto.PasswordResetWithTokenRequestDto;
 import com.amarvote.amarvote.dto.ProfileMfaCodeRequestDto;
 import com.amarvote.amarvote.dto.RegisterSendEmailCodeRequestDto;
 import com.amarvote.amarvote.dto.RegisterVerifyEmailCodeRequestDto;
@@ -57,10 +58,68 @@ public class OtpAuthController {
 
     @PostMapping("/register/send-email-code")
     public ResponseEntity<?> sendRegistrationEmailCode(@Valid @RequestBody RegisterSendEmailCodeRequestDto request) {
+        try {
+            authorizedUserService.ensureAllowedForRegistration(request.getEmail());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", ex.getMessage()));
+        }
+
         emailVerificationService.sendEmailVerificationCode(request.getEmail());
         return ResponseEntity.ok(Map.of(
                 "status", "EMAIL_CODE_SENT",
                 "message", "Verification code sent"));
+    }
+
+    @PostMapping("/password/send-email-code")
+    public ResponseEntity<?> sendPasswordResetEmailCode(@Valid @RequestBody RegisterSendEmailCodeRequestDto request) {
+        String normalizedEmail = request.getEmail().trim().toLowerCase();
+
+        try {
+            authorizedUserService.ensureAllowedForLogin(normalizedEmail);
+            emailVerificationService.sendPasswordResetCode(normalizedEmail);
+            return ResponseEntity.ok(Map.of(
+                    "status", "PASSWORD_RESET_CODE_SENT",
+                    "message", "Password reset verification code sent"));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", ex.getMessage()));
+        }
+    }
+
+    @PostMapping("/password/verify-email-code")
+    public ResponseEntity<?> verifyPasswordResetEmailCode(@Valid @RequestBody RegisterVerifyEmailCodeRequestDto request) {
+        try {
+            authorizedUserService.ensureAllowedForLogin(request.getEmail());
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", ex.getMessage()));
+        }
+
+        Optional<String> tokenOpt = emailVerificationService.verifyPasswordResetCodeAndIssueToken(
+                request.getEmail(), request.getCode());
+
+        if (tokenOpt.isEmpty()) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Invalid or expired verification code"));
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "status", "PASSWORD_RESET_CODE_VERIFIED",
+                "resetPasswordToken", tokenOpt.get()));
+    }
+
+    @PostMapping("/password/reset")
+    public ResponseEntity<?> resetPassword(@Valid @RequestBody PasswordResetWithTokenRequestDto request) {
+        try {
+            mfaAuthService.resetPasswordWithToken(request.getResetPasswordToken(), request.getNewPassword());
+            return ResponseEntity.ok(Map.of(
+                    "status", "PASSWORD_RESET_SUCCESS",
+                    "message", "Password reset successful. You can now log in."));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", ex.getMessage()));
+        }
     }
 
     @PostMapping("/register/verify-email-code")

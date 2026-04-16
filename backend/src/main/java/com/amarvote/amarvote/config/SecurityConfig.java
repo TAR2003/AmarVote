@@ -37,7 +37,7 @@ public class SecurityConfig {
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/api/auth/register", "/api/auth/register/send-email-code", "/api/auth/register/verify-email-code", "/api/auth/login", "/api/auth/mfa/confirm-setup", "/api/auth/mfa/verify", "/api/auth/session", "/api/auth/request-otp", "/api/auth/verify-otp", "/api/auth/logout", "/api/password/forgot-password", "/api/password/create-password", "/api/verify/send-code", "/api/verify/verify-code", "/api/test-deepseek", "/api/health", "/api/chatbot/**", 
+                .requestMatchers("/api/auth/register", "/api/auth/register/send-email-code", "/api/auth/register/verify-email-code", "/api/auth/login", "/api/auth/mfa/confirm-setup", "/api/auth/mfa/verify", "/api/auth/session", "/api/auth/request-otp", "/api/auth/verify-otp", "/api/auth/logout", "/api/auth/password/send-email-code", "/api/auth/password/verify-email-code", "/api/auth/password/reset", "/api/password/forgot-password", "/api/password/create-password", "/api/verify/send-code", "/api/verify/verify-code", "/api/test-deepseek", "/api/health", "/api/chatbot/**", 
                                 "/actuator/prometheus", "/actuator/health",
                                 "/actuator/metrics").permitAll() // Allow public access to these endpoints
                 .anyRequest().authenticated())

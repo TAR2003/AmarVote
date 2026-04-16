@@ -48,6 +48,28 @@ public class EmailVerificationService {
     }
 
     @Transactional
+    @SuppressWarnings("null")
+    public void sendPasswordResetCode(String email) {
+        String normalizedEmail = email.trim().toLowerCase();
+
+        otpVerificationRepository.deleteByUserEmail(normalizedEmail);
+
+        String code = String.format("%06d", RANDOM.nextInt(1_000_000));
+        Instant now = Instant.now();
+
+        OtpVerification verification = OtpVerification.builder()
+                .userEmail(normalizedEmail)
+                .otpCode(code)
+                .createdAt(now)
+                .expiresAt(now.plus(CODE_VALIDITY_MINUTES, ChronoUnit.MINUTES))
+                .isUsed(false)
+                .build();
+
+        otpVerificationRepository.save(Objects.requireNonNull(verification));
+        emailService.sendPasswordResetCodeEmail(normalizedEmail, code);
+    }
+
+    @Transactional
     public Optional<String> verifyEmailCodeAndIssueToken(String email, String code) {
         String normalizedEmail = email.trim().toLowerCase();
 
@@ -63,5 +85,23 @@ public class EmailVerificationService {
         otpVerificationRepository.save(verification);
 
         return Optional.of(tempJwtService.generateEmailVerificationToken(normalizedEmail));
+    }
+
+    @Transactional
+    public Optional<String> verifyPasswordResetCodeAndIssueToken(String email, String code) {
+        String normalizedEmail = email.trim().toLowerCase();
+
+        Optional<OtpVerification> verificationOpt = otpVerificationRepository
+                .findByUserEmailAndOtpCodeAndIsUsedFalseAndExpiresAtAfter(normalizedEmail, code, Instant.now());
+
+        if (verificationOpt.isEmpty()) {
+            return Optional.empty();
+        }
+
+        OtpVerification verification = verificationOpt.get();
+        verification.setIsUsed(true);
+        otpVerificationRepository.save(verification);
+
+        return Optional.of(tempJwtService.generatePasswordResetToken(normalizedEmail));
     }
 }

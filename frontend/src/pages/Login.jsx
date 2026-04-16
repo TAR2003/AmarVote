@@ -139,6 +139,12 @@ export default function Login({ setUserEmail }) {
                 {loading ? "Checking credentials..." : "Continue"}
               </button>
 
+              <div className="text-right text-sm">
+                <Link className="font-medium text-blue-600 hover:underline" to="/forgot-password">
+                  Forgot password?
+                </Link>
+              </div>
+
               <p className="text-center text-sm text-gray-600">
                 New user?{" "}
                 <Link className="font-semibold text-blue-600 hover:underline" to="/register">
