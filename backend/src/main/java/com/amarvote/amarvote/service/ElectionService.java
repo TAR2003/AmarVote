@@ -33,8 +33,8 @@ import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.repository.AllowedVoterRepository;
 import com.amarvote.amarvote.repository.BallotRepository;
-import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.CombineWorkerLogRepository;
+import com.amarvote.amarvote.repository.CompensatedDecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionWorkerLogRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
@@ -106,7 +106,7 @@ public class ElectionService {
     public Election createElection(ElectionCreationRequest request, String jwtToken, String userEmail) {
         // Log the received token and email
         System.out.println("=========== ELECTION SERVICE ===========");
-        System.out.println("Received JWT Token: " + jwtToken);
+        // System.out.println("Received JWT Token: " + jwtToken);
         System.out.println("Received User Email: " + userEmail);
         System.out.println("========================================");
 

@@ -49,13 +49,13 @@ import com.amarvote.amarvote.dto.GuardianKeyCeremonySubmitRequest;
 import com.amarvote.amarvote.dto.KeyCeremonyPendingElectionResponse;
 import com.amarvote.amarvote.dto.KeyCeremonyStatusResponse;
 import com.amarvote.amarvote.model.Election;
+import com.amarvote.amarvote.service.AuthorizedUserService;
 import com.amarvote.amarvote.service.BallotService;
 import com.amarvote.amarvote.service.BlockchainService;
 import com.amarvote.amarvote.service.CloudinaryService;
 import com.amarvote.amarvote.service.ElectionService;
 import com.amarvote.amarvote.service.PartialDecryptionService;
 import com.amarvote.amarvote.service.TallyService;
-import com.amarvote.amarvote.service.AuthorizedUserService;
 import com.amarvote.amarvote.util.BallotPaddingUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -93,7 +93,7 @@ public class ElectionController {
             }
         }
 
-        System.out.println("Creating election with JWT: " + jwtToken);
+        // System.out.println("Creating election with JWT: " + jwtToken);
         System.out.println("User email: " + userEmail);
 
         if (userEmail == null || userEmail.isBlank()) {

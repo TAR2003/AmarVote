@@ -15,7 +15,6 @@ export default function Login({ setUserEmail }) {
   const [stage, setStage] = useState(STAGES.IDLE);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [tempToken, setTempToken] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -42,7 +41,6 @@ export default function Login({ setUserEmail }) {
       }
 
       if (res.status === 202 && data.status === "MFA_REQUIRED") {
-        setTempToken(data.tempToken || "");
         setStage(STAGES.AWAITING_MFA);
         return;
       }
@@ -57,7 +55,7 @@ export default function Login({ setUserEmail }) {
 
   const submitMfa = async (codeOverride) => {
     const codeToSubmit = (codeOverride || otpCode).replace(/\D/g, "").slice(0, 6);
-    if (codeToSubmit.length !== 6 || !tempToken) return;
+    if (codeToSubmit.length !== 6) return;
 
     setError("");
     setLoading(true);
@@ -67,7 +65,6 @@ export default function Login({ setUserEmail }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${tempToken}`,
         },
         credentials: "include",
         body: JSON.stringify({ totpCode: codeToSubmit }),
@@ -174,7 +171,6 @@ export default function Login({ setUserEmail }) {
                 className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
                 onClick={() => {
                   setStage(STAGES.IDLE);
-                  setTempToken("");
                   setOtpCode("");
                 }}
                 disabled={loading}

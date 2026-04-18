@@ -10,5 +10,4 @@ import lombok.NoArgsConstructor;
 public class OtpLoginResponseDto {
     private boolean success;
     private String message;
-    private String token;
 }

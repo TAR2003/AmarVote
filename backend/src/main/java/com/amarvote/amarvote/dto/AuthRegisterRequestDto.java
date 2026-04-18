@@ -20,7 +20,6 @@ public class AuthRegisterRequestDto {
     @Size(min = 8, message = "Password must be at least 8 characters")
     private String password;
 
-    @NotBlank(message = "emailVerificationToken is required")
     private String emailVerificationToken;
 
     private Boolean enableMfa;

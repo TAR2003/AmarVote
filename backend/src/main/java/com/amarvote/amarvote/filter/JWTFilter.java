@@ -11,9 +11,9 @@ import org.springframework.security.web.authentication.WebAuthenticationDetailsS
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
+import com.amarvote.amarvote.service.AuthorizedUserService;
 import com.amarvote.amarvote.service.JWTService;
 import com.amarvote.amarvote.service.MyUserDetailsService;
-import com.amarvote.amarvote.service.AuthorizedUserService;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -52,7 +52,7 @@ public class JWTFilter extends OncePerRequestFilter {
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             jwtToken = authHeader.substring(7);
-            System.out.println("JWT Token from Authorization header: " + jwtToken);
+            // System.out.println("JWT Token from Authorization header: " + jwtToken);
         }
 
         // If not found in header, try cookie
@@ -65,7 +65,7 @@ public class JWTFilter extends OncePerRequestFilter {
                     System.out.println(cookie.getName());
                     if ("jwtToken".equals(cookie.getName())) {
                         jwtToken = cookie.getValue();
-                        System.out.println("JWT Token from cookie: " + jwtToken);
+                        // System.out.println("JWT Token from cookie: " + jwtToken);
                         break;
                     }
                 }

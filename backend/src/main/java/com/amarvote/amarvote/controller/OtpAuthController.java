@@ -1,5 +1,6 @@
 package com.amarvote.amarvote.controller;
 
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Optional;
 
@@ -31,12 +32,13 @@ import com.amarvote.amarvote.dto.ProfileMfaCodeRequestDto;
 import com.amarvote.amarvote.dto.RegisterSendEmailCodeRequestDto;
 import com.amarvote.amarvote.dto.RegisterVerifyEmailCodeRequestDto;
 import com.amarvote.amarvote.dto.UserSession;
-import com.amarvote.amarvote.service.EmailVerificationService;
 import com.amarvote.amarvote.service.AuthorizedUserService;
+import com.amarvote.amarvote.service.EmailVerificationService;
 import com.amarvote.amarvote.service.MfaAuthService;
 import com.amarvote.amarvote.service.OtpAuthService;
 
 import jakarta.servlet.http.Cookie;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -88,7 +90,9 @@ public class OtpAuthController {
     }
 
     @PostMapping("/password/verify-email-code")
-    public ResponseEntity<?> verifyPasswordResetEmailCode(@Valid @RequestBody RegisterVerifyEmailCodeRequestDto request) {
+        public ResponseEntity<?> verifyPasswordResetEmailCode(
+            @Valid @RequestBody RegisterVerifyEmailCodeRequestDto request,
+            HttpServletResponse response) {
         try {
             authorizedUserService.ensureAllowedForLogin(request.getEmail());
         } catch (IllegalArgumentException ex) {
@@ -104,15 +108,31 @@ public class OtpAuthController {
                     .body(Map.of("message", "Invalid or expired verification code"));
         }
 
+        addTempCookie(response, "passwordResetToken", tokenOpt.get(), 10 * 60);
+
         return ResponseEntity.ok(Map.of(
                 "status", "PASSWORD_RESET_CODE_VERIFIED",
-                "resetPasswordToken", tokenOpt.get()));
+                "message", "Verification successful. You can now reset your password."));
     }
 
     @PostMapping("/password/reset")
-    public ResponseEntity<?> resetPassword(@Valid @RequestBody PasswordResetWithTokenRequestDto request) {
+    public ResponseEntity<?> resetPassword(
+            @Valid @RequestBody PasswordResetWithTokenRequestDto request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse response) {
         try {
-            mfaAuthService.resetPasswordWithToken(request.getResetPasswordToken(), request.getNewPassword());
+            String resetToken = request.getResetPasswordToken();
+            if (resetToken == null || resetToken.isBlank()) {
+                resetToken = readCookie(httpRequest, "passwordResetToken");
+            }
+
+            if (resetToken == null || resetToken.isBlank()) {
+                return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                        .body(Map.of("message", "Reset token is required"));
+            }
+
+            mfaAuthService.resetPasswordWithToken(resetToken, request.getNewPassword());
+            clearCookie(response, "passwordResetToken");
             return ResponseEntity.ok(Map.of(
                     "status", "PASSWORD_RESET_SUCCESS",
                     "message", "Password reset successful. You can now log in."));
@@ -123,34 +143,49 @@ public class OtpAuthController {
     }
 
     @PostMapping("/register/verify-email-code")
-    public ResponseEntity<?> verifyRegistrationEmailCode(@Valid @RequestBody RegisterVerifyEmailCodeRequestDto request) {
+    public ResponseEntity<?> verifyRegistrationEmailCode(
+            @Valid @RequestBody RegisterVerifyEmailCodeRequestDto request,
+            HttpServletResponse response) {
         Optional<String> tokenOpt = emailVerificationService.verifyEmailCodeAndIssueToken(request.getEmail(), request.getCode());
         if (tokenOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("message", "Invalid or expired verification code"));
         }
 
+        addTempCookie(response, "emailVerificationToken", tokenOpt.get(), 10 * 60);
+
         return ResponseEntity.ok(Map.of(
                 "status", "EMAIL_VERIFIED",
-                "emailVerificationToken", tokenOpt.get()));
+                "message", "Email verified successfully"));
     }
 
     @PostMapping("/register")
-    public ResponseEntity<?> register(@Valid @RequestBody AuthRegisterRequestDto request, HttpServletResponse response) {
+    public ResponseEntity<?> register(
+            @Valid @RequestBody AuthRegisterRequestDto request,
+            HttpServletRequest httpRequest,
+            HttpServletResponse response) {
         try {
             authorizedUserService.ensureAllowedForRegistration(request.getEmail());
             boolean enableMfa = Boolean.TRUE.equals(request.getEnableMfa());
+
+            String emailVerificationToken = request.getEmailVerificationToken();
+            if (emailVerificationToken == null || emailVerificationToken.isBlank()) {
+                emailVerificationToken = readCookie(httpRequest, "emailVerificationToken");
+            }
+
             Map<String, Object> responseMap = mfaAuthService.registerAndStartMfaSetup(
                     request.getEmail(),
                     request.getPassword(),
-                    request.getEmailVerificationToken(),
+                    emailVerificationToken,
                     enableMfa);
 
             if ("REGISTERED_NO_MFA".equals(responseMap.get("status")) && responseMap.get("token") != null) {
                 addAuthCookie(response, String.valueOf(responseMap.get("token")));
             }
 
-            return ResponseEntity.ok(responseMap);
+            clearCookie(response, "emailVerificationToken");
+
+            return ResponseEntity.ok(sanitizeTokenResponse(responseMap));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("message", ex.getMessage()));
@@ -170,9 +205,10 @@ public class OtpAuthController {
 
         String token = tokenOpt.get();
         addAuthCookie(response, token);
+        clearCookie(response, "mfaTempToken");
 
         return ResponseEntity.ok(Map.of(
-                "token", token,
+            "status", "REGISTERED_MFA_SUCCESS",
                 "message", "Registration complete"));
     }
 
@@ -188,15 +224,19 @@ public class OtpAuthController {
             Map<String, Object> responseMap = responseOpt.get();
             Object status = responseMap.get("status");
             if ("MFA_REQUIRED".equals(status)) {
-                return ResponseEntity.status(HttpStatus.ACCEPTED).body(responseMap);
+                if (responseMap.get("tempToken") != null) {
+                    addTempCookie(response, "mfaTempToken", String.valueOf(responseMap.get("tempToken")), 2 * 60);
+                }
+                return ResponseEntity.status(HttpStatus.ACCEPTED).body(sanitizeTokenResponse(responseMap));
             }
 
             if ("LOGIN_SUCCESS".equals(status) && responseMap.get("token") != null) {
                 addAuthCookie(response, String.valueOf(responseMap.get("token")));
-                return ResponseEntity.ok(responseMap);
+                clearCookie(response, "mfaTempToken");
+                return ResponseEntity.ok(sanitizeTokenResponse(responseMap));
             }
 
-            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(responseMap);
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(sanitizeTokenResponse(responseMap));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", ex.getMessage()));
@@ -274,14 +314,23 @@ public class OtpAuthController {
     public ResponseEntity<?> verifyMfa(
             @Valid @RequestBody MfaVerifyRequestDto request,
             @RequestHeader(value = "Authorization", required = false) String authorization,
+            HttpServletRequest httpRequest,
             HttpServletResponse response) {
 
-        if (authorization == null || !authorization.startsWith("Bearer ")) {
+        String tempToken = null;
+        if (authorization != null && authorization.startsWith("Bearer ")) {
+            tempToken = authorization.substring(7);
+        }
+
+        if (tempToken == null || tempToken.isBlank()) {
+            tempToken = readCookie(httpRequest, "mfaTempToken");
+        }
+
+        if (tempToken == null || tempToken.isBlank()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("message", "Missing temporary token"));
         }
 
-        String tempToken = authorization.substring(7);
         Optional<String> finalTokenOpt = mfaAuthService.verifyMfaAndIssueFinalToken(tempToken, request.getTotpCode());
         if (finalTokenOpt.isEmpty()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -290,9 +339,9 @@ public class OtpAuthController {
 
         String finalToken = finalTokenOpt.get();
         addAuthCookie(response, finalToken);
+        clearCookie(response, "mfaTempToken");
 
         return ResponseEntity.ok(Map.of(
-                "token", finalToken,
                 "message", "Login successful"));
     }
 
@@ -330,7 +379,7 @@ public class OtpAuthController {
             authorizedUserService.ensureAllowedForLogin(request.getEmail());
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(new OtpLoginResponseDto(false, ex.getMessage(), null));
+                    .body(new OtpLoginResponseDto(false, ex.getMessage()));
         }
         
         Optional<String> tokenOpt = otpAuthService.verifyOtpAndGenerateToken(
@@ -350,10 +399,10 @@ public class OtpAuthController {
 
             authorizedUserService.markSuccessfulLogin(request.getEmail());
             
-            return ResponseEntity.ok(new OtpLoginResponseDto(true, "Login successful", token));
+            return ResponseEntity.ok(new OtpLoginResponseDto(true, "Login successful"));
         } else {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
-                    .body(new OtpLoginResponseDto(false, "Invalid or expired OTP", null));
+                    .body(new OtpLoginResponseDto(false, "Invalid or expired OTP"));
         }
     }
 
@@ -388,11 +437,15 @@ public class OtpAuthController {
     public ResponseEntity<OtpResponseDto> logout(HttpServletResponse response) {
         Cookie cookie = new Cookie("jwtToken", null);
         cookie.setHttpOnly(true);
-        cookie.setSecure(true);
+        cookie.setSecure(cookieSecure);
         cookie.setPath("/");
         cookie.setMaxAge(0); // Delete cookie
         cookie.setAttribute("SameSite", "Strict");
         response.addCookie(cookie);
+
+        clearCookie(response, "mfaTempToken");
+        clearCookie(response, "emailVerificationToken");
+        clearCookie(response, "passwordResetToken");
         
         return ResponseEntity.ok(new OtpResponseDto(true, "Logged out successfully"));
     }
@@ -405,6 +458,47 @@ public class OtpAuthController {
         cookie.setMaxAge(7 * 24 * 60 * 60);
         cookie.setAttribute("SameSite", "Strict");
         response.addCookie(cookie);
+    }
+
+    private void addTempCookie(HttpServletResponse response, String cookieName, String token, int maxAgeSeconds) {
+        Cookie cookie = new Cookie(cookieName, token);
+        cookie.setHttpOnly(true);
+        cookie.setSecure(cookieSecure);
+        cookie.setPath("/");
+        cookie.setMaxAge(maxAgeSeconds);
+        cookie.setAttribute("SameSite", "Strict");
+        response.addCookie(cookie);
+    }
+
+    private void clearCookie(HttpServletResponse response, String cookieName) {
+        Cookie cookie = new Cookie(cookieName, "");
+        cookie.setHttpOnly(true);
+        cookie.setSecure(cookieSecure);
+        cookie.setPath("/");
+        cookie.setMaxAge(0);
+        cookie.setAttribute("SameSite", "Strict");
+        response.addCookie(cookie);
+    }
+
+    private String readCookie(HttpServletRequest request, String cookieName) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return null;
+        }
+
+        for (Cookie cookie : cookies) {
+            if (cookieName.equals(cookie.getName())) {
+                return cookie.getValue();
+            }
+        }
+        return null;
+    }
+
+    private Map<String, Object> sanitizeTokenResponse(Map<String, Object> responseMap) {
+        Map<String, Object> sanitized = new LinkedHashMap<>(responseMap);
+        sanitized.remove("token");
+        sanitized.remove("tempToken");
+        return sanitized;
     }
 
     private String getAuthenticatedEmail() {

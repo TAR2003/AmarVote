@@ -11,7 +11,6 @@ import lombok.NoArgsConstructor;
 @AllArgsConstructor
 public class PasswordResetWithTokenRequestDto {
 
-    @NotBlank(message = "Reset token is required")
     private String resetPasswordToken;
 
     @NotBlank(message = "New password is required")

@@ -4605,7 +4605,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                               required
                             />
                             <p className="text-sm text-gray-600 mt-1">
-                              Upload the credentials.txt file that was sent to you via email after guardian assignment.
+                              Upload the credentials.txt file generated during the guardian key ceremony.
                             </p>
                             {guardianKey && (
                               <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">

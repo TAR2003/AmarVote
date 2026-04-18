@@ -3,13 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import Layout from "./Layout";
 import OtpInput from "../components/OtpInput";
 
+const EMAIL_CODE_RATE_LIMIT_MESSAGE = "You can only request email verifcation code 1 time in 10 minutes";
+
 export default function ForgotPassword() {
   const navigate = useNavigate();
 
   const [step, setStep] = useState(1); // 1=email, 2=verify-code, 3=set-password
   const [email, setEmail] = useState("");
   const [verificationCode, setVerificationCode] = useState("");
-  const [resetPasswordToken, setResetPasswordToken] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState("");
@@ -32,7 +33,11 @@ export default function ForgotPassword() {
         body: JSON.stringify({ email }),
       });
 
-      const data = await res.json();
+      if (res.status === 429) {
+        throw new Error(EMAIL_CODE_RATE_LIMIT_MESSAGE);
+      }
+
+      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
         throw new Error(data.message || "Failed to send verification code");
       }
@@ -66,11 +71,10 @@ export default function ForgotPassword() {
         throw new Error(data.message || "Invalid verification code");
       }
 
-      if (data.status !== "PASSWORD_RESET_CODE_VERIFIED" || !data.resetPasswordToken) {
+      if (data.status !== "PASSWORD_RESET_CODE_VERIFIED") {
         throw new Error("Unexpected response from server");
       }
 
-      setResetPasswordToken(data.resetPasswordToken);
       setStep(3);
     } catch (err) {
       setError(err.message || "Verification failed");
@@ -100,7 +104,8 @@ export default function ForgotPassword() {
       const res = await fetch("/api/auth/password/reset", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ resetPasswordToken, newPassword }),
+        credentials: "include",
+        body: JSON.stringify({ newPassword }),
       });
 
       const data = await res.json();
