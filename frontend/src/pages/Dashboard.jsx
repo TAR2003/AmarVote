@@ -427,7 +427,7 @@ const Dashboard = ({ userEmail }) => {
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
               <h1 className="text-lg sm:text-2xl font-bold text-white break-words leading-tight">
-                Welcome back, {userEmail.split("@")[0]}!
+                Welcome, {userEmail.split("@")[0]}!
               </h1>
               <p className="mt-1 text-xs sm:text-base text-blue-100 max-w-lg">
                 You have {ongoing.length} active election{ongoing.length === 1 ? '' : 's'} right now.

@@ -612,7 +612,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                         <p className="text-xs font-semibold text-red-900 mb-1">What to do next:</p>
                         <ul className="text-xs text-red-800 list-disc list-inside space-y-1">
                           <li>Verify you uploaded the correct <strong>credentials.txt</strong> file</li>
-                          <li>The file should be the one emailed to you after guardian assignment</li>
+                          <li>The file should be the one provided after guardian assignment</li>
                           <li>If you lost the file, contact the election administrator</li>
                           <li>Close this modal and submit again with the correct file</li>
                         </ul>

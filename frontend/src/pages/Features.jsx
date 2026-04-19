@@ -116,7 +116,7 @@ function Features() {
                   "NIST FIPS 203 standardized — Category 5 (256-bit post-quantum security)",
                   "Combined with AES-256-CBC and Scrypt (N=2^16, r=8) for layered protection",
                   "HMAC-SHA256 authenticates the entire credential file",
-                  "Credential delivered to guardian via email as .json file",
+                  "Credential delivered to guardian securely as .txt file",
                   "Resistant to Shor's algorithm on quantum computers",
                 ]} />
               <FeatureCard icon="✅" color="teal" title="Zero-Knowledge Proofs"
@@ -320,7 +320,7 @@ function Features() {
                   "Eligibility modes: open (any user), restricted (verified users), listed (by email), unlisted (private link)",
                   "Upload candidate/party/election images via Cloudinary SDK 1.38.0",
                   "ElectionGuard key ceremony: backend calls EG Fast API to generate guardian keypairs",
-                  "Guardian credentials emailed automatically after ceremony",
+                  "Guardian credentials automatically delivered after ceremony",
                 ]} />
               <FeatureCard icon="🗳️" color="green" title="Ballot Casting"
                 items={[

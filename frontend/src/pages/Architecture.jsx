@@ -364,7 +364,7 @@ const Architecture = () => {
                     ["Spring Boot", "Calls EG Fast API /ceremony/setup → generates guardian ElGamal keypairs + Schnorr commitment proofs"],
                     ["EG Fast API", "Returns public keys; Backend saves guardian records to PostgreSQL"],
                     ["Spring Boot", "Encrypts each guardian's private key: ML-KEM-1024 KEM → AES-256-CBC wrap → Scrypt KDF → HMAC-SHA256 tag"],
-                    ["Gmail SMTP", "Emails each guardian their encrypted credential file (.json) with their share"],
+                    ["Secure delivery", "Sends each guardian their encrypted credential file (.txt) with their share"],
                   ]
                 },
                 {

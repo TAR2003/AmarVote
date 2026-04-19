@@ -385,7 +385,7 @@ const Home = () => {
               {
                 icon: "🔑", title: "Guardian", color: "purple",
                 features: [
-                  "Receive ML-KEM-1024-wrapped credentials via email",
+                  "Receive ML-KEM-1024-wrapped credentials securely",
                   "Submit credentials to initiate partial decryption",
                   "Private key decrypted → stored in Redis 6h TTL",
                   "Workers use key per chunk across all ballot groups",
