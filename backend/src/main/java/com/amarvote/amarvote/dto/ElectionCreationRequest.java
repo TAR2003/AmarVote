@@ -11,7 +11,7 @@ public record ElectionCreationRequest(
     @NotBlank String electionTitle,
     String electionDescription,
     @NotEmpty List<String> candidateNames,
-    @NotEmpty List<String> partyNames,
+    List<String> partyNames,
     List<String> candidatePictures,
     List<String> partyPictures,
     @NotBlank String guardianNumber,

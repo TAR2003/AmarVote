@@ -1271,6 +1271,23 @@ public class ElectionController {
             @RequestParam("candidateName") String candidateName) {
         
         try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication == null || !authentication.isAuthenticated()
+                    || "anonymousUser".equals(authentication.getPrincipal())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                        "success", false,
+                        "error", "Authentication required"
+                ));
+            }
+
+            String userEmail = authentication.getName();
+            if (!authorizedUserService.canUserCreateElection(userEmail)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "success", false,
+                        "error", "You do not have permission to upload election assets"
+                ));
+            }
+
             System.out.println("Received candidate image upload request. File: " + file.getOriginalFilename() + 
                              ", Size: " + file.getSize() + ", Content-Type: " + file.getContentType() + 
                              ", Candidate: " + candidateName);
@@ -1301,6 +1318,23 @@ public class ElectionController {
             @RequestParam("partyName") String partyName) {
         
         try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication == null || !authentication.isAuthenticated()
+                    || "anonymousUser".equals(authentication.getPrincipal())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                        "success", false,
+                        "error", "Authentication required"
+                ));
+            }
+
+            String userEmail = authentication.getName();
+            if (!authorizedUserService.canUserCreateElection(userEmail)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                        "success", false,
+                        "error", "You do not have permission to upload election assets"
+                ));
+            }
+
             System.out.println("Received party image upload request. File: " + file.getOriginalFilename() + 
                              ", Size: " + file.getSize() + ", Content-Type: " + file.getContentType() + 
                              ", Party: " + partyName);

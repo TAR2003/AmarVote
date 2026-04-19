@@ -1,8 +1,7 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
 import { electionApi } from "../utils/electionApi";
-import { userApi } from "../utils/userApi";
-import { uploadCandidateImage, uploadPartyImage } from "../utils/api";
+import { uploadCandidateImage } from "../utils/api";
 import ImageUpload from "../components/ImageUpload";
 
 const CreateElection = () => {
@@ -12,10 +11,9 @@ const CreateElection = () => {
     const [success, setSuccess] = useState("");
     const [emailSuggestions, setEmailSuggestions] = useState([]);
     const [searchQuery, setSearchQuery] = useState("");
+    const [canCreateElections, setCanCreateElections] = useState(false);
+    const [checkingPermission, setCheckingPermission] = useState(true);
     const suggestionsRef = useRef(null);
-
-    // User database for email suggestions fetched from backend
-    const [allUsers, setAllUsers] = useState([]);
 
     const [form, setForm] = useState({
         electionTitle: "",
@@ -27,69 +25,89 @@ const CreateElection = () => {
         quorumNumber: "",
         guardianEmails: [],
         candidateNames: [""],
-        partyNames: [""],
         candidatePictures: [""],
-        partyPictures: [""],
         maxChoices: 1
-    });
-
-    // Store temporary image files for upload after election creation
-    const [pendingImages, setPendingImages] = useState({
-        candidateFiles: [],
-        partyFiles: [],
-        electionFile: null
     });
 
     // Track image URLs for preview
     const [candidateImages, setCandidateImages] = useState([]);
 
-    // Handle image changes for candidates and parties
-    const handleImageChange = async (type, index, file) => {
-        try {
-            let imageUrl = '';
-            
-            if (type === 'candidate') {
-                const candidateName = form.candidateNames[index] || `candidate_${index}`;
-                const response = await uploadCandidateImage(file, candidateName);
-                imageUrl = response.imageUrl;
-            } else if (type === 'party') {
-                const partyName = form.partyNames[index] || `party_${index}`;
-                const response = await uploadPartyImage(file, partyName);
-                imageUrl = response.imageUrl;
+    useEffect(() => {
+        let isMounted = true;
+
+        const checkCreatePermission = async () => {
+            try {
+                const res = await fetch("/api/authorized-users/me", {
+                    method: "GET",
+                    credentials: "include",
+                });
+
+                if (!res.ok) {
+                    throw new Error("Unable to verify create-election access.");
+                }
+
+                const data = await res.json();
+                if (!isMounted) {
+                    return;
+                }
+
+                if (!data.canCreateElections) {
+                    setError("You are not allowed to create elections.");
+                    setTimeout(() => {
+                        navigate("/dashboard", { replace: true });
+                    }, 800);
+                    return;
+                }
+
+                setCanCreateElections(true);
+            } catch (permissionError) {
+                if (!isMounted) {
+                    return;
+                }
+                setError(permissionError.message || "Unable to verify create-election access.");
+                setTimeout(() => {
+                    navigate("/dashboard", { replace: true });
+                }, 800);
+            } finally {
+                if (isMounted) {
+                    setCheckingPermission(false);
+                }
             }
+        };
+
+        checkCreatePermission();
+
+        return () => {
+            isMounted = false;
+        };
+    }, [navigate]);
+
+    // Handle candidate image changes.
+    const handleImageChange = async (index, file) => {
+        if (!canCreateElections) {
+            setError("You are not allowed to upload election assets.");
+            return;
+        }
+
+        try {
+            const candidateName = form.candidateNames[index] || `candidate_${index}`;
+            const response = await uploadCandidateImage(file, candidateName);
+            const imageUrl = response.imageUrl;
 
             setCandidateImages(prev => {
                 const updated = [...prev];
-                if (!updated[index]) {
-                    updated[index] = {};
-                }
-                
-                if (type === 'candidate') {
-                    updated[index].candidatePic = imageUrl;
-                } else if (type === 'party') {
-                    updated[index].partyPic = imageUrl;
-                }
-                
+                updated[index] = imageUrl;
                 return updated;
             });
             
-            // Also update the form state for backward compatibility
-            if (type === 'candidate') {
-                setForm(prev => {
-                    const updatedPictures = [...prev.candidatePictures];
-                    updatedPictures[index] = imageUrl;
-                    return { ...prev, candidatePictures: updatedPictures };
-                });
-            } else if (type === 'party') {
-                setForm(prev => {
-                    const updatedPictures = [...prev.partyPictures];
-                    updatedPictures[index] = imageUrl;
-                    return { ...prev, partyPictures: updatedPictures };
-                });
-            }
+            setForm(prev => {
+                const updatedPictures = [...prev.candidatePictures];
+                updatedPictures[index] = imageUrl;
+                return { ...prev, candidatePictures: updatedPictures };
+            });
         } catch (error) {
             console.error('Error uploading image:', error);
-            // You can set an error state here if needed
+            setError(error.message || "Failed to upload candidate image.");
         }
     };
 
@@ -411,16 +429,9 @@ const CreateElection = () => {
         setForm(prev => ({
             ...prev,
             candidateNames: [...prev.candidateNames, ""],
-            partyNames: [...prev.partyNames, ""],
-            candidatePictures: [...prev.candidatePictures, ""],
-            partyPictures: [...prev.partyPictures, ""]
+            candidatePictures: [...prev.candidatePictures, ""]
         }));
-        setPendingImages(prev => ({
-            ...prev,
-            candidateFiles: [...prev.candidateFiles, null],
-            partyFiles: [...prev.partyFiles, null]
-        }));
-        setCandidateImages(prev => [...prev, { candidatePic: "", partyPic: "" }]);
+        setCandidateImages(prev => [...prev, ""]);
     };
 
     const removeCandidate = (index) => {
@@ -433,9 +444,7 @@ const CreateElection = () => {
         setForm(prev => ({
             ...prev,
             candidateNames: prev.candidateNames.filter((_, i) => i !== index),
-            partyNames: prev.partyNames.filter((_, i) => i !== index),
-            candidatePictures: prev.candidatePictures.filter((_, i) => i !== index),
-            partyPictures: prev.partyPictures.filter((_, i) => i !== index)
+            candidatePictures: prev.candidatePictures.filter((_, i) => i !== index)
         }));
         setCandidateImages(prev => prev.filter((_, i) => i !== index));
     };
@@ -467,46 +476,28 @@ const CreateElection = () => {
         return { isValid: true, message: '' };
     };
 
-    // Helper function to check for duplicates in party names
-    const getPartyNameValidation = (index, name) => {
-        if (!name || name.trim() === '') return { isValid: true, message: '' };
-
-        const trimmedName = name.trim().toLowerCase();
-        const duplicateIndex = form.partyNames.findIndex((partyName, i) =>
-            i !== index && partyName.trim().toLowerCase() === trimmedName
-        );
-
-        if (duplicateIndex !== -1) {
-            return {
-                isValid: false,
-                message: `Duplicate party name with Candidate ${duplicateIndex + 1}`
-            };
-        }
-
-        return { isValid: true, message: '' };
-    };
-
-    // Check if there are any duplicate names
+    // Check if there are any duplicate candidate names
     const hasDuplicateNames = () => {
         const candidateNamesLower = form.candidateNames
             .filter(name => name.trim() !== '')
             .map(name => name.trim().toLowerCase());
-        const partyNamesLower = form.partyNames
-            .filter(name => name.trim() !== '')
-            .map(name => name.trim().toLowerCase());
 
         const hasDuplicateCandidates = candidateNamesLower.length !== new Set(candidateNamesLower).size;
-        const hasDuplicateParties = partyNamesLower.length !== new Set(partyNamesLower).size;
 
-        return hasDuplicateCandidates || hasDuplicateParties;
+        return hasDuplicateCandidates;
     };
 
     const handleSubmit = async (e) => {
         e.preventDefault();
 
+        if (!canCreateElections) {
+            setError("You are not allowed to create elections.");
+            return;
+        }
+
         // Validate form
-        if (form.candidateNames.some(name => !name) || form.partyNames.some(name => !name)) {
-            setError("All candidate and party names are required");
+        if (form.candidateNames.some(name => !name || !name.trim())) {
+            setError("All candidate names are required");
             return;
         }
 
@@ -519,7 +510,7 @@ const CreateElection = () => {
 
         // Check for duplicate names
         if (hasDuplicateNames()) {
-            setError("Candidate names and party names must be unique. Please remove any duplicate names.");
+            setError("Candidate names must be unique. Please remove any duplicate names.");
             return;
         }
 
@@ -572,7 +563,9 @@ const CreateElection = () => {
 
         try {
             const electionData = {
-                ...form
+                ...form,
+                partyNames: validCandidateNames.map((_, index) => `${index + 1}`),
+                partyPictures: []
             };
 
             const response = await electionApi.createElection(electionData);
@@ -648,6 +641,12 @@ const CreateElection = () => {
         <div className="max-w-4xl mx-auto p-3 sm:p-6">
             <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-800">Create New Election</h1>
 
+            {checkingPermission && (
+                <div className="bg-blue-100 border border-blue-300 text-blue-800 px-4 py-3 rounded mb-4">
+                    Verifying your election creation permission...
+                </div>
+            )}
+
             {error && (
                 <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
                     {error}
@@ -693,34 +692,6 @@ const CreateElection = () => {
 
                     <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
                         Election start and end time are set later, after key ceremony completion.
-                    </div>
-                </div>
-
-                {/* Max Choices Setting */}
-                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Voting Options</h2>
-                    <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-2">
-                            Max Choices <span className="text-red-500">*</span>
-                        </label>
-                        <p className="text-sm text-gray-500 mb-2">
-                            How many candidates can each voter select? (1 = single choice, more = multiple choice)
-                        </p>
-                        <input
-                            type="number"
-                            name="maxChoices"
-                            value={form.maxChoices}
-                            onChange={handleChange}
-                            min={1}
-                            max={form.candidateNames.filter(n => n.trim() !== '').length || 1}
-                            className="w-full sm:w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
-                        {form.maxChoices > 1 && (
-                            <p className="text-sm text-blue-600 mt-2">
-                                ℹ️ Voters will be able to select up to {form.maxChoices} candidates.
-                            </p>
-                        )}
                     </div>
                 </div>
 
@@ -982,7 +953,6 @@ const CreateElection = () => {
 
                     {form.candidateNames.map((name, index) => {
                         const candidateValidation = getCandidateNameValidation(index, name);
-                        const partyValidation = getPartyNameValidation(index, form.partyNames[index]);
 
                         return (
                             <div key={index} className="mb-6 p-4 border border-gray-200 rounded-md">
@@ -1005,7 +975,7 @@ const CreateElection = () => {
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                                <div className="grid grid-cols-1 gap-4">
                                     <div>
                                         <label className="block text-gray-700 text-sm font-medium mb-1">
                                             Candidate Name <span className="text-red-500">*</span>
@@ -1027,58 +997,48 @@ const CreateElection = () => {
                                             </p>
                                         )}
                                     </div>
-
-                                    <div>
-                                        <label className="block text-gray-700 text-sm font-medium mb-1">
-                                            Party Name <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={form.partyNames[index]}
-                                            onChange={(e) => handleCandidateChange(index, 'partyNames', e.target.value)}
-                                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${!partyValidation.isValid
-                                                    ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-500'
-                                                    : 'border-gray-300 focus:ring-blue-500'
-                                                }`}
-                                            required
-                                        />
-                                        {!partyValidation.isValid && (
-                                            <p className="mt-1 text-sm text-red-600 flex items-center">
-                                                <span className="mr-1">⚠️</span>
-                                                {partyValidation.message}
-                                            </p>
-                                        )}
-                                    </div>
                                 </div>
 
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mt-3">
+                                <div className="grid grid-cols-1 gap-4 mt-3">
                                     <div>
                                         <label className="block text-gray-700 text-sm font-medium mb-1">
                                             Candidate Picture
                                         </label>
                                         <ImageUpload
-                                            currentImage={candidateImages[index]?.candidatePic}
-                                            onImageUpload={(file) => handleImageChange('candidate', index, file)}
+                                            currentImage={candidateImages[index]}
+                                            onImageUpload={(file) => handleImageChange(index, file)}
                                             uploadType="candidate"
                                             placeholder="Upload candidate picture"
-                                        />
-                                    </div>
-
-                                    <div>
-                                        <label className="block text-gray-700 text-sm font-medium mb-1">
-                                            Party Logo
-                                        </label>
-                                        <ImageUpload
-                                            currentImage={candidateImages[index]?.partyPic}
-                                            onImageUpload={(file) => handleImageChange('party', index, file)}
-                                            uploadType="party"
-                                            placeholder="Upload party logo"
                                         />
                                     </div>
                                 </div>
                             </div>
                         )
                     })}
+
+                    <div className="mb-4 p-4 border border-gray-200 rounded-md bg-gray-50">
+                        <label className="block text-gray-700 font-medium mb-2">
+                            Max Choices <span className="text-red-500">*</span>
+                        </label>
+                        <p className="text-sm text-gray-500 mb-2">
+                            How many candidates can each voter select? (1 = single choice, more = multiple choice)
+                        </p>
+                        <input
+                            type="number"
+                            name="maxChoices"
+                            value={form.maxChoices}
+                            onChange={handleChange}
+                            min={1}
+                            max={form.candidateNames.filter(n => n.trim() !== '').length || 1}
+                            className="w-full sm:w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            required
+                        />
+                        {form.maxChoices > 1 && (
+                            <p className="text-sm text-blue-600 mt-2">
+                                ℹ️ Voters will be able to select up to {form.maxChoices} candidates.
+                            </p>
+                        )}
+                    </div>
 
                     {/* Validation Summary */}
                     {(form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()) && (
@@ -1090,7 +1050,7 @@ const CreateElection = () => {
                                         <p className="text-sm">• At least 2 candidates are required to create an election</p>
                                     )}
                                     {hasDuplicateNames() && (
-                                        <p className="text-sm">• Remove duplicate candidate or party names before proceeding</p>
+                                        <p className="text-sm">• Remove duplicate candidate names before proceeding</p>
                                     )}
                                 </div>
                             </div>

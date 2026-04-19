@@ -1979,7 +1979,6 @@ export default function ElectionPage() {
       hasCurrentElectionData: !!currentElectionData,
       electionChoices: currentElectionData?.electionChoices?.map(c => ({
         optionTitle: c.optionTitle,
-        partyName: c.partyName,
         choiceId: c.choiceId
       }))
     });
@@ -2018,33 +2017,10 @@ export default function ElectionPage() {
           percentage = ((votes / totalVotes) * 100).toFixed(1);
         }
         
-        // Map candidate name to party name from currentElectionData
-        // Use more robust matching: trim whitespace and case-insensitive comparison
-        const normalizedName = name.trim().toLowerCase();
-        const candidateChoice = currentElectionData?.electionChoices?.find(
-          choice => choice.optionTitle.trim().toLowerCase() === normalizedName
-        );
-        
-        console.log(`🔍 [Party Mapping] Candidate "${name}":`, {
-          normalizedName,
-          found: !!candidateChoice,
-          partyName: candidateChoice?.partyName,
-          optionTitle: candidateChoice?.optionTitle,
-          hasElectionData: !!currentElectionData,
-          hasElectionChoices: !!currentElectionData?.electionChoices,
-          choicesCount: currentElectionData?.electionChoices?.length,
-          availableChoices: currentElectionData?.electionChoices?.map(c => ({ 
-            title: c.optionTitle, 
-            titleLower: c.optionTitle.trim().toLowerCase(),
-            party: c.partyName 
-          }))
-        });
-        
         return {
           name: name,
           votes: votes,
-          percentage: parseFloat(percentage),
-          party: candidateChoice?.partyName || 'Independent'
+          percentage: parseFloat(percentage)
         };
       });
 
@@ -2082,8 +2058,7 @@ export default function ElectionPage() {
     const chartData = currentElectionData.electionChoices.map(choice => ({
       name: choice.optionTitle,
       votes: choice.totalVotes || 0,
-      percentage: totalVotes > 0 ? ((choice.totalVotes || 0) / totalVotes * 100).toFixed(1) : 0,
-      party: choice.partyName
+      percentage: totalVotes > 0 ? ((choice.totalVotes || 0) / totalVotes * 100).toFixed(1) : 0
     }));
 
     return {
@@ -2137,7 +2112,7 @@ export default function ElectionPage() {
             setRawVerificationData(cachedVerificationData);
             
             // Process and set the results data for charts and statistics
-            // Pass electionData to ensure party names are mapped correctly
+            // Pass electionData to ensure candidate totals are mapped correctly
             const processedResults = processElectionResults(cachedVerificationData, electionData);
             setResultsData(processedResults);
             
@@ -2731,7 +2706,6 @@ Vote Hash: ${voteResult.hashCode}
 Tracking Code: ${voteResult.trackingCode}
 Date: ${timezoneUtils.formatForDisplay(new Date().toISOString())}
 Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
-Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
       `.trim();
 
       const blob = new Blob([txtDetails], { type: 'text/plain' });
@@ -2751,8 +2725,7 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
         tracking_code: voteResult.trackingCode,
         hash_code: voteResult.hashCode,
         date: new Date().toISOString(),
-        candidate: voteResult.votedCandidate?.optionTitle || 'Unknown',
-        party: voteResult.votedCandidate?.partyName || 'N/A'
+        candidate: voteResult.votedCandidate?.optionTitle || 'Unknown'
       };
 
       const blob = new Blob([JSON.stringify(jsonDetails, null, 2)], { type: 'application/json' });
@@ -2795,10 +2768,9 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
     if (!resultsData) return;
 
     const csvContent = [
-      ['Candidate', 'Party', 'Votes', 'Percentage'],
+      ['Candidate', 'Votes', 'Percentage'],
       ...resultsData.chartData.map(item => [
         item.name,
-        item.party || 'N/A',
         item.votes,
         item.percentage + '%'
       ])
@@ -3363,7 +3335,6 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                       )}
                       <div className="min-w-0 flex-1">
                         <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">{choice.optionTitle}</h4>
-                        <p className="text-xs sm:text-sm text-gray-600 truncate">{choice.partyName}</p>
                         <p className="text-xs sm:text-sm text-gray-500 line-clamp-2">{choice.optionDescription}</p>
                       </div>
                     </div>
@@ -3668,9 +3639,6 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                         )}
                         <div className="flex-1">
                           <h5 className="font-semibold text-gray-900 text-lg">{choice.optionTitle}</h5>
-                          {choice.partyName && (
-                            <p className="text-gray-600 font-medium">{choice.partyName}</p>
-                          )}
                           {choice.optionDescription && (
                             <p className="text-sm text-gray-500 mt-1">{choice.optionDescription}</p>
                           )}
@@ -3779,9 +3747,6 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                                 )}
                                 <div>
                                   <p className="font-medium text-gray-900 text-lg">{choice.optionTitle}</p>
-                                  {choice.partyName && (
-                                    <p className="text-sm text-gray-600">{choice.partyName}</p>
-                                  )}
                                   {choice.optionDescription && (
                                     <p className="text-sm text-gray-500 mt-1">{choice.optionDescription}</p>
                                   )}
@@ -4023,9 +3988,6 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                         )}
                         <div className="min-w-0">
                           <p className="font-medium text-blue-900 text-sm sm:text-base">{selectedChoice?.optionTitle}</p>
-                          {selectedChoice?.partyName && (
-                            <p className="text-xs sm:text-sm text-blue-700">{selectedChoice.partyName}</p>
-                          )}
                         </div>
                       </div>
                     </div>
@@ -4113,7 +4075,6 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                         />
                         <div className="flex-1 min-w-0">
                           <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{choice.optionTitle}</div>
-                          <div className="text-xs sm:text-sm text-gray-500 truncate">{choice.partyName}</div>
                         </div>
                       </div>
                     );
@@ -5017,7 +4978,6 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                               <tr className="border-b-2 border-gray-300">
                                 <th className="text-left p-3 font-medium text-gray-900">Rank</th>
                                 <th className="text-left p-3 font-medium text-gray-900">Candidate</th>
-                                <th className="text-left p-3 font-medium text-gray-900">Party</th>
                                 <th className="text-left p-3 font-medium text-gray-900">Votes</th>
                                 <th className="text-left p-3 font-medium text-gray-900">Percentage</th>
                                 <th className="text-left p-3 font-medium text-gray-900">Visual</th>
@@ -5038,7 +4998,6 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                                       </span>
                                     </td>
                                     <td className="p-3 font-medium text-gray-900">{candidate.name}</td>
-                                    <td className="p-3 text-gray-600">{candidate.party || 'Independent'}</td>
                                     <td className="p-3 font-semibold text-gray-900">{candidate.votes}</td>
                                     <td className="p-3 text-gray-900">{candidate.percentage}%</td>
                                     <td className="p-3">
@@ -5086,7 +5045,6 @@ Party: ${voteResult.votedCandidate?.partyName || 'N/A'}
                                       </div>
                                       <div className="flex-1 min-w-0">
                                         <p className="font-bold text-gray-900 text-sm sm:text-base truncate">{candidate.name}</p>
-                                        <p className="text-xs text-gray-500 truncate">{candidate.party || 'Independent'}</p>
                                         <div className="mt-1.5 w-full bg-white/70 rounded-full h-1.5 overflow-hidden border border-white">
                                           <div
                                             className={`h-1.5 rounded-full bg-gradient-to-r ${style.bar} transition-all duration-1000`}

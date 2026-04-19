@@ -13,7 +13,6 @@ export default function Register({ setUserEmail }) {
   const [emailCode, setEmailCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  const [enableMfa, setEnableMfa] = useState(false);
   const [secret, setSecret] = useState("");
   const [qrCodeDataUri, setQrCodeDataUri] = useState("");
   const [otpCode, setOtpCode] = useState("");
@@ -112,7 +111,7 @@ export default function Register({ setUserEmail }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password, enableMfa }),
+        body: JSON.stringify({ email, password, enableMfa: false }),
       });
 
       const data = await res.json();
@@ -274,25 +273,17 @@ export default function Register({ setUserEmail }) {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
 
-              <label className="flex items-start gap-3 rounded-lg border border-blue-200 bg-blue-50 px-3 py-3">
-                <input
-                  type="checkbox"
-                  checked={enableMfa}
-                  onChange={(e) => setEnableMfa(e.target.checked)}
-                  className="mt-1"
-                />
-                <span className="text-sm text-blue-900">
-                  <strong>Recommended:</strong> Enable two-step verification (Google Authenticator) now.
-                  You can always turn it on or off later from your profile.
-                </span>
-              </label>
+              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-900">
+                <strong>Why 2FA is important:</strong> it protects your account even if your password is exposed.
+                Create your account first, then go to your profile after login to enable 2FA.
+              </div>
 
               <button
                 type="submit"
                 disabled={loading}
                 className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
               >
-                {loading ? "Creating account..." : (enableMfa ? "Continue to MFA setup" : "Create account")}
+                {loading ? "Creating account..." : "Create account"}
               </button>
             </form>
           )}

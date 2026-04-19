@@ -115,10 +115,6 @@ public class ElectionService {
             throw new IllegalArgumentException("At least 2 candidates are required for an election");
         }
 
-        if (request.partyNames().size() < 2) {
-            throw new IllegalArgumentException("At least 2 party names are required for an election");
-        }
-
         // Validate candidate names are unique (case-insensitive)
         java.util.Set<String> uniqueCandidateNames = new java.util.HashSet<>();
         for (String candidateName : request.candidateNames()) {
@@ -133,29 +129,10 @@ public class ElectionService {
             uniqueCandidateNames.add(trimmedName);
         }
 
-        // Validate party names are unique (case-insensitive)
-        java.util.Set<String> uniquePartyNames = new java.util.HashSet<>();
-        for (String partyName : request.partyNames()) {
-            if (partyName == null || partyName.trim().isEmpty()) {
-                throw new IllegalArgumentException("Party names cannot be empty");
-            }
-            String trimmedName = partyName.trim().toLowerCase();
-            if (uniquePartyNames.contains(trimmedName)) {
-                throw new IllegalArgumentException(
-                        "Party names must be unique - duplicate name found: " + partyName.trim());
-            }
-            uniquePartyNames.add(trimmedName);
-        }
-
-        // Validate candidate pictures and party pictures match names
+        // Validate candidate pictures match names
         if (request.candidatePictures() != null
                 && request.candidatePictures().size() != request.candidateNames().size()) {
             throw new IllegalArgumentException("Candidate pictures count must match candidate names");
-        }
-
-        if (request.partyPictures() != null
-                && request.partyPictures().size() != request.partyNames().size()) {
-            throw new IllegalArgumentException("Party pictures count must match party names");
         }
 
         int guardianCount = Integer.parseInt(request.guardianNumber());
@@ -230,16 +207,13 @@ public class ElectionService {
         System.out.println("Guardians saved successfully for decentralized key ceremony.");
 
         List<String> candidateNames = request.candidateNames();
-        List<String> partyNames = request.partyNames();
         List<String> candidatePictures = request.candidatePictures();
-        List<String> partyPictures = request.partyPictures();
 
         for (int i = 0; i < candidateNames.size(); i++) {
             String candidateName = candidateNames.get(i);
-            String partyName = (i < partyNames.size()) ? partyNames.get(i) : null;
+            String partyName = String.valueOf(i + 1);
             String candidatePic = (candidatePictures != null && i < candidatePictures.size()) ? candidatePictures.get(i)
                     : null;
-            String partyPic = (partyPictures != null && i < partyPictures.size()) ? partyPictures.get(i) : null;
 
             ElectionChoice choice = ElectionChoice.builder()
                     .electionId(election.getElectionId())
@@ -247,7 +221,7 @@ public class ElectionService {
                     .optionDescription(null) // or some logic to provide description
                     .partyName(partyName)
                     .candidatePic(candidatePic)
-                    .partyPic(partyPic)
+                .partyPic(null)
                     .totalVotes(0)
                     .build();
 
