@@ -868,18 +868,101 @@ public class ElectionService {
             election.setManifestHash(String.valueOf(combined.get("manifest")));
             election.setStartingTime(request.startingTime());
             election.setEndingTime(request.endingTime());
+
+            boolean sendReminder = Boolean.TRUE.equals(request.sendReminder());
+            if (sendReminder) {
+                if (request.reminderTime() == null) {
+                    throw new IllegalArgumentException("Reminder time is required when reminder is enabled");
+                }
+                if (!request.endingTime().isAfter(request.reminderTime())) {
+                    throw new IllegalArgumentException("Reminder time must be before election ending time");
+                }
+
+                List<String> recipients = sanitizeReminderRecipients(request.reminderRecipients());
+                if (recipients.isEmpty()) {
+                    recipients = allowedVoterRepository.findByElectionId(request.electionId())
+                            .stream()
+                            .map(AllowedVoter::getUserEmail)
+                            .map(this::normalizeEmail)
+                            .filter(email -> email != null && !email.isBlank())
+                            .distinct()
+                            .collect(Collectors.toList());
+                }
+                if (recipients.isEmpty()) {
+                    throw new IllegalArgumentException("No reminder recipients found for this election");
+                }
+
+                String reminderSubject = (request.reminderSubject() == null || request.reminderSubject().isBlank())
+                        ? defaultReminderSubject(election)
+                        : request.reminderSubject().trim();
+                String reminderBody = (request.reminderBody() == null || request.reminderBody().isBlank())
+                        ? defaultReminderBody(election)
+                        : request.reminderBody().trim();
+
+                election.setReminderTime(request.reminderTime());
+                election.setReminderSent(false);
+                election.setReminderSubject(reminderSubject);
+                election.setReminderBody(reminderBody);
+                election.setReminderRecipients(objectMapper.writeValueAsString(recipients));
+            } else {
+                election.setReminderTime(null);
+                election.setReminderSent(false);
+                election.setReminderSubject(null);
+                election.setReminderBody(null);
+                election.setReminderRecipients(null);
+            }
+
             election.setStatus("draft");
             electionRepository.save(election);
 
-            return Map.of(
-                    "success", true,
-                    "message", "Election activated successfully",
-                    "jointPublicKey", election.getJointPublicKey(),
-                    "startingTime", election.getStartingTime(),
-                    "endingTime", election.getEndingTime());
+            Map<String, Object> response = new HashMap<>();
+            response.put("success", true);
+            response.put("message", "Election activated successfully");
+            response.put("jointPublicKey", election.getJointPublicKey());
+            response.put("startingTime", election.getStartingTime());
+            response.put("endingTime", election.getEndingTime());
+            response.put("reminderTime", election.getReminderTime());
+            response.put("reminderSent", election.getReminderSent());
+            return response;
         } catch (Exception e) {
-            throw new RuntimeException("Failed to finalize key ceremony activation", e);
+            Throwable root = e;
+            while (root.getCause() != null) {
+                root = root.getCause();
+            }
+            String rootMessage = root.getMessage() == null ? root.getClass().getSimpleName() : root.getMessage();
+            throw new RuntimeException("Failed to finalize key ceremony activation: " + rootMessage, e);
         }
+    }
+
+    private List<String> sanitizeReminderRecipients(List<String> recipients) {
+        if (recipients == null || recipients.isEmpty()) {
+            return new ArrayList<>();
+        }
+
+        return recipients.stream()
+                .map(this::normalizeEmail)
+                .filter(email -> email != null && !email.isBlank())
+                .distinct()
+                .collect(Collectors.toList());
+    }
+
+    private String normalizeEmail(String email) {
+        return email == null ? null : email.trim().toLowerCase();
+    }
+
+    private String defaultReminderSubject(Election election) {
+        return "Reminder: \"" + election.getElectionTitle() + "\" is opening soon";
+    }
+
+    private String defaultReminderBody(Election election) {
+        String title = election.getElectionTitle() == null ? "Election" : election.getElectionTitle();
+        String description = election.getElectionDescription() == null ? "" : election.getElectionDescription();
+        return "Dear voter,\n\n"
+                + "This is a reminder that the election \"" + title + "\" is scheduled to start soon.\n\n"
+                + "Election description:\n" + description + "\n\n"
+                + "Election page: /election/" + election.getElectionId() + "\n\n"
+                + "Please cast your vote within the election window.\n\n"
+                + "Regards,\nAmarVote Team";
     }
 
     public Map<String, Object> getGuardianLocalDecryptionPassword(Long electionId, String userEmail) {
@@ -1270,6 +1353,11 @@ public class ElectionService {
                 .status(election.getStatus())
                 .startingTime(election.getStartingTime())
                 .endingTime(election.getEndingTime())
+                .reminderTime(election.getReminderTime())
+                .reminderSent(election.getReminderSent())
+                .reminderSubject(election.getReminderSubject())
+                .reminderBody(election.getReminderBody())
+                .reminderRecipients(election.getReminderRecipients())
                 // .encryptedTally(election.getEncryptedTally()) // Removed - now in ElectionCenter table
                 .baseHash(election.getBaseHash())
                 .createdAt(election.getCreatedAt())

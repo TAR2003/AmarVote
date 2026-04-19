@@ -1,5 +1,6 @@
 package com.amarvote.amarvote.repository;
 
+import java.time.Instant;
 import java.util.List;
 
 import org.springframework.data.domain.Pageable;
@@ -120,4 +121,6 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
     // Find the most recent public completed/decrypted election
     @Query("SELECT e FROM Election e WHERE e.status IN ('completed', 'decrypted') AND e.privacy = 'public' ORDER BY e.endingTime DESC")
     List<Election> findMostRecentPublicCompletedElection(Pageable pageable);
+
+       List<Election> findByReminderTimeLessThanEqualAndReminderSentFalse(Instant now);
 }

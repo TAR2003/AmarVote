@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FiKey, FiClock, FiCheckCircle } from 'react-icons/fi';
+import { FiKey, FiClock, FiCheckCircle, FiMail, FiPlus, FiX } from 'react-icons/fi';
 import { electionApi } from '../utils/electionApi';
 
 const triggerAutoCredentialDownload = ({ electionId, encryptedCredential }) => {
@@ -22,8 +22,30 @@ export default function KeyCeremonyDashboard() {
   const [adminStatus, setAdminStatus] = useState({});
   const [activationForm, setActivationForm] = useState({});
   const [backupForm, setBackupForm] = useState({});
+  const [emailInputByElection, setEmailInputByElection] = useState({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+
+  const buildDefaultReminderSubject = (election) => `Reminder: "${election?.electionTitle || 'Election'}" starts soon`;
+
+  const buildDefaultReminderBody = (election) => {
+    const title = election?.electionTitle || 'Election';
+    const description = election?.electionDescription || 'Please review the election details and vote in time.';
+    const electionLink = `${window.location.origin}/election/${election?.electionId}`;
+    return [
+      'Dear voter,',
+      '',
+      `This is a reminder for the upcoming election: ${title}.`,
+      '',
+      `Description: ${description}`,
+      `Election page: ${electionLink}`,
+      '',
+      'Please participate within the voting window.',
+      '',
+      'Regards,',
+      'AmarVote Team',
+    ].join('\n');
+  };
 
   const loadData = async () => {
     setLoading(true);
@@ -44,7 +66,28 @@ export default function KeyCeremonyDashboard() {
       const statusEntries = await Promise.all(
         adminPending.map(async (e) => {
           try {
-            const s = await electionApi.getAdminKeyCeremonyStatus(e.electionId);
+            const [s, detail] = await Promise.all([
+              electionApi.getAdminKeyCeremonyStatus(e.electionId),
+              electionApi.getElectionById(e.electionId),
+            ]);
+
+            const voterEmails = (detail?.voters || [])
+              .map((v) => (v?.userEmail || '').trim().toLowerCase())
+              .filter(Boolean);
+
+            setActivationForm((prev) => ({
+              ...prev,
+              [e.electionId]: {
+                ...(prev[e.electionId] || {}),
+                sendReminder: prev[e.electionId]?.sendReminder ?? false,
+                reminderRecipients: prev[e.electionId]?.reminderRecipients?.length
+                  ? prev[e.electionId].reminderRecipients
+                  : voterEmails,
+                reminderSubject: prev[e.electionId]?.reminderSubject || buildDefaultReminderSubject(detail || e),
+                reminderBody: prev[e.electionId]?.reminderBody || buildDefaultReminderBody(detail || e),
+              },
+            }));
+
             return [e.electionId, s?.status || null];
           } catch {
             return [e.electionId, null];
@@ -234,17 +277,70 @@ export default function KeyCeremonyDashboard() {
       return;
     }
 
+    if (data.sendReminder) {
+      if (!data.reminderTime) {
+        setError('Reminder time is required when reminder is enabled');
+        return;
+      }
+      if (!data.reminderRecipients || data.reminderRecipients.length === 0) {
+        setError('At least one reminder recipient is required');
+        return;
+      }
+      if (!data.reminderSubject || !data.reminderBody) {
+        setError('Reminder subject and body are required');
+        return;
+      }
+    }
+
     try {
       await electionApi.activateElectionAfterCeremony(
         electionId,
         new Date(data.startingTime).toISOString(),
-        new Date(data.endingTime).toISOString()
+        new Date(data.endingTime).toISOString(),
+        {
+          sendReminder: !!data.sendReminder,
+          reminderRecipients: data.reminderRecipients || [],
+          reminderSubject: data.reminderSubject || '',
+          reminderBody: data.reminderBody || '',
+          reminderTime: data.sendReminder && data.reminderTime
+            ? new Date(data.reminderTime).toISOString()
+            : null,
+        }
       );
       setMessage('Election activated successfully');
       await loadData();
     } catch (e) {
       setError(e.message || 'Failed to activate election');
     }
+  };
+
+  const addReminderRecipient = (electionId) => {
+    const email = (emailInputByElection[electionId] || '').trim().toLowerCase();
+    if (!email) return;
+
+    setActivationForm((prev) => {
+      const existing = prev[electionId]?.reminderRecipients || [];
+      if (existing.includes(email)) return prev;
+      return {
+        ...prev,
+        [electionId]: {
+          ...(prev[electionId] || {}),
+          reminderRecipients: [...existing, email],
+        },
+      };
+    });
+
+    setEmailInputByElection((prev) => ({ ...prev, [electionId]: '' }));
+  };
+
+  const removeReminderRecipient = (electionId, email) => {
+    setActivationForm((prev) => ({
+      ...prev,
+      [electionId]: {
+        ...(prev[electionId] || {}),
+        reminderRecipients: (prev[electionId]?.reminderRecipients || []).filter((r) => r !== email),
+      },
+    }));
   };
 
   if (loading) {
@@ -453,7 +549,7 @@ export default function KeyCeremonyDashboard() {
             {adminPendingElections.map((e) => {
               const status = adminStatus[e.electionId];
               return (
-                <div key={e.electionId} className="border rounded p-3">
+                <div key={e.electionId} className="border rounded-xl p-4 space-y-4 bg-gradient-to-br from-white to-slate-50">
                   <div className="font-medium">{e.electionTitle}</div>
                   <div className="text-sm text-gray-600 mb-2">
                     {status ? `${status.submittedGuardians}/${status.totalGuardians} submitted` : 'Loading status...'}
@@ -463,40 +559,154 @@ export default function KeyCeremonyDashboard() {
                       <FiCheckCircle /> Ready for activation
                     </div>
                   )}
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                    <input
-                      type="datetime-local"
-                      className="border rounded px-3 py-2"
-                      value={activationForm[e.electionId]?.startingTime || ''}
-                      onChange={(ev) =>
-                        setActivationForm((prev) => ({
-                          ...prev,
-                          [e.electionId]: {
-                            ...(prev[e.electionId] || {}),
-                            startingTime: ev.target.value,
-                          },
-                        }))
-                      }
-                    />
-                    <input
-                      type="datetime-local"
-                      className="border rounded px-3 py-2"
-                      value={activationForm[e.electionId]?.endingTime || ''}
-                      onChange={(ev) =>
-                        setActivationForm((prev) => ({
-                          ...prev,
-                          [e.electionId]: {
-                            ...(prev[e.electionId] || {}),
-                            endingTime: ev.target.value,
-                          },
-                        }))
-                      }
-                    />
+                  <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+                    <label className="space-y-1">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Election Start</span>
+                      <input
+                        type="datetime-local"
+                        className="w-full border-2 border-slate-200 focus:border-blue-500 rounded-lg px-3 py-2.5 outline-none bg-white"
+                        value={activationForm[e.electionId]?.startingTime || ''}
+                        onChange={(ev) =>
+                          setActivationForm((prev) => ({
+                            ...prev,
+                            [e.electionId]: {
+                              ...(prev[e.electionId] || {}),
+                              startingTime: ev.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </label>
+                    <label className="space-y-1">
+                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Election End</span>
+                      <input
+                        type="datetime-local"
+                        className="w-full border-2 border-slate-200 focus:border-blue-500 rounded-lg px-3 py-2.5 outline-none bg-white"
+                        value={activationForm[e.electionId]?.endingTime || ''}
+                        onChange={(ev) =>
+                          setActivationForm((prev) => ({
+                            ...prev,
+                            [e.electionId]: {
+                              ...(prev[e.electionId] || {}),
+                              endingTime: ev.target.value,
+                            },
+                          }))
+                        }
+                      />
+                    </label>
                   </div>
+
+                  <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={!!activationForm[e.electionId]?.sendReminder}
+                      onChange={(ev) =>
+                        setActivationForm((prev) => ({
+                          ...prev,
+                          [e.electionId]: {
+                            ...(prev[e.electionId] || {}),
+                            sendReminder: ev.target.checked,
+                          },
+                        }))
+                      }
+                    />
+                    <FiMail className="text-blue-600" />
+                    Send reminder email to voters
+                  </label>
+
+                  {activationForm[e.electionId]?.sendReminder && (
+                    <div className="space-y-3 border border-slate-200 rounded-lg p-3 bg-white">
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-2">Email Receivers</div>
+                        <div className="max-h-28 overflow-y-auto border rounded-lg p-2 bg-slate-50 flex flex-wrap gap-2">
+                          {(activationForm[e.electionId]?.reminderRecipients || []).map((email) => (
+                            <span key={email} className="inline-flex items-center gap-1 bg-blue-100 text-blue-800 text-xs px-2 py-1 rounded-full">
+                              {email}
+                              <button type="button" onClick={() => removeReminderRecipient(e.electionId, email)}>
+                                <FiX className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                        <div className="mt-2 flex gap-2">
+                          <input
+                            type="email"
+                            placeholder="Add receiver email"
+                            className="flex-1 border rounded-lg px-3 py-2"
+                            value={emailInputByElection[e.electionId] || ''}
+                            onChange={(ev) =>
+                              setEmailInputByElection((prev) => ({ ...prev, [e.electionId]: ev.target.value }))
+                            }
+                          />
+                          <button
+                            type="button"
+                            onClick={() => addReminderRecipient(e.electionId)}
+                            className="px-3 py-2 bg-slate-700 text-white rounded-lg flex items-center gap-1"
+                          >
+                            <FiPlus /> Add
+                          </button>
+                        </div>
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-1">Subject</div>
+                        <input
+                          type="text"
+                          className="w-full border rounded-lg px-3 py-2"
+                          value={activationForm[e.electionId]?.reminderSubject || ''}
+                          onChange={(ev) =>
+                            setActivationForm((prev) => ({
+                              ...prev,
+                              [e.electionId]: {
+                                ...(prev[e.electionId] || {}),
+                                reminderSubject: ev.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <div>
+                        <div className="text-xs font-semibold uppercase tracking-wide text-slate-600 mb-1">Body</div>
+                        <textarea
+                          className="w-full border rounded-lg px-3 py-2 min-h-28"
+                          value={activationForm[e.electionId]?.reminderBody || ''}
+                          onChange={(ev) =>
+                            setActivationForm((prev) => ({
+                              ...prev,
+                              [e.electionId]: {
+                                ...(prev[e.electionId] || {}),
+                                reminderBody: ev.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </div>
+
+                      <label className="space-y-1 block">
+                        <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Reminder Send Time</span>
+                        <input
+                          type="datetime-local"
+                          className="w-full border-2 border-slate-200 focus:border-blue-500 rounded-lg px-3 py-2.5 outline-none bg-white"
+                          value={activationForm[e.electionId]?.reminderTime || ''}
+                          onChange={(ev) =>
+                            setActivationForm((prev) => ({
+                              ...prev,
+                              [e.electionId]: {
+                                ...(prev[e.electionId] || {}),
+                                reminderTime: ev.target.value,
+                              },
+                            }))
+                          }
+                        />
+                      </label>
+                    </div>
+                  )}
+
                   <button
                     onClick={() => handleActivate(e.electionId)}
                     disabled={!status?.readyForActivation}
-                    className="mt-3 px-4 py-2 bg-green-600 text-white rounded disabled:bg-gray-400"
+                    className="mt-1 px-4 py-2.5 bg-green-600 text-white rounded-lg disabled:bg-gray-400"
                   >
                     Activate Election
                   </button>

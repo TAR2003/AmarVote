@@ -35,9 +35,12 @@ public class RabbitMQConfig {
     public static final String COMPENSATED_DECRYPTION_QUEUE = "compensated.decryption.queue";
     public static final String COMBINE_DECRYPTION_QUEUE = "combine.decryption.queue";
     public static final String VOTE_RECEIPT_QUEUE = "vote.receipt.queue";
+    public static final String EMAIL_QUEUE = "email.queue";
+    public static final String EMAIL_DLQ = "email.queue.dlq";
 
     // Exchange Names
     public static final String TASK_EXCHANGE = "task.exchange";
+    public static final String EMAIL_DLX = "email.dead.letter.exchange";
 
     // Routing Keys
     public static final String TALLY_CREATION_ROUTING_KEY = "task.tally.creation";
@@ -45,6 +48,8 @@ public class RabbitMQConfig {
     public static final String COMPENSATED_DECRYPTION_ROUTING_KEY = "task.compensated.decryption";
     public static final String COMBINE_DECRYPTION_ROUTING_KEY = "task.combine.decryption";
     public static final String VOTE_RECEIPT_ROUTING_KEY = "task.vote.receipt";
+    public static final String EMAIL_ROUTING_KEY = "task.email";
+    public static final String EMAIL_DLQ_ROUTING_KEY = "task.email.dead";
 
     /**
      * Message converter for JSON serialization/deserialization
@@ -224,5 +229,39 @@ public class RabbitMQConfig {
         return BindingBuilder.bind(voteReceiptQueue)
             .to(taskExchange)
             .with(VOTE_RECEIPT_ROUTING_KEY);
+    }
+
+    // ========== EMAIL QUEUE + DLQ ==========
+
+    @Bean
+    public DirectExchange emailDeadLetterExchange() {
+        return new DirectExchange(EMAIL_DLX, true, false);
+    }
+
+    @Bean
+    public Queue emailQueue() {
+        return QueueBuilder.durable(EMAIL_QUEUE)
+            .withArgument("x-dead-letter-exchange", EMAIL_DLX)
+            .withArgument("x-dead-letter-routing-key", EMAIL_DLQ_ROUTING_KEY)
+            .build();
+    }
+
+    @Bean
+    public Binding emailBinding(Queue emailQueue, DirectExchange taskExchange) {
+        return BindingBuilder.bind(emailQueue)
+            .to(taskExchange)
+            .with(EMAIL_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue emailDeadLetterQueue() {
+        return QueueBuilder.durable(EMAIL_DLQ).build();
+    }
+
+    @Bean
+    public Binding emailDeadLetterBinding(Queue emailDeadLetterQueue, DirectExchange emailDeadLetterExchange) {
+        return BindingBuilder.bind(emailDeadLetterQueue)
+            .to(emailDeadLetterExchange)
+            .with(EMAIL_DLQ_ROUTING_KEY);
     }
 }

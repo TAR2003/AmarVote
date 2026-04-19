@@ -16,6 +16,7 @@ import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
 import org.springframework.util.StringUtils;
 
+import com.amarvote.amarvote.dto.worker.EmailTask;
 import com.resend.Resend;
 import com.resend.core.exception.ResendException;
 import com.resend.services.emails.model.Attachment;
@@ -39,42 +40,55 @@ public class EmailService {
     @Value("${resend.from.email:AmarVote Team <noreply@mail.amarvote2026.me>}")
     private String resendFromEmail;
 
+    @Autowired
+    private TaskPublisherService taskPublisherService;
+
     // Package-private setter for testing
     void setFromEmail(String fromEmail) {
         this.fromEmail = fromEmail;
     }
 
     public void sendSignupVerificationEmail(String toEmail, String token) {
-        String subject = "📩 Signup Email Verification Code";
-        String htmlContent = loadVerificationCodeTemplate(token);
-
-        sendHtmlEmail(toEmail, subject, htmlContent);
+        taskPublisherService.publishEmailTask(EmailTask.builder()
+                .emailType(EmailTask.EmailType.SIGNUP_VERIFICATION)
+                .toEmail(toEmail)
+                .token(token)
+                .build());
     }
 
     public void sendPasswordResetCodeEmail(String toEmail, String code) {
-        String subject = "🔐 Password Reset Verification Code";
-        String htmlContent = loadPasswordResetCodeTemplate(code);
-
-        sendHtmlEmail(toEmail, subject, htmlContent);
+        taskPublisherService.publishEmailTask(EmailTask.builder()
+                .emailType(EmailTask.EmailType.PASSWORD_RESET_CODE)
+                .toEmail(toEmail)
+                .code(code)
+                .build());
     }
 
     public void sendForgotPasswordEmail(String toEmail, String resetLink) {
-        String subject = "🔐 Password Reset Request";
-        String htmlContent = loadResetPasswordTemplate(resetLink);
-
-        sendHtmlEmail(toEmail, subject, htmlContent);
+        taskPublisherService.publishEmailTask(EmailTask.builder()
+                .emailType(EmailTask.EmailType.FORGOT_PASSWORD)
+                .toEmail(toEmail)
+                .resetLink(resetLink)
+                .build());
     }
 
     public void sendGuardianPrivateKeyEmail(String toEmail, String electionTitle, String electionDescription, String privateKey, Long electionId) {
-        String subject = "🛡️ Your Guardian Private Key for Election: " + electionTitle;
-        String htmlContent = loadGuardianPrivateKeyTemplate(electionTitle, electionDescription, privateKey, electionId);
-        sendHtmlEmail(toEmail, subject, htmlContent);
+        taskPublisherService.publishEmailTask(EmailTask.builder()
+                .emailType(EmailTask.EmailType.GUARDIAN_PRIVATE_KEY)
+                .toEmail(toEmail)
+                .electionTitle(electionTitle)
+                .electionDescription(electionDescription)
+                .privateKey(privateKey)
+                .electionId(electionId)
+                .build());
     }
 
     public void sendOtpEmail(String toEmail, String otpCode) {
-        String subject = "🔐 Your AmarVote Login Code";
-        String htmlContent = loadOtpEmailTemplate(otpCode);
-        sendHtmlEmail(toEmail, subject, htmlContent);
+        taskPublisherService.publishEmailTask(EmailTask.builder()
+                .emailType(EmailTask.EmailType.OTP)
+                .toEmail(toEmail)
+                .code(otpCode)
+                .build());
     }
 
     /**
@@ -86,6 +100,103 @@ public class EmailService {
      * @param electionId Election ID
      */
     public void sendGuardianCredentialEmail(String toEmail, String electionTitle, String electionDescription, Path credentialFilePath, Long electionId) {
+        taskPublisherService.publishEmailTask(EmailTask.builder()
+                .emailType(EmailTask.EmailType.GUARDIAN_CREDENTIAL)
+                .toEmail(toEmail)
+                .electionTitle(electionTitle)
+                .electionDescription(electionDescription)
+                .electionId(electionId)
+                .credentialFilePath(credentialFilePath == null ? null : credentialFilePath.toString())
+                .build());
+    }
+
+    public void sendReminderEmail(String toEmail, String subject, String htmlContent) {
+        taskPublisherService.publishEmailTask(EmailTask.builder()
+                .emailType(EmailTask.EmailType.REMINDER)
+                .toEmail(toEmail)
+                .subject(subject)
+                .htmlContent(htmlContent)
+                .build());
+    }
+
+    public void processEmailTask(EmailTask task) {
+        if (task == null || task.getEmailType() == null) {
+            throw new IllegalArgumentException("Email task or type is missing");
+        }
+
+        switch (task.getEmailType()) {
+            case SIGNUP_VERIFICATION -> sendSignupVerificationEmailImmediate(task.getToEmail(), task.getToken());
+            case PASSWORD_RESET_CODE -> sendPasswordResetCodeEmailImmediate(task.getToEmail(), task.getCode());
+            case FORGOT_PASSWORD -> sendForgotPasswordEmailImmediate(task.getToEmail(), task.getResetLink());
+            case GUARDIAN_PRIVATE_KEY -> sendGuardianPrivateKeyEmailImmediate(
+                    task.getToEmail(),
+                    task.getElectionTitle(),
+                    task.getElectionDescription(),
+                    task.getPrivateKey(),
+                    task.getElectionId());
+            case GUARDIAN_CREDENTIAL -> sendGuardianCredentialEmailImmediate(
+                    task.getToEmail(),
+                    task.getElectionTitle(),
+                    task.getElectionDescription(),
+                    task.getCredentialFilePath() == null ? null : Path.of(task.getCredentialFilePath()),
+                    task.getElectionId());
+            case OTP -> sendOtpEmailImmediate(task.getToEmail(), task.getCode());
+            case VOTE_RECEIPT -> sendVoteReceiptEmailImmediate(
+                    task.getToEmail(),
+                    task.getElectionTitle(),
+                    task.getElectionId(),
+                    task.getReceiptContent(),
+                    task.getTrackingCode());
+            case REMINDER -> {
+                String html = task.getHtmlContent() == null ? "" : task.getHtmlContent().replace("\n", "<br/>");
+                sendHtmlEmail(task.getToEmail(), task.getSubject(), html);
+            }
+            default -> throw new IllegalArgumentException("Unsupported email task type: " + task.getEmailType());
+        }
+    }
+
+    private void sendSignupVerificationEmailImmediate(String toEmail, String token) {
+        String subject = "📩 Signup Email Verification Code";
+        String htmlContent = loadVerificationCodeTemplate(token);
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private void sendPasswordResetCodeEmailImmediate(String toEmail, String code) {
+        String subject = "🔐 Password Reset Verification Code";
+        String htmlContent = loadPasswordResetCodeTemplate(code);
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private void sendForgotPasswordEmailImmediate(String toEmail, String resetLink) {
+        String subject = "🔐 Password Reset Request";
+        String htmlContent = loadResetPasswordTemplate(resetLink);
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private void sendGuardianPrivateKeyEmailImmediate(String toEmail, String electionTitle, String electionDescription, String privateKey, Long electionId) {
+        String subject = "🛡️ Your Guardian Private Key for Election: " + electionTitle;
+        String htmlContent = loadGuardianPrivateKeyTemplate(electionTitle, electionDescription, privateKey, electionId);
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    private void sendOtpEmailImmediate(String toEmail, String otpCode) {
+        String subject = "🔐 Your AmarVote Login Code";
+        String htmlContent = loadOtpEmailTemplate(otpCode);
+        sendHtmlEmail(toEmail, subject, htmlContent);
+    }
+
+    /**
+     * Send guardian credential file via email with secure attachment
+     * @param toEmail Guardian's email address
+     * @param electionTitle Election title
+     * @param electionDescription Election description
+     * @param credentialFilePath Path to the credential file containing encrypted data
+     * @param electionId Election ID
+     */
+    private void sendGuardianCredentialEmailImmediate(String toEmail, String electionTitle, String electionDescription, Path credentialFilePath, Long electionId) {
+        if (credentialFilePath == null) {
+            throw new IllegalArgumentException("Credential file path is required for guardian credential email");
+        }
         String subject = "🛡️ Your Guardian Credentials for Election: " + electionTitle;
         String htmlContent = loadGuardianCredentialTemplate(electionTitle, electionDescription, electionId);
 
@@ -118,6 +229,18 @@ public class EmailService {
     }
 
     public void sendVoteReceiptEmail(String toEmail, String electionTitle, Long electionId, String receiptContent,
+            String trackingCode) {
+        taskPublisherService.publishEmailTask(EmailTask.builder()
+            .emailType(EmailTask.EmailType.VOTE_RECEIPT)
+            .toEmail(toEmail)
+            .electionTitle(electionTitle)
+            .electionId(electionId)
+            .receiptContent(receiptContent)
+            .trackingCode(trackingCode)
+            .build());
+        }
+
+        private void sendVoteReceiptEmailImmediate(String toEmail, String electionTitle, Long electionId, String receiptContent,
             String trackingCode) {
         String subject = "Your AmarVote Receipt - " + electionTitle;
         String htmlContent = "<p>Your vote was cast successfully.</p>"

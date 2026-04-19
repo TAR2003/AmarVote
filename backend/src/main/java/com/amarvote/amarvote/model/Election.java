@@ -62,6 +62,22 @@ public class Election {
     @Column(name = "ending_time")
     private Instant endingTime;
 
+    @Column(name = "reminder_time")
+    private Instant reminderTime;
+
+    @Column(name = "reminder_sent")
+    @Builder.Default
+    private Boolean reminderSent = false;
+
+    @Column(name = "reminder_subject", columnDefinition = "TEXT")
+    private String reminderSubject;
+
+    @Column(name = "reminder_body", columnDefinition = "TEXT")
+    private String reminderBody;
+
+    @Column(name = "reminder_recipients", columnDefinition = "TEXT")
+    private String reminderRecipients;
+
     @Column(name = "base_hash", columnDefinition = "TEXT")
     private String baseHash;
 

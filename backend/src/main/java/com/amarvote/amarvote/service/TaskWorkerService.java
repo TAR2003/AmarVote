@@ -26,9 +26,9 @@ import com.amarvote.amarvote.dto.ElectionGuardTallyRequest;
 import com.amarvote.amarvote.dto.ElectionGuardTallyResponse;
 import com.amarvote.amarvote.dto.worker.CombineDecryptionTask;
 import com.amarvote.amarvote.dto.worker.CompensatedDecryptionTask;
+import com.amarvote.amarvote.dto.worker.EmailTask;
 import com.amarvote.amarvote.dto.worker.PartialDecryptionTask;
 import com.amarvote.amarvote.dto.worker.TallyCreationTask;
-import com.amarvote.amarvote.dto.worker.VoteReceiptTask;
 import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.CombineWorkerLog;
 import com.amarvote.amarvote.model.CompensatedDecryption;
@@ -97,24 +97,20 @@ public class TaskWorkerService {
     private static final ConcurrentHashMap<String, Boolean> processingLocks = new ConcurrentHashMap<>();
 
     /**
-     * Worker for asynchronous vote receipt email delivery.
+     * Worker for all asynchronous email delivery.
      */
-    @RabbitListener(queues = RabbitMQConfig.VOTE_RECEIPT_QUEUE)
-    public void processVoteReceiptTask(VoteReceiptTask task) {
+    @RabbitListener(queues = RabbitMQConfig.EMAIL_QUEUE, concurrency = "${rabbitmq.email.concurrency.min:2}-${rabbitmq.email.concurrency.max:4}")
+    public void processEmailTask(EmailTask task) {
         try {
-            System.out.println("=== WORKER: Processing Vote Receipt Email Task ===");
-            System.out.println("Election ID: " + task.getElectionId() + ", Voter: " + task.getVoterEmail());
+            System.out.println("=== WORKER: Processing Email Task ===");
+            System.out.println("Type: " + task.getEmailType() + ", Recipient: " + task.getToEmail());
 
-            emailService.sendVoteReceiptEmail(
-                task.getVoterEmail(),
-                task.getElectionTitle(),
-                task.getElectionId(),
-                task.getReceiptContent(),
-                task.getTrackingCode());
+            emailService.processEmailTask(task);
 
-            System.out.println("✅ Vote receipt email task completed for " + task.getVoterEmail());
+            System.out.println("✅ Email task completed for " + task.getToEmail());
         } catch (Exception e) {
-            System.err.println("❌ Vote receipt email task failed for " + task.getVoterEmail() + ": " + e.getMessage());
+            System.err.println("❌ Email task failed for " + task.getToEmail() + ": " + e.getMessage());
+            throw new RuntimeException("Email delivery failed", e);
         }
     }
 

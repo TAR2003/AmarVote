@@ -26,6 +26,11 @@ public class ElectionDetailResponse {
     private String status;
     private Instant startingTime;
     private Instant endingTime;
+    private Instant reminderTime;
+    private Boolean reminderSent;
+    private String reminderSubject;
+    private String reminderBody;
+    private String reminderRecipients;
     private String encryptedTally;
     private String baseHash;
     private Instant createdAt;

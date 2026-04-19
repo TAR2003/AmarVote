@@ -1,10 +1,17 @@
 package com.amarvote.amarvote.service;
 
-import com.amarvote.amarvote.config.RabbitMQConfig;
-import com.amarvote.amarvote.dto.worker.*;
-import lombok.RequiredArgsConstructor;
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
 import org.springframework.stereotype.Service;
+
+import com.amarvote.amarvote.config.RabbitMQConfig;
+import com.amarvote.amarvote.dto.worker.CombineDecryptionTask;
+import com.amarvote.amarvote.dto.worker.CompensatedDecryptionTask;
+import com.amarvote.amarvote.dto.worker.EmailTask;
+import com.amarvote.amarvote.dto.worker.PartialDecryptionTask;
+import com.amarvote.amarvote.dto.worker.TallyCreationTask;
+import com.amarvote.amarvote.dto.worker.VoteReceiptTask;
+
+import lombok.RequiredArgsConstructor;
 
 /**
  * Service to publish tasks to RabbitMQ queues
@@ -69,15 +76,29 @@ public class TaskPublisherService {
     }
 
     /**
+     * Publish a generic email task to the dedicated email queue.
+     */
+    public void publishEmailTask(EmailTask task) {
+        System.out.println("📤 Publishing email task type=" + task.getEmailType() + ", to=" + task.getToEmail());
+        rabbitTemplate.convertAndSend(
+            RabbitMQConfig.TASK_EXCHANGE,
+            RabbitMQConfig.EMAIL_ROUTING_KEY,
+            task
+        );
+    }
+
+    /**
      * Publish vote receipt email task to async queue.
      */
     public void publishVoteReceiptTask(VoteReceiptTask task) {
-        System.out.println("📤 Publishing vote receipt task for election " + task.getElectionId()
-                + ", voter " + task.getVoterEmail());
-        rabbitTemplate.convertAndSend(
-            RabbitMQConfig.TASK_EXCHANGE,
-            RabbitMQConfig.VOTE_RECEIPT_ROUTING_KEY,
-            task
-        );
+        EmailTask emailTask = EmailTask.builder()
+            .emailType(EmailTask.EmailType.VOTE_RECEIPT)
+            .toEmail(task.getVoterEmail())
+            .electionId(task.getElectionId())
+            .electionTitle(task.getElectionTitle())
+            .trackingCode(task.getTrackingCode())
+            .receiptContent(task.getReceiptContent())
+            .build();
+        publishEmailTask(emailTask);
     }
 }

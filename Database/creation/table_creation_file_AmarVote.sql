@@ -87,6 +87,11 @@ CREATE TABLE IF NOT EXISTS elections (
     status TEXT NOT NULL DEFAULT 'draft', -- Changed from election_status enum
     starting_time TIMESTAMP WITH TIME ZONE,
     ending_time TIMESTAMP WITH TIME ZONE,
+    reminder_time TIMESTAMP WITH TIME ZONE,
+    reminder_sent BOOLEAN NOT NULL DEFAULT FALSE,
+    reminder_subject TEXT,
+    reminder_body TEXT,
+    reminder_recipients TEXT,
     -- encrypted_tally TEXT, -- Moved to election_center table
     base_hash TEXT,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
@@ -248,6 +253,13 @@ CREATE INDEX IF NOT EXISTS idx_election_jobs_status
 CREATE INDEX IF NOT EXISTS idx_election_jobs_operation
     ON election_jobs (operation_type);
 
+-- Safety fix: ensure reminder columns exist in existing databases
+ALTER TABLE IF EXISTS elections ADD COLUMN IF NOT EXISTS reminder_time TIMESTAMP WITH TIME ZONE;
+ALTER TABLE IF EXISTS elections ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN NOT NULL DEFAULT FALSE;
+ALTER TABLE IF EXISTS elections ADD COLUMN IF NOT EXISTS reminder_subject TEXT;
+ALTER TABLE IF EXISTS elections ADD COLUMN IF NOT EXISTS reminder_body TEXT;
+ALTER TABLE IF EXISTS elections ADD COLUMN IF NOT EXISTS reminder_recipients TEXT;
+
 -- OTP Verification table indexes
 CREATE INDEX IF NOT EXISTS idx_otp_email ON otp_verifications(user_email);
 CREATE INDEX IF NOT EXISTS idx_otp_email_code ON otp_verifications(user_email, otp_code);
@@ -263,6 +275,7 @@ CREATE INDEX IF NOT EXISTS idx_otp_expires ON otp_verifications(expires_at);
 CREATE INDEX IF NOT EXISTS idx_elections_status ON elections(status);
 CREATE INDEX IF NOT EXISTS idx_elections_admin ON elections(admin_email);
 CREATE INDEX IF NOT EXISTS idx_elections_times ON elections(starting_time, ending_time);
+CREATE INDEX IF NOT EXISTS idx_elections_reminder ON elections(reminder_sent, reminder_time);
 CREATE INDEX IF NOT EXISTS idx_elections_created ON elections(created_at DESC);
 
 -- Election Center table indexes

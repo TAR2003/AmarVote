@@ -155,11 +155,25 @@ export const electionApi = {
     }
   },
 
-  async activateElectionAfterCeremony(electionId, startingTime, endingTime) {
+  async activateElectionAfterCeremony(electionId, startingTime, endingTime, reminderConfig = null) {
     try {
+      const payload = {
+        electionId,
+        startingTime,
+        endingTime,
+      };
+
+      if (reminderConfig) {
+        payload.sendReminder = !!reminderConfig.sendReminder;
+        payload.reminderRecipients = reminderConfig.reminderRecipients || [];
+        payload.reminderSubject = reminderConfig.reminderSubject || '';
+        payload.reminderBody = reminderConfig.reminderBody || '';
+        payload.reminderTime = reminderConfig.reminderTime || null;
+      }
+
       return await apiRequest('/admin/key-ceremony/activate', {
         method: 'POST',
-        body: JSON.stringify({ electionId, startingTime, endingTime }),
+        body: JSON.stringify(payload),
       }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error activating election after key ceremony:', error);
