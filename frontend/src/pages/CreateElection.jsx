@@ -949,22 +949,35 @@ const CreateElection = () => {
 
                 {/* Candidate Information */}
                 <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Candidates</h2>
+                    <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                        <div>
+                            <h2 className="text-xl font-semibold text-gray-700">Candidates</h2>
+                            <p className="text-sm text-gray-500 mt-1">
+                                Add each candidate with a clear name and optional photo for better ballot recognition.
+                            </p>
+                        </div>
+                        <div className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
+                            {form.candidateNames.length} candidate{form.candidateNames.length !== 1 ? 's' : ''}
+                        </div>
+                    </div>
 
                     {form.candidateNames.map((name, index) => {
                         const candidateValidation = getCandidateNameValidation(index, name);
 
                         return (
-                            <div key={index} className="mb-6 p-4 border border-gray-200 rounded-md">
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-2">
-                                    <h3 className="font-medium">Candidate {index + 1}</h3>
+                            <div
+                                key={index}
+                                className="mb-4 rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm"
+                            >
+                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
+                                    <h3 className="font-semibold text-slate-800">Candidate {index + 1}</h3>
 
                                     {index > 0 && (
                                         <button
                                             type="button"
                                             onClick={() => removeCandidate(index)}
                                             disabled={form.candidateNames.length <= 2}
-                                            className={`${form.candidateNames.length <= 2
+                                            className={`text-sm ${form.candidateNames.length <= 2
                                                     ? 'text-gray-400 cursor-not-allowed'
                                                     : 'text-red-500 hover:text-red-700'
                                                 }`}
@@ -975,18 +988,19 @@ const CreateElection = () => {
                                     )}
                                 </div>
 
-                                <div className="grid grid-cols-1 gap-4">
-                                    <div>
-                                        <label className="block text-gray-700 text-sm font-medium mb-1">
+                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
+                                    <div className="lg:col-span-7">
+                                        <label className="block text-slate-700 text-sm font-medium mb-1">
                                             Candidate Name <span className="text-red-500">*</span>
                                         </label>
                                         <input
                                             type="text"
                                             value={name}
+                                            placeholder={`Enter name for candidate ${index + 1}`}
                                             onChange={(e) => handleCandidateChange(index, 'candidateNames', e.target.value)}
-                                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${!candidateValidation.isValid
+                                            className={`w-full px-3 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 transition-colors ${!candidateValidation.isValid
                                                     ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-500'
-                                                    : 'border-gray-300 focus:ring-blue-500'
+                                                    : 'border-slate-300 bg-white focus:ring-blue-500'
                                                 }`}
                                             required
                                         />
@@ -996,18 +1010,20 @@ const CreateElection = () => {
                                                 {candidateValidation.message}
                                             </p>
                                         )}
+                                        <p className="mt-2 text-xs text-slate-500">
+                                            Use full names to avoid ambiguity for voters.
+                                        </p>
                                     </div>
-                                </div>
 
-                                <div className="grid grid-cols-1 gap-4 mt-3">
-                                    <div>
-                                        <label className="block text-gray-700 text-sm font-medium mb-1">
+                                    <div className="lg:col-span-5">
+                                        <label className="block text-slate-700 text-sm font-medium mb-1">
                                             Candidate Picture
                                         </label>
                                         <ImageUpload
                                             currentImage={candidateImages[index]}
                                             onImageUpload={(file) => handleImageChange(index, file)}
                                             uploadType="candidate"
+                                            size="compact"
                                             placeholder="Upload candidate picture"
                                         />
                                     </div>

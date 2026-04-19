@@ -7,6 +7,7 @@ const ImageUpload = ({
   uploadType = 'profile', // 'profile', 'candidate', 'party', 'election'
   className = '',
   disabled = false,
+  size = 'default', // 'default' | 'compact'
   acceptedFormats = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg', 'image/bmp', 'image/tiff', 'image/svg+xml']
 }) => {
   const [dragActive, setDragActive] = useState(false);
@@ -114,6 +115,8 @@ const ImageUpload = ({
     }
   };
 
+  const isCompact = size === 'compact';
+
   const removeImage = () => {
     setPreview(null);
     setError(null);
@@ -165,7 +168,7 @@ const ImageUpload = ({
 
       <div
         className={`
-          relative border-2 border-dashed rounded-xl p-6 transition-all duration-200
+          relative border-2 border-dashed rounded-xl transition-all duration-200 ${isCompact ? 'p-4' : 'p-6'}
           ${dragActive 
             ? 'border-blue-400 bg-blue-50' 
             : preview 
@@ -186,7 +189,7 @@ const ImageUpload = ({
             <img
               src={preview}
               alt="Preview"
-              className="w-full h-48 object-cover rounded-lg"
+              className={`w-full object-cover rounded-lg ${isCompact ? 'h-28 sm:h-32' : 'h-48'}`}
             />
             
             {/* Upload overlay */}
@@ -235,22 +238,22 @@ const ImageUpload = ({
             )}
           </div>
         ) : (
-          <div className="text-center py-8">
-            <div className="text-4xl mb-3">{getPlaceholderIcon()}</div>
-            <div className="text-lg font-medium text-gray-700 mb-2">
+          <div className={`text-center ${isCompact ? 'py-3' : 'py-8'}`}>
+            <div className={`${isCompact ? 'text-3xl mb-2' : 'text-4xl mb-3'}`}>{getPlaceholderIcon()}</div>
+            <div className={`${isCompact ? 'text-base' : 'text-lg'} font-medium text-gray-700 mb-2`}>
               {getUploadText()}
             </div>
-            <div className="text-sm text-gray-500 mb-4">
+            <div className={`${isCompact ? 'text-xs mb-2' : 'text-sm mb-4'} text-gray-500`}>
               Drag and drop an image here, or click to browse
             </div>
-            <div className="flex items-center justify-center space-x-4 text-xs text-gray-400">
+            <div className={`flex items-center justify-center text-xs text-gray-400 ${isCompact ? 'space-x-2' : 'space-x-4'}`}>
               <span>Formats: All image formats</span>
               <span>•</span>
               <span>Max size: 10MB</span>
             </div>
             
             {dragActive && (
-              <div className="mt-4">
+              <div className={`${isCompact ? 'mt-2' : 'mt-4'}`}>
                 <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-600 text-sm font-medium">
                   <FiUpload className="w-4 h-4 mr-1" />
                   Drop to upload
@@ -284,7 +287,11 @@ const ImageUpload = ({
         <div className="mt-3 text-xs text-gray-500">
           <div className="flex items-center space-x-2">
             <FiImage className="w-3 h-3" />
-            <span>Best quality: Square images, at least 400x400 pixels</span>
+            <span>
+              {isCompact
+                ? 'Best quality: Square image'
+                : 'Best quality: Square images, at least 400x400 pixels'}
+            </span>
           </div>
         </div>
       )}
