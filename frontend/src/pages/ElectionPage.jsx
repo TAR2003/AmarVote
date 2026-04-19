@@ -3388,6 +3388,46 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   </div>
                 </div>
               </div>
+
+              <div className="mt-6 border-t border-gray-200 pt-4">
+                <h4 className="font-medium text-gray-900 mb-3">Guardian Configuration</h4>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+                  <div className="rounded-lg border border-green-100 bg-green-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-green-700">Guardian Number</p>
+                    <p className="mt-1 text-lg font-semibold text-green-900">
+                      {electionData.totalGuardians || electionData.guardians?.length || 0}
+                    </p>
+                  </div>
+                  <div className="rounded-lg border border-amber-100 bg-amber-50 p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Quorum Number</p>
+                    <p className="mt-1 text-lg font-semibold text-amber-900">{electionData.electionQuorum || 0}</p>
+                  </div>
+                </div>
+
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-2">Guardians (Emails)</p>
+                  {electionData.guardians && electionData.guardians.length > 0 ? (
+                    <div className="max-h-44 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2">
+                      <div className="space-y-2">
+                        {electionData.guardians.map((guardian, index) => (
+                          <div
+                            key={guardian.userEmail || `${guardian.userName || 'guardian'}-${index}`}
+                            className="flex items-center justify-between rounded-md border border-gray-100 bg-white px-3 py-2"
+                          >
+                            <span className="text-sm text-gray-900">{guardian.userName || `Guardian ${index + 1}`}</span>
+                            <span className="text-xs text-gray-600 break-all ml-3">{guardian.userEmail || 'No email available'}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                      No guardian emails available.
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
 
             {/* Election Statistics */}
@@ -4859,47 +4899,51 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 <div>
                   <h4 className="font-medium text-gray-900 mb-3">Guardian Status</h4>
 
-                  {/* Guardian Progress Summary */}
-                  <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm text-gray-600">Partial Decryption Progress:</span>
-                      <span className="font-medium text-gray-900">
-                        {electionData.guardiansSubmitted || 0} of {electionData.totalGuardians || 0} guardians submitted
-                      </span>
-                    </div>
-                    <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                      <div
-                        className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                        style={{
-                          width: `${electionData.totalGuardians > 0 ? ((electionData.guardiansSubmitted || 0) / electionData.totalGuardians) * 100 : 0}%`
-                        }}
-                      ></div>
-                    </div>
-                    {(() => {
-                      const guardiansSubmitted = electionData.guardiansSubmitted || 0;
-                      const totalGuardians = electionData.totalGuardians || 0;
-                      const electionQuorum = electionData.electionQuorum || totalGuardians || 0;
-                      const quorumMet = guardiansSubmitted >= electionQuorum;
-                      const allGuardiansSubmitted = guardiansSubmitted >= totalGuardians && totalGuardians > 0;
+                  {getElectionStatus() === 'Ended' && (
+                    <>
+                      {/* Guardian Progress Summary */}
+                      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                        <div className="flex items-center justify-between">
+                          <span className="text-sm text-gray-600">Partial Decryption Progress:</span>
+                          <span className="font-medium text-gray-900">
+                            {electionData.guardiansSubmitted || 0} of {electionData.totalGuardians || 0} guardians submitted
+                          </span>
+                        </div>
+                        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                          <div
+                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                            style={{
+                              width: `${electionData.totalGuardians > 0 ? ((electionData.guardiansSubmitted || 0) / electionData.totalGuardians) * 100 : 0}%`
+                            }}
+                          ></div>
+                        </div>
+                        {(() => {
+                          const guardiansSubmitted = electionData.guardiansSubmitted || 0;
+                          const totalGuardians = electionData.totalGuardians || 0;
+                          const electionQuorum = electionData.electionQuorum || totalGuardians || 0;
+                          const quorumMet = guardiansSubmitted >= electionQuorum;
+                          const allGuardiansSubmitted = guardiansSubmitted >= totalGuardians && totalGuardians > 0;
 
-                      if (allGuardiansSubmitted) {
-                        return (
-                          <div className="mt-2 flex items-center text-green-600">
-                            <FiCheck className="h-4 w-4 mr-1" />
-                            <span className="text-sm font-medium">All guardians have submitted their keys ({guardiansSubmitted}/{totalGuardians})</span>
-                          </div>
-                        );
-                      } else if (quorumMet) {
-                        return (
-                          <div className="mt-2 flex items-center text-blue-600">
-                            <FiCheck className="h-4 w-4 mr-1" />
-                            <span className="text-sm font-medium">Quorum met! Ready to decrypt ({guardiansSubmitted}/{electionQuorum} required)</span>
-                          </div>
-                        );
-                      }
-                      return null;
-                    })()}
-                  </div>
+                          if (allGuardiansSubmitted) {
+                            return (
+                              <div className="mt-2 flex items-center text-green-600">
+                                <FiCheck className="h-4 w-4 mr-1" />
+                                <span className="text-sm font-medium">All guardians have submitted their keys ({guardiansSubmitted}/{totalGuardians})</span>
+                              </div>
+                            );
+                          } else if (quorumMet) {
+                            return (
+                              <div className="mt-2 flex items-center text-blue-600">
+                                <FiCheck className="h-4 w-4 mr-1" />
+                                <span className="text-sm font-medium">Quorum met! Ready to decrypt ({guardiansSubmitted}/{electionQuorum} required)</span>
+                              </div>
+                            );
+                          }
+                          return null;
+                        })()}
+                      </div>
+                    </>
+                  )}
 
                   <div className="space-y-2">
                     {electionData.guardians?.map((guardian) => (
