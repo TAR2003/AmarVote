@@ -135,11 +135,6 @@ const Home = () => {
                 Get Started Free
               </button>
             </Link>
-            <a href="https://youtu.be/ixsvvl_7qVo" target="_blank" rel="noopener noreferrer">
-              <button className="px-8 py-4 border-2 border-blue-200 text-blue-700 text-lg font-semibold rounded-2xl hover:bg-blue-50 hover:border-blue-300 transition-all duration-300 hover:-translate-y-1 bg-white/80">
-                ▶ Watch Demo
-              </button>
-            </a>
             <Link to="/architecture">
               <button className="px-8 py-4 border-2 border-indigo-200 text-indigo-700 text-lg font-semibold rounded-2xl hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-300 hover:-translate-y-1 bg-white/80">
                 View Architecture
