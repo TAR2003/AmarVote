@@ -27,6 +27,7 @@ import com.amarvote.amarvote.dto.BlockchainBallotInfoResponse;
 import com.amarvote.amarvote.dto.BlockchainLogsResponse;
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
+import com.amarvote.amarvote.dto.CastEncryptedBallotRequest;
 import com.amarvote.amarvote.dto.VoterListUpdateRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionResponse;
