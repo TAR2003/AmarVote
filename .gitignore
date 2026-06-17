@@ -1,4 +1,5 @@
 .env
+load-tests/.env.loadtest
 
 # SSL certs (generated on server, not stored in git)
 nginx/certs/live/

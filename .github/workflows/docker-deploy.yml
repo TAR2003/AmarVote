@@ -56,7 +56,8 @@ jobs:
 
     
 
-     # 🚀 Deploy
+     # 🚀 Deploy (production only — nginx-proxy.conf with DDoS rate limits)
+      # Load-test nginx: manual on server — see docs/PRODUCTION_DEPLOY_AND_LOADTEST.md
       - name: Deploy with Docker
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \

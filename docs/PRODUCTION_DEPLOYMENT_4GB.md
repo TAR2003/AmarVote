@@ -26,34 +26,38 @@ This guide covers deploying AmarVote with RabbitMQ worker architecture on a 4GB 
 - **Docker**: 24.0+ with Docker Compose V2
 
 ### Recommended Requirements
-- **RAM**: 6GB+ for better performance
-- **CPU**: 4 cores for faster processing
+- **RAM**: 4GB (matches amarvote2026.me production host)
+- **Swap**: 4GB swap (critical for load-test bursts and vote spikes)
+- **CPU**: 4 cores for faster ballot encryption
 - **Disk**: 50GB SSD
-- **Swap**: 2GB swap file configured
 
 ---
 
-## 💾 Memory Allocation Strategy (4GB RAM)
+## 💾 Memory Allocation Strategy (4GB RAM + 4GB Swap)
 
-The docker-compose.prod.yml has been optimized for 4GB RAM with the following allocation:
+`docker-compose.prod.yml` is tuned for a **4 GB RAM** server. Container limits total ~3.6 GB; the OS uses ~400 MB. **4 GB swap** absorbs spikes during elections and k6 load tests.
 
-| Service | Memory Limit | Memory Reserved | Purpose |
-|---------|-------------|-----------------|---------|
-| **Backend** | 1280M | 768M | Spring Boot + JVM (Xmx1024m) |
-| **ElectionGuard** | 1280M | 768M | Cryptographic operations |
-| **RabbitMQ** | 512M | 256M | Message queue (512MB watermark) |
-| **PostgreSQL** | 512M | 256M | Database |
-| **Frontend** | 256M | 128M | Nginx static files |
-| **Prometheus** | 256M | 128M | Metrics collection |
-| **Grafana** | 256M | 128M | Monitoring dashboards |
-| **System** | ~300M | - | OS overhead |
-| **TOTAL** | ~4.1GB | ~2.4GB | Within 4GB limit |
+| Service | Memory Limit | Key Config |
+|---------|-------------|------------|
+| **Backend** | 1024M | JVM `-Xmx768m`, Tomcat 200 threads |
+| **ElectionGuard API** | 1024M | 4 gunicorn workers × 2 threads |
+| **ElectionGuard Worker** | 320M | 2 workers (tally/decryption) |
+| **PostgreSQL** | 384M | `shared_buffers=96MB`, `max_connections=120` |
+| **RabbitMQ** | 320M | 40% memory watermark |
+| **Redis** | 96M | `maxmemory 64mb` |
+| **Frontend** | 96M | Static React assets |
+| **Nginx** | 64M | Reverse proxy |
+| **Prometheus** | 128M | Metrics (stop during peak load test) |
+| **Grafana** | 128M | Dashboards (stop during peak load test) |
+| **System** | ~400M | OS + Docker daemon |
+| **TOTAL limits** | ~3.6GB | Swap covers bursts over 4 GB |
 
 ### Why This Works
-- ✅ **Worker Architecture**: RabbitMQ processes tasks one at a time, preventing memory accumulation
-- ✅ **Aggressive GC**: Backend uses G1GC with optimized pause times
-- ✅ **Memory Cleanup**: `entityManager.clear()` + `System.gc()` after each task
-- ✅ **Concurrency=1**: Only one task processed at a time per queue
+- ✅ **Bounded containers**: Limits prevent one service from OOM-killing the host
+- ✅ **Swap as burst buffer**: 4 GB swap handles vote spikes without crashing
+- ✅ **ElectionGuard queue**: 8 concurrent encryptions; extra requests wait (not crash)
+- ✅ **Stop monitoring during load test**: `docker compose stop prometheus grafana` frees ~256 MB
+- ✅ **G1GC**: Backend uses low-pause garbage collection
 
 ---
 
@@ -78,20 +82,24 @@ docker --version
 docker compose version
 ```
 
-### 2. Configure System Swap (Recommended)
+### 2. Configure System Swap (Required — 4 GB)
+
+Your server has 4 GB swap. If not yet configured:
 
 ```bash
-# Create 2GB swap file
-sudo fallocate -l 2G /swapfile
+# Verify swap
+free -h
+
+# If swap is missing, create 4 GB swap file
+sudo fallocate -l 4G /swapfile
 sudo chmod 600 /swapfile
 sudo mkswap /swapfile
 sudo swapon /swapfile
-
-# Make swap permanent
 echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
 
-# Verify swap
-free -h
+# Reduce swappiness slightly — prefer RAM, use swap only under pressure
+echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+sudo sysctl -p
 ```
 
 ### 3. Optimize System Memory Settings

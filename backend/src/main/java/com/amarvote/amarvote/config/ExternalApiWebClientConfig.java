@@ -9,6 +9,7 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.core5.util.Timeout;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -33,6 +34,15 @@ import reactor.netty.resources.ConnectionProvider;
 @Configuration
 public class ExternalApiWebClientConfig {
 
+    @Value("${electionguard.max.connections:200}")
+    private int electionGuardMaxConnections;
+
+    @Value("${electionguard.max.per.route:100}")
+    private int electionGuardMaxPerRoute;
+
+    @Value("${electionguard.connection.request.timeout:60000}")
+    private int electionGuardConnectionRequestTimeoutMs;
+
     /**
      * RestTemplate bean for blocking HTTP calls (RAG service)
      */
@@ -56,8 +66,8 @@ public class ExternalApiWebClientConfig {
     public RestTemplate electionGuardRestTemplate() {
         // Configure connection pool
         PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
-        connectionManager.setMaxTotal(50); // Maximum total connections
-        connectionManager.setDefaultMaxPerRoute(20); // Maximum connections per route
+        connectionManager.setMaxTotal(electionGuardMaxConnections);
+        connectionManager.setDefaultMaxPerRoute(electionGuardMaxPerRoute);
         
         // Configure connection timeouts
         ConnectionConfig connectionConfig = ConnectionConfig.custom()
@@ -68,7 +78,7 @@ public class ExternalApiWebClientConfig {
         
         // Configure request timeouts
         RequestConfig requestConfig = RequestConfig.custom()
-                .setConnectionRequestTimeout(Timeout.ofSeconds(30))
+                .setConnectionRequestTimeout(Timeout.ofMilliseconds(electionGuardConnectionRequestTimeoutMs))
                 .setResponseTimeout(Timeout.ofMinutes(10))
                 .build();
         
