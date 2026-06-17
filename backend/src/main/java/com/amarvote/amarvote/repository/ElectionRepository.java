@@ -93,6 +93,49 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
             "ORDER BY e.created_at DESC", 
             nativeQuery = true)
     List<Object[]> findOptimizedAccessibleElectionsWithDetails(@Param("userEmail") String userEmail);
+
+    @Query(value =
+            "WITH accessible_elections AS (" +
+            "    SELECT DISTINCT e.election_id, e.election_title, e.election_description, " +
+            "           e.number_of_guardians, e.election_quorum, e.no_of_candidates, " +
+            "           e.joint_public_key, e.manifest_hash, e.status, " +
+            "            e.starting_time, e.ending_time, e.base_hash, e.created_at, " +
+            "           e.profile_pic, e.admin_email, e.privacy, e.eligibility " +
+            "    FROM elections e" +
+            "), " +
+            "admin_info AS (" +
+            "    SELECT e.election_id, e.admin_email as admin_name " +
+            "    FROM accessible_elections e" +
+            "), " +
+            "user_roles AS (" +
+            "    SELECT e.election_id, " +
+            "        CASE WHEN e.admin_email = :userEmail THEN true ELSE false END AS is_admin, " +
+            "        EXISTS (SELECT 1 FROM guardians g " +
+            "               WHERE g.election_id = e.election_id AND g.user_email = :userEmail) AS is_guardian, " +
+            "        EXISTS (SELECT 1 FROM allowed_voters av " +
+            "               WHERE av.election_id = e.election_id AND av.user_email = :userEmail) AS is_voter " +
+            "    FROM accessible_elections e" +
+            "), " +
+            "vote_status AS (" +
+            "    SELECT av.election_id, av.has_voted " +
+            "    FROM allowed_voters av " +
+            "    WHERE av.user_email = :userEmail" +
+            ") " +
+            "SELECT e.election_id, e.election_title, e.election_description, " +
+            "    e.number_of_guardians, e.election_quorum, e.no_of_candidates, " +
+            "    e.joint_public_key, e.manifest_hash, e.status, " +
+            "    e.starting_time, e.ending_time, e.base_hash, e.created_at, " +
+            "    e.profile_pic, e.admin_email, e.privacy, e.eligibility, " +
+            "    a.admin_name, " +
+            "    r.is_admin, r.is_guardian, r.is_voter, " +
+            "    COALESCE(v.has_voted, false) as has_voted " +
+            "FROM accessible_elections e " +
+            "LEFT JOIN admin_info a ON e.election_id = a.election_id " +
+            "LEFT JOIN user_roles r ON e.election_id = r.election_id " +
+            "LEFT JOIN vote_status v ON e.election_id = v.election_id " +
+            "ORDER BY e.created_at DESC",
+            nativeQuery = true)
+    List<Object[]> findOptimizedAllElectionsWithDetails(@Param("userEmail") String userEmail);
     
     // Get all elections where user is in allowed voters
     @Query("SELECT DISTINCT e FROM Election e " +

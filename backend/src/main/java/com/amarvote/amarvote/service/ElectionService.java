@@ -1,10 +1,15 @@
 package com.amarvote.amarvote.service;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
@@ -98,6 +103,11 @@ public class ElectionService {
 
     @Autowired
     private TallyWorkerLogRepository tallyWorkerLogRepository;
+
+    @Autowired
+    private AuthorizedUserService authorizedUserService;
+
+    private static final Pattern EMAIL_PATTERN = Pattern.compile("^[^@\\s]+@[^@\\s]+\\.[^@\\s]+$");
 
     @Autowired
     private ElectionJobRepository electionJobRepository;
@@ -255,80 +265,8 @@ public class ElectionService {
         Election election = electionRepository.findById(electionId)
                 .orElseThrow(() -> new IllegalArgumentException("Election not found"));
 
-        boolean isAdmin = userEmail != null && userEmail.equalsIgnoreCase(election.getAdminEmail());
-        boolean isGuardian = !guardianRepository.findByElectionIdAndUserEmail(electionId, userEmail).isEmpty();
-
-        if (!isAdmin && !isGuardian) {
-            throw new IllegalArgumentException("Only election admin or assigned guardian can delete this election");
-        }
-
-        List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsByElectionId(electionId);
-
-        if (!electionCenterIds.isEmpty()) {
-            for (Long centerId : electionCenterIds) {
-                submittedBallotRepository.deleteByElectionCenterId(centerId);
-            }
-
-            for (Long centerId : electionCenterIds) {
-                List<Decryption> decryptions = decryptionRepository.findByElectionCenterId(centerId);
-                if (!decryptions.isEmpty()) {
-                    decryptionRepository.deleteAll(decryptions);
-                }
-
-                List<CompensatedDecryption> compensated = compensatedDecryptionRepository.findByElectionCenterId(centerId);
-                if (!compensated.isEmpty()) {
-                    compensatedDecryptionRepository.deleteAll(compensated);
-                }
-            }
-        }
-
-        List<ElectionCenter> centers = electionCenterRepository.findByElectionId(electionId);
-        if (!centers.isEmpty()) {
-            electionCenterRepository.deleteAll(centers);
-        }
-
-        List<Guardian> guardians = guardianRepository.findByElectionId(electionId);
-        if (!guardians.isEmpty()) {
-            guardianRepository.deleteAll(guardians);
-        }
-
-        List<AllowedVoter> voters = allowedVoterRepository.findByElectionId(electionId);
-        if (!voters.isEmpty()) {
-            allowedVoterRepository.deleteAll(voters);
-        }
-
-        List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(electionId);
-        if (!choices.isEmpty()) {
-            electionChoiceRepository.deleteAll(choices);
-        }
-
-        List<com.amarvote.amarvote.model.Ballot> ballots = ballotRepository.findByElectionId(electionId);
-        if (!ballots.isEmpty()) {
-            ballotRepository.deleteAll(ballots);
-        }
-
-        List<com.amarvote.amarvote.model.DecryptionWorkerLog> decryptionLogs = decryptionWorkerLogRepository
-                .findByElectionIdOrderByStartTimeAsc(electionId);
-        if (!decryptionLogs.isEmpty()) {
-            decryptionWorkerLogRepository.deleteAll(decryptionLogs);
-        }
-
-        List<com.amarvote.amarvote.model.CombineWorkerLog> combineLogs = combineWorkerLogRepository
-                .findByElectionIdOrderByStartTimeAsc(electionId);
-        if (!combineLogs.isEmpty()) {
-            combineWorkerLogRepository.deleteAll(combineLogs);
-        }
-
-        List<com.amarvote.amarvote.model.TallyWorkerLog> tallyLogs = tallyWorkerLogRepository
-                .findByElectionIdOrderByStartTimeAsc(electionId);
-        if (!tallyLogs.isEmpty()) {
-            tallyWorkerLogRepository.deleteAll(tallyLogs);
-        }
-
-        List<com.amarvote.amarvote.model.ElectionJob> jobs = electionJobRepository
-                .findByElectionIdOrderByStartedAtDesc(electionId);
-        if (!jobs.isEmpty()) {
-            electionJobRepository.deleteAll(jobs);
+        if (!authorizedUserService.canDeleteAnyElection(userEmail)) {
+            throw new IllegalArgumentException("Only app owners and admins can delete elections");
         }
 
         electionRepository.delete(election);
@@ -337,6 +275,118 @@ public class ElectionService {
                 "success", true,
                 "message", "Election deleted successfully",
                 "electionId", electionId);
+    }
+
+    @Transactional
+    public List<ElectionDetailResponse.VoterInfo> addVotersToElection(Long electionId, String userEmail, List<String> voterEmails) {
+        Election election = requireElectionWithEditableVoterList(electionId, userEmail);
+
+        Set<String> normalizedIncoming = normalizeAndValidateVoterEmails(voterEmails);
+        if (normalizedIncoming.isEmpty()) {
+            throw new IllegalArgumentException("No valid voter emails provided");
+        }
+
+        Set<String> existing = allowedVoterRepository.findByElectionId(electionId).stream()
+                .map(v -> v.getUserEmail().toLowerCase(Locale.ROOT))
+                .collect(Collectors.toCollection(LinkedHashSet::new));
+
+        for (String email : normalizedIncoming) {
+            if (!existing.contains(email)) {
+                allowedVoterRepository.save(AllowedVoter.builder()
+                        .electionId(election.getElectionId())
+                        .userEmail(email)
+                        .hasVoted(false)
+                        .build());
+                existing.add(email);
+            }
+        }
+
+        return getVoterInfoForElection(electionId, userEmail);
+    }
+
+    @Transactional
+    public List<ElectionDetailResponse.VoterInfo> removeVoterFromElection(Long electionId, String userEmail, String voterEmail) {
+        requireElectionWithEditableVoterList(electionId, userEmail);
+
+        String normalizedVoterEmail = authorizedUserService.normalizeEmail(voterEmail);
+        if (normalizedVoterEmail.isBlank()) {
+            throw new IllegalArgumentException("Voter email is required");
+        }
+
+        AllowedVoter voter = allowedVoterRepository.findByElectionIdAndUserEmail(electionId, normalizedVoterEmail)
+                .orElseThrow(() -> new IllegalArgumentException("Voter not found in this election"));
+
+        allowedVoterRepository.delete(voter);
+        return getVoterInfoForElection(electionId, userEmail);
+    }
+
+    @Transactional
+    public List<ElectionDetailResponse.VoterInfo> removeAllVotersFromElection(Long electionId, String userEmail) {
+        requireElectionWithEditableVoterList(electionId, userEmail);
+
+        List<AllowedVoter> voters = allowedVoterRepository.findByElectionId(electionId);
+        if (!voters.isEmpty()) {
+            allowedVoterRepository.deleteAll(voters);
+        }
+
+        return getVoterInfoForElection(electionId, userEmail);
+    }
+
+    private Election requireElectionWithEditableVoterList(Long electionId, String userEmail) {
+        Election election = electionRepository.findById(electionId)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found"));
+
+        if (!canUserManageVoterList(election, userEmail)) {
+            throw new IllegalArgumentException("Only the election creator or assigned guardians can manage voters");
+        }
+
+        if (!"listed".equals(election.getEligibility())) {
+            throw new IllegalArgumentException("Voter list can only be managed for listed elections");
+        }
+
+        if (!isBeforeElectionStart(election)) {
+            throw new IllegalArgumentException("Voter list can only be edited before the election starts");
+        }
+
+        return election;
+    }
+
+    private boolean canUserManageVoterList(Election election, String userEmail) {
+        if (userEmail == null || userEmail.isBlank()) {
+            return false;
+        }
+
+        boolean isAdmin = election.getAdminEmail() != null
+                && election.getAdminEmail().equalsIgnoreCase(userEmail);
+        boolean isGuardian = !guardianRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail).isEmpty();
+        return isAdmin || isGuardian;
+    }
+
+    private boolean isBeforeElectionStart(Election election) {
+        Instant startingTime = election.getStartingTime();
+        return startingTime == null || Instant.now().isBefore(startingTime);
+    }
+
+    private Set<String> normalizeAndValidateVoterEmails(List<String> voterEmails) {
+        if (voterEmails == null || voterEmails.isEmpty()) {
+            return Set.of();
+        }
+
+        Set<String> normalized = new LinkedHashSet<>();
+        for (String rawEmail : voterEmails) {
+            if (rawEmail == null) {
+                continue;
+            }
+            String email = authorizedUserService.normalizeEmail(rawEmail);
+            if (email.isBlank()) {
+                continue;
+            }
+            if (!EMAIL_PATTERN.matcher(email).matches()) {
+                throw new IllegalArgumentException("Invalid email address: " + rawEmail);
+            }
+            normalized.add(email);
+        }
+        return normalized;
     }
 
     public List<KeyCeremonyPendingElectionResponse> getPendingKeyCeremoniesForGuardian(String userEmail) {
@@ -771,11 +821,8 @@ public class ElectionService {
         Election election = electionRepository.findById(electionId)
                 .orElseThrow(() -> new IllegalArgumentException("Election not found"));
 
-        boolean isAdmin = election.getAdminEmail() != null && election.getAdminEmail().equals(userEmail);
-        boolean isGuardian = !guardianRepository.findByElectionIdAndUserEmail(electionId, userEmail).isEmpty();
-
-        if (!isAdmin && !isGuardian) {
-            throw new IllegalArgumentException("Only the election admin or assigned guardians can access key ceremony status");
+        if (!isUserAuthorizedToViewElection(election, userEmail)) {
+            throw new IllegalArgumentException("You are not authorized to view this election");
         }
 
         return buildKeyCeremonyStatus(election);
@@ -1102,7 +1149,9 @@ public class ElectionService {
         System.out.println("Fetching optimized accessible elections for user: " + userEmail);
         long startTime = System.currentTimeMillis();
 
-        List<Object[]> queryResults = electionRepository.findOptimizedAccessibleElectionsWithDetails(userEmail);
+        List<Object[]> queryResults = authorizedUserService.canDeleteAnyElection(userEmail)
+                ? electionRepository.findOptimizedAllElectionsWithDetails(userEmail)
+                : electionRepository.findOptimizedAccessibleElectionsWithDetails(userEmail);
 
         // Convert query results to DTOs
         List<OptimizedElectionResponse> optimizedResponses = queryResults.stream()
@@ -1272,6 +1321,10 @@ public class ElectionService {
      * Check if user is authorized to view the election
      */
     private boolean isUserAuthorizedToViewElection(Election election, String userEmail) {
+        if (authorizedUserService.canDeleteAnyElection(userEmail)) {
+            return true;
+        }
+
         // Check if user is the admin
         if (election.getAdminEmail() != null && election.getAdminEmail().equals(userEmail)) {
             System.out.println("User is admin of election " + election.getElectionId());

@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { electionApi } from "../utils/electionApi";
 import { uploadCandidateImage } from "../utils/api";
 import ImageUpload from "../components/ImageUpload";
+import VoterListEditor from "../components/VoterListEditor";
 
 const CreateElection = () => {
     const navigate = useNavigate();
@@ -167,34 +168,9 @@ const CreateElection = () => {
         }
     };
 
-    // Handle CSV upload for voter emails
-    const handleVoterCSVUpload = (e) => {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const text = event.target.result;
-            // Split by line, trim, filter empty, and flatten if comma-separated
-            let emails = text
-                .split(/\r?\n/)
-                .map(line => line.split(',').map(email => email.trim()))
-                .flat()
-                .filter(email => email.length > 0 && email.includes('@'));
-
-            // Deduplicate emails
-            emails = [...new Set(emails)];
-            setForm((prev) => ({ ...prev, voterEmails: emails }));
-
-            // Show success message
-            setSuccess(`Successfully uploaded ${emails.length} voter emails`);
-
-            // Clear success message after 3 seconds
-            setTimeout(() => {
-                setSuccess("");
-            }, 3000);
-        };
-        reader.readAsText(file);
+    // Handle voter list updates
+    const setVoterEmails = (voterEmails) => {
+        setForm((prev) => ({ ...prev, voterEmails }));
     };
 
     // Handle CSV/TXT upload for guardian emails
@@ -422,6 +398,10 @@ const CreateElection = () => {
             ...prev,
             voterEmails: prev.voterEmails.filter(e => e !== email)
         }));
+    };
+
+    const removeAllVoterEmails = () => {
+        setForm((prev) => ({ ...prev, voterEmails: [] }));
     };
 
     // Candidates management
@@ -759,39 +739,16 @@ const CreateElection = () => {
 
                     {(form.electionPrivacy === "private" || form.electionEligibility === "listed") && (
                         <div className="mb-4">
-                            <label className="block text-gray-700 font-medium mb-2">
+                            <label className="block text-gray-700 font-medium mb-3">
                                 Voter Emails
                                 {form.electionPrivacy === "private" && <span className="text-red-500">*</span>}
                             </label>
-
-                            <div className="mb-2">
-                                <label className="inline-flex items-center justify-center w-full sm:w-auto px-4 py-2 bg-blue-500 text-white rounded-md cursor-pointer hover:bg-blue-600">
-                                    <span>Upload CSV</span>
-                                    <input
-                                        type="file"
-                                        accept=".csv,.txt"
-                                        onChange={handleVoterCSVUpload}
-                                        className="hidden"
-                                    />
-                                </label>
-                                <span className="text-gray-500 text-sm block sm:inline sm:ml-2 mt-2 sm:mt-0">Upload a CSV/TXT file with one email per line or comma-separated</span>
-                            </div>
-
-                            <div className="border border-gray-300 rounded-md p-3 min-h-[100px] max-h-[200px] overflow-auto">
-                                <div className="flex flex-wrap">
-                                    {form.voterEmails.length > 0 ? (
-                                        form.voterEmails.map(email => renderEmailTag(email, removeVoterEmail))
-                                    ) : (
-                                        <span className="text-gray-500">No voter emails added yet</span>
-                                    )}
-                                </div>
-                            </div>
-
-                            {form.voterEmails.length > 0 && (
-                                <div className="mt-2 text-sm text-gray-500">
-                                    {form.voterEmails.length} email{form.voterEmails.length !== 1 ? 's' : ''} added
-                                </div>
-                            )}
+                            <VoterListEditor
+                                emails={form.voterEmails}
+                                onChange={setVoterEmails}
+                                onRemove={removeVoterEmail}
+                                onRemoveAll={removeAllVoterEmails}
+                            />
                         </div>
                     )}
                 </div>

@@ -27,7 +27,7 @@ import com.amarvote.amarvote.dto.BlockchainBallotInfoResponse;
 import com.amarvote.amarvote.dto.BlockchainLogsResponse;
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
-import com.amarvote.amarvote.dto.CastEncryptedBallotRequest;
+import com.amarvote.amarvote.dto.VoterListUpdateRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
 import com.amarvote.amarvote.dto.CombinePartialDecryptionResponse;
 import com.amarvote.amarvote.dto.CombineStatusResponse;
@@ -536,6 +536,90 @@ public class ElectionController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("success", false, "message", "Failed to delete election"));
         }
+    }
+
+    @PostMapping("/election/{id}/voters")
+    public ResponseEntity<?> addVotersToElection(
+            @PathVariable Long id,
+            @Valid @RequestBody VoterListUpdateRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = resolveUserEmail(httpRequest);
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            List<ElectionDetailResponse.VoterInfo> voters = electionService.addVotersToElection(
+                    id, userEmail, request.voterEmails());
+            return ResponseEntity.ok(Map.of("success", true, "voters", voters));
+        } catch (IllegalArgumentException e) {
+            String message = e.getMessage() == null ? "Invalid request" : e.getMessage();
+            HttpStatus status = message.contains("not found") ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(Map.of("success", false, "message", message));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to add voters"));
+        }
+    }
+
+    @DeleteMapping("/election/{id}/voters/{voterEmail}")
+    public ResponseEntity<?> removeVoterFromElection(
+            @PathVariable Long id,
+            @PathVariable String voterEmail,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = resolveUserEmail(httpRequest);
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            List<ElectionDetailResponse.VoterInfo> voters = electionService.removeVoterFromElection(
+                    id, userEmail, voterEmail);
+            return ResponseEntity.ok(Map.of("success", true, "voters", voters));
+        } catch (IllegalArgumentException e) {
+            String message = e.getMessage() == null ? "Invalid request" : e.getMessage();
+            HttpStatus status = message.contains("not found") ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(Map.of("success", false, "message", message));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to remove voter"));
+        }
+    }
+
+    @DeleteMapping("/election/{id}/voters")
+    public ResponseEntity<?> removeAllVotersFromElection(
+            @PathVariable Long id,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = resolveUserEmail(httpRequest);
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            List<ElectionDetailResponse.VoterInfo> voters = electionService.removeAllVotersFromElection(id, userEmail);
+            return ResponseEntity.ok(Map.of("success", true, "voters", voters));
+        } catch (IllegalArgumentException e) {
+            String message = e.getMessage() == null ? "Invalid request" : e.getMessage();
+            HttpStatus status = message.contains("not found") ? HttpStatus.NOT_FOUND : HttpStatus.BAD_REQUEST;
+            return ResponseEntity.status(status).body(Map.of("success", false, "message", message));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to remove voters"));
+        }
+    }
+
+    private String resolveUserEmail(HttpServletRequest httpRequest) {
+        String userEmail = (String) httpRequest.getAttribute("userEmail");
+        if (userEmail == null) {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication != null && authentication.isAuthenticated()) {
+                userEmail = authentication.getName();
+            }
+        }
+        return userEmail;
     }
 
     @PostMapping(value = "/cast-ballot", consumes = "application/json", produces = "application/json")

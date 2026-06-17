@@ -523,7 +523,7 @@ export async function uploadPartyPicture(file, choiceId) {
 }
 
 /**
- * Delete an election (admin or assigned guardian only)
+ * Delete an election (app owner or app admin only)
  * @param {number|string} electionId - Election ID
  * @returns {Promise<Object>} Deletion result
  */

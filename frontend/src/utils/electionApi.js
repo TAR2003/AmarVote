@@ -618,4 +618,38 @@ export const electionApi = {
       throw error;
     }
   },
+
+  async addVotersToElection(electionId, voterEmails) {
+    try {
+      return await apiRequest(`/election/${electionId}/voters`, {
+        method: 'POST',
+        body: JSON.stringify({ voterEmails }),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error adding voters:', error);
+      throw error;
+    }
+  },
+
+  async removeVoterFromElection(electionId, voterEmail) {
+    try {
+      return await apiRequest(`/election/${electionId}/voters/${encodeURIComponent(voterEmail)}`, {
+        method: 'DELETE',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error removing voter:', error);
+      throw error;
+    }
+  },
+
+  async removeAllVotersFromElection(electionId) {
+    try {
+      return await apiRequest(`/election/${electionId}/voters`, {
+        method: 'DELETE',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error removing all voters:', error);
+      throw error;
+    }
+  },
 };

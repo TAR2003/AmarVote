@@ -190,6 +190,25 @@ const AllElections = () => {
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [electionToDelete, setElectionToDelete] = useState(null);
   const [deletingElectionId, setDeletingElectionId] = useState(null);
+  const [canDeleteAnyElection, setCanDeleteAnyElection] = useState(false);
+
+  useEffect(() => {
+    const loadDeletePermission = async () => {
+      try {
+        const res = await fetch("/api/authorized-users/me", {
+          method: "GET",
+          credentials: "include",
+        });
+        if (!res.ok) return;
+        const data = await res.json();
+        setCanDeleteAnyElection(Boolean(data.canDeleteAnyElection));
+      } catch (err) {
+        console.error("Failed to load delete permission:", err);
+      }
+    };
+
+    loadDeletePermission();
+  }, []);
 
   // Optimized data loading with caching
   useEffect(() => {
@@ -278,9 +297,7 @@ const AllElections = () => {
     return false;
   }, []);
 
-  const canDeleteElection = useCallback((election) => {
-    return election?.userRoles?.includes("admin") || election?.userRoles?.includes("guardian");
-  }, []);
+  const canDeleteElection = useCallback(() => canDeleteAnyElection, [canDeleteAnyElection]);
 
   const handleRequestDelete = useCallback((election, event) => {
     event.stopPropagation();
@@ -578,7 +595,7 @@ const AllElections = () => {
                     </div>
                     
                     <div className="w-full sm:w-auto sm:flex-shrink-0 sm:ml-4 flex flex-col gap-2">
-                      {canDeleteElection(election) && (
+                      {canDeleteElection() && (
                         <button
                           className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
                           onClick={(e) => handleRequestDelete(election, e)}

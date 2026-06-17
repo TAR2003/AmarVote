@@ -3,6 +3,7 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { electionApi } from '../utils/electionApi';
 import { timezoneUtils } from '../utils/timezoneUtils';
 import toast from 'react-hot-toast';
+import VoterListEditor from '../components/VoterListEditor';
 import { load } from '@fingerprintjs/botd';
 import {
   FiCalendar,
@@ -1607,6 +1608,8 @@ export default function ElectionPage() {
   const [isSubmittingKey, setIsSubmittingKey] = useState(false);
   const [keySubmissionResult, setKeySubmissionResult] = useState(null);
   const [keySubmissionError, setKeySubmissionError] = useState(null);
+  const [voterListSaving, setVoterListSaving] = useState(false);
+  const [showVoterEditor, setShowVoterEditor] = useState(false);
 
   // Results state
   const [resultsData, setResultsData] = useState(null);
@@ -1816,14 +1819,19 @@ export default function ElectionPage() {
   }, [activeTab, id, electionData?.guardians]);
 
   const loadKeyCeremonyProgress = useCallback(async () => {
-    if (activeTab !== 'guardian' || !electionData || electionData.status !== 'key_ceremony_pending') {
+    if (activeTab !== 'guardian' || !electionData) {
+      setGuardianKeyCeremonyContext(null);
+      setAdminKeyCeremonyStatus(null);
+      return;
+    }
+
+    if (electionData.status !== 'key_ceremony_pending') {
       setGuardianKeyCeremonyContext(null);
       setAdminKeyCeremonyStatus(null);
       return;
     }
 
     const isGuardian = electionData?.userRoles?.includes('guardian');
-    const isAdmin = electionData?.userRoles?.includes('admin');
 
     if (isGuardian) {
       try {
@@ -1834,15 +1842,15 @@ export default function ElectionPage() {
       } catch {
         setGuardianKeyCeremonyContext(null);
       }
+    } else {
+      setGuardianKeyCeremonyContext(null);
     }
 
-    if (isAdmin || isGuardian) {
-      try {
-        const statusResp = await electionApi.getKeyCeremonyStatus(id);
-        setAdminKeyCeremonyStatus(statusResp?.status || null);
-      } catch {
-        setAdminKeyCeremonyStatus(null);
-      }
+    try {
+      const statusResp = await electionApi.getKeyCeremonyStatus(id);
+      setAdminKeyCeremonyStatus(statusResp?.status || null);
+    } catch {
+      setAdminKeyCeremonyStatus(null);
     }
   }, [activeTab, electionData, id]);
 
@@ -2855,6 +2863,72 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
     return currentUserIsGuardian;
   };
 
+  const canEditVoterList = () => {
+    if (!electionData || electionData.eligibility !== 'listed') return false;
+
+    const isAdminOrGuardian =
+      electionData.userRoles?.includes('admin') || electionData.userRoles?.includes('guardian');
+    if (!isAdminOrGuardian) return false;
+
+    if (!electionData.startingTime) return true;
+    return new Date(electionData.startingTime) > new Date();
+  };
+
+  const voterEmails = useMemo(
+    () => (electionData?.voters || []).map((voter) => voter.userEmail),
+    [electionData?.voters]
+  );
+
+  const updateVotersFromResponse = (voters) => {
+    setElectionData((prev) => (prev ? { ...prev, voters } : prev));
+  };
+
+  const handleVoterListChange = async (nextEmails) => {
+    const currentEmails = voterEmails;
+    const addedEmails = nextEmails.filter((email) => !currentEmails.includes(email));
+    if (!addedEmails.length) return;
+
+    try {
+      setVoterListSaving(true);
+      const response = await electionApi.addVotersToElection(id, addedEmails);
+      updateVotersFromResponse(response.voters || []);
+      toast.success(`Added ${addedEmails.length} voter${addedEmails.length === 1 ? '' : 's'}.`);
+    } catch (err) {
+      toast.error(err.message || 'Failed to add voters');
+    } finally {
+      setVoterListSaving(false);
+    }
+  };
+
+  const handleRemoveVoter = async (email) => {
+    try {
+      setVoterListSaving(true);
+      const response = await electionApi.removeVoterFromElection(id, email);
+      updateVotersFromResponse(response.voters || []);
+      toast.success('Voter removed.');
+    } catch (err) {
+      toast.error(err.message || 'Failed to remove voter');
+    } finally {
+      setVoterListSaving(false);
+    }
+  };
+
+  const handleRemoveAllVoters = async () => {
+    if (!voterEmails.length) return;
+    if (!window.confirm('Remove all voters from this election?')) return;
+
+    try {
+      setVoterListSaving(true);
+      const response = await electionApi.removeAllVotersFromElection(id);
+      updateVotersFromResponse(response.voters || []);
+      toast.success('All voters removed.');
+    } catch (err) {
+      toast.error(err.message || 'Failed to remove voters');
+    } finally {
+      setVoterListSaving(false);
+    }
+  };
+
   const canSubmitGuardianKey = () => {
     if (!canUserManageGuardian()) return { canSubmit: false, reason: 'Not a guardian' };
 
@@ -3491,50 +3565,81 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             </div>
 
             {/* Voter List - For Listed Elections: Show all eligible voters, For Open Elections: Show who voted */}
-            {electionData.voters && electionData.voters.length > 0 && (
+            {(canEditVoterList() || (electionData.voters && electionData.voters.length > 0)) && (
               <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-                <div className="flex items-center justify-between mb-4">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <h3 className="text-base sm:text-lg font-semibold flex items-center">
                     <FiUsers className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-blue-600" />
                     {electionData.eligibility === 'listed' ? 'Eligible Voters' : 'Voters Who Participated'}
                   </h3>
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
                     {electionData.eligibility === 'listed' ? (
                       <>
                         <span className="px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
-                          {electionData.voters.length} eligible
+                          {(electionData.voters || []).length} eligible
                         </span>
                         <span className="px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
-                          {electionData.voters.filter(v => v.hasVoted).length} voted
+                          {(electionData.voters || []).filter(v => v.hasVoted).length} voted
                         </span>
                       </>
                     ) : (
                       <span className="px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
-                        {electionData.voters.filter(v => v.hasVoted).length} participated
+                        {(electionData.voters || []).filter(v => v.hasVoted).length} participated
                       </span>
+                    )}
+                    {canEditVoterList() && (
+                      <button
+                        type="button"
+                        onClick={() => setShowVoterEditor((prev) => !prev)}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                      >
+                        {showVoterEditor ? 'Hide Editor' : 'Edit Voter List'}
+                      </button>
                     )}
                   </div>
                 </div>
+
+                {canEditVoterList() && showVoterEditor && (
+                  <div className="mb-6 rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50 p-4 sm:p-5">
+                    <div className="mb-4">
+                      <h4 className="text-sm font-semibold text-indigo-900">Manage voters before election starts</h4>
+                      <p className="text-xs text-indigo-800 mt-1">
+                        Add voters individually or import CSV/TXT files. Imports append to the existing list without removing current voters.
+                      </p>
+                    </div>
+                    <VoterListEditor
+                      emails={voterEmails}
+                      onChange={handleVoterListChange}
+                      onRemove={handleRemoveVoter}
+                      onRemoveAll={handleRemoveAllVoters}
+                      disabled={voterListSaving}
+                      maxHeightClass="max-h-96"
+                      emptyMessage="No voters added yet. Start building your voter list."
+                    />
+                  </div>
+                )}
+
                 {/* Summary bar - only for listed elections */}
-                {electionData.eligibility === 'listed' && (
+                {electionData.eligibility === 'listed' && (electionData.voters || []).length > 0 && (
                   <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span className="text-blue-700 font-medium">Participation</span>
                       <span className="text-blue-800 font-bold">
-                        {electionData.voters.filter(v => v.hasVoted).length} / {electionData.voters.length}
-                        {' '}({electionData.voters.length > 0
-                          ? ((electionData.voters.filter(v => v.hasVoted).length / electionData.voters.length) * 100).toFixed(1)
+                        {(electionData.voters || []).filter(v => v.hasVoted).length} / {(electionData.voters || []).length}
+                        {' '}({(electionData.voters || []).length > 0
+                          ? (((electionData.voters || []).filter(v => v.hasVoted).length / (electionData.voters || []).length) * 100).toFixed(1)
                           : 0}%)
                       </span>
                     </div>
                     <div className="w-full bg-white rounded-full h-2 border border-blue-200">
                       <div
                         className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-700"
-                        style={{ width: `${electionData.voters.length > 0 ? (electionData.voters.filter(v => v.hasVoted).length / electionData.voters.length) * 100 : 0}%` }}
+                        style={{ width: `${(electionData.voters || []).length > 0 ? ((electionData.voters || []).filter(v => v.hasVoted).length / (electionData.voters || []).length) * 100 : 0}%` }}
                       />
                     </div>
                   </div>
                 )}
+                {(electionData.voters || []).length > 0 && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-y-auto pr-1">
                   {(electionData.eligibility === 'listed' ? electionData.voters : electionData.voters.filter(v => v.hasVoted)).map((voter, index) => (
                     <div
@@ -3571,6 +3676,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     </div>
                   ))}
                 </div>
+                )}
               </div>
             )}
           </div>
@@ -4280,14 +4386,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               <FiShield className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Guardian Credential Submission
             </h3>
-            {!(canUserManageGuardian() || electionData?.userRoles?.includes('admin')) ? (
-              <div className="text-center py-8">
-                <FiShield className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-gray-700 mb-2">Guardian Access Required</h4>
-                <p className="text-gray-600">You need guardian privileges to access this section.</p>
-              </div>
-            ) : (
-              <div className="space-y-6">
+            <div className="space-y-6">
                 {electionData?.status === 'key_ceremony_pending' && (
                   <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-sky-50 p-5 sm:p-6 shadow-sm">
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
@@ -4973,7 +5072,6 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   </div>
                 </div>
               </div>
-            )}
           </div>
         )}
 

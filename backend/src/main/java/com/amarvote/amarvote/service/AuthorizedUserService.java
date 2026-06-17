@@ -135,7 +135,16 @@ public class AuthorizedUserService {
         response.put("canManageAuthorizedUsers", MANAGE_ROLES.contains(currentUserType));
         response.put("canViewApiLogs", canViewApiLogs(normalized));
         response.put("canCreateElections", canUserCreateElection(normalized));
+        response.put("canDeleteAnyElection", canDeleteAnyElection(normalized));
         return response;
+    }
+
+    @Transactional(readOnly = true)
+    public boolean canDeleteAnyElection(String email) {
+        String normalized = normalizeEmail(email);
+        Optional<AuthorizedUser> recordOpt = authorizedUserRepository.findByEmail(normalized);
+        String role = recordOpt.map(r -> normalizeRole(r.getUserType())).orElse(USER_TYPE_USER);
+        return MANAGE_ROLES.contains(role);
     }
 
     @Transactional(readOnly = true)
