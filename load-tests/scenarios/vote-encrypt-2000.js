@@ -1,5 +1,5 @@
 /**
- * Vote encryption stress test — 2000 concurrent users on election 10.
+ * Vote encryption stress test — stepped ramp to MAX_VUS on election 10.
  * Exercises: eligibility → create-encrypted-ballot → cast-encrypted-ballot
  *
  * Run:
@@ -10,6 +10,7 @@ import { check, sleep } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
 import { generateJWT, padBallotPayload, authHeaders } from '../helpers.js';
 import { env, voterEmail, pickCandidate } from '../env.js';
+import { buildSteppedStages } from '../stages.js';
 
 const encryptDuration = new Trend('vote_encrypt_duration', true);
 const castDuration = new Trend('vote_cast_duration', true);
@@ -22,14 +23,7 @@ export const options = {
     vote_encrypt_peak: {
       executor: 'ramping-vus',
       startVUs: 0,
-      stages: [
-        { duration: '3m', target: Math.min(200, env.maxVus) },
-        { duration: '5m', target: Math.min(500, env.maxVus) },
-        { duration: '5m', target: Math.min(1000, env.maxVus) },
-        { duration: '10m', target: env.maxVus },
-        { duration: '10m', target: env.maxVus },
-        { duration: '5m', target: 0 },
-      ],
+      stages: buildSteppedStages(env.maxVus),
       gracefulRampDown: '3m',
     },
   },

@@ -1,24 +1,19 @@
 /**
- * Full vote path ramp to 2000 VUs — election 10.
+ * Full vote path — stepped ramp (50 → 100 → … → MAX_VUS) — election 10.
  * Run: ./load-tests/run.sh scenarios/vote-flow.js
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { generateJWT, authHeaders, padBallotPayload } from '../helpers.js';
 import { env, voterEmail, pickCandidate } from '../env.js';
+import { buildSteppedStages } from '../stages.js';
 
 export const options = {
   scenarios: {
     vote_ramp: {
       executor: 'ramping-vus',
       startVUs: 0,
-      stages: [
-        { duration: '3m', target: 100 },
-        { duration: '5m', target: 500 },
-        { duration: '5m', target: 1000 },
-        { duration: '10m', target: env.maxVus },
-        { duration: '5m', target: 0 },
-      ],
+      stages: buildSteppedStages(env.maxVus),
       gracefulRampDown: '2m',
     },
   },

@@ -1,20 +1,15 @@
 /**
- * Read-heavy flow — ramp to 2000 VUs browsing election 10.
+ * Read-heavy flow — stepped ramp (50 → 100 → … → MAX_VUS) browsing election 10.
  * Run: ./load-tests/run.sh scenarios/browse.js
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { generateJWT, authHeaders } from '../helpers.js';
 import { env, voterEmail } from '../env.js';
+import { buildSteppedStages } from '../stages.js';
 
 export const options = {
-  stages: [
-    { duration: '2m', target: 200 },
-    { duration: '5m', target: 500 },
-    { duration: '5m', target: 1000 },
-    { duration: '5m', target: env.maxVus },
-    { duration: '5m', target: 0 },
-  ],
+  stages: buildSteppedStages(env.maxVus),
   thresholds: {
     http_req_failed: ['rate<0.05'],
     'http_req_duration{name:all-elections}': ['p(95)<3000'],

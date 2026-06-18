@@ -1,5 +1,5 @@
 /**
- * Mixed realistic load — 2000 concurrent users on election 10.
+ * Mixed realistic load — stepped ramp to MAX_VUS on election 10.
  * ~65% browse, ~30% vote, ~5% static frontend.
  *
  * Run: ./load-tests/run.sh scenarios/mixed-2000.js
@@ -8,18 +8,14 @@ import http from 'k6/http';
 import { sleep } from 'k6';
 import { generateJWT, authHeaders, padBallotPayload } from '../helpers.js';
 import { env, voterEmail, pickCandidate } from '../env.js';
+import { buildSteppedStages } from '../stages.js';
 
 export const options = {
   scenarios: {
     mixed_load: {
       executor: 'ramping-vus',
       startVUs: 0,
-      stages: [
-        { duration: '5m', target: 500 },
-        { duration: '10m', target: env.maxVus },
-        { duration: '15m', target: env.maxVus },
-        { duration: '5m', target: 0 },
-      ],
+      stages: buildSteppedStages(env.maxVus),
       gracefulRampDown: '3m',
     },
   },

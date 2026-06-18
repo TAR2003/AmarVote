@@ -14,19 +14,21 @@ import com.amarvote.amarvote.model.Election;
 public interface ElectionRepository extends JpaRepository<Election, Long> {
     
     // Get all elections that are accessible to a specific user
-    // This includes: 
+    // This includes:
     // 1. All public elections (elections with privacy = 'public')
-    // 2. All elections where the user is in the allowed voters list
-    // 3. All elections where the user is the admin (admin_email matches)
-    // 4. All elections where the user is a guardian
+    // 2. All open elections (eligibility = 'unlisted')
+    // 3. All elections where the user is in the allowed voters list
+    // 4. All elections where the user is the admin (admin_email matches)
+    // 5. All elections where the user is a guardian
     @Query("SELECT DISTINCT e FROM Election e " +
            "LEFT JOIN AllowedVoter av ON e.electionId = av.electionId " +
            "LEFT JOIN Guardian g ON e.electionId = g.electionId " +
            "WHERE " +
-           "   e.privacy = 'public' " + // Public elections
-           "   OR av.userEmail = :userEmail " + // User is allowed voter
-           "   OR e.adminEmail = :userEmail " + // User is admin
-           "   OR g.userEmail = :userEmail")   // User is guardian
+           "   e.privacy = 'public' " +
+           "   OR e.eligibility = 'unlisted' " +
+           "   OR av.userEmail = :userEmail " +
+           "   OR e.adminEmail = :userEmail " +
+           "   OR g.userEmail = :userEmail")
     List<Election> findAllAccessibleElections(@Param("userEmail") String userEmail);
     
     /**
@@ -52,6 +54,7 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
             "    LEFT JOIN guardians g ON e.election_id = g.election_id " +
             "    WHERE " +
             "        e.privacy = 'public' OR " +
+            "        e.eligibility = 'unlisted' OR " +
             "        av.user_email = :userEmail OR " +
             "        e.admin_email = :userEmail OR " +
             "        g.user_email = :userEmail" +

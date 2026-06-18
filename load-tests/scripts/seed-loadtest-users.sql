@@ -1,5 +1,5 @@
--- Seed 2000 load-test voters for election 10.
--- Each email must exist in authorized_users AND allowed_voters (if election is listed).
+-- Seed load-test voters for election 10 (listed elections only).
+-- With open registration + unlisted eligibility, synthetic JWT emails work without seeding.
 --
 -- Usage on server:
 --   docker exec -i amarvote_postgres psql -U amarvote_user -d amarvote_db \
@@ -8,6 +8,15 @@
 
 \set election_id 10
 \set email_domain '''yourdomain.com'''
+
+-- Optional: pre-create users rows (not required when REGISTRATION_OPEN_TO_ALL=true)
+INSERT INTO users (email, password_hash, created_at)
+SELECT
+  'loadtest-voter-' || LPAD(g::text, 4, '0') || '@' || trim(both '''' from :'email_domain'),
+  '',
+  NOW()
+FROM generate_series(1, 2000) AS g
+ON CONFLICT (email) DO NOTHING;
 
 INSERT INTO authorized_users (email, user_type, created_at)
 SELECT

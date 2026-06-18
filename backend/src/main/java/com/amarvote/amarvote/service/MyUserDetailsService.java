@@ -1,5 +1,6 @@
 package com.amarvote.amarvote.service;
 
+import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -12,12 +13,15 @@ import lombok.RequiredArgsConstructor;
 
 /**
  * UserDetailsService backed by the users table.
+ * When registration is open to all, accepts any email from a valid JWT
+ * even if the user has not completed signup yet (load tests, first-time voters).
  */
 @Service
 @RequiredArgsConstructor
 public class MyUserDetailsService implements UserDetailsService {
 
     private final AppUserRepository appUserRepository;
+    private final SystemSettingService systemSettingService;
 
     @Override
     public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
@@ -25,11 +29,29 @@ public class MyUserDetailsService implements UserDetailsService {
             throw new UsernameNotFoundException("Email cannot be empty");
         }
 
-        AppUser user = appUserRepository.findByEmail(email.trim().toLowerCase())
-                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
+        String normalized = email.trim().toLowerCase();
+        return appUserRepository.findByEmail(normalized)
+                .map(this::toUserDetails)
+                .orElseGet(() -> guestUserDetailsOrThrow(normalized));
+    }
 
-        return org.springframework.security.core.userdetails.User
-                .withUsername(user.getEmail())
+    private UserDetails guestUserDetailsOrThrow(String normalizedEmail) {
+        if (!systemSettingService.isRegistrationOpenToAll()) {
+            throw new UsernameNotFoundException("User not found: " + normalizedEmail);
+        }
+
+        return User.withUsername(normalizedEmail)
+                .password("")
+                .authorities("ROLE_USER")
+                .accountExpired(false)
+                .accountLocked(false)
+                .credentialsExpired(false)
+                .disabled(false)
+                .build();
+    }
+
+    private UserDetails toUserDetails(AppUser user) {
+        return User.withUsername(user.getEmail())
                 .password(user.getPasswordHash())
                 .authorities("ROLE_USER")
                 .accountExpired(false)

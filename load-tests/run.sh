@@ -39,6 +39,10 @@ export TEST_EMAIL_PREFIX="${TEST_EMAIL_PREFIX:-loadtest-voter}"
 export TEST_EMAIL_DOMAIN="${TEST_EMAIL_DOMAIN:-example.com}"
 export CANDIDATES="${CANDIDATES:-A big name|nobo tobo|masnoon muztahid}"
 export MAX_VUS="${MAX_VUS:-2000}"
+export VU_STEPS="${VU_STEPS:-50,100,200,500,1000}"
+export STAGE_RAMP_DURATION="${STAGE_RAMP_DURATION:-2m}"
+export STAGE_HOLD_DURATION="${STAGE_HOLD_DURATION:-3m}"
+export RAMP_DOWN_DURATION="${RAMP_DOWN_DURATION:-5m}"
 
 if [[ -z "${JWT_SECRET_B64}" ]]; then
   echo "ERROR: JWT_SECRET or JWT_SECRET_B64 must be set in .env or load-tests/.env.loadtest" >&2
@@ -58,6 +62,8 @@ echo "▶ k6 ${SCENARIO}"
 echo "  BASE_URL=${BASE_URL}"
 echo "  ELECTION_ID=${ELECTION_ID}"
 echo "  MAX_VUS=${MAX_VUS}"
+echo "  VU_STEPS=${VU_STEPS} (+ ${MAX_VUS} peak)"
+echo "  STAGE_RAMP=${STAGE_RAMP_DURATION}  STAGE_HOLD=${STAGE_HOLD_DURATION}  RAMP_DOWN=${RAMP_DOWN_DURATION}"
 echo "  CANDIDATES=${CANDIDATES}"
 echo "  JWT_SECRET_B64=*** (${#JWT_SECRET_B64} chars)"
 
@@ -69,4 +75,8 @@ exec k6 run "${SCENARIO}" \
   -e "TEST_EMAIL_DOMAIN=${TEST_EMAIL_DOMAIN}" \
   -e "CANDIDATES=${CANDIDATES}" \
   -e "MAX_VUS=${MAX_VUS}" \
+  -e "VU_STEPS=${VU_STEPS}" \
+  -e "STAGE_RAMP_DURATION=${STAGE_RAMP_DURATION}" \
+  -e "STAGE_HOLD_DURATION=${STAGE_HOLD_DURATION}" \
+  -e "RAMP_DOWN_DURATION=${RAMP_DOWN_DURATION}" \
   "$@"

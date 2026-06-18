@@ -75,23 +75,30 @@ public class JWTFilter extends OncePerRequestFilter {
         if (jwtToken != null) {
             try {
                 userEmail = jwtService.extractUserEmailFromToken(jwtToken);
+                if (userEmail != null) {
+                    userEmail = userEmail.trim().toLowerCase();
+                }
                 System.out.println("Extracted user email: " + userEmail);
             } catch (Exception e) {
                 logger.warn("Failed to extract user from JWT", e);
             }
 
             if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
-                if (jwtService.validateToken(jwtToken, userDetails)) {
-                    UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                            userDetails, null, userDetails.getAuthorities());
-                    authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                    SecurityContextHolder.getContext().setAuthentication(authToken);
-                    
-                    // Store the original JWT token in request attributes for later use
-                    request.setAttribute("jwtToken", jwtToken);
-                    request.setAttribute("userEmail", userEmail);
-                    authorizedUserService.markLastActive(userEmail);
+                try {
+                    UserDetails userDetails = userDetailsService.loadUserByUsername(userEmail);
+                    if (jwtService.validateToken(jwtToken, userDetails)) {
+                        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                userDetails, null, userDetails.getAuthorities());
+                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                        SecurityContextHolder.getContext().setAuthentication(authToken);
+
+                        // Store the original JWT token in request attributes for later use
+                        request.setAttribute("jwtToken", jwtToken);
+                        request.setAttribute("userEmail", userEmail);
+                        authorizedUserService.markLastActive(userEmail);
+                    }
+                } catch (Exception e) {
+                    logger.warn("JWT authentication failed for " + userEmail, e);
                 }
             }
         }

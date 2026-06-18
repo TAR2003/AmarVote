@@ -1346,6 +1346,12 @@ public class ElectionService {
             return true;
         }
 
+        // Open elections (unlisted eligibility) are visible to any authenticated user
+        if ("unlisted".equals(election.getEligibility())) {
+            System.out.println("Election " + election.getElectionId() + " is open (unlisted eligibility)");
+            return true;
+        }
+
         // Check if election is public (privacy = 'public')
         if ("public".equals(election.getPrivacy())) {
             System.out.println("Election " + election.getElectionId() + " is public");

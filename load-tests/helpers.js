@@ -10,7 +10,7 @@ export const TARGET_BALLOT_SIZE = 18980;
 /**
  * Generate HS256 JWT matching backend JWTService (sub = email, 1h TTL).
  * @param {string} secretB64 - Base64-encoded JWT_SECRET from server .env
- * @param {string} email - Authorized user email (must exist in authorized_users)
+ * @param {string} email - Voter email (JWT sub); with open registration, need not exist in users table yet
  */
 export function generateJWT(secretB64, email, ttlSeconds = 3600) {
   const header = encoding.b64encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }), 'rawurl');

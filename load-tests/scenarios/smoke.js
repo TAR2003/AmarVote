@@ -22,7 +22,10 @@ export function setup() {
     headers: authHeaders(jwt),
   });
   if (detail.status !== 200) {
-    console.warn(`Election ${env.electionId} detail returned ${detail.status} — check JWT user access`);
+    console.warn(
+      `Election ${env.electionId} detail returned ${detail.status} — ` +
+        'check JWT secret, REGISTRATION_OPEN_TO_ALL=true, and election eligibility=unlisted',
+    );
   }
   return { jwt };
 }
