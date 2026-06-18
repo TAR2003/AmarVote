@@ -131,15 +131,32 @@ Candidates are loaded from `GET /api/election/:ELECTION_ID` in k6 `setup()` (`el
 
 | Scenario | Email | Encrypt | Cast |
 |----------|-------|---------|------|
-| **vote-encrypt-only** | One per VU | Unlimited | Never |
-| **vote-encrypt-2000**, **vote-flow**, **mixed** (vote) | One per VU per step (`voterEmailForStep`) | Unlimited before first cast | Once, then VU idles |
+| **vote-encrypt-only** | One per VU (`voterEmail`) | Unlimited | Never |
+| **vote-encrypt-2000**, **vote-flow**, **mixed** (vote) | Stride allocation (`email-allocator.js`) | Per cycle | Once per email, then next seq (unlimited) |
+
+**Collision-free emails** (`email-allocator.js`):
+
+Each VU gets unlimited distinct emails via stride partitioning — **no two VUs can share an email**:
+
+```
+index = STEP_EMAIL_OFFSET + (seq - 1) × stepVus + (VU - 1)
+```
+
+- `stepVus` = target VUs for the step (e.g. 50, 200)
+- VU1 seq 1,2,3… → a1, a51, a101… (when stepVus=50)
+- VU2 seq 1,2,3… → a2, a52, a102…
+- No per-VU cap; `seq` increments each vote cycle (or on skip after already-voted)
+
+Between steps, `STEP_EMAIL_OFFSET` advances by an **estimate** (`stepVus × estimatedCyclesPerVu`) for planning only.
+
+Seed `allowed_voters` for the full estimated range across all steps.
 
 Lifecycle (production rules):
 
-1. Same email all iterations for that VU (e.g. `a1@…`).
-2. First `ENCRYPT_WARMUP_ITERS` iterations (default **2**) — encrypt only (preview ballot).
-3. Next iteration — encrypt + cast once.
-4. After cast — no more encrypt/cast (backend returns “Already voted”).
+1. One email per cast — after cast, backend blocks further encrypt/cast for that email.
+2. Load test VUs pick the **next sequential email** and keep cycling (no permanent idle).
+3. First `ENCRYPT_WARMUP_ITERS` iterations (default **2**) per cycle — encrypt only on the same email.
+4. Next iteration in the cycle — encrypt + cast once, then advance to the next email.
 
 ```bash
 ENCRYPT_WARMUP_ITERS=3 ./load-tests/run.sh scenarios/vote-encrypt-2000.js
@@ -172,6 +189,9 @@ Recommended order: **smoke** → **nginx-limit-check** → **browse** → **vote
 | `ELECTION_ID` | `10` | Election under test |
 | `TEST_EMAIL_PREFIX` | `loadtest-voter` | Synthetic voter emails |
 | `TEST_EMAIL_DOMAIN` | `example.com` | Email domain for JWT `sub` |
+| `TEST_EMAIL_START_OFFSET` | `0` | Skip first N voters when resuming |
+| `VOTE_CYCLE_SECONDS` | `~32` | Avg vote-cycle duration (sizes stepped email estimate) |
+| `LOG_FAILURES` | `1` | Print `[VOTE-FAIL]` JSON lines for each failure (set `0` to silence) |
 | `MAX_VUS` | `2000` | Final step in the ramp |
 | `VU_STEPS` | `50,100,200,500,1000` | Intermediate steps (+ `MAX_VUS` appended) |
 | `STAGE_RAMP_DURATION` | `2m` | Time to reach each VU level |

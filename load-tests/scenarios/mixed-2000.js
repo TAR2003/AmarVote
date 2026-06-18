@@ -5,18 +5,13 @@
  */
 import http from 'k6/http';
 import { sleep } from 'k6';
-import { generateJWT, authHeaders, padBallotPayload, postEncryptBallot } from '../helpers.js';
-import { env, voterEmail, voterEmailForStep } from '../env.js';
-import { electionSetup, pickCandidate } from '../election-setup.js';
-import { recordApiResult, recordEncryptOutcome } from '../metrics.js';
-import {
-  encryptWarmupIters,
-  isAlreadyVotedApi,
-  parseEligibility,
-  voterHasAlreadyCast,
-} from '../vote-lifecycle.js';
+import { generateJWT, authHeaders } from '../helpers.js';
+import { env, voterEmail } from '../env.js';
+import { electionSetup } from '../election-setup.js';
+import { recordApiResult } from '../metrics.js';
 import { buildLoadTestOptions } from '../options.js';
 import { createSingleStepSummary, createStepSummary } from '../summary.js';
+import { runVoteCycleIteration } from '../vote-cycle.js';
 
 export const options = buildLoadTestOptions(env.maxVus, {
   gracefulRampDown: '30s',
@@ -47,61 +42,9 @@ function browseFlow(jwt) {
   recordApiResult(eligRes, 'eligibility');
 }
 
-let hasCastVote = false;
 
 function voteFlow(candidates) {
-  if (hasCastVote) return;
-
-  const email = voterEmailForStep(__VU);
-  const jwt = generateJWT(env.jwtSecretB64, email);
-  const headers = authHeaders(jwt);
-  const candidate = pickCandidate(candidates, __VU, __ITER);
-  const warmup = encryptWarmupIters();
-
-  const eligRes = http.post(
-    `${env.baseUrl}/api/eligibility`,
-    JSON.stringify({ electionId: env.electionId }),
-    { headers, tags: { name: 'eligibility' } },
-  );
-  recordApiResult(eligRes, 'eligibility');
-
-  const eligBody = parseEligibility(eligRes);
-  if (eligRes.status !== 200 || eligBody.eligible !== true) {
-    if (voterHasAlreadyCast(eligBody)) hasCastVote = true;
-    return;
-  }
-
-  const ballotBody = padBallotPayload({
-    electionId: env.electionId,
-    selectedCandidates: [candidate],
-    botDetection: { isBot: false, requestId: `k6-${__VU}`, timestamp: new Date().toISOString() },
-  });
-
-  const enc = postEncryptBallot(env.baseUrl, jwt, ballotBody);
-  recordEncryptOutcome(enc);
-  if (isAlreadyVotedApi(enc)) {
-    hasCastVote = true;
-    return;
-  }
-  if (enc.status !== 200) return;
-
-  if (__ITER < warmup) return;
-
-  const b = enc.json();
-  const castRes = http.post(
-    `${env.baseUrl}/api/cast-encrypted-ballot`,
-    JSON.stringify({
-      electionId: env.electionId,
-      encrypted_ballot: b.encrypted_ballot,
-      ballot_hash: b.ballot_hash,
-      ballot_tracking_code: b.ballot_tracking_code,
-    }),
-    { headers, tags: { name: 'cast-encrypted-ballot' } },
-  );
-  recordApiResult(castRes, 'cast-encrypted-ballot');
-
-  const castOk = castRes.status === 200 && castRes.json('success') === true;
-  if (castOk || isAlreadyVotedApi(castRes)) hasCastVote = true;
+  runVoteCycleIteration({ candidates });
 }
 
 function staticAssets() {

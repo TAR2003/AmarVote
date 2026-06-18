@@ -1,30 +1,15 @@
 /**
  * Full vote path — stepped ramp (50 → 100 → … → MAX_VUS).
- * Same voter lifecycle as vote-encrypt-2000.js (encrypt many times, cast once).
+ * Sequential global emails via vote-cycle.js (see email-allocator.js).
  *
  * Run: ./load-tests/run.sh scenarios/vote-flow.js
  */
-import http from 'k6/http';
-import { check, sleep } from 'k6';
-import {
-  generateJWT,
-  authHeaders,
-  padBallotPayload,
-  postEncryptBallot,
-} from '../helpers.js';
-import { env, voterEmailForStep } from '../env.js';
-import { electionSetup, pickCandidate } from '../election-setup.js';
-import { recordApiResult, recordEncryptOutcome } from '../metrics.js';
-import {
-  encryptWarmupIters,
-  isAlreadyVotedApi,
-  parseEligibility,
-  voterHasAlreadyCast,
-} from '../vote-lifecycle.js';
+import { sleep } from 'k6';
+import { env } from '../env.js';
+import { electionSetup } from '../election-setup.js';
 import { buildLoadTestOptions } from '../options.js';
 import { createSingleStepSummary, createStepSummary } from '../summary.js';
-
-let hasCast = false;
+import { runVoteCycleIteration } from '../vote-cycle.js';
 
 export const options = buildLoadTestOptions(env.maxVus, {
   gracefulRampDown: '30s',
@@ -41,78 +26,14 @@ export function setup() {
 }
 
 export default function (data) {
-  if (hasCast) {
-    sleep(2 + Math.random() * 3);
-    return;
-  }
+  const outcome = runVoteCycleIteration(data);
 
-  const candidates = data.candidates;
-  const email = voterEmailForStep(__VU);
-  const jwt = generateJWT(env.jwtSecretB64, email);
-  const headers = authHeaders(jwt);
-  const candidate = pickCandidate(candidates, __VU, __ITER);
-  const warmup = encryptWarmupIters();
-
-  const eligRes = http.post(
-    `${env.baseUrl}/api/eligibility`,
-    JSON.stringify({ electionId: env.electionId }),
-    { headers, tags: { name: 'eligibility' } },
-  );
-  recordApiResult(eligRes, 'eligibility');
-
-  const eligBody = parseEligibility(eligRes);
-  if (eligRes.status !== 200 || eligBody.eligible !== true) {
-    if (voterHasAlreadyCast(eligBody)) hasCast = true;
-    sleep(2);
-    return;
-  }
-
-  const ballotBody = padBallotPayload({
-    electionId: env.electionId,
-    selectedCandidates: [candidate],
-    botDetection: {
-      isBot: false,
-      requestId: `k6-cast-vu${__VU}-iter${__ITER}`,
-      timestamp: new Date().toISOString(),
-    },
-  });
-
-  const encryptRes = postEncryptBallot(env.baseUrl, jwt, ballotBody);
-  recordEncryptOutcome(encryptRes);
-  if (isAlreadyVotedApi(encryptRes)) {
-    hasCast = true;
-    sleep(2);
-    return;
-  }
-  if (!check(encryptRes, { 'encrypt 200': (r) => r.status === 200 })) {
-    sleep(3);
-    return;
-  }
-
-  if (__ITER < warmup) {
+  if (outcome === 'warmup') {
     sleep(3 + Math.random() * 5);
     return;
   }
 
-  const body = encryptRes.json();
-  const castRes = http.post(
-    `${env.baseUrl}/api/cast-encrypted-ballot`,
-    JSON.stringify({
-      electionId: env.electionId,
-      encrypted_ballot: body.encrypted_ballot,
-      ballot_hash: body.ballot_hash,
-      ballot_tracking_code: body.ballot_tracking_code,
-    }),
-    { headers, tags: { name: 'cast-encrypted-ballot' } },
-  );
-  recordApiResult(castRes, 'cast-encrypted-ballot');
-
-  const castOk = castRes.status === 200 && castRes.json('success') === true;
-  if (castOk || isAlreadyVotedApi(castRes)) hasCast = true;
-
-  check(castRes, { 'cast success': (r) => r.status === 200 && r.json('success') === true });
-
-  sleep(3 + Math.random() * 5);
+  sleep(2 + Math.random() * 4);
 }
 
 export function handleSummary(data) {

@@ -75,6 +75,7 @@ mapfile -t STEPS < <(node -e "
 COMBINED_JSON="${LOADTEST_DIR}/results/${TEST_NAME}-combined-report.json"
 COMBINED_TXT="${LOADTEST_DIR}/results/${TEST_NAME}-combined-report.txt"
 STEP_SUMMARIES="[]"
+EMAIL_OFFSET=0
 
 echo ""
 echo "══════════════════════════════════════════════════════════════"
@@ -96,12 +97,24 @@ K6_COMMON=(
   -e "VU_STEPS=${VU_STEPS}"
   -e "STAGE_RAMP_DURATION=${STAGE_RAMP_DURATION}"
   -e "STAGE_HOLD_DURATION=${STAGE_HOLD_DURATION}"
+  -e "LOG_FAILURES=${LOG_FAILURES:-1}"
 )
 
 for VUS in "${STEPS[@]}"; do
+  EMAIL_RANGE="$(node -e "
+    const mod = require('${LOADTEST_DIR}/voter-emails.cjs');
+    const { first, last, estimatedCyclesPerVu } = mod.emailRangeForStep(${EMAIL_OFFSET}, ${VUS});
+    const email = (i) => mod.formatVoterEmail(
+      process.env.TEST_EMAIL_PREFIX || 'loadtest-voter',
+      process.env.TEST_EMAIL_DOMAIN || 'example.com',
+      i,
+    );
+    console.log(email(first) + ' … ' + email(last) + ' (' + ${VUS} + ' VUs, ~' + estimatedCyclesPerVu + ' cycles/VU est.)');
+  ")"
   echo ""
   echo "╔══════════════════════════════════════════════════════════════╗"
   printf "║  ▶ STARTING STEP: %s VIRTUAL USERS%-27s║\n" "${VUS}" ""
+  printf "║    Emails: %-49s║\n" "${EMAIL_RANGE}"
   echo "║    (watch live metrics below — report follows when done)   ║"
   echo "╚══════════════════════════════════════════════════════════════╝"
   echo ""
@@ -116,6 +129,7 @@ for VUS in "${STEPS[@]}"; do
   fi
 
   export STEP_VUS="${VUS}"
+  export STEP_EMAIL_OFFSET="${EMAIL_OFFSET}"
   K6_EXIT=0
   K6_OUT=( )
   if [[ "${LIVE_REPORT:-1}" == "1" ]]; then
@@ -125,6 +139,7 @@ for VUS in "${STEPS[@]}"; do
   k6 run "${SCENARIO}" \
     "${K6_COMMON[@]}" \
     -e "STEP_VUS=${VUS}" \
+    -e "STEP_EMAIL_OFFSET=${EMAIL_OFFSET}" \
     "${K6_OUT[@]}" \
     "$@" || K6_EXIT=$?
 
@@ -170,6 +185,8 @@ for VUS in "${STEPS[@]}"; do
 
   echo ""
   echo "── Step ${VUS} complete. Next step starting in 5s… (Ctrl+C to stop)"
+  EMAIL_USED="$(node -e "console.log(require('${LOADTEST_DIR}/voter-emails.cjs').emailsReservedForStep(${VUS}))")"
+  EMAIL_OFFSET=$((EMAIL_OFFSET + EMAIL_USED))
   sleep 5
 done
 

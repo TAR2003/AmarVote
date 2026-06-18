@@ -1,6 +1,7 @@
 /**
  * Per-step and per-API load test reports.
  */
+import { collectFailureCounters } from './failure-log.js';
 
 function round(n, digits = 2) {
   if (n == null || Number.isNaN(n)) return null;
@@ -69,6 +70,7 @@ function buildAggregateRow(metrics) {
 export function buildSingleStepReport(data, testName, vus) {
   const aggregate = buildAggregateRow(data.metrics);
   const apis = extractApiBreakdown(data.metrics);
+  const failureBreakdown = collectFailureCounters(data.metrics);
   const passed = aggregate.http_fail_rate_pct < 5;
 
   return {
@@ -78,6 +80,7 @@ export function buildSingleStepReport(data, testName, vus) {
     status: passed ? 'PASS' : 'FAIL',
     ...aggregate,
     apis,
+    failure_breakdown: failureBreakdown,
   };
 }
 
@@ -108,6 +111,12 @@ export function formatSingleStepReportText(report) {
   }
   if (report.encrypt_transient_fail > 0) {
     lines.push(`    Encrypt gateway   : ${report.encrypt_transient_fail} (502/503/429 after retries)`);
+  }
+  if (report.failure_breakdown?.length) {
+    lines.push('    Failure breakdown (see [VOTE-FAIL] lines in k6 output for each event):');
+    for (const row of report.failure_breakdown) {
+      lines.push(`      ${row.label}: ${row.count}`);
+    }
   }
   if (report.checks_passed != null) {
     lines.push(
