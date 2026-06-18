@@ -16,7 +16,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import com.amarvote.amarvote.dto.ActivateElectionRequest; // Fixed: Use Spring's HttpHeaders, not Netty's
-import com.amarvote.amarvote.dto.BlockchainElectionResponse;
 import com.amarvote.amarvote.dto.ChunkResultResponse;
 import com.amarvote.amarvote.dto.ElectionCreationRequest;
 import com.amarvote.amarvote.dto.ElectionDetailResponse;
@@ -87,8 +86,8 @@ public class ElectionService {
     @Autowired
     private CompensatedDecryptionRepository compensatedDecryptionRepository;
 
-    @Autowired
-    private BlockchainService blockchainService;
+    // @Autowired
+    // private BlockchainService blockchainService;
 
     @Autowired
     private SubmittedBallotRepository submittedBallotRepository;
@@ -170,22 +169,20 @@ public class ElectionService {
         // ✅ Save to DB to get generated ID
         election = electionRepository.save(election);
 
-        // 🔗 Create election on blockchain
-        try {
-            BlockchainElectionResponse blockchainResponse = blockchainService
-                    .createElection(election.getElectionId().toString());
-            if (blockchainResponse.isSuccess()) {
-                System.out.println("✅ Election " + election.getElectionId() + " successfully created on blockchain");
-                System.out.println("🔗 Transaction Hash: " + blockchainResponse.getTransactionHash());
-                System.out.println("📦 Block Number: " + blockchainResponse.getBlockNumber());
-            } else {
-                System.err.println("⚠️ Failed to create election on blockchain: " + blockchainResponse.getMessage());
-                // Continue with election creation even if blockchain fails
-            }
-        } catch (Exception e) {
-            System.err.println("⚠️ Error calling blockchain service: " + e.getMessage());
-            // Continue with election creation even if blockchain fails
-        }
+        // Blockchain disabled (blockchain.enabled=false) — election exists in Postgres only.
+        // try {
+        //     BlockchainElectionResponse blockchainResponse = blockchainService
+        //             .createElection(election.getElectionId().toString());
+        //     if (blockchainResponse.isSuccess()) {
+        //         System.out.println("✅ Election " + election.getElectionId() + " successfully created on blockchain");
+        //         System.out.println("🔗 Transaction Hash: " + blockchainResponse.getTransactionHash());
+        //         System.out.println("📦 Block Number: " + blockchainResponse.getBlockNumber());
+        //     } else {
+        //         System.err.println("⚠️ Failed to create election on blockchain: " + blockchainResponse.getMessage());
+        //     }
+        // } catch (Exception e) {
+        //     System.err.println("⚠️ Error calling blockchain service: " + e.getMessage());
+        // }
 
         // Validate guardian email count
         List<String> guardianEmails = request.guardianEmails();

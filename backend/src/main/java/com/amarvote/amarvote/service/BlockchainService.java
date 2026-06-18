@@ -3,6 +3,7 @@ package com.amarvote.amarvote.service;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.http.HttpEntity;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpMethod;
@@ -34,8 +35,11 @@ public class BlockchainService {
     
     private static final Logger logger = LoggerFactory.getLogger(BlockchainService.class);
 
-    @Value("${blockchain.service.url}")
+    @Value("${blockchain.service.url:}")
     private String blockchainServiceUrl;
+
+    @Value("${blockchain.enabled:false}")
+    private boolean blockchainEnabled;
     
     private final RestTemplate restTemplate;
     private final ObjectMapper objectMapper;
@@ -44,13 +48,23 @@ public class BlockchainService {
         this.restTemplate = restTemplate;
         this.objectMapper = objectMapper;
     }
+
+    private boolean isBlockchainDisabled() {
+        return !blockchainEnabled;
+    }
     
     /**
      * Create an election on the blockchain
-     * @param electionId The unique identifier for the election
      * @return Response from blockchain service
      */
     public BlockchainElectionResponse createElection(String electionId) {
+        if (isBlockchainDisabled()) {
+            logger.debug("Blockchain disabled — skipping createElection for {}", electionId);
+            return BlockchainElectionResponse.builder()
+                    .success(false)
+                    .message("Blockchain integration is disabled")
+                    .build();
+        }
         try {
             String url = blockchainServiceUrl + "/create-election";
             
@@ -104,13 +118,29 @@ public class BlockchainService {
     }
     
     /**
-     * Record a ballot on the blockchain
-     * @param electionId The election identifier
-     * @param trackingCode The ballot tracking code
-     * @param ballotHash The ballot hash
-     * @return Response from blockchain service
+     * Fire-and-forget blockchain record — must not run inside a DB transaction.
      */
+    @Async
+    public void recordBallotAsync(String electionId, String trackingCode, String ballotHash) {
+        if (isBlockchainDisabled()) {
+            return;
+        }
+        BlockchainRecordBallotResponse response = recordBallot(electionId, trackingCode, ballotHash);
+        if (response == null || !response.isSuccess()) {
+            String message = response != null ? response.getMessage() : "null response";
+            logger.warn("Async blockchain record failed for election {} tracking {}: {}",
+                    electionId, trackingCode, message);
+        }
+    }
+
     public BlockchainRecordBallotResponse recordBallot(String electionId, String trackingCode, String ballotHash) {
+        if (isBlockchainDisabled()) {
+            logger.debug("Blockchain disabled — skipping recordBallot for {}", trackingCode);
+            return BlockchainRecordBallotResponse.builder()
+                    .success(false)
+                    .message("Blockchain integration is disabled")
+                    .build();
+        }
         try {
             String url = blockchainServiceUrl + "/record-ballot";
             
@@ -169,6 +199,12 @@ public class BlockchainService {
      * @return Ballot information from blockchain
      */
     public BlockchainBallotInfoResponse getBallotInfo(String electionId, String trackingCode) {
+        if (isBlockchainDisabled()) {
+            return BlockchainBallotInfoResponse.builder()
+                    .success(false)
+                    .message("Blockchain integration is disabled")
+                    .build();
+        }
         try {
             String url = blockchainServiceUrl + "/ballot/" + electionId + "/" + trackingCode;
             
@@ -222,6 +258,12 @@ public class BlockchainService {
      * @return Election logs from blockchain
      */
     public BlockchainLogsResponse getElectionLogs(String electionId) {
+        if (isBlockchainDisabled()) {
+            return BlockchainLogsResponse.builder()
+                    .success(false)
+                    .message("Blockchain integration is disabled")
+                    .build();
+        }
         try {
             // Enhanced logging for debugging
             logger.info("🔍 Attempting to retrieve blockchain logs for election: {}", electionId);
@@ -326,6 +368,9 @@ public class BlockchainService {
      * @return true if service is healthy, false otherwise
      */
     public boolean isBlockchainServiceHealthy() {
+        if (isBlockchainDisabled()) {
+            return false;
+        }
         try {
             String url = blockchainServiceUrl + "/health";
             ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);

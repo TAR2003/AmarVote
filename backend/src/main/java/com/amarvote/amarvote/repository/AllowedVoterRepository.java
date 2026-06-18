@@ -4,6 +4,9 @@ import java.util.List;
 import java.util.Optional;
 
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.amarvote.amarvote.model.AllowedVoter;
@@ -29,5 +32,20 @@ public interface AllowedVoterRepository extends JpaRepository<AllowedVoter, Allo
     
     // Find voters who have already voted
     List<AllowedVoter> findByElectionIdAndHasVoted(Long electionId, Boolean hasVoted);
+
+    boolean existsByElectionIdAndUserEmailAndHasVotedTrue(Long electionId, String userEmail);
+
+    /**
+     * Atomically marks a voter as having cast. Returns 0 if they already voted.
+     */
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE AllowedVoter av
+            SET av.hasVoted = true
+            WHERE av.electionId = :electionId
+              AND av.userEmail = :userEmail
+              AND av.hasVoted = false
+            """)
+    int markAsVotedIfNotYet(@Param("electionId") Long electionId, @Param("userEmail") String userEmail);
 }
 

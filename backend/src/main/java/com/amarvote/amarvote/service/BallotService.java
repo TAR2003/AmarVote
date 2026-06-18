@@ -18,7 +18,6 @@ import org.springframework.stereotype.Service;
 
 import com.amarvote.amarvote.dto.BenalohChallengeRequest;
 import com.amarvote.amarvote.dto.BenalohChallengeResponse;
-import com.amarvote.amarvote.dto.BlockchainRecordBallotResponse;
 import com.amarvote.amarvote.dto.CastBallotRequest;
 import com.amarvote.amarvote.dto.CastBallotResponse;
 import com.amarvote.amarvote.dto.CastEncryptedBallotRequest;
@@ -31,7 +30,6 @@ import com.amarvote.amarvote.dto.ElectionGuardBenalohResponse;
 import com.amarvote.amarvote.dto.EligibilityCheckRequest;
 import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.dto.worker.VoteReceiptTask;
-import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
@@ -43,7 +41,6 @@ import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.utils.VoterIdGenerator;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
-import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 
 @Service
@@ -71,8 +68,11 @@ public class BallotService {
     @Autowired
     private ObjectMapper objectMapper;
 
+    // @Autowired
+    // private BlockchainService blockchainService;
+
     @Autowired
-    private BlockchainService blockchainService;
+    private BallotCastPersistenceService ballotCastPersistenceService;
 
     @Autowired
     private TaskPublisherService taskPublisherService;
@@ -80,7 +80,6 @@ public class BallotService {
     @Value("${amarvote.email.send-after-vote:false}")
     private boolean sendEmailAfterVote;
 
-    @Transactional
     public CastBallotResponse castBallot(CastBallotRequest request, String userEmail) {
         try {
             // 0. Validate bot detection data
@@ -243,7 +242,7 @@ public class BallotService {
                     partyNames, candidateNames, List.of(request.getSelectedCandidate()),
                     ballotHashId, election.getJointPublicKey(), election.getBaseHash(),
                     election.getElectionQuorum(),
-                    guardianRepository.findByElectionId(election.getElectionId()).size(),
+                    guardianRepository.countByElectionId(election.getElectionId()),
                     maxChoicesCast);
 
             if (guardResponse == null || !"success".equals(guardResponse.getStatus())) {
@@ -269,32 +268,30 @@ public class BallotService {
                     .trackingCode(ballotHashId)
                     .submissionTime(Instant.now())
                     .build();
-            ballotRepository.save(ballot);
-
-            // 🔗 Record ballot on blockchain
-            try {
-                BlockchainRecordBallotResponse blockchainResponse = blockchainService.recordBallot(
-                        election.getElectionId().toString(),
-                        ballotHashId,
-                        guardResponse.getBallot_hash());
-                if (blockchainResponse.isSuccess()) {
-                    System.out.println("✅ Ballot " + ballotHashId + " successfully recorded on blockchain");
-                    System.out.println("🔗 Transaction Hash: " + blockchainResponse.getTransactionHash());
-                    System.out.println("📦 Block Number: " + blockchainResponse.getBlockNumber());
-                } else {
-                    System.err.println("⚠️ Failed to record ballot on blockchain: " + blockchainResponse.getMessage());
-                    // Continue with ballot casting even if blockchain fails
-                }
-            } catch (Exception e) {
-                System.err.println("⚠️ Error calling blockchain service: " + e.getMessage());
-                // Continue with ballot casting even if blockchain fails
+            BallotCastPersistenceService.CastPersistOutcome persistOutcome =
+                    ballotCastPersistenceService.persistCast(ballot, userEmail, election);
+            if (persistOutcome == BallotCastPersistenceService.CastPersistOutcome.ALREADY_VOTED) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("You have already voted in this election")
+                        .errorReason("Already voted")
+                        .build();
+            }
+            if (persistOutcome == BallotCastPersistenceService.CastPersistOutcome.NOT_ELIGIBLE) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("You are not eligible to vote in this election")
+                        .errorReason("Not eligible")
+                        .build();
             }
 
-            // 11. Update voter status
-            updateVoterStatus(userEmail, election);
+            // Blockchain disabled (blockchain.enabled=false) — ballot is persisted in Postgres only.
+            // blockchainService.recordBallotAsync(
+            //         election.getElectionId().toString(),
+            //         ballotHashId,
+            //         guardResponse.getBallot_hash());
 
-            // 12. Return success response
-                queueVoteReceiptEmail(
+            queueVoteReceiptEmail(
                     userEmail,
                     election,
                     guardResponse.getBallot_hash(),
@@ -434,20 +431,16 @@ public class BallotService {
     }
 
     private boolean checkVoterEligibility(String userEmail, Election election) {
-        // Check eligibility type
         String eligibility = election.getEligibility();
 
         if ("unlisted".equals(eligibility)) {
-            // For unlisted elections, anyone can vote
             return true;
-        } else if ("listed".equals(eligibility)) {
-            // For listed elections, only users in the allowed voters list can vote
-            List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
-            return allowedVoters.stream()
-                    .anyMatch(av -> av.getUserEmail().equals(userEmail)); // Use userEmail, not userId
+        }
+        if ("listed".equals(eligibility)) {
+            return allowedVoterRepository.existsByElectionIdAndUserEmail(
+                    election.getElectionId(), userEmail);
         }
 
-        // Default behavior for unknown eligibility types - deny access
         return false;
     }
 
@@ -486,44 +479,8 @@ public class BallotService {
     }
 
     private boolean hasUserAlreadyVoted(String userEmail, Long electionId) {
-        // Check if user has an entry in allowed_voters table with hasVoted = true
-        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(electionId);
-
-        return allowedVoters.stream()
-                .anyMatch(av -> av.getUserEmail().equals(userEmail) && av.getHasVoted());
-    }
-
-    @Transactional
-    private void updateVoterStatus(String userEmail, Election election) {
-        List<AllowedVoter> allowedVoters = allowedVoterRepository.findByElectionId(election.getElectionId());
-
-        // Check if user already exists in allowed voters
-        Optional<AllowedVoter> existingVoterOpt = allowedVoters.stream()
-                .filter(av -> av.getUserEmail().equals(userEmail)) // Use userEmail instead of userId
-                .findFirst();
-
-        if (existingVoterOpt.isPresent()) {
-            // User already exists in allowed voters, just update hasVoted status
-            AllowedVoter existingVoter = existingVoterOpt.get();
-            existingVoter.setHasVoted(true);
-            allowedVoterRepository.save(existingVoter);
-        } else {
-            // User doesn't exist in allowed voters
-            if ("unlisted".equals(election.getEligibility())) {
-                // For unlisted elections, add user to allowed voters with hasVoted = true
-                AllowedVoter newVoter = AllowedVoter.builder()
-                        .electionId(election.getElectionId())
-                        .userEmail(userEmail) // Use userEmail, not userId
-                        .hasVoted(true)
-                        .build();
-                allowedVoterRepository.save(newVoter);
-            } else {
-                // For listed elections, user should already be in the list
-                // This case shouldn't happen if eligibility check is working correctly
-                System.err.println("Warning: User " + userEmail + " not found in allowed voters for listed election "
-                        + election.getElectionId());
-            }
-        }
+        return allowedVoterRepository.existsByElectionIdAndUserEmailAndHasVotedTrue(
+                electionId, userEmail);
     }
 
     private ElectionGuardBallotResponse callElectionGuardService(
@@ -780,7 +737,7 @@ public class BallotService {
                     partyNames, candidateNames, selectedCandidates,
                     ballotHashId, election.getJointPublicKey(), election.getBaseHash(),
                     election.getElectionQuorum(),
-                    guardianRepository.findByElectionId(election.getElectionId()).size(),
+                    guardianRepository.countByElectionId(election.getElectionId()),
                     maxChoices);
 
             if (guardResponse == null || !"success".equals(guardResponse.getStatus())) {
@@ -812,9 +769,8 @@ public class BallotService {
     }
 
     /**
-     * Perform Benaloh challenge verification
+     * Perform Benaloh challenge verification (read-only + external crypto; no long DB transaction).
      */
-    @Transactional
     public BenalohChallengeResponse performBenalohChallenge(BenalohChallengeRequest request, String userEmail) {
         try {
             System.out.println("🔍 [BENALOH] Starting Benaloh challenge for user: " + userEmail);
@@ -884,7 +840,7 @@ public class BallotService {
                     partyNames, candidateNames, candidatesToVerify,
                     ballotId, election.getJointPublicKey(), election.getBaseHash(),
                     election.getElectionQuorum(),
-                    guardianRepository.findByElectionId(election.getElectionId()).size(),
+                    guardianRepository.countByElectionId(election.getElectionId()),
                     request.getEncrypted_ballot_with_nonce());
             System.out.println("📞 [BENALOH] Received response from ElectionGuard service");
 
@@ -966,9 +922,9 @@ public class BallotService {
     }
 
     /**
-     * Cast a pre-encrypted ballot
+     * Cast a pre-encrypted ballot.
+     * Not {@code @Transactional}: eligibility checks stay outside the DB transaction.
      */
-    @Transactional
     public CastBallotResponse castEncryptedBallot(CastEncryptedBallotRequest request, String userEmail) {
         try {
             // 1. Find election
@@ -1043,30 +999,30 @@ public class BallotService {
                     .trackingCode(request.getBallot_tracking_code())
                     .submissionTime(Instant.now())
                     .build();
-            ballotRepository.save(ballot);
-
-            // 7. Record ballot on blockchain
-            try {
-                BlockchainRecordBallotResponse blockchainResponse = blockchainService.recordBallot(
-                        election.getElectionId().toString(),
-                        request.getBallot_tracking_code(),
-                        request.getBallot_hash());
-                if (blockchainResponse.isSuccess()) {
-                    System.out.println("✅ Ballot " + request.getBallot_tracking_code() + " successfully recorded on blockchain");
-                    System.out.println("🔗 Transaction Hash: " + blockchainResponse.getTransactionHash());
-                    System.out.println("📦 Block Number: " + blockchainResponse.getBlockNumber());
-                } else {
-                    System.err.println("⚠️ Failed to record ballot on blockchain: " + blockchainResponse.getMessage());
-                }
-            } catch (Exception e) {
-                System.err.println("⚠️ Error calling blockchain service: " + e.getMessage());
+            BallotCastPersistenceService.CastPersistOutcome persistOutcome =
+                    ballotCastPersistenceService.persistCast(ballot, userEmail, election);
+            if (persistOutcome == BallotCastPersistenceService.CastPersistOutcome.ALREADY_VOTED) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("You have already voted in this election")
+                        .errorReason("Already voted")
+                        .build();
+            }
+            if (persistOutcome == BallotCastPersistenceService.CastPersistOutcome.NOT_ELIGIBLE) {
+                return CastBallotResponse.builder()
+                        .success(false)
+                        .message("You are not eligible to vote in this election")
+                        .errorReason("Not eligible")
+                        .build();
             }
 
-            // 8. Update voter status
-            updateVoterStatus(userEmail, election);
+            // Blockchain disabled (blockchain.enabled=false) — ballot is persisted in Postgres only.
+            // blockchainService.recordBallotAsync(
+            //         election.getElectionId().toString(),
+            //         request.getBallot_tracking_code(),
+            //         request.getBallot_hash());
 
-            // 9. Return success response
-                queueVoteReceiptEmail(
+            queueVoteReceiptEmail(
                     userEmail,
                     election,
                     request.getBallot_hash(),
