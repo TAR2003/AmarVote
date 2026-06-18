@@ -17,8 +17,8 @@ services:
       - ./nginx-proxy.loadtest.conf:/etc/nginx/conf.d/default.conf:ro
       - ./nginx/certs:/etc/letsencrypt:ro
 
-  # Slightly more ballot throughput during load test (still within 1024M EG limit)
+  # More sync workers during load test (still within 1024M EG limit)
   electionguard-api:
     environment:
-      - GUNICORN_WORKERS=4
-      - GUNICORN_THREADS=3
+      - GUNICORN_WORKERS=8
+      - GUNICORN_THREADS=1

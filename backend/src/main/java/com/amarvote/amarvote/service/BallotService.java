@@ -591,9 +591,10 @@ public class BallotService {
     }
     
     /**
-     * Create encrypted ballot without casting - for challenge/cast flow
+     * Create encrypted ballot without casting - for challenge/cast flow.
+     * Not @Transactional: the ElectionGuard call can take minutes under load;
+     * holding a DB connection for that duration exhausts HikariCP and blocks eligibility checks.
      */
-    @Transactional
     public CreateEncryptedBallotResponse createEncryptedBallot(CreateEncryptedBallotRequest request, String userEmail) {
         try {
             // 0a. Validate and remove padding (anti-traffic analysis)

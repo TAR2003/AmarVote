@@ -204,8 +204,8 @@ services:
     environment:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
-      - GUNICORN_WORKERS=4
-      - GUNICORN_THREADS=2
+      - GUNICORN_WORKERS=6
+      - GUNICORN_THREADS=1
     volumes:
       - ./Microservice/io:/app/io:rw
     deploy:

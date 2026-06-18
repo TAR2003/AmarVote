@@ -218,9 +218,9 @@ services:
     environment:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
-      # 4 workers × 2 threads fits in 1024M container (see Dockerfile.api)
-      - GUNICORN_WORKERS=4
-      - GUNICORN_THREADS=2
+      # sync workers × 1 thread — avoids gthread deadlocks; sized for 1024M container
+      - GUNICORN_WORKERS=6
+      - GUNICORN_THREADS=1
     volumes:
       - ./Microservice/io:/app/io:rw
     deploy:

@@ -1,22 +1,29 @@
 #!/bin/sh
-# Gunicorn entrypoint — defaults sized for 4 GB RAM hosts (4 workers × 2 threads).
+# Gunicorn entrypoint for ElectionGuard API (CPU-bound ballot encryption).
+# Use sync workers when THREADS=1 — gthread caused deadlocks with --preload + crypto.
 set -e
 
-WORKERS="${GUNICORN_WORKERS:-4}"
-THREADS="${GUNICORN_THREADS:-2}"
+WORKERS="${GUNICORN_WORKERS:-6}"
+THREADS="${GUNICORN_THREADS:-1}"
+
+if [ "$THREADS" -eq 1 ]; then
+  WORKER_CLASS="sync"
+else
+  WORKER_CLASS="gthread"
+fi
 
 exec gunicorn \
   --bind "0.0.0.0:5000" \
   --workers "$WORKERS" \
-  --worker-class gthread \
+  --worker-class "$WORKER_CLASS" \
   --threads "$THREADS" \
   --worker-connections 512 \
-  --backlog 1024 \
+  --backlog 2048 \
   --preload \
   --max-requests 5000 \
   --max-requests-jitter 100 \
-  --timeout 120 \
-  --graceful-timeout 30 \
+  --timeout 300 \
+  --graceful-timeout 60 \
   --keep-alive 5 \
   --worker-tmp-dir /dev/shm \
   --access-logfile - \
