@@ -41,7 +41,6 @@ export BASE_URL="${BASE_URL:-https://amarvote2026.me}"
 export ELECTION_ID="${ELECTION_ID:-10}"
 export TEST_EMAIL_PREFIX="${TEST_EMAIL_PREFIX:-loadtest-voter}"
 export TEST_EMAIL_DOMAIN="${TEST_EMAIL_DOMAIN:-example.com}"
-export CANDIDATES="${CANDIDATES:-A big name|nobo tobo|masnoon muztahid}"
 export MAX_VUS="${MAX_VUS:-2000}"
 export VU_STEPS="${VU_STEPS:-50,100,200,500,1000}"
 export STAGE_RAMP_DURATION="${STAGE_RAMP_DURATION:-2m}"
@@ -72,6 +71,15 @@ if [[ "${SKIP_NGINX_CHECK:-}" != "1" && "${SCENARIO_REL}" != "scenarios/nginx-li
   "${LOADTEST_DIR}/check-nginx-limits.sh"
 fi
 
+VOTE_SCENARIOS="scenarios/vote-flow.js scenarios/vote-encrypt-only.js scenarios/vote-encrypt-2000.js scenarios/mixed-2000.js"
+NEEDS_ELECTION=0
+for s in ${VOTE_SCENARIOS}; do
+  if [[ "${SCENARIO_REL}" == "${s}" ]]; then NEEDS_ELECTION=1; break; fi
+done
+if [[ "${NEEDS_ELECTION}" -eq 1 && "${SKIP_ELECTION_VERIFY:-}" != "1" ]]; then
+  "${LOADTEST_DIR}/verify-election.sh"
+fi
+
 mkdir -p "${LOADTEST_DIR}/results"
 
 STEPPED_SCENARIOS="scenarios/browse.js scenarios/vote-flow.js scenarios/vote-encrypt-only.js scenarios/vote-encrypt-2000.js scenarios/mixed-2000.js"
@@ -90,8 +98,8 @@ echo "  ELECTION_ID=${ELECTION_ID}"
 echo "  MAX_VUS=${MAX_VUS}"
 echo "  VU_STEPS=${VU_STEPS} (+ ${MAX_VUS} peak)"
 echo "  STAGE_RAMP=${STAGE_RAMP_DURATION}  STAGE_HOLD=${STAGE_HOLD_DURATION}  RAMP_DOWN=${RAMP_DOWN_DURATION}"
-echo "  CANDIDATES=${CANDIDATES}"
 echo "  JWT_SECRET_B64=*** (${#JWT_SECRET_B64} chars)"
+echo "  Candidates → fetched from GET /api/election/${ELECTION_ID} at runtime"
 echo "  Reports → load-tests/results/*-step-*-report.txt (stepped) or *-report.txt"
 
 exec k6 run "${SCENARIO}" \
@@ -101,7 +109,6 @@ exec k6 run "${SCENARIO}" \
   -e "ELECTION_ID=${ELECTION_ID}" \
   -e "TEST_EMAIL_PREFIX=${TEST_EMAIL_PREFIX}" \
   -e "TEST_EMAIL_DOMAIN=${TEST_EMAIL_DOMAIN}" \
-  -e "CANDIDATES=${CANDIDATES}" \
   -e "MAX_VUS=${MAX_VUS}" \
   -e "VU_STEPS=${VU_STEPS}" \
   -e "STAGE_RAMP_DURATION=${STAGE_RAMP_DURATION}" \

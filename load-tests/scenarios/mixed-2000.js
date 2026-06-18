@@ -5,8 +5,10 @@
  */
 import http from 'k6/http';
 import { sleep } from 'k6';
-import { generateJWT, authHeaders, padBallotPayload, recordApiResult } from '../helpers.js';
-import { env, voterEmail, voterEmailForCast, pickCandidate } from '../env.js';
+import { generateJWT, authHeaders, padBallotPayload, postEncryptBallot } from '../helpers.js';
+import { env, voterEmail, voterEmailForCast } from '../env.js';
+import { electionSetup, pickCandidate } from '../election-setup.js';
+import { recordApiResult, recordEncryptOutcome } from '../metrics.js';
 import { buildLoadTestOptions } from '../options.js';
 import { createSingleStepSummary, createStepSummary } from '../summary.js';
 
@@ -18,6 +20,10 @@ export const options = buildLoadTestOptions(env.maxVus, {
     http_req_duration: ['p(95)<60000', 'p(99)<120000'],
   },
 });
+
+export function setup() {
+  return electionSetup();
+}
 
 function browseFlow(jwt) {
   const headers = authHeaders(jwt);
@@ -35,11 +41,11 @@ function browseFlow(jwt) {
   recordApiResult(eligRes, 'eligibility');
 }
 
-function voteFlow() {
+function voteFlow(candidates) {
   const email = voterEmailForCast(__VU, __ITER);
   const jwt = generateJWT(env.jwtSecretB64, email);
   const headers = authHeaders(jwt);
-  const candidate = pickCandidate(__VU, __ITER);
+  const candidate = pickCandidate(candidates, __VU, __ITER);
   const eligRes = http.post(
     `${env.baseUrl}/api/eligibility`,
     JSON.stringify({ electionId: env.electionId }),
@@ -54,11 +60,8 @@ function voteFlow() {
     botDetection: { isBot: false, requestId: `k6-${__VU}`, timestamp: new Date().toISOString() },
   });
 
-  const enc = http.post(`${env.baseUrl}/api/create-encrypted-ballot`, ballotBody, {
-    headers: { Authorization: `Bearer ${jwt}`, 'Content-Type': 'application/octet-stream' },
-    tags: { name: 'create-encrypted-ballot' },
-  });
-  recordApiResult(enc, 'create-encrypted-ballot');
+  const enc = postEncryptBallot(env.baseUrl, jwt, ballotBody);
+  recordEncryptOutcome(enc);
   if (enc.status !== 200) return;
 
   const b = enc.json();
@@ -82,12 +85,12 @@ function staticAssets() {
   recordApiResult(pageRes, 'static-election-page');
 }
 
-export default function () {
+export default function (data) {
   const jwt = generateJWT(env.jwtSecretB64, voterEmail(__VU));
   const roll = Math.random();
 
   if (roll < 0.05) staticAssets();
-  else if (roll < 0.35) voteFlow();
+  else if (roll < 0.35) voteFlow(data.candidates);
   else browseFlow(jwt);
 
   sleep(1 + Math.random() * 4);

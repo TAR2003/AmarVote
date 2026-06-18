@@ -44,6 +44,9 @@ function buildAggregateRow(metrics) {
   const failRate = metrics.http_req_failed?.values?.rate ?? 0;
   const failed = Math.round(total * failRate);
   const s429 = metrics.status_429?.values?.count ?? metrics.live_http_429?.values?.count ?? 0;
+  const businessReject = metrics.encrypt_business_reject?.values?.count ?? 0;
+  const transientFail = metrics.encrypt_transient_fail?.values?.count ?? 0;
+  const invalidCandidate = metrics.encrypt_invalid_candidate?.values?.count ?? 0;
 
   return {
     http_requests_total: total,
@@ -51,6 +54,9 @@ function buildAggregateRow(metrics) {
     http_requests_failed: failed,
     http_fail_rate_pct: round(failRate * 100),
     http_429_count: s429,
+    encrypt_business_reject: businessReject,
+    encrypt_transient_fail: transientFail,
+    encrypt_invalid_candidate: invalidCandidate,
     checks_passed: metrics.checks?.values?.passes ?? null,
     checks_failed: metrics.checks?.values?.fails ?? null,
     checks_pass_rate_pct:
@@ -91,6 +97,17 @@ export function formatSingleStepReportText(report) {
   );
   if (report.http_429_count > 0) {
     lines.push(`    HTTP 429        : ${report.http_429_count} (nginx rate limit)`);
+  }
+  if (report.encrypt_invalid_candidate > 0) {
+    lines.push(
+      `    Invalid candidate: ${report.encrypt_invalid_candidate} (API/choice mismatch — check election ${report.election_id ?? '?'})`,
+    );
+  }
+  if (report.encrypt_business_reject > 0) {
+    lines.push(`    Encrypt HTTP 400  : ${report.encrypt_business_reject} (validation / already voted)`);
+  }
+  if (report.encrypt_transient_fail > 0) {
+    lines.push(`    Encrypt gateway   : ${report.encrypt_transient_fail} (502/503/429 after retries)`);
   }
   if (report.checks_passed != null) {
     lines.push(

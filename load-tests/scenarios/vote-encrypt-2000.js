@@ -2,15 +2,22 @@
  * Full encrypted vote path — encrypt + cast per iteration.
  *
  * Each iteration uses a unique email (one cast per email per election).
- * Use vote-encrypt-only.js to stress encrypt without consuming votes.
+ * Candidates loaded from GET /api/election/:id (same as browser).
  *
  * Run: ./load-tests/run.sh scenarios/vote-encrypt-2000.js
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
-import { generateJWT, padBallotPayload, authHeaders, recordApiResult } from '../helpers.js';
-import { env, voterEmailForCast, pickCandidate } from '../env.js';
+import {
+  generateJWT,
+  padBallotPayload,
+  authHeaders,
+  postEncryptBallot,
+} from '../helpers.js';
+import { env, voterEmailForCast } from '../env.js';
+import { electionSetup, pickCandidate } from '../election-setup.js';
+import { recordApiResult, recordEncryptOutcome } from '../metrics.js';
 import { buildLoadTestOptions } from '../options.js';
 import { createSingleStepSummary, createStepSummary } from '../summary.js';
 
@@ -26,16 +33,20 @@ export const options = buildLoadTestOptions(env.maxVus, {
   http: { timeout: '180s' },
   thresholds: {
     http_req_failed: ['rate<0.10'],
-    vote_encrypt_errors: ['rate<0.15'],
+    vote_encrypt_errors: ['rate<0.10'],
     vote_cast_errors: ['rate<0.10'],
     vote_encrypt_duration: ['p(95)<120000', 'p(99)<180000'],
     vote_cast_duration: ['p(95)<15000'],
-    checks: ['rate>0.80'],
+    checks: ['rate>0.90'],
   },
 });
 
+export function setup() {
+  return electionSetup();
+}
+
 function isAlreadyVoted(res) {
-  if (res.status !== 200) return false;
+  if (res.status !== 200 && res.status !== 400) return false;
   try {
     const body = res.json();
     return body.errorReason === 'Already voted' || body.message?.includes('already voted');
@@ -44,11 +55,12 @@ function isAlreadyVoted(res) {
   }
 }
 
-export default function () {
+export default function (data) {
+  const candidates = data.candidates;
   const email = voterEmailForCast(__VU, __ITER);
   const jwt = generateJWT(env.jwtSecretB64, email);
   const headers = authHeaders(jwt);
-  const candidate = pickCandidate(__VU, __ITER);
+  const candidate = pickCandidate(candidates, __VU, __ITER);
 
   const eligRes = http.post(
     `${env.baseUrl}/api/eligibility`,
@@ -73,20 +85,9 @@ export default function () {
     },
   });
 
-  const encryptRes = http.post(
-    `${env.baseUrl}/api/create-encrypted-ballot`,
-    ballotBody,
-    {
-      headers: {
-        Authorization: `Bearer ${jwt}`,
-        'Content-Type': 'application/octet-stream',
-        Accept: 'application/json',
-      },
-      tags: { name: 'create-encrypted-ballot' },
-    },
-  );
+  const encryptRes = postEncryptBallot(env.baseUrl, jwt, ballotBody);
 
-  recordApiResult(encryptRes, 'create-encrypted-ballot');
+  recordEncryptOutcome(encryptRes);
   encryptDuration.add(encryptRes.timings.duration);
   encryptErrors.add(encryptRes.status !== 200);
 
@@ -131,7 +132,7 @@ export default function () {
     'cast success': (r) => r.status === 200 && r.json('success') === true,
   });
 
-  sleep(2 + Math.random() * 4);
+  sleep(3 + Math.random() * 5);
 }
 
 export function handleSummary(data) {

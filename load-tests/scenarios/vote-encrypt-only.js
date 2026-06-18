@@ -1,39 +1,54 @@
 /**
  * Encrypt-only load test — stress POST /api/create-encrypted-ballot.
  *
- * Models real behaviour: a voter may create encrypted ballots repeatedly before casting.
- * Each VU keeps one email and loops encrypt only (no cast).
+ * Uses live candidate names from GET /api/election/:id (same as the browser).
+ * Retries transient 502/503/429; does not retry HTTP 400 validation errors.
  *
  * Run: ./load-tests/run.sh scenarios/vote-encrypt-only.js
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
-import { generateJWT, padBallotPayload, authHeaders, recordApiResult } from '../helpers.js';
-import { env, voterEmail, pickCandidate } from '../env.js';
+import {
+  generateJWT,
+  padBallotPayload,
+  authHeaders,
+  postEncryptBallot,
+  parseApiError,
+} from '../helpers.js';
+import { env, voterEmail } from '../env.js';
+import { electionSetup, pickCandidate } from '../election-setup.js';
+import { recordApiResult, recordEncryptOutcome } from '../metrics.js';
 import { buildLoadTestOptions } from '../options.js';
 import { createSingleStepSummary, createStepSummary } from '../summary.js';
 
 const encryptDuration = new Trend('vote_encrypt_duration', true);
 const encryptErrors = new Rate('vote_encrypt_errors');
 const ineligible = new Counter('vote_ineligible_skips');
+const encryptInvalidCandidate = new Counter('encrypt_invalid_candidate');
 
 export const options = buildLoadTestOptions(env.maxVus, {
   gracefulRampDown: '30s',
   http: { timeout: '180s' },
   thresholds: {
     http_req_failed: ['rate<0.10'],
-    vote_encrypt_errors: ['rate<0.15'],
+    vote_encrypt_errors: ['rate<0.10'],
+    encrypt_business_reject: ['count<50'],
     vote_encrypt_duration: ['p(95)<120000', 'p(99)<180000'],
-    checks: ['rate>0.80'],
+    checks: ['rate>0.90'],
   },
 });
 
-export default function () {
+export function setup() {
+  return electionSetup();
+}
+
+export default function (data) {
+  const candidates = data.candidates;
   const email = voterEmail(__VU);
   const jwt = generateJWT(env.jwtSecretB64, email);
   const headers = authHeaders(jwt);
-  const candidate = pickCandidate(__VU, __ITER);
+  const candidate = pickCandidate(candidates, __VU, __ITER);
 
   const eligRes = http.post(
     `${env.baseUrl}/api/eligibility`,
@@ -58,29 +73,27 @@ export default function () {
     },
   });
 
-  const encryptRes = http.post(
-    `${env.baseUrl}/api/create-encrypted-ballot`,
-    ballotBody,
-    {
-      headers: {
-        Authorization: `Bearer ${jwt}`,
-        'Content-Type': 'application/octet-stream',
-        Accept: 'application/json',
-      },
-      tags: { name: 'create-encrypted-ballot' },
-    },
-  );
+  const encryptRes = postEncryptBallot(env.baseUrl, jwt, ballotBody);
 
-  recordApiResult(encryptRes, 'create-encrypted-ballot');
+  recordEncryptOutcome(encryptRes);
   encryptDuration.add(encryptRes.timings.duration);
   encryptErrors.add(encryptRes.status !== 200);
+
+  if (encryptRes.status === 400) {
+    const reason = parseApiError(encryptRes);
+    if (reason.toLowerCase().includes('invalid candidate')) {
+      encryptInvalidCandidate.add(1);
+      console.warn(`VU${__VU} iter${__ITER}: invalid candidate "${candidate}" — ${reason}`);
+    }
+  }
 
   check(encryptRes, {
     'encrypt status 200': (r) => r.status === 200,
     'encrypt has ballot': (r) => r.status === 200 && r.json('encrypted_ballot') !== undefined,
   });
 
-  sleep(2 + Math.random() * 4);
+  // Browser-like pacing between encrypt attempts (not a tight hammer loop).
+  sleep(5 + Math.random() * 10);
 }
 
 export function handleSummary(data) {

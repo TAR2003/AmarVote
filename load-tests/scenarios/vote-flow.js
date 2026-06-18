@@ -1,12 +1,21 @@
 /**
  * Full vote path — stepped ramp (50 → 100 → … → MAX_VUS) — election 10.
  * Each iteration uses a unique email (one cast per email per election).
+ * Candidates loaded from GET /api/election/:id (same as browser).
+ *
  * Run: ./load-tests/run.sh scenarios/vote-flow.js
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { generateJWT, authHeaders, padBallotPayload, recordApiResult } from '../helpers.js';
-import { env, voterEmailForCast, pickCandidate } from '../env.js';
+import {
+  generateJWT,
+  authHeaders,
+  padBallotPayload,
+  postEncryptBallot,
+} from '../helpers.js';
+import { env, voterEmailForCast } from '../env.js';
+import { electionSetup, pickCandidate } from '../election-setup.js';
+import { recordApiResult, recordEncryptOutcome } from '../metrics.js';
 import { buildLoadTestOptions } from '../options.js';
 import { createSingleStepSummary, createStepSummary } from '../summary.js';
 
@@ -16,15 +25,20 @@ export const options = buildLoadTestOptions(env.maxVus, {
   thresholds: {
     http_req_failed: ['rate<0.10'],
     'http_req_duration{name:create-encrypted-ballot}': ['p(95)<120000'],
-    checks: ['rate>0.80'],
+    checks: ['rate>0.90'],
   },
 });
 
-export default function () {
+export function setup() {
+  return electionSetup();
+}
+
+export default function (data) {
+  const candidates = data.candidates;
   const email = voterEmailForCast(__VU, __ITER);
   const jwt = generateJWT(env.jwtSecretB64, email);
   const headers = authHeaders(jwt);
-  const candidate = pickCandidate(__VU, __ITER);
+  const candidate = pickCandidate(candidates, __VU, __ITER);
 
   const eligRes = http.post(
     `${env.baseUrl}/api/eligibility`,
@@ -47,15 +61,8 @@ export default function () {
     },
   });
 
-  const encryptRes = http.post(`${env.baseUrl}/api/create-encrypted-ballot`, ballotBody, {
-    headers: {
-      Authorization: `Bearer ${jwt}`,
-      'Content-Type': 'application/octet-stream',
-      Accept: 'application/json',
-    },
-    tags: { name: 'create-encrypted-ballot' },
-  });
-  recordApiResult(encryptRes, 'create-encrypted-ballot');
+  const encryptRes = postEncryptBallot(env.baseUrl, jwt, ballotBody);
+  recordEncryptOutcome(encryptRes);
   if (!check(encryptRes, { 'encrypt 200': (r) => r.status === 200 })) {
     sleep(3);
     return;

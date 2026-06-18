@@ -127,6 +127,8 @@ SINGLE_RUN=1 ./load-tests/run.sh scenarios/browse.js
 
 ### Vote test behaviour
 
+Candidate names are **never** in `.env.loadtest`. Before vote scenarios run, `verify-election.sh` fetches `electionChoices[].optionTitle` from the API; k6 `setup()` loads the same list for each run.
+
 | Scenario | Email strategy | Why |
 |----------|----------------|-----|
 | **vote-encrypt-only** | One email per VU (`loadtest-voter-0001@…`) | Voters may encrypt many times before casting |
@@ -166,6 +168,8 @@ Recommended order: **smoke** → **nginx-limit-check** → **browse** → **vote
 | `STAGE_RAMP_DURATION` | `2m` | Time to reach each VU level |
 | `STAGE_HOLD_DURATION` | `3m` | Soak time at each level |
 | `JWT_EXPIRATION_MS` | `3600000` | Must match backend `jwt.expiration` |
+
+**Candidate names** are not configured. Vote scenarios call `GET /api/election/{ELECTION_ID}` before the test (`verify-election.sh` preflight + k6 `setup()`).
 
 ---
 
@@ -210,6 +214,8 @@ bash load-tests/scripts/server-disable-loadtest-nginx.sh
 | JWT preflight fails (401) | Wrong `JWT_SECRET` locally | `docker exec amarvote_backend printenv JWT_SECRET` on server |
 | Many HTTP 429 | Production nginx active | `server-enable-loadtest-nginx.sh` |
 | ~50% failures at high VUs | Server overload (not nginx) | Check step report — last PASS step is your limit |
+| ~33% encrypt fails, eligibility ok | Wrong/stale candidate names (fixed: names now fetched from API) | Set `ELECTION_ID`; run `verify-election.sh` |
+| Encrypt fails, browser works | Load test paced too fast vs browser | `vote-encrypt-only.js` uses 5–15s think time |
 | All eligibility fails | Election not open / not active | Set election `eligibility=unlisted`, check schedule |
 
 ---
@@ -217,7 +223,7 @@ bash load-tests/scripts/server-disable-loadtest-nginx.sh
 ## Skip preflight checks
 
 ```bash
-SKIP_JWT_VERIFY=1 SKIP_NGINX_CHECK=1 ./load-tests/run.sh scenarios/browse.js
+SKIP_JWT_VERIFY=1 SKIP_NGINX_CHECK=1 SKIP_ELECTION_VERIFY=1 ./load-tests/run.sh scenarios/browse.js
 ```
 
 See also: [docs/K6_LOAD_TEST_2000_USERS.md](../docs/K6_LOAD_TEST_2000_USERS.md), [docs/PRODUCTION_DEPLOY_AND_LOADTEST.md](../docs/PRODUCTION_DEPLOY_AND_LOADTEST.md)

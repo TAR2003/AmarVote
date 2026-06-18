@@ -1,11 +1,10 @@
 /**
  * Central config — values come from run.sh (sources .env / load-tests/.env.loadtest).
  * Never commit secrets; only .env.loadtest.example is tracked.
+ *
+ * Candidate names are NOT configured here — vote scenarios fetch them from
+ * GET /api/election/:id in setup() (see election-setup.js).
  */
-function parseCandidates(raw) {
-  return raw.split('|').map((s) => s.trim()).filter(Boolean);
-}
-
 function requireSecret() {
   const secret = __ENV.JWT_SECRET_B64 || __ENV.JWT_SECRET;
   if (!secret) {
@@ -23,9 +22,6 @@ export const env = {
   electionId: Number(__ENV.ELECTION_ID || '10'),
   emailPrefix: __ENV.TEST_EMAIL_PREFIX || 'loadtest-voter',
   emailDomain: __ENV.TEST_EMAIL_DOMAIN || 'example.com',
-  candidates: parseCandidates(
-    __ENV.CANDIDATES || 'A big name|nobo tobo|masnoon muztahid',
-  ),
   maxVus: Number(__ENV.MAX_VUS || '2000'),
 };
 
@@ -44,16 +40,10 @@ export function voterEmailForCast(vu, iter) {
   return `${env.emailPrefix}-${String(n).padStart(12, '0')}@${env.emailDomain}`;
 }
 
-export function pickCandidate(vu, iter) {
-  const list = env.candidates;
-  return list[(vu + iter) % list.length];
-}
-
 export function k6EnvFlags() {
   return {
     BASE_URL: env.baseUrl,
     JWT_SECRET_B64: env.jwtSecretB64,
     ELECTION_ID: String(env.electionId),
-    CANDIDATES: env.candidates.join('|'),
   };
 }

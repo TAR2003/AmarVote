@@ -6,6 +6,8 @@ import { Counter } from 'k6/metrics';
 
 export const liveOkTotal = new Counter('live_ok_total');
 export const liveFailTotal = new Counter('live_fail_total');
+export const encryptBusinessReject = new Counter('encrypt_business_reject');
+export const encryptTransientFail = new Counter('encrypt_transient_fail');
 
 const apis = [
   'health',
@@ -43,5 +45,19 @@ export function recordApiResult(res, api) {
   } else {
     liveFailTotal.add(1);
     liveByApi[api]?.fail.add(1);
+  }
+}
+
+/**
+ * Classify encrypt failures for clearer reports (business vs gateway).
+ * @param {import('k6/http').RefinedResponse} res
+ */
+export function recordEncryptOutcome(res) {
+  recordApiResult(res, 'create-encrypted-ballot');
+  if (!res || res.status === 200) return;
+  if (res.status === 400) {
+    encryptBusinessReject.add(1);
+  } else if (res.status === 0 || res.status === 429 || res.status >= 502) {
+    encryptTransientFail.add(1);
   }
 }

@@ -22,7 +22,6 @@ export BASE_URL="${BASE_URL:-https://amarvote2026.me}"
 export ELECTION_ID="${ELECTION_ID:-10}"
 export TEST_EMAIL_PREFIX="${TEST_EMAIL_PREFIX:-loadtest-voter}"
 export TEST_EMAIL_DOMAIN="${TEST_EMAIL_DOMAIN:-example.com}"
-export CANDIDATES="${CANDIDATES:-A big name|nobo tobo|masnoon muztahid}"
 export MAX_VUS="${MAX_VUS:-2000}"
 export VU_STEPS="${VU_STEPS:-50,100,200,500,1000}"
 export STAGE_RAMP_DURATION="${STAGE_RAMP_DURATION:-2m}"
@@ -52,6 +51,15 @@ fi
 
 if [[ "${SKIP_NGINX_CHECK:-}" != "1" ]]; then
   "${LOADTEST_DIR}/check-nginx-limits.sh"
+fi
+
+VOTE_SCENARIOS="scenarios/vote-flow.js scenarios/vote-encrypt-only.js scenarios/vote-encrypt-2000.js scenarios/mixed-2000.js"
+NEEDS_ELECTION=0
+for s in ${VOTE_SCENARIOS}; do
+  if [[ "${SCENARIO_REL}" == "${s}" ]]; then NEEDS_ELECTION=1; break; fi
+done
+if [[ "${NEEDS_ELECTION}" -eq 1 && "${SKIP_ELECTION_VERIFY:-}" != "1" ]]; then
+  "${LOADTEST_DIR}/verify-election.sh"
 fi
 
 # Resolve step list (same logic as stages.js)
@@ -84,7 +92,6 @@ K6_COMMON=(
   -e "ELECTION_ID=${ELECTION_ID}"
   -e "TEST_EMAIL_PREFIX=${TEST_EMAIL_PREFIX}"
   -e "TEST_EMAIL_DOMAIN=${TEST_EMAIL_DOMAIN}"
-  -e "CANDIDATES=${CANDIDATES}"
   -e "MAX_VUS=${MAX_VUS}"
   -e "VU_STEPS=${VU_STEPS}"
   -e "STAGE_RAMP_DURATION=${STAGE_RAMP_DURATION}"

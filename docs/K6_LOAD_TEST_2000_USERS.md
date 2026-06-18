@@ -276,7 +276,8 @@ k6 version
 | `ELECTION_ID` | Active election with completed key ceremony |
 | `TEST_EMAIL_PREFIX` | e.g. `loadtest` → `loadtest+vu1@domain.com` |
 | `TEST_EMAIL_DOMAIN` | Domain for synthetic users |
-| `CANDIDATE_NAME` | Valid candidate in that election |
+
+Candidate names are loaded automatically from `GET /api/election/{ELECTION_ID}` before vote tests (no env config).
 
 ### 4.3 Load generator hardware
 
@@ -315,7 +316,7 @@ FROM generate_series(1, 2000) AS g;
 2. Complete guardian key ceremony.
 3. Activate election (`POST /api/admin/key-ceremony/activate`).
 4. Set eligibility to `listed` with 2,000 voters, or `unlisted` for open voting.
-5. Note `ELECTION_ID` and a valid `CANDIDATE_NAME`.
+5. Set `ELECTION_ID` in `load-tests/.env.loadtest` — candidate names are fetched from the API automatically.
 
 ### 5.3 Load-test nginx (manual on server only)
 
@@ -357,7 +358,6 @@ export JWT_SECRET_B64="<from-server-env>"
 export ELECTION_ID=42
 export TEST_EMAIL_PREFIX=loadtest-voter
 export TEST_EMAIL_DOMAIN=yourdomain.com
-export CANDIDATE_NAME="Alice Johnson"
 ```
 
 ```bash
