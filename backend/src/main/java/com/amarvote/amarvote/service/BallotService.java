@@ -15,6 +15,7 @@ import java.util.stream.Collectors;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import com.amarvote.amarvote.dto.BenalohChallengeRequest;
 import com.amarvote.amarvote.dto.BenalohChallengeResponse;
@@ -33,7 +34,6 @@ import com.amarvote.amarvote.dto.worker.VoteReceiptTask;
 import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
-import com.amarvote.amarvote.repository.AllowedVoterRepository;
 import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
@@ -54,9 +54,6 @@ public class BallotService {
     private ElectionRepository electionRepository;
 
     @Autowired
-    private AllowedVoterRepository allowedVoterRepository;
-
-    @Autowired
     private ElectionChoiceRepository electionChoiceRepository;
 
     @Autowired
@@ -73,6 +70,9 @@ public class BallotService {
 
     @Autowired
     private BallotCastPersistenceService ballotCastPersistenceService;
+
+    @Autowired
+    private VoterEligibilityResolver voterEligibilityResolver;
 
     @Autowired
     private TaskPublisherService taskPublisherService;
@@ -147,42 +147,14 @@ public class BallotService {
             }
             Election election = electionOpt.get();
 
-            if (election.getJointPublicKey() == null || election.getBaseHash() == null) {
-                return CastBallotResponse.builder()
-                        .success(false)
-                        .message("Election is not activated yet. Key ceremony is incomplete.")
-                        .errorReason("Election not activated")
-                        .build();
+            Optional<CastBallotResponse> notReady = rejectCastIfElectionNotReady(election);
+            if (notReady.isPresent()) {
+                return notReady.get();
             }
 
-            if (election.getStartingTime() == null || election.getEndingTime() == null) {
-                return CastBallotResponse.builder()
-                        .success(false)
-                        .message("Election schedule is not set yet")
-                        .errorReason("Election not scheduled")
-                        .build();
-            }
-
-            // 3. Check if election is active
-            Instant now = Instant.now();
-            if (now.isBefore(election.getStartingTime())) {
-                return CastBallotResponse.builder()
-                        .success(false)
-                        .message("Election has not started yet")
-                        .errorReason("Election not active")
-                        .build();
-            }
-            if (now.isAfter(election.getEndingTime())) {
-                return CastBallotResponse.builder()
-                        .success(false)
-                        .message("Election has ended")
-                        .errorReason("Election ended")
-                        .build();
-            }
-
-            // 4. Check eligibility
-            boolean isEligible = checkVoterEligibility(userEmail, election);
-            if (!isEligible) {
+            // 4. Check eligibility (single indexed voter lookup)
+            VoterEligibilityResolver.Snapshot voter = voterEligibilityResolver.resolve(userEmail, election);
+            if (!voter.isEligibleToVote(election)) {
                 String errorMessage;
                 String errorReason;
 
@@ -202,7 +174,7 @@ public class BallotService {
             }
 
             // 5. Check if user has already voted
-            if (hasUserAlreadyVoted(userEmail, election.getElectionId())) {
+            if (voter.hasVoted()) {
                 return CastBallotResponse.builder()
                         .success(false)
                         .message("You have already voted in this election")
@@ -320,6 +292,7 @@ public class BallotService {
      * Returns comprehensive eligibility information including reasons for
      * ineligibility
      */
+    @Transactional(readOnly = true)
     public EligibilityCheckResponse checkEligibility(EligibilityCheckRequest request, String userEmail) {
         try {
             // 1. Find election
@@ -336,47 +309,29 @@ public class BallotService {
             }
             Election election = electionOpt.get();
 
-            if (election.getJointPublicKey() == null || election.getBaseHash() == null) {
+            Optional<String> activationBlock = ElectionVoteReadiness.activationBlockReason(election);
+            if (activationBlock.isPresent()) {
+                String reason = activationBlock.get();
+                String message = "Election not scheduled".equals(reason)
+                        ? "Election schedule is not set yet"
+                        : "Election is not activated yet. Key ceremony is incomplete.";
                 return EligibilityCheckResponse.builder()
                     .eligible(false)
-                    .message("Election is not activated yet. Key ceremony is incomplete.")
-                    .reason("Election not activated")
+                    .message(message)
+                    .reason(reason)
                     .hasVoted(false)
                     .isElectionActive(false)
                     .electionStatus("Not Activated")
                         .build();
             }
 
-            if (election.getStartingTime() == null || election.getEndingTime() == null) {
-                return EligibilityCheckResponse.builder()
-                    .eligible(false)
-                    .message("Election schedule is not set yet")
-                    .reason("Election not scheduled")
-                    .hasVoted(false)
-                    .isElectionActive(false)
-                    .electionStatus("Not Activated")
-                        .build();
-            }
+            ElectionVoteReadiness.ActiveWindow window = ElectionVoteReadiness.activeWindow(election);
+            boolean isElectionActive = window.active();
+            String electionStatus = window.statusLabel();
 
-            // 3. Check election status
-            Instant now = Instant.now();
-            String electionStatus;
-            boolean isElectionActive = false;
-
-            if (now.isBefore(election.getStartingTime())) {
-                electionStatus = "Not Started";
-            } else if (now.isAfter(election.getEndingTime())) {
-                electionStatus = "Ended";
-            } else {
-                electionStatus = "Active";
-                isElectionActive = true;
-            }
-
-            // 4. Check if user has already voted
-            boolean hasVoted = hasUserAlreadyVoted(userEmail, election.getElectionId());
-
-            // 5. Check if user is eligible to vote
-            boolean isEligible = checkVoterEligibility(userEmail, election);
+            VoterEligibilityResolver.Snapshot voter = voterEligibilityResolver.resolve(userEmail, election);
+            boolean hasVoted = voter.hasVoted();
+            boolean isEligible = voter.isEligibleToVote(election);
 
             // 6. Build comprehensive response
             String message;
@@ -387,7 +342,6 @@ public class BallotService {
                 message = "You have already voted in this election";
                 reason = "Already voted";
             } else if (!isEligible) {
-                // More specific message based on election eligibility
                 if ("listed".equals(election.getEligibility())) {
                     message = "You are not eligible to vote in this election. You are not in the allowed voters list.";
                     reason = "Not in voter list for listed election";
@@ -430,18 +384,118 @@ public class BallotService {
         }
     }
 
-    private boolean checkVoterEligibility(String userEmail, Election election) {
-        String eligibility = election.getEligibility();
-
-        if ("unlisted".equals(eligibility)) {
-            return true;
+    private Optional<CreateEncryptedBallotResponse> rejectIfElectionNotReady(Election election) {
+        Optional<String> activationBlock = ElectionVoteReadiness.activationBlockReason(election);
+        if (activationBlock.isPresent()) {
+            String reason = activationBlock.get();
+            if ("Election not scheduled".equals(reason)) {
+                return Optional.of(CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("Election schedule is not set yet")
+                        .errorReason(reason)
+                        .build());
+            }
+            return Optional.of(CreateEncryptedBallotResponse.builder()
+                    .success(false)
+                    .message("Election is not activated yet. Key ceremony is incomplete.")
+                    .errorReason(reason)
+                    .build());
         }
-        if ("listed".equals(eligibility)) {
-            return allowedVoterRepository.existsByElectionIdAndUserEmail(
-                    election.getElectionId(), userEmail);
+        if (!ElectionVoteReadiness.isWithinVotingWindow(election)) {
+            if (Instant.now().isBefore(election.getStartingTime())) {
+                return Optional.of(CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("Election has not started yet")
+                        .errorReason("Election not active")
+                        .build());
+            }
+            return Optional.of(CreateEncryptedBallotResponse.builder()
+                    .success(false)
+                    .message("Election has ended")
+                    .errorReason("Election ended")
+                    .build());
         }
+        return Optional.empty();
+    }
 
-        return false;
+    private Optional<CastBallotResponse> rejectCastIfElectionNotReady(Election election) {
+        Optional<String> activationBlock = ElectionVoteReadiness.activationBlockReason(election);
+        if (activationBlock.isPresent()) {
+            String reason = activationBlock.get();
+            if ("Election not scheduled".equals(reason)) {
+                return Optional.of(CastBallotResponse.builder()
+                        .success(false)
+                        .message("Election schedule is not set yet")
+                        .errorReason(reason)
+                        .build());
+            }
+            return Optional.of(CastBallotResponse.builder()
+                    .success(false)
+                    .message("Election is not activated yet. Key ceremony is incomplete.")
+                    .errorReason(reason)
+                    .build());
+        }
+        if (!ElectionVoteReadiness.isWithinVotingWindow(election)) {
+            if (Instant.now().isBefore(election.getStartingTime())) {
+                return Optional.of(CastBallotResponse.builder()
+                        .success(false)
+                        .message("Election has not started yet")
+                        .errorReason("Election not active")
+                        .build());
+            }
+            return Optional.of(CastBallotResponse.builder()
+                    .success(false)
+                    .message("Election has ended")
+                    .errorReason("Election ended")
+                    .build());
+        }
+        return Optional.empty();
+    }
+
+    private Optional<CreateEncryptedBallotResponse> rejectEncryptIfVoterCannotVote(
+            String userEmail, Election election) {
+        VoterEligibilityResolver.Snapshot voter = voterEligibilityResolver.resolve(userEmail, election);
+        if (!voter.isEligibleToVote(election)) {
+            if ("listed".equals(election.getEligibility())) {
+                return Optional.of(CreateEncryptedBallotResponse.builder()
+                        .success(false)
+                        .message("You are not eligible to vote in this election. You are not in the allowed voters list.")
+                        .errorReason("Not in voter list for listed election")
+                        .build());
+            }
+            return Optional.of(CreateEncryptedBallotResponse.builder()
+                    .success(false)
+                    .message("You are not eligible to vote in this election due to unknown eligibility criteria.")
+                    .errorReason("Unknown eligibility criteria")
+                    .build());
+        }
+        if (voter.hasVoted()) {
+            return Optional.of(CreateEncryptedBallotResponse.builder()
+                    .success(false)
+                    .message("You have already voted in this election")
+                    .errorReason("Already voted")
+                    .build());
+        }
+        return Optional.empty();
+    }
+
+    private Optional<CastBallotResponse> rejectCastIfVoterCannotVote(String userEmail, Election election) {
+        VoterEligibilityResolver.Snapshot voter = voterEligibilityResolver.resolve(userEmail, election);
+        if (!voter.isEligibleToVote(election)) {
+            return Optional.of(CastBallotResponse.builder()
+                    .success(false)
+                    .message("You are not eligible to vote in this election")
+                    .errorReason("Not eligible")
+                    .build());
+        }
+        if (voter.hasVoted()) {
+            return Optional.of(CastBallotResponse.builder()
+                    .success(false)
+                    .message("You have already voted in this election")
+                    .errorReason("Already voted")
+                    .build());
+        }
+        return Optional.empty();
     }
 
     /**
@@ -476,11 +530,6 @@ public class BallotService {
             System.err.println("⚠️ Error fetching ballot details: " + e.getMessage());
             throw new RuntimeException("Error fetching ballot details", e);
         }
-    }
-
-    private boolean hasUserAlreadyVoted(String userEmail, Long electionId) {
-        return allowedVoterRepository.existsByElectionIdAndUserEmailAndHasVotedTrue(
-                electionId, userEmail);
     }
 
     private ElectionGuardBallotResponse callElectionGuardService(
@@ -616,67 +665,14 @@ public class BallotService {
             }
             Election election = electionOpt.get();
 
-            if (election.getJointPublicKey() == null || election.getBaseHash() == null) {
-                return CreateEncryptedBallotResponse.builder()
-                        .success(false)
-                        .message("Election is not activated yet. Key ceremony is incomplete.")
-                        .errorReason("Election not activated")
-                        .build();
+            Optional<CreateEncryptedBallotResponse> notReady = rejectIfElectionNotReady(election);
+            if (notReady.isPresent()) {
+                return notReady.get();
             }
 
-            if (election.getStartingTime() == null || election.getEndingTime() == null) {
-                return CreateEncryptedBallotResponse.builder()
-                        .success(false)
-                        .message("Election schedule is not set yet")
-                        .errorReason("Election not scheduled")
-                        .build();
-            }
-
-            // 3. Check if election is active
-            Instant now = Instant.now();
-            if (now.isBefore(election.getStartingTime())) {
-                return CreateEncryptedBallotResponse.builder()
-                        .success(false)
-                        .message("Election has not started yet")
-                        .errorReason("Election not active")
-                        .build();
-            }
-            if (now.isAfter(election.getEndingTime())) {
-                return CreateEncryptedBallotResponse.builder()
-                        .success(false)
-                        .message("Election has ended")
-                        .errorReason("Election ended")
-                        .build();
-            }
-
-            // 4. Check eligibility
-            boolean isEligible = checkVoterEligibility(userEmail, election);
-            if (!isEligible) {
-                String errorMessage;
-                String errorReason;
-
-                if ("listed".equals(election.getEligibility())) {
-                    errorMessage = "You are not eligible to vote in this election. You are not in the allowed voters list.";
-                    errorReason = "Not in voter list for listed election";
-                } else {
-                    errorMessage = "You are not eligible to vote in this election due to unknown eligibility criteria.";
-                    errorReason = "Unknown eligibility criteria";
-                }
-
-                return CreateEncryptedBallotResponse.builder()
-                        .success(false)
-                        .message(errorMessage)
-                        .errorReason(errorReason)
-                        .build();
-            }
-
-            // 5. Check if user has already voted
-            if (hasUserAlreadyVoted(userEmail, election.getElectionId())) {
-                return CreateEncryptedBallotResponse.builder()
-                        .success(false)
-                        .message("You have already voted in this election")
-                        .errorReason("Already voted")
-                        .build();
+            Optional<CreateEncryptedBallotResponse> voterReject = rejectEncryptIfVoterCannotVote(userEmail, election);
+            if (voterReject.isPresent()) {
+                return voterReject.get();
             }
 
             // 6. Validate candidate choices (multi-select)
@@ -938,56 +934,14 @@ public class BallotService {
             }
             Election election = electionOpt.get();
 
-            if (election.getJointPublicKey() == null || election.getBaseHash() == null) {
-                return CastBallotResponse.builder()
-                        .success(false)
-                        .message("Election is not activated yet. Key ceremony is incomplete.")
-                        .errorReason("Election not activated")
-                        .build();
+            Optional<CastBallotResponse> notReady = rejectCastIfElectionNotReady(election);
+            if (notReady.isPresent()) {
+                return notReady.get();
             }
 
-            if (election.getStartingTime() == null || election.getEndingTime() == null) {
-                return CastBallotResponse.builder()
-                        .success(false)
-                        .message("Election schedule is not set yet")
-                        .errorReason("Election not scheduled")
-                        .build();
-            }
-
-            // 3. Check if election is active
-            Instant now = Instant.now();
-            if (now.isBefore(election.getStartingTime())) {
-                return CastBallotResponse.builder()
-                        .success(false)
-                        .message("Election has not started yet")
-                        .errorReason("Election not active")
-                        .build();
-            }
-            if (now.isAfter(election.getEndingTime())) {
-                return CastBallotResponse.builder()
-                        .success(false)
-                        .message("Election has ended")
-                        .errorReason("Election ended")
-                        .build();
-            }
-
-            // 4. Check eligibility
-            boolean isEligible = checkVoterEligibility(userEmail, election);
-            if (!isEligible) {
-                return CastBallotResponse.builder()
-                        .success(false)
-                        .message("You are not eligible to vote in this election")
-                        .errorReason("Not eligible")
-                        .build();
-            }
-
-            // 5. Check if user has already voted
-            if (hasUserAlreadyVoted(userEmail, election.getElectionId())) {
-                return CastBallotResponse.builder()
-                        .success(false)
-                        .message("You have already voted in this election")
-                        .errorReason("Already voted")
-                        .build();
+            Optional<CastBallotResponse> voterReject = rejectCastIfVoterCannotVote(userEmail, election);
+            if (voterReject.isPresent()) {
+                return voterReject.get();
             }
 
             // 6. Save ballot to database

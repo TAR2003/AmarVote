@@ -283,18 +283,13 @@ public class ElectionService {
             throw new IllegalArgumentException("No valid voter emails provided");
         }
 
-        Set<String> existing = allowedVoterRepository.findByElectionId(electionId).stream()
-                .map(v -> v.getUserEmail().toLowerCase(Locale.ROOT))
-                .collect(Collectors.toCollection(LinkedHashSet::new));
-
         for (String email : normalizedIncoming) {
-            if (!existing.contains(email)) {
+            if (!allowedVoterRepository.existsByElectionIdAndUserEmail(electionId, email)) {
                 allowedVoterRepository.save(AllowedVoter.builder()
                         .electionId(election.getElectionId())
                         .userEmail(email)
                         .hasVoted(false)
                         .build());
-                existing.add(email);
             }
         }
 
@@ -321,10 +316,7 @@ public class ElectionService {
     public List<ElectionDetailResponse.VoterInfo> removeAllVotersFromElection(Long electionId, String userEmail) {
         requireElectionWithEditableVoterList(electionId, userEmail);
 
-        List<AllowedVoter> voters = allowedVoterRepository.findByElectionId(electionId);
-        if (!voters.isEmpty()) {
-            allowedVoterRepository.deleteAll(voters);
-        }
+        allowedVoterRepository.deleteByElectionId(electionId);
 
         return getVoterInfoForElection(electionId, userEmail);
     }

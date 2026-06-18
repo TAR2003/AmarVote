@@ -840,8 +840,6 @@ public class ElectionController {
 
         // Get user email from request attributes (set by JWTFilter)
         String userEmail = (String) httpRequest.getAttribute("userEmail");
-        System.out
-                .println("Checking eligibility for election ID: " + request.getElectionId() + " by user: " + userEmail);
 
         // Alternative: Get user email from Spring Security context
         if (userEmail == null) {

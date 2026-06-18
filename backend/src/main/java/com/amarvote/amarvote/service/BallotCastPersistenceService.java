@@ -28,6 +28,7 @@ public class BallotCastPersistenceService {
 
     private final BallotRepository ballotRepository;
     private final AllowedVoterRepository allowedVoterRepository;
+    private final AuthorizedUserService authorizedUserService;
 
     /**
      * Atomically mark the voter as having voted and persist the ballot row.
@@ -35,8 +36,9 @@ public class BallotCastPersistenceService {
      */
     @Transactional
     public CastPersistOutcome persistCast(Ballot ballot, String userEmail, Election election) {
+        String email = authorizedUserService.normalizeEmail(userEmail);
         Long electionId = election.getElectionId();
-        CastPersistOutcome voterOutcome = reserveVoterCastSlot(userEmail, election);
+        CastPersistOutcome voterOutcome = reserveVoterCastSlot(email, election);
         if (voterOutcome != CastPersistOutcome.SUCCESS) {
             return voterOutcome;
         }
@@ -45,49 +47,49 @@ public class BallotCastPersistenceService {
         return CastPersistOutcome.SUCCESS;
     }
 
-    private CastPersistOutcome reserveVoterCastSlot(String userEmail, Election election) {
+    private CastPersistOutcome reserveVoterCastSlot(String email, Election election) {
         Long electionId = election.getElectionId();
         String eligibility = election.getEligibility();
 
         if ("unlisted".equals(eligibility)) {
-            return reserveUnlistedVoterCastSlot(electionId, userEmail);
+            return reserveUnlistedVoterCastSlot(electionId, email);
         }
         if ("listed".equals(eligibility)) {
-            return reserveListedVoterCastSlot(electionId, userEmail);
+            return reserveListedVoterCastSlot(electionId, email);
         }
         return CastPersistOutcome.NOT_ELIGIBLE;
     }
 
-    private CastPersistOutcome reserveListedVoterCastSlot(Long electionId, String userEmail) {
-        if (!allowedVoterRepository.existsByElectionIdAndUserEmail(electionId, userEmail)) {
+    private CastPersistOutcome reserveListedVoterCastSlot(Long electionId, String email) {
+        if (!allowedVoterRepository.existsByElectionIdAndUserEmail(electionId, email)) {
             return CastPersistOutcome.NOT_ELIGIBLE;
         }
-        return markVoterAsVotedIfNotYet(electionId, userEmail);
+        return markVoterAsVotedIfNotYet(electionId, email);
     }
 
-    private CastPersistOutcome reserveUnlistedVoterCastSlot(Long electionId, String userEmail) {
-        if (allowedVoterRepository.existsByElectionIdAndUserEmailAndHasVotedTrue(electionId, userEmail)) {
+    private CastPersistOutcome reserveUnlistedVoterCastSlot(Long electionId, String email) {
+        if (allowedVoterRepository.existsByElectionIdAndUserEmailAndHasVotedTrue(electionId, email)) {
             return CastPersistOutcome.ALREADY_VOTED;
         }
 
-        if (allowedVoterRepository.existsByElectionIdAndUserEmail(electionId, userEmail)) {
-            return markVoterAsVotedIfNotYet(electionId, userEmail);
+        if (allowedVoterRepository.existsByElectionIdAndUserEmail(electionId, email)) {
+            return markVoterAsVotedIfNotYet(electionId, email);
         }
 
         try {
             allowedVoterRepository.save(AllowedVoter.builder()
                     .electionId(electionId)
-                    .userEmail(userEmail)
+                    .userEmail(email)
                     .hasVoted(true)
                     .build());
             return CastPersistOutcome.SUCCESS;
         } catch (DataIntegrityViolationException ex) {
-            return markVoterAsVotedIfNotYet(electionId, userEmail);
+            return markVoterAsVotedIfNotYet(electionId, email);
         }
     }
 
-    private CastPersistOutcome markVoterAsVotedIfNotYet(Long electionId, String userEmail) {
-        int updated = allowedVoterRepository.markAsVotedIfNotYet(electionId, userEmail);
+    private CastPersistOutcome markVoterAsVotedIfNotYet(Long electionId, String email) {
+        int updated = allowedVoterRepository.markAsVotedIfNotYet(electionId, email);
         return updated > 0 ? CastPersistOutcome.SUCCESS : CastPersistOutcome.ALREADY_VOTED;
     }
 }

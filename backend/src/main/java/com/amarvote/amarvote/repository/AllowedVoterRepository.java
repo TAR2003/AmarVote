@@ -47,5 +47,9 @@ public interface AllowedVoterRepository extends JpaRepository<AllowedVoter, Allo
               AND av.hasVoted = false
             """)
     int markAsVotedIfNotYet(@Param("electionId") Long electionId, @Param("userEmail") String userEmail);
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM AllowedVoter av WHERE av.electionId = :electionId")
+    void deleteByElectionId(@Param("electionId") Long electionId);
 }
 
