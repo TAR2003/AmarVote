@@ -99,7 +99,9 @@ public class TaskWorkerService {
     /**
      * Worker for all asynchronous email delivery.
      */
-    @RabbitListener(queues = RabbitMQConfig.EMAIL_QUEUE, concurrency = "${rabbitmq.email.concurrency.min:2}-${rabbitmq.email.concurrency.max:4}")
+    @RabbitListener(
+            queues = RabbitMQConfig.EMAIL_QUEUE,
+            containerFactory = "emailRabbitListenerContainerFactory")
     public void processEmailTask(EmailTask task) {
         try {
             System.out.println("=== WORKER: Processing Email Task ===");

@@ -3,50 +3,28 @@ package com.amarvote.amarvote.service;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
-import java.util.Base64;
 import java.util.Locale;
 
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.ClassPathResource;
-import org.springframework.core.io.FileSystemResource;
-import org.springframework.mail.javamail.JavaMailSender;
-import org.springframework.mail.javamail.MimeMessageHelper;
 import org.springframework.stereotype.Service;
-import org.springframework.util.StringUtils;
 
 import com.amarvote.amarvote.dto.worker.EmailTask;
-import com.resend.Resend;
-import com.resend.core.exception.ResendException;
-import com.resend.services.emails.model.Attachment;
-import com.resend.services.emails.model.CreateEmailOptions;
+import com.amarvote.amarvote.email.EmailAttachment;
+import com.amarvote.amarvote.email.EmailMessage;
+import com.amarvote.amarvote.email.EmailSender;
 
-import jakarta.mail.MessagingException;
-import jakarta.mail.internet.MimeMessage;
+import lombok.RequiredArgsConstructor;
 
+/**
+ * Orchestrates email delivery: publishes tasks to RabbitMQ and processes them
+ * asynchronously via {@link TaskWorkerService}.
+ */
 @Service
+@RequiredArgsConstructor
 public class EmailService {
 
-    @Autowired
-    private JavaMailSender mailSender;
-
-    @Value("${spring.mail.username}")
-    private String fromEmail;
-
-    @Value("${resend.api.key:}")
-    private String resendApiKey;
-
-    @Value("${resend.from.email:AmarVote Team <noreply@mail.amarvote2026.me>}")
-    private String resendFromEmail;
-
-    @Autowired
-    private TaskPublisherService taskPublisherService;
-
-    // Package-private setter for testing
-    void setFromEmail(String fromEmail) {
-        this.fromEmail = fromEmail;
-    }
+    private final EmailSender emailSender;
+    private final TaskPublisherService taskPublisherService;
 
     public void sendSignupVerificationEmail(String toEmail, String token) {
         taskPublisherService.publishEmailTask(EmailTask.builder()
@@ -91,14 +69,6 @@ public class EmailService {
                 .build());
     }
 
-    /**
-     * Send guardian credential file via email with secure attachment
-     * @param toEmail Guardian's email address
-     * @param electionTitle Election title
-     * @param electionDescription Election description  
-     * @param credentialFilePath Path to the credential file containing encrypted data
-     * @param electionId Election ID
-     */
     public void sendGuardianCredentialEmail(String toEmail, String electionTitle, String electionDescription, Path credentialFilePath, Long electionId) {
         taskPublisherService.publishEmailTask(EmailTask.builder()
                 .emailType(EmailTask.EmailType.GUARDIAN_CREDENTIAL)
@@ -119,6 +89,21 @@ public class EmailService {
                 .build());
     }
 
+    public void sendVoteReceiptEmail(String toEmail, String electionTitle, Long electionId, String receiptContent,
+            String trackingCode) {
+        taskPublisherService.publishEmailTask(EmailTask.builder()
+            .emailType(EmailTask.EmailType.VOTE_RECEIPT)
+            .toEmail(toEmail)
+            .electionTitle(electionTitle)
+            .electionId(electionId)
+            .receiptContent(receiptContent)
+            .trackingCode(trackingCode)
+            .build());
+    }
+
+    /**
+     * Called by the RabbitMQ email worker — performs actual delivery via the configured provider.
+     */
     public void processEmailTask(EmailTask task) {
         if (task == null || task.getEmailType() == null) {
             throw new IllegalArgumentException("Email task or type is missing");
@@ -149,209 +134,76 @@ public class EmailService {
                     task.getTrackingCode());
             case REMINDER -> {
                 String html = task.getHtmlContent() == null ? "" : task.getHtmlContent().replace("\n", "<br/>");
-                sendHtmlEmail(task.getToEmail(), task.getSubject(), html);
+                deliverHtmlEmail(task.getToEmail(), task.getSubject(), html);
             }
             default -> throw new IllegalArgumentException("Unsupported email task type: " + task.getEmailType());
         }
     }
 
     private void sendSignupVerificationEmailImmediate(String toEmail, String token) {
-        String subject = "📩 Signup Email Verification Code";
-        String htmlContent = loadVerificationCodeTemplate(token);
-        sendHtmlEmail(toEmail, subject, htmlContent);
+        deliverHtmlEmail(toEmail, "📩 Signup Email Verification Code", loadVerificationCodeTemplate(token));
     }
 
     private void sendPasswordResetCodeEmailImmediate(String toEmail, String code) {
-        String subject = "🔐 Password Reset Verification Code";
-        String htmlContent = loadPasswordResetCodeTemplate(code);
-        sendHtmlEmail(toEmail, subject, htmlContent);
+        deliverHtmlEmail(toEmail, "🔐 Password Reset Verification Code", loadPasswordResetCodeTemplate(code));
     }
 
     private void sendForgotPasswordEmailImmediate(String toEmail, String resetLink) {
-        String subject = "🔐 Password Reset Request";
-        String htmlContent = loadResetPasswordTemplate(resetLink);
-        sendHtmlEmail(toEmail, subject, htmlContent);
+        deliverHtmlEmail(toEmail, "🔐 Password Reset Request", loadResetPasswordTemplate(resetLink));
     }
 
     private void sendGuardianPrivateKeyEmailImmediate(String toEmail, String electionTitle, String electionDescription, String privateKey, Long electionId) {
-        String subject = "🛡️ Your Guardian Private Key for Election: " + electionTitle;
-        String htmlContent = loadGuardianPrivateKeyTemplate(electionTitle, electionDescription, privateKey, electionId);
-        sendHtmlEmail(toEmail, subject, htmlContent);
+        deliverHtmlEmail(
+                toEmail,
+                "🛡️ Your Guardian Private Key for Election: " + electionTitle,
+                loadGuardianPrivateKeyTemplate(electionTitle, electionDescription, privateKey, electionId));
     }
 
     private void sendOtpEmailImmediate(String toEmail, String otpCode) {
-        String subject = "🔐 Your AmarVote Login Code";
-        String htmlContent = loadOtpEmailTemplate(otpCode);
-        sendHtmlEmail(toEmail, subject, htmlContent);
+        deliverHtmlEmail(toEmail, "🔐 Your AmarVote Login Code", loadOtpEmailTemplate(otpCode));
     }
 
-    /**
-     * Send guardian credential file via email with secure attachment
-     * @param toEmail Guardian's email address
-     * @param electionTitle Election title
-     * @param electionDescription Election description
-     * @param credentialFilePath Path to the credential file containing encrypted data
-     * @param electionId Election ID
-     */
     private void sendGuardianCredentialEmailImmediate(String toEmail, String electionTitle, String electionDescription, Path credentialFilePath, Long electionId) {
         if (credentialFilePath == null) {
             throw new IllegalArgumentException("Credential file path is required for guardian credential email");
         }
-        String subject = "🛡️ Your Guardian Credentials for Election: " + electionTitle;
-        String htmlContent = loadGuardianCredentialTemplate(electionTitle, electionDescription, electionId);
 
-        if (isResendConfigured()) {
-            sendGuardianCredentialEmailWithResend(toEmail, subject, htmlContent, electionTitle, electionId, credentialFilePath);
-            return;
-        }
-        
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8"); // Enable multipart for attachments
-            
-            helper.setTo(toEmail);
-            helper.setSubject(subject);
-            helper.setText(htmlContent, true); // Enable HTML
-            helper.setFrom(fromEmail);
-            
-            // Attach the credential file
-            FileSystemResource file = new FileSystemResource(credentialFilePath.toFile());
-            helper.addAttachment(buildGuardianCredentialFilename(electionTitle, electionId), file);
-            
-            mailSender.send(message);
-            
-            System.out.println("✅ Guardian credential email sent successfully to: " + toEmail);
-            
-        } catch (MessagingException e) {
-            System.err.println("❌ Failed to send guardian credential email to " + toEmail + ": " + e.getMessage());
-            throw new RuntimeException("Failed to send guardian credential email", e);
-        }
+        EmailMessage message = EmailMessage.builder()
+                .to(toEmail)
+                .subject("🛡️ Your Guardian Credentials for Election: " + electionTitle)
+                .htmlContent(loadGuardianCredentialTemplate(electionTitle, electionDescription, electionId))
+                .attachment(EmailAttachment.fromFile(
+                        buildGuardianCredentialFilename(electionTitle, electionId),
+                        credentialFilePath))
+                .build();
+
+        emailSender.send(message);
     }
 
-    public void sendVoteReceiptEmail(String toEmail, String electionTitle, Long electionId, String receiptContent,
+    private void sendVoteReceiptEmailImmediate(String toEmail, String electionTitle, Long electionId, String receiptContent,
             String trackingCode) {
-        taskPublisherService.publishEmailTask(EmailTask.builder()
-            .emailType(EmailTask.EmailType.VOTE_RECEIPT)
-            .toEmail(toEmail)
-            .electionTitle(electionTitle)
-            .electionId(electionId)
-            .receiptContent(receiptContent)
-            .trackingCode(trackingCode)
-            .build());
-        }
-
-        private void sendVoteReceiptEmailImmediate(String toEmail, String electionTitle, Long electionId, String receiptContent,
-            String trackingCode) {
-        String subject = "Your AmarVote Receipt - " + electionTitle;
         String htmlContent = "<p>Your vote was cast successfully.</p>"
                 + "<p>Your receipt is attached as a TXT file. Please keep it for verification.</p>"
                 + "<p><strong>Tracking Code:</strong> " + trackingCode + "</p>";
 
-        if (isResendConfigured()) {
-            sendVoteReceiptEmailWithResend(toEmail, subject, htmlContent, electionTitle, electionId, receiptContent, trackingCode);
-            return;
-        }
-
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setTo(toEmail);
-            helper.setSubject(subject);
-            helper.setText(htmlContent, true);
-            helper.setFrom(fromEmail);
-
-            helper.addAttachment(
-                    buildVoteReceiptFilename(electionTitle, electionId, trackingCode),
-                    new ByteArrayResource(receiptContent.getBytes(StandardCharsets.UTF_8)));
-
-            mailSender.send(message);
-        } catch (MessagingException e) {
-            throw new RuntimeException("Failed to send vote receipt email", e);
-        }
-    }
-
-    private void sendHtmlEmail(String toEmail, String subject, String htmlContent) {
-        if (isResendConfigured()) {
-            sendHtmlEmailWithResend(toEmail, subject, htmlContent);
-            return;
-        }
-
-        sendHtmlEmailWithSmtp(toEmail, subject, htmlContent);
-    }
-
-    private boolean isResendConfigured() {
-        return StringUtils.hasText(resendApiKey);
-    }
-
-    private void sendHtmlEmailWithResend(String toEmail, String subject, String htmlContent) {
-        CreateEmailOptions options = CreateEmailOptions.builder()
-                .from(resendFromEmail)
+        EmailMessage message = EmailMessage.builder()
                 .to(toEmail)
-                .subject(subject)
-                .html(htmlContent)
+                .subject("Your AmarVote Receipt - " + electionTitle)
+                .htmlContent(htmlContent)
+                .attachment(EmailAttachment.fromContent(
+                        buildVoteReceiptFilename(electionTitle, electionId, trackingCode),
+                        receiptContent.getBytes(StandardCharsets.UTF_8)))
                 .build();
 
-        sendWithResend(options, "Failed to send HTML email with Resend");
-        }
-
-        private void sendGuardianCredentialEmailWithResend(String toEmail, String subject, String htmlContent,
-            String electionTitle, Long electionId, Path credentialFilePath) {
-        Attachment attachment = Attachment.builder()
-            .fileName(buildGuardianCredentialFilename(electionTitle, electionId))
-            .path(credentialFilePath.toString())
-            .build();
-
-        CreateEmailOptions options = CreateEmailOptions.builder()
-            .from(resendFromEmail)
-            .to(toEmail)
-            .subject(subject)
-            .html(htmlContent)
-            .addAttachment(attachment)
-            .build();
-
-        sendWithResend(options, "Failed to send guardian credential email with Resend");
-        }
-
-        private void sendVoteReceiptEmailWithResend(String toEmail, String subject, String htmlContent,
-            String electionTitle, Long electionId, String receiptContent, String trackingCode) {
-        Attachment attachment = Attachment.builder()
-            .fileName(buildVoteReceiptFilename(electionTitle, electionId, trackingCode))
-            .content(Base64.getEncoder().encodeToString(receiptContent.getBytes(StandardCharsets.UTF_8)))
-            .build();
-
-        CreateEmailOptions options = CreateEmailOptions.builder()
-            .from(resendFromEmail)
-            .to(toEmail)
-            .subject(subject)
-            .html(htmlContent)
-            .addAttachment(attachment)
-            .build();
-
-        sendWithResend(options, "Failed to send vote receipt email with Resend");
-        }
-
-        private void sendWithResend(CreateEmailOptions options, String errorMessage) {
-        Resend resend = new Resend(resendApiKey);
-
-        try {
-            resend.emails().send(options);
-        } catch (ResendException e) {
-            throw new RuntimeException(errorMessage, e);
-        }
+        emailSender.send(message);
     }
 
-    private void sendHtmlEmailWithSmtp(String toEmail, String subject, String htmlContent) {
-        try {
-            MimeMessage message = mailSender.createMimeMessage();
-            MimeMessageHelper helper = new MimeMessageHelper(message, true, "UTF-8");
-            helper.setTo(toEmail);
-            helper.setSubject(subject);
-            helper.setText(htmlContent, true); // Enable HTML
-            helper.setFrom(fromEmail);
-            mailSender.send(message);
-        } catch (MessagingException e) {
-            throw new RuntimeException("Failed to send HTML email", e);
-        }
+    private void deliverHtmlEmail(String toEmail, String subject, String htmlContent) {
+        emailSender.send(EmailMessage.builder()
+                .to(toEmail)
+                .subject(subject)
+                .htmlContent(htmlContent)
+                .build());
     }
 
     private String buildVoteReceiptFilename(String electionTitle, Long electionId, String trackingCode) {

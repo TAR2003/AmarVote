@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.amarvote.amarvote.dto.BenalohChallengeRequest;
@@ -75,6 +76,9 @@ public class BallotService {
 
     @Autowired
     private TaskPublisherService taskPublisherService;
+
+    @Value("${amarvote.email.send-after-vote:false}")
+    private boolean sendEmailAfterVote;
 
     @Transactional
     public CastBallotResponse castBallot(CastBallotRequest request, String userEmail) {
@@ -1096,6 +1100,10 @@ public class BallotService {
 
         private void queueVoteReceiptEmail(String userEmail, Election election, String hashCode, String trackingCode,
             String candidateName, String partyName) {
+        if (!sendEmailAfterVote) {
+            return;
+        }
+
         try {
             String receipt = buildVoteReceiptContent(
                     election.getElectionTitle(),

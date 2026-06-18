@@ -121,22 +121,31 @@ SINGLE_RUN=1 ./load-tests/run.sh scenarios/browse.js
 | **`nginx-limit-check.js`** | Is nginx rate-limiting your IP? | Parallel burst to health, session, API (looks for HTTP 429) |
 | **`browse.js`** | Read-heavy dashboard load | session → all-elections → election detail → eligibility |
 | **`vote-encrypt-only.js`** | Encrypt ballot stress only | eligibility → create-encrypted-ballot (same email may repeat) |
-| **`vote-encrypt-2000.js`** | Full encrypted vote path | eligibility → create-encrypted-ballot → cast-encrypted-ballot (unique email per cast) |
-| **`vote-flow.js`** | Full vote path (with crypto) | Same as vote-encrypt-2000 (unique email per cast) |
+| **`vote-encrypt-2000.js`** | Full encrypted vote path | eligibility → encrypt (repeat) → cast once per email |
+| **`vote-flow.js`** | Full vote path (with crypto) | Same lifecycle as vote-encrypt-2000 |
 | **`mixed-2000.js`** | Realistic mix | ~65% browse, ~30% vote, ~5% static pages |
 
 ### Vote test behaviour
 
-Candidate names are **never** in `.env.loadtest`. Before vote scenarios run, `verify-election.sh` fetches `electionChoices[].optionTitle` from the API; k6 `setup()` loads the same list for each run.
+Candidates are loaded from `GET /api/election/:ELECTION_ID` in k6 `setup()` (`electionChoices[].optionTitle`).
 
-| Scenario | Email strategy | Why |
-|----------|----------------|-----|
-| **vote-encrypt-only** | One email per VU (`loadtest-voter-0001@…`) | Voters may encrypt many times before casting |
-| **vote-encrypt-2000**, **vote-flow**, **mixed** (vote path) | Unique email per VU × iteration | Each email can cast only once per election |
+| Scenario | Email | Encrypt | Cast |
+|----------|-------|---------|------|
+| **vote-encrypt-only** | One per VU | Unlimited | Never |
+| **vote-encrypt-2000**, **vote-flow**, **mixed** (vote) | One per VU per step (`voterEmailForStep`) | Unlimited before first cast | Once, then VU idles |
 
-Cast tests use `voterEmailForCast(vu, iter)` which includes the current `STEP_VUS` so stepped runs (50 → 100 → …) do not reuse voters from earlier steps.
+Lifecycle (production rules):
 
-After heavy cast tests, change `TEST_EMAIL_PREFIX` in `.env.loadtest` (e.g. `loadtest-voter-jun18`) or use a dedicated test election.
+1. Same email all iterations for that VU (e.g. `a1@…`).
+2. First `ENCRYPT_WARMUP_ITERS` iterations (default **2**) — encrypt only (preview ballot).
+3. Next iteration — encrypt + cast once.
+4. After cast — no more encrypt/cast (backend returns “Already voted”).
+
+```bash
+ENCRYPT_WARMUP_ITERS=3 ./load-tests/run.sh scenarios/vote-encrypt-2000.js
+```
+
+After heavy cast tests, change `TEST_EMAIL_PREFIX` or use a dedicated test election.
 
 ### Commands
 

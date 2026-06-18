@@ -1,8 +1,12 @@
 /**
- * Full encrypted vote path — encrypt + cast per iteration.
+ * Full encrypted vote path — encrypt + cast (stepped ramp to MAX_VUS).
  *
- * Each iteration uses a unique email (one cast per email per election).
- * Candidates loaded from GET /api/election/:id (same as browser).
+ * Voter model (matches production):
+ *   - One email per VU (e.g. a1@…) for the whole step
+ *   - a1 may call create-encrypted-ballot many times before casting
+ *   - a1 casts at most once; after that no more encrypt or cast
+ *
+ * Candidates: fetched once from GET /api/election/:id in setup().
  *
  * Run: ./load-tests/run.sh scenarios/vote-encrypt-2000.js
  */
@@ -15,9 +19,15 @@ import {
   authHeaders,
   postEncryptBallot,
 } from '../helpers.js';
-import { env, voterEmailForCast } from '../env.js';
+import { env, voterEmailForStep } from '../env.js';
 import { electionSetup, pickCandidate } from '../election-setup.js';
 import { recordApiResult, recordEncryptOutcome } from '../metrics.js';
+import {
+  encryptWarmupIters,
+  isAlreadyVotedApi,
+  parseEligibility,
+  voterHasAlreadyCast,
+} from '../vote-lifecycle.js';
 import { buildLoadTestOptions } from '../options.js';
 import { createSingleStepSummary, createStepSummary } from '../summary.js';
 
@@ -27,6 +37,10 @@ const encryptErrors = new Rate('vote_encrypt_errors');
 const castErrors = new Rate('vote_cast_errors');
 const ineligible = new Counter('vote_ineligible_skips');
 const alreadyVoted = new Counter('vote_already_voted');
+const postVoteIdle = new Counter('vote_post_cast_idle');
+
+/** Per-VU: set true after successful cast (init context — one copy per VU). */
+let hasCast = false;
 
 export const options = buildLoadTestOptions(env.maxVus, {
   gracefulRampDown: '30s',
@@ -45,22 +59,19 @@ export function setup() {
   return electionSetup();
 }
 
-function isAlreadyVoted(res) {
-  if (res.status !== 200 && res.status !== 400) return false;
-  try {
-    const body = res.json();
-    return body.errorReason === 'Already voted' || body.message?.includes('already voted');
-  } catch {
-    return false;
-  }
-}
-
 export default function (data) {
+  if (hasCast) {
+    postVoteIdle.add(1);
+    sleep(2 + Math.random() * 3);
+    return;
+  }
+
   const candidates = data.candidates;
-  const email = voterEmailForCast(__VU, __ITER);
+  const email = voterEmailForStep(__VU);
   const jwt = generateJWT(env.jwtSecretB64, email);
   const headers = authHeaders(jwt);
   const candidate = pickCandidate(candidates, __VU, __ITER);
+  const warmup = encryptWarmupIters();
 
   const eligRes = http.post(
     `${env.baseUrl}/api/eligibility`,
@@ -69,8 +80,14 @@ export default function (data) {
   );
   recordApiResult(eligRes, 'eligibility');
 
-  if (eligRes.status !== 200 || eligRes.json('eligible') !== true) {
-    ineligible.add(1);
+  const eligBody = parseEligibility(eligRes);
+  if (eligRes.status !== 200 || eligBody.eligible !== true) {
+    if (voterHasAlreadyCast(eligBody)) {
+      hasCast = true;
+      alreadyVoted.add(1);
+    } else {
+      ineligible.add(1);
+    }
     sleep(1 + Math.random() * 2);
     return;
   }
@@ -91,7 +108,8 @@ export default function (data) {
   encryptDuration.add(encryptRes.timings.duration);
   encryptErrors.add(encryptRes.status !== 200);
 
-  if (isAlreadyVoted(encryptRes)) {
+  if (isAlreadyVotedApi(encryptRes)) {
+    hasCast = true;
     alreadyVoted.add(1);
     sleep(2);
     return;
@@ -102,6 +120,12 @@ export default function (data) {
     'encrypt has ballot': (r) => r.status === 200 && r.json('encrypted_ballot') !== undefined,
   })) {
     sleep(2);
+    return;
+  }
+
+  // Encrypt-only warmup iterations (browser: preview ballot before submitting).
+  if (__ITER < warmup) {
+    sleep(3 + Math.random() * 5);
     return;
   }
 
@@ -120,12 +144,16 @@ export default function (data) {
   recordApiResult(castRes, 'cast-encrypted-ballot');
   castDuration.add(castRes.timings.duration);
 
-  if (isAlreadyVoted(castRes)) {
+  if (isAlreadyVotedApi(castRes)) {
+    hasCast = true;
     alreadyVoted.add(1);
   }
 
   const castOk = castRes.status === 200 && castRes.json('success') === true;
   castErrors.add(!castOk);
+  if (castOk) {
+    hasCast = true;
+  }
 
   check(castRes, {
     'cast status 200': (r) => r.status === 200,

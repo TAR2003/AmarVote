@@ -6,9 +6,15 @@
 import http from 'k6/http';
 import { sleep } from 'k6';
 import { generateJWT, authHeaders, padBallotPayload, postEncryptBallot } from '../helpers.js';
-import { env, voterEmail, voterEmailForCast } from '../env.js';
+import { env, voterEmail, voterEmailForStep } from '../env.js';
 import { electionSetup, pickCandidate } from '../election-setup.js';
 import { recordApiResult, recordEncryptOutcome } from '../metrics.js';
+import {
+  encryptWarmupIters,
+  isAlreadyVotedApi,
+  parseEligibility,
+  voterHasAlreadyCast,
+} from '../vote-lifecycle.js';
 import { buildLoadTestOptions } from '../options.js';
 import { createSingleStepSummary, createStepSummary } from '../summary.js';
 
@@ -41,18 +47,29 @@ function browseFlow(jwt) {
   recordApiResult(eligRes, 'eligibility');
 }
 
+let hasCastVote = false;
+
 function voteFlow(candidates) {
-  const email = voterEmailForCast(__VU, __ITER);
+  if (hasCastVote) return;
+
+  const email = voterEmailForStep(__VU);
   const jwt = generateJWT(env.jwtSecretB64, email);
   const headers = authHeaders(jwt);
   const candidate = pickCandidate(candidates, __VU, __ITER);
+  const warmup = encryptWarmupIters();
+
   const eligRes = http.post(
     `${env.baseUrl}/api/eligibility`,
     JSON.stringify({ electionId: env.electionId }),
     { headers, tags: { name: 'eligibility' } },
   );
   recordApiResult(eligRes, 'eligibility');
-  if (eligRes.status !== 200 || eligRes.json('eligible') !== true) return;
+
+  const eligBody = parseEligibility(eligRes);
+  if (eligRes.status !== 200 || eligBody.eligible !== true) {
+    if (voterHasAlreadyCast(eligBody)) hasCastVote = true;
+    return;
+  }
 
   const ballotBody = padBallotPayload({
     electionId: env.electionId,
@@ -62,7 +79,13 @@ function voteFlow(candidates) {
 
   const enc = postEncryptBallot(env.baseUrl, jwt, ballotBody);
   recordEncryptOutcome(enc);
+  if (isAlreadyVotedApi(enc)) {
+    hasCastVote = true;
+    return;
+  }
   if (enc.status !== 200) return;
+
+  if (__ITER < warmup) return;
 
   const b = enc.json();
   const castRes = http.post(
@@ -76,6 +99,9 @@ function voteFlow(candidates) {
     { headers, tags: { name: 'cast-encrypted-ballot' } },
   );
   recordApiResult(castRes, 'cast-encrypted-ballot');
+
+  const castOk = castRes.status === 200 && castRes.json('success') === true;
+  if (castOk || isAlreadyVotedApi(castRes)) hasCastVote = true;
 }
 
 function staticAssets() {

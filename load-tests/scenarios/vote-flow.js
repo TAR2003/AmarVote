@@ -1,7 +1,6 @@
 /**
- * Full vote path — stepped ramp (50 → 100 → … → MAX_VUS) — election 10.
- * Each iteration uses a unique email (one cast per email per election).
- * Candidates loaded from GET /api/election/:id (same as browser).
+ * Full vote path — stepped ramp (50 → 100 → … → MAX_VUS).
+ * Same voter lifecycle as vote-encrypt-2000.js (encrypt many times, cast once).
  *
  * Run: ./load-tests/run.sh scenarios/vote-flow.js
  */
@@ -13,11 +12,19 @@ import {
   padBallotPayload,
   postEncryptBallot,
 } from '../helpers.js';
-import { env, voterEmailForCast } from '../env.js';
+import { env, voterEmailForStep } from '../env.js';
 import { electionSetup, pickCandidate } from '../election-setup.js';
 import { recordApiResult, recordEncryptOutcome } from '../metrics.js';
+import {
+  encryptWarmupIters,
+  isAlreadyVotedApi,
+  parseEligibility,
+  voterHasAlreadyCast,
+} from '../vote-lifecycle.js';
 import { buildLoadTestOptions } from '../options.js';
 import { createSingleStepSummary, createStepSummary } from '../summary.js';
+
+let hasCast = false;
 
 export const options = buildLoadTestOptions(env.maxVus, {
   gracefulRampDown: '30s',
@@ -34,11 +41,17 @@ export function setup() {
 }
 
 export default function (data) {
+  if (hasCast) {
+    sleep(2 + Math.random() * 3);
+    return;
+  }
+
   const candidates = data.candidates;
-  const email = voterEmailForCast(__VU, __ITER);
+  const email = voterEmailForStep(__VU);
   const jwt = generateJWT(env.jwtSecretB64, email);
   const headers = authHeaders(jwt);
   const candidate = pickCandidate(candidates, __VU, __ITER);
+  const warmup = encryptWarmupIters();
 
   const eligRes = http.post(
     `${env.baseUrl}/api/eligibility`,
@@ -46,7 +59,10 @@ export default function (data) {
     { headers, tags: { name: 'eligibility' } },
   );
   recordApiResult(eligRes, 'eligibility');
-  if (!check(eligRes, { eligible: (r) => r.status === 200 && r.json('eligible') === true })) {
+
+  const eligBody = parseEligibility(eligRes);
+  if (eligRes.status !== 200 || eligBody.eligible !== true) {
+    if (voterHasAlreadyCast(eligBody)) hasCast = true;
     sleep(2);
     return;
   }
@@ -63,8 +79,18 @@ export default function (data) {
 
   const encryptRes = postEncryptBallot(env.baseUrl, jwt, ballotBody);
   recordEncryptOutcome(encryptRes);
+  if (isAlreadyVotedApi(encryptRes)) {
+    hasCast = true;
+    sleep(2);
+    return;
+  }
   if (!check(encryptRes, { 'encrypt 200': (r) => r.status === 200 })) {
     sleep(3);
+    return;
+  }
+
+  if (__ITER < warmup) {
+    sleep(3 + Math.random() * 5);
     return;
   }
 
@@ -80,6 +106,10 @@ export default function (data) {
     { headers, tags: { name: 'cast-encrypted-ballot' } },
   );
   recordApiResult(castRes, 'cast-encrypted-ballot');
+
+  const castOk = castRes.status === 200 && castRes.json('success') === true;
+  if (castOk || isAlreadyVotedApi(castRes)) hasCast = true;
+
   check(castRes, { 'cast success': (r) => r.status === 200 && r.json('success') === true });
 
   sleep(3 + Math.random() * 5);

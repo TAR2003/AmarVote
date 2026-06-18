@@ -30,8 +30,18 @@ export function voterEmail(vu) {
 }
 
 /**
- * Unique email per VU × iteration — required for cast tests (one vote per email per election).
- * Includes STEP_VUS offset so stepped runs (50 → 100 → …) do not reuse voters from prior steps.
+ * One email per VU for cast scenarios — same voter encrypts many times, casts once.
+ * STEP_VUS offset avoids reusing emails that already voted in a prior step.
+ */
+export function voterEmailForStep(vu) {
+  const step = Number(__ENV.STEP_VUS || '0');
+  const stepPart = step > 0 ? step * 100_000 : 0;
+  const n = stepPart + vu;
+  return `${env.emailPrefix}-${String(n).padStart(8, '0')}@${env.emailDomain}`;
+}
+
+/**
+ * @deprecated Use voterEmailForStep — one email per VU with encrypt-then-cast lifecycle.
  */
 export function voterEmailForCast(vu, iter) {
   const step = Number(__ENV.STEP_VUS || '0');

@@ -75,6 +75,15 @@ public class RabbitMQConfig {
     @Value("${rabbitmq.worker.concurrency.max:4}")
     private int maxConcurrentConsumers;
 
+    @Value("${rabbitmq.email.concurrency.min:2}")
+    private int minEmailConcurrentConsumers;
+
+    @Value("${rabbitmq.email.concurrency.max:4}")
+    private int maxEmailConcurrentConsumers;
+
+    @Value("${rabbitmq.email.prefetch:5}")
+    private int emailPrefetchCount;
+
     /**
      * Configure listener container factory with concurrency settings
      * 
@@ -146,6 +155,26 @@ public class RabbitMQConfig {
         System.out.println("⚠️ PREFETCH COUNT: 1 (ENFORCED - critical for fair scheduling)");
         System.out.println("✅ Multiple workers + prefetch=1 = Concurrent round-robin processing!");
         
+        return factory;
+    }
+
+    /**
+     * Dedicated listener factory for the email queue.
+     * Email tasks are independent I/O-bound work — higher prefetch is safe here.
+     */
+    @Bean
+    public SimpleRabbitListenerContainerFactory emailRabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
+        SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
+        factory.setConnectionFactory(connectionFactory);
+        factory.setMessageConverter(jsonMessageConverter());
+        factory.setConcurrentConsumers(minEmailConcurrentConsumers);
+        factory.setMaxConcurrentConsumers(maxEmailConcurrentConsumers);
+        factory.setPrefetchCount(emailPrefetchCount);
+        factory.setDefaultRequeueRejected(false);
+
+        System.out.println("⚙️ RabbitMQ Email Concurrency configured: min=" + minEmailConcurrentConsumers
+                + ", max=" + maxEmailConcurrentConsumers + ", prefetch=" + emailPrefetchCount);
+
         return factory;
     }
 
