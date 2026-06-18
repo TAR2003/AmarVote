@@ -1,32 +1,28 @@
 /**
  * Full vote path — stepped ramp (50 → 100 → … → MAX_VUS) — election 10.
+ * Each iteration uses a unique email (one cast per email per election).
  * Run: ./load-tests/run.sh scenarios/vote-flow.js
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { generateJWT, authHeaders, padBallotPayload } from '../helpers.js';
-import { env, voterEmail, pickCandidate } from '../env.js';
-import { buildSteppedStages } from '../stages.js';
+import { generateJWT, authHeaders, padBallotPayload, recordApiResult } from '../helpers.js';
+import { env, voterEmailForCast, pickCandidate } from '../env.js';
+import { buildLoadTestOptions } from '../options.js';
+import { createSingleStepSummary, createStepSummary } from '../summary.js';
 
-export const options = {
-  scenarios: {
-    vote_ramp: {
-      executor: 'ramping-vus',
-      startVUs: 0,
-      stages: buildSteppedStages(env.maxVus),
-      gracefulRampDown: '2m',
-    },
-  },
+export const options = buildLoadTestOptions(env.maxVus, {
+  gracefulRampDown: '30s',
+  http: { timeout: '180s' },
   thresholds: {
     http_req_failed: ['rate<0.10'],
     'http_req_duration{name:create-encrypted-ballot}': ['p(95)<120000'],
     checks: ['rate>0.80'],
   },
-  http: { timeout: '180s' },
-};
+});
 
 export default function () {
-  const jwt = generateJWT(env.jwtSecretB64, voterEmail(__VU));
+  const email = voterEmailForCast(__VU, __ITER);
+  const jwt = generateJWT(env.jwtSecretB64, email);
   const headers = authHeaders(jwt);
   const candidate = pickCandidate(__VU, __ITER);
 
@@ -35,6 +31,7 @@ export default function () {
     JSON.stringify({ electionId: env.electionId }),
     { headers, tags: { name: 'eligibility' } },
   );
+  recordApiResult(eligRes, 'eligibility');
   if (!check(eligRes, { eligible: (r) => r.status === 200 && r.json('eligible') === true })) {
     sleep(2);
     return;
@@ -45,7 +42,7 @@ export default function () {
     selectedCandidates: [candidate],
     botDetection: {
       isBot: false,
-      requestId: `k6-${__VU}-${__ITER}`,
+      requestId: `k6-cast-vu${__VU}-iter${__ITER}`,
       timestamp: new Date().toISOString(),
     },
   });
@@ -58,25 +55,31 @@ export default function () {
     },
     tags: { name: 'create-encrypted-ballot' },
   });
+  recordApiResult(encryptRes, 'create-encrypted-ballot');
   if (!check(encryptRes, { 'encrypt 200': (r) => r.status === 200 })) {
     sleep(3);
     return;
   }
 
   const body = encryptRes.json();
-  check(
-    http.post(
-      `${env.baseUrl}/api/cast-encrypted-ballot`,
-      JSON.stringify({
-        electionId: env.electionId,
-        encrypted_ballot: body.encrypted_ballot,
-        ballot_hash: body.ballot_hash,
-        ballot_tracking_code: body.ballot_tracking_code,
-      }),
-      { headers, tags: { name: 'cast-encrypted-ballot' } },
-    ),
-    { 'cast success': (r) => r.status === 200 && r.json('success') === true },
+  const castRes = http.post(
+    `${env.baseUrl}/api/cast-encrypted-ballot`,
+    JSON.stringify({
+      electionId: env.electionId,
+      encrypted_ballot: body.encrypted_ballot,
+      ballot_hash: body.ballot_hash,
+      ballot_tracking_code: body.ballot_tracking_code,
+    }),
+    { headers, tags: { name: 'cast-encrypted-ballot' } },
   );
+  recordApiResult(castRes, 'cast-encrypted-ballot');
+  check(castRes, { 'cast success': (r) => r.status === 200 && r.json('success') === true });
 
   sleep(3 + Math.random() * 5);
+}
+
+export function handleSummary(data) {
+  const vus = Number(__ENV.STEP_VUS || '0');
+  if (vus > 0) return createSingleStepSummary('vote-flow')(data);
+  return createStepSummary('vote-flow')(data);
 }

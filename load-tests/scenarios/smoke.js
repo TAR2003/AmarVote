@@ -4,8 +4,9 @@
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
-import { generateJWT, authHeaders } from '../helpers.js';
+import { generateJWT, authHeaders, recordApiResult } from '../helpers.js';
 import { env, voterEmail } from '../env.js';
+import { createSimpleSummary } from '../summary.js';
 
 export const options = {
   vus: 10,
@@ -33,21 +34,23 @@ export function setup() {
 export default function (data) {
   const jwt = data.jwt || generateJWT(env.jwtSecretB64, voterEmail(__VU));
 
-  check(http.get(`${env.baseUrl}/api/health`), {
-    'health ok': (r) => r.status === 200,
-  });
+  const healthRes = http.get(`${env.baseUrl}/api/health`, { tags: { name: 'health' } });
+  recordApiResult(healthRes, 'health');
+  check(healthRes, { 'health ok': (r) => r.status === 200 });
 
-  check(http.get(`${env.baseUrl}/api/auth/session`, { headers: authHeaders(jwt) }), {
-    'session ok': (r) => r.status === 200,
-  });
+  const sessionRes = http.get(`${env.baseUrl}/api/auth/session`, { headers: authHeaders(jwt), tags: { name: 'session' } });
+  recordApiResult(sessionRes, 'session');
+  check(sessionRes, { 'session ok': (r) => r.status === 200 });
 
-  check(http.get(`${env.baseUrl}/api/all-elections`, { headers: authHeaders(jwt) }), {
-    'elections ok': (r) => r.status === 200,
-  });
+  const electionsRes = http.get(`${env.baseUrl}/api/all-elections`, { headers: authHeaders(jwt), tags: { name: 'all-elections' } });
+  recordApiResult(electionsRes, 'all-elections');
+  check(electionsRes, { 'elections ok': (r) => r.status === 200 });
 
-  check(http.get(`${env.baseUrl}/api/election/${env.electionId}`, { headers: authHeaders(jwt) }), {
-    'election 10 ok': (r) => r.status === 200,
-  });
+  const detailRes = http.get(`${env.baseUrl}/api/election/${env.electionId}`, { headers: authHeaders(jwt), tags: { name: 'election-detail' } });
+  recordApiResult(detailRes, 'election-detail');
+  check(detailRes, { 'election 10 ok': (r) => r.status === 200 });
 
   sleep(1);
 }
+
+export const handleSummary = createSimpleSummary('smoke');

@@ -33,6 +33,17 @@ export function voterEmail(vu) {
   return `${env.emailPrefix}-${String(vu).padStart(4, '0')}@${env.emailDomain}`;
 }
 
+/**
+ * Unique email per VU × iteration — required for cast tests (one vote per email per election).
+ * Includes STEP_VUS offset so stepped runs (50 → 100 → …) do not reuse voters from prior steps.
+ */
+export function voterEmailForCast(vu, iter) {
+  const step = Number(__ENV.STEP_VUS || '0');
+  const stepPart = step > 0 ? step * 10_000_000 : 0;
+  const n = stepPart + vu * 100_000 + iter;
+  return `${env.emailPrefix}-${String(n).padStart(12, '0')}@${env.emailDomain}`;
+}
+
 export function pickCandidate(vu, iter) {
   const list = env.candidates;
   return list[(vu + iter) % list.length];

@@ -3,8 +3,11 @@
 #
 # Usage:
 #   ./load-tests/run.sh scenarios/smoke.js
-#   ./load-tests/run.sh scenarios/vote-encrypt-2000.js
-#   ./load-tests/run.sh scenarios/mixed-2000.js --summary-export=load-tests/results/summary.json
+#   ./load-tests/run.sh scenarios/nginx-limit-check.js
+#   ./load-tests/run.sh scenarios/browse.js          # stepped: 50→100→… with report after each
+#   ./load-tests/run.sh scenarios/vote-encrypt-only.js   # encrypt only (repeat per voter)
+#   ./load-tests/run.sh scenarios/vote-encrypt-2000.js   # encrypt + cast (one vote per email)
+#   SINGLE_RUN=1 ./load-tests/run.sh scenarios/browse.js   # one long k6 run (all steps)
 #
 # Loads (in order, later overrides earlier):
 #   1. project root .env
@@ -59,10 +62,27 @@ SCENARIO="${1:-scenarios/smoke.js}"
 shift || true
 
 if [[ "${SCENARIO}" != /* ]]; then
+  SCENARIO_REL="${SCENARIO}"
   SCENARIO="${LOADTEST_DIR}/${SCENARIO}"
+else
+  SCENARIO_REL="${SCENARIO#"${LOADTEST_DIR}/"}"
+fi
+
+if [[ "${SKIP_NGINX_CHECK:-}" != "1" && "${SCENARIO_REL}" != "scenarios/nginx-limit-check.js" ]]; then
+  "${LOADTEST_DIR}/check-nginx-limits.sh"
 fi
 
 mkdir -p "${LOADTEST_DIR}/results"
+
+STEPPED_SCENARIOS="scenarios/browse.js scenarios/vote-flow.js scenarios/vote-encrypt-only.js scenarios/vote-encrypt-2000.js scenarios/mixed-2000.js"
+IS_STEPPED=0
+for s in ${STEPPED_SCENARIOS}; do
+  if [[ "${SCENARIO_REL}" == "${s}" ]]; then IS_STEPPED=1; break; fi
+done
+
+if [[ "${IS_STEPPED}" -eq 1 && "${SINGLE_RUN:-}" != "1" ]]; then
+  exec "${LOADTEST_DIR}/run-stepped.sh" "${SCENARIO_REL}" "$@"
+fi
 
 echo "▶ k6 ${SCENARIO}"
 echo "  BASE_URL=${BASE_URL}"
@@ -72,6 +92,7 @@ echo "  VU_STEPS=${VU_STEPS} (+ ${MAX_VUS} peak)"
 echo "  STAGE_RAMP=${STAGE_RAMP_DURATION}  STAGE_HOLD=${STAGE_HOLD_DURATION}  RAMP_DOWN=${RAMP_DOWN_DURATION}"
 echo "  CANDIDATES=${CANDIDATES}"
 echo "  JWT_SECRET_B64=*** (${#JWT_SECRET_B64} chars)"
+echo "  Reports → load-tests/results/*-step-*-report.txt (stepped) or *-report.txt"
 
 exec k6 run "${SCENARIO}" \
   -e "BASE_URL=${BASE_URL}" \

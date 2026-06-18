@@ -57,6 +57,8 @@ export function authHeaders(jwt) {
   };
 }
 
+export { recordApiResult } from './metrics.js';
+
 export function checkResponse(res, name) {
   return {
     [`${name} status 2xx`]: (r) => r.status >= 200 && r.status < 300,

@@ -1,25 +1,22 @@
 /**
- * Full encrypted vote path — encrypt + cast per iteration.
+ * Encrypt-only load test — stress POST /api/create-encrypted-ballot.
  *
- * Each iteration uses a unique email (one cast per email per election).
- * Use vote-encrypt-only.js to stress encrypt without consuming votes.
+ * Models real behaviour: a voter may create encrypted ballots repeatedly before casting.
+ * Each VU keeps one email and loops encrypt only (no cast).
  *
- * Run: ./load-tests/run.sh scenarios/vote-encrypt-2000.js
+ * Run: ./load-tests/run.sh scenarios/vote-encrypt-only.js
  */
 import http from 'k6/http';
 import { check, sleep } from 'k6';
 import { Counter, Rate, Trend } from 'k6/metrics';
 import { generateJWT, padBallotPayload, authHeaders, recordApiResult } from '../helpers.js';
-import { env, voterEmailForCast, pickCandidate } from '../env.js';
+import { env, voterEmail, pickCandidate } from '../env.js';
 import { buildLoadTestOptions } from '../options.js';
 import { createSingleStepSummary, createStepSummary } from '../summary.js';
 
 const encryptDuration = new Trend('vote_encrypt_duration', true);
-const castDuration = new Trend('vote_cast_duration', true);
 const encryptErrors = new Rate('vote_encrypt_errors');
-const castErrors = new Rate('vote_cast_errors');
 const ineligible = new Counter('vote_ineligible_skips');
-const alreadyVoted = new Counter('vote_already_voted');
 
 export const options = buildLoadTestOptions(env.maxVus, {
   gracefulRampDown: '30s',
@@ -27,25 +24,13 @@ export const options = buildLoadTestOptions(env.maxVus, {
   thresholds: {
     http_req_failed: ['rate<0.10'],
     vote_encrypt_errors: ['rate<0.15'],
-    vote_cast_errors: ['rate<0.10'],
     vote_encrypt_duration: ['p(95)<120000', 'p(99)<180000'],
-    vote_cast_duration: ['p(95)<15000'],
     checks: ['rate>0.80'],
   },
 });
 
-function isAlreadyVoted(res) {
-  if (res.status !== 200) return false;
-  try {
-    const body = res.json();
-    return body.errorReason === 'Already voted' || body.message?.includes('already voted');
-  } catch {
-    return false;
-  }
-}
-
 export default function () {
-  const email = voterEmailForCast(__VU, __ITER);
+  const email = voterEmail(__VU);
   const jwt = generateJWT(env.jwtSecretB64, email);
   const headers = authHeaders(jwt);
   const candidate = pickCandidate(__VU, __ITER);
@@ -68,7 +53,7 @@ export default function () {
     selectedCandidates: [candidate],
     botDetection: {
       isBot: false,
-      requestId: `k6-cast-vu${__VU}-iter${__ITER}`,
+      requestId: `k6-encrypt-vu${__VU}-iter${__ITER}`,
       timestamp: new Date().toISOString(),
     },
   });
@@ -90,45 +75,9 @@ export default function () {
   encryptDuration.add(encryptRes.timings.duration);
   encryptErrors.add(encryptRes.status !== 200);
 
-  if (isAlreadyVoted(encryptRes)) {
-    alreadyVoted.add(1);
-    sleep(2);
-    return;
-  }
-
-  if (!check(encryptRes, {
+  check(encryptRes, {
     'encrypt status 200': (r) => r.status === 200,
     'encrypt has ballot': (r) => r.status === 200 && r.json('encrypted_ballot') !== undefined,
-  })) {
-    sleep(2);
-    return;
-  }
-
-  const ballot = encryptRes.json();
-  const castRes = http.post(
-    `${env.baseUrl}/api/cast-encrypted-ballot`,
-    JSON.stringify({
-      electionId: env.electionId,
-      encrypted_ballot: ballot.encrypted_ballot,
-      ballot_hash: ballot.ballot_hash,
-      ballot_tracking_code: ballot.ballot_tracking_code,
-    }),
-    { headers, tags: { name: 'cast-encrypted-ballot' } },
-  );
-
-  recordApiResult(castRes, 'cast-encrypted-ballot');
-  castDuration.add(castRes.timings.duration);
-
-  if (isAlreadyVoted(castRes)) {
-    alreadyVoted.add(1);
-  }
-
-  const castOk = castRes.status === 200 && castRes.json('success') === true;
-  castErrors.add(!castOk);
-
-  check(castRes, {
-    'cast status 200': (r) => r.status === 200,
-    'cast success': (r) => r.status === 200 && r.json('success') === true,
   });
 
   sleep(2 + Math.random() * 4);
@@ -136,6 +85,6 @@ export default function () {
 
 export function handleSummary(data) {
   const vus = Number(__ENV.STEP_VUS || '0');
-  if (vus > 0) return createSingleStepSummary('vote-encrypt-2000')(data);
-  return createStepSummary('vote-encrypt-2000')(data);
+  if (vus > 0) return createSingleStepSummary('vote-encrypt-only')(data);
+  return createStepSummary('vote-encrypt-only')(data);
 }
