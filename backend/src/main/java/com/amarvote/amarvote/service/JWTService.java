@@ -63,7 +63,8 @@ public class JWTService {
                 && !isTokenExpired(jwtToken);
     }
 
-    private boolean isTokenExpired(String jwtToken) {
+    /** True when the token signature is valid but exp is in the past. */
+    public boolean isTokenExpired(String jwtToken) {
         return extractExpiration(jwtToken).before(new Date());
     }
 

@@ -33,6 +33,7 @@ set +a
 
 # Map server .env JWT_SECRET to k6 variable name
 export JWT_SECRET_B64="${JWT_SECRET_B64:-${JWT_SECRET:-}}"
+export JWT_EXPIRATION_MS="${JWT_EXPIRATION_MS:-3600000}"
 export BASE_URL="${BASE_URL:-https://amarvote2026.me}"
 export ELECTION_ID="${ELECTION_ID:-10}"
 export TEST_EMAIL_PREFIX="${TEST_EMAIL_PREFIX:-loadtest-voter}"
@@ -46,7 +47,12 @@ export RAMP_DOWN_DURATION="${RAMP_DOWN_DURATION:-5m}"
 
 if [[ -z "${JWT_SECRET_B64}" ]]; then
   echo "ERROR: JWT_SECRET or JWT_SECRET_B64 must be set in .env or load-tests/.env.loadtest" >&2
+  echo "Get the production value: ssh <user>@amarvote2026.me \"grep ^JWT_SECRET= ~/.env\"" >&2
   exit 1
+fi
+
+if [[ "${SKIP_JWT_VERIFY:-}" != "1" ]]; then
+  "${LOADTEST_DIR}/verify-auth.sh"
 fi
 
 SCENARIO="${1:-scenarios/smoke.js}"
@@ -70,6 +76,7 @@ echo "  JWT_SECRET_B64=*** (${#JWT_SECRET_B64} chars)"
 exec k6 run "${SCENARIO}" \
   -e "BASE_URL=${BASE_URL}" \
   -e "JWT_SECRET_B64=${JWT_SECRET_B64}" \
+  -e "JWT_EXPIRATION_MS=${JWT_EXPIRATION_MS}" \
   -e "ELECTION_ID=${ELECTION_ID}" \
   -e "TEST_EMAIL_PREFIX=${TEST_EMAIL_PREFIX}" \
   -e "TEST_EMAIL_DOMAIN=${TEST_EMAIL_DOMAIN}" \

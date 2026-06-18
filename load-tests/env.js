@@ -19,6 +19,7 @@ function requireSecret() {
 export const env = {
   baseUrl: __ENV.BASE_URL || 'https://amarvote2026.me',
   jwtSecretB64: requireSecret(),
+  jwtExpirationMs: Number(__ENV.JWT_EXPIRATION_MS || '3600000'),
   electionId: Number(__ENV.ELECTION_ID || '10'),
   emailPrefix: __ENV.TEST_EMAIL_PREFIX || 'loadtest-voter',
   emailDomain: __ENV.TEST_EMAIL_DOMAIN || 'example.com',

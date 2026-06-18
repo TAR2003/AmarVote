@@ -8,20 +8,25 @@ import encoding from 'k6/encoding';
 export const TARGET_BALLOT_SIZE = 18980;
 
 /**
- * Generate HS256 JWT matching backend JWTService (sub = email, 1h TTL).
- * @param {string} secretB64 - Base64-encoded JWT_SECRET from server .env
- * @param {string} email - Voter email (JWT sub); with open registration, need not exist in users table yet
+ * Generate HS256 JWT matching backend JWTService.generateJWTToken():
+ *   - secret: base64-decoded JWT_SECRET (same as Decoders.BASE64.decode in Java)
+ *   - claims: sub (email), iat, exp
+ *   - TTL: JWT_EXPIRATION_MS from application.properties (default 3600000 = 1h)
  */
-export function generateJWT(secretB64, email, ttlSeconds = 3600) {
-  const header = encoding.b64encode(JSON.stringify({ alg: 'HS256', typ: 'JWT' }), 'rawurl');
+export function generateJWT(secretB64, email, ttlMs) {
+  const expirationMs = ttlMs ?? Number(__ENV.JWT_EXPIRATION_MS || '3600000');
+  const ttlSeconds = Math.floor(expirationMs / 1000);
+  const header = encoding.b64encode(JSON.stringify({ alg: 'HS256' }), 'rawurl');
   const now = Math.floor(Date.now() / 1000);
   const payload = encoding.b64encode(
     JSON.stringify({ sub: email, iat: now, exp: now + ttlSeconds }),
     'rawurl',
   );
   const signingInput = `${header}.${payload}`;
-  const keyBytes = encoding.b64decode(secretB64, 'std', 's');
-  const signature = crypto.hmac('sha256', signingInput, keyBytes, 'base64url');
+  const keyBytes = encoding.b64decode(secretB64, 'std');
+  const hasher = crypto.createHMAC('sha256', keyBytes);
+  hasher.update(signingInput);
+  const signature = hasher.digest('base64url');
   return `${signingInput}.${signature}`;
 }
 
