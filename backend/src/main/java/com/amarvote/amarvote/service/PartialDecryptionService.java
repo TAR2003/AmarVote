@@ -484,6 +484,30 @@ public class PartialDecryptionService {
     }
 
     /**
+     * Progress for every guardian in an election — used by voters/admins clicking guardian profiles.
+     */
+    public List<com.amarvote.amarvote.dto.GuardianDecryptionProgressItem> getAllGuardiansDecryptionProgress(Long electionId) {
+        return guardianRepository.findByElectionId(electionId).stream()
+            .map(guardian -> {
+                DecryptionStatusResponse status = getDecryptionStatus(electionId, guardian.getGuardianId());
+                return com.amarvote.amarvote.dto.GuardianDecryptionProgressItem.builder()
+                    .guardianId(guardian.getGuardianId())
+                    .guardianName(guardian.getUserEmail())
+                    .guardianEmail(guardian.getUserEmail())
+                    .profilePic(null)
+                    .sequenceOrder(guardian.getSequenceOrder())
+                    .decryptedOrNot(guardian.getDecryptedOrNot())
+                    .status(status.getStatus())
+                    .currentPhase(status.getCurrentPhase())
+                    .totalChunks(status.getTotalChunks())
+                    .processedChunks(status.getProcessedChunks())
+                    .progressPercentage(status.getProgressPercentage())
+                    .build();
+            })
+            .collect(Collectors.toList());
+    }
+
+    /**
      * Get current decryption status for a guardian
      * Queries RoundRobinTaskScheduler for real-time chunk processing state
      */

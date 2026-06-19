@@ -10,10 +10,11 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import org.springframework.amqp.rabbit.core.RabbitTemplate;
-import org.springframework.scheduling.annotation.Scheduled;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import com.amarvote.amarvote.config.RabbitMQConfig;
+import com.amarvote.amarvote.model.ProcessOperationType;
 import com.amarvote.amarvote.dto.worker.CombineDecryptionTask;
 import com.amarvote.amarvote.dto.worker.CompensatedDecryptionTask;
 import com.amarvote.amarvote.dto.worker.PartialDecryptionTask;
@@ -53,21 +54,7 @@ import lombok.extern.slf4j.Slf4j;
  * CONCURRENCY CONTROL:
  * - Max concurrent workers controlled by application.properties (rabbitmq.worker.concurrency)
  * - MAX_QUEUED_CHUNKS_PER_TASK=1 ensures strict interleaving
- * - TARGET_CHUNKS_PER_CYCLE=8 (number of round-robin passes) keeps workers busy
- * - Scheduling runs every 100ms to maintain optimal queue levels
- * 
- * EXAMPLE BEHAVIOR (4 workers, Tasks A=100 chunks, B=20 chunks):
- * - Initial: Queue A-1, B-1, A-2, B-2 → Workers process all 4 simultaneously
- * - After A-1 completes: Queue A-3, continue rotation
- * - After B-1 completes: Queue B-3, continue rotation
- * - Result: Both A and B progress at equal pace until B finishes
- * - Then: A uses all available workers to finish remaining chunks
- * 
- * NEW TASK ARRIVES (Task C joins while A and B are running):
- * - Before C: A-10 queued, B-10 queued, A-11 processing, B-11 processing
- * - After C arrives: Next rotation includes C
- * - Rotation: A-12, B-12, C-1, A-13, B-13, C-2...
- * - C immediately gets fair share of worker slots
+ * - Event-driven dispatch on task registration and chunk completion (no polling loop)
  */
 @Service
 @RequiredArgsConstructor
@@ -76,6 +63,10 @@ public class RoundRobinTaskScheduler {
 
     private final RabbitTemplate rabbitTemplate;
     private final ObjectMapper objectMapper;
+    private final ProcessCancellationService cancellationService;
+
+    @Value("${rabbitmq.worker.concurrency.max:4}")
+    private int maxWorkerConcurrency;
 
     /**
      * All active task instances (key: taskInstanceId)
@@ -122,12 +113,11 @@ public class RoundRobinTaskScheduler {
     private static final int MAX_QUEUED_CHUNKS_PER_TASK = 1;
     
     /**
-     * Target number of chunks to publish per scheduling cycle
-     * Should be >= number of workers to keep them busy
-     * UPDATED: This now represents the number of round-robin passes to make
-     * With MAX_QUEUED_CHUNKS_PER_TASK=1, each task gets 1 chunk per pass
+     * Round-robin passes per dispatch cycle — sized to keep worker pool busy.
      */
-    private static final int TARGET_CHUNKS_PER_CYCLE = 8;
+    private int targetChunksPerCycle() {
+        return Math.max(maxWorkerConcurrency, 4);
+    }
 
     // ==================== PUBLIC API ====================
 
@@ -191,8 +181,36 @@ public class RoundRobinTaskScheduler {
         
         log.info("✅ Task instance registered: {} with {} chunks", taskInstanceId, chunks.size());
         log.info("📊 Active task instances: {}", taskInstances.size());
+
+        dispatchNextChunks();
         
         return taskInstanceId;
+    }
+
+    /**
+     * Cancel matching task instances — stops publishing new chunks.
+     */
+    public void cancelTasks(
+            TaskType taskType,
+            Long electionId,
+            Long guardianId,
+            Long sourceGuardianId,
+            Long targetGuardianId) {
+        synchronized (schedulingLock) {
+            taskInstances.values().stream()
+                .filter(ti -> ti.getTaskType() == taskType)
+                .filter(ti -> ti.getElectionId().equals(electionId))
+                .filter(ti -> guardianId == null || guardianId.equals(ti.getGuardianId()))
+                .filter(ti -> sourceGuardianId == null || sourceGuardianId.equals(ti.getSourceGuardianId()))
+                .filter(ti -> targetGuardianId == null || targetGuardianId.equals(ti.getTargetGuardianId()))
+                .forEach(ti -> {
+                    ti.setCancelled(true);
+                    ti.getChunks().stream()
+                        .filter(c -> c.getState() == ChunkState.PENDING || c.getState() == ChunkState.QUEUED)
+                        .forEach(c -> c.setState(ChunkState.FAILED));
+                    log.info("🛑 Cancelled task instance: {}", ti.getTaskInstanceId());
+                });
+        }
     }
 
     /**
@@ -227,10 +245,17 @@ public class RoundRobinTaskScheduler {
             case COMPLETED:
                 chunk.setCompletedAt(Instant.now());
                 totalChunksCompleted.incrementAndGet();
+                dispatchNextChunks();
                 break;
             case FAILED:
                 chunk.setCompletedAt(Instant.now());
                 chunk.setErrorMessage(errorMessage);
+
+                if ("Cancelled by user".equals(errorMessage)) {
+                    totalChunksFailed.incrementAndGet();
+                    dispatchNextChunks();
+                    break;
+                }
                 
                 // Implement retry logic
                 if (chunk.getAttemptCount() < MAX_RETRY_ATTEMPTS) {
@@ -248,6 +273,7 @@ public class RoundRobinTaskScheduler {
                     log.error("❌ Chunk PERMANENTLY FAILED: {} | Max retries exceeded ({}) | Error: {}", 
                         chunkId, MAX_RETRY_ATTEMPTS, errorMessage);
                     totalChunksFailed.incrementAndGet();
+                    dispatchNextChunks();
                 }
                 break;
         }
@@ -281,9 +307,10 @@ public class RoundRobinTaskScheduler {
                 synchronized (schedulingLock) {
                     if (chunk.getState() == ChunkState.FAILED && chunk.getAttemptCount() < MAX_RETRY_ATTEMPTS) {
                         chunk.setState(ChunkState.PENDING);
-                        chunk.setErrorMessage(null); // Clear error message
+                        chunk.setErrorMessage(null);
                         log.info("🔄 RETRY SCHEDULED: {} | Attempt: {}/{}", 
                             chunk.getChunkId(), chunk.getAttemptCount() + 1, MAX_RETRY_ATTEMPTS);
+                        dispatchNextChunks();
                     }
                 }
             } catch (InterruptedException e) {
@@ -337,141 +364,98 @@ public class RoundRobinTaskScheduler {
         return stats;
     }
 
-    // ==================== SCHEDULING LOOP ====================
+    // ==================== EVENT-DRIVEN DISPATCH ====================
 
     /**
-     * Main scheduling loop - runs every 100ms
-     * Publishes chunks in STRICT round-robin order across all active task instances
-     * 
-     * ALGORITHM (TRUE ROUND-ROBIN):
-     * 1. Get list of all active task instances
-     * 2. Iterate in round-robin order: Task A → Task B → Task C → Task A → Task B → ...
-     * 3. For each task in rotation:
-     *    - Publish 1 chunk if it has pending work and room in queue
-     *    - Skip if no pending chunks or already at queue limit
-     * 4. Continue until we've made enough passes to keep workers busy
-     * 
-     * FAIRNESS WITH CONCURRENT PROCESSING:
-     * ====================================
-     * This scheduler ensures STRICT fairness by:
-     * - Publishing exactly 1 chunk per task per round-robin pass
-     * - Limiting queued chunks per task to 1 (MAX_QUEUED_CHUNKS_PER_TASK=1)
-     * - Never allowing one task to monopolize workers
-     * 
-     * Example with 3 tasks (A with 100 chunks, B with 20 chunks, C with 10 chunks) and 4 workers:
-     * - Pass 1: Publish A-1, B-1, C-1, A-2 (4 chunks total - fills all 4 workers)
-     * - Workers: Worker1→A-1, Worker2→B-1, Worker3→C-1, Worker4→A-2
-     * - Pass 2 (after A-1 completes): B-2, C-2, A-3, B-3
-     * - Pass 3 (after more complete): C-3, A-4, B-4, C-4
-     * - Pass N (after C finishes all 10): A-X, B-Y, A-X+1, B-Y+1 (only A and B remain)
-     * 
-     * When a new task D arrives:
-     * - Immediately enters rotation: A-X, B-Y, D-1, A-X+1, B-Y+1, D-2
-     * 
-     * This ensures:
-     * - All tasks make progress simultaneously
-     * - No task waits for another to complete
-     * - New tasks get immediate attention
-     * - Workers are always busy (if work exists)
-     * - Each task gets equal priority regardless of when it arrived
+     * Credit-based round-robin dispatch — invoked when tasks register or chunks finish.
+     * No polling timer; workers stay busy via completion-triggered publishing.
      */
-    @Scheduled(fixedDelay = 100, initialDelay = 1000)
-    public void scheduleChunks() {
+    public void dispatchNextChunks() {
         synchronized (schedulingLock) {
-            // Get all active task instances
             List<TaskInstance> activeInstances = taskInstances.values().stream()
                 .filter(TaskInstance::isActive)
+                .filter(ti -> !isTaskCancelled(ti))
                 .collect(Collectors.toList());
-            
+
             if (activeInstances.isEmpty()) {
-                return; // No work to do
+                return;
             }
-            
-            // Log active tasks at DEBUG — this runs every 100ms; INFO caused log/metaspace pressure under load
-            if (activeInstances.size() > 1 && log.isDebugEnabled()) {
-                log.debug("🔄 STRICT ROUND-ROBIN: {} active tasks being processed fairly", activeInstances.size());
-                for (TaskInstance ti : activeInstances) {
-                    TaskInstance.TaskProgress progress = ti.getProgress();
-                    log.debug("  - Task: {} | Type: {} | Guardian: {} | Progress: {}/{} ({}%) | Processing: {} | Queued: {}",
-                        ti.getTaskInstanceId(), ti.getTaskType(), ti.getGuardianId(),
-                        progress.getCompletedChunks(), progress.getTotalChunks(),
-                        String.format("%.1f", progress.getCompletionPercentage()),
-                        progress.getProcessingChunks(), progress.getQueuedChunks());
-                }
-            }
-            
-            // TRUE ROUND-ROBIN: Publish 1 chunk per task per pass, rotating through all tasks
+
             int startIndex = taskRoundRobinIndex.get() % activeInstances.size();
             int chunksPublished = 0;
             int passCount = 0;
-            int maxPasses = TARGET_CHUNKS_PER_CYCLE; // Number of round-robin passes to make
-            
-            // Make multiple passes through the task list to keep workers busy
+            int maxPasses = targetChunksPerCycle();
+
             while (passCount < maxPasses) {
                 boolean publishedInThisPass = false;
-                
-                // STRICT ROUND-ROBIN: Process each task once per pass
+
                 for (int i = 0; i < activeInstances.size(); i++) {
                     int index = (startIndex + i) % activeInstances.size();
                     TaskInstance taskInstance = activeInstances.get(index);
-                    
-                    // Check if this task has room for more queued chunks
+
                     long currentlyQueued = taskInstance.getChunks().stream()
                         .filter(c -> c.getState() == ChunkState.QUEUED)
                         .count();
-                    
+
                     if (currentlyQueued >= MAX_QUEUED_CHUNKS_PER_TASK) {
-                        continue; // This task already has its quota queued
+                        continue;
                     }
-                    
-                    // Get next pending chunk for this task instance
+
                     Chunk chunk = taskInstance.getNextPendingChunk();
                     if (chunk != null) {
-                        publishChunk(chunk, taskInstance.getTaskType());
+                        publishChunk(chunk, taskInstance.getTaskType(), taskInstance);
                         chunksPublished++;
                         publishedInThisPass = true;
-                        
-                        if (activeInstances.size() > 1) {
-                            log.debug("📤 [Pass {}] Published from Task {} (Guardian {}) - Total: {}", 
-                                passCount + 1, taskInstance.getTaskInstanceId(), 
-                                taskInstance.getGuardianId(), chunksPublished);
-                        }
                     }
                 }
-                
+
                 passCount++;
-                
-                // If we didn't publish anything in this pass, all tasks are either:
-                // - Already at queue limit, or
-                // - Have no more pending chunks
-                // No point in continuing passes
                 if (!publishedInThisPass) {
                     break;
                 }
             }
-            
-            // Update round-robin index for next scheduling cycle
-            // Move forward by 1 to ensure different starting point each cycle
+
             taskRoundRobinIndex.incrementAndGet();
-            
-            if (chunksPublished > 0) {
-                if (activeInstances.size() > 1) {
-                    log.info("📤 Published {} chunks across {} tasks in {} passes | STRICT ROUND-ROBIN", 
-                        chunksPublished, activeInstances.size(), passCount);
-                } else {
-                    log.debug("📤 Published {} chunks | Active tasks: {}", 
-                        chunksPublished, activeInstances.size());
-                }
+
+            if (chunksPublished > 0 && activeInstances.size() > 1) {
+                log.debug("📤 Event dispatch: published {} chunks across {} tasks", chunksPublished, activeInstances.size());
             }
         }
     }
 
+    private boolean isTaskCancelled(TaskInstance taskInstance) {
+        ProcessOperationType operation = toProcessOperation(taskInstance.getTaskType());
+        if (operation == null) {
+            return false;
+        }
+        Long guardianScope = taskInstance.getTaskType() == TaskType.COMPENSATED_DECRYPTION
+            ? taskInstance.getSourceGuardianId()
+            : taskInstance.getGuardianId();
+        return cancellationService.isStopped(taskInstance.getElectionId(), operation, guardianScope);
+    }
+
+    private ProcessOperationType toProcessOperation(TaskType taskType) {
+        return switch (taskType) {
+            case TALLY_CREATION -> ProcessOperationType.TALLY;
+            case PARTIAL_DECRYPTION -> ProcessOperationType.PARTIAL_DECRYPTION;
+            case COMPENSATED_DECRYPTION -> ProcessOperationType.COMPENSATED_DECRYPTION;
+            case COMBINE_DECRYPTION -> ProcessOperationType.COMBINE;
+        };
+    }
+
+    // ==================== REMOVED: 100ms polling loop ====================
+    // scheduleChunks() replaced by dispatchNextChunks() above.
+
     /**
      * Publish a single chunk to the appropriate queue
      */
-    private void publishChunk(Chunk chunk, TaskType taskType) {
+    private void publishChunk(Chunk chunk, TaskType taskType, TaskInstance taskInstance) {
         try {
-            // Update state to QUEUED
+            if (taskInstance.isCancelled() || isTaskCancelled(taskInstance)) {
+                log.debug("Skipping publish for cancelled task chunk: {}", chunk.getChunkId());
+                return;
+            }
+
             updateChunkState(chunk.getChunkId(), ChunkState.QUEUED, null);
             
             // Deserialize task data and inject chunkId
@@ -590,22 +574,12 @@ public class RoundRobinTaskScheduler {
     }
 
     /**
-     * Periodic logging of system state (every 10 seconds)
+     * Optional periodic stats at DEBUG level only (no dispatch side effects).
      */
-    @Scheduled(fixedDelay = 10000, initialDelay = 5000)
-    public void logSystemState() {
-        if (taskInstances.isEmpty()) {
+    public void logSystemStateIfDebugEnabled() {
+        if (!log.isDebugEnabled() || taskInstances.isEmpty()) {
             return;
         }
-        
-        log.info("=== SCHEDULER STATE ===");
-        log.info("Active Task Instances: {}", taskInstances.size());
-        log.info("Total Chunks: Queued={}, Completed={}, Failed={}", 
-            totalChunksQueued.get(), totalChunksCompleted.get(), totalChunksFailed.get());
-        
-        // Log progress for each active task instance
-        taskInstances.values().forEach(this::logTaskInstanceProgress);
-        
-        log.info("======================");
+        log.debug("=== SCHEDULER STATE === Active tasks: {}", taskInstances.size());
     }
 }

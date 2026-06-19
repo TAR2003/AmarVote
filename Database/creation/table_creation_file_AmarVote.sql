@@ -378,6 +378,8 @@ CREATE TABLE IF NOT EXISTS decryption_worker_log (
     decrypting_guardian_id BIGINT NOT NULL, -- Same as guardian_id for partial, different for compensated
     decryption_type VARCHAR(50) NOT NULL, -- 'PARTIAL', 'COMPENSATED'
     chunk_number INTEGER NOT NULL,
+    decryption_id BIGINT,
+    compensated_decryption_id BIGINT,
     start_time TIMESTAMP WITH TIME ZONE NOT NULL,
     end_time TIMESTAMP WITH TIME ZONE,
     status VARCHAR(50) DEFAULT 'IN_PROGRESS', -- 'IN_PROGRESS', 'COMPLETED', 'FAILED'
@@ -385,7 +387,9 @@ CREATE TABLE IF NOT EXISTS decryption_worker_log (
     CONSTRAINT fk_decryption_worker_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE,
     CONSTRAINT fk_decryption_worker_center FOREIGN KEY (election_center_id) REFERENCES election_center(election_center_id) ON DELETE CASCADE,
     CONSTRAINT fk_decryption_worker_guardian FOREIGN KEY (guardian_id) REFERENCES guardians(guardian_id) ON DELETE CASCADE,
-    CONSTRAINT fk_decryption_worker_decrypting FOREIGN KEY (decrypting_guardian_id) REFERENCES guardians(guardian_id) ON DELETE CASCADE
+    CONSTRAINT fk_decryption_worker_decrypting FOREIGN KEY (decrypting_guardian_id) REFERENCES guardians(guardian_id) ON DELETE CASCADE,
+    CONSTRAINT fk_decryption_worker_decryption FOREIGN KEY (decryption_id) REFERENCES decryptions(decryption_id) ON DELETE SET NULL,
+    CONSTRAINT fk_decryption_worker_compensated FOREIGN KEY (compensated_decryption_id) REFERENCES compensated_decryptions(compensated_decryption_id) ON DELETE SET NULL
 );
 
 -- Combine Worker Logs - Track combine decryption processing

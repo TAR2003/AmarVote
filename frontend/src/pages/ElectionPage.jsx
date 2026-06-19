@@ -74,6 +74,9 @@ import ElectionTimeline from '../components/ElectionTimeline';
 import WorkerProceedings from '../components/WorkerProceedings';
 import VoterStatusSlot from '../components/VoterStatusSlot';
 import BallotWorkflowModal from '../components/BallotWorkflowModal';
+import GuardianProgressPanel from '../components/GuardianProgressPanel';
+import ProcessControlPanel from '../components/ProcessControlPanel';
+import useElectionProgressStream from '../hooks/useElectionProgressStream';
 import { getVoterFriendlyError } from '../utils/voterMessages';
 
 const getTotalVoters = (data) => {
@@ -1803,39 +1806,37 @@ export default function ElectionPage() {
     }
   }, [id, fetchElectionData]);
 
-  // Check decryption status when guardian tab becomes active or on page load
+  // Load guardian decryption status once when tab opens; SSE pushes further updates
   useEffect(() => {
-    const checkGuardianDecryptionStatus = async () => {
-      if (activeTab === 'guardian' && electionData?.guardians) {
+    const loadGuardianDecryptionStatus = async () => {
+      if (activeTab !== 'guardian' || !electionData?.guardians) return;
+      try {
+        const statusData = await electionApi.getDecryptionStatus(id);
+        setGuardianDecryptionStatus(statusData);
+        if (statusData.status === 'in_progress' || statusData.status === 'pending') {
+          setCurrentGuardianName(statusData.guardianEmail || statusData.guardianName || 'Guardian');
+        }
+      } catch {
+        setGuardianDecryptionStatus(null);
+      }
+    };
+    loadGuardianDecryptionStatus();
+  }, [activeTab, id, electionData?.guardians]);
+
+  useElectionProgressStream(id, {
+    enabled: Boolean(id) && (activeTab === 'guardian' || activeTab === 'info' || activeTab === 'results'),
+    onEvent: async (event) => {
+      if (!event) return;
+      if (activeTab === 'guardian' && event.operation?.includes('DECRYPTION')) {
         try {
           const statusData = await electionApi.getDecryptionStatus(id);
           setGuardianDecryptionStatus(statusData);
-          console.log('Guardian decryption status loaded:', statusData.status);
-          
-          // If status is in_progress or pending, we should show the progress button
-          if (statusData.status === 'in_progress' || statusData.status === 'pending') {
-            console.log('⚠️ Guardian has ongoing decryption process');
-            setCurrentGuardianName(statusData.guardianEmail || statusData.guardianName || 'Guardian');
-          }
-        } catch (err) {
-          console.log('No decryption status found or not a guardian:', err.message);
-          setGuardianDecryptionStatus(null);
+        } catch {
+          /* ignore */
         }
       }
-    };
-
-    checkGuardianDecryptionStatus();
-    
-    // Poll periodically if guardian tab is active to catch ongoing processes
-    let pollInterval;
-    if (activeTab === 'guardian') {
-      pollInterval = setInterval(checkGuardianDecryptionStatus, 5000); // Check every 5 seconds
-    }
-    
-    return () => {
-      if (pollInterval) clearInterval(pollInterval);
-    };
-  }, [activeTab, id, electionData?.guardians]);
+    },
+  });
 
   const loadKeyCeremonyProgress = useCallback(async () => {
     if (activeTab !== 'guardian' || !electionData) {
@@ -3639,6 +3640,12 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   )}
                 </div>
               </div>
+
+              {electionData?.endingTime && new Date(electionData.endingTime) < new Date() && (
+                <div className="mt-6">
+                  <GuardianProgressPanel electionId={Number(id)} guardians={electionData?.guardians || []} />
+                </div>
+              )}
             </div>
 
             {/* Election Statistics */}
@@ -4568,8 +4575,29 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       <FiRefreshCw className="h-5 w-5" />
                       <span>Create/Check Tally Status</span>
                     </button>
+                    {electionData?.userRoles?.includes('admin') && (
+                      <ProcessControlPanel
+                        electionId={Number(id)}
+                        canControlTally
+                        canControlCombine
+                      />
+                    )}
                   </div>
                 )}
+
+                <GuardianProgressPanel electionId={Number(id)} guardians={electionData?.guardians || []} />
+
+                {(() => {
+                  const currentGuardian = electionData?.guardians?.find((g) => g.isCurrentUser);
+                  const isAdmin = electionData?.userRoles?.includes('admin');
+                  return (
+                    <ProcessControlPanel
+                      electionId={Number(id)}
+                      guardianId={currentGuardian?.guardianId}
+                      canControlDecryption={Boolean(isAdmin || currentGuardian?.guardianId)}
+                    />
+                  );
+                })()}
 
                 {/* Guardian Key Submission Status */}
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">

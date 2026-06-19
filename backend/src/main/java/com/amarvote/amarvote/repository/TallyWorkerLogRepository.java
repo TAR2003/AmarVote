@@ -17,4 +17,12 @@ public interface TallyWorkerLogRepository extends JpaRepository<TallyWorkerLog, 
     
     @Query("SELECT COUNT(t) FROM TallyWorkerLog t WHERE t.electionId = :electionId AND t.status = 'COMPLETED'")
     long countCompletedByElectionId(@Param("electionId") Long electionId);
+
+    @Query("SELECT COUNT(t) FROM TallyWorkerLog t WHERE t.electionId = :electionId")
+    long countByElectionId(@Param("electionId") Long electionId);
+
+    @Query("SELECT COUNT(t) FROM TallyWorkerLog t WHERE t.electionId = :electionId AND t.status = 'IN_PROGRESS'")
+    long countInProgressByElectionId(@Param("electionId") Long electionId);
+
+    void deleteByElectionId(Long electionId);
 }

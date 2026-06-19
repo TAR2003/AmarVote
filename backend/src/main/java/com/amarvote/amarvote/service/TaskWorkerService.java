@@ -22,6 +22,8 @@ import com.amarvote.amarvote.dto.ElectionGuardCompensatedDecryptionRequest;
 import com.amarvote.amarvote.dto.ElectionGuardCompensatedDecryptionResponse;
 import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionRequest;
 import com.amarvote.amarvote.dto.ElectionGuardPartialDecryptionResponse;
+import com.amarvote.amarvote.dto.ElectionProgressEvent;
+import com.amarvote.amarvote.model.ProcessOperationType;
 import com.amarvote.amarvote.dto.ElectionGuardTallyRequest;
 import com.amarvote.amarvote.dto.ElectionGuardTallyResponse;
 import com.amarvote.amarvote.dto.worker.CombineDecryptionTask;
@@ -93,6 +95,12 @@ public class TaskWorkerService {
     @Autowired
     private RedisLockService redisLockService;
 
+    @Autowired
+    private ProcessCancellationService cancellationService;
+
+    @Autowired
+    private ElectionProgressStreamService progressStreamService;
+
     // Track currently processing tasks to prevent duplicates (per election/guardian)
     private static final ConcurrentHashMap<String, Boolean> processingLocks = new ConcurrentHashMap<>();
 
@@ -134,6 +142,9 @@ public class TaskWorkerService {
         TallyWorkerLog workerLog = null;
         
         try {
+            if (skipIfCancelled(ProcessOperationType.TALLY, task.getElectionId(), null, task.getChunkId())) {
+                return;
+            }
             System.out.println("=== WORKER: Processing Tally Creation Chunk " + task.getChunkNumber() + " ===");
             System.out.println("Election ID: " + task.getElectionId());
             System.out.println("Ballot IDs: " + task.getBallotIds().size());
@@ -226,6 +237,10 @@ public class TaskWorkerService {
             workerLog.setStatus("COMPLETED");
             tallyWorkerLogRepository.save(workerLog);
             System.out.println("📊 Tally worker log updated: COMPLETED");
+            publishWorkerProgress(task.getElectionId(), "TALLY", "chunk_completed", Map.of(
+                "chunkNumber", task.getChunkNumber(),
+                "electionCenterId", electionCenter.getElectionCenterId()
+            ));
             
             // Report state: COMPLETED
             if (task.getChunkId() != null) {
@@ -292,6 +307,9 @@ public class TaskWorkerService {
         DecryptionWorkerLog workerLog = null;
         
         try {
+            if (skipIfCancelled(ProcessOperationType.PARTIAL_DECRYPTION, task.getElectionId(), task.getGuardianId(), task.getChunkId())) {
+                return;
+            }
             System.out.println("=== WORKER: Processing Partial Decryption Chunk " + task.getChunkNumber() + " ===");
             System.out.println("Election ID: " + task.getElectionId() + ", Guardian: " + task.getGuardianId());
             System.out.println("Chunk ID: " + task.getChunkId());
@@ -392,11 +410,17 @@ public class TaskWorkerService {
                 .build();
             
             decryptionRepository.save(decryption);
+            workerLog.setDecryptionId(decryption.getDecryptionId());
             
             // LOG END TIME - Update worker log with completion
             workerLog.setEndTime(LocalDateTime.now());
             workerLog.setStatus("COMPLETED");
             decryptionWorkerLogRepository.save(workerLog);
+            publishWorkerProgress(task.getElectionId(), "PARTIAL_DECRYPTION", "chunk_completed", Map.of(
+                "guardianId", task.getGuardianId(),
+                "chunkNumber", task.getChunkNumber(),
+                "decryptionId", decryption.getDecryptionId()
+            ));
             System.out.println("📊 Decryption worker log updated: COMPLETED");
             
             // Report state: COMPLETED
@@ -467,6 +491,9 @@ public class TaskWorkerService {
         DecryptionWorkerLog workerLog = null;
         
         try {
+            if (skipIfCancelled(ProcessOperationType.COMPENSATED_DECRYPTION, task.getElectionId(), task.getSourceGuardianId(), task.getChunkId())) {
+                return;
+            }
             System.out.println("=== WORKER: Processing Compensated Decryption Chunk " + task.getChunkNumber() + " ===");
             System.out.println("Source Guardian: " + task.getSourceGuardianId() + ", Target Guardian: " + task.getTargetGuardianId());
             System.out.println("Chunk ID: " + task.getChunkId());
@@ -602,11 +629,18 @@ public class TaskWorkerService {
                 .build();
             
             compensatedDecryptionRepository.save(compensatedDecryption);
+            workerLog.setCompensatedDecryptionId(compensatedDecryption.getCompensatedDecryptionId());
             
             // LOG END TIME - Update worker log with completion
             workerLog.setEndTime(LocalDateTime.now());
             workerLog.setStatus("COMPLETED");
             decryptionWorkerLogRepository.save(workerLog);
+            publishWorkerProgress(task.getElectionId(), "COMPENSATED_DECRYPTION", "chunk_completed", Map.of(
+                "guardianId", task.getSourceGuardianId(),
+                "targetGuardianId", task.getTargetGuardianId(),
+                "chunkNumber", task.getChunkNumber(),
+                "compensatedDecryptionId", compensatedDecryption.getCompensatedDecryptionId()
+            ));
             System.out.println("📊 Compensated decryption worker log updated: COMPLETED");
             
             // Report state: COMPLETED
@@ -676,6 +710,9 @@ public class TaskWorkerService {
         CombineWorkerLog workerLog = null;
         
         try {
+            if (skipIfCancelled(ProcessOperationType.COMBINE, task.getElectionId(), null, task.getChunkId())) {
+                return;
+            }
             System.out.println("=== WORKER: Processing Combine Decryption Chunk " + task.getChunkNumber() + " ===");
             System.out.println("Election ID: " + task.getElectionId());
             System.out.println("Chunk ID: " + task.getChunkId());
@@ -845,6 +882,10 @@ public class TaskWorkerService {
             workerLog.setStatus("COMPLETED");
             combineWorkerLogRepository.save(workerLog);
             System.out.println("📊 Combine worker log updated: COMPLETED");
+            publishWorkerProgress(task.getElectionId(), "COMBINE", "chunk_completed", Map.of(
+                "chunkNumber", task.getChunkNumber(),
+                "electionCenterId", task.getElectionCenterId()
+            ));
             
             // Report state: COMPLETED
             if (task.getChunkId() != null) {
@@ -1141,15 +1182,6 @@ public class TaskWorkerService {
         }
     }
 
-    /**
-     * Mark guardian as decrypted.
-     *
-     * NOTE: This method is intentionally PUBLIC so that Spring's CGLIB proxy
-     * honours the @Transactional annotation.  Private methods are never intercepted
-     * by the proxy, meaning @Transactional on a private method is silently ignored.
-     * Making this public ensures the guardian update always runs in its own
-     * transaction and commits independently of the caller.
-     */
     @Transactional
     public void markGuardianAsDecrypted(Long guardianId) {
         try {
@@ -1163,5 +1195,29 @@ public class TaskWorkerService {
         } catch (Exception e) {
             System.err.println("Failed to mark guardian as decrypted: " + e.getMessage());
         }
+    }
+
+    private void publishWorkerProgress(Long electionId, String operation, String status, Map<String, Object> payload) {
+        progressStreamService.publish(ElectionProgressEvent.builder()
+            .electionId(electionId)
+            .eventType("progress")
+            .operation(operation)
+            .status(status)
+            .payload(payload)
+            .build());
+    }
+
+    private boolean skipIfCancelled(ProcessOperationType operation, Long electionId, Long guardianId, String chunkId) {
+        if (!cancellationService.isStopped(electionId, operation, guardianId)) {
+            return false;
+        }
+        if (chunkId != null) {
+            roundRobinTaskScheduler.updateChunkState(
+                chunkId,
+                com.amarvote.amarvote.model.scheduler.ChunkState.FAILED,
+                "Cancelled by user"
+            );
+        }
+        return true;
     }
 }

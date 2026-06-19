@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { FiLoader, FiCheckCircle, FiAlertCircle, FiX, FiRefreshCw } from 'react-icons/fi';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
+import useElectionProgressStream from '../hooks/useElectionProgressStream';
 
 const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
   const [status, setStatus] = useState(null);
@@ -63,21 +64,21 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
     }
   };
 
-  // Start polling when modal opens or status is in_progress
+  // Start status refresh when modal opens (SSE-driven, no interval polling)
   useEffect(() => {
     if (isOpen && electionId) {
       pollStatus();
-
-      // Start polling every 2 seconds
-      pollIntervalRef.current = setInterval(pollStatus, 2000);
-
-      return () => {
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-        }
-      };
     }
   }, [isOpen, electionId]);
+
+  useElectionProgressStream(electionId, {
+    enabled: isOpen && Boolean(electionId),
+    onEvent: (event) => {
+      if (event?.operation === 'TALLY' || event?.status === 'stopped' || event?.status === 'deleted') {
+        pollStatus();
+      }
+    },
+  });
 
   const handleCreateTally = async () => {
     setIsLoading(true);

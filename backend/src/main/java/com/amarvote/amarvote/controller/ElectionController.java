@@ -1173,6 +1173,16 @@ public class ElectionController {
         }
     }
 
+    @GetMapping("/election/{electionId}/guardians/decryption-progress")
+    public ResponseEntity<?> getAllGuardiansDecryptionProgress(@PathVariable Long electionId) {
+        try {
+            return ResponseEntity.ok(partialDecryptionService.getAllGuardiansDecryptionProgress(electionId));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
     /**
      * Initiate async combine partial decryption process
      */

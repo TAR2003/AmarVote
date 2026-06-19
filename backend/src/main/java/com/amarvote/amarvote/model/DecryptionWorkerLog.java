@@ -39,6 +39,14 @@ public class DecryptionWorkerLog {
     @Column(name = "chunk_number", nullable = false)
     private Integer chunkNumber;
 
+    /** Set when PARTIAL decryption chunk completes — links audit log to result row. */
+    @Column(name = "decryption_id")
+    private Long decryptionId;
+
+    /** Set when COMPENSATED decryption chunk completes — links audit log to result row. */
+    @Column(name = "compensated_decryption_id")
+    private Long compensatedDecryptionId;
+
     @Column(name = "start_time", nullable = false)
     private LocalDateTime startTime;
 

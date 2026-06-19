@@ -19,4 +19,18 @@ public interface DecryptionWorkerLogRepository extends JpaRepository<DecryptionW
     
     @Query("SELECT COUNT(d) FROM DecryptionWorkerLog d WHERE d.electionId = :electionId AND d.decryptionType = :decryptionType AND d.status = 'COMPLETED'")
     long countCompletedByElectionIdAndType(@Param("electionId") Long electionId, @Param("decryptionType") String decryptionType);
+
+    @Query("SELECT COUNT(d) FROM DecryptionWorkerLog d WHERE d.electionId = :electionId AND d.decryptingGuardianId = :guardianId AND d.decryptionType = :decryptionType AND d.status = 'COMPLETED'")
+    long countCompletedByElectionGuardianAndType(
+        @Param("electionId") Long electionId,
+        @Param("guardianId") Long guardianId,
+        @Param("decryptionType") String decryptionType);
+
+    @Query("SELECT COUNT(d) FROM DecryptionWorkerLog d WHERE d.electionId = :electionId AND d.decryptingGuardianId = :guardianId AND d.decryptionType = :decryptionType")
+    long countByElectionGuardianAndType(
+        @Param("electionId") Long electionId,
+        @Param("guardianId") Long guardianId,
+        @Param("decryptionType") String decryptionType);
+
+    void deleteByElectionIdAndDecryptingGuardianId(Long electionId, Long decryptingGuardianId);
 }

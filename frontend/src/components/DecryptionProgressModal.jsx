@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { electionApi } from '../utils/electionApi';
+import useElectionProgressStream from '../hooks/useElectionProgressStream';
 
 const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) => {
   const [status, setStatus] = useState(null);
@@ -133,21 +134,23 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
 
   useEffect(() => {
     if (isOpen && electionId) {
-      console.log('Modal is open, starting to poll status...');
-      // Start polling for status immediately
       pollStatus();
-      const interval = setInterval(pollStatus, 2000); // Poll every 2 seconds
-
-      return () => {
-        console.log('Stopping polling...');
-        clearInterval(interval);
-      };
     } else if (!isOpen) {
-      // Reset status when modal closes
       setStatus(null);
       setError(null);
     }
   }, [isOpen, electionId]);
+
+  useElectionProgressStream(electionId, {
+    enabled: isOpen && Boolean(electionId),
+    onEvent: (event) => {
+      if (!event) return;
+      const op = event.operation || '';
+      if (op.includes('DECRYPTION') || event.status === 'stopped' || event.status === 'deleted') {
+        pollStatus();
+      }
+    },
+  });
 
   const pollStatus = async () => {
     try {

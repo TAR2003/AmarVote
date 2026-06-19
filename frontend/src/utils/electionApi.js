@@ -401,6 +401,34 @@ export const electionApi = {
     }
   },
 
+  async getAllGuardiansDecryptionProgress(electionId) {
+    return apiRequest(`/election/${electionId}/guardians/decryption-progress`, { method: 'GET' });
+  },
+
+  async stopTallyProcess(electionId) {
+    return apiRequest(`/elections/${electionId}/process/tally/stop`, { method: 'POST' });
+  },
+
+  async deleteTallyResults(electionId) {
+    return apiRequest(`/elections/${electionId}/process/tally`, { method: 'DELETE' });
+  },
+
+  async stopGuardianDecryption(electionId, guardianId) {
+    return apiRequest(`/elections/${electionId}/process/decryption/${guardianId}/stop`, { method: 'POST' });
+  },
+
+  async deleteGuardianDecryption(electionId, guardianId) {
+    return apiRequest(`/elections/${electionId}/process/decryption/${guardianId}`, { method: 'DELETE' });
+  },
+
+  async stopCombineProcess(electionId) {
+    return apiRequest(`/elections/${electionId}/process/combine/stop`, { method: 'POST' });
+  },
+
+  async deleteCombineResults(electionId) {
+    return apiRequest(`/elections/${electionId}/process/combine`, { method: 'DELETE' });
+  },
+
   /**   * Create tally for an election (legacy endpoint, now uses async system)
    */
   async createTally(electionId) {

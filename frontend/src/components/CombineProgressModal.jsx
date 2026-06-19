@@ -2,6 +2,7 @@ import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { electionApi } from '../utils/electionApi';
+import useElectionProgressStream from '../hooks/useElectionProgressStream';
 
 const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }) => {
   const [status, setStatus] = useState(null);
@@ -84,21 +85,19 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
 
   useEffect(() => {
     if (isOpen && electionId) {
-      // Reset completion flag when modal opens
       completionHandledRef.current = false;
-      
-      // Start polling for status
       pollStatus();
-      intervalRef.current = setInterval(pollStatus, 2000); // Poll every 2 seconds
-
-      return () => {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      };
     }
   }, [isOpen, electionId, pollStatus]);
+
+  useElectionProgressStream(electionId, {
+    enabled: isOpen && Boolean(electionId),
+    onEvent: (event) => {
+      if (event?.operation === 'COMBINE' || event?.status === 'stopped' || event?.status === 'deleted') {
+        pollStatus();
+      }
+    },
+  });
 
   if (!isOpen) return null;
 

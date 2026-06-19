@@ -17,4 +17,9 @@ public interface CombineWorkerLogRepository extends JpaRepository<CombineWorkerL
     
     @Query("SELECT COUNT(c) FROM CombineWorkerLog c WHERE c.electionId = :electionId AND c.status = 'COMPLETED'")
     long countCompletedByElectionId(@Param("electionId") Long electionId);
+
+    @Query("SELECT COUNT(c) FROM CombineWorkerLog c WHERE c.electionId = :electionId")
+    long countByElectionId(@Param("electionId") Long electionId);
+
+    void deleteByElectionId(Long electionId);
 }

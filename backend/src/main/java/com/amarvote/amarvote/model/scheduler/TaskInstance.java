@@ -70,12 +70,16 @@ public class TaskInstance {
      */
     @Builder.Default
     private AtomicInteger nextChunkIndex = new AtomicInteger(0);
+
+    /** When true, no further chunks are published for this task instance. */
+    @Builder.Default
+    private volatile boolean cancelled = false;
     
     /**
      * Check if task instance is active (has at least one chunk not yet completed)
      */
     public boolean isActive() {
-        return chunks.stream().anyMatch(Chunk::isActive);
+        return !cancelled && chunks.stream().anyMatch(Chunk::isActive);
     }
     
     /**
