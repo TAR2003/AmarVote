@@ -39,8 +39,8 @@ EXPOSE 5000
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
 
-# Run with throughput settings for 4 GB RAM / 2 vCPU hosts (default: 4 sync workers).
-# Override via GUNICORN_WORKERS / GUNICORN_THREADS in docker-compose.
+# Run with throughput settings for 4 GB RAM / 2 vCPU hosts (default: 6 sync workers).
+# Override via GUNICORN_WORKERS / GUNICORN_THREADS / GUNICORN_MAX_REQUESTS in docker-compose.
 COPY docker-entrypoint-api.sh /docker-entrypoint-api.sh
 RUN chmod +x /docker-entrypoint-api.sh
 

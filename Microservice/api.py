@@ -20,7 +20,6 @@ logging.getLogger('electionguard').setLevel(logging.WARNING)
 
 from flask import Flask, request, jsonify, g, Response
 from typing import Dict, List, Optional, Tuple, Any
-import gc
 import random
 from datetime import datetime
 import uuid
@@ -640,14 +639,8 @@ def api_setup_guardians():
         service_elapsed = time.time() - service_start
         print(f"✅ COMPUTATION COMPLETE: {service_elapsed*1000:.2f}ms")
         
-        # Store election data
-        election_data['guardians'] = result['guardians']
-        election_data['joint_public_key'] = result['joint_public_key']
-        election_data['commitment_hash'] = result['commitment_hash']
-        election_data['manifest'] = create_election_manifest(party_names, candidate_names)
-        election_data['number_of_guardians'] = result['number_of_guardians']
-        election_data['quorum'] = result['quorum']
-        
+        # Stateless: all election data is returned in the response; backend persists it.
+
         # Build response with raw dicts/lists — msgpack handles binary transport natively
         print(f"\n📦 SERIALIZATION: Preparing response...")
         serialization_start = time.time()
@@ -798,20 +791,7 @@ def api_create_encrypted_ballot():
         
         serialization_elapsed = time.time() - serialization_start
         endpoint_elapsed = time.time() - endpoint_start
-        
-        # AGGRESSIVE memory cleanup to prevent accumulation across chunks
-        import sys
-        
-        # Clear Python's internal type cache
-        if hasattr(sys, '_clear_type_cache'):
-            sys._clear_type_cache()
-        
-        # Force full garbage collection (generation 2 includes all objects)
-        gc.collect(generation=2)
-        
-        # Note: We keep timing output minimal for ballot encryption since it's called frequently
-        # Detailed timing is shown only for batch operations (tally, partial decryption, etc.)
-        
+
         return make_binary_response(response)
     
     except ValueError as e:
@@ -1267,10 +1247,7 @@ def api_create_encrypted_tally():
         # ## print_data(response, "./io/create_encrypted_tally_response.json")  # Disabled
         # ## print_json(response, "create_encrypted_tally_response")  # Disabled
         logger.info('Finished creating encrypted tally')
-        
-        # Force garbage collection to free memory
-        gc.collect()
-        
+
         endpoint_elapsed = time.time() - endpoint_start
         print(f"\n{'='*80}")
         print(f"🎯 CREATE_ENCRYPTED_TALLY TOTAL TIME: {endpoint_elapsed*1000:.2f}ms")
@@ -1391,10 +1368,7 @@ def api_create_partial_decryption():
         # ## print_data(response, "./io/create_partial_decryption_response.json")  # Disabled
         # ## print_json(response, "create_partial_decryption_response")  # Disabled
         logger.info('Finished creating partial decryption')
-        
-        # Force garbage collection to free memory
-        gc.collect()
-        
+
         endpoint_elapsed = time.time() - endpoint_start
         print(f"\n{'='*80}")
         print(f"🎯 CREATE_PARTIAL_DECRYPTION TOTAL TIME: {endpoint_elapsed*1000:.2f}ms")
@@ -1513,10 +1487,7 @@ def api_create_compensated_decryption():
         
         # ## print_data(response, "./io/create_compensated_decryption_response.json")  # Disabled
         logger.info('Finished creating compensated decryption')
-        
-        # Force garbage collection to free memory
-        gc.collect()
-        
+
         endpoint_elapsed = time.time() - endpoint_start
         # Note: Timing output kept minimal for compensated decryption (called frequently in loops)
         
@@ -1683,10 +1654,7 @@ def api_combine_decryption_shares():
         # ## print_json(response, "combine_decryption_shares_response")  # Disabled
         # ## print_data(response, "./io/combine_decryption_shares_response.json")  # Disabled
         logger.info('Finished combining decryption shares')
-        
-        # Force garbage collection to free memory
-        gc.collect()
-        
+
         endpoint_elapsed = time.time() - endpoint_start
         print(f"\n{'='*80}")
         print(f"🎯 COMBINE_DECRYPTION_SHARES TOTAL TIME: {endpoint_elapsed*1000:.2f}ms")

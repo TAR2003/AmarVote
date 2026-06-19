@@ -1,7 +1,7 @@
 # Production compose — tuned for 4 GB RAM + 4 GB swap (amarvote2026.me, 2 vCPU).
 #
 # Memory budget (container limits, ~3584M total):
-#   backend 1280M | electionguard-api 768M (4 workers) | postgres 384M | rabbitmq 320M
+#   backend 1280M | electionguard-api 512M (6 workers) | postgres 384M | rabbitmq 320M
 #   electionguard-worker 320M | prometheus+grafana 256M | frontend 96M | redis 96M | nginx 64M
 #
 # GitHub deploy uses THIS FILE ONLY. Nginx always uses nginx-proxy.conf (DDoS limits).
@@ -223,9 +223,14 @@ services:
     environment:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
-      # 2 vCPU host: 4 sync workers (CPU-bound crypto). 768M container — freed 256M for backend.
-      - GUNICORN_WORKERS=4
+      # 2 vCPU host: 6 sync workers (CPU-bound crypto). Worker recycle limits heap growth.
+      - GUNICORN_WORKERS=6
       - GUNICORN_THREADS=1
+      - GUNICORN_MAX_REQUESTS=300
+      - GUNICORN_MAX_REQUESTS_JITTER=50
+      - MANIFEST_CACHE_MAX=16
+      - CONTEXT_CACHE_MAX=32
+      - AUDITED_BALLOT_CACHE_MAX=32
     volumes:
       - ./Microservice/io:/app/io:rw
     deploy:

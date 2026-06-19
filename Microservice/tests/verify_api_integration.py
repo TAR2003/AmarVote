@@ -89,9 +89,9 @@ def verify_api_integration():
     print("\n5. Final publication statistics...")
     try:
         final_stats = ballot_publisher.get_publication_stats()
-        print(f"   Total ballots: {final_stats.get('total_ballots', 0)}")
-        print(f"   CAST ballots: {final_stats.get('cast_ballots', 0)}")
-        print(f"   AUDITED ballots: {final_stats.get('audited_ballots', 0)}")
+        print(f"   CAST processed (stateless): {final_stats.get('cast_ballots_processed', 0)}")
+        print(f"   CAST cached: {final_stats.get('cast_ballots_cached', 0)}")
+        print(f"   AUDITED cached: {final_stats.get('audited_ballots_cached', 0)}")
         print(f"   Nonces stored: {final_stats.get('nonces_stored', 0)}")
         
     except Exception as e:

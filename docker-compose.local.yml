@@ -206,6 +206,11 @@ services:
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
       - GUNICORN_WORKERS=6
       - GUNICORN_THREADS=1
+      - GUNICORN_MAX_REQUESTS=300
+      - GUNICORN_MAX_REQUESTS_JITTER=50
+      - MANIFEST_CACHE_MAX=16
+      - CONTEXT_CACHE_MAX=32
+      - AUDITED_BALLOT_CACHE_MAX=32
     volumes:
       - ./Microservice/io:/app/io:rw
     deploy:
