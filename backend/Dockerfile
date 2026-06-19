@@ -48,8 +48,8 @@ EXPOSE 8080
 # -XX:G1HeapRegionSize=16m: Larger regions for better throughput
 # -XX:+UseStringDeduplication: Reduce memory from duplicate strings
 # -XX:+ParallelRefProcEnabled: Parallel reference processing
-# -XX:MaxMetaspaceSize=256m: Limit metaspace to prevent growth
-# -XX:+ExitOnOutOfMemoryError: Exit cleanly on OOM
-ENV JAVA_OPTS="-Xmx2048m -Xms1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -XX:G1HeapRegionSize=16m -XX:+UseStringDeduplication -XX:+ParallelRefProcEnabled -XX:MaxMetaspaceSize=256m -XX:+ExitOnOutOfMemoryError"
+# -XX:MaxMetaspaceSize=384m: Metaspace for Spring/Hibernate/Jackson (128m causes OOM under crypto workloads)
+# -XX:MaxDirectMemorySize=256m: NIO buffers for HTTP/msgpack transport
+ENV JAVA_OPTS="-Xmx2048m -Xms1024m -XX:+UseG1GC -XX:MaxGCPauseMillis=100 -XX:InitiatingHeapOccupancyPercent=35 -XX:+ExplicitGCInvokesConcurrent -XX:G1HeapRegionSize=16m -XX:+UseStringDeduplication -XX:+ParallelRefProcEnabled -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=384m -XX:MaxDirectMemorySize=256m -XX:+ExitOnOutOfMemoryError"
 
 ENTRYPOINT ["sh", "-c", "java ${JAVA_OPTS} -jar app.jar"]

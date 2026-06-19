@@ -126,7 +126,7 @@ services:
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
       # JVM heap must fit inside 384M container limit
       # JVM overhead is ~60-80M on top of heap, so Xmx=300m is the safe ceiling
-      - JAVA_OPTS=-Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -XX:MaxMetaspaceSize=128m
+      - JAVA_OPTS=-Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=384m -XX:MaxDirectMemorySize=256m
     volumes:
       - maven_repo:/root/.m2
       - credentials_data:/app/data/credentials
@@ -144,7 +144,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1024M
+          memory: 1280M
 
   frontend:
     build:

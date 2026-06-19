@@ -141,8 +141,8 @@ services:
       # ElectionGuard Service URLs
       - ELECTIONGUARD_API_URL=http://electionguard-api:5000
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
-      # 4 GB host: 1280M container — +256M from EG API rebalance; Xmx896m + ~384M native/metaspace/threads
-      - JAVA_OPTS=-Xms384m -Xmx896m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -XX:MaxMetaspaceSize=128m -XX:MaxDirectMemorySize=128m
+      # 4 GB host: 1792M container — Xmx896m + 384m metaspace (128m cap caused Metaspace OOM)
+      - JAVA_OPTS=-Xms384m -Xmx896m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=384m -XX:MaxDirectMemorySize=256m
     volumes:
       - maven_repo:/root/.m2
       - credentials_data:/app/data/credentials
@@ -160,7 +160,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1536M
+          memory: 1792M
 
   frontend:
     build:

@@ -387,15 +387,15 @@ public class RoundRobinTaskScheduler {
                 return; // No work to do
             }
             
-            // Log active tasks for debugging (especially useful when multiple tasks are active)
-            if (activeInstances.size() > 1) {
-                log.info("🔄 STRICT ROUND-ROBIN: {} active tasks being processed fairly", activeInstances.size());
+            // Log active tasks at DEBUG — this runs every 100ms; INFO caused log/metaspace pressure under load
+            if (activeInstances.size() > 1 && log.isDebugEnabled()) {
+                log.debug("🔄 STRICT ROUND-ROBIN: {} active tasks being processed fairly", activeInstances.size());
                 for (TaskInstance ti : activeInstances) {
                     TaskInstance.TaskProgress progress = ti.getProgress();
-                    log.info("  - Task: {} | Type: {} | Guardian: {} | Progress: {}/{} ({:.1f}%) | Processing: {} | Queued: {}", 
+                    log.debug("  - Task: {} | Type: {} | Guardian: {} | Progress: {}/{} ({}%) | Processing: {} | Queued: {}",
                         ti.getTaskInstanceId(), ti.getTaskType(), ti.getGuardianId(),
                         progress.getCompletedChunks(), progress.getTotalChunks(),
-                        progress.getCompletionPercentage(),
+                        String.format("%.1f", progress.getCompletionPercentage()),
                         progress.getProcessingChunks(), progress.getQueuedChunks());
                 }
             }
@@ -576,12 +576,12 @@ public class RoundRobinTaskScheduler {
      */
     private void logTaskInstanceProgress(TaskInstance taskInstance) {
         TaskInstance.TaskProgress progress = taskInstance.getProgress();
-        log.info("📊 TASK PROGRESS: {} | Type: {} | Completed: {}/{} ({:.1f}%) | Failed: {} | Processing: {} | Queued: {} | Pending: {}",
+        log.info("📊 TASK PROGRESS: {} | Type: {} | Completed: {}/{} ({}%) | Failed: {} | Processing: {} | Queued: {} | Pending: {}",
             progress.getTaskInstanceId(),
             progress.getTaskType(),
             progress.getCompletedChunks(),
             progress.getTotalChunks(),
-            progress.getCompletionPercentage(),
+            String.format("%.1f", progress.getCompletionPercentage()),
             progress.getFailedChunks(),
             progress.getProcessingChunks(),
             progress.getQueuedChunks(),
