@@ -240,7 +240,8 @@ bash load-tests/scripts/server-disable-loadtest-nginx.sh
 
 | Symptom | Likely cause | Fix |
 |---------|--------------|-----|
-| JWT preflight fails (401) | Wrong `JWT_SECRET` locally | `docker exec amarvote_backend printenv JWT_SECRET` on server |
+| JWT preflight fails (000 / fetch failed) | Wrong `BASE_URL` for local docker | Use `BASE_URL=http://localhost` — backend `:8080` is not published on the host |
+| JWT preflight fails (401) | Wrong `JWT_SECRET` locally | Match project `.env`: `docker exec amarvote_backend printenv JWT_SECRET` |
 | Many HTTP 429 | Production nginx active | `server-enable-loadtest-nginx.sh` |
 | ~50% failures at high VUs | Server overload (not nginx) | Check step report — last PASS step is your limit |
 | ~33% encrypt fails, eligibility ok | Wrong/stale candidate names (fixed: names now fetched from API) | Set `ELECTION_ID`; run `verify-election.sh` |

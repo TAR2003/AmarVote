@@ -49,15 +49,33 @@ if [[ "$STATUS" == "200" ]]; then
   exit 0
 fi
 
+if [[ "$STATUS" == "000" ]]; then
+  echo "  ✗ Cannot reach ${BASE_URL} — HTTP ${STATUS}" >&2
+  [[ -n "$BODY" ]] && echo "  response: ${BODY}" >&2
+  echo "" >&2
+  if [[ "${BASE_URL}" == *":8080"* ]]; then
+    echo "Local docker-compose does NOT publish backend port 8080 to the host." >&2
+    echo "Use nginx on port 80 instead:" >&2
+    echo "  BASE_URL=http://localhost   # in load-tests/.env.loadtest" >&2
+    echo "" >&2
+    echo "Or start the stack: docker compose -f docker-compose.yml up -d" >&2
+  else
+    echo "The target server is unreachable. Check:" >&2
+    echo "  • docker compose ps  (amarvote_nginx / amarvote_backend running?)" >&2
+    echo "  • curl -sS ${BASE_URL}/api/health" >&2
+  fi
+  exit 1
+fi
+
 echo "  ✗ JWT rejected — HTTP ${STATUS}" >&2
 [[ -n "$BODY" ]] && echo "  response: ${BODY}" >&2
 echo "" >&2
 echo "The token format matches JWTService (HS256, base64-decoded secret, sub/iat/exp)." >&2
 echo "A 401 here means either:" >&2
-echo "  • JWT_SECRET in load-tests/.env.loadtest ≠ server ~/.env (most common)" >&2
+echo "  • JWT_SECRET in load-tests/.env.loadtest ≠ project .env / server ~/.env (most common)" >&2
 echo "  • Backend not redeployed after the JWT filter fix (push main, wait for deploy)" >&2
 echo "" >&2
-echo "Verify on server:" >&2
-echo "  grep ^JWT_SECRET= ~/.env" >&2
+echo "Verify JWT_SECRET matches:" >&2
+echo "  grep ^JWT_SECRET= .env" >&2
 echo "  docker exec amarvote_backend printenv JWT_SECRET" >&2
 exit 1
