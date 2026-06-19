@@ -1385,6 +1385,18 @@ public class ElectionService {
     }
 
     /**
+     * Lightweight election access check for SSE and other streaming endpoints.
+     */
+    public boolean canUserViewElection(Long electionId, String userEmail) {
+        if (electionId == null || userEmail == null || userEmail.isBlank()) {
+            return false;
+        }
+        return electionRepository.findById(electionId)
+            .map(election -> isUserAuthorizedToViewElection(election, userEmail))
+            .orElse(false);
+    }
+
+    /**
      * Check if user is authorized to view the election
      */
     private boolean isUserAuthorizedToViewElection(Election election, String userEmail) {

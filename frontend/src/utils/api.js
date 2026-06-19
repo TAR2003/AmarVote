@@ -25,18 +25,17 @@ function createTimeoutPromise(timeoutMs) {
 }
 
 /**
- * Handle 401 Unauthorized errors by logging out and redirecting
- * @param {Response} response - Fetch response
+ * Handle 401/403 auth errors by logging out and redirecting
  */
-function handle401Error(response) {
-  if (response.status === 401) {
-    console.warn('401 Unauthorized - Session expired or invalid token. Logging out...');
-    // Clear user data
+function handleAuthError(response) {
+  if (response.status === 401 || response.status === 403) {
+    console.warn(`${response.status} - Session expired or access denied. Redirecting to login...`);
     localStorage.removeItem('email');
     localStorage.setItem('logout', Date.now());
-    // Redirect to OTP login page
     window.location.href = '/otp-login';
+    return true;
   }
+  return false;
 }
 
 /**
@@ -76,9 +75,8 @@ export async function apiRequest(endpoint, options = {}, timeout = DEFAULT_TIMEO
     // Race between fetch and timeout
     const response = await Promise.race([fetchPromise, timeoutPromise]);
     
-    // Handle 401 errors by logging out and redirecting
-    if (response.status === 401) {
-      handle401Error(response);
+    // Handle auth errors by logging out and redirecting
+    if (handleAuthError(response)) {
       throw new Error('Session expired. Please login again.');
     }
     
@@ -145,9 +143,8 @@ export async function apiBinaryRequest(endpoint, binaryData, contentType = 'appl
     // Race between fetch and timeout
     const response = await Promise.race([fetchPromise, timeoutPromise]);
     
-    // Handle 401 errors by logging out and redirecting
-    if (response.status === 401) {
-      handle401Error(response);
+    // Handle auth errors by logging out and redirecting
+    if (handleAuthError(response)) {
       throw new Error('Session expired. Please login again.');
     }
     
@@ -678,8 +675,7 @@ export async function uploadAuthorizedUsersCsv(file) {
     body: formData,
   });
 
-  if (response.status === 401) {
-    handle401Error(response);
+  if (handleAuthError(response)) {
     throw new Error('Session expired. Please login again.');
   }
 

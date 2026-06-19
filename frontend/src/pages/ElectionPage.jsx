@@ -77,6 +77,11 @@ import BallotWorkflowModal from '../components/BallotWorkflowModal';
 import GuardianProgressPanel from '../components/GuardianProgressPanel';
 import ProcessControlPanel from '../components/ProcessControlPanel';
 import useElectionProgressStream from '../hooks/useElectionProgressStream';
+import {
+  getSnapshotFromEvent,
+  pickCombine,
+  pickMyDecryption,
+} from '../utils/progressSnapshot';
 import { getVoterFriendlyError } from '../utils/voterMessages';
 
 const getTotalVoters = (data) => {
@@ -1806,34 +1811,25 @@ export default function ElectionPage() {
     }
   }, [id, fetchElectionData]);
 
-  // Load guardian decryption status once when tab opens; SSE pushes further updates
-  useEffect(() => {
-    const loadGuardianDecryptionStatus = async () => {
-      if (activeTab !== 'guardian' || !electionData?.guardians) return;
-      try {
-        const statusData = await electionApi.getDecryptionStatus(id);
-        setGuardianDecryptionStatus(statusData);
-        if (statusData.status === 'in_progress' || statusData.status === 'pending') {
-          setCurrentGuardianName(statusData.guardianEmail || statusData.guardianName || 'Guardian');
-        }
-      } catch {
-        setGuardianDecryptionStatus(null);
-      }
-    };
-    loadGuardianDecryptionStatus();
-  }, [activeTab, id, electionData?.guardians]);
-
+  // Guardian tab decryption status — initial + live updates via SSE snapshots (no polling)
   useElectionProgressStream(id, {
     enabled: Boolean(id) && (activeTab === 'guardian' || activeTab === 'info' || activeTab === 'results'),
-    onEvent: async (event) => {
+    onEvent: (event) => {
       if (!event) return;
-      if (activeTab === 'guardian' && event.operation?.includes('DECRYPTION')) {
-        try {
-          const statusData = await electionApi.getDecryptionStatus(id);
-          setGuardianDecryptionStatus(statusData);
-        } catch {
-          /* ignore */
+      const snapshot = getSnapshotFromEvent(event);
+      if (!snapshot) return;
+
+      const myDecryption = pickMyDecryption(snapshot);
+      if (myDecryption && activeTab === 'guardian') {
+        setGuardianDecryptionStatus(myDecryption);
+        if (myDecryption.status === 'in_progress' || myDecryption.status === 'pending') {
+          setCurrentGuardianName(myDecryption.guardianEmail || myDecryption.guardianName || 'Guardian');
         }
+      }
+
+      const combine = pickCombine(snapshot);
+      if (combine && combine.status) {
+        setCombineStatus(combine);
       }
     },
   });
@@ -3643,7 +3639,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
               {electionData?.endingTime && new Date(electionData.endingTime) < new Date() && (
                 <div className="mt-6">
-                  <GuardianProgressPanel electionId={Number(id)} guardians={electionData?.guardians || []} />
+                  <GuardianProgressPanel
+                    electionId={Number(id)}
+                    guardians={electionData?.guardians || []}
+                    onElectionRefresh={fetchElectionData}
+                  />
                 </div>
               )}
             </div>
@@ -4585,7 +4585,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   </div>
                 )}
 
-                <GuardianProgressPanel electionId={Number(id)} guardians={electionData?.guardians || []} />
+                <GuardianProgressPanel
+                  electionId={Number(id)}
+                  guardians={electionData?.guardians || []}
+                  onElectionRefresh={fetchElectionData}
+                />
 
                 {(() => {
                   const currentGuardian = electionData?.guardians?.find((g) => g.isCurrentUser);

@@ -1,15 +1,19 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect } from 'react';
 import { FiLoader, FiCheckCircle, FiAlertCircle, FiX, FiRefreshCw } from 'react-icons/fi';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import useElectionProgressStream from '../hooks/useElectionProgressStream';
+import {
+  getSnapshotFromEvent,
+  pickTally,
+  shouldApplyTallyEvent,
+} from '../utils/progressSnapshot';
 
 const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
   const [status, setStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
-  const pollIntervalRef = useRef(null);
-  const startTimeRef = useRef(null);
 
   // Calculate estimated time remaining
   const calculateEstimatedTime = (status) => {
@@ -46,38 +50,38 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
     }
   };
 
-  // Poll for status updates
-  const pollStatus = async () => {
-    try {
-      const statusData = await electionApi.getTallyStatus(electionId);
-      setStatus(statusData);
-
-      // Stop polling if completed or failed
-      if (statusData.status === 'completed' || statusData.status === 'failed') {
-        if (pollIntervalRef.current) {
-          clearInterval(pollIntervalRef.current);
-          pollIntervalRef.current = null;
-        }
-      }
-    } catch (err) {
-      console.error('Error polling tally status:', err);
+  const applyTallyFromEvent = (event) => {
+    if (!shouldApplyTallyEvent(event)) return;
+    const tally = pickTally(getSnapshotFromEvent(event));
+    if (tally) {
+      setStatus(tally);
+      setError(null);
     }
   };
 
-  // Start status refresh when modal opens (SSE-driven, no interval polling)
-  useEffect(() => {
-    if (isOpen && electionId) {
-      pollStatus();
+  const refreshStatus = async () => {
+    setIsRefreshing(true);
+    try {
+      const statusData = await electionApi.getTallyStatus(electionId);
+      setStatus(statusData);
+      setError(null);
+    } catch (err) {
+      console.error('Error refreshing tally status:', err);
+    } finally {
+      setIsRefreshing(false);
     }
-  }, [isOpen, electionId]);
+  };
+
+  useEffect(() => {
+    if (!isOpen) {
+      setStatus(null);
+      setError(null);
+    }
+  }, [isOpen]);
 
   useElectionProgressStream(electionId, {
     enabled: isOpen && Boolean(electionId),
-    onEvent: (event) => {
-      if (event?.operation === 'TALLY' || event?.status === 'stopped' || event?.status === 'deleted') {
-        pollStatus();
-      }
-    },
+    onEvent: applyTallyFromEvent,
   });
 
   const handleCreateTally = async () => {
@@ -88,8 +92,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
       const response = await electionApi.initiateTallyCreation(electionId);
       
       if (response.success) {
-        // Start polling for status
-        pollStatus();
+        setError(null);
       } else {
         setError(response.message || 'Failed to initiate tally creation');
       }
@@ -101,14 +104,31 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
   };
 
   const handleClose = () => {
-    if (pollIntervalRef.current) {
-      clearInterval(pollIntervalRef.current);
-      pollIntervalRef.current = null;
-    }
     onClose();
   };
 
   if (!isOpen) return null;
+
+  if (!status) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50">
+        <div className="bg-white rounded-lg shadow-xl max-w-lg w-full mx-4 relative">
+          <div className="border-b border-gray-200 p-6">
+            <div className="flex justify-between items-center">
+              <h2 className="text-2xl font-bold text-gray-900">Tally Creation</h2>
+              <button onClick={handleClose} className="text-gray-400 hover:text-gray-600" aria-label="Close">
+                <FiX className="h-6 w-6" />
+              </button>
+            </div>
+          </div>
+          <div className="p-6 text-center py-8">
+            <FiLoader className="h-10 w-10 text-blue-500 mx-auto animate-spin" />
+            <p className="text-gray-600 mt-4">Connecting to live progress…</p>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const getStatusDisplay = () => {
     if (!status || status.status === 'not_started') {
@@ -363,13 +383,24 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
         <div className="border-b border-gray-200 p-6">
           <div className="flex justify-between items-center">
             <h2 className="text-2xl font-bold text-gray-900">Tally Creation</h2>
-            <button
-              onClick={handleClose}
-              className="text-gray-400 hover:text-gray-600 transition-colors"
-              aria-label="Close"
-            >
-              <FiX className="h-6 w-6" />
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={refreshStatus}
+                disabled={isRefreshing}
+                className="text-gray-400 hover:text-gray-600 transition-colors disabled:opacity-50"
+                aria-label="Refresh status"
+                title="Refresh status"
+              >
+                <FiRefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={handleClose}
+                className="text-gray-400 hover:text-gray-600 transition-colors"
+                aria-label="Close"
+              >
+                <FiX className="h-6 w-6" />
+              </button>
+            </div>
           </div>
         </div>
 

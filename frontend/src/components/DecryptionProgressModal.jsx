@@ -1,12 +1,19 @@
 import React, { useState, useEffect } from 'react';
+import { FiRefreshCw } from 'react-icons/fi';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { electionApi } from '../utils/electionApi';
 import useElectionProgressStream from '../hooks/useElectionProgressStream';
+import {
+  getSnapshotFromEvent,
+  pickDecryptionDetail,
+  pickMyDecryption,
+  shouldApplyDecryptionEvent,
+} from '../utils/progressSnapshot';
 
 const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) => {
   const [status, setStatus] = useState(null);
-  const [isLoading, setIsLoading] = useState(false);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const [error, setError] = useState(null);
 
   // Calculate total operations (n * m where n = chunks, m = guardians)
@@ -127,53 +134,60 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
     }
   };
 
-  // Debug logging
-  useEffect(() => {
-    console.log('DecryptionProgressModal props:', { isOpen, electionId, guardianName });
-  }, [isOpen, electionId, guardianName]);
+  const applyDecryptionFromEvent = (event) => {
+    if (!shouldApplyDecryptionEvent(event)) return;
+    const snapshot = getSnapshotFromEvent(event);
+    if (!snapshot) return;
 
-  useEffect(() => {
-    if (isOpen && electionId) {
-      pollStatus();
-    } else if (!isOpen) {
-      setStatus(null);
+    const myDecryption = pickMyDecryption(snapshot);
+    if (myDecryption) {
+      setStatus(myDecryption);
       setError(null);
+      return;
     }
-  }, [isOpen, electionId]);
 
-  useElectionProgressStream(electionId, {
-    enabled: isOpen && Boolean(electionId),
-    onEvent: (event) => {
-      if (!event) return;
-      const op = event.operation || '';
-      if (op.includes('DECRYPTION') || event.status === 'stopped' || event.status === 'deleted') {
-        pollStatus();
+    const detail = pickDecryptionDetail(snapshot);
+    if (!detail) return;
+
+    setStatus((prev) => {
+      if (!prev?.guardianEmail) return detail;
+      if (detail.guardianEmail && detail.guardianEmail !== prev.guardianEmail) {
+        return prev;
       }
-    },
-  });
+      return detail;
+    });
+    setError(null);
+  };
 
-  const pollStatus = async () => {
+  const refreshStatus = async () => {
+    setIsRefreshing(true);
     try {
-      console.log('Polling status for election:', electionId);
       const data = await electionApi.getDecryptionStatus(electionId);
-      console.log('Received status data:', data);
       setStatus(data);
       setError(null);
-
-      // If completed or failed, we can optionally stop polling
-      // but keeping it running allows real-time updates if user reopens
     } catch (err) {
-      console.error('Error polling status:', err);
+      console.error('Error refreshing decryption status:', err);
       setError(err.message);
+    } finally {
+      setIsRefreshing(false);
     }
   };
 
+  useEffect(() => {
+    if (!isOpen) {
+      setStatus(null);
+      setError(null);
+    }
+  }, [isOpen]);
+
+  useElectionProgressStream(electionId, {
+    enabled: isOpen && Boolean(electionId),
+    onEvent: applyDecryptionFromEvent,
+  });
+
   if (!isOpen) {
-    // console.log('Modal is closed, not rendering');
     return null;
   }
-
-  console.log('Modal is rendering with status:', status);
 
   const getPhaseDisplay = () => {
     if (!status || !status.currentPhase) {
@@ -249,13 +263,24 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
               <h2 className="text-2xl font-bold">Guardian Decryption Progress</h2>
               <p className="text-indigo-100 mt-1">{guardianName || 'Guardian'}</p>
             </div>
-            <button
-              onClick={onClose}
-              className="text-white hover:text-gray-200 transition-colors text-2xl font-bold w-8 h-8 flex items-center justify-center"
-              aria-label="Close"
-            >
-              ×
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={refreshStatus}
+                disabled={isRefreshing}
+                className="text-white hover:text-gray-200 transition-colors disabled:opacity-50 w-8 h-8 flex items-center justify-center"
+                aria-label="Refresh status"
+                title="Refresh status"
+              >
+                <FiRefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={onClose}
+                className="text-white hover:text-gray-200 transition-colors text-2xl font-bold w-8 h-8 flex items-center justify-center"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
           </div>
         </div>
 
@@ -271,7 +296,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
           {!status && !error && (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-              <p className="text-gray-600 mt-4">Loading status...</p>
+              <p className="text-gray-600 mt-4">Connecting to live progress…</p>
             </div>
           )}
 

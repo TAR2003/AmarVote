@@ -1198,11 +1198,16 @@ public class TaskWorkerService {
     }
 
     private void publishWorkerProgress(Long electionId, String operation, String status, Map<String, Object> payload) {
+        Long guardianId = null;
+        if (payload != null && payload.get("guardianId") instanceof Number number) {
+            guardianId = number.longValue();
+        }
         progressStreamService.publish(ElectionProgressEvent.builder()
             .electionId(electionId)
             .eventType("progress")
             .operation(operation)
             .status(status)
+            .guardianId(guardianId)
             .payload(payload)
             .build());
     }

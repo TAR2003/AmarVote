@@ -1,14 +1,20 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { FiRefreshCw } from 'react-icons/fi';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { electionApi } from '../utils/electionApi';
 import useElectionProgressStream from '../hooks/useElectionProgressStream';
+import {
+  getSnapshotFromEvent,
+  pickCombine,
+  shouldApplyCombineEvent,
+} from '../utils/progressSnapshot';
 
 const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }) => {
   const [status, setStatus] = useState(null);
   const [error, setError] = useState(null);
+  const [isRefreshing, setIsRefreshing] = useState(false);
   const completionHandledRef = useRef(false);
-  const intervalRef = useRef(null);
 
   // Calculate estimated time remaining
   const calculateEstimatedTime = (status) => {
@@ -45,58 +51,54 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
     }
   };
 
-  const pollStatus = useCallback(async () => {
+  const handleCombineCompleted = useCallback((combineStatus) => {
+    if (combineStatus?.status !== 'completed' || completionHandledRef.current) {
+      return;
+    }
+    completionHandledRef.current = true;
+    if (onCombineComplete) {
+      setTimeout(() => {
+        onCombineComplete();
+      }, 1500);
+    }
+  }, [onCombineComplete]);
+
+  const applyCombineFromEvent = useCallback((event) => {
+    if (!shouldApplyCombineEvent(event)) return;
+    const combine = pickCombine(getSnapshotFromEvent(event));
+    if (!combine) return;
+    setStatus(combine);
+    setError(null);
+    handleCombineCompleted(combine);
+  }, [handleCombineCompleted]);
+
+  const refreshStatus = useCallback(async () => {
+    setIsRefreshing(true);
     try {
       const data = await electionApi.getCombineStatus(electionId);
       setStatus(data);
       setError(null);
-
-      // If completed, notify parent once and stop polling
-      if (data.status === 'completed' && !completionHandledRef.current) {
-        completionHandledRef.current = true;
-        
-        // Stop polling
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-        
-        // Notify parent after a short delay to show completion state
-        if (onCombineComplete) {
-          setTimeout(() => {
-            onCombineComplete();
-            // Modal will be closed by parent (ElectionPage)
-          }, 1500);
-        }
-      }
-      
-      // If failed, stop polling
-      if (data.status === 'failed') {
-        if (intervalRef.current) {
-          clearInterval(intervalRef.current);
-          intervalRef.current = null;
-        }
-      }
+      handleCombineCompleted(data);
     } catch (err) {
-      console.error('Error polling combine status:', err);
+      console.error('Error refreshing combine status:', err);
       setError(err.message);
+    } finally {
+      setIsRefreshing(false);
     }
-  }, [electionId, onCombineComplete]);
+  }, [electionId, handleCombineCompleted]);
 
   useEffect(() => {
     if (isOpen && electionId) {
       completionHandledRef.current = false;
-      pollStatus();
+    } else if (!isOpen) {
+      setStatus(null);
+      setError(null);
     }
-  }, [isOpen, electionId, pollStatus]);
+  }, [isOpen, electionId]);
 
   useElectionProgressStream(electionId, {
     enabled: isOpen && Boolean(electionId),
-    onEvent: (event) => {
-      if (event?.operation === 'COMBINE' || event?.status === 'stopped' || event?.status === 'deleted') {
-        pollStatus();
-      }
-    },
+    onEvent: applyCombineFromEvent,
   });
 
   if (!isOpen) return null;
@@ -166,13 +168,24 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
               <h2 className="text-2xl font-bold">Combine Partial Decryptions</h2>
               <p className="text-indigo-100 mt-1">Processing encrypted votes</p>
             </div>
-            <button
-              onClick={onClose}
-              className="text-white hover:text-gray-200 transition-colors text-2xl font-bold w-8 h-8 flex items-center justify-center"
-              aria-label="Close"
-            >
-              ×
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={refreshStatus}
+                disabled={isRefreshing}
+                className="text-white hover:text-gray-200 transition-colors disabled:opacity-50 w-8 h-8 flex items-center justify-center"
+                aria-label="Refresh status"
+                title="Refresh status"
+              >
+                <FiRefreshCw className={`h-5 w-5 ${isRefreshing ? 'animate-spin' : ''}`} />
+              </button>
+              <button
+                onClick={onClose}
+                className="text-white hover:text-gray-200 transition-colors text-2xl font-bold w-8 h-8 flex items-center justify-center"
+                aria-label="Close"
+              >
+                ×
+              </button>
+            </div>
           </div>
         </div>
 
@@ -188,7 +201,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
           {!status && !error && (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-              <p className="text-gray-600 mt-4">Loading status...</p>
+              <p className="text-gray-600 mt-4">Connecting to live progress…</p>
             </div>
           )}
 

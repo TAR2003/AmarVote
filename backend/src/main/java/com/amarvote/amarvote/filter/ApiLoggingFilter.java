@@ -31,6 +31,13 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
     private JWTService jwtService;
 
     @Override
+    protected boolean shouldNotFilter(HttpServletRequest request) {
+        String path = request.getRequestURI();
+        // SSE streams must not be wrapped — ContentCachingResponseWrapper breaks event delivery
+        return path != null && path.matches("/api/elections/\\d+/progress/stream");
+    }
+
+    @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
         
