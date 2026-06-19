@@ -72,6 +72,8 @@ import DecryptionProgressModal from '../components/DecryptionProgressModal';
 import CombineProgressModal from '../components/CombineProgressModal';
 import ElectionTimeline from '../components/ElectionTimeline';
 import WorkerProceedings from '../components/WorkerProceedings';
+import VoterStatusSlot from '../components/VoterStatusSlot';
+import { getVoterFriendlyError, VOTER_STATUS_COPY } from '../utils/voterMessages';
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -1579,6 +1581,9 @@ export default function ElectionPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [voteResult, setVoteResult] = useState(null);
   const [voteError, setVoteError] = useState(null);
+  const [createBallotError, setCreateBallotError] = useState(null);
+  const [castBallotError, setCastBallotError] = useState(null);
+  const [challengeError, setChallengeError] = useState(null);
 
   // Encrypted ballot workflow state
   const [encryptedBallotData, setEncryptedBallotData] = useState(null);
@@ -2297,6 +2302,9 @@ export default function ElectionPage() {
     setBallotChallenged(false);
     setVoteResult(null);
     setVoteError(null);
+    setCreateBallotError(null);
+    setCastBallotError(null);
+    setChallengeError(null);
     
     setIsSubmitting(true);
 
@@ -2348,7 +2356,7 @@ export default function ElectionPage() {
 
     } catch (err) {
       console.error('❌ [ENCRYPTED BALLOT] Ballot creation failed:', err);
-      setVoteError(err.message);
+      setCreateBallotError(getVoterFriendlyError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -2402,7 +2410,7 @@ export default function ElectionPage() {
     if (!encryptedBallotData || ballotChallenged) return;
     
     setIsCasting(true);
-    setVoteError(null);
+    setCastBallotError(null);
 
     try {
       console.log('📤 [CAST ENCRYPTED] Casting encrypted ballot...');
@@ -2438,8 +2446,9 @@ export default function ElectionPage() {
 
     } catch (err) {
       console.error('❌ [CAST ENCRYPTED] Casting failed:', err);
-      setVoteError(err.message);
-      toast.error('Failed to cast vote: ' + err.message);
+      const friendlyMessage = getVoterFriendlyError(err);
+      setCastBallotError(friendlyMessage);
+      toast.error(friendlyMessage);
     } finally {
       setIsCasting(false);
     }
@@ -2458,6 +2467,7 @@ export default function ElectionPage() {
     
     setIsChallenging(true);
     setChallengeResult(null);
+    setChallengeError(null);
     setShowChallengeModal(false);
 
     try {
@@ -2478,8 +2488,7 @@ export default function ElectionPage() {
       );
 
       setChallengeResult(result);
-      setBallotChallenged(true); // Mark ballot as challenged
-      setShowBallotActions(false); // Hide actions after challenge
+      setBallotChallenged(true);
 
       console.log('✅ [BENALOH CHALLENGE] Challenge completed:', result);
 
@@ -2492,7 +2501,9 @@ export default function ElectionPage() {
 
     } catch (err) {
       console.error('❌ [BENALOH CHALLENGE] Challenge failed:', err);
-      toast.error('Failed to perform challenge: ' + err.message);
+      const friendlyMessage = getVoterFriendlyError(err);
+      setChallengeError(friendlyMessage);
+      toast.error(friendlyMessage);
     } finally {
       setIsChallenging(false);
     }
@@ -2570,7 +2581,7 @@ export default function ElectionPage() {
       }));
     } catch (err) {
       console.error('❌ [VOTING] Vote casting failed:', err);
-      setVoteError(err.message);
+      setVoteError(getVoterFriendlyError(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -3859,17 +3870,12 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               </div>
             )}
 
-            {/* Vote Error */}
             {voteError && (
-              <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-6">
-                <div className="flex items-center">
-                  <FiAlertCircle className="h-5 w-5 text-red-500 mr-2" />
-                  <div>
-                    <h4 className="font-medium text-red-900">Vote Submission Failed</h4>
-                    <p className="text-sm text-red-800 mt-1">{voteError}</p>
-                  </div>
-                </div>
-              </div>
+              <VoterStatusSlot
+                variant="error"
+                title="Vote Submission Unavailable"
+                message={voteError}
+              />
             )}
 
             {/* All Available Choices (Always Shown) */}
@@ -4041,6 +4047,28 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       )}
                     </button>
                   </div>
+
+                  <VoterStatusSlot
+                    variant={
+                      isSubmitting
+                        ? 'loading'
+                        : createBallotError
+                          ? 'error'
+                          : 'info'
+                    }
+                    title={
+                      isSubmitting
+                        ? 'Creating Encrypted Ballot'
+                        : createBallotError
+                          ? 'Unable to Create Ballot'
+                          : 'Please Allow a Moment'
+                    }
+                    message={
+                      isSubmitting
+                        ? VOTER_STATUS_COPY.createBallotLoading
+                        : createBallotError || VOTER_STATUS_COPY.createBallotInfo
+                    }
+                  />
                 </form>
               </div>
             )}
@@ -4145,45 +4173,90 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   </button>
                 </div>
 
-                {ballotChallenged && (
-                  <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                    <p className="text-yellow-700 text-sm text-center">
-                      <FiAlertCircle className="inline mr-1" />
-                      This ballot has been challenged and cannot be cast. Please create a new ballot to vote.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
+                <VoterStatusSlot
+                  variant={
+                    isCasting || isChallenging
+                      ? 'loading'
+                      : castBallotError || challengeError
+                        ? 'error'
+                        : 'info'
+                  }
+                  title={
+                    isCasting
+                      ? 'Casting Your Vote'
+                      : isChallenging
+                        ? 'Verifying Your Ballot'
+                        : castBallotError
+                          ? 'Unable to Cast Vote'
+                          : challengeError
+                            ? 'Verification Unavailable'
+                            : 'Please Allow a Moment'
+                  }
+                  message={
+                    isCasting
+                      ? VOTER_STATUS_COPY.castBallotLoading
+                      : isChallenging
+                        ? VOTER_STATUS_COPY.challengeBallotLoading
+                        : castBallotError ||
+                          challengeError ||
+                          VOTER_STATUS_COPY.ballotActionsInfo
+                  }
+                />
 
-            {/* Challenge Result Display */}
-            {challengeResult && (
-              <div className={`border rounded-lg p-6 mb-6 ${
-                challengeResult.match ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'
-              }`}>
-                <div className="text-center">
-                  <div className={`inline-flex items-center justify-center w-16 h-16 rounded-full mb-4 ${
-                    challengeResult.match ? 'bg-green-100' : 'bg-red-100'
-                  }`}>
-                    {challengeResult.match ? (
-                      <FiCheckCircle className="w-8 h-8 text-green-600" />
-                    ) : (
-                      <FiX className="w-8 h-8 text-red-600" />
-                    )}
-                  </div>
-                  <h3 className={`text-xl font-semibold mb-2 ${
-                    challengeResult.match ? 'text-green-700' : 'text-red-700'
-                  }`}>
-                    {challengeResult.match ? 'Challenge Verification Passed!' : 'Challenge Verification Failed!'}
-                  </h3>
-                  <p className={`mb-4 ${
-                    challengeResult.match ? 'text-green-600' : 'text-red-600'
-                  }`}>
-                    {challengeResult.message}
-                  </p>
-                  {challengeResult.detailed_message && (
-                    <div className="text-sm text-gray-600 bg-white rounded-lg p-3 border">
-                      {challengeResult.detailed_message}
+                <div className="min-h-[4.5rem] rounded-lg border border-transparent px-1">
+                  {ballotChallenged && !isChallenging && (
+                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
+                      <p className="text-center text-sm text-yellow-700">
+                        <FiAlertCircle className="mr-1 inline" />
+                        This ballot has been challenged and cannot be cast. Please create a new ballot to vote.
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                <div className="min-h-[10rem] rounded-lg border border-transparent px-1">
+                  {challengeResult && (
+                    <div
+                      className={`rounded-lg border p-4 ${
+                        challengeResult.match
+                          ? 'border-green-200 bg-green-50'
+                          : 'border-red-200 bg-red-50'
+                      }`}
+                    >
+                      <div className="text-center">
+                        <div
+                          className={`mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full ${
+                            challengeResult.match ? 'bg-green-100' : 'bg-red-100'
+                          }`}
+                        >
+                          {challengeResult.match ? (
+                            <FiCheckCircle className="h-7 w-7 text-green-600" />
+                          ) : (
+                            <FiX className="h-7 w-7 text-red-600" />
+                          )}
+                        </div>
+                        <h4
+                          className={`mb-2 text-lg font-semibold ${
+                            challengeResult.match ? 'text-green-700' : 'text-red-700'
+                          }`}
+                        >
+                          {challengeResult.match
+                            ? 'Challenge Verification Passed'
+                            : 'Challenge Verification Failed'}
+                        </h4>
+                        <p
+                          className={`text-sm ${
+                            challengeResult.match ? 'text-green-600' : 'text-red-600'
+                          }`}
+                        >
+                          {challengeResult.message}
+                        </p>
+                        {challengeResult.detailed_message && (
+                          <div className="mt-3 rounded-lg border bg-white p-3 text-sm text-gray-600">
+                            {challengeResult.detailed_message}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>

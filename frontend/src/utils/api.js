@@ -91,11 +91,13 @@ export async function apiRequest(endpoint, options = {}, timeout = DEFAULT_TIMEO
       }
       
       console.error(`API Error (${response.status}):`, errorData);
-      throw new Error(
+      const apiError = new Error(
         errorData.message || 
         (errorData.error && errorData.error.message) || 
         `Request failed with status ${response.status}: ${response.statusText}`
       );
+      apiError.status = response.status;
+      throw apiError;
     }
     
     return response.json();
@@ -158,11 +160,13 @@ export async function apiBinaryRequest(endpoint, binaryData, contentType = 'appl
       }
       
       console.error(`API Error (${response.status}):`, errorData);
-      throw new Error(
+      const apiError = new Error(
         errorData.message || 
         (errorData.error && errorData.error.message) || 
         `Request failed with status ${response.status}: ${response.statusText}`
       );
+      apiError.status = response.status;
+      throw apiError;
     }
     
     return response.json();
