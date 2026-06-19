@@ -9,7 +9,7 @@ import json
 import os
 import threading
 from collections import OrderedDict
-from typing import Callable, Dict, Tuple, TypeVar
+from typing import Callable, Generic, Optional, Tuple, TypeVar
 
 from electionguard.election import CiphertextElectionContext
 from electionguard.manifest import InternalManifest, Manifest
@@ -23,7 +23,7 @@ MANIFEST_CACHE_MAX = int(os.environ.get("MANIFEST_CACHE_MAX", "16"))
 CONTEXT_CACHE_MAX = int(os.environ.get("CONTEXT_CACHE_MAX", "32"))
 
 
-class _LRUCache:
+class _LRUCache(Generic[T]):
     """Thread-safe fixed-size LRU cache."""
 
     def __init__(self, max_size: int):
@@ -31,7 +31,7 @@ class _LRUCache:
         self._data: OrderedDict[str, T] = OrderedDict()
         self._lock = threading.Lock()
 
-    def get(self, key: str) -> T | None:
+    def get(self, key: str) -> Optional[T]:
         with self._lock:
             if key not in self._data:
                 return None
@@ -59,10 +59,10 @@ class ManifestCache:
         manifest_max: int = MANIFEST_CACHE_MAX,
         context_max: int = CONTEXT_CACHE_MAX,
     ):
-        self._manifest_cache = _LRUCache[Manifest](manifest_max)
-        self._context_cache = _LRUCache[
+        self._manifest_cache: _LRUCache[Manifest] = _LRUCache(manifest_max)
+        self._context_cache: _LRUCache[
             Tuple[InternalManifest, CiphertextElectionContext]
-        ](context_max)
+        ] = _LRUCache(context_max)
 
     def _get_manifest_key(
         self, party_names: list, candidate_names: list, max_choices: int = 1
