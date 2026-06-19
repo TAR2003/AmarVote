@@ -3,7 +3,7 @@
 # Use sync workers when THREADS=1 — gthread caused deadlocks with --preload + crypto.
 set -e
 
-WORKERS="${GUNICORN_WORKERS:-6}"
+WORKERS="${GUNICORN_WORKERS:-4}"
 THREADS="${GUNICORN_THREADS:-1}"
 
 if [ "$THREADS" -eq 1 ]; then

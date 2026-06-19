@@ -1,4 +1,8 @@
-# Production compose — tuned for 4 GB RAM + 4 GB swap (amarvote2026.me).
+# Production compose — tuned for 4 GB RAM + 4 GB swap (amarvote2026.me, 2 vCPU).
+#
+# Memory budget (container limits, ~3584M total):
+#   backend 1280M | electionguard-api 768M (4 workers) | postgres 384M | rabbitmq 320M
+#   electionguard-worker 320M | prometheus+grafana 256M | frontend 96M | redis 96M | nginx 64M
 #
 # GitHub deploy uses THIS FILE ONLY. Nginx always uses nginx-proxy.conf (DDoS limits).
 # For load testing, switch nginx manually — see docs/PRODUCTION_DEPLOY_AND_LOADTEST.md
@@ -137,8 +141,8 @@ services:
       # ElectionGuard Service URLs
       - ELECTIONGUARD_API_URL=http://electionguard-api:5000
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
-      # 4 GB host: 1024M container, Xmx768m leaves ~200M for JVM native/metaspace
-      - JAVA_OPTS=-Xms256m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -XX:MaxMetaspaceSize=128m
+      # 4 GB host: 1280M container — +256M from EG API rebalance; Xmx896m + ~384M native/metaspace/threads
+      - JAVA_OPTS=-Xms384m -Xmx896m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -XX:MaxMetaspaceSize=128m -XX:MaxDirectMemorySize=128m
     volumes:
       - maven_repo:/root/.m2
       - credentials_data:/app/data/credentials
@@ -156,7 +160,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1024M
+          memory: 1280M
 
   frontend:
     build:
@@ -219,15 +223,15 @@ services:
     environment:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
-      # sync workers × 1 thread — avoids gthread deadlocks; sized for 1024M container
-      - GUNICORN_WORKERS=6
+      # 2 vCPU host: 4 sync workers (CPU-bound crypto). 768M container — freed 256M for backend.
+      - GUNICORN_WORKERS=4
       - GUNICORN_THREADS=1
     volumes:
       - ./Microservice/io:/app/io:rw
     deploy:
       resources:
         limits:
-          memory: 1024M
+          memory: 768M
 
   electionguard-worker:
     build:
