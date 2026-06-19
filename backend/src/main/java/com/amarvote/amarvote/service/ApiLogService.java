@@ -1,5 +1,7 @@
 package com.amarvote.amarvote.service;
 
+import java.util.List;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
@@ -33,12 +35,12 @@ public class ApiLogService {
     
     public Page<ApiLog> getLogsByEmail(String email, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return apiLogRepository.findByExtractedEmailOrderByRequestTimeDesc(email, pageable);
+        return apiLogRepository.findByExtractedEmailContainingIgnoreCaseOrderByRequestTimeDesc(email, pageable);
     }
     
     public Page<ApiLog> getLogsByIp(String ip, int page, int size) {
         Pageable pageable = PageRequest.of(page, size);
-        return apiLogRepository.findByRequestIpOrderByRequestTimeDesc(ip, pageable);
+        return apiLogRepository.findByRequestIpContainingOrderByRequestTimeDesc(ip, pageable);
     }
     
     public Page<ApiLog> getLogsByPath(String path, int page, int size) {
@@ -52,5 +54,21 @@ public class ApiLogService {
     
     public long getErrorLogs() {
         return apiLogRepository.countErrorLogs();
+    }
+
+    @Transactional
+    public int deleteLogsByIds(List<Long> logIds) {
+        if (logIds == null || logIds.isEmpty()) {
+            return 0;
+        }
+        List<Long> distinctIds = logIds.stream().distinct().toList();
+        int deleted = 0;
+        for (Long logId : distinctIds) {
+            if (apiLogRepository.existsById(logId)) {
+                apiLogRepository.deleteById(logId);
+                deleted++;
+            }
+        }
+        return deleted;
     }
 }

@@ -596,10 +596,19 @@ export async function getAuthorizedUsersAccess() {
 
 /**
  * Get authenticated/authorized users table data.
+ * @param {Object} params
  * @returns {Promise<Object>}
  */
-export async function getAuthorizedUsers() {
-  return apiRequest('/authorized-users', { method: 'GET' });
+export async function getAuthorizedUsers(params = {}) {
+  const query = new URLSearchParams();
+  if (params.page != null) query.set('page', String(params.page));
+  if (params.size != null) query.set('size', String(params.size));
+  if (params.search) query.set('search', params.search);
+  if (Array.isArray(params.userTypes) && params.userTypes.length > 0) {
+    params.userTypes.forEach((type) => query.append('userTypes', type));
+  }
+  const qs = query.toString();
+  return apiRequest(`/authorized-users${qs ? `?${qs}` : ''}`, { method: 'GET' });
 }
 
 /**
@@ -624,6 +633,18 @@ export async function createAuthorizedUser(payload) {
   return apiRequest('/authorized-users', {
     method: 'POST',
     body: JSON.stringify(payload),
+  });
+}
+
+/**
+ * Bulk delete authorized user rows.
+ * @param {number[]} authorizedUserIds
+ * @returns {Promise<Object>}
+ */
+export async function bulkDeleteAuthorizedUsers(authorizedUserIds) {
+  return apiRequest('/authorized-users/bulk', {
+    method: 'DELETE',
+    body: JSON.stringify({ ids: authorizedUserIds }),
   });
 }
 
@@ -668,10 +689,28 @@ export async function uploadAuthorizedUsersCsv(file) {
 
 /**
  * Get recent authorization audit logs.
+ * @param {Object} params
  * @returns {Promise<Object>}
  */
-export async function getAuthorizedUserAuditLogs() {
-  return apiRequest('/authorized-users/audit-logs', { method: 'GET' });
+export async function getAuthorizedUserAuditLogs(params = {}) {
+  const query = new URLSearchParams();
+  if (params.page != null) query.set('page', String(params.page));
+  if (params.size != null) query.set('size', String(params.size));
+  if (params.search) query.set('search', params.search);
+  const qs = query.toString();
+  return apiRequest(`/authorized-users/audit-logs${qs ? `?${qs}` : ''}`, { method: 'GET' });
+}
+
+/**
+ * Delete API logs by ID.
+ * @param {number[]} logIds
+ * @returns {Promise<Object>}
+ */
+export async function deleteApiLogs(logIds) {
+  return apiRequest('/admin/logs', {
+    method: 'DELETE',
+    body: JSON.stringify({ ids: logIds }),
+  });
 }
 
 /**

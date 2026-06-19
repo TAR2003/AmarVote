@@ -2,6 +2,7 @@ package com.amarvote.amarvote.controller;
 
 import java.util.Map;
 import java.io.IOException;
+import java.util.List;
 
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -21,6 +22,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.multipart.MultipartFile;
 
 import com.amarvote.amarvote.dto.AuthorizedUserCreateRequestDto;
+import com.amarvote.amarvote.dto.BulkDeleteRequestDto;
 import com.amarvote.amarvote.dto.PermissionSettingsUpdateRequestDto;
 import com.amarvote.amarvote.dto.AuthorizedUserUpdateRequestDto;
 import com.amarvote.amarvote.service.AuthorizedUserService;
@@ -48,18 +50,25 @@ public class AuthorizedUserController {
     }
 
     @GetMapping
-    public ResponseEntity<?> listAuthorizedUsers() {
+    public ResponseEntity<?> listAuthorizedUsers(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(required = false) List<String> userTypes) {
         String userEmail = getAuthenticatedEmail();
         if (userEmail == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("message", "Unauthorized"));
         }
 
-        return ResponseEntity.ok(authorizedUserService.getAuthorizedUsers(userEmail));
+        return ResponseEntity.ok(authorizedUserService.getAuthorizedUsers(userEmail, page, size, search, userTypes));
     }
 
     @GetMapping("/audit-logs")
-    public ResponseEntity<?> getAuditLogs() {
+    public ResponseEntity<?> getAuditLogs(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "50") int size,
+            @RequestParam(required = false) String search) {
         String userEmail = getAuthenticatedEmail();
         if (userEmail == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -67,7 +76,7 @@ public class AuthorizedUserController {
         }
 
         try {
-            return ResponseEntity.ok(authorizedUserService.getAuditLogs(userEmail));
+            return ResponseEntity.ok(authorizedUserService.getAuditLogs(userEmail, page, size, search));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", ex.getMessage()));
@@ -123,6 +132,22 @@ public class AuthorizedUserController {
 
         try {
             return ResponseEntity.ok(authorizedUserService.updateAuthorizedUser(actorEmail, authorizedUserId, request));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body(Map.of("message", ex.getMessage()));
+        }
+    }
+
+    @DeleteMapping("/bulk")
+    public ResponseEntity<?> bulkRemoveAuthorizedUsers(@Valid @RequestBody BulkDeleteRequestDto request) {
+        String actorEmail = getAuthenticatedEmail();
+        if (actorEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                    .body(Map.of("message", "Unauthorized"));
+        }
+
+        try {
+            return ResponseEntity.ok(authorizedUserService.bulkRemoveAuthorizedUsers(actorEmail, request.getIds()));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("message", ex.getMessage()));

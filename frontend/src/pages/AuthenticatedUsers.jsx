@@ -1,7 +1,9 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
 import {
   FiAlertCircle,
   FiCheckCircle,
+  FiChevronLeft,
+  FiChevronRight,
   FiRefreshCw,
   FiSearch,
   FiShield,
@@ -11,8 +13,8 @@ import {
   FiUsers,
 } from "react-icons/fi";
 import {
+  bulkDeleteAuthorizedUsers,
   createAuthorizedUser,
-  deleteAuthorizedUser,
   getAuthorizedUserAuditLogs,
   getAuthorizedUsers,
   updatePermissionSettings,
@@ -20,19 +22,41 @@ import {
   uploadAuthorizedUsersCsv,
 } from "../utils/api";
 
+const PAGE_SIZE = 50;
+const ROLE_OPTIONS = [
+  { id: "user", label: "User" },
+  { id: "admin", label: "Admin" },
+  { id: "owner", label: "Owner" },
+];
+
 const AuthenticatedUsers = () => {
   const [loading, setLoading] = useState(true);
   const [savingId, setSavingId] = useState(null);
-  const [deletingId, setDeletingId] = useState(null);
+  const [deleting, setDeleting] = useState(false);
   const [uploadingCsv, setUploadingCsv] = useState(false);
   const [error, setError] = useState("");
   const [success, setSuccess] = useState("");
 
-  const [search, setSearch] = useState("");
+  const [activeTab, setActiveTab] = useState("users");
   const [canManage, setCanManage] = useState(false);
   const [currentUserType, setCurrentUserType] = useState("user");
+
   const [users, setUsers] = useState([]);
+  const [usersPage, setUsersPage] = useState(0);
+  const [usersTotal, setUsersTotal] = useState(0);
+  const [usersHasNext, setUsersHasNext] = useState(false);
+  const [searchInput, setSearchInput] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState("");
+  const [roleFilters, setRoleFilters] = useState({ user: true, admin: true, owner: true });
+  const [selectedUserIds, setSelectedUserIds] = useState(new Set());
+
   const [auditLogs, setAuditLogs] = useState([]);
+  const [logsPage, setLogsPage] = useState(0);
+  const [logsTotal, setLogsTotal] = useState(0);
+  const [logsHasNext, setLogsHasNext] = useState(false);
+  const [logsSearchInput, setLogsSearchInput] = useState("");
+  const [appliedLogsSearch, setAppliedLogsSearch] = useState("");
+
   const [settings, setSettings] = useState({
     registrationOpenToAll: false,
     electionCreationPermissionScope: "all_admins_owners",
@@ -41,33 +65,73 @@ const AuthenticatedUsers = () => {
   const [newUserEmail, setNewUserEmail] = useState("");
   const [newUserType, setNewUserType] = useState("user");
 
-  const loadAll = async () => {
+  const selectedUserTypes = useMemo(
+    () => ROLE_OPTIONS.filter(({ id }) => roleFilters[id]).map(({ id }) => id),
+    [roleFilters]
+  );
+  const noRoleFiltersSelected = selectedUserTypes.length === 0;
+
+  const loadUsers = useCallback(async (page = usersPage) => {
+    if (noRoleFiltersSelected) {
+      setUsers([]);
+      setUsersTotal(0);
+      setUsersHasNext(false);
+      setSelectedUserIds(new Set());
+      return;
+    }
+
+    const data = await getAuthorizedUsers({
+      page,
+      size: PAGE_SIZE,
+      search: appliedSearch,
+      userTypes: selectedUserTypes.length < ROLE_OPTIONS.length ? selectedUserTypes : undefined,
+    });
+
+    setCanManage(!!data.canManage);
+    setCurrentUserType(data.currentUserType || "user");
+    setUsers(Array.isArray(data.users) ? data.users : []);
+    setSettings(data.settings || {
+      registrationOpenToAll: false,
+      electionCreationPermissionScope: "all_admins_owners",
+    });
+    setUsersPage(data.page ?? page);
+    setUsersTotal(data.totalElements ?? 0);
+    setUsersHasNext(!!data.hasNext);
+    setSelectedUserIds(new Set());
+  }, [appliedSearch, noRoleFiltersSelected, selectedUserTypes, usersPage]);
+
+  const loadAuditLogs = useCallback(async (page = logsPage) => {
+    const data = await getAuthorizedUserAuditLogs({
+      page,
+      size: PAGE_SIZE,
+      search: appliedLogsSearch,
+    });
+
+    setAuditLogs(Array.isArray(data.logs) ? data.logs : []);
+    setLogsPage(data.page ?? page);
+    setLogsTotal(data.totalElements ?? 0);
+    setLogsHasNext(!!data.hasNext);
+  }, [appliedLogsSearch, logsPage]);
+
+  const loadAll = useCallback(async () => {
     try {
       setLoading(true);
-      const [usersData, auditData] = await Promise.all([
-        getAuthorizedUsers(),
-        getAuthorizedUserAuditLogs().catch(() => ({ logs: [] })),
-      ]);
-
-      setCanManage(!!usersData.canManage);
-      setCurrentUserType(usersData.currentUserType || "user");
-      setUsers(Array.isArray(usersData.users) ? usersData.users : []);
-      setSettings(usersData.settings || {
-        registrationOpenToAll: false,
-        electionCreationPermissionScope: "all_admins_owners",
-      });
-      setAuditLogs(Array.isArray(auditData.logs) ? auditData.logs : []);
+      if (activeTab === "users") {
+        await loadUsers(usersPage);
+      } else {
+        await loadAuditLogs(logsPage);
+      }
       setError("");
     } catch (err) {
       setError(err.message || "Failed to load authenticated users data.");
     } finally {
       setLoading(false);
     }
-  };
+  }, [activeTab, loadAuditLogs, loadUsers, logsPage, usersPage]);
 
   useEffect(() => {
     loadAll();
-  }, []);
+  }, [activeTab, appliedSearch, appliedLogsSearch, usersPage, logsPage, selectedUserTypes]);
 
   useEffect(() => {
     if (!error) return;
@@ -81,17 +145,65 @@ const AuthenticatedUsers = () => {
     return () => clearTimeout(timer);
   }, [success]);
 
-  const filteredUsers = useMemo(() => {
-    if (!search.trim()) return users;
-    const q = search.trim().toLowerCase();
-    return users.filter((u) =>
-      `${u.email} ${u.userType} ${u.registeredOrNot ? "registered" : "not registered"}`
-        .toLowerCase()
-        .includes(q)
-    );
-  }, [users, search]);
-
   const canAssignOwner = currentUserType === "owner";
+  const selectableUsers = useMemo(
+    () => users.filter((row) => canManage && row.canEdit),
+    [users, canManage]
+  );
+  const allSelectableSelected = selectableUsers.length > 0
+    && selectableUsers.every((row) => selectedUserIds.has(row.authorizedUserId));
+
+  const handleUserSearch = (e) => {
+    e.preventDefault();
+    setUsersPage(0);
+    setAppliedSearch(searchInput.trim());
+  };
+
+  const handleLogsSearch = (e) => {
+    e.preventDefault();
+    setLogsPage(0);
+    setAppliedLogsSearch(logsSearchInput.trim());
+  };
+
+  const toggleRoleFilter = (roleId) => {
+    setRoleFilters((prev) => ({ ...prev, [roleId]: !prev[roleId] }));
+    setUsersPage(0);
+  };
+
+  const toggleUserSelection = (id) => {
+    setSelectedUserIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAllUsers = () => {
+    if (allSelectableSelected) {
+      setSelectedUserIds(new Set());
+      return;
+    }
+    setSelectedUserIds(new Set(selectableUsers.map((row) => row.authorizedUserId)));
+  };
+
+  const handleBulkDelete = async () => {
+    if (!canManage || selectedUserIds.size === 0) return;
+    const confirmed = window.confirm(`Remove ${selectedUserIds.size} selected user(s) from authorized users and delete their accounts if registered?`);
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      const result = await bulkDeleteAuthorizedUsers([...selectedUserIds]);
+      setSuccess(`Removed ${result.removed || 0} user(s)${result.skipped ? `, skipped ${result.skipped}` : ""}.`);
+      await loadUsers(0);
+      setUsersPage(0);
+    } catch (err) {
+      setError(err.message || "Failed to remove selected users.");
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   const handlePermissionSettingsSave = async () => {
     if (!canManage) return;
@@ -102,7 +214,7 @@ const AuthenticatedUsers = () => {
       });
       setSettings(updated);
       setSuccess("Permission settings updated.");
-      await loadAll();
+      await loadUsers(usersPage);
     } catch (err) {
       setError(err.message || "Failed to update permission settings.");
     }
@@ -110,7 +222,6 @@ const AuthenticatedUsers = () => {
 
   const handleRoleChange = async (row, nextType) => {
     if (!canManage || !row.canEdit) return;
-
     try {
       setSavingId(row.authorizedUserId);
       await updateAuthorizedUser(row.authorizedUserId, {
@@ -118,7 +229,7 @@ const AuthenticatedUsers = () => {
         userType: nextType,
       });
       setSuccess(`Updated role for ${row.email}`);
-      await loadAll();
+      await loadUsers(usersPage);
     } catch (err) {
       setError(err.message || "Failed to update role.");
     } finally {
@@ -136,7 +247,7 @@ const AuthenticatedUsers = () => {
         canCreateElections: nextValue,
       });
       setSuccess(`Updated election-creation permission for ${row.email}`);
-      await loadAll();
+      await loadUsers(usersPage);
     } catch (err) {
       setError(err.message || "Failed to update can-create-elections flag.");
     } finally {
@@ -155,7 +266,7 @@ const AuthenticatedUsers = () => {
         apiLogViewerAllowed: nextValue,
       });
       setSuccess(`Updated API log viewer permission for ${row.email}`);
-      await loadAll();
+      await loadUsers(usersPage);
     } catch (err) {
       setError(err.message || "Failed to update API log viewer permission.");
     } finally {
@@ -166,47 +277,27 @@ const AuthenticatedUsers = () => {
   const handleAddUser = async (e) => {
     e.preventDefault();
     if (!canManage) return;
-
     try {
-      await createAuthorizedUser({
-        email: newUserEmail,
-        userType: newUserType,
-      });
+      await createAuthorizedUser({ email: newUserEmail, userType: newUserType });
       setNewUserEmail("");
       setNewUserType("user");
       setSuccess("User added to authenticated users list.");
-      await loadAll();
+      setUsersPage(0);
+      await loadUsers(0);
     } catch (err) {
       setError(err.message || "Failed to add user.");
-    }
-  };
-
-  const handleDeleteUser = async (row) => {
-    if (!canManage || !row.canEdit) return;
-    const confirmed = window.confirm(`Remove ${row.email} from authorized users list?`);
-    if (!confirmed) return;
-
-    try {
-      setDeletingId(row.authorizedUserId);
-      await deleteAuthorizedUser(row.authorizedUserId);
-      setSuccess(`Removed ${row.email}`);
-      await loadAll();
-    } catch (err) {
-      setError(err.message || "Failed to remove user.");
-    } finally {
-      setDeletingId(null);
     }
   };
 
   const handleCsvUpload = async (event) => {
     const file = event.target.files?.[0];
     if (!file || !canManage) return;
-
     try {
       setUploadingCsv(true);
       const result = await uploadAuthorizedUsersCsv(file);
       setSuccess(`CSV processed: added ${result.created || 0}, skipped ${result.skipped || 0}`);
-      await loadAll();
+      setUsersPage(0);
+      await loadUsers(0);
     } catch (err) {
       setError(err.message || "CSV upload failed.");
     } finally {
@@ -215,8 +306,186 @@ const AuthenticatedUsers = () => {
     }
   };
 
+  const usersRangeStart = usersTotal === 0 ? 0 : usersPage * PAGE_SIZE + 1;
+  const usersRangeEnd = Math.min((usersPage + 1) * PAGE_SIZE, usersTotal);
+  const logsRangeStart = logsTotal === 0 ? 0 : logsPage * PAGE_SIZE + 1;
+  const logsRangeEnd = Math.min((logsPage + 1) * PAGE_SIZE, logsTotal);
+
+  const renderUserRow = (row, mobile = false) => {
+    const busy = savingId === row.authorizedUserId || deleting;
+    const rowEditable = canManage && row.canEdit;
+    const isSelected = selectedUserIds.has(row.authorizedUserId);
+
+    if (mobile) {
+      return (
+        <div key={row.authorizedUserId} className="p-4 space-y-3">
+          {canManage ? (
+            <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+              <input
+                type="checkbox"
+                checked={isSelected}
+                disabled={!rowEditable || busy}
+                onChange={() => toggleUserSelection(row.authorizedUserId)}
+                className="rounded border-gray-300"
+              />
+              Select
+            </label>
+          ) : null}
+          <div>
+            <p className="text-xs text-gray-500">Email</p>
+            <p className="text-sm font-semibold text-gray-900 break-all">{row.email}</p>
+          </div>
+          <div className="grid grid-cols-2 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-gray-500 mb-1">User Type</p>
+              {rowEditable ? (
+                <select
+                  disabled={busy}
+                  value={row.userType}
+                  onChange={(e) => handleRoleChange(row, e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm"
+                >
+                  <option value="user">user</option>
+                  <option value="admin">admin</option>
+                  {canAssignOwner ? <option value="owner">owner</option> : null}
+                </select>
+              ) : (
+                <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.userType === "owner" ? "bg-purple-100 text-purple-700" : row.userType === "admin" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
+                  {row.userType}
+                </span>
+              )}
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Registered</p>
+              <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.registeredOrNot ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
+                {row.registeredOrNot ? "Registered" : "Not Registered"}
+              </span>
+            </div>
+          </div>
+          <div className="grid grid-cols-1 gap-3 text-sm">
+            <div>
+              <p className="text-xs text-gray-500 mb-1">API Log Viewer Allowed</p>
+              {rowEditable ? (
+                <select
+                  disabled={busy}
+                  value={row.apiLogViewerAllowed ? "yes" : "no"}
+                  onChange={(e) => handleApiLogViewerAllowedChange(row, e.target.value === "yes")}
+                  className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm"
+                >
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              ) : (
+                <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.apiLogViewerAllowed ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+                  {row.apiLogViewerAllowed ? "Yes" : "No"}
+                </span>
+              )}
+            </div>
+            <div>
+              <p className="text-xs text-gray-500 mb-1">Can Create Elections</p>
+              {rowEditable ? (
+                <select
+                  disabled={busy}
+                  value={row.canCreateElections ? "yes" : "no"}
+                  onChange={(e) => handleCanCreateElectionsChange(row, e.target.value === "yes")}
+                  className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm"
+                >
+                  <option value="yes">Yes</option>
+                  <option value="no">No</option>
+                </select>
+              ) : (
+                <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.canCreateElections ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-700"}`}>
+                  {row.canCreateElections ? "Yes" : "No"}
+                </span>
+              )}
+            </div>
+          </div>
+          <div>
+            <p className="text-xs text-gray-500 mb-1">Last Active</p>
+            <p className="text-sm text-gray-700">{row.lastActive ? new Date(row.lastActive).toLocaleString() : "-"}</p>
+          </div>
+        </div>
+      );
+    }
+
+    return (
+      <tr key={row.authorizedUserId} className="hover:bg-gray-50/60">
+        {canManage ? (
+          <td className="px-4 py-3">
+            <input
+              type="checkbox"
+              checked={isSelected}
+              disabled={!rowEditable || busy}
+              onChange={() => toggleUserSelection(row.authorizedUserId)}
+              className="rounded border-gray-300"
+            />
+          </td>
+        ) : null}
+        <td className="px-4 py-3 text-sm text-gray-900">{row.email}</td>
+        <td className="px-4 py-3">
+          {rowEditable ? (
+            <select
+              disabled={busy}
+              value={row.apiLogViewerAllowed ? "yes" : "no"}
+              onChange={(e) => handleApiLogViewerAllowedChange(row, e.target.value === "yes")}
+              className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm"
+            >
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          ) : (
+            <span className={`text-xs px-2 py-1 rounded-full ${row.apiLogViewerAllowed ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+              {row.apiLogViewerAllowed ? "Yes" : "No"}
+            </span>
+          )}
+        </td>
+        <td className="px-4 py-3">
+          <span className={`text-xs px-2 py-1 rounded-full ${row.registeredOrNot ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
+            {row.registeredOrNot ? "Registered" : "Not Registered"}
+          </span>
+        </td>
+        <td className="px-4 py-3">
+          {rowEditable ? (
+            <select
+              disabled={busy}
+              value={row.userType}
+              onChange={(e) => handleRoleChange(row, e.target.value)}
+              className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm"
+            >
+              <option value="user">user</option>
+              <option value="admin">admin</option>
+              {canAssignOwner ? <option value="owner">owner</option> : null}
+            </select>
+          ) : (
+            <span className={`text-xs px-2 py-1 rounded-full ${row.userType === "owner" ? "bg-purple-100 text-purple-700" : row.userType === "admin" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
+              {row.userType}
+            </span>
+          )}
+        </td>
+        <td className="px-4 py-3">
+          {rowEditable ? (
+            <select
+              disabled={busy}
+              value={row.canCreateElections ? "yes" : "no"}
+              onChange={(e) => handleCanCreateElectionsChange(row, e.target.value === "yes")}
+              className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm"
+            >
+              <option value="yes">Yes</option>
+              <option value="no">No</option>
+            </select>
+          ) : (
+            <span className={`text-xs px-2 py-1 rounded-full ${row.canCreateElections ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-700"}`}>
+              {row.canCreateElections ? "Yes" : "No"}
+            </span>
+          )}
+        </td>
+        <td className="px-4 py-3 text-sm text-gray-700">{row.lastActive ? new Date(row.lastActive).toLocaleString() : "-"}</td>
+      </tr>
+    );
+  };
+
   return (
-    <div className="max-w-[1800px] mx-auto py-4 sm:py-8 px-3 sm:px-6 lg:px-8 space-y-6">
+    <div className="max-w-[1800px] mx-auto py-4 sm:py-8 px-3 sm:px-6 lg:px-8">
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="bg-gradient-to-r from-slate-800 via-blue-800 to-indigo-800 p-6 text-white">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -229,7 +498,6 @@ const AuthenticatedUsers = () => {
                 Viewable by all logged-in users. Managed by admin and owner.
               </p>
             </div>
-
             <button
               type="button"
               onClick={loadAll}
@@ -239,26 +507,14 @@ const AuthenticatedUsers = () => {
               Refresh
             </button>
           </div>
-
           <div className="mt-4 text-xs text-blue-100 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
             <span>Current role: {currentUserType}</span>
             <span>Can manage: {canManage ? "Yes" : "No"}</span>
           </div>
         </div>
 
-        <div className="p-5 border-b border-gray-200 space-y-4">
-          <div className="relative">
-            <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
-            <input
-              type="text"
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder="Search users by email or role..."
-              className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm"
-            />
-          </div>
-
-          {canManage ? (
+        {canManage ? (
+          <div className="p-5 border-b border-gray-200 space-y-4 bg-gray-50/50">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <form onSubmit={handleAddUser} className="flex flex-col sm:flex-row sm:flex-wrap gap-2 items-stretch sm:items-end">
                 <div className="flex-1 min-w-[220px]">
@@ -268,7 +524,7 @@ const AuthenticatedUsers = () => {
                     value={newUserEmail}
                     onChange={(e) => setNewUserEmail(e.target.value)}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                   />
                 </div>
                 <div>
@@ -276,7 +532,7 @@ const AuthenticatedUsers = () => {
                   <select
                     value={newUserType}
                     onChange={(e) => setNewUserType(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm"
+                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
                   >
                     <option value="user">user</option>
                     <option value="admin">admin</option>
@@ -290,25 +546,17 @@ const AuthenticatedUsers = () => {
                   <FiUserPlus className="h-4 w-4" /> Add
                 </button>
               </form>
-
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Bulk Add via CSV</label>
-                <label className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-3 py-2 border border-blue-300 text-blue-700 rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-50">
+                <label className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-3 py-2 border border-blue-300 text-blue-700 rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-50 bg-white">
                   <FiUpload className="h-4 w-4" />
                   {uploadingCsv ? "Uploading..." : "Upload CSV"}
-                  <input
-                    type="file"
-                    accept=".csv,text/csv"
-                    onChange={handleCsvUpload}
-                    className="hidden"
-                  />
+                  <input type="file" accept=".csv,text/csv" onChange={handleCsvUpload} className="hidden" />
                 </label>
               </div>
             </div>
-          ) : null}
 
-          {canManage ? (
-            <div className="mt-2 rounded-xl border border-indigo-200 bg-indigo-50 p-3">
+            <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3">
               <h3 className="text-sm font-semibold text-indigo-800 mb-2">Permission Settings</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
@@ -319,13 +567,12 @@ const AuthenticatedUsers = () => {
                       ...prev,
                       registrationOpenToAll: e.target.value === "all",
                     }))}
-                    className="w-full rounded-lg border border-indigo-300 px-2.5 py-2 text-sm"
+                    className="w-full rounded-lg border border-indigo-300 px-2.5 py-2 text-sm bg-white"
                   >
                     <option value="all">Allow all emails</option>
                     <option value="authenticated">Allow only authenticated users</option>
                   </select>
                 </div>
-
                 <div>
                   <label className="block text-xs text-indigo-700 mb-1">Permission to Create Elections</label>
                   <select
@@ -334,7 +581,7 @@ const AuthenticatedUsers = () => {
                       ...prev,
                       electionCreationPermissionScope: e.target.value,
                     }))}
-                    className="w-full rounded-lg border border-indigo-300 px-2.5 py-2 text-sm"
+                    className="w-full rounded-lg border border-indigo-300 px-2.5 py-2 text-sm bg-white"
                   >
                     <option value="all_users">All users</option>
                     <option value="all_authenticated_users">All authenticated users</option>
@@ -343,7 +590,6 @@ const AuthenticatedUsers = () => {
                   </select>
                 </div>
               </div>
-
               <div className="mt-3">
                 <button
                   type="button"
@@ -354,8 +600,8 @@ const AuthenticatedUsers = () => {
                 </button>
               </div>
             </div>
-          ) : null}
-        </div>
+          </div>
+        ) : null}
 
         {error ? (
           <div className="m-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm flex items-center gap-2">
@@ -371,296 +617,281 @@ const AuthenticatedUsers = () => {
           </div>
         ) : null}
 
-        <div className="md:hidden divide-y divide-gray-100">
-          {loading ? (
-            <div className="px-4 py-8 text-sm text-gray-500 text-center">Loading users...</div>
-          ) : filteredUsers.length === 0 ? (
-            <div className="px-4 py-8 text-sm text-gray-500 text-center">No users match your search.</div>
-          ) : (
-            filteredUsers.map((row) => {
-              const busy = savingId === row.authorizedUserId || deletingId === row.authorizedUserId;
-              const rowEditable = canManage && row.canEdit;
-
-              return (
-                <div key={row.authorizedUserId} className="p-4 space-y-3">
-                  <div>
-                    <p className="text-xs text-gray-500">Email</p>
-                    <p className="text-sm font-semibold text-gray-900 break-all">{row.email}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">User Type</p>
-                      {rowEditable ? (
-                        <select
-                          disabled={busy}
-                          value={row.userType}
-                          onChange={(e) => handleRoleChange(row, e.target.value)}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm"
-                        >
-                          <option value="user">user</option>
-                          <option value="admin">admin</option>
-                          {canAssignOwner ? <option value="owner">owner</option> : null}
-                        </select>
-                      ) : (
-                        <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.userType === "owner" ? "bg-purple-100 text-purple-700" : row.userType === "admin" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
-                          {row.userType}
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Registered</p>
-                      <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.registeredOrNot ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
-                        {row.registeredOrNot ? "Registered" : "Not Registered"}
-                      </span>
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 gap-3 text-sm">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">API Log Viewer Allowed</p>
-                      {rowEditable ? (
-                        <select
-                          disabled={busy}
-                          value={row.apiLogViewerAllowed ? "yes" : "no"}
-                          onChange={(e) => handleApiLogViewerAllowedChange(row, e.target.value === "yes")}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm"
-                        >
-                          <option value="yes">Yes</option>
-                          <option value="no">No</option>
-                        </select>
-                      ) : (
-                        <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.apiLogViewerAllowed ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
-                          {row.apiLogViewerAllowed ? "Yes" : "No"}
-                        </span>
-                      )}
-                    </div>
-
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1">Can Create Elections</p>
-                      {rowEditable ? (
-                        <select
-                          disabled={busy}
-                          value={row.canCreateElections ? "yes" : "no"}
-                          onChange={(e) => handleCanCreateElectionsChange(row, e.target.value === "yes")}
-                          className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm"
-                        >
-                          <option value="yes">Yes</option>
-                          <option value="no">No</option>
-                        </select>
-                      ) : (
-                        <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.canCreateElections ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-700"}`}>
-                          {row.canCreateElections ? "Yes" : "No"}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-
-                  <div>
-                    <p className="text-xs text-gray-500 mb-1">Last Active</p>
-                    <p className="text-sm text-gray-700">{row.lastActive ? new Date(row.lastActive).toLocaleString() : "-"}</p>
-                  </div>
-
-                  <div>
-                    {rowEditable ? (
-                      <button
-                        type="button"
-                        disabled={busy}
-                        onClick={() => handleDeleteUser(row)}
-                        className="inline-flex items-center justify-center gap-1 w-full px-2.5 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-60"
-                      >
-                        <FiTrash2 className="h-3.5 w-3.5" /> Remove
-                      </button>
-                    ) : (
-                      <span className="text-xs text-gray-500">Read only</span>
-                    )}
-                  </div>
-                </div>
-              );
-            })
-          )}
+        <div className="border-b border-gray-200 px-5 pt-4">
+          <div className="flex gap-2">
+            <button
+              type="button"
+              onClick={() => setActiveTab("users")}
+              className={`px-4 py-2.5 text-sm font-semibold rounded-t-xl border-b-2 transition ${
+                activeTab === "users"
+                  ? "border-blue-600 text-blue-700 bg-blue-50"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <FiUsers className="h-4 w-4" /> Auth Users
+              </span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveTab("logs")}
+              className={`px-4 py-2.5 text-sm font-semibold rounded-t-xl border-b-2 transition ${
+                activeTab === "logs"
+                  ? "border-blue-600 text-blue-700 bg-blue-50"
+                  : "border-transparent text-gray-500 hover:text-gray-700"
+              }`}
+            >
+              <span className="inline-flex items-center gap-2">
+                <FiShield className="h-4 w-4" /> Auth User Logs
+              </span>
+            </button>
+          </div>
         </div>
 
-        <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Email</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">API Log Viewer Allowed</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Registered</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">User Type</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Can Create Elections</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Last Active</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Actions</th>
-              </tr>
-            </thead>
+        {activeTab === "users" ? (
+          <div className="p-5 space-y-4">
+            <form onSubmit={handleUserSearch} className="flex flex-col sm:flex-row gap-2">
+              <div className="relative flex-1">
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <input
+                  type="text"
+                  value={searchInput}
+                  onChange={(e) => setSearchInput(e.target.value)}
+                  placeholder="Search by email..."
+                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm"
+                />
+              </div>
+              <button
+                type="submit"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700"
+              >
+                <FiSearch className="h-4 w-4" /> Search
+              </button>
+            </form>
 
-            <tbody className="bg-white divide-y divide-gray-100">
+            <div className="flex flex-wrap items-center gap-4">
+              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filter by role</span>
+              {ROLE_OPTIONS.map(({ id, label }) => (
+                <label key={id} className="inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={roleFilters[id]}
+                    onChange={() => toggleRoleFilter(id)}
+                    className="rounded border-gray-300"
+                  />
+                  {label}
+                </label>
+              ))}
+            </div>
+
+            {canManage ? (
+              <div className="flex flex-wrap items-center gap-3 py-2 border-y border-gray-100">
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={allSelectableSelected}
+                    onChange={toggleSelectAllUsers}
+                    disabled={selectableUsers.length === 0 || deleting}
+                    className="rounded border-gray-300"
+                  />
+                  Select all on this page
+                </label>
+                <button
+                  type="button"
+                  onClick={handleBulkDelete}
+                  disabled={selectedUserIds.size === 0 || deleting}
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                >
+                  <FiTrash2 className="h-4 w-4" />
+                  {deleting ? "Deleting..." : `Delete selected (${selectedUserIds.size})`}
+                </button>
+              </div>
+            ) : null}
+
+            <div className="md:hidden divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-sm text-gray-500 text-center">Loading users...</td>
-                </tr>
-              ) : filteredUsers.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="px-4 py-8 text-sm text-gray-500 text-center">No users match your search.</td>
-                </tr>
+                <div className="px-4 py-8 text-sm text-gray-500 text-center">Loading users...</div>
+              ) : users.length === 0 ? (
+                <div className="px-4 py-8 text-sm text-gray-500 text-center">
+                  {noRoleFiltersSelected ? "Select at least one role filter." : "No users match your search."}
+                </div>
               ) : (
-                filteredUsers.map((row) => {
-                  const busy = savingId === row.authorizedUserId || deletingId === row.authorizedUserId;
-                  const rowEditable = canManage && row.canEdit;
+                users.map((row) => renderUserRow(row, true))
+              )}
+            </div>
 
-                  return (
-                    <tr key={row.authorizedUserId} className="hover:bg-gray-50/60">
-                      <td className="px-4 py-3 text-sm text-gray-900">{row.email}</td>
-
-                      <td className="px-4 py-3">
-                        {rowEditable ? (
-                          <select
-                            disabled={busy}
-                            value={row.apiLogViewerAllowed ? "yes" : "no"}
-                            onChange={(e) => handleApiLogViewerAllowedChange(row, e.target.value === "yes")}
-                            className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm"
-                          >
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
-                          </select>
-                        ) : (
-                          <span className={`text-xs px-2 py-1 rounded-full ${row.apiLogViewerAllowed ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
-                            {row.apiLogViewerAllowed ? "Yes" : "No"}
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        <span className={`text-xs px-2 py-1 rounded-full ${row.registeredOrNot ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
-                          {row.registeredOrNot ? "Registered" : "Not Registered"}
-                        </span>
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {rowEditable ? (
-                          <select
-                            disabled={busy}
-                            value={row.userType}
-                            onChange={(e) => handleRoleChange(row, e.target.value)}
-                            className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm"
-                          >
-                            <option value="user">user</option>
-                            <option value="admin">admin</option>
-                            {canAssignOwner ? <option value="owner">owner</option> : null}
-                          </select>
-                        ) : (
-                          <span className={`text-xs px-2 py-1 rounded-full ${row.userType === "owner" ? "bg-purple-100 text-purple-700" : row.userType === "admin" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
-                            {row.userType}
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3">
-                        {rowEditable ? (
-                          <select
-                            disabled={busy}
-                            value={row.canCreateElections ? "yes" : "no"}
-                            onChange={(e) => handleCanCreateElectionsChange(row, e.target.value === "yes")}
-                            className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm"
-                          >
-                            <option value="yes">Yes</option>
-                            <option value="no">No</option>
-                          </select>
-                        ) : (
-                          <span className={`text-xs px-2 py-1 rounded-full ${row.canCreateElections ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-700"}`}>
-                            {row.canCreateElections ? "Yes" : "No"}
-                          </span>
-                        )}
-                      </td>
-
-                      <td className="px-4 py-3 text-sm text-gray-700">{row.lastActive ? new Date(row.lastActive).toLocaleString() : "-"}</td>
-
-                      <td className="px-4 py-3">
-                        {rowEditable ? (
-                          <button
-                            type="button"
-                            disabled={busy}
-                            onClick={() => handleDeleteUser(row)}
-                            className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700 disabled:opacity-60"
-                          >
-                            <FiTrash2 className="h-3.5 w-3.5" /> Remove
-                          </button>
-                        ) : (
-                          <span className="text-xs text-gray-500">Read only</span>
-                        )}
+            <div className="hidden md:block overflow-x-auto border border-gray-200 rounded-xl">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    {canManage ? (
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide w-10">
+                        <input
+                          type="checkbox"
+                          checked={allSelectableSelected}
+                          onChange={toggleSelectAllUsers}
+                          disabled={selectableUsers.length === 0 || deleting}
+                          className="rounded border-gray-300"
+                        />
+                      </th>
+                    ) : null}
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">API Log Viewer</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Registered</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">User Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Can Create Elections</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Last Active</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-100">
+                  {loading ? (
+                    <tr>
+                      <td colSpan={canManage ? 7 : 6} className="px-4 py-8 text-sm text-gray-500 text-center">Loading users...</td>
+                    </tr>
+                  ) : users.length === 0 ? (
+                    <tr>
+                      <td colSpan={canManage ? 7 : 6} className="px-4 py-8 text-sm text-gray-500 text-center">
+                        {noRoleFiltersSelected ? "Select at least one role filter." : "No users match your search."}
                       </td>
                     </tr>
-                  );
-                })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+                  ) : (
+                    users.map((row) => renderUserRow(row, false))
+                  )}
+                </tbody>
+              </table>
+            </div>
 
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-200 bg-gray-50">
-          <h2 className="text-sm font-semibold text-gray-800 flex items-center gap-2">
-            <FiShield className="h-4 w-4" />
-            Admin/Owner Action Logs
-          </h2>
-          <p className="text-xs text-gray-500 mt-1">Recent actions: add, remove, role changes, and permission updates.</p>
-        </div>
-
-        <div className="md:hidden divide-y divide-gray-100">
-          {!canManage ? (
-            <div className="px-4 py-8 text-sm text-gray-500 text-center">Only admin and owner can view action history.</div>
-          ) : auditLogs.length === 0 ? (
-            <div className="px-4 py-8 text-sm text-gray-500 text-center">No actions logged yet.</div>
-          ) : (
-            auditLogs.map((log) => (
-              <div key={log.auditLogId} className="p-4 space-y-2">
-                <div className="text-xs text-gray-500">{log.createdAt ? new Date(log.createdAt).toLocaleString() : "-"}</div>
-                <div className="text-sm font-semibold text-gray-900 break-words">{log.actionType}</div>
-                <div className="text-sm text-gray-700 break-all">Actor: {log.actorEmail || "-"}</div>
-                <div className="text-sm text-gray-700 break-all">Target: {log.targetEmail || "-"}</div>
-                <div className="text-sm text-gray-700">{log.details || "-"}</div>
+            <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+              <p className="text-sm text-gray-600">
+                Showing {usersRangeStart}–{usersRangeEnd} of {usersTotal}
+              </p>
+              <div className="flex gap-2">
+                <button
+                  type="button"
+                  onClick={() => setUsersPage((p) => Math.max(0, p - 1))}
+                  disabled={usersPage === 0 || loading}
+                  className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50"
+                >
+                  <FiChevronLeft className="h-4 w-4" /> Previous 50
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setUsersPage((p) => p + 1)}
+                  disabled={!usersHasNext || loading}
+                  className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50"
+                >
+                  Next 50 <FiChevronRight className="h-4 w-4" />
+                </button>
               </div>
-            ))
-          )}
-        </div>
+            </div>
+          </div>
+        ) : (
+          <div className="p-5 space-y-4">
+            {!canManage ? (
+              <div className="px-4 py-8 text-sm text-gray-500 text-center border border-gray-200 rounded-xl">
+                Only admin and owner can view action history.
+              </div>
+            ) : (
+              <>
+                <form onSubmit={handleLogsSearch} className="flex flex-col sm:flex-row gap-2">
+                  <div className="relative flex-1">
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <input
+                      type="text"
+                      value={logsSearchInput}
+                      onChange={(e) => setLogsSearchInput(e.target.value)}
+                      placeholder="Search logs by actor, target, action, or details..."
+                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm"
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700"
+                  >
+                    <FiSearch className="h-4 w-4" /> Search
+                  </button>
+                </form>
 
-        <div className="hidden md:block overflow-x-auto">
-          <table className="min-w-full divide-y divide-gray-200">
-            <thead className="bg-gray-50">
-              <tr>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Time</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Action</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Actor</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Target</th>
-                <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Details</th>
-              </tr>
-            </thead>
-            <tbody className="bg-white divide-y divide-gray-100">
-              {!canManage ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-sm text-gray-500 text-center">Only admin and owner can view action history.</td>
-                </tr>
-              ) : auditLogs.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-sm text-gray-500 text-center">No actions logged yet.</td>
-                </tr>
-              ) : (
-                auditLogs.map((log) => (
-                  <tr key={log.auditLogId} className="hover:bg-gray-50/60">
-                    <td className="px-4 py-3 text-sm text-gray-700">{log.createdAt ? new Date(log.createdAt).toLocaleString() : "-"}</td>
-                    <td className="px-4 py-3 text-sm font-semibold text-gray-900">{log.actionType}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{log.actorEmail}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{log.targetEmail}</td>
-                    <td className="px-4 py-3 text-sm text-gray-700">{log.details || "-"}</td>
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+                <div className="md:hidden divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
+                  {loading ? (
+                    <div className="px-4 py-8 text-sm text-gray-500 text-center">Loading logs...</div>
+                  ) : auditLogs.length === 0 ? (
+                    <div className="px-4 py-8 text-sm text-gray-500 text-center">No actions logged yet.</div>
+                  ) : (
+                    auditLogs.map((log) => (
+                      <div key={log.auditLogId} className="p-4 space-y-2">
+                        <div className="text-xs text-gray-500">{log.createdAt ? new Date(log.createdAt).toLocaleString() : "-"}</div>
+                        <div className="text-sm font-semibold text-gray-900 break-words">{log.actionType}</div>
+                        <div className="text-sm text-gray-700 break-all">Actor: {log.actorEmail || "-"}</div>
+                        <div className="text-sm text-gray-700 break-all">Target: {log.targetEmail || "-"}</div>
+                        <div className="text-sm text-gray-700">{log.details || "-"}</div>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                <div className="hidden md:block overflow-x-auto border border-gray-200 rounded-xl">
+                  <table className="min-w-full divide-y divide-gray-200">
+                    <thead className="bg-gray-50">
+                      <tr>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Time</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Action</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Actor</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Target</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Details</th>
+                      </tr>
+                    </thead>
+                    <tbody className="bg-white divide-y divide-gray-100">
+                      {loading ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-sm text-gray-500 text-center">Loading logs...</td>
+                        </tr>
+                      ) : auditLogs.length === 0 ? (
+                        <tr>
+                          <td colSpan={5} className="px-4 py-8 text-sm text-gray-500 text-center">No actions logged yet.</td>
+                        </tr>
+                      ) : (
+                        auditLogs.map((log) => (
+                          <tr key={log.auditLogId} className="hover:bg-gray-50/60">
+                            <td className="px-4 py-3 text-sm text-gray-700">{log.createdAt ? new Date(log.createdAt).toLocaleString() : "-"}</td>
+                            <td className="px-4 py-3 text-sm font-semibold text-gray-900">{log.actionType}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{log.actorEmail}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{log.targetEmail}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{log.details || "-"}</td>
+                          </tr>
+                        ))
+                      )}
+                    </tbody>
+                  </table>
+                </div>
+
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
+                  <p className="text-sm text-gray-600">
+                    Showing {logsRangeStart}–{logsRangeEnd} of {logsTotal}
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setLogsPage((p) => Math.max(0, p - 1))}
+                      disabled={logsPage === 0 || loading}
+                      className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50"
+                    >
+                      <FiChevronLeft className="h-4 w-4" /> Previous 50
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setLogsPage((p) => p + 1)}
+                      disabled={!logsHasNext || loading}
+                      className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50"
+                    >
+                      Next 50 <FiChevronRight className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

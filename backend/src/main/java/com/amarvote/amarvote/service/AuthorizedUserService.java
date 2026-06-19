@@ -13,6 +13,9 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -167,31 +170,20 @@ public class AuthorizedUserService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getAuthorizedUsers(String actorEmail) {
+    public Map<String, Object> getAuthorizedUsers(String actorEmail, int page, int size, String search, List<String> userTypes) {
         String normalizedActor = normalizeEmail(actorEmail);
         Optional<AuthorizedUser> actorOpt = authorizedUserRepository.findByEmail(normalizedActor);
         String actorType = actorOpt.map(r -> normalizeRole(r.getUserType())).orElse(USER_TYPE_USER);
         boolean actorCanManage = MANAGE_ROLES.contains(actorType);
 
-        List<Map<String, Object>> users = authorizedUserRepository.findAll().stream()
-                .sorted((a, b) -> a.getEmail().compareToIgnoreCase(b.getEmail()))
-                .map(row -> {
-                    String targetType = normalizeRole(row.getUserType());
-                    boolean canEditRow = actorCanManage && !USER_TYPE_OWNER.equals(targetType);
+        String normalizedSearch = search == null ? "" : search.trim();
+        List<String> normalizedTypes = normalizeUserTypeFilters(userTypes);
 
-                    Map<String, Object> item = new LinkedHashMap<>();
-                    item.put("authorizedUserId", row.getAuthorizedUserId());
-                    item.put("email", row.getEmail());
-                    item.put("apiLogViewerAllowed", Boolean.TRUE.equals(row.getApiLogViewerAllowed()));
-                    item.put("registeredOrNot", Boolean.TRUE.equals(row.getRegisteredOrNot()));
-                    item.put("userType", targetType);
-                    item.put("canCreateElections", Boolean.TRUE.equals(row.getCanCreateElections()));
-                    item.put("lastActive", row.getLastLogin());
-                    item.put("createdAt", row.getCreatedAt());
-                    item.put("updatedAt", row.getUpdatedAt());
-                    item.put("canEdit", canEditRow);
-                    return item;
-                })
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.max(size, 1));
+        Page<AuthorizedUser> pageResult = queryAuthorizedUsers(normalizedSearch, normalizedTypes, pageable);
+
+        List<Map<String, Object>> users = pageResult.getContent().stream()
+                .map(row -> mapAuthorizedUserRow(row, actorCanManage))
                 .toList();
 
         Map<String, Object> response = new LinkedHashMap<>();
@@ -200,7 +192,66 @@ public class AuthorizedUserService {
         response.put("canManage", actorCanManage);
         response.put("users", users);
         response.put("settings", systemSettingService.getSettingsForUi());
+        response.put("page", pageResult.getNumber());
+        response.put("size", pageResult.getSize());
+        response.put("totalElements", pageResult.getTotalElements());
+        response.put("totalPages", pageResult.getTotalPages());
+        response.put("hasNext", pageResult.hasNext());
         return response;
+    }
+
+    private Page<AuthorizedUser> queryAuthorizedUsers(String search, List<String> userTypes, Pageable pageable) {
+        boolean hasSearch = search != null && !search.isBlank();
+        boolean hasTypeFilter = userTypes != null && !userTypes.isEmpty();
+
+        if (hasSearch && hasTypeFilter) {
+            return authorizedUserRepository.findByEmailContainingIgnoreCaseAndUserTypeInOrderByEmailAsc(
+                    search, userTypes, pageable);
+        }
+        if (hasSearch) {
+            return authorizedUserRepository.findByEmailContainingIgnoreCaseOrderByEmailAsc(search, pageable);
+        }
+        if (hasTypeFilter) {
+            return authorizedUserRepository.findByUserTypeInOrderByEmailAsc(userTypes, pageable);
+        }
+        return authorizedUserRepository.findAllByOrderByEmailAsc(pageable);
+    }
+
+    private List<String> normalizeUserTypeFilters(List<String> userTypes) {
+        if (userTypes == null || userTypes.isEmpty()) {
+            return List.of();
+        }
+
+        List<String> normalized = userTypes.stream()
+                .map(this::normalizeRole)
+                .filter(type -> USER_TYPE_USER.equals(type)
+                        || USER_TYPE_ADMIN.equals(type)
+                        || USER_TYPE_OWNER.equals(type))
+                .distinct()
+                .toList();
+
+        if (normalized.size() >= 3) {
+            return List.of();
+        }
+        return normalized;
+    }
+
+    private Map<String, Object> mapAuthorizedUserRow(AuthorizedUser row, boolean actorCanManage) {
+        String targetType = normalizeRole(row.getUserType());
+        boolean canEditRow = actorCanManage && !USER_TYPE_OWNER.equals(targetType);
+
+        Map<String, Object> item = new LinkedHashMap<>();
+        item.put("authorizedUserId", row.getAuthorizedUserId());
+        item.put("email", row.getEmail());
+        item.put("apiLogViewerAllowed", Boolean.TRUE.equals(row.getApiLogViewerAllowed()));
+        item.put("registeredOrNot", Boolean.TRUE.equals(row.getRegisteredOrNot()));
+        item.put("userType", targetType);
+        item.put("canCreateElections", Boolean.TRUE.equals(row.getCanCreateElections()));
+        item.put("lastActive", row.getLastLogin());
+        item.put("createdAt", row.getCreatedAt());
+        item.put("updatedAt", row.getUpdatedAt());
+        item.put("canEdit", canEditRow);
+        return item;
     }
 
     @Transactional
@@ -226,14 +277,20 @@ public class AuthorizedUserService {
     }
 
     @Transactional(readOnly = true)
-    public Map<String, Object> getAuditLogs(String actorEmail) {
+    public Map<String, Object> getAuditLogs(String actorEmail, int page, int size, String search) {
         AuthorizedUser actor = getAllowedRecordOrThrow(actorEmail);
         String actorType = normalizeRole(actor.getUserType());
         if (!MANAGE_ROLES.contains(actorType)) {
             throw new IllegalArgumentException("Only admin or owner can view authorization action logs.");
         }
 
-        List<Map<String, Object>> logs = authorizedUserAuditLogRepository.findTop200ByOrderByCreatedAtDesc().stream()
+        String normalizedSearch = search == null ? "" : search.trim();
+        Pageable pageable = PageRequest.of(Math.max(page, 0), Math.max(size, 1));
+        Page<AuthorizedUserAuditLog> pageResult = normalizedSearch.isBlank()
+                ? authorizedUserAuditLogRepository.findAllByOrderByCreatedAtDesc(pageable)
+                : authorizedUserAuditLogRepository.searchLogs(normalizedSearch, pageable);
+
+        List<Map<String, Object>> logs = pageResult.getContent().stream()
                 .map(log -> {
                     Map<String, Object> item = new LinkedHashMap<>();
                     item.put("auditLogId", log.getAuditLogId());
@@ -246,7 +303,14 @@ public class AuthorizedUserService {
                 })
                 .toList();
 
-        return Map.of("logs", logs);
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("logs", logs);
+        response.put("page", pageResult.getNumber());
+        response.put("size", pageResult.getSize());
+        response.put("totalElements", pageResult.getTotalElements());
+        response.put("totalPages", pageResult.getTotalPages());
+        response.put("hasNext", pageResult.hasNext());
+        return response;
     }
 
     @Transactional
@@ -319,10 +383,60 @@ public class AuthorizedUserService {
         }
 
         String removedEmail = target.getEmail();
+        deleteRegisteredAccountIfPresent(removedEmail);
         authorizedUserRepository.delete(target);
         appendAudit(actorEmail, removedEmail, "REMOVE_USER", "Removed user from authorized users list");
 
         return Map.of("removed", true, "email", removedEmail);
+    }
+
+    @Transactional
+    public Map<String, Object> bulkRemoveAuthorizedUsers(String actorEmail, List<Long> authorizedUserIds) {
+        AuthorizedUser actor = getAllowedRecordOrThrow(actorEmail);
+        String actorType = normalizeRole(actor.getUserType());
+        if (!MANAGE_ROLES.contains(actorType)) {
+            throw new IllegalArgumentException("Only admin or owner can remove authorized users.");
+        }
+
+        if (authorizedUserIds == null || authorizedUserIds.isEmpty()) {
+            throw new IllegalArgumentException("No users selected for deletion.");
+        }
+
+        int removed = 0;
+        int skipped = 0;
+        List<String> removedEmails = new java.util.ArrayList<>();
+
+        for (Long authorizedUserId : authorizedUserIds.stream().distinct().toList()) {
+            Optional<AuthorizedUser> targetOpt = authorizedUserRepository.findById(authorizedUserId);
+            if (targetOpt.isEmpty()) {
+                skipped++;
+                continue;
+            }
+
+            AuthorizedUser target = targetOpt.get();
+            String targetRole = normalizeRole(target.getUserType());
+            if (USER_TYPE_OWNER.equals(targetRole) || normalizeEmail(actorEmail).equals(target.getEmail())) {
+                skipped++;
+                continue;
+            }
+
+            String removedEmail = target.getEmail();
+            deleteRegisteredAccountIfPresent(removedEmail);
+            authorizedUserRepository.delete(target);
+            removedEmails.add(removedEmail);
+            removed++;
+        }
+
+        if (removed > 0) {
+            appendAudit(actorEmail, "bulk", "BULK_REMOVE_USERS",
+                    "Removed " + removed + " user(s): " + String.join(", ", removedEmails));
+        }
+
+        return Map.of("removed", removed, "skipped", skipped, "emails", removedEmails);
+    }
+
+    private void deleteRegisteredAccountIfPresent(String email) {
+        appUserRepository.findByEmail(normalizeEmail(email)).ifPresent(appUserRepository::delete);
     }
 
     @Transactional

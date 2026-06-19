@@ -1,5 +1,6 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
+import { deleteApiLogs } from "../utils/api";
 
 // icons
 const Icon = ({ d, className = "w-5 h-5" }) => (
@@ -67,12 +68,18 @@ export default function ApiLogs() {
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState(null);
   const [page, setPage]             = useState(0);
-  const [totalPages, setTotalPages] = useState(0);
+  const [totalElements, setTotalElements] = useState(0);
+  const [hasNext, setHasNext]       = useState(false);
   const [activeTab, setActiveTab]   = useState("all");
 
+  const [searchType, setSearchType] = useState("email");
+  const [searchValue, setSearchValue] = useState("");
+  const [appliedSearch, setAppliedSearch] = useState({ type: "email", value: "" });
+  const [selectedLogIds, setSelectedLogIds] = useState(new Set());
+  const [deleting, setDeleting] = useState(false);
+
   const [filters, setFilters] = useState({
-    email: "", ip: "", path: "", method: "",
-    statusCode: "", dateFrom: "", dateTo: "", searchTerm: ""
+    method: "", statusCode: "", dateFrom: "", dateTo: "",
   });
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [selectedLog, setSelectedLog]   = useState(null);
@@ -127,26 +134,25 @@ export default function ApiLogs() {
       refreshTimer.current = setInterval(() => { fetchLogs(); fetchStats(); }, refreshInterval * 1000);
     }
     return () => { if (refreshTimer.current) clearInterval(refreshTimer.current); };
-  }, [accessAllowed, autoRefresh, refreshInterval, page, filters, sortBy, sortOrder]);
+  }, [accessAllowed, autoRefresh, refreshInterval, page, appliedSearch, sortBy, sortOrder]);
 
   useEffect(() => {
     if (!accessAllowed) return;
     fetchLogs();
     fetchStats();
-  }, [accessAllowed, page, sortBy, sortOrder]);
+  }, [accessAllowed, page, appliedSearch, sortBy, sortOrder]);
 
   async function fetchLogs() {
     setLoading(true);
     setError(null);
     try {
       let url = `/api/admin/logs?page=${page}&size=50`;
-      if (filters.email)      url += `&email=${encodeURIComponent(filters.email)}`;
-      if (filters.ip)         url += `&ip=${encodeURIComponent(filters.ip)}`;
-      if (filters.path)       url += `&path=${encodeURIComponent(filters.path)}`;
-      if (filters.method)     url += `&method=${encodeURIComponent(filters.method)}`;
-      if (filters.statusCode) url += `&status=${encodeURIComponent(filters.statusCode)}`;
-      if (filters.dateFrom)   url += `&dateFrom=${encodeURIComponent(filters.dateFrom)}`;
-      if (filters.dateTo)     url += `&dateTo=${encodeURIComponent(filters.dateTo)}`;
+      const value = appliedSearch.value?.trim();
+      if (value) {
+        if (appliedSearch.type === "email") url += `&email=${encodeURIComponent(value)}`;
+        else if (appliedSearch.type === "ip") url += `&ip=${encodeURIComponent(value)}`;
+        else if (appliedSearch.type === "path") url += `&path=${encodeURIComponent(value)}`;
+      }
       url += `&sortBy=${sortBy}&sortOrder=${sortOrder}`;
 
       const res = await fetch(url, { credentials: "include" });
@@ -155,17 +161,17 @@ export default function ApiLogs() {
       const data = await res.json();
       let fetched = data.content || [];
 
-      if (filters.searchTerm) {
-        const term = filters.searchTerm.toLowerCase();
-        fetched = fetched.filter(l =>
-          l.requestPath?.toLowerCase().includes(term)    ||
-          l.extractedEmail?.toLowerCase().includes(term) ||
-          l.requestIp?.toLowerCase().includes(term)      ||
-          l.requestMethod?.toLowerCase().includes(term)
-        );
+      if (filters.method) {
+        fetched = fetched.filter((l) => l.requestMethod === filters.method);
       }
+      if (filters.statusCode) {
+        fetched = fetched.filter((l) => String(l.responseStatus) === filters.statusCode);
+      }
+
       setLogs(fetched);
-      setTotalPages(data.totalPages || 0);
+      setTotalElements(data.totalElements ?? 0);
+      setHasNext(data.last === false);
+      setSelectedLogIds(new Set());
     } catch (err) {
       setError(err.message);
     } finally {
@@ -203,15 +209,64 @@ export default function ApiLogs() {
   }, [activeTab, logs, authenticatedLogs, anonymousLogs, invalidLogs]);
 
   function handleFilterChange(f, v) { setFilters(p => ({ ...p, [f]: v })); }
-  function handleApplyFilters() { setPage(0); fetchLogs(); }
-  function handleClearFilters() {
-    setFilters({ email: "", ip: "", path: "", method: "", statusCode: "", dateFrom: "", dateTo: "", searchTerm: "" });
+  function handleApplySearch(e) {
+    e?.preventDefault();
     setPage(0);
+    setAppliedSearch({ type: searchType, value: searchValue.trim() });
+  }
+  function handleClearSearch() {
+    setSearchValue("");
+    setPage(0);
+    setAppliedSearch({ type: searchType, value: "" });
   }
   function handleSort(f) {
     if (sortBy === f) setSortOrder(o => o === "asc" ? "desc" : "asc");
     else { setSortBy(f); setSortOrder("desc"); }
   }
+
+  const allDisplayedSelected = displayedLogs.length > 0
+    && displayedLogs.every((log) => selectedLogIds.has(log.logId));
+
+  function toggleLogSelection(logId) {
+    setSelectedLogIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(logId)) next.delete(logId);
+      else next.add(logId);
+      return next;
+    });
+  }
+
+  function toggleSelectAllLogs() {
+    if (allDisplayedSelected) {
+      setSelectedLogIds(new Set());
+      return;
+    }
+    setSelectedLogIds(new Set(displayedLogs.map((log) => log.logId)));
+  }
+
+  async function handleBulkDeleteLogs() {
+    if (selectedLogIds.size === 0) return;
+    const confirmed = window.confirm(`Delete ${selectedLogIds.size} selected API log(s)?`);
+    if (!confirmed) return;
+
+    try {
+      setDeleting(true);
+      const result = await deleteApiLogs([...selectedLogIds]);
+      setError(null);
+      await fetchLogs();
+      await fetchStats();
+      if ((result.deleted || 0) === 0) {
+        setError("No logs were deleted.");
+      }
+    } catch (err) {
+      setError(err.message || "Failed to delete logs.");
+    } finally {
+      setDeleting(false);
+    }
+  }
+
+  const rangeStart = totalElements === 0 ? 0 : page * 50 + 1;
+  const rangeEnd = Math.min((page + 1) * 50, totalElements);
 
   function exportToCSV() {
     const headers = ["Time", "Method", "Path", "Status", "IP", "Email", "Response Time", "Token Status"];
@@ -232,7 +287,8 @@ export default function ApiLogs() {
     a.click();
   }
 
-  const activeFiltersCount = Object.values(filters).filter(Boolean).length;
+  const activeFiltersCount = Object.values(filters).filter(Boolean).length
+    + (appliedSearch.value ? 1 : 0);
 
   const TABS = [
     { id: "all",           label: "All Requests",    icon: ICONS.chart,   count: logs.length,             color: "blue",    desc: "Every API call logged" },
@@ -443,37 +499,40 @@ export default function ApiLogs() {
             </div>
 
             <div className="p-5 space-y-4">
-              <div className="relative">
-                <Icon d={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-                <input
-                  type="text"
-                  value={filters.searchTerm}
-                  onChange={e => handleFilterChange("searchTerm", e.target.value)}
-                  onKeyDown={e => e.key === "Enter" && handleApplyFilters()}
-                  placeholder="Quick search: path, email, IP, method…"
-                  className="w-full pl-10 pr-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition"
-                />
-              </div>
+              <form onSubmit={handleApplySearch} className="flex flex-col lg:flex-row gap-2">
+                <select
+                  value={searchType}
+                  onChange={(e) => setSearchType(e.target.value)}
+                  className="px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 bg-white"
+                >
+                  <option value="email">Search by Email</option>
+                  <option value="ip">Search by IP Address</option>
+                  <option value="path">Search by API Call / Path</option>
+                </select>
+                <div className="relative flex-1">
+                  <Icon d={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <input
+                    type="text"
+                    value={searchValue}
+                    onChange={(e) => setSearchValue(e.target.value)}
+                    placeholder={
+                      searchType === "email" ? "user@example.com"
+                        : searchType === "ip" ? "192.168.x.x"
+                          : "/api/auth/login"
+                    }
+                    className="w-full pl-10 pr-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition"
+                  />
+                </div>
+                <button
+                  type="submit"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow hover:from-blue-700 hover:to-indigo-700 transition"
+                >
+                  <Icon d={ICONS.search} className="w-4 h-4" /> Search
+                </button>
+              </form>
 
               {showAdvancedFilters && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 pt-2">
-                  {[
-                    { field: "email", label: "Email",      placeholder: "user@example.com" },
-                    { field: "ip",    label: "IP Address", placeholder: "192.168.x.x" },
-                    { field: "path",  label: "API Path",   placeholder: "/api/auth" },
-                  ].map(({ field, label, placeholder }) => (
-                    <div key={field}>
-                      <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">{label}</label>
-                      <input
-                        type="text"
-                        value={filters[field]}
-                        onChange={e => handleFilterChange(field, e.target.value)}
-                        placeholder={placeholder}
-                        className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
-                      />
-                    </div>
-                  ))}
-
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
                   <div>
                     <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">HTTP Method</label>
                     <select
@@ -500,32 +559,39 @@ export default function ApiLogs() {
                       ].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </div>
-
-                  <div className="sm:col-span-2">
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Date Range</label>
-                    <div className="flex items-center gap-2">
-                      <input type="date" value={filters.dateFrom} onChange={e => handleFilterChange("dateFrom", e.target.value)}
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" />
-                      <span className="text-gray-400 text-xs">to</span>
-                      <input type="date" value={filters.dateTo} onChange={e => handleFilterChange("dateTo", e.target.value)}
-                        className="flex-1 px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50" />
-                    </div>
-                  </div>
                 </div>
               )}
 
-              <div className="flex items-center gap-2 pt-1">
+              <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button
-                  onClick={handleApplyFilters}
+                  onClick={() => { setPage(0); fetchLogs(); }}
                   className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow hover:from-blue-700 hover:to-indigo-700 transition"
                 >
-                  <Icon d={ICONS.search} className="w-4 h-4" /> Apply
+                  Apply client filters
                 </button>
                 <button
-                  onClick={handleClearFilters}
+                  onClick={handleClearSearch}
                   className="flex items-center gap-2 px-5 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition"
                 >
-                  <Icon d={ICONS.close} className="w-4 h-4" /> Clear
+                  <Icon d={ICONS.close} className="w-4 h-4" /> Clear search
+                </button>
+                <label className="inline-flex items-center gap-2 text-sm text-gray-700 ml-auto">
+                  <input
+                    type="checkbox"
+                    checked={allDisplayedSelected}
+                    onChange={toggleSelectAllLogs}
+                    disabled={displayedLogs.length === 0 || deleting}
+                    className="rounded border-gray-300"
+                  />
+                  Select all on page
+                </label>
+                <button
+                  type="button"
+                  onClick={handleBulkDeleteLogs}
+                  disabled={selectedLogIds.size === 0 || deleting}
+                  className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-semibold hover:bg-rose-700 disabled:opacity-40"
+                >
+                  Delete selected ({selectedLogIds.size})
                 </button>
               </div>
             </div>
@@ -583,7 +649,19 @@ export default function ApiLogs() {
                 <p className="text-gray-400 text-sm">Try adjusting your filters or switching tabs</p>
               </div>
             ) : viewMode === "table" ? (
-              <TableView logs={displayedLogs} sortBy={sortBy} sortOrder={sortOrder} onSort={handleSort} onSelect={setSelectedLog} activeTab={activeTab} />
+              <TableView
+                logs={displayedLogs}
+                sortBy={sortBy}
+                sortOrder={sortOrder}
+                onSort={handleSort}
+                onSelect={setSelectedLog}
+                activeTab={activeTab}
+                selectedLogIds={selectedLogIds}
+                onToggleSelect={toggleLogSelection}
+                onToggleSelectAll={toggleSelectAllLogs}
+                allSelected={allDisplayedSelected}
+                deleting={deleting}
+              />
             ) : viewMode === "cards" ? (
               <div className="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
                 {displayedLogs.map(log => <LogCard key={log.logId} log={log} onSelect={setSelectedLog} />)}
@@ -594,23 +672,26 @@ export default function ApiLogs() {
               </div>
             )}
 
-            {!loading && displayedLogs.length > 0 && totalPages > 1 && (
-              <div className="border-t border-gray-100 px-5 py-4 flex items-center justify-between bg-gray-50/60">
+            {!loading && displayedLogs.length > 0 && (
+              <div className="border-t border-gray-100 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50/60">
                 <p className="text-sm text-gray-600">
-                  Page <span className="font-bold text-blue-600">{page + 1}</span> / <span className="font-bold text-blue-600">{totalPages}</span>
+                  Showing {rangeStart}–{rangeEnd} of {totalElements.toLocaleString()}
                 </p>
-                <div className="flex gap-1.5">
-                  {[
-                    ["First",   () => setPage(0),                              page === 0],
-                    ["← Prev",  () => setPage(p => Math.max(0, p - 1)),        page === 0],
-                    ["Next →",  () => setPage(p => Math.min(totalPages-1,p+1)),page >= totalPages-1],
-                    ["Last",    () => setPage(totalPages - 1),                 page >= totalPages-1],
-                  ].map(([label, handler, disabled]) => (
-                    <button key={label} onClick={handler} disabled={disabled}
-                      className="px-3 py-1.5 text-xs font-semibold text-gray-700 bg-white border border-gray-200 rounded-lg hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition">
-                      {label}
-                    </button>
-                  ))}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => setPage((p) => Math.max(0, p - 1))}
+                    disabled={page === 0 || loading}
+                    className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    ← Previous 50
+                  </button>
+                  <button
+                    onClick={() => setPage((p) => p + 1)}
+                    disabled={!hasNext || loading}
+                    className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                  >
+                    Next 50 →
+                  </button>
                 </div>
               </div>
             )}
@@ -624,7 +705,7 @@ export default function ApiLogs() {
   );
 }
 
-function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab }) {
+function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selectedLogIds, onToggleSelect, onToggleSelectAll, allSelected, deleting }) {
   const SortIcon = ({ field }) => sortBy === field ? (
     <span className="text-blue-500 font-bold text-base"> {sortOrder === "asc" ? "↑" : "↓"}</span>
   ) : null;
@@ -644,6 +725,15 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab }) {
       <table className="min-w-full">
         <thead className="bg-gradient-to-r from-gray-50 to-slate-50 border-b-2 border-gray-200">
           <tr>
+            <th className="px-4 py-3.5 text-left text-xs font-bold text-gray-600 uppercase tracking-wide w-10">
+              <input
+                type="checkbox"
+                checked={allSelected}
+                onChange={onToggleSelectAll}
+                disabled={logs.length === 0 || deleting}
+                className="rounded border-gray-300"
+              />
+            </th>
             <Th field="requestTime">Time</Th>
             <Th>Method</Th>
             <Th>Path</Th>
@@ -658,6 +748,15 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab }) {
         <tbody className="divide-y divide-gray-100">
           {logs.map(log => (
             <tr key={log.logId} className={`hover:bg-blue-50/50 transition-colors ${isInvalidToken(log) ? "bg-rose-50/20" : ""}`}>
+              <td className="px-4 py-3">
+                <input
+                  type="checkbox"
+                  checked={selectedLogIds.has(log.logId)}
+                  onChange={() => onToggleSelect(log.logId)}
+                  disabled={deleting}
+                  className="rounded border-gray-300"
+                />
+              </td>
               <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap font-medium">{formatDate(log.requestTime)}</td>
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className={`px-2.5 py-1 text-xs font-bold rounded-full ring-1 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>

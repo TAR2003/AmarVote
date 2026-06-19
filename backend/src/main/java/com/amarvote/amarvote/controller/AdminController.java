@@ -10,14 +10,19 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import com.amarvote.amarvote.dto.BulkDeleteRequestDto;
 import com.amarvote.amarvote.model.ApiLog;
 import com.amarvote.amarvote.service.ApiLogService;
 import com.amarvote.amarvote.service.AuthorizedUserService;
+
+import jakarta.validation.Valid;
 
 @RestController
 @RequestMapping("/api/admin")
@@ -102,6 +107,22 @@ public class AdminController {
         stats.put("errorLogs", apiLogService.getErrorLogs());
         
         return ResponseEntity.ok(stats);
+    }
+
+    @DeleteMapping("/logs")
+    public ResponseEntity<?> deleteApiLogs(@Valid @RequestBody BulkDeleteRequestDto request) {
+        String currentEmail = getAuthenticatedEmail();
+        if (currentEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Unauthorized"));
+        }
+
+        if (!authorizedUserService.canViewApiLogs(currentEmail)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "Access denied. You are not allowed to delete API logs."));
+        }
+
+        int deleted = apiLogService.deleteLogsByIds(request.getIds());
+        return ResponseEntity.ok(Map.of("deleted", deleted));
     }
 
     private String getAuthenticatedEmail() {

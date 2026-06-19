@@ -17,11 +17,11 @@ public interface ApiLogRepository extends JpaRepository<ApiLog, Long> {
     // Find all logs ordered by request time descending
     Page<ApiLog> findAllByOrderByRequestTimeDesc(Pageable pageable);
     
-    // Find logs by email
-    Page<ApiLog> findByExtractedEmailOrderByRequestTimeDesc(String email, Pageable pageable);
-    
-    // Find logs by IP
-    Page<ApiLog> findByRequestIpOrderByRequestTimeDesc(String ip, Pageable pageable);
+    // Find logs by email (partial match)
+    Page<ApiLog> findByExtractedEmailContainingIgnoreCaseOrderByRequestTimeDesc(String email, Pageable pageable);
+
+    // Find logs by IP (partial match)
+    Page<ApiLog> findByRequestIpContainingOrderByRequestTimeDesc(String ip, Pageable pageable);
     
     // Find logs by path
     Page<ApiLog> findByRequestPathContainingOrderByRequestTimeDesc(String path, Pageable pageable);
