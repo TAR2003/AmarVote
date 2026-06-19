@@ -160,7 +160,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 1280M
+          memory: 1536M
 
   frontend:
     build:
@@ -231,7 +231,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 768M
+          memory: 512M
 
   electionguard-worker:
     build:
