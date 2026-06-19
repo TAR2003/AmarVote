@@ -1,7 +1,7 @@
 # Production compose — tuned for 4 GB RAM + 4 GB swap (amarvote2026.me, 2 vCPU).
 #
 # Memory budget (container limits, ~3584M total):
-#   backend 1280M | electionguard-api 512M (6 workers) | postgres 384M | rabbitmq 320M
+#   backend 1792M | electionguard-api 512M (6 workers) | postgres 384M | rabbitmq 320M
 #   electionguard-worker 320M | prometheus+grafana 256M | frontend 96M | redis 96M | nginx 64M
 #
 # GitHub deploy uses THIS FILE ONLY. Nginx always uses nginx-proxy.conf (DDoS limits).

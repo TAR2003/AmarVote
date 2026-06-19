@@ -1,3 +1,6 @@
+# Local dev compose — memory limits and runtime config match docker-compose.prod.yml.
+# Dev-only differences: Dockerfile.dev (hot reload), nginx-proxy.dev.conf, HTTP :80 only.
+
 services:
   postgres:
     image: postgres:15-alpine
@@ -23,10 +26,17 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+    command: >
+      postgres
+      -c max_connections=150
+      -c shared_buffers=96MB
+      -c effective_cache_size=256MB
+      -c work_mem=2MB
+      -c maintenance_work_mem=32MB
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 384M
 
   redis:
     image: redis:7-alpine
@@ -34,8 +44,8 @@ services:
     restart: unless-stopped
     env_file:
       - .env
-    # maxmemory must stay below the container memory limit (128M)
-    command: redis-server --save "" --maxmemory 80mb --maxmemory-policy allkeys-lru
+    # maxmemory must stay below container limit (96M)
+    command: redis-server --save "" --maxmemory 64mb --maxmemory-policy allkeys-lru --maxclients 2000
     ports:
       - "127.0.0.1:6379:6379"   # Bound to localhost only — use SSH tunnel to access
     networks:
@@ -51,7 +61,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 96M
 
   rabbitmq:
     image: rabbitmq:3.13-management-alpine
@@ -79,7 +89,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 384M
+          memory: 320M
 
   backend:
     build:
@@ -101,6 +111,7 @@ services:
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=false
       - RAG_SERVICE_URL=http://rag-service:5001
       - BLOCKCHAIN_SERVICE_URL=${VOTING_API_URL}
+      - BLOCKCHAIN_ENABLED=false
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - RESEND_API_KEY=
@@ -124,9 +135,8 @@ services:
       # ElectionGuard Service URLs
       - ELECTIONGUARD_API_URL=http://electionguard-api:5000
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
-      # JVM heap must fit inside 384M container limit
-      # JVM overhead is ~60-80M on top of heap, so Xmx=300m is the safe ceiling
-      - JAVA_OPTS=-Xms128m -Xmx300m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication
+      # Match prod JVM sizing (1792M container — Xmx896m + 384m metaspace)
+      - JAVA_OPTS=-Xms384m -Xmx896m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=384m -XX:MaxDirectMemorySize=256m
     volumes:
       - maven_repo:/root/.m2
       - credentials_data:/app/data/credentials
@@ -144,7 +154,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 768M
+          memory: 1792M
 
 
   frontend:
@@ -166,7 +176,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 128M
+          memory: 96M
 
   nginx:
     image: nginx:alpine
@@ -205,6 +215,13 @@ services:
     environment:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
+      - GUNICORN_WORKERS=6
+      - GUNICORN_THREADS=1
+      - GUNICORN_MAX_REQUESTS=300
+      - GUNICORN_MAX_REQUESTS_JITTER=50
+      - MANIFEST_CACHE_MAX=16
+      - CONTEXT_CACHE_MAX=32
+      - AUDITED_BALLOT_CACHE_MAX=32
     volumes:
       - ./Microservice/io:/app/io:rw
     deploy:
@@ -233,7 +250,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 512M
+          memory: 320M
 
   prometheus:
     image: prom/prometheus:latest
@@ -261,7 +278,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 256M
+          memory: 128M
 
 
   grafana:
@@ -288,7 +305,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 192M
+          memory: 128M
 
 volumes:
   postgres_data:
