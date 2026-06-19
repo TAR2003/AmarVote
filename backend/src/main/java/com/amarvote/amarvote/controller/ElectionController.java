@@ -539,6 +539,35 @@ public class ElectionController {
         }
     }
 
+    @GetMapping("/election/{id}/voters")
+    public ResponseEntity<?> getElectionVoters(
+            @PathVariable Long id,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = resolveUserEmail(httpRequest);
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            List<ElectionDetailResponse.VoterInfo> voters = electionService.getElectionVoters(id, userEmail);
+            if (voters == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(Map.of("success", false, "message", "Election not found or access denied"));
+            }
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "voters", voters,
+                    "totalVoters", voters.size(),
+                    "votedCount", voters.stream().filter(v -> Boolean.TRUE.equals(v.getHasVoted())).count()
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to load voters"));
+        }
+    }
+
     @PostMapping("/election/{id}/voters")
     public ResponseEntity<?> addVotersToElection(
             @PathVariable Long id,

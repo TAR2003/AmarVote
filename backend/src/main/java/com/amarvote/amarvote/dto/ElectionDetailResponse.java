@@ -38,6 +38,8 @@ public class ElectionDetailResponse {
     private String adminEmail;
     private String adminName;
     private List<String> coAdminEmails;
+    private Integer totalVoters;
+    private Integer votedCount;
     
     // Guardian Information
     private List<GuardianInfo> guardians;

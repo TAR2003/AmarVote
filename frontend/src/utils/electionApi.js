@@ -619,6 +619,17 @@ export const electionApi = {
     }
   },
 
+  async getElectionVoters(electionId) {
+    try {
+      return await apiRequest(`/election/${electionId}/voters`, {
+        method: 'GET',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error fetching election voters:', error);
+      throw error;
+    }
+  },
+
   async addVotersToElection(electionId, voterEmails) {
     try {
       return await apiRequest(`/election/${electionId}/voters`, {

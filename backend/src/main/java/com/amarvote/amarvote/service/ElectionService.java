@@ -1456,8 +1456,9 @@ public class ElectionService {
         }
         boolean allGuardiansSubmitted = totalGuardians > 0 && guardiansSubmitted == totalGuardians;
 
-        // Get voters with user details
-        List<ElectionDetailResponse.VoterInfo> voters = getVoterInfoForElection(election.getElectionId(), userEmail);
+        Long electionId = election.getElectionId();
+        int totalVoters = (int) allowedVoterRepository.countByElectionId(electionId);
+        int votedCount = (int) allowedVoterRepository.countByElectionIdAndHasVoted(electionId, true);
 
         // Get election choices
         List<ElectionDetailResponse.ElectionChoiceInfo> electionChoices = getElectionChoicesForElection(
@@ -1495,7 +1496,9 @@ public class ElectionService {
                 .totalGuardians(totalGuardians)
                 .guardiansSubmitted(guardiansSubmitted)
                 .allGuardiansSubmitted(allGuardiansSubmitted)
-                .voters(voters)
+                .totalVoters(totalVoters)
+                .votedCount(votedCount)
+                .voters(null)
                 .electionChoices(electionChoices)
                 .userRoles(userRoles)
                 .isPublic(isPublic)
@@ -1553,6 +1556,23 @@ public class ElectionService {
                             .build();
                 })
                 .collect(Collectors.toList());
+    }
+
+    /**
+     * Get voter information for an election (full list — use on demand for large elections).
+     */
+    public List<ElectionDetailResponse.VoterInfo> getElectionVoters(Long electionId, String userEmail) {
+        Optional<Election> electionOpt = electionRepository.findById(electionId);
+        if (!electionOpt.isPresent()) {
+            return null;
+        }
+
+        Election election = electionOpt.get();
+        if (!isUserAuthorizedToViewElection(election, userEmail)) {
+            return null;
+        }
+
+        return getVoterInfoForElection(electionId, userEmail);
     }
 
     /**

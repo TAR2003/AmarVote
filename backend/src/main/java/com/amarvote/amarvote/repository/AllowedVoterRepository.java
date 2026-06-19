@@ -29,6 +29,8 @@ public interface AllowedVoterRepository extends JpaRepository<AllowedVoter, Allo
     
     // Count allowed voters for an election
     long countByElectionId(Long electionId);
+
+    long countByElectionIdAndHasVoted(Long electionId, Boolean hasVoted);
     
     // Find voters who have already voted
     List<AllowedVoter> findByElectionIdAndHasVoted(Long electionId, Boolean hasVoted);

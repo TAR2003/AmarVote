@@ -73,7 +73,20 @@ import CombineProgressModal from '../components/CombineProgressModal';
 import ElectionTimeline from '../components/ElectionTimeline';
 import WorkerProceedings from '../components/WorkerProceedings';
 import VoterStatusSlot from '../components/VoterStatusSlot';
-import { getVoterFriendlyError, VOTER_STATUS_COPY } from '../utils/voterMessages';
+import BallotWorkflowModal from '../components/BallotWorkflowModal';
+import { getVoterFriendlyError } from '../utils/voterMessages';
+
+const getTotalVoters = (data) => {
+  if (!data) return 0;
+  if (data.totalVoters != null) return data.totalVoters;
+  return data.voters?.length || 0;
+};
+
+const getVotedCount = (data) => {
+  if (!data) return 0;
+  if (data.votedCount != null) return data.votedCount;
+  return (data.voters || []).filter((v) => v.hasVoted).length;
+};
 
 const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
@@ -1587,12 +1600,10 @@ export default function ElectionPage() {
 
   // Encrypted ballot workflow state
   const [encryptedBallotData, setEncryptedBallotData] = useState(null);
-  const [showBallotActions, setShowBallotActions] = useState(false);
+  const [ballotModalOpen, setBallotModalOpen] = useState(false);
+  const [ballotModalPhase, setBallotModalPhase] = useState('creating');
   const [challengeResult, setChallengeResult] = useState(null);
   const [ballotChallenged, setBallotChallenged] = useState(false);
-  const [isCasting, setIsCasting] = useState(false);
-  const [isChallenging, setIsChallenging] = useState(false);
-  const [showChallengeModal, setShowChallengeModal] = useState(false);
   const [challengeCandidateChoices, setChallengeCandidateChoices] = useState([]);
 
   // Bot detection state
@@ -1615,6 +1626,8 @@ export default function ElectionPage() {
   const [keySubmissionError, setKeySubmissionError] = useState(null);
   const [voterListSaving, setVoterListSaving] = useState(false);
   const [showVoterEditor, setShowVoterEditor] = useState(false);
+  const [showVoterList, setShowVoterList] = useState(false);
+  const [votersLoading, setVotersLoading] = useState(false);
 
   // Results state
   const [resultsData, setResultsData] = useState(null);
@@ -1683,6 +1696,7 @@ export default function ElectionPage() {
         setError('You are not authorized to view this election or the election does not exist.');
       } else {
         setElectionData(data);
+        setShowVoterList(false);
         // Check if user has already voted - this info is now handled through eligibilityData
 
         // Auto-load results if election has ended
@@ -1738,7 +1752,7 @@ export default function ElectionPage() {
                         finalTallies: animatedResultsData.results.finalTallies,
                         total_ballots_cast: animatedResultsData.results.total_ballots_cast || animatedResultsData.results.allBallots.length,
                         total_valid_ballots: animatedResultsData.results.total_valid_ballots || animatedResultsData.results.allBallots.length,
-                        total_eligible_voters: data.voters?.length || 0
+                        total_eligible_voters: getTotalVoters(data)
                       }
                     };
                     setRawVerificationData(cachedVerificationData);
@@ -2055,8 +2069,8 @@ export default function ElectionPage() {
                           totalVotes;
 
       // Use total_eligible_voters from API if available, otherwise fall back to currentElectionData
-      const totalEligibleVoters = dataToProcess.results?.total_eligible_voters || 
-                                  currentElectionData?.voters?.length || 
+      const totalEligibleVoters = dataToProcess.results?.total_eligible_voters ||
+                                  getTotalVoters(currentElectionData) ||
                                   0;
       
       return {
@@ -2076,8 +2090,8 @@ export default function ElectionPage() {
     if (!currentElectionData?.electionChoices) return null;
 
     const totalVotes = currentElectionData.electionChoices.reduce((sum, choice) => sum + (choice.totalVotes || 0), 0);
-    const totalEligibleVoters = currentElectionData.voters?.length || 0;
-    const totalVotedUsers = currentElectionData.voters?.filter(v => v.hasVoted).length || 0;
+    const totalEligibleVoters = getTotalVoters(currentElectionData);
+    const totalVotedUsers = getVotedCount(currentElectionData);
 
     const chartData = currentElectionData.electionChoices.map(choice => ({
       name: choice.optionTitle,
@@ -2130,7 +2144,7 @@ export default function ElectionPage() {
                 finalTallies: animatedResultsData.results.finalTallies,
                 total_ballots_cast: animatedResultsData.results.allBallots.length,
                 total_valid_ballots: animatedResultsData.results.allBallots.length,
-                total_eligible_voters: electionData?.voters?.length || 0
+                total_eligible_voters: getTotalVoters(electionData)
               }
             };
             setRawVerificationData(cachedVerificationData);
@@ -2241,7 +2255,7 @@ export default function ElectionPage() {
               finalTallies: animatedResultsData.results.finalTallies,
               total_ballots_cast: animatedResultsData.results.allBallots.length,
               total_valid_ballots: animatedResultsData.results.allBallots.length,
-              total_eligible_voters: electionData?.voters?.length || 0
+              total_eligible_voters: getTotalVoters(electionData)
             }
           };
           setRawVerificationData(cachedVerificationData);
@@ -2286,18 +2300,49 @@ export default function ElectionPage() {
 
 
 
+  const resetBallotWorkflow = useCallback(() => {
+    setEncryptedBallotData(null);
+    setBallotModalOpen(false);
+    setBallotModalPhase('creating');
+    setChallengeResult(null);
+    setBallotChallenged(false);
+    setChallengeCandidateChoices([]);
+    setCreateBallotError(null);
+    setCastBallotError(null);
+    setChallengeError(null);
+  }, []);
+
+  const handleBallotModalClose = useCallback(() => {
+    if (ballotModalPhase === 'cast-success') {
+      setBallotModalOpen(false);
+      setBallotModalPhase('creating');
+      setEncryptedBallotData(null);
+      return;
+    }
+    resetBallotWorkflow();
+  }, [ballotModalPhase, resetBallotWorkflow]);
+
+  const handleChallengeCandidateToggle = useCallback((choiceIdStr) => {
+    const maxChoices = electionData?.maxChoices || 1;
+    setChallengeCandidateChoices((prev) => {
+      if (prev.includes(choiceIdStr)) {
+        return prev.filter((id) => id !== choiceIdStr);
+      }
+      if (prev.length >= maxChoices) {
+        return prev;
+      }
+      return [...prev, choiceIdStr];
+    });
+  }, [electionData?.maxChoices]);
+
   const handleVoteSubmit = async (e) => {
     e.preventDefault();
     if (!selectedCandidates.length) return;
-    
-    // Instead of showing confirmation modal, create encrypted ballot
     await handleCreateEncryptedBallot();
   };
 
   const handleCreateEncryptedBallot = async () => {
-    // Clear all previous states when creating a new encrypted ballot
     setEncryptedBallotData(null);
-    setShowBallotActions(false);
     setChallengeResult(null);
     setBallotChallenged(false);
     setVoteResult(null);
@@ -2305,12 +2350,12 @@ export default function ElectionPage() {
     setCreateBallotError(null);
     setCastBallotError(null);
     setChallengeError(null);
-    
-    setIsSubmitting(true);
+    setChallengeCandidateChoices([]);
+    setBallotModalOpen(true);
+    setBallotModalPhase('creating');
 
     console.log('🔍 [ENCRYPTED BALLOT] Performing fresh bot detection before creating encrypted ballot...');
 
-    // Perform fresh bot detection before creating encrypted ballot
     let freshBotDetection = null;
     try {
       const botd = await load();
@@ -2330,7 +2375,6 @@ export default function ElectionPage() {
       console.log('✅ [ENCRYPTED BALLOT] Fresh bot check passed');
     } catch (error) {
       console.error('⚠️ [ENCRYPTED BALLOT] Fresh bot detection failed:', error);
-      // Continue with creation but without bot detection data
     }
 
     try {
@@ -2347,18 +2391,16 @@ export default function ElectionPage() {
         freshBotDetection
       );
 
-      // Store encrypted ballot data
       setEncryptedBallotData(result);
-      setShowBallotActions(true);
-      setSelectedCandidates([]); // Reset selection
+      setBallotModalPhase('actions');
+      setSelectedCandidates([]);
 
       console.log('✅ [ENCRYPTED BALLOT] Encrypted ballot created successfully');
 
     } catch (err) {
       console.error('❌ [ENCRYPTED BALLOT] Ballot creation failed:', err);
       setCreateBallotError(getVoterFriendlyError(err));
-    } finally {
-      setIsSubmitting(false);
+      setBallotModalPhase('create-error');
     }
   };
 
@@ -2408,8 +2450,8 @@ export default function ElectionPage() {
   // Handle casting the encrypted ballot
   const handleCastEncryptedBallot = async () => {
     if (!encryptedBallotData || ballotChallenged) return;
-    
-    setIsCasting(true);
+
+    setBallotModalPhase('casting');
     setCastBallotError(null);
 
     try {
@@ -2421,19 +2463,16 @@ export default function ElectionPage() {
         encryptedBallotData.ballot_tracking_code
       );
 
-      // Store the cast result with encrypted ballot info
       const castResultWithBallot = {
         ...result,
         encryptedBallotData
       };
 
       setVoteResult(castResultWithBallot);
-      setShowBallotActions(false); // Hide ballot actions
-      setEncryptedBallotData(null); // Clear encrypted ballot data
+      setBallotModalPhase('cast-success');
 
       console.log('✅ [CAST ENCRYPTED] Encrypted ballot cast successfully');
 
-      // Update eligibility data to reflect that user has voted
       setEligibilityData(prev => ({
         ...prev,
         eligible: false,
@@ -2448,37 +2487,32 @@ export default function ElectionPage() {
       console.error('❌ [CAST ENCRYPTED] Casting failed:', err);
       const friendlyMessage = getVoterFriendlyError(err);
       setCastBallotError(friendlyMessage);
+      setBallotModalPhase('actions');
       toast.error(friendlyMessage);
-    } finally {
-      setIsCasting(false);
     }
   };
 
-  // Handle Benaloh challenge
-  const handleBenalohChallenge = async () => {
+  const handleStartChallenge = () => {
     if (!encryptedBallotData || ballotChallenged) return;
-    
-    // Instead of performing challenge directly, show candidate selection modal
-    setShowChallengeModal(true);
+    setChallengeCandidateChoices([]);
+    setBallotModalPhase('challenge-pick');
   };
 
   const handleConfirmChallenge = async () => {
     if (!challengeCandidateChoices.length) return;
-    
-    setIsChallenging(true);
+
+    setBallotModalPhase('challenging');
     setChallengeResult(null);
     setChallengeError(null);
-    setShowChallengeModal(false);
 
     try {
       console.log('🔍 [BENALOH CHALLENGE] Performing challenge...');
-      
-      // Find the selected candidate names
+
       const selectedChoices = electionData.electionChoices.filter(
         choice => challengeCandidateChoices.includes(choice.choiceId.toString())
       );
       const candidateNames = selectedChoices.map(c => c.optionTitle);
-      
+
       console.log('🔍 [BENALOH CHALLENGE] Challenge candidates:', candidateNames);
 
       const result = await electionApi.performBenalohChallenge(
@@ -2489,23 +2523,23 @@ export default function ElectionPage() {
 
       setChallengeResult(result);
       setBallotChallenged(true);
+      setBallotModalPhase('challenge-result');
 
       console.log('✅ [BENALOH CHALLENGE] Challenge completed:', result);
 
       if (result.match) {
         const verifiedList = result.verified_candidates ? result.verified_candidates.join(', ') : result.verified_candidate;
-        toast.success(`✅ Challenge verification passed! The ballot was encrypted for: ${verifiedList}`);
+        toast.success(`Challenge verification passed! The ballot was encrypted for: ${verifiedList}`);
       } else {
-        toast.error(`❌ Challenge verification failed! Ballot did not match the expected candidates.`);
+        toast.error('Challenge verification failed! Ballot did not match the expected candidates.');
       }
 
     } catch (err) {
       console.error('❌ [BENALOH CHALLENGE] Challenge failed:', err);
       const friendlyMessage = getVoterFriendlyError(err);
       setChallengeError(friendlyMessage);
+      setBallotModalPhase('challenge-result');
       toast.error(friendlyMessage);
-    } finally {
-      setIsChallenging(false);
     }
   };
 
@@ -2891,7 +2925,56 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
   );
 
   const updateVotersFromResponse = (voters) => {
-    setElectionData((prev) => (prev ? { ...prev, voters } : prev));
+    setElectionData((prev) => (prev ? {
+      ...prev,
+      voters,
+      totalVoters: voters.length,
+      votedCount: voters.filter((v) => v.hasVoted).length,
+    } : prev));
+  };
+
+  const loadElectionVoters = useCallback(async () => {
+    if (votersLoading) return electionData?.voters || [];
+
+    if (electionData?.voters?.length) {
+      setShowVoterList(true);
+      return electionData.voters;
+    }
+
+    try {
+      setVotersLoading(true);
+      const response = await electionApi.getElectionVoters(id);
+      const voters = response?.voters || [];
+      setElectionData((prev) => (prev ? {
+        ...prev,
+        voters,
+        totalVoters: response?.totalVoters ?? voters.length,
+        votedCount: response?.votedCount ?? voters.filter((v) => v.hasVoted).length,
+      } : prev));
+      setShowVoterList(true);
+      return voters;
+    } catch (err) {
+      toast.error(err.message || 'Failed to load voters');
+      return [];
+    } finally {
+      setVotersLoading(false);
+    }
+  }, [electionData?.voters, id, votersLoading]);
+
+  const handleToggleVoterEditor = async () => {
+    const next = !showVoterEditor;
+    setShowVoterEditor(next);
+    if (next && !electionData?.voters?.length) {
+      await loadElectionVoters();
+    }
+  };
+
+  const handleToggleVoterList = async () => {
+    if (showVoterList) {
+      setShowVoterList(false);
+      return;
+    }
+    await loadElectionVoters();
   };
 
   const handleVoterListChange = async (nextEmails) => {
@@ -3362,6 +3445,29 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
         electionId={id}
         onCombineComplete={handleCombineComplete}
       />
+
+      <BallotWorkflowModal
+        isOpen={ballotModalOpen}
+        phase={ballotModalPhase}
+        onClose={handleBallotModalClose}
+        encryptedBallotData={encryptedBallotData}
+        voteResult={voteResult}
+        challengeResult={challengeResult}
+        createBallotError={createBallotError}
+        castBallotError={castBallotError}
+        challengeError={challengeError}
+        electionData={electionData}
+        challengeCandidateChoices={challengeCandidateChoices}
+        onChallengeCandidateToggle={handleChallengeCandidateToggle}
+        onCastVote={handleCastEncryptedBallot}
+        onStartChallenge={handleStartChallenge}
+        onConfirmChallenge={handleConfirmChallenge}
+        onDiscard={resetBallotWorkflow}
+        onDownloadFile={downloadFile}
+        onDownloadBallotInfo={downloadBallotInfo}
+        onCopyToClipboard={copyToClipboard}
+        onSaveVoteDetails={saveVoteDetails}
+      />
       
       {/* Header */}
       <header className="bg-white shadow-sm border-b">
@@ -3370,6 +3476,20 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             <div className="flex-1 min-w-0 w-full sm:w-auto">
               <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 truncate">{electionData.electionTitle}</h1>
               <p className="text-xs sm:text-sm text-gray-500 truncate">Election ID: {electionData.electionId}</p>
+              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+                <span className="inline-flex items-center gap-1">
+                  <FiMail className="h-3 w-3 shrink-0" />
+                  <span className="font-medium text-gray-600">Admin:</span>
+                  <span className="truncate">{electionData.adminEmail}</span>
+                </span>
+                {electionData.coAdminEmails?.length > 0 && (
+                  <span className="inline-flex items-center gap-1">
+                    <FiUsers className="h-3 w-3 shrink-0" />
+                    <span className="font-medium text-gray-600">Co-Admins:</span>
+                    <span className="truncate">{electionData.coAdminEmails.join(', ')}</span>
+                  </span>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-4 flex-wrap w-full sm:w-auto">
               <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${getStatusColor(getElectionStatus())}`}>
@@ -3528,7 +3648,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   <FiUsers className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500" />
                   <div className="ml-3 sm:ml-4">
                     <p className="text-xs sm:text-sm font-medium text-gray-600">Total Voters</p>
-                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{electionData.voters?.length || 0}</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{getTotalVoters(electionData)}</p>
                   </div>
                 </div>
               </div>
@@ -3581,8 +3701,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               </div>
             </div>
 
-            {/* Voter List - For Listed Elections: Show all eligible voters, For Open Elections: Show who voted */}
-            {(canEditVoterList() || (electionData.voters && electionData.voters.length > 0)) && (
+            {/* Voter summary — full list loaded on demand */}
+            {(canEditVoterList() || getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
               <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <h3 className="text-base sm:text-lg font-semibold flex items-center">
@@ -3593,24 +3713,43 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     {electionData.eligibility === 'listed' ? (
                       <>
                         <span className="px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
-                          {(electionData.voters || []).length} eligible
+                          {getTotalVoters(electionData)} eligible
                         </span>
                         <span className="px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
-                          {(electionData.voters || []).filter(v => v.hasVoted).length} voted
+                          {getVotedCount(electionData)} voted
                         </span>
                       </>
                     ) : (
                       <span className="px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
-                        {(electionData.voters || []).filter(v => v.hasVoted).length} participated
+                        {getVotedCount(electionData)} participated
                       </span>
                     )}
                     {canEditVoterList() && (
                       <button
                         type="button"
-                        onClick={() => setShowVoterEditor((prev) => !prev)}
+                        onClick={handleToggleVoterEditor}
                         className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
                       >
                         {showVoterEditor ? 'Hide Editor' : 'Edit Voter List'}
+                      </button>
+                    )}
+                    {!canEditVoterList() && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
+                      <button
+                        type="button"
+                        onClick={handleToggleVoterList}
+                        disabled={votersLoading}
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
+                      >
+                        {votersLoading ? (
+                          <>
+                            <FiLoader className="h-3.5 w-3.5 animate-spin" />
+                            Loading...
+                          </>
+                        ) : showVoterList ? (
+                          'Hide Voters'
+                        ) : (
+                          'Show Voters'
+                        )}
                       </button>
                     )}
                   </div>
@@ -3618,81 +3757,98 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                 {canEditVoterList() && showVoterEditor && (
                   <div className="mb-6 rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50 p-4 sm:p-5">
-                    <div className="mb-4">
-                      <h4 className="text-sm font-semibold text-indigo-900">Manage voters before election starts</h4>
-                      <p className="text-xs text-indigo-800 mt-1">
-                        Add voters individually or import CSV/TXT files. Imports append to the existing list without removing current voters.
-                      </p>
-                    </div>
-                    <VoterListEditor
-                      emails={voterEmails}
-                      onChange={handleVoterListChange}
-                      onRemove={handleRemoveVoter}
-                      onRemoveAll={handleRemoveAllVoters}
-                      disabled={voterListSaving}
-                      maxHeightClass="max-h-96"
-                      emptyMessage="No voters added yet. Start building your voter list."
-                    />
+                    {votersLoading && !electionData.voters?.length ? (
+                      <div className="flex items-center justify-center py-8 text-sm text-indigo-800">
+                        <FiLoader className="mr-2 h-4 w-4 animate-spin" />
+                        Loading voter list...
+                      </div>
+                    ) : (
+                      <>
+                        <div className="mb-4">
+                          <h4 className="text-sm font-semibold text-indigo-900">Manage voters before election starts</h4>
+                          <p className="text-xs text-indigo-800 mt-1">
+                            Add voters individually or import CSV/TXT files. Imports append to the existing list without removing current voters.
+                          </p>
+                        </div>
+                        <VoterListEditor
+                          emails={voterEmails}
+                          onChange={handleVoterListChange}
+                          onRemove={handleRemoveVoter}
+                          onRemoveAll={handleRemoveAllVoters}
+                          disabled={voterListSaving}
+                          maxHeightClass="max-h-96"
+                          emptyMessage="No voters added yet. Start building your voter list."
+                        />
+                      </>
+                    )}
                   </div>
                 )}
 
-                {/* Summary bar - only for listed elections */}
-                {electionData.eligibility === 'listed' && (electionData.voters || []).length > 0 && (
+                {electionData.eligibility === 'listed' && getTotalVoters(electionData) > 0 && (
                   <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
                     <div className="flex items-center justify-between text-sm mb-2">
                       <span className="text-blue-700 font-medium">Participation</span>
                       <span className="text-blue-800 font-bold">
-                        {(electionData.voters || []).filter(v => v.hasVoted).length} / {(electionData.voters || []).length}
-                        {' '}({(electionData.voters || []).length > 0
-                          ? (((electionData.voters || []).filter(v => v.hasVoted).length / (electionData.voters || []).length) * 100).toFixed(1)
+                        {getVotedCount(electionData)} / {getTotalVoters(electionData)}
+                        {' '}({getTotalVoters(electionData) > 0
+                          ? ((getVotedCount(electionData) / getTotalVoters(electionData)) * 100).toFixed(1)
                           : 0}%)
                       </span>
                     </div>
                     <div className="w-full bg-white rounded-full h-2 border border-blue-200">
                       <div
                         className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-700"
-                        style={{ width: `${(electionData.voters || []).length > 0 ? ((electionData.voters || []).filter(v => v.hasVoted).length / (electionData.voters || []).length) * 100 : 0}%` }}
+                        style={{ width: `${getTotalVoters(electionData) > 0 ? (getVotedCount(electionData) / getTotalVoters(electionData)) * 100 : 0}%` }}
                       />
                     </div>
                   </div>
                 )}
-                {(electionData.voters || []).length > 0 && (
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-y-auto pr-1">
-                  {(electionData.eligibility === 'listed' ? electionData.voters : electionData.voters.filter(v => v.hasVoted)).map((voter, index) => (
-                    <div
-                      key={voter.userEmail || index}
-                      className={`flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all ${
-                        voter.hasVoted || electionData.eligibility !== 'listed'
-                          ? 'bg-green-50 border-green-200 hover:border-green-300'
-                          : 'bg-gray-50 border-gray-200 hover:border-gray-300'
-                      }`}
-                    >
-                      <div className="flex items-center gap-2 min-w-0">
-                        <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-                          voter.hasVoted || electionData.eligibility !== 'listed' ? 'bg-green-500' : 'bg-gray-300'
-                        }`}>
-                          <FiUser className="h-3.5 w-3.5 text-white" />
+
+                {!canEditVoterList() && !showVoterList && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
+                  <p className="text-sm text-gray-600">
+                    {getTotalVoters(electionData) > 0
+                      ? `This election has ${getTotalVoters(electionData).toLocaleString()} registered voter${getTotalVoters(electionData) === 1 ? '' : 's'}. Click "Show Voters" to load the full list.`
+                      : `${getVotedCount(electionData).toLocaleString()} voter${getVotedCount(electionData) === 1 ? ' has' : 's have'} participated. Click "Show Voters" to load the list.`}
+                  </p>
+                )}
+
+                {showVoterList && (electionData.voters || []).length > 0 && (
+                  <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-y-auto pr-1">
+                    {(electionData.eligibility === 'listed' ? electionData.voters : electionData.voters.filter(v => v.hasVoted)).map((voter, index) => (
+                      <div
+                        key={voter.userEmail || index}
+                        className={`flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all ${
+                          voter.hasVoted || electionData.eligibility !== 'listed'
+                            ? 'bg-green-50 border-green-200 hover:border-green-300'
+                            : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                        }`}
+                      >
+                        <div className="flex items-center gap-2 min-w-0">
+                          <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
+                            voter.hasVoted || electionData.eligibility !== 'listed' ? 'bg-green-500' : 'bg-gray-300'
+                          }`}>
+                            <FiUser className="h-3.5 w-3.5 text-white" />
+                          </div>
+                          <span className="text-xs sm:text-sm text-gray-700 truncate font-medium">{voter.userEmail}</span>
                         </div>
-                        <span className="text-xs sm:text-sm text-gray-700 truncate font-medium">{voter.userEmail}</span>
-                      </div>
-                      {electionData.eligibility === 'listed' ? (
-                        voter.hasVoted ? (
+                        {electionData.eligibility === 'listed' ? (
+                          voter.hasVoted ? (
+                            <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
+                              <FiCheckCircle className="h-3 w-3" /> Voted
+                            </span>
+                          ) : (
+                            <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
+                              <FiClock className="h-3 w-3" /> Pending
+                            </span>
+                          )
+                        ) : (
                           <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
                             <FiCheckCircle className="h-3 w-3" /> Voted
                           </span>
-                        ) : (
-                          <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
-                            <FiClock className="h-3 w-3" /> Pending
-                          </span>
-                        )
-                      ) : (
-                        <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
-                          <FiCheckCircle className="h-3 w-3" /> Voted
-                        </span>
-                      )}
-                    </div>
-                  ))}
-                </div>
+                        )}
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
             )}
@@ -3814,68 +3970,6 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               </div>
             )}
 
-            {/* Vote Success Result */}
-            {voteResult && (
-              <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-                <div className="text-center">
-                  <FiCheckCircle className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-                  <h4 className="text-lg font-semibold text-blue-900 mb-2">Vote Cast Successfully!</h4>
-                  <p className="text-blue-800 mb-4">Your vote has been securely recorded and encrypted.</p>
-
-                  <div className="bg-white rounded-lg p-4 mb-4">
-                    <h5 className="font-medium text-gray-900 mb-3">Important: Save Your Vote Details</h5>
-                    <div className="space-y-3 text-sm">
-                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-medium">Vote Hash:</span>
-                        <div className="flex items-center space-x-2">
-                          <span className="font-mono text-xs">{voteResult.hashCode}</span>
-                          <button
-                            onClick={() => copyToClipboard(voteResult.hashCode)}
-                            className="text-blue-600 hover:text-blue-800"
-                          >
-                            <FiCopy className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                      <div className="flex items-center justify-between p-2 bg-gray-50 rounded">
-                        <span className="font-medium">Tracking Code:</span>
-                        <div className="flex items-center space-x-2">
-                          <span className="font-mono text-xs">{voteResult.trackingCode}</span>
-                          <button
-                            onClick={() => copyToClipboard(voteResult.trackingCode)}
-                            className="text-blue-600 hover:text-blue-800"
-                          >
-                            <FiCopy className="h-4 w-4" />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                    <div className="mt-4 flex space-x-3">
-                      <button
-                        onClick={() => saveVoteDetails('txt')}
-                        className="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 flex items-center space-x-2"
-                      >
-                        <FiSave className="h-4 w-4" />
-                        <span>Save as TXT</span>
-                      </button>
-                      <button
-                        onClick={() => saveVoteDetails('json')}
-                        className="bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 flex items-center space-x-2"
-                      >
-                        <FiFileText className="h-4 w-4" />
-                        <span>Save as JSON</span>
-                      </button>
-                    </div>
-                  </div>
-
-                  <div className="text-xs text-blue-700 bg-blue-100 p-3 rounded">
-                    <p className="font-medium mb-1">⚠️ Important Notice:</p>
-                    <p>Please save your vote hash and tracking code. You can use these to verify your vote was counted correctly when results are published.</p>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {voteError && (
               <VoterStatusSlot
                 variant="error"
@@ -3916,7 +4010,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             )}
 
             {/* Voting Form - Only Enabled if Eligible and Bot Check Passed */}
-            {!checkingEligibility && eligibilityData?.eligible && !voteResult && (
+            {!checkingEligibility && eligibilityData?.eligible && !voteResult && !ballotModalOpen && (
               <div className="max-w-2xl">
                 {/* Show warning if bot detection is still loading or failed */}
                 {(botDetection.loading || botDetection.isBot) && (
@@ -4027,18 +4121,13 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   <div className="flex justify-center">
                     <button
                       type="submit"
-                      disabled={!selectedCandidates.length || isSubmitting || botDetection.loading || botDetection.isBot}
-                      className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${!selectedCandidates.length || isSubmitting || botDetection.loading || botDetection.isBot
+                      disabled={!selectedCandidates.length || ballotModalOpen || botDetection.loading || botDetection.isBot}
+                      className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${!selectedCandidates.length || ballotModalOpen || botDetection.loading || botDetection.isBot
                           ? 'bg-gray-400 cursor-not-allowed'
                           : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
                         }`}
                     >
-                      {isSubmitting ? (
-                        <div className="flex items-center space-x-2">
-                          <FiLoader className="h-4 w-4 animate-spin" />
-                          <span>Creating Ballot...</span>
-                        </div>
-                      ) : botDetection.loading ? (
+                      {botDetection.loading ? (
                         <div className="flex items-center space-x-2">
                           <FiLoader className="h-4 w-4 animate-spin" />
                           <span>Security Check...</span>
@@ -4053,219 +4142,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       )}
                     </button>
                   </div>
-
-                  <VoterStatusSlot
-                    variant={
-                      isSubmitting
-                        ? 'loading'
-                        : createBallotError
-                          ? 'error'
-                          : 'info'
-                    }
-                    title={
-                      isSubmitting
-                        ? 'Creating Encrypted Ballot'
-                        : createBallotError
-                          ? 'Unable to Create Ballot'
-                          : 'Please Allow a Moment'
-                    }
-                    message={
-                      isSubmitting
-                        ? VOTER_STATUS_COPY.createBallotLoading
-                        : createBallotError || VOTER_STATUS_COPY.createBallotInfo
-                    }
-                  />
                 </form>
-              </div>
-            )}
-
-            {/* Encrypted Ballot Actions - Show after encrypted ballot is created */}
-            {showBallotActions && encryptedBallotData && (
-              <div className="bg-green-50 border border-green-200 rounded-lg p-6 mb-6">
-                <div className="text-center mb-6">
-                  <FiCheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
-                  <h3 className="text-xl font-semibold text-green-700 mb-2">
-                    Encrypted Ballot Created Successfully!
-                  </h3>
-                  <p className="text-green-600 mb-4">
-                    Your vote has been encrypted and is ready. You can now download the ballot files and choose to either cast your vote or challenge it for verification.
-                  </p>
-                </div>
-
-                {/* Download Files Section */}
-                <div className="bg-white rounded-lg p-4 mb-6 border">
-                  <h4 className="text-lg font-semibold text-gray-700 mb-3 flex items-center">
-                    <FiDownload className="mr-2" />
-                    Download Ballot Files
-                  </h4>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    {/* Encrypted Ballot */}
-                    <button
-                      onClick={() => downloadFile(encryptedBallotData.encrypted_ballot, 'encrypted_ballot.txt', 'Encrypted Ballot')}
-                      className="flex items-center justify-center p-3 bg-blue-50 border border-blue-200 rounded-lg hover:bg-blue-100 transition-colors"
-                    >
-                      <FiFileText className="mr-2 text-blue-600" />
-                      <span className="text-blue-700 font-medium">Encrypted Ballot</span>
-                    </button>
-
-                    {/* Encrypted Ballot with Nonce */}
-                    <button
-                      onClick={() => downloadFile(encryptedBallotData.encrypted_ballot_with_nonce, 'encrypted_ballot_with_nonce.txt', 'Encrypted Ballot with Nonce')}
-                      className="flex items-center justify-center p-3 bg-purple-50 border border-purple-200 rounded-lg hover:bg-purple-100 transition-colors"
-                    >
-                      <FiKey className="mr-2 text-purple-600" />
-                      <span className="text-purple-700 font-medium">Ballot with Nonce</span>
-                    </button>
-
-                    {/* Ballot Info */}
-                    <button
-                      onClick={() => downloadBallotInfo()}
-                      className="flex items-center justify-center p-3 bg-gray-50 border border-gray-200 rounded-lg hover:bg-gray-100 transition-colors"
-                    >
-                      <FiInfo className="mr-2 text-gray-600" />
-                      <span className="text-gray-700 font-medium">Ballot Info</span>
-                    </button>
-                  </div>
-                </div>
-
-                {/* Action Buttons */}
-                <div className="flex flex-col sm:flex-row gap-4 justify-center">
-                  <button
-                    onClick={() => handleCastEncryptedBallot()}
-                    disabled={isCasting || ballotChallenged}
-                    className={`flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-colors ${
-                      ballotChallenged 
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : isCasting
-                          ? 'bg-blue-400 text-white cursor-not-allowed'
-                          : 'bg-blue-600 text-white hover:bg-blue-700'
-                    }`}
-                  >
-                    {isCasting ? (
-                      <>
-                        <FiLoader className="mr-2 h-4 w-4 animate-spin" />
-                        Casting Vote...
-                      </>
-                    ) : (
-                      <>
-                        <FiCheck className="mr-2 h-4 w-4" />
-                        Cast Vote
-                      </>
-                    )}
-                  </button>
-
-                  <button
-                    onClick={() => handleBenalohChallenge()}
-                    disabled={isChallenging || ballotChallenged}
-                    className={`flex items-center justify-center px-6 py-3 rounded-lg font-medium transition-colors ${
-                      ballotChallenged
-                        ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
-                        : isChallenging
-                          ? 'bg-orange-400 text-white cursor-not-allowed'
-                          : 'bg-orange-600 text-white hover:bg-orange-700'
-                    }`}
-                  >
-                    {isChallenging ? (
-                      <>
-                        <FiLoader className="mr-2 h-4 w-4 animate-spin" />
-                        Challenging...
-                      </>
-                    ) : (
-                      <>
-                        <FiShield className="mr-2 h-4 w-4" />
-                        Challenge Vote
-                      </>
-                    )}
-                  </button>
-                </div>
-
-                <VoterStatusSlot
-                  variant={
-                    isCasting || isChallenging
-                      ? 'loading'
-                      : castBallotError || challengeError
-                        ? 'error'
-                        : 'info'
-                  }
-                  title={
-                    isCasting
-                      ? 'Casting Your Vote'
-                      : isChallenging
-                        ? 'Verifying Your Ballot'
-                        : castBallotError
-                          ? 'Unable to Cast Vote'
-                          : challengeError
-                            ? 'Verification Unavailable'
-                            : 'Please Allow a Moment'
-                  }
-                  message={
-                    isCasting
-                      ? VOTER_STATUS_COPY.castBallotLoading
-                      : isChallenging
-                        ? VOTER_STATUS_COPY.challengeBallotLoading
-                        : castBallotError ||
-                          challengeError ||
-                          VOTER_STATUS_COPY.ballotActionsInfo
-                  }
-                />
-
-                <div className="min-h-[4.5rem] rounded-lg border border-transparent px-1">
-                  {ballotChallenged && !isChallenging && (
-                    <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3">
-                      <p className="text-center text-sm text-yellow-700">
-                        <FiAlertCircle className="mr-1 inline" />
-                        This ballot has been challenged and cannot be cast. Please create a new ballot to vote.
-                      </p>
-                    </div>
-                  )}
-                </div>
-
-                <div className="min-h-[10rem] rounded-lg border border-transparent px-1">
-                  {challengeResult && (
-                    <div
-                      className={`rounded-lg border p-4 ${
-                        challengeResult.match
-                          ? 'border-green-200 bg-green-50'
-                          : 'border-red-200 bg-red-50'
-                      }`}
-                    >
-                      <div className="text-center">
-                        <div
-                          className={`mb-3 inline-flex h-12 w-12 items-center justify-center rounded-full ${
-                            challengeResult.match ? 'bg-green-100' : 'bg-red-100'
-                          }`}
-                        >
-                          {challengeResult.match ? (
-                            <FiCheckCircle className="h-7 w-7 text-green-600" />
-                          ) : (
-                            <FiX className="h-7 w-7 text-red-600" />
-                          )}
-                        </div>
-                        <h4
-                          className={`mb-2 text-lg font-semibold ${
-                            challengeResult.match ? 'text-green-700' : 'text-red-700'
-                          }`}
-                        >
-                          {challengeResult.match
-                            ? 'Challenge Verification Passed'
-                            : 'Challenge Verification Failed'}
-                        </h4>
-                        <p
-                          className={`text-sm ${
-                            challengeResult.match ? 'text-green-600' : 'text-red-600'
-                          }`}
-                        >
-                          {challengeResult.message}
-                        </p>
-                        {challengeResult.detailed_message && (
-                          <div className="mt-3 rounded-lg border bg-white p-3 text-sm text-gray-600">
-                            {challengeResult.detailed_message}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
               </div>
             )}
 
@@ -4353,104 +4230,6 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     </div>
                   ) : (
                     'Confirm Vote'
-                  )}
-                </button>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Benaloh Challenge Modal */}
-        {showChallengeModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
-              <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-3 sm:mb-4 flex items-center">
-                <FiShield className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-                Challenge Ballot Verification
-              </h3>
-              
-              <div className="mb-3 sm:mb-4">
-                <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
-                  Select the candidate(s) you voted for to verify against your encrypted ballot. 
-                  This will check if your ballot was encrypted with the correct choice(s).
-                </p>
-                
-                <div className="space-y-2 sm:space-y-3">
-                  {electionData && electionData.electionChoices && electionData.electionChoices.map((choice) => {
-                    const isChecked = challengeCandidateChoices.includes(choice.choiceId.toString());
-                    const maxChoices = electionData.maxChoices || 1;
-                    const isDisabled = !isChecked && challengeCandidateChoices.length >= maxChoices;
-                    return (
-                      <div 
-                        key={choice.choiceId} 
-                        className={`flex items-center p-2 sm:p-3 border-2 rounded-lg transition-all ${
-                          isDisabled ? 'border-gray-100 opacity-50 cursor-not-allowed'
-                          : isChecked ? 'border-blue-500 bg-blue-50 cursor-pointer'
-                          : 'border-gray-200 hover:border-gray-300 cursor-pointer'
-                        }`}
-                        onClick={() => {
-                          if (isDisabled) return;
-                          const idStr = choice.choiceId.toString();
-                          setChallengeCandidateChoices(prev =>
-                            prev.includes(idStr) ? prev.filter(x => x !== idStr) : [...prev, idStr]
-                          );
-                        }}
-                      >
-                        <input
-                          type={maxChoices > 1 ? 'checkbox' : 'radio'}
-                          name="challengeCandidate"
-                          value={choice.choiceId.toString()}
-                          checked={isChecked}
-                          disabled={isDisabled}
-                          onChange={() => {}}
-                          className="mr-2 sm:mr-3 pointer-events-none"
-                        />
-                        <div className="flex-1 min-w-0">
-                          <div className="font-medium text-gray-900 text-sm sm:text-base truncate">{choice.optionTitle}</div>
-                        </div>
-                      </div>
-                    );
-                  })}
-                </div>
-                
-                <div className="mt-3 sm:mt-4 p-2 sm:p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <div className="flex items-start">
-                    <FiAlertCircle className="h-3 w-3 sm:h-4 sm:w-4 text-yellow-600 mt-0.5 mr-2 flex-shrink-0" />
-                    <div className="text-xs sm:text-sm text-yellow-800">
-                      <strong>Important:</strong> After challenging your ballot, it cannot be cast. 
-                      Challenge is only for verification purposes.
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex space-x-2 sm:space-x-3">
-                <button
-                  onClick={() => {
-                    setShowChallengeModal(false);
-                    setChallengeCandidateChoices([]);
-                  }}
-                  disabled={isChallenging}
-                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-3 sm:px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50 text-sm sm:text-base"
-                >
-                  Cancel
-                </button>
-                <button
-                  onClick={handleConfirmChallenge}
-                  disabled={!challengeCandidateChoices.length || isChallenging}
-                  className={`flex-1 py-2 px-3 sm:px-4 rounded-lg font-medium text-white transition-colors text-sm sm:text-base ${
-                    !challengeCandidateChoices.length || isChallenging
-                      ? 'bg-gray-400 cursor-not-allowed'
-                      : 'bg-orange-600 hover:bg-orange-700'
-                  }`}
-                >
-                  {isChallenging ? (
-                    <div className="flex items-center justify-center space-x-2">
-                      <FiLoader className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-                      <span>Challenging...</span>
-                    </div>
-                  ) : (
-                    'Challenge Ballot'
                   )}
                 </button>
               </div>
