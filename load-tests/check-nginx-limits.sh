@@ -37,6 +37,9 @@ for i in $(seq 1 "${BURST}"); do
 done
 wait
 
+# Brief pause — avoids ENOBUFS on the next preflight after many parallel curls (local laptop buffers).
+sleep 1
+
 rate_limited=0
 other_fail=0
 ok=0

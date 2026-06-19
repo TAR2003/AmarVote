@@ -30,7 +30,25 @@ fi
 
 echo "▶ Election preflight → ${BASE_URL}/api/election/${ELECTION_ID}"
 
-mapfile -t LINES < <(node "${LOADTEST_DIR}/fetch-election-candidates.mjs")
+PREFLIGHT_OUT="$(mktemp)"
+if ! node "${LOADTEST_DIR}/fetch-election-candidates.mjs" > "${PREFLIGHT_OUT}" 2>&1; then
+  cat "${PREFLIGHT_OUT}" >&2
+  rm -f "${PREFLIGHT_OUT}"
+  echo "" >&2
+  echo "Election preflight failed (this is usually a local client issue if the site loads in a browser)." >&2
+  echo "  • ENOBUFS: wait 5s and retry, or SKIP_NGINX_CHECK=1 to skip the 40-curl burst before this step" >&2
+  echo "  • Or skip: SKIP_ELECTION_VERIFY=1 ./load-tests/run.sh ..." >&2
+  exit 1
+fi
+
+mapfile -t LINES < "${PREFLIGHT_OUT}"
+rm -f "${PREFLIGHT_OUT}"
+
+if [[ ${#LINES[@]} -eq 0 ]]; then
+  echo "  ✗ election preflight returned no data" >&2
+  exit 1
+fi
+
 COUNT="${LINES[0]}"
 CANDIDATES=("${LINES[@]:1}")
 

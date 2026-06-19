@@ -3,7 +3,6 @@
  * Fetch election choice titles from GET /api/election/:id (same as browser UI).
  * Used by shell preflight (verify-election.sh) before vote load tests.
  */
-import { execSync } from 'node:child_process';
 import { generateJWT } from './jwt.mjs';
 
 const secretB64 = (process.env.JWT_SECRET_B64 || process.env.JWT_SECRET || '').trim();
@@ -20,23 +19,43 @@ if (!secretB64) {
 const jwt = generateJWT(secretB64, email, ttlMs);
 const url = `${baseUrl}/api/election/${electionId}`;
 
-let out;
+async function fetchWithRetry(attempts = 3) {
+  let lastError;
+  for (let attempt = 1; attempt <= attempts; attempt++) {
+    try {
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${jwt}`,
+          Accept: 'application/json',
+        },
+        signal: AbortSignal.timeout(30000),
+      });
+      return res;
+    } catch (e) {
+      lastError = e;
+      if (attempt < attempts) {
+        await new Promise((r) => setTimeout(r, attempt * 500));
+      }
+    }
+  }
+  throw lastError;
+}
+
+let res;
 try {
-  out = execSync(
-    `curl -sS -w "\\n%{http_code}" -H "Authorization: Bearer ${jwt}" -H "Accept: application/json" "${url}"`,
-    { encoding: 'utf8', timeout: 30000 },
-  );
+  res = await fetchWithRetry();
 } catch (e) {
-  console.error(`ERROR: GET ${url} failed: ${e.message}`);
+  const msg = e?.cause?.code === 'ENOBUFS' || String(e.message).includes('ENOBUFS')
+    ? `${e.message} (local network buffers exhausted — wait a few seconds after nginx burst check, or run: SKIP_NGINX_CHECK=1 ./load-tests/run.sh ...)`
+    : e.message;
+  console.error(`ERROR: GET ${url} failed: ${msg}`);
   process.exit(1);
 }
 
-const lines = out.trimEnd().split('\n');
-const status = lines.pop() || '000';
-const body = lines.join('\n');
+const body = await res.text();
 
-if (status !== '200') {
-  console.error(`ERROR: GET /api/election/${electionId} returned HTTP ${status}`);
+if (res.status !== 200) {
+  console.error(`ERROR: GET /api/election/${electionId} returned HTTP ${res.status}`);
   if (body) console.error(body.slice(0, 500));
   process.exit(1);
 }
@@ -59,7 +78,6 @@ if (!titles.length) {
   process.exit(1);
 }
 
-// Line 1: count (for shell scripts). Remaining lines: one candidate per line.
 process.stdout.write(`${titles.length}\n`);
 for (const title of titles) {
   process.stdout.write(`${title}\n`);
