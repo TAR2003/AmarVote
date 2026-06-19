@@ -125,6 +125,15 @@ CREATE TABLE IF NOT EXISTS allowed_voters (
     CONSTRAINT fk_election FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE
 );
 
+-- Election Co-Admins Table (additional admins beyond the main creator)
+CREATE TABLE IF NOT EXISTS election_co_admins (
+    election_id BIGINT NOT NULL,
+    admin_email TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (election_id, admin_email),
+    CONSTRAINT fk_election_co_admins FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE
+);
+
 -- Guardians Table
 CREATE TABLE IF NOT EXISTS guardians (
     guardian_id BIGSERIAL PRIMARY KEY,
@@ -284,6 +293,10 @@ CREATE INDEX IF NOT EXISTS idx_election_center_election ON election_center(elect
 -- Allowed Voters table indexes
 CREATE INDEX IF NOT EXISTS idx_allowed_voters_email ON allowed_voters(user_email);
 CREATE INDEX IF NOT EXISTS idx_allowed_voters_voted ON allowed_voters(election_id, has_voted);
+
+-- Election co-admins table indexes
+CREATE INDEX IF NOT EXISTS idx_election_co_admins_email ON election_co_admins(admin_email);
+CREATE INDEX IF NOT EXISTS idx_election_co_admins_election ON election_co_admins(election_id);
 
 -- Guardians table indexes
 CREATE INDEX IF NOT EXISTS idx_guardians_election ON guardians(election_id);

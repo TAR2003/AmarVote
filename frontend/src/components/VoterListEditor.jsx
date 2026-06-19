@@ -38,6 +38,7 @@ export default function VoterListEditor({
   showManualAdd = true,
   maxHeightClass = "max-h-72",
   emptyMessage = "No voter emails added yet",
+  entityLabel = "voter",
 }) {
   const fileInputRef = useRef(null);
   const [manualEmail, setManualEmail] = useState("");
@@ -65,7 +66,7 @@ export default function VoterListEditor({
     onChange([...emails, ...added]);
     showFeedback(
       "success",
-      `Added ${added.length} voter${added.length === 1 ? "" : "s"}${
+      `Added ${added.length} ${entityLabel}${added.length === 1 ? "" : "s"}${
         incoming.length > added.length
           ? ` (${incoming.length - added.length} duplicate${incoming.length - added.length === 1 ? "" : "s"} skipped)`
           : ""
@@ -112,13 +113,13 @@ export default function VoterListEditor({
     }
 
     if (emails.includes(email)) {
-      showFeedback("info", "This email is already in the voter list.");
+      showFeedback("info", "This email is already in the list.");
       return;
     }
 
     onChange([...emails, email]);
     setManualEmail("");
-    showFeedback("success", "Voter added.");
+    showFeedback("success", `${entityLabel.charAt(0).toUpperCase()}${entityLabel.slice(1)} added.`);
   };
 
   const handleRemoveAll = () => {
@@ -132,7 +133,7 @@ export default function VoterListEditor({
         <div className="flex items-center gap-2 text-sm text-gray-600">
           <FiUsers className="h-4 w-4 text-blue-600" />
           <span>
-            <span className="font-semibold text-gray-900">{emails.length}</span> voter
+            <span className="font-semibold text-gray-900">{emails.length}</span> {entityLabel}
             {emails.length === 1 ? "" : "s"} in list
           </span>
         </div>

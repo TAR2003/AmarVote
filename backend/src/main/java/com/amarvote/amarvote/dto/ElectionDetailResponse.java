@@ -37,6 +37,7 @@ public class ElectionDetailResponse {
     private String profilePic;
     private String adminEmail;
     private String adminName;
+    private List<String> coAdminEmails;
     
     // Guardian Information
     private List<GuardianInfo> guardians;

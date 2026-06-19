@@ -20,6 +20,7 @@ public record ElectionCreationRequest(
     @NotBlank String electionPrivacy,
     @NotBlank String electionEligibility,
     List<String> voterEmails,
+    List<String> coAdminEmails,
     Instant startingTime,
     Instant endingTime,
     Integer maxChoices

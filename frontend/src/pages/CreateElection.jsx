@@ -25,6 +25,7 @@ const CreateElection = () => {
         guardianNumber: "",
         quorumNumber: "",
         guardianEmails: [],
+        coAdminEmails: [],
         candidateNames: [""],
         candidatePictures: [""],
         maxChoices: 1
@@ -171,6 +172,21 @@ const CreateElection = () => {
     // Handle voter list updates
     const setVoterEmails = (voterEmails) => {
         setForm((prev) => ({ ...prev, voterEmails }));
+    };
+
+    const setCoAdminEmails = (coAdminEmails) => {
+        setForm((prev) => ({ ...prev, coAdminEmails }));
+    };
+
+    const removeCoAdminEmail = (email) => {
+        setForm((prev) => ({
+            ...prev,
+            coAdminEmails: prev.coAdminEmails.filter((e) => e !== email),
+        }));
+    };
+
+    const removeAllCoAdminEmails = () => {
+        setForm((prev) => ({ ...prev, coAdminEmails: [] }));
     };
 
     // Handle CSV/TXT upload for guardian emails
@@ -673,6 +689,23 @@ const CreateElection = () => {
                     <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
                         Election start and end time are set later, after key ceremony completion.
                     </div>
+                </div>
+
+                {/* Co-Administrators */}
+                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                    <h2 className="text-xl font-semibold mb-2 text-gray-700">Co-Administrators</h2>
+                    <p className="text-sm text-gray-600 mb-4">
+                        Optionally add co-admins who can manage this election with the same permissions as you.
+                        Co-admin assignments are permanent once the election is created.
+                    </p>
+                    <VoterListEditor
+                        emails={form.coAdminEmails}
+                        onChange={setCoAdminEmails}
+                        onRemove={removeCoAdminEmail}
+                        onRemoveAll={removeAllCoAdminEmails}
+                        emptyMessage="No co-admin emails added yet"
+                        entityLabel="co-admin"
+                    />
                 </div>
 
                 {/* Election Privacy Settings */}

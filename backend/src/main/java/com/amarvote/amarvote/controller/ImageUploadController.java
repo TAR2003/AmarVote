@@ -21,6 +21,7 @@ import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.service.CloudinaryService;
+import com.amarvote.amarvote.service.ElectionService;
 
 @RestController
 @RequestMapping("/api/images")
@@ -34,6 +35,9 @@ public class ImageUploadController {
 
     @Autowired
     private ElectionChoiceRepository electionChoiceRepository;
+
+    @Autowired
+    private ElectionService electionService;
 
     /**
      * Upload profile picture for authenticated user
@@ -100,10 +104,10 @@ public class ImageUploadController {
 
             Election election = electionOpt.get();
 
-            // Check if user is the election administrator
-            if (!email.equals(election.getAdminEmail())) {
+            // Check if user is the election administrator or co-admin
+            if (!electionService.isElectionAdmin(election, email)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("success", false, "message", "Only election administrator can update election picture"));
+                        .body(Map.of("success", false, "message", "Only election administrators can update election picture"));
             }
 
             // Delete old profile picture if exists
@@ -174,10 +178,10 @@ public class ImageUploadController {
 
             Election election = electionOpt.get();
 
-            // Check if user is the election administrator
-            if (!email.equals(election.getAdminEmail())) {
+            // Check if user is the election administrator or co-admin
+            if (!electionService.isElectionAdmin(election, email)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("success", false, "message", "Only election administrator can update candidate picture"));
+                        .body(Map.of("success", false, "message", "Only election administrators can update candidate picture"));
             }
 
             // Delete old candidate picture if exists
@@ -248,10 +252,10 @@ public class ImageUploadController {
 
             Election election = electionOpt.get();
 
-            // Check if user is the election administrator
-            if (!email.equals(election.getAdminEmail())) {
+            // Check if user is the election administrator or co-admin
+            if (!electionService.isElectionAdmin(election, email)) {
                 return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                        .body(Map.of("success", false, "message", "Only election administrator can update party picture"));
+                        .body(Map.of("success", false, "message", "Only election administrators can update party picture"));
             }
 
             // Delete old party picture if exists

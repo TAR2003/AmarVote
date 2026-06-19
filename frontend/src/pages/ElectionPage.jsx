@@ -3462,6 +3462,12 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     <p><span className="font-medium">Privacy:</span> {electionData.isPublic ? 'Public' : 'Private'}</p>
                     <p><span className="font-medium">Voting Eligibility:</span> {electionData.eligibility === 'listed' ? 'Listed voters only' : 'Open to anyone'}</p>
                     <p><span className="font-medium">Admin:</span> {electionData.adminName ? `${electionData.adminName} (${electionData.adminEmail})` : electionData.adminEmail}</p>
+                    {electionData.coAdminEmails?.length > 0 && (
+                      <p>
+                        <span className="font-medium">Co-Admins:</span>{' '}
+                        {electionData.coAdminEmails.join(', ')}
+                      </p>
+                    )}
                   </div>
                 </div>
                 <div>

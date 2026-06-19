@@ -34,6 +34,7 @@ import com.amarvote.amarvote.model.Decryption;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.ElectionChoice;
+import com.amarvote.amarvote.model.ElectionCoAdmin;
 import com.amarvote.amarvote.model.Guardian;
 import com.amarvote.amarvote.repository.AllowedVoterRepository;
 import com.amarvote.amarvote.repository.BallotRepository;
@@ -43,6 +44,7 @@ import com.amarvote.amarvote.repository.DecryptionRepository;
 import com.amarvote.amarvote.repository.DecryptionWorkerLogRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
+import com.amarvote.amarvote.repository.ElectionCoAdminRepository;
 import com.amarvote.amarvote.repository.ElectionJobRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
@@ -73,6 +75,9 @@ public class ElectionService {
 
     @Autowired
     private AllowedVoterRepository allowedVoterRepository;
+
+    @Autowired
+    private ElectionCoAdminRepository electionCoAdminRepository;
 
     @Autowired
     private BallotRepository ballotRepository;
@@ -254,7 +259,85 @@ public class ElectionService {
             System.out.println("No voters saved - election eligibility is 'unlisted' or no voter emails provided.");
         }
 
+        Set<String> coAdminEmails = normalizeAndValidateCoAdminEmails(request.coAdminEmails(), userEmail);
+        for (String coAdminEmail : coAdminEmails) {
+            electionCoAdminRepository.save(ElectionCoAdmin.builder()
+                    .electionId(election.getElectionId())
+                    .adminEmail(coAdminEmail)
+                    .build());
+        }
+        if (!coAdminEmails.isEmpty()) {
+            System.out.println("Co-admins saved successfully: " + coAdminEmails.size());
+        }
+
         return election;
+    }
+
+    /**
+     * Returns true when the user is the main election admin or a co-admin.
+     */
+    public boolean isElectionAdmin(Election election, String userEmail) {
+        if (userEmail == null || userEmail.isBlank() || election == null) {
+            return false;
+        }
+        String normalized = normalizeEmail(userEmail);
+        if (election.getAdminEmail() != null
+                && election.getAdminEmail().equalsIgnoreCase(normalized)) {
+            return true;
+        }
+        return electionCoAdminRepository.existsByElectionIdAndAdminEmail(
+                election.getElectionId(), normalized);
+    }
+
+    public boolean isElectionAdmin(Long electionId, String userEmail) {
+        if (electionId == null) {
+            return false;
+        }
+        return electionRepository.findById(electionId)
+                .map(election -> isElectionAdmin(election, userEmail))
+                .orElse(false);
+    }
+
+    private void requireElectionAdmin(Election election, String userEmail, String actionDescription) {
+        if (!isElectionAdmin(election, userEmail)) {
+            throw new IllegalArgumentException(actionDescription);
+        }
+    }
+
+    private Set<String> normalizeAndValidateCoAdminEmails(List<String> coAdminEmails, String creatorEmail) {
+        if (coAdminEmails == null || coAdminEmails.isEmpty()) {
+            return Set.of();
+        }
+
+        String normalizedCreator = normalizeEmail(creatorEmail);
+        Set<String> normalized = new LinkedHashSet<>();
+        for (String rawEmail : coAdminEmails) {
+            if (rawEmail == null) {
+                continue;
+            }
+            String email = normalizeEmail(rawEmail);
+            if (email.isBlank()) {
+                continue;
+            }
+            if (!EMAIL_PATTERN.matcher(email).matches()) {
+                throw new IllegalArgumentException("Invalid co-admin email address: " + rawEmail);
+            }
+            if (email.equalsIgnoreCase(normalizedCreator)) {
+                throw new IllegalArgumentException("The election creator cannot also be listed as a co-admin");
+            }
+            normalized.add(email);
+        }
+        return normalized;
+    }
+
+    private List<String> getCoAdminEmailsForElection(Long electionId) {
+        return electionCoAdminRepository.findByElectionId(electionId).stream()
+                .map(ElectionCoAdmin::getAdminEmail)
+                .collect(Collectors.toList());
+    }
+
+    private boolean userHasAdminRole(Election election, String userEmail) {
+        return isElectionAdmin(election, userEmail);
     }
 
     @Transactional
@@ -326,7 +409,7 @@ public class ElectionService {
                 .orElseThrow(() -> new IllegalArgumentException("Election not found"));
 
         if (!canUserManageVoterList(election, userEmail)) {
-            throw new IllegalArgumentException("Only the election creator or assigned guardians can manage voters");
+            throw new IllegalArgumentException("Only the election creator, co-admins, or assigned guardians can manage voters");
         }
 
         if (!"listed".equals(election.getEligibility())) {
@@ -345,8 +428,7 @@ public class ElectionService {
             return false;
         }
 
-        boolean isAdmin = election.getAdminEmail() != null
-                && election.getAdminEmail().equalsIgnoreCase(userEmail);
+        boolean isAdmin = userHasAdminRole(election, userEmail);
         boolean isGuardian = !guardianRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail).isEmpty();
         return isAdmin || isGuardian;
     }
@@ -799,9 +881,7 @@ public class ElectionService {
         Election election = electionRepository.findById(electionId)
                 .orElseThrow(() -> new IllegalArgumentException("Election not found"));
 
-        if (election.getAdminEmail() == null || !election.getAdminEmail().equals(userEmail)) {
-            throw new IllegalArgumentException("Only the election admin can access waiting room status");
-        }
+        requireElectionAdmin(election, userEmail, "Only the election admin can access waiting room status");
 
         return buildKeyCeremonyStatus(election);
     }
@@ -847,9 +927,7 @@ public class ElectionService {
         Election election = electionRepository.findById(request.electionId())
                 .orElseThrow(() -> new IllegalArgumentException("Election not found"));
 
-        if (election.getAdminEmail() == null || !election.getAdminEmail().equals(userEmail)) {
-            throw new IllegalArgumentException("Only the election admin can activate the election");
-        }
+        requireElectionAdmin(election, userEmail, "Only the election admin can activate the election");
 
         if (!request.endingTime().isAfter(request.startingTime())) {
             throw new IllegalArgumentException("Ending time must be after starting time");
@@ -1222,7 +1300,7 @@ public class ElectionService {
         List<String> userRoles = new ArrayList<>();
 
         // Check if user is admin
-        if (election.getAdminEmail() != null && election.getAdminEmail().equals(userEmail)) {
+        if (userHasAdminRole(election, userEmail)) {
             userRoles.add("admin");
         }
 
@@ -1314,8 +1392,8 @@ public class ElectionService {
             return true;
         }
 
-        // Check if user is the admin
-        if (election.getAdminEmail() != null && election.getAdminEmail().equals(userEmail)) {
+        // Check if user is the main admin or a co-admin
+        if (userHasAdminRole(election, userEmail)) {
             System.out.println("User is admin of election " + election.getElectionId());
             return true;
         }
@@ -1412,6 +1490,7 @@ public class ElectionService {
                 .profilePic(election.getProfilePic())
                 .adminEmail(election.getAdminEmail())
                 .adminName(adminName)
+                .coAdminEmails(getCoAdminEmailsForElection(election.getElectionId()))
                 .guardians(guardians)
                 .totalGuardians(totalGuardians)
                 .guardiansSubmitted(guardiansSubmitted)
@@ -1431,7 +1510,7 @@ public class ElectionService {
         List<String> userRoles = new ArrayList<>();
 
         // Check if user is admin
-        if (election.getAdminEmail() != null && election.getAdminEmail().equals(userEmail)) {
+        if (userHasAdminRole(election, userEmail)) {
             userRoles.add("admin");
         }
 

@@ -23,11 +23,13 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
     @Query("SELECT DISTINCT e FROM Election e " +
            "LEFT JOIN AllowedVoter av ON e.electionId = av.electionId " +
            "LEFT JOIN Guardian g ON e.electionId = g.electionId " +
+           "LEFT JOIN ElectionCoAdmin eca ON e.electionId = eca.electionId " +
            "WHERE " +
            "   e.privacy = 'public' " +
            "   OR e.eligibility = 'unlisted' " +
            "   OR av.userEmail = :userEmail " +
            "   OR e.adminEmail = :userEmail " +
+           "   OR eca.adminEmail = :userEmail " +
            "   OR g.userEmail = :userEmail")
     List<Election> findAllAccessibleElections(@Param("userEmail") String userEmail);
     
@@ -52,11 +54,13 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
             "    FROM elections e " +
             "    LEFT JOIN allowed_voters av ON e.election_id = av.election_id " +
             "    LEFT JOIN guardians g ON e.election_id = g.election_id " +
+            "    LEFT JOIN election_co_admins eca ON e.election_id = eca.election_id " +
             "    WHERE " +
             "        e.privacy = 'public' OR " +
             "        e.eligibility = 'unlisted' OR " +
             "        av.user_email = :userEmail OR " +
             "        e.admin_email = :userEmail OR " +
+            "        eca.admin_email = :userEmail OR " +
             "        g.user_email = :userEmail" +
             "), " +
             // Admin data - admin_email is stored directly in elections table
@@ -67,7 +71,10 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
             // User role data
             "user_roles AS (" +
             "    SELECT e.election_id, " +
-            "        CASE WHEN e.admin_email = :userEmail THEN true ELSE false END AS is_admin, " +
+            "        CASE WHEN e.admin_email = :userEmail " +
+            "             OR EXISTS (SELECT 1 FROM election_co_admins eca " +
+            "                        WHERE eca.election_id = e.election_id AND eca.admin_email = :userEmail) " +
+            "             THEN true ELSE false END AS is_admin, " +
             "        EXISTS (SELECT 1 FROM guardians g " +
             "               WHERE g.election_id = e.election_id AND g.user_email = :userEmail) AS is_guardian, " +
             "        EXISTS (SELECT 1 FROM allowed_voters av " +
@@ -112,7 +119,10 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
             "), " +
             "user_roles AS (" +
             "    SELECT e.election_id, " +
-            "        CASE WHEN e.admin_email = :userEmail THEN true ELSE false END AS is_admin, " +
+            "        CASE WHEN e.admin_email = :userEmail " +
+            "             OR EXISTS (SELECT 1 FROM election_co_admins eca " +
+            "                        WHERE eca.election_id = e.election_id AND eca.admin_email = :userEmail) " +
+            "             THEN true ELSE false END AS is_admin, " +
             "        EXISTS (SELECT 1 FROM guardians g " +
             "               WHERE g.election_id = e.election_id AND g.user_email = :userEmail) AS is_guardian, " +
             "        EXISTS (SELECT 1 FROM allowed_voters av " +
@@ -146,8 +156,10 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
            "WHERE av.userEmail = :userEmail")
     List<Election> findElectionsForUser(@Param("userEmail") String userEmail);
     
-    // Get all elections where user is admin
-    @Query("SELECT e FROM Election e WHERE e.adminEmail = :userEmail")
+    // Get all elections where user is main admin or co-admin
+    @Query("SELECT DISTINCT e FROM Election e " +
+           "LEFT JOIN ElectionCoAdmin eca ON e.electionId = eca.electionId " +
+           "WHERE e.adminEmail = :userEmail OR eca.adminEmail = :userEmail")
     List<Election> findElectionsByAdmin(@Param("userEmail") String userEmail);
     
     // Get all elections where user is guardian
