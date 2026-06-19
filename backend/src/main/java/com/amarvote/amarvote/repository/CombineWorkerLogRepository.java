@@ -22,4 +22,6 @@ public interface CombineWorkerLogRepository extends JpaRepository<CombineWorkerL
     long countByElectionId(@Param("electionId") Long electionId);
 
     void deleteByElectionId(Long electionId);
+
+    long countByElectionCenterId(Long electionCenterId);
 }

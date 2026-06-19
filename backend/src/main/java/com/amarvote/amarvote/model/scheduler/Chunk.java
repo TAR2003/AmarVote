@@ -78,13 +78,16 @@ public class Chunk {
      * Check if chunk can be queued
      */
     public boolean canBeQueued() {
-        return state == ChunkState.PENDING || state == ChunkState.FAILED;
+        return state == ChunkState.PENDING
+            || (state == ChunkState.FAILED && !"Cancelled by user".equals(errorMessage));
     }
     
     /**
      * Check if chunk is active (not yet completed)
      */
     public boolean isActive() {
-        return state != ChunkState.COMPLETED && state != ChunkState.FAILED;
+        return state == ChunkState.PENDING
+            || state == ChunkState.QUEUED
+            || state == ChunkState.PROCESSING;
     }
 }

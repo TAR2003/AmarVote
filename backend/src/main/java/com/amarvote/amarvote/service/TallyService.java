@@ -24,7 +24,9 @@ import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionCenter;
 import com.amarvote.amarvote.model.ElectionChoice;
 import com.amarvote.amarvote.model.ElectionJob;
+import com.amarvote.amarvote.model.ProcessOperationType;
 import com.amarvote.amarvote.model.SubmittedBallot;
+import com.amarvote.amarvote.model.scheduler.TaskType;
 import com.amarvote.amarvote.repository.BallotRepository;
 import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionChoiceRepository;
@@ -32,6 +34,9 @@ import com.amarvote.amarvote.repository.ElectionJobRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
+import com.amarvote.amarvote.repository.TallyWorkerLogRepository;
+import java.util.HashSet;
+import java.util.Set;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 import jakarta.persistence.EntityManager;
@@ -86,6 +91,25 @@ public class TallyService {
     @Autowired
     private ElectionJobRepository jobRepository;
 
+    @Autowired
+    private ProcessCancellationService cancellationService;
+
+    @Autowired
+    private TallyWorkerLogRepository tallyWorkerLogRepository;
+
+    private int getExpectedTallyChunkCount(Long electionId) {
+        List<Long> ballotIds = ballotRepository.findBallotIdsByElectionIdAndStatus(electionId, "cast");
+        if (ballotIds.isEmpty()) {
+            return 0;
+        }
+        return chunkingService.calculateChunks(ballotIds.size()).getNumChunks();
+    }
+
+    private boolean hasActiveTallySchedulerTasks(Long electionId) {
+        return roundRobinTaskScheduler.getElectionProgress(electionId).stream()
+            .anyMatch(p -> p.getTaskType() == TaskType.TALLY_CREATION && p.isActive());
+    }
+
     /**
      * Periodic GC hint and memory monitoring utility
      * Suggests GC when memory usage exceeds threshold, logs progress
@@ -116,94 +140,53 @@ public class TallyService {
      * Queries RoundRobinTaskScheduler for real-time chunk processing state
      */
     public TallyCreationStatusResponse getTallyStatus(Long electionId) {
-        // Query ElectionJob for task metadata
         Optional<ElectionJob> jobOpt = jobRepository.findFirstByElectionIdAndOperationTypeOrderByStartedAtDesc(electionId, "TALLY");
         String createdBy = jobOpt.map(ElectionJob::getCreatedBy).orElse(null);
         Instant startedAt = jobOpt.map(ElectionJob::getStartedAt).orElse(null);
-        
-        // Check for active Redis lock
+
         String lockKey = RedisLockService.buildTallyLockKey(electionId);
         Optional<LockMetadata> lockMetadata = redisLockService.getLockMetadata(lockKey);
-        
-        // Try to get progress from scheduler first (live task tracking)
-        List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> electionProgress = 
-            roundRobinTaskScheduler.getElectionProgress(electionId);
-        
-        // Filter for tally creation tasks
-        List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> tallyTasks = electionProgress.stream()
-            .filter(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.TALLY_CREATION)
-            .collect(Collectors.toList());
-        
-        if (!tallyTasks.isEmpty()) {
-            // Active task found in scheduler - return live progress
-            com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress progress = tallyTasks.get(0);
-            
-            String status;
-            if (progress.getCompletedChunks() == 0 && progress.getProcessingChunks() == 0 && progress.getQueuedChunks() == 0) {
-                status = "pending";
-            } else if (progress.isComplete()) {
-                status = "completed";
-            } else {
-                status = "in_progress";
-            }
-            
-            return TallyCreationStatusResponse.builder()
-                .success(true)
-                .status(status)
-                .message("Tally creation status retrieved successfully")
-                .totalChunks((int) progress.getTotalChunks())
-                .processedChunks((int) progress.getCompletedChunks())
-                .progressPercentage(progress.getCompletionPercentage())
-                .createdBy(createdBy)
-                .startedAt(startedAt != null ? startedAt.toString() : null)
-                .isLocked(lockMetadata.isPresent())
-                .lockHeldBy(lockMetadata.map(LockMetadata::getUserEmail).orElse(null))
-                .lockStartTime(lockMetadata.map(m -> m.getStartTime().toString()).orElse(null))
-                .build();
-        }
-        
-        // No active task in scheduler - check database for completed tally
-        List<ElectionCenter> allChunks = electionCenterRepository.findByElectionId(electionId);
-        int totalChunks = allChunks.size();
-        
-        if (totalChunks == 0) {
-            return TallyCreationStatusResponse.builder()
-                .success(true)
-                .status("not_started")
-                .message("Tally creation has not been initiated")
-                .totalChunks(0)
-                .processedChunks(0)
-                .progressPercentage(0.0)
-                .isLocked(lockMetadata.isPresent())
-                .lockHeldBy(lockMetadata.map(LockMetadata::getUserEmail).orElse(null))
-                .lockStartTime(lockMetadata.map(m -> m.getStartTime().toString()).orElse(null))
-                .build();
-        }
-        
-        // Count how many chunks have encrypted_tally filled
-        long processedChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(electionId);
-        
-        // Determine status based on progress
+
+        int expectedTotal = getExpectedTallyChunkCount(electionId);
+        long dbProcessed = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(electionId);
+        boolean stopRequested = cancellationService.isTallyStopped(electionId);
+
+        List<com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress> tallyTasks =
+            roundRobinTaskScheduler.getElectionProgress(electionId).stream()
+                .filter(p -> p.getTaskType() == TaskType.TALLY_CREATION)
+                .collect(Collectors.toList());
+
+        int totalChunks = expectedTotal > 0 ? expectedTotal : tallyTasks.isEmpty()
+            ? (int) electionCenterRepository.findByElectionId(electionId).size()
+            : (int) tallyTasks.get(0).getTotalChunks();
+        int processedChunks = (int) dbProcessed;
+
         String status;
-        if (processedChunks == 0) {
+        if (totalChunks == 0 && processedChunks == 0) {
             status = "not_started";
-        } else if (processedChunks < totalChunks) {
-            // Task not in scheduler but partially complete - might be stale/interrupted
-            status = "in_progress";
-        } else {
+        } else if (processedChunks >= totalChunks && totalChunks > 0) {
             status = "completed";
+        } else if (stopRequested || tallyTasks.stream().anyMatch(com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress::isStopped)) {
+            status = "stopped";
+        } else if (tallyTasks.stream().anyMatch(com.amarvote.amarvote.model.scheduler.TaskInstance.TaskProgress::isActive)
+            || processedChunks > 0) {
+            status = "in_progress";
+        } else if (processedChunks == 0) {
+            status = "not_started";
+        } else {
+            status = "in_progress";
         }
-        
-        double progressPercentage = totalChunks > 0 
+
+        double progressPercentage = totalChunks > 0
             ? (processedChunks * 100.0) / totalChunks
             : 0.0;
-        
+
         return TallyCreationStatusResponse.builder()
             .success(true)
             .status(status)
             .message("Tally creation status retrieved successfully")
             .totalChunks(totalChunks)
-            .processedChunks((int) processedChunks)
+            .processedChunks(processedChunks)
             .progressPercentage(progressPercentage)
             .createdBy(createdBy)
             .startedAt(startedAt != null ? startedAt.toString() : null)
@@ -291,14 +274,7 @@ public class TallyService {
             //     previous createTallyAsync() died or hit an error without ever marking
             //     the job COMPLETED/FAILED (stale record). Clean it up and proceed.
             if (jobRepository.existsActiveJob(request.getElection_id(), "TALLY")) {
-                // Check whether the scheduler actually has live tasks for this election
-                boolean hasLiveSchedulerTasks = roundRobinTaskScheduler.getElectionProgress(request.getElection_id())
-                    .stream()
-                    .anyMatch(p -> p.getTaskType() == com.amarvote.amarvote.model.scheduler.TaskType.TALLY_CREATION
-                        && !p.isComplete());
-
-                if (hasLiveSchedulerTasks) {
-                    // Truly in-flight — another process is actively working
+                if (hasActiveTallySchedulerTasks(request.getElection_id())) {
                     redisLockService.releaseLock(lockKey);
                     System.out.println("⚠️ Active tally job with live scheduler tasks for election: " + request.getElection_id() + " - rejecting duplicate request");
                     return CreateTallyResponse.builder()
@@ -308,8 +284,6 @@ public class TallyService {
                         .build();
                 }
 
-                // Stale jobs: no scheduler tasks but DB job still marked active
-                // Mark them FAILED so they no longer block future requests
                 List<ElectionJob> staleJobs = jobRepository.findByElectionIdOrderByStartedAtDesc(request.getElection_id())
                     .stream()
                     .filter(j -> ("IN_PROGRESS".equals(j.getStatus()) || "QUEUED".equals(j.getStatus()))
@@ -324,39 +298,47 @@ public class TallyService {
                 System.out.println("🧹 Cleaned up " + staleJobs.size() + " stale TALLY job(s) for election " + request.getElection_id() + " - proceeding with fresh run");
             }
 
-            // 4b. Also check ElectionCenter chunks (covers fully-completed tallies)
-            List<ElectionCenter> existingChunks = electionCenterRepository.findByElectionId(request.getElection_id());
-            if (!existingChunks.isEmpty()) {
-                long completedChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(request.getElection_id());
-                
-                if (completedChunks > 0 && completedChunks < existingChunks.size()) {
-                    // Release lock since work already in progress
-                    redisLockService.releaseLock(lockKey);
-                    System.out.println("⚠️ Tally creation already in progress");
-                    return CreateTallyResponse.builder()
-                        .success(true)
-                        .message("Tally creation is already in progress")
-                        .encryptedTally("IN_PROGRESS:" + completedChunks + "/" + existingChunks.size())
-                        .build();
-                } else if (completedChunks == existingChunks.size()) {
-                    // Release lock since work already completed
-                    redisLockService.releaseLock(lockKey);
-                    System.out.println("✅ Tally already exists");
-                    return CreateTallyResponse.builder()
-                        .success(true)
-                        .message("Tally already exists")
-                        .encryptedTally("COMPLETED")
-                        .build();
-                }
+            long completedChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(request.getElection_id());
+            if (completedChunks >= totalChunks && totalChunks > 0) {
+                redisLockService.releaseLock(lockKey);
+                System.out.println("✅ Tally already exists");
+                return CreateTallyResponse.builder()
+                    .success(true)
+                    .message("Tally already exists")
+                    .encryptedTally("COMPLETED")
+                    .build();
             }
+
+            if (hasActiveTallySchedulerTasks(request.getElection_id())) {
+                redisLockService.releaseLock(lockKey);
+                return CreateTallyResponse.builder()
+                    .success(true)
+                    .message("Tally creation is already in progress")
+                    .encryptedTally("IN_PROGRESS")
+                    .build();
+            }
+
+            if (completedChunks > 0 || cancellationService.isTallyStopped(request.getElection_id())) {
+                roundRobinTaskScheduler.removeTasks(
+                    TaskType.TALLY_CREATION,
+                    request.getElection_id(),
+                    null,
+                    null,
+                    null
+                );
+                cancellationService.clearStop(request.getElection_id(), ProcessOperationType.TALLY, null);
+            }
+
+            createTallyAsync(request, userEmail, totalChunks, completedChunks > 0);
             
-            // 5. Start async processing (lock will be held during processing)
-            createTallyAsync(request, userEmail);
-            
+            String resumeMessage = completedChunks > 0
+                ? "Resuming tally creation. Processing remaining chunks (" + completedChunks + "/" + totalChunks + " complete)..."
+                : "Request accepted. Preparing to process " + totalChunks + " chunks...";
+
             return CreateTallyResponse.builder()
                 .success(true)
-                .message("Request accepted. Preparing to process " + totalChunks + " chunks...")
-                .encryptedTally("INITIATED:" + totalChunks)
+                .message(resumeMessage)
+                .encryptedTally(completedChunks > 0 ? "RESUMING:" + completedChunks + "/" + totalChunks : "INITIATED:" + totalChunks)
                 .build();
                 
         } catch (Exception e) {
@@ -376,28 +358,31 @@ public class TallyService {
     */
     @Async
     public void createTallyAsync(CreateTallyRequest request, String userEmail) {
+        createTallyAsync(request, userEmail, null, false);
+    }
+
+    @Async
+    public void createTallyAsync(CreateTallyRequest request, String userEmail, Integer knownTotalChunks, boolean resume) {
         Long electionId = request.getElection_id();
         String lockKey = RedisLockService.buildTallyLockKey(electionId);
         
         try {
             System.out.println("=== Async Tally Creation Started (Memory-Efficient Mode) ===");
-            System.out.println("Election ID: " + electionId);
+            System.out.println("Election ID: " + electionId + (resume ? " [RESUME]" : ""));
             
-            // Create ElectionJob record for tracking
             ElectionJob job = ElectionJob.builder()
                 .jobId(java.util.UUID.randomUUID())
                 .electionId(electionId)
                 .operationType("TALLY")
                 .status("IN_PROGRESS")
-                .totalChunks(0) // Will be updated below
-                .processedChunks(0)
+                .totalChunks(knownTotalChunks != null ? knownTotalChunks : 0)
+                .processedChunks((int) electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(electionId))
                 .createdBy(userEmail)
                 .startedAt(Instant.now())
                 .build();
             jobRepository.save(job);
             System.out.println("✅ Created ElectionJob record for tracking");
             
-            // Fetch election
             Optional<Election> electionOpt = electionRepository.findById(electionId);
             if (electionOpt.isEmpty()) {
                 throw new RuntimeException("Election not found");
@@ -405,7 +390,6 @@ public class TallyService {
             
             Election election = electionOpt.get();
             
-            // MEMORY-EFFICIENT: Fetch only ballot IDs, not full ballot objects
             List<Long> ballotIds = ballotRepository.findBallotIdsByElectionIdAndStatus(electionId, "cast");
             
             if (ballotIds.isEmpty()) {
@@ -414,14 +398,18 @@ public class TallyService {
             
             System.out.println("✅ Found " + ballotIds.size() + " ballot IDs (not loading full ballots yet)");
             
-            // Calculate chunks based on count
             ChunkConfiguration chunkConfig = chunkingService.calculateChunks(ballotIds.size());
             System.out.println("✅ Calculated " + chunkConfig.getNumChunks() + " chunks");
             
-            // MEMORY-EFFICIENT: Assign only ballot IDs to chunks (not full Ballot objects)
             java.util.Map<Integer, List<Long>> chunkIdMap = chunkingService.assignIdsToChunks(ballotIds, chunkConfig);
             
-            // Fetch election choices (small dataset, OK to keep in memory)
+            Set<Integer> completedChunkNumbers = new HashSet<>(
+                tallyWorkerLogRepository.findCompletedChunkNumbersByElectionId(electionId)
+            );
+            if (!completedChunkNumbers.isEmpty()) {
+                System.out.println("⏭️ Skipping " + completedChunkNumbers.size() + " already-completed chunks on resume");
+            }
+            
             List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(electionId);
             List<String> partyNames = electionChoices.stream()
                 .map(ElectionChoice::getPartyName)
@@ -431,19 +419,18 @@ public class TallyService {
                 .map(ElectionChoice::getOptionTitle)
                 .collect(Collectors.toList());
             
-            // ✅ MEMORY-EFFICIENT: Use count query instead of loading all guardians
             int numberOfGuardians = guardianRepository.countByElectionId(election.getElectionId());
             
-            // ✅ NEW: Register task instance with RoundRobinTaskScheduler
             System.out.println("=== REGISTERING TALLY TASK WITH ROUND-ROBIN SCHEDULER ===");
             
-            // Prepare task data for all chunks
             List<String> taskDataList = new ArrayList<>();
             for (java.util.Map.Entry<Integer, List<Long>> entry : chunkIdMap.entrySet()) {
                 int chunkNumber = entry.getKey();
+                if (completedChunkNumbers.contains(chunkNumber)) {
+                    continue;
+                }
                 List<Long> chunkBallotIds = entry.getValue();
                 
-                // Create task message
                 Integer electionMaxChoices = election.getMaxChoices();
                 TallyCreationTask task = TallyCreationTask.builder()
                     .electionId(electionId)
@@ -458,7 +445,6 @@ public class TallyService {
                     .maxChoices(electionMaxChoices != null ? electionMaxChoices : 1)
                     .build();
                 
-                // Serialize task to JSON
                 try {
                     String taskJson = objectMapper.writeValueAsString(task);
                     taskDataList.add(taskJson);
@@ -468,62 +454,36 @@ public class TallyService {
                 
                 System.out.println("✅ Prepared task for chunk " + chunkNumber + " (" + chunkBallotIds.size() + " ballots)");
             }
+
+            if (taskDataList.isEmpty()) {
+                System.out.println("✅ All tally chunks already complete — nothing to schedule");
+                job.setStatus("COMPLETED");
+                job.setCompletedAt(Instant.now());
+                job.setProcessedChunks(chunkConfig.getNumChunks());
+                job.setTotalChunks(chunkConfig.getNumChunks());
+                jobRepository.save(job);
+                return;
+            }
             
-            // Register with scheduler - scheduler will handle fair round-robin publishing
             String taskInstanceId = roundRobinTaskScheduler.registerTask(
-                com.amarvote.amarvote.model.scheduler.TaskType.TALLY_CREATION,
+                TaskType.TALLY_CREATION,
                 electionId,
-                null, // no guardianId for tally creation
-                null, // no sourceGuardianId
-                null, // no targetGuardianId
+                null,
+                null,
+                null,
                 taskDataList
             );
             
             System.out.println("=== TASK REGISTERED WITH SCHEDULER ===");
             System.out.println("✅ Task Instance ID: " + taskInstanceId);
-            System.out.println("✅ Total chunks: " + chunkConfig.getNumChunks());
+            System.out.println("✅ Remaining chunks: " + taskDataList.size() + " / " + chunkConfig.getNumChunks());
             System.out.println("Scheduler will publish chunks in fair round-robin order across all active tasks");
-            
-            /* OLD CODE - Replaced with RabbitMQ queue-based processing
-            // ✅ Process each chunk in separate isolated transaction
-            int processedChunks = 0;
-            for (java.util.Map.Entry<Integer, List<Long>> entry : chunkIdMap.entrySet()) {
-                int chunkNumber = entry.getKey();
-                List<Long> chunkBallotIds = entry.getValue();
-                
-                // ✅ Each chunk processed in its own transaction - memory released after completion
-                processTallyChunkTransactional(
-                    electionId,
-                    chunkNumber,
-                    chunkBallotIds,
-                    partyNames,
-                    candidateNames,
-                    election.getJointPublicKey(),
-                    election.getBaseHash(),
-                    election.getElectionQuorum(),
-                    numberOfGuardians
-                );
-                
-                processedChunks++;
-                
-                // ✅ Periodic GC hint every 50 chunks (not every chunk - avoids GC overhead)
-                if (processedChunks % 50 == 0 || processedChunks == chunkConfig.getNumChunks()) {
-                    suggestGCIfNeeded(processedChunks, chunkConfig.getNumChunks(), "Tally Creation");
-                }
-                
-                System.out.println("✅ Chunk " + chunkNumber + " completed. Progress: " + processedChunks + "/" + chunkConfig.getNumChunks());
-            }
-            
-            // Update election status in separate transaction
-            updateElectionStatusTransactional(electionId, "completed");
-            */
             
             System.out.println("=== Tally Creation Initiated Successfully ===");
             
         } catch (Exception e) {
             System.err.println("❌ Error in async tally creation: " + e.getMessage());
         } finally {
-            // Release Redis lock
             redisLockService.releaseLock(lockKey);
             System.out.println("🔓 Tally creation lock released for election: " + electionId);
         }
@@ -695,15 +655,17 @@ public class TallyService {
                 System.out.println("Election has ended, proceeding with tally creation");
             }
             
-            // Check if encrypted tally already exists (check election_center table)
-            List<ElectionCenter> existingChunks = electionCenterRepository.findByElectionId(request.getElection_id());
-            if (!existingChunks.isEmpty()) {
-                System.out.println("Encrypted tally already exists for election (chunks found): " + request.getElection_id());
-                return CreateTallyResponse.builder()
-                    .success(true)
-                    .message("Encrypted tally already calculated")
-                    .encryptedTally("Chunked tallies exist in election_center table")
-                    .build();
+            long completedTallyChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(request.getElection_id());
+            if (completedTallyChunks > 0) {
+                int expectedChunks = getExpectedTallyChunkCount(request.getElection_id());
+                if (expectedChunks > 0 && completedTallyChunks >= expectedChunks) {
+                    System.out.println("Encrypted tally already exists for election: " + request.getElection_id());
+                    return CreateTallyResponse.builder()
+                        .success(true)
+                        .message("Encrypted tally already calculated")
+                        .encryptedTally("Chunked tallies exist in election_center table")
+                        .build();
+                }
             }
             
             // CAST ballots for this election

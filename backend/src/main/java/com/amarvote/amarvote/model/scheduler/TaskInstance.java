@@ -107,6 +107,7 @@ public class TaskInstance {
         long total = chunks.size();
         long completed = chunks.stream().filter(c -> c.getState() == ChunkState.COMPLETED).count();
         long failed = chunks.stream().filter(c -> c.getState() == ChunkState.FAILED).count();
+        long cancelled = chunks.stream().filter(c -> c.getState() == ChunkState.CANCELLED).count();
         long processing = chunks.stream().filter(c -> c.getState() == ChunkState.PROCESSING).count();
         long queued = chunks.stream().filter(c -> c.getState() == ChunkState.QUEUED).count();
         long pending = chunks.stream().filter(c -> c.getState() == ChunkState.PENDING).count();
@@ -120,6 +121,8 @@ public class TaskInstance {
             .totalChunks(total)
             .completedChunks(completed)
             .failedChunks(failed)
+            .cancelledChunks(cancelled)
+            .cancelled(this.cancelled)
             .processingChunks(processing)
             .queuedChunks(queued)
             .pendingChunks(pending)
@@ -142,6 +145,8 @@ public class TaskInstance {
         private long totalChunks;
         private long completedChunks;
         private long failedChunks;
+        private long cancelledChunks;
+        private boolean cancelled;
         private long processingChunks;
         private long queuedChunks;
         private long pendingChunks;
@@ -149,9 +154,17 @@ public class TaskInstance {
         public double getCompletionPercentage() {
             return totalChunks == 0 ? 0.0 : (completedChunks * 100.0) / totalChunks;
         }
+
+        public boolean isActive() {
+            return pendingChunks > 0 || processingChunks > 0 || queuedChunks > 0;
+        }
+
+        public boolean isStopped() {
+            return cancelled || cancelledChunks > 0;
+        }
         
         public boolean isComplete() {
-            return completedChunks + failedChunks == totalChunks;
+            return totalChunks > 0 && completedChunks == totalChunks;
         }
     }
 }

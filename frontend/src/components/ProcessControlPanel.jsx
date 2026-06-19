@@ -8,6 +8,7 @@ const ProcessControlPanel = ({
   canControlTally = false,
   canControlDecryption = false,
   canControlCombine = false,
+  onActionComplete = null,
 }) => {
   const [busy, setBusy] = useState('');
 
@@ -16,6 +17,9 @@ const ProcessControlPanel = ({
     try {
       const result = await fn();
       toast.success(result?.message || successMsg);
+      if (onActionComplete) {
+        onActionComplete(result);
+      }
     } catch (err) {
       toast.error(err.message || 'Operation failed');
     } finally {

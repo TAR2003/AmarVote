@@ -207,9 +207,43 @@ public class RoundRobinTaskScheduler {
                     ti.setCancelled(true);
                     ti.getChunks().stream()
                         .filter(c -> c.getState() == ChunkState.PENDING || c.getState() == ChunkState.QUEUED)
-                        .forEach(c -> c.setState(ChunkState.FAILED));
+                        .forEach(c -> c.setState(ChunkState.CANCELLED));
                     log.info("🛑 Cancelled task instance: {}", ti.getTaskInstanceId());
                 });
+        }
+    }
+
+    /**
+     * Remove matching task instances from memory (used after delete/reset).
+     */
+    public void removeTasks(
+            TaskType taskType,
+            Long electionId,
+            Long guardianId,
+            Long sourceGuardianId,
+            Long targetGuardianId) {
+        synchronized (schedulingLock) {
+            taskInstances.entrySet().removeIf(entry -> {
+                TaskInstance ti = entry.getValue();
+                if (ti.getTaskType() != taskType) {
+                    return false;
+                }
+                if (!ti.getElectionId().equals(electionId)) {
+                    return false;
+                }
+                if (guardianId != null && !guardianId.equals(ti.getGuardianId())) {
+                    return false;
+                }
+                if (sourceGuardianId != null && !sourceGuardianId.equals(ti.getSourceGuardianId())) {
+                    return false;
+                }
+                if (targetGuardianId != null && !targetGuardianId.equals(ti.getTargetGuardianId())) {
+                    return false;
+                }
+                ti.getChunks().forEach(c -> chunksById.remove(c.getChunkId()));
+                log.info("🗑️ Removed task instance: {}", ti.getTaskInstanceId());
+                return true;
+            });
         }
     }
 
@@ -245,6 +279,10 @@ public class RoundRobinTaskScheduler {
             case COMPLETED:
                 chunk.setCompletedAt(Instant.now());
                 totalChunksCompleted.incrementAndGet();
+                dispatchNextChunks();
+                break;
+            case CANCELLED:
+                chunk.setCompletedAt(Instant.now());
                 dispatchNextChunks();
                 break;
             case FAILED:

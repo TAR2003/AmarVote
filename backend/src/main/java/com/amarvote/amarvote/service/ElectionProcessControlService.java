@@ -22,6 +22,7 @@ import com.amarvote.amarvote.repository.ElectionCenterRepository;
 import com.amarvote.amarvote.repository.ElectionJobRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
+import com.amarvote.amarvote.repository.SubmittedBallotRepository;
 import com.amarvote.amarvote.repository.TallyWorkerLogRepository;
 
 import lombok.RequiredArgsConstructor;
@@ -39,6 +40,7 @@ public class ElectionProcessControlService {
     private final DecryptionRepository decryptionRepository;
     private final CompensatedDecryptionRepository compensatedDecryptionRepository;
     private final TallyWorkerLogRepository tallyWorkerLogRepository;
+    private final SubmittedBallotRepository submittedBallotRepository;
     private final DecryptionWorkerLogRepository decryptionWorkerLogRepository;
     private final CombineWorkerLogRepository combineWorkerLogRepository;
     private final ElectionJobRepository electionJobRepository;
@@ -106,14 +108,44 @@ public class ElectionProcessControlService {
         requireProcessControlAccess(electionId, userEmail, null);
         stopTally(electionId, userEmail);
 
+        taskScheduler.removeTasks(
+            TaskType.TALLY_CREATION,
+            electionId,
+            null,
+            null,
+            null
+        );
+        cancellationService.clearStop(electionId, ProcessOperationType.TALLY, null);
+        redisLockService.releaseLock(RedisLockService.buildTallyLockKey(electionId));
+
+        // Tally worker logs span the whole election; clear them even for centers we keep.
+        tallyWorkerLogRepository.deleteByElectionId(electionId);
+
         List<ElectionCenter> centers = electionCenterRepository.findByElectionId(electionId);
         for (ElectionCenter center : centers) {
-            center.setEncryptedTally(null);
+            Long centerId = center.getElectionCenterId();
+
+            // Do not delete centers that already hold decryption/combine data — CASCADE would
+            // wipe guardian decryption shares too, not just the tally.
+            boolean hasDownstreamData =
+                !decryptionRepository.findByElectionCenterId(centerId).isEmpty()
+                || !compensatedDecryptionRepository.findByElectionCenterId(centerId).isEmpty()
+                || (center.getElectionResult() != null && !center.getElectionResult().isBlank())
+                || combineWorkerLogRepository.countByElectionCenterId(centerId) > 0;
+
+            if (hasDownstreamData) {
+                // Center row stays; CASCADE won't run, so clear tally-owned rows manually.
+                submittedBallotRepository.deleteByElectionCenterId(centerId);
+                center.setEncryptedTally(null);
+                electionCenterRepository.save(center);
+            } else {
+                // DB CASCADE removes submitted_ballots, tally_worker_log, etc.
+                electionCenterRepository.delete(center);
+            }
         }
-        electionCenterRepository.saveAll(centers);
-        tallyWorkerLogRepository.deleteByElectionId(electionId);
-        cancellationService.clearStop(electionId, ProcessOperationType.TALLY, null);
+
         publishControlEvent(electionId, "TALLY", "deleted");
+        log.info("Tally data removed for election {} ({} center(s) processed)", electionId, centers.size());
         return Map.of("success", true, "message", "All tally data removed for this election");
     }
 
@@ -133,6 +165,20 @@ public class ElectionProcessControlService {
         }
 
         decryptionWorkerLogRepository.deleteByElectionIdAndDecryptingGuardianId(electionId, guardianId);
+        taskScheduler.removeTasks(
+            com.amarvote.amarvote.model.scheduler.TaskType.PARTIAL_DECRYPTION,
+            electionId,
+            guardianId,
+            null,
+            null
+        );
+        taskScheduler.removeTasks(
+            com.amarvote.amarvote.model.scheduler.TaskType.COMPENSATED_DECRYPTION,
+            electionId,
+            null,
+            guardianId,
+            null
+        );
         guardianRepository.findById(guardianId).ifPresent(g -> {
             g.setDecryptedOrNot(false);
             guardianRepository.save(g);
@@ -155,6 +201,13 @@ public class ElectionProcessControlService {
         }
         electionCenterRepository.saveAll(centers);
         combineWorkerLogRepository.deleteByElectionId(electionId);
+        taskScheduler.removeTasks(
+            com.amarvote.amarvote.model.scheduler.TaskType.COMBINE_DECRYPTION,
+            electionId,
+            null,
+            null,
+            null
+        );
         cancellationService.clearStop(electionId, ProcessOperationType.COMBINE, null);
         publishControlEvent(electionId, "COMBINE", "deleted");
         return Map.of("success", true, "message", "All combined decryption results removed");

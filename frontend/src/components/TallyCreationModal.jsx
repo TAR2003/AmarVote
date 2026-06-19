@@ -257,6 +257,46 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
       );
     }
 
+    if (status.status === 'stopped') {
+      const progress = status.progressPercentage || 0;
+      return (
+        <div className="text-center py-8">
+          <div className="mb-6">
+            <FiAlertCircle className="h-16 w-16 text-amber-500 mx-auto" />
+          </div>
+          <h3 className="text-xl font-semibold text-gray-900 mb-4">
+            Tally Creation Stopped
+          </h3>
+          <p className="text-gray-600 mb-4">
+            Processing was stopped before all chunks finished.
+          </p>
+          <p className="text-sm text-gray-700 mb-6">
+            Completed {status.processedChunks || 0} of {status.totalChunks || 0} chunks ({Math.round(progress)}%)
+          </p>
+          <div className="w-full bg-gray-200 rounded-full h-2 mb-6">
+            <div
+              className="bg-amber-500 h-2 rounded-full transition-all duration-300"
+              style={{ width: `${progress}%` }}
+            ></div>
+          </div>
+          <button
+            onClick={handleCreateTally}
+            disabled={isLoading}
+            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+          >
+            {isLoading ? (
+              <div className="flex items-center space-x-2">
+                <FiLoader className="h-5 w-5 animate-spin" />
+                <span>Resuming...</span>
+              </div>
+            ) : (
+              'Resume Tally Creation'
+            )}
+          </button>
+        </div>
+      );
+    }
+
     if (status.status === 'completed') {
       return (
         <div className="text-center py-8">
@@ -270,7 +310,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
             The encrypted tally has been successfully created.
           </p>
           <p className="text-sm text-gray-500 mb-6">
-            Processed {status.totalChunks} chunk{status.totalChunks !== 1 ? 's' : ''}
+            Processed {status.processedChunks || status.totalChunks} of {status.totalChunks} chunk{status.totalChunks !== 1 ? 's' : ''}
           </p>
           <div className="bg-green-50 border border-green-200 rounded-lg p-4">
             <p className="text-sm text-green-800">

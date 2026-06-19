@@ -196,6 +196,8 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
         return `Generating Compensated Shares`;
       case 'completed':
         return 'Decryption Complete';
+      case 'stopped':
+        return 'Decryption Stopped';
       case 'error':
         return 'Error Occurred';
       default:
@@ -316,6 +318,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                   </h3>
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                     status.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    status.status === 'stopped' ? 'bg-amber-100 text-amber-800' :
                     status.status === 'failed' ? 'bg-red-100 text-red-800' :
                     status.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                     'bg-gray-100 text-gray-800'
@@ -703,6 +706,11 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                 ⚠️ Close this modal and submit the correct credentials file
               </p>
             )}
+            {status && status.status === 'stopped' && (
+              <p className="text-sm text-amber-700 font-medium">
+                ⏸️ Decryption stopped. Submit credentials again to resume remaining chunks.
+              </p>
+            )}
             {status && status.status === 'in_progress' && (
               <p className="text-sm text-blue-600 font-medium">
                 🔄 Processing continues in background after closing
@@ -724,6 +732,14 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                 className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-md"
               >
                 Close & Retry
+              </button>
+            )}
+            {status && status.status === 'stopped' && (
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-colors shadow-md"
+              >
+                Close
               </button>
             )}
             {status && status.status === 'in_progress' && (

@@ -1214,7 +1214,7 @@ public class TaskWorkerService {
         if (chunkId != null) {
             roundRobinTaskScheduler.updateChunkState(
                 chunkId,
-                com.amarvote.amarvote.model.scheduler.ChunkState.FAILED,
+                com.amarvote.amarvote.model.scheduler.ChunkState.CANCELLED,
                 "Cancelled by user"
             );
         }

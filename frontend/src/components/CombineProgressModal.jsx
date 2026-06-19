@@ -111,6 +111,8 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
         return 'Combining Partial Decryptions';
       case 'completed':
         return 'Combination Complete';
+      case 'stopped':
+        return 'Combination Stopped';
       case 'failed':
         return 'Combination Failed';
       default:
@@ -124,6 +126,8 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
     switch (status.status) {
       case 'completed':
         return '#10b981';
+      case 'stopped':
+        return '#f59e0b';
       case 'failed':
         return '#ef4444';
       case 'in_progress':
@@ -143,6 +147,8 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
         return '🔐';
       case 'completed':
         return '✅';
+      case 'stopped':
+        return '⏸️';
       case 'failed':
         return '❌';
       default:
@@ -229,6 +235,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                   </h3>
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${
                     status.status === 'completed' ? 'bg-green-100 text-green-800' :
+                    status.status === 'stopped' ? 'bg-amber-100 text-amber-800' :
                     status.status === 'failed' ? 'bg-red-100 text-red-800' :
                     status.status === 'in_progress' ? 'bg-blue-100 text-blue-800' :
                     'bg-gray-100 text-gray-800'
@@ -386,7 +393,13 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
               View Results
             </button>
           )}
-          {status?.status !== 'completed' && (
+          {status?.status === 'stopped' && (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+              Combine was stopped before all chunks finished. Start combine again to resume remaining chunks.
+            </div>
+          )}
+
+          {status?.status !== 'completed' && status?.status !== 'stopped' && (
             <button
               onClick={onClose}
               className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 transition-colors font-medium"

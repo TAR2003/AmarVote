@@ -28,5 +28,10 @@ public enum ChunkState {
     /**
      * Chunk processing failed with an irrecoverable error
      */
-    FAILED
+    FAILED,
+
+    /**
+     * Chunk was cancelled by a user stop request and will not be retried
+     */
+    CANCELLED
 }
