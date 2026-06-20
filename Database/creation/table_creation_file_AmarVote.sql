@@ -99,6 +99,7 @@ CREATE TABLE IF NOT EXISTS elections (
     admin_email TEXT, -- Added admin_email field
 	privacy TEXT,
     eligibility TEXT,
+    send_ballot_receipt BOOLEAN NOT NULL DEFAULT FALSE,
     CONSTRAINT valid_election_times CHECK (
         (starting_time IS NULL AND ending_time IS NULL)
         OR (starting_time IS NOT NULL AND ending_time IS NOT NULL AND ending_time > starting_time)
@@ -133,6 +134,24 @@ CREATE TABLE IF NOT EXISTS election_co_admins (
     PRIMARY KEY (election_id, admin_email),
     CONSTRAINT fk_election_co_admins FOREIGN KEY (election_id) REFERENCES elections(election_id) ON DELETE CASCADE
 );
+
+-- Scheduled election emails (voters, guardians, or admins/co-admins)
+CREATE TABLE IF NOT EXISTS scheduled_election_emails (
+    email_id BIGSERIAL PRIMARY KEY,
+    election_id BIGINT NOT NULL,
+    recipient_group TEXT NOT NULL CHECK (recipient_group IN ('voters', 'guardians', 'admins')),
+    email_body TEXT NOT NULL,
+    scheduled_time TIMESTAMP WITH TIME ZONE NOT NULL,
+    sent BOOLEAN NOT NULL DEFAULT FALSE,
+    sent_at TIMESTAMP WITH TIME ZONE,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    CONSTRAINT fk_scheduled_email_election FOREIGN KEY (election_id)
+        REFERENCES elections(election_id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_scheduled_election_emails_due
+    ON scheduled_election_emails (scheduled_time)
+    WHERE sent = FALSE;
 
 -- Guardians Table
 CREATE TABLE IF NOT EXISTS guardians (

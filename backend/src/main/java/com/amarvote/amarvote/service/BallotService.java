@@ -13,7 +13,6 @@ import java.util.Set;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -76,9 +75,6 @@ public class BallotService {
 
     @Autowired
     private TaskPublisherService taskPublisherService;
-
-    @Value("${amarvote.email.send-after-vote:false}")
-    private boolean sendEmailAfterVote;
 
     public CastBallotResponse castBallot(CastBallotRequest request, String userEmail) {
         try {
@@ -1008,9 +1004,9 @@ public class BallotService {
                 .orElse("N/A");
     }
 
-        private void queueVoteReceiptEmail(String userEmail, Election election, String hashCode, String trackingCode,
+    private void queueVoteReceiptEmail(String userEmail, Election election, String hashCode, String trackingCode,
             String candidateName, String partyName) {
-        if (!sendEmailAfterVote) {
+        if (!Boolean.TRUE.equals(election.getSendBallotReceipt())) {
             return;
         }
 

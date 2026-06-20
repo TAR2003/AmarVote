@@ -63,6 +63,8 @@ public class ElectionDetailResponse {
     
     // Election eligibility criteria
     private String eligibility; // "listed" or "unlisted"
+
+    private Boolean sendBallotReceipt;
     
     @Data
     @NoArgsConstructor

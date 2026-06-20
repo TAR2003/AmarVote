@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -49,6 +50,9 @@ import com.amarvote.amarvote.dto.GuardianBackupSubmitRequest;
 import com.amarvote.amarvote.dto.GuardianKeyCeremonySubmitRequest;
 import com.amarvote.amarvote.dto.KeyCeremonyPendingElectionResponse;
 import com.amarvote.amarvote.dto.KeyCeremonyStatusResponse;
+import com.amarvote.amarvote.dto.ScheduledElectionEmailRequest;
+import com.amarvote.amarvote.dto.ScheduledElectionEmailResponse;
+import com.amarvote.amarvote.dto.UpdateElectionSettingsRequest;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.service.AuthorizedUserService;
 import com.amarvote.amarvote.service.BallotService;
@@ -56,6 +60,7 @@ import com.amarvote.amarvote.service.BlockchainService;
 import com.amarvote.amarvote.service.CloudinaryService;
 import com.amarvote.amarvote.service.ElectionService;
 import com.amarvote.amarvote.service.PartialDecryptionService;
+import com.amarvote.amarvote.service.ScheduledElectionEmailService;
 import com.amarvote.amarvote.service.TallyService;
 import com.amarvote.amarvote.util.BallotPaddingUtil;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -75,6 +80,7 @@ public class ElectionController {
     private final BlockchainService blockchainService;
     private final CloudinaryService cloudinaryService;
     private final AuthorizedUserService authorizedUserService;
+    private final ScheduledElectionEmailService scheduledElectionEmailService;
     private final ObjectMapper objectMapper;
 
     @PostMapping("/create-election")
@@ -638,6 +644,118 @@ public class ElectionController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("success", false, "message", "Failed to remove voters"));
+        }
+    }
+
+    @PutMapping("/election/{id}/settings")
+    public ResponseEntity<?> updateElectionSettings(
+            @PathVariable Long id,
+            @Valid @RequestBody UpdateElectionSettingsRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = resolveUserEmail(httpRequest);
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            ElectionDetailResponse updated = electionService.updateElectionSettings(id, request, userEmail);
+            return ResponseEntity.ok(Map.of("success", true, "election", updated));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to update election settings"));
+        }
+    }
+
+    @GetMapping("/election/{id}/scheduled-emails")
+    public ResponseEntity<?> listScheduledEmails(
+            @PathVariable Long id,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = resolveUserEmail(httpRequest);
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            List<ScheduledElectionEmailResponse> emails = scheduledElectionEmailService.listScheduledEmails(id, userEmail);
+            return ResponseEntity.ok(Map.of("success", true, "scheduledEmails", emails));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to load scheduled emails"));
+        }
+    }
+
+    @PostMapping("/election/{id}/scheduled-emails")
+    public ResponseEntity<?> createScheduledEmail(
+            @PathVariable Long id,
+            @Valid @RequestBody ScheduledElectionEmailRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = resolveUserEmail(httpRequest);
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            ScheduledElectionEmailResponse created =
+                    scheduledElectionEmailService.createScheduledEmail(id, request, userEmail);
+            return ResponseEntity.ok(Map.of("success", true, "scheduledEmail", created));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to schedule email"));
+        }
+    }
+
+    @PutMapping("/election/{id}/scheduled-emails/{emailId}")
+    public ResponseEntity<?> updateScheduledEmail(
+            @PathVariable Long id,
+            @PathVariable Long emailId,
+            @Valid @RequestBody ScheduledElectionEmailRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = resolveUserEmail(httpRequest);
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            ScheduledElectionEmailResponse updated =
+                    scheduledElectionEmailService.updateScheduledEmail(id, emailId, request, userEmail);
+            return ResponseEntity.ok(Map.of("success", true, "scheduledEmail", updated));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to update scheduled email"));
+        }
+    }
+
+    @DeleteMapping("/election/{id}/scheduled-emails/{emailId}")
+    public ResponseEntity<?> deleteScheduledEmail(
+            @PathVariable Long id,
+            @PathVariable Long emailId,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = resolveUserEmail(httpRequest);
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            scheduledElectionEmailService.deleteScheduledEmail(id, emailId, userEmail);
+            return ResponseEntity.ok(Map.of("success", true, "message", "Scheduled email deleted"));
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Failed to delete scheduled email"));
         }
     }
 

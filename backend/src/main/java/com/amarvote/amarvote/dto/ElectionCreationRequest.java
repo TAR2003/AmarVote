@@ -23,7 +23,8 @@ public record ElectionCreationRequest(
     List<String> coAdminEmails,
     Instant startingTime,
     Instant endingTime,
-    Integer maxChoices
+    Integer maxChoices,
+    Boolean sendBallotReceipt
 ) {
     @AssertTrue(message = "Ending time must be after starting time")
     public boolean isEndingAfterStarting() {

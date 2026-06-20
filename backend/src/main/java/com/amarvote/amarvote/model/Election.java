@@ -100,6 +100,10 @@ public class Election {
     @Column(name = "max_choices")
     @Builder.Default
     private Integer maxChoices = 1;
+
+    @Column(name = "send_ballot_receipt")
+    @Builder.Default
+    private Boolean sendBallotReceipt = false;
 }
 
 

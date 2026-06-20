@@ -28,7 +28,8 @@ const CreateElection = () => {
         coAdminEmails: [],
         candidateNames: [""],
         candidatePictures: [""],
-        maxChoices: 1
+        maxChoices: 1,
+        sendBallotReceipt: false
     });
 
     // Track image URLs for preview
@@ -768,6 +769,24 @@ const CreateElection = () => {
                                 <span className="ml-2 text-gray-700">Anyone Can Vote</span>
                             </label>
                         </div>
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="inline-flex items-start gap-2 cursor-pointer">
+                            <input
+                                type="checkbox"
+                                name="sendBallotReceipt"
+                                checked={form.sendBallotReceipt}
+                                onChange={(e) => setForm((prev) => ({ ...prev, sendBallotReceipt: e.target.checked }))}
+                                className="form-checkbox h-5 w-5 text-blue-600 mt-0.5"
+                            />
+                            <span>
+                                <span className="block text-gray-700 font-medium">Send ballot receipts by email</span>
+                                <span className="block text-sm text-gray-600 mt-1">
+                                    When enabled, voters receive an email receipt after casting their ballot. Admins and co-admins can change this later on the election page.
+                                </span>
+                            </span>
+                        </label>
                     </div>
 
                     {(form.electionPrivacy === "private" || form.electionEligibility === "listed") && (

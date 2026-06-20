@@ -76,6 +76,7 @@ import VoterStatusSlot from '../components/VoterStatusSlot';
 import BallotWorkflowModal from '../components/BallotWorkflowModal';
 import GuardianProgressPanel from '../components/GuardianProgressPanel';
 import ProcessControlPanel from '../components/ProcessControlPanel';
+import ScheduledEmailTab from '../components/ScheduledEmailTab';
 import useElectionProgressStream from '../hooks/useElectionProgressStream';
 import {
   getSnapshotFromEvent,
@@ -104,6 +105,7 @@ const subMenus = [
   { name: 'Ballots in Tally', key: 'ballots', path: 'ballots-in-tally', icon: FiDatabase },
   { name: 'Verify Your Vote', key: 'verify', path: 'verify-vote', icon: FiHash },
   { name: 'Verification', key: 'verification', path: 'verification', icon: FiEye },
+  { name: 'Send Email', key: 'send-email', path: 'send-email', icon: FiMail, adminOnly: true },
   { name: 'Worker Proceedings', key: 'worker-proceedings', path: 'worker-proceedings', icon: FiActivity },
 ];
 
@@ -1662,14 +1664,9 @@ export default function ElectionPage() {
   const [activationSchedule, setActivationSchedule] = useState({
     startingTime: '',
     endingTime: '',
-    sendReminder: false,
-    reminderRecipients: [],
-    reminderSubject: '',
-    reminderBody: '',
-    reminderTime: '',
-    recipientInput: '',
   });
   const [activatingElection, setActivatingElection] = useState(false);
+  const [settingsSaving, setSettingsSaving] = useState(false);
   const [keyCeremonyUiMessage, setKeyCeremonyUiMessage] = useState('');
   const [keyCeremonyUiError, setKeyCeremonyUiError] = useState('');
   const [guardianCeremonyForm, setGuardianCeremonyForm] = useState({
@@ -3263,62 +3260,25 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
     }
   };
 
-  useEffect(() => {
-    if (!electionData?.electionId) {
-      return;
-    }
+  const canManageElectionPrivacy = () =>
+    electionData?.userRoles?.includes('admin') || electionData?.userRoles?.includes('guardian');
 
-    const defaultRecipients = (electionData.voters || [])
-      .map((voter) => (voter?.userEmail || '').trim().toLowerCase())
-      .filter(Boolean);
+  const canManageBallotReceiptSetting = () =>
+    electionData?.userRoles?.includes('admin');
 
-    const electionLink = `${window.location.origin}/election-page/${electionData.electionId}`;
-    const defaultSubject = `Reminder: "${electionData.electionTitle || 'Election'}" starts soon`;
-    const defaultBody = [
-      'Dear voter,',
-      '',
-      `This is a reminder for the upcoming election: ${electionData.electionTitle || 'Election'}.`,
-      '',
-      `Description: ${electionData.electionDescription || 'Please review election details.'}`,
-      `Election page: ${electionLink}`,
-      '',
-      'Please participate within the voting window.',
-      '',
-      'Regards,',
-      'AmarVote Team',
-    ].join('\n');
-
-    setActivationSchedule((prev) => ({
-      ...prev,
-      reminderRecipients: prev.reminderRecipients.length ? prev.reminderRecipients : defaultRecipients,
-      reminderSubject: prev.reminderSubject || defaultSubject,
-      reminderBody: prev.reminderBody || defaultBody,
-    }));
-  }, [electionData]);
-
-  const handleAddReminderRecipient = () => {
-    const email = (activationSchedule.recipientInput || '').trim().toLowerCase();
-    if (!email) {
-      return;
-    }
-
-    setActivationSchedule((prev) => {
-      if (prev.reminderRecipients.includes(email)) {
-        return { ...prev, recipientInput: '' };
+  const handleUpdateElectionSettings = async (settings) => {
+    try {
+      setSettingsSaving(true);
+      const response = await electionApi.updateElectionSettings(id, settings);
+      if (response?.election) {
+        setElectionData(response.election);
       }
-      return {
-        ...prev,
-        reminderRecipients: [...prev.reminderRecipients, email],
-        recipientInput: '',
-      };
-    });
-  };
-
-  const handleRemoveReminderRecipient = (email) => {
-    setActivationSchedule((prev) => ({
-      ...prev,
-      reminderRecipients: prev.reminderRecipients.filter((item) => item !== email),
-    }));
+      toast.success('Election settings updated');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update election settings');
+    } finally {
+      setSettingsSaving(false);
+    }
   };
 
   const handleActivateElectionFromGuardianTab = async () => {
@@ -3327,46 +3287,15 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
       return;
     }
 
-    if (activationSchedule.sendReminder) {
-      if (!activationSchedule.reminderTime) {
-        toast.error('Reminder time is required when reminder is enabled');
-        return;
-      }
-      if (!activationSchedule.reminderRecipients.length) {
-        toast.error('Add at least one reminder receiver');
-        return;
-      }
-      if (!activationSchedule.reminderSubject.trim() || !activationSchedule.reminderBody.trim()) {
-        toast.error('Reminder subject and body are required');
-        return;
-      }
-    }
-
     try {
       setActivatingElection(true);
       await electionApi.activateElectionAfterCeremony(
         id,
         new Date(activationSchedule.startingTime).toISOString(),
-        new Date(activationSchedule.endingTime).toISOString(),
-        {
-          sendReminder: activationSchedule.sendReminder,
-          reminderRecipients: activationSchedule.reminderRecipients,
-          reminderSubject: activationSchedule.reminderSubject,
-          reminderBody: activationSchedule.reminderBody,
-          reminderTime: activationSchedule.sendReminder && activationSchedule.reminderTime
-            ? new Date(activationSchedule.reminderTime).toISOString()
-            : null,
-        }
+        new Date(activationSchedule.endingTime).toISOString()
       );
       toast.success('Election activated successfully');
-      setActivationSchedule((prev) => ({
-        ...prev,
-        startingTime: '',
-        endingTime: '',
-        sendReminder: false,
-        reminderTime: '',
-        recipientInput: '',
-      }));
+      setActivationSchedule({ startingTime: '', endingTime: '' });
       await fetchElectionData();
     } catch (err) {
       toast.error(err.message || 'Failed to activate election');
@@ -3526,6 +3455,9 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   if (menu.key === 'worker-proceedings' && electionData?.status === 'key_ceremony_pending') {
                     return false;
                   }
+                  if (menu.adminOnly && !electionData?.userRoles?.includes('admin')) {
+                    return false;
+                  }
                   return true;
                 })
                 .map((menu) => {
@@ -3576,8 +3508,54 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     <p><span className="font-medium">Title:</span> {electionData.electionTitle}</p>
                     <p><span className="font-medium">Description:</span> {electionData.electionDescription || 'No description provided'}</p>
                     <p><span className="font-medium">Status:</span> {electionData.status}</p>
-                    <p><span className="font-medium">Privacy:</span> {electionData.isPublic ? 'Public' : 'Private'}</p>
+                    <div>
+                      <span className="font-medium">Privacy:</span>{' '}
+                      {canManageElectionPrivacy() ? (
+                        <span className="inline-flex flex-wrap items-center gap-3 ml-1">
+                          <label className="inline-flex items-center gap-1 text-sm">
+                            <input
+                              type="radio"
+                              name="electionPrivacy"
+                              checked={electionData.isPublic}
+                              disabled={settingsSaving}
+                              onChange={() => handleUpdateElectionSettings({ privacy: 'public' })}
+                            />
+                            Public
+                          </label>
+                          <label className="inline-flex items-center gap-1 text-sm">
+                            <input
+                              type="radio"
+                              name="electionPrivacy"
+                              checked={!electionData.isPublic}
+                              disabled={settingsSaving}
+                              onChange={() => handleUpdateElectionSettings({ privacy: 'private' })}
+                            />
+                            Private
+                          </label>
+                        </span>
+                      ) : (
+                        electionData.isPublic ? 'Public' : 'Private'
+                      )}
+                    </div>
                     <p><span className="font-medium">Voting Eligibility:</span> {electionData.eligibility === 'listed' ? 'Listed voters only' : 'Open to anyone'}</p>
+                    <div>
+                      <span className="font-medium">Ballot receipt emails:</span>{' '}
+                      {canManageBallotReceiptSetting() ? (
+                        <label className="inline-flex items-center gap-2 ml-1 text-sm">
+                          <input
+                            type="checkbox"
+                            checked={!!electionData.sendBallotReceipt}
+                            disabled={settingsSaving}
+                            onChange={(e) =>
+                              handleUpdateElectionSettings({ sendBallotReceipt: e.target.checked })
+                            }
+                          />
+                          Send receipt by email after voting
+                        </label>
+                      ) : (
+                        electionData.sendBallotReceipt ? 'Enabled' : 'Disabled'
+                      )}
+                    </div>
                     <p><span className="font-medium">Admin:</span> {electionData.adminName ? `${electionData.adminName} (${electionData.adminEmail})` : electionData.adminEmail}</p>
                     {electionData.coAdminEmails?.length > 0 && (
                       <p>
@@ -4436,7 +4414,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         <div className="mt-1 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
                           <h5 className="font-medium text-emerald-900 mb-2">Key ceremony finished</h5>
                           <p className="text-sm text-emerald-800 mb-3">
-                            Set election schedule now to activate voting. You can also configure reminder emails here.
+                            Set the election schedule now to activate voting. Use the Send Email tab to schedule messages to voters, guardians, or admins.
                           </p>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
@@ -4459,91 +4437,6 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               />
                             </label>
                           </div>
-
-                          <label className="flex items-center gap-2 text-sm font-medium text-emerald-900 mb-3">
-                            <input
-                              type="checkbox"
-                              checked={activationSchedule.sendReminder}
-                              onChange={(e) => setActivationSchedule((prev) => ({ ...prev, sendReminder: e.target.checked }))}
-                            />
-                            <FiMail className="h-4 w-4" />
-                            Send reminder email to voters
-                          </label>
-
-                          <div className={`rounded-xl border border-emerald-200 bg-white p-3 mb-3 space-y-3 ${activationSchedule.sendReminder ? '' : 'opacity-70'}`}>
-                            {!activationSchedule.sendReminder && (
-                              <p className="text-xs text-gray-600">
-                                Enable "Send reminder email to voters" to activate these fields.
-                              </p>
-                            )}
-                              <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-600 mb-1">Email Receivers</p>
-                                <div className="max-h-24 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2 flex flex-wrap gap-2">
-                                  {activationSchedule.reminderRecipients.map((email) => (
-                                    <span key={email} className="inline-flex items-center gap-1 px-2 py-1 text-xs rounded-full bg-emerald-100 text-emerald-800">
-                                      {email}
-                                      <button
-                                        type="button"
-                                        disabled={!activationSchedule.sendReminder}
-                                        onClick={() => handleRemoveReminderRecipient(email)}
-                                      >
-                                        <FiX className="h-3 w-3" />
-                                      </button>
-                                    </span>
-                                  ))}
-                                </div>
-                                <div className="flex gap-2 mt-2">
-                                  <input
-                                    type="email"
-                                    placeholder="Add receiver email"
-                                    disabled={!activationSchedule.sendReminder}
-                                    value={activationSchedule.recipientInput}
-                                    onChange={(e) => setActivationSchedule((prev) => ({ ...prev, recipientInput: e.target.value }))}
-                                    className="flex-1 px-3 py-2 border border-gray-300 rounded-md"
-                                  />
-                                  <button
-                                    type="button"
-                                    disabled={!activationSchedule.sendReminder}
-                                    onClick={handleAddReminderRecipient}
-                                    className="px-3 py-2 bg-emerald-700 text-white rounded-md hover:bg-emerald-800 disabled:opacity-60 flex items-center gap-1"
-                                  >
-                                    <FiPlus className="h-4 w-4" /> Add
-                                  </button>
-                                </div>
-                              </div>
-
-                              <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-600 mb-1">Subject</p>
-                                <input
-                                  type="text"
-                                  disabled={!activationSchedule.sendReminder}
-                                  value={activationSchedule.reminderSubject}
-                                  onChange={(e) => setActivationSchedule((prev) => ({ ...prev, reminderSubject: e.target.value }))}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md"
-                                />
-                              </div>
-
-                              <div>
-                                <p className="text-xs font-semibold uppercase tracking-wide text-gray-600 mb-1">Body</p>
-                                <textarea
-                                  disabled={!activationSchedule.sendReminder}
-                                  value={activationSchedule.reminderBody}
-                                  onChange={(e) => setActivationSchedule((prev) => ({ ...prev, reminderBody: e.target.value }))}
-                                  className="w-full px-3 py-2 border border-gray-300 rounded-md min-h-28"
-                                />
-                              </div>
-
-                              <label className="space-y-1 block">
-                                <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Reminder Send Time</span>
-                                <input
-                                  type="datetime-local"
-                                  disabled={!activationSchedule.sendReminder}
-                                  value={activationSchedule.reminderTime}
-                                  onChange={(e) => setActivationSchedule((prev) => ({ ...prev, reminderTime: e.target.value }))}
-                                  className="w-full px-3 py-2 border-2 border-emerald-200 focus:border-emerald-500 rounded-md outline-none"
-                                />
-                              </label>
-                            </div>
 
                           <button
                             onClick={handleActivateElectionFromGuardianTab}
@@ -5527,6 +5420,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               return <VerifyVoteSection electionId={id} resultsData={rawVerificationData} />;
             })()}
           </div>
+        )}
+
+        {/* Send Email Tab */}
+        {activeTab === 'send-email' && electionData?.userRoles?.includes('admin') && (
+          <ScheduledEmailTab electionId={Number(id)} electionData={electionData} />
         )}
 
         {/* Verification Tab */}

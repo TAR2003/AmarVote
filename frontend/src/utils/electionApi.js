@@ -155,21 +155,13 @@ export const electionApi = {
     }
   },
 
-  async activateElectionAfterCeremony(electionId, startingTime, endingTime, reminderConfig = null) {
+  async activateElectionAfterCeremony(electionId, startingTime, endingTime) {
     try {
       const payload = {
         electionId,
         startingTime,
         endingTime,
       };
-
-      if (reminderConfig) {
-        payload.sendReminder = !!reminderConfig.sendReminder;
-        payload.reminderRecipients = reminderConfig.reminderRecipients || [];
-        payload.reminderSubject = reminderConfig.reminderSubject || '';
-        payload.reminderBody = reminderConfig.reminderBody || '';
-        payload.reminderTime = reminderConfig.reminderTime || null;
-      }
 
       return await apiRequest('/admin/key-ceremony/activate', {
         method: 'POST',
@@ -688,6 +680,64 @@ export const electionApi = {
       }, EXTENDED_TIMEOUT);
     } catch (error) {
       console.error('Error removing all voters:', error);
+      throw error;
+    }
+  },
+
+  async updateElectionSettings(electionId, settings) {
+    try {
+      return await apiRequest(`/election/${electionId}/settings`, {
+        method: 'PUT',
+        body: JSON.stringify(settings),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error updating election settings:', error);
+      throw error;
+    }
+  },
+
+  async listScheduledEmails(electionId) {
+    try {
+      return await apiRequest(`/election/${electionId}/scheduled-emails`, {
+        method: 'GET',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error listing scheduled emails:', error);
+      throw error;
+    }
+  },
+
+  async createScheduledEmail(electionId, payload) {
+    try {
+      return await apiRequest(`/election/${electionId}/scheduled-emails`, {
+        method: 'POST',
+        body: JSON.stringify(payload),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error creating scheduled email:', error);
+      throw error;
+    }
+  },
+
+  async updateScheduledEmail(electionId, emailId, payload) {
+    try {
+      return await apiRequest(`/election/${electionId}/scheduled-emails/${emailId}`, {
+        method: 'PUT',
+        body: JSON.stringify(payload),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error updating scheduled email:', error);
+      throw error;
+    }
+  },
+
+  async deleteScheduledEmail(electionId, emailId) {
+    try {
+      return await apiRequest(`/election/${electionId}/scheduled-emails/${emailId}`, {
+        method: 'DELETE',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error deleting scheduled email:', error);
       throw error;
     }
   },

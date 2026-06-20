@@ -28,6 +28,7 @@ import com.amarvote.amarvote.dto.GuardianKeyCeremonySubmitRequest;
 import com.amarvote.amarvote.dto.KeyCeremonyPendingElectionResponse;
 import com.amarvote.amarvote.dto.KeyCeremonyStatusResponse;
 import com.amarvote.amarvote.dto.OptimizedElectionResponse;
+import com.amarvote.amarvote.dto.UpdateElectionSettingsRequest;
 import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.CompensatedDecryption;
 import com.amarvote.amarvote.model.Decryption;
@@ -170,6 +171,7 @@ public class ElectionService {
         election.setEligibility(request.electionEligibility()); // Set eligibility field
         Integer requestedMaxChoices = request.maxChoices();
         election.setMaxChoices(requestedMaxChoices != null ? requestedMaxChoices : 1);
+        election.setSendBallotReceipt(Boolean.TRUE.equals(request.sendBallotReceipt()));
 
         // ✅ Save to DB to get generated ID
         election = electionRepository.save(election);
@@ -393,6 +395,51 @@ public class ElectionService {
 
         allowedVoterRepository.delete(voter);
         return getVoterInfoForElection(electionId, userEmail);
+    }
+
+    @Transactional
+    public ElectionDetailResponse updateElectionSettings(
+            Long electionId, UpdateElectionSettingsRequest request, String userEmail) {
+        Election election = electionRepository.findById(electionId)
+                .orElseThrow(() -> new IllegalArgumentException("Election not found"));
+
+        boolean updated = false;
+
+        if (request.privacy() != null) {
+            if (!canUserManageElectionPrivacy(election, userEmail)) {
+                throw new IllegalArgumentException(
+                        "Only the election creator, co-admins, or assigned guardians can change privacy");
+            }
+            String privacy = request.privacy().trim().toLowerCase();
+            if (!"public".equals(privacy) && !"private".equals(privacy)) {
+                throw new IllegalArgumentException("Privacy must be public or private");
+            }
+            election.setPrivacy(privacy);
+            updated = true;
+        }
+
+        if (request.sendBallotReceipt() != null) {
+            requireElectionAdmin(election, userEmail, "Only election admins can change ballot receipt settings");
+            election.setSendBallotReceipt(request.sendBallotReceipt());
+            updated = true;
+        }
+
+        if (!updated) {
+            throw new IllegalArgumentException("No settings provided to update");
+        }
+
+        electionRepository.save(election);
+        return buildElectionDetailResponse(election, userEmail);
+    }
+
+    private boolean canUserManageElectionPrivacy(Election election, String userEmail) {
+        if (userEmail == null || userEmail.isBlank()) {
+            return false;
+        }
+        if (userHasAdminRole(election, userEmail)) {
+            return true;
+        }
+        return !guardianRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail).isEmpty();
     }
 
     @Transactional
@@ -983,49 +1030,6 @@ public class ElectionService {
             election.setStartingTime(request.startingTime());
             election.setEndingTime(request.endingTime());
 
-            boolean sendReminder = Boolean.TRUE.equals(request.sendReminder());
-            if (sendReminder) {
-                if (request.reminderTime() == null) {
-                    throw new IllegalArgumentException("Reminder time is required when reminder is enabled");
-                }
-                if (!request.endingTime().isAfter(request.reminderTime())) {
-                    throw new IllegalArgumentException("Reminder time must be before election ending time");
-                }
-
-                List<String> recipients = sanitizeReminderRecipients(request.reminderRecipients());
-                if (recipients.isEmpty()) {
-                    recipients = allowedVoterRepository.findByElectionId(request.electionId())
-                            .stream()
-                            .map(AllowedVoter::getUserEmail)
-                            .map(this::normalizeEmail)
-                            .filter(email -> email != null && !email.isBlank())
-                            .distinct()
-                            .collect(Collectors.toList());
-                }
-                if (recipients.isEmpty()) {
-                    throw new IllegalArgumentException("No reminder recipients found for this election");
-                }
-
-                String reminderSubject = (request.reminderSubject() == null || request.reminderSubject().isBlank())
-                        ? defaultReminderSubject(election)
-                        : request.reminderSubject().trim();
-                String reminderBody = (request.reminderBody() == null || request.reminderBody().isBlank())
-                        ? defaultReminderBody(election)
-                        : request.reminderBody().trim();
-
-                election.setReminderTime(request.reminderTime());
-                election.setReminderSent(false);
-                election.setReminderSubject(reminderSubject);
-                election.setReminderBody(reminderBody);
-                election.setReminderRecipients(objectMapper.writeValueAsString(recipients));
-            } else {
-                election.setReminderTime(null);
-                election.setReminderSent(false);
-                election.setReminderSubject(null);
-                election.setReminderBody(null);
-                election.setReminderRecipients(null);
-            }
-
             election.setStatus("draft");
             electionRepository.save(election);
 
@@ -1035,8 +1039,6 @@ public class ElectionService {
             response.put("jointPublicKey", election.getJointPublicKey());
             response.put("startingTime", election.getStartingTime());
             response.put("endingTime", election.getEndingTime());
-            response.put("reminderTime", election.getReminderTime());
-            response.put("reminderSent", election.getReminderSent());
             return response;
         } catch (Exception e) {
             Throwable root = e;
@@ -1048,35 +1050,8 @@ public class ElectionService {
         }
     }
 
-    private List<String> sanitizeReminderRecipients(List<String> recipients) {
-        if (recipients == null || recipients.isEmpty()) {
-            return new ArrayList<>();
-        }
-
-        return recipients.stream()
-                .map(this::normalizeEmail)
-                .filter(email -> email != null && !email.isBlank())
-                .distinct()
-                .collect(Collectors.toList());
-    }
-
     private String normalizeEmail(String email) {
         return email == null ? null : email.trim().toLowerCase();
-    }
-
-    private String defaultReminderSubject(Election election) {
-        return "Reminder: \"" + election.getElectionTitle() + "\" is opening soon";
-    }
-
-    private String defaultReminderBody(Election election) {
-        String title = election.getElectionTitle() == null ? "Election" : election.getElectionTitle();
-        String description = election.getElectionDescription() == null ? "" : election.getElectionDescription();
-        return "Dear voter,\n\n"
-                + "This is a reminder that the election \"" + title + "\" is scheduled to start soon.\n\n"
-                + "Election description:\n" + description + "\n\n"
-                + "Election page: /election/" + election.getElectionId() + "\n\n"
-                + "Please cast your vote within the election window.\n\n"
-                + "Regards,\nAmarVote Team";
     }
 
     public Map<String, Object> getGuardianLocalDecryptionPassword(Long electionId, String userEmail) {
@@ -1515,6 +1490,7 @@ public class ElectionService {
                 .userRoles(userRoles)
                 .isPublic(isPublic)
                 .eligibility(election.getEligibility())
+                .sendBallotReceipt(Boolean.TRUE.equals(election.getSendBallotReceipt()))
                 .build();
     }
 
