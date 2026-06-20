@@ -83,7 +83,7 @@ public class TaskPublisherService {
             task.setAttempt(0);
         }
         System.out.println("📤 Publishing email task type=" + task.getEmailType()
-                + ", to=" + task.getToEmail()
+                + ", to=" + formatRecipient(task)
                 + ", attempt=" + task.getAttempt());
         rabbitTemplate.convertAndSend(
             RabbitMQConfig.TASK_EXCHANGE,
@@ -105,5 +105,12 @@ public class TaskPublisherService {
             .receiptContent(task.getReceiptContent())
             .build();
         publishEmailTask(emailTask);
+    }
+
+    private static String formatRecipient(EmailTask task) {
+        if (task.getToEmails() != null && !task.getToEmails().isEmpty()) {
+            return task.getToEmails().size() + " recipients (batch)";
+        }
+        return task.getToEmail();
     }
 }

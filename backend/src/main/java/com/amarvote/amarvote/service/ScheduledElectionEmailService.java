@@ -154,24 +154,18 @@ public class ScheduledElectionEmailService {
         }
 
         String subject = buildSubject(election, scheduled.getRecipientGroup());
-        int queued = 0;
 
-        for (String recipient : recipients) {
-            try {
-                emailService.sendReminderEmail(recipient, subject, scheduled.getEmailBody());
-                queued++;
-            } catch (Exception ex) {
-                System.err.println("Failed to queue scheduled email " + emailId + " for " + recipient + ": "
-                        + ex.getMessage());
-                throw new IllegalStateException("Failed to queue all scheduled email recipients", ex);
-            }
-        }
-
-        if (queued == recipients.size()) {
+        try {
+            emailService.sendBulkReminderEmail(recipients, subject, scheduled.getEmailBody());
             scheduled.setSent(true);
             scheduled.setSentAt(Instant.now());
             scheduledEmailRepository.save(scheduled);
-            System.out.println("📅 Scheduled email " + emailId + " queued for " + queued + " recipient(s)");
+            int batchCount = (recipients.size() + 99) / 100;
+            System.out.println("📅 Scheduled email " + emailId + " queued for " + recipients.size()
+                    + " recipient(s) across " + batchCount + " batch task(s)");
+        } catch (Exception ex) {
+            System.err.println("Failed to queue scheduled email " + emailId + ": " + ex.getMessage());
+            throw new IllegalStateException("Failed to queue scheduled email recipients", ex);
         }
     }
 

@@ -1,6 +1,7 @@
 package com.amarvote.amarvote.email;
 
 import java.nio.charset.StandardCharsets;
+import java.util.List;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ByteArrayResource;
@@ -57,6 +58,13 @@ public class SmtpEmailSender implements EmailSender {
             mailSender.send(mimeMessage);
         } catch (MessagingException e) {
             throw new RuntimeException("Failed to send email via SMTP", e);
+        }
+    }
+
+    @Override
+    public void sendBatch(List<EmailMessage> messages) {
+        for (EmailMessage message : messages) {
+            send(message);
         }
     }
 }

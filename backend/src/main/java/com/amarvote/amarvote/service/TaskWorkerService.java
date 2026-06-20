@@ -114,17 +114,24 @@ public class TaskWorkerService {
         try {
             System.out.println("=== WORKER: Processing Email Task ===");
             System.out.println("Type: " + task.getEmailType()
-                    + ", Recipient: " + task.getToEmail()
+                    + ", Recipient: " + formatRecipient(task)
                     + ", Attempt: " + (task.getAttempt() + 1));
 
             emailService.processEmailTask(task);
 
             System.out.println("✅ Email task completed for " + task.getToEmail());
         } catch (Exception e) {
-            System.err.println("❌ Email task failed for " + task.getToEmail()
+            System.err.println("❌ Email task failed for " + formatRecipient(task)
                     + " (attempt " + (task.getAttempt() + 1) + "): " + e.getMessage());
             throw new RuntimeException("Email delivery failed", e);
         }
+    }
+
+    private static String formatRecipient(EmailTask task) {
+        if (task.getToEmails() != null && !task.getToEmails().isEmpty()) {
+            return task.getToEmails().size() + " recipients (batch)";
+        }
+        return task.getToEmail();
     }
 
     /**

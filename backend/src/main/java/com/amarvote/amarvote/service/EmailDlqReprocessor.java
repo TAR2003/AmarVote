@@ -43,7 +43,7 @@ public class EmailDlqReprocessor {
             if (nextAttempt >= maxAttempts) {
                 System.err.println("❌ Email permanently failed after " + maxAttempts
                         + " attempts — type=" + task.getEmailType()
-                        + ", to=" + task.getToEmail()
+                        + ", to=" + formatRecipient(task)
                         + ", electionId=" + task.getElectionId());
                 continue;
             }
@@ -51,11 +51,18 @@ public class EmailDlqReprocessor {
             task.setAttempt(nextAttempt);
             taskPublisherService.publishEmailTask(task);
             System.out.println("♻️ Re-queued email from DLQ (attempt " + nextAttempt + "/"
-                    + maxAttempts + ") — type=" + task.getEmailType() + ", to=" + task.getToEmail());
+                    + maxAttempts + ") — type=" + task.getEmailType() + ", to=" + formatRecipient(task));
         }
 
         if (processed > 0) {
             System.out.println("📬 Email DLQ reprocessor handled " + processed + " message(s)");
         }
+    }
+
+    private static String formatRecipient(EmailTask task) {
+        if (task.getToEmails() != null && !task.getToEmails().isEmpty()) {
+            return task.getToEmails().size() + " recipients (batch)";
+        }
+        return task.getToEmail();
     }
 }

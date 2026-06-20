@@ -1,6 +1,8 @@
 package com.amarvote.amarvote.dto.worker;
 
 import java.io.Serializable;
+import java.util.ArrayList;
+import java.util.List;
 
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -24,11 +26,13 @@ public class EmailTask implements Serializable {
         GUARDIAN_CREDENTIAL,
         OTP,
         VOTE_RECEIPT,
-        REMINDER
+        REMINDER,
+        BATCH_REMINDER
     }
 
     private EmailType emailType;
     private String toEmail;
+    private List<String> toEmails;
 
     private String token;
     private String code;

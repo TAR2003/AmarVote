@@ -3,8 +3,11 @@ package com.amarvote.amarvote.service;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Locale;
 
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
 
@@ -12,6 +15,7 @@ import com.amarvote.amarvote.dto.worker.EmailTask;
 import com.amarvote.amarvote.email.EmailAttachment;
 import com.amarvote.amarvote.email.EmailDeliveryGateway;
 import com.amarvote.amarvote.email.EmailMessage;
+import com.amarvote.amarvote.email.ResendEmailSender;
 
 import lombok.RequiredArgsConstructor;
 
@@ -25,6 +29,9 @@ public class EmailService {
 
     private final EmailDeliveryGateway emailDeliveryGateway;
     private final TaskPublisherService taskPublisherService;
+
+    @Value("${amarvote.email.batch-size:100}")
+    private int batchSize;
 
     public void sendSignupVerificationEmail(String toEmail, String token) {
         taskPublisherService.publishEmailTask(EmailTask.builder()
@@ -81,12 +88,29 @@ public class EmailService {
     }
 
     public void sendReminderEmail(String toEmail, String subject, String htmlContent) {
-        taskPublisherService.publishEmailTask(EmailTask.builder()
-                .emailType(EmailTask.EmailType.REMINDER)
-                .toEmail(toEmail)
-                .subject(subject)
-                .htmlContent(htmlContent)
-                .build());
+        sendBulkReminderEmail(List.of(toEmail), subject, htmlContent);
+    }
+
+    /**
+     * Queues batch tasks (up to 100 recipients per Resend API call) for identical reminder content.
+     */
+    public void sendBulkReminderEmail(List<String> toEmails, String subject, String htmlContent) {
+        if (toEmails == null || toEmails.isEmpty()) {
+            return;
+        }
+
+        int chunkSize = Math.min(Math.max(batchSize, 1), ResendEmailSender.MAX_BATCH_SIZE);
+        for (int index = 0; index < toEmails.size(); index += chunkSize) {
+            List<String> chunk = new ArrayList<>(
+                    toEmails.subList(index, Math.min(index + chunkSize, toEmails.size())));
+
+            taskPublisherService.publishEmailTask(EmailTask.builder()
+                    .emailType(EmailTask.EmailType.BATCH_REMINDER)
+                    .toEmails(chunk)
+                    .subject(subject)
+                    .htmlContent(htmlContent)
+                    .build());
+        }
     }
 
     public void sendVoteReceiptEmail(String toEmail, String electionTitle, Long electionId, String receiptContent,
@@ -136,6 +160,10 @@ public class EmailService {
                 String html = task.getHtmlContent() == null ? "" : task.getHtmlContent().replace("\n", "<br/>");
                 deliverHtmlEmail(task.getToEmail(), task.getSubject(), html);
             }
+            case BATCH_REMINDER -> sendBatchReminderEmailImmediate(
+                    task.getToEmails(),
+                    task.getSubject(),
+                    task.getHtmlContent());
             default -> throw new IllegalArgumentException("Unsupported email task type: " + task.getEmailType());
         }
     }
@@ -204,6 +232,23 @@ public class EmailService {
                 .subject(subject)
                 .htmlContent(htmlContent)
                 .build());
+    }
+
+    private void sendBatchReminderEmailImmediate(List<String> toEmails, String subject, String rawContent) {
+        if (toEmails == null || toEmails.isEmpty()) {
+            return;
+        }
+
+        String html = rawContent == null ? "" : rawContent.replace("\n", "<br/>");
+        List<EmailMessage> messages = toEmails.stream()
+                .map(toEmail -> EmailMessage.builder()
+                        .to(toEmail)
+                        .subject(subject)
+                        .htmlContent(html)
+                        .build())
+                .toList();
+
+        emailDeliveryGateway.deliverBatch(messages);
     }
 
     private String buildVoteReceiptFilename(String electionTitle, Long electionId, String trackingCode) {
