@@ -1326,10 +1326,10 @@ public class ElectionService {
      * Get detailed election information by ID
      * Returns election details if the user is authorized to view it
      * Authorization rules:
-     * 1. User is the admin
+     * 1. User is the admin or a co-admin
      * 2. User is a guardian
      * 3. User is a voter
-     * 4. Election is public (no allowed voters)
+     * 4. Election privacy is public
      * 
      * @param electionId The ID of the election to retrieve
      * @param userEmail  The email of the user requesting the election
@@ -1397,12 +1397,6 @@ public class ElectionService {
                 userEmail);
         if (allowedVoterOpt.isPresent()) {
             System.out.println("User is voter of election " + election.getElectionId());
-            return true;
-        }
-
-        // Open elections (unlisted eligibility) are visible to any authenticated user
-        if ("unlisted".equals(election.getEligibility())) {
-            System.out.println("Election " + election.getElectionId() + " is open (unlisted eligibility)");
             return true;
         }
 
