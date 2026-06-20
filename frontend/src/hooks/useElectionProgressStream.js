@@ -28,7 +28,7 @@ export function useElectionProgressStream(electionId, { enabled = true, onEvent 
   const handlePayload = useCallback((raw) => {
     try {
       const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
-      if (!parsed || parsed.eventType === 'heartbeat') {
+      if (!parsed || parsed.eventType === 'heartbeat' || parsed.eventType === 'connect') {
         return;
       }
       setLastEvent(parsed);
