@@ -79,7 +79,12 @@ public class TaskPublisherService {
      * Publish a generic email task to the dedicated email queue.
      */
     public void publishEmailTask(EmailTask task) {
-        System.out.println("📤 Publishing email task type=" + task.getEmailType() + ", to=" + task.getToEmail());
+        if (task.getAttempt() < 0) {
+            task.setAttempt(0);
+        }
+        System.out.println("📤 Publishing email task type=" + task.getEmailType()
+                + ", to=" + task.getToEmail()
+                + ", attempt=" + task.getAttempt());
         rabbitTemplate.convertAndSend(
             RabbitMQConfig.TASK_EXCHANGE,
             RabbitMQConfig.EMAIL_ROUTING_KEY,

@@ -10,8 +10,8 @@ import org.springframework.stereotype.Service;
 
 import com.amarvote.amarvote.dto.worker.EmailTask;
 import com.amarvote.amarvote.email.EmailAttachment;
+import com.amarvote.amarvote.email.EmailDeliveryGateway;
 import com.amarvote.amarvote.email.EmailMessage;
-import com.amarvote.amarvote.email.EmailSender;
 
 import lombok.RequiredArgsConstructor;
 
@@ -23,7 +23,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class EmailService {
 
-    private final EmailSender emailSender;
+    private final EmailDeliveryGateway emailDeliveryGateway;
     private final TaskPublisherService taskPublisherService;
 
     public void sendSignupVerificationEmail(String toEmail, String token) {
@@ -177,7 +177,7 @@ public class EmailService {
                         credentialFilePath))
                 .build();
 
-        emailSender.send(message);
+        emailDeliveryGateway.deliver(message);
     }
 
     private void sendVoteReceiptEmailImmediate(String toEmail, String electionTitle, Long electionId, String receiptContent,
@@ -195,11 +195,11 @@ public class EmailService {
                         receiptContent.getBytes(StandardCharsets.UTF_8)))
                 .build();
 
-        emailSender.send(message);
+        emailDeliveryGateway.deliver(message);
     }
 
     private void deliverHtmlEmail(String toEmail, String subject, String htmlContent) {
-        emailSender.send(EmailMessage.builder()
+        emailDeliveryGateway.deliver(EmailMessage.builder()
                 .to(toEmail)
                 .subject(subject)
                 .htmlContent(htmlContent)

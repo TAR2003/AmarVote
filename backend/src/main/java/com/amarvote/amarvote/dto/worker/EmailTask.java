@@ -46,4 +46,8 @@ public class EmailTask implements Serializable {
 
     private String subject;
     private String htmlContent;
+
+    /** Number of delivery attempts already performed (0 on first publish). */
+    @Builder.Default
+    private int attempt = 0;
 }

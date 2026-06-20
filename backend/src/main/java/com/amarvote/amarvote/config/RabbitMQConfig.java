@@ -160,7 +160,8 @@ public class RabbitMQConfig {
 
     /**
      * Dedicated listener factory for the email queue.
-     * Email tasks are independent I/O-bound work — higher prefetch is safe here.
+     * Email tasks are independent I/O-bound work on a separate queue from
+     * tally/decryption workers, so bulk sends do not compete for compute-heavy workers.
      */
     @Bean
     public SimpleRabbitListenerContainerFactory emailRabbitListenerContainerFactory(ConnectionFactory connectionFactory) {

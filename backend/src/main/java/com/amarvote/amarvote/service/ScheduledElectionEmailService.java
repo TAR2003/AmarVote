@@ -9,7 +9,9 @@ import java.util.stream.Collectors;
 
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.PlatformTransactionManager;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionTemplate;
 
 import com.amarvote.amarvote.dto.ScheduledElectionEmailRequest;
 import com.amarvote.amarvote.dto.ScheduledElectionEmailResponse;
@@ -24,10 +26,7 @@ import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.ScheduledElectionEmailRepository;
 
-import lombok.RequiredArgsConstructor;
-
 @Service
-@RequiredArgsConstructor
 public class ScheduledElectionEmailService {
 
     private final ScheduledElectionEmailRepository scheduledEmailRepository;
@@ -36,6 +35,24 @@ public class ScheduledElectionEmailService {
     private final GuardianRepository guardianRepository;
     private final ElectionCoAdminRepository electionCoAdminRepository;
     private final EmailService emailService;
+    private final TransactionTemplate transactionTemplate;
+
+    public ScheduledElectionEmailService(
+            ScheduledElectionEmailRepository scheduledEmailRepository,
+            ElectionRepository electionRepository,
+            AllowedVoterRepository allowedVoterRepository,
+            GuardianRepository guardianRepository,
+            ElectionCoAdminRepository electionCoAdminRepository,
+            EmailService emailService,
+            PlatformTransactionManager transactionManager) {
+        this.scheduledEmailRepository = scheduledEmailRepository;
+        this.electionRepository = electionRepository;
+        this.allowedVoterRepository = allowedVoterRepository;
+        this.guardianRepository = guardianRepository;
+        this.electionCoAdminRepository = electionCoAdminRepository;
+        this.emailService = emailService;
+        this.transactionTemplate = new TransactionTemplate(transactionManager);
+    }
 
     public List<ScheduledElectionEmailResponse> listScheduledEmails(Long electionId, String userEmail) {
         Election election = requireElection(electionId);
@@ -97,7 +114,6 @@ public class ScheduledElectionEmailService {
     }
 
     @Scheduled(fixedDelayString = "${amarvote.scheduled-email.poll-ms:60000}")
-    @Transactional
     public void dispatchDueEmails() {
         List<ScheduledElectionEmail> dueEmails =
                 scheduledEmailRepository.findByScheduledTimeLessThanEqualAndSentFalse(Instant.now());
@@ -107,28 +123,55 @@ public class ScheduledElectionEmailService {
 
         for (ScheduledElectionEmail scheduled : dueEmails) {
             try {
-                Election election = electionRepository.findById(scheduled.getElectionId()).orElse(null);
-                if (election == null) {
-                    scheduled.setSent(true);
-                    scheduled.setSentAt(Instant.now());
-                    scheduledEmailRepository.save(scheduled);
-                    continue;
-                }
-
-                List<String> recipients = resolveRecipients(election, scheduled.getRecipientGroup());
-                String subject = buildSubject(election, scheduled.getRecipientGroup());
-
-                for (String recipient : recipients) {
-                    emailService.sendReminderEmail(recipient, subject, scheduled.getEmailBody());
-                }
-
-                scheduled.setSent(true);
-                scheduled.setSentAt(Instant.now());
-                scheduledEmailRepository.save(scheduled);
+                transactionTemplate.executeWithoutResult(status -> dispatchSingleScheduledEmail(scheduled.getEmailId()));
             } catch (Exception ex) {
                 System.err.println("Failed to dispatch scheduled email " + scheduled.getEmailId() + ": "
                         + ex.getMessage());
             }
+        }
+    }
+
+    private void dispatchSingleScheduledEmail(Long emailId) {
+        ScheduledElectionEmail scheduled = scheduledEmailRepository.findById(emailId).orElse(null);
+        if (scheduled == null || Boolean.TRUE.equals(scheduled.getSent())) {
+            return;
+        }
+
+        Election election = electionRepository.findById(scheduled.getElectionId()).orElse(null);
+        if (election == null) {
+            scheduled.setSent(true);
+            scheduled.setSentAt(Instant.now());
+            scheduledEmailRepository.save(scheduled);
+            return;
+        }
+
+        List<String> recipients = resolveRecipients(election, scheduled.getRecipientGroup());
+        if (recipients.isEmpty()) {
+            scheduled.setSent(true);
+            scheduled.setSentAt(Instant.now());
+            scheduledEmailRepository.save(scheduled);
+            return;
+        }
+
+        String subject = buildSubject(election, scheduled.getRecipientGroup());
+        int queued = 0;
+
+        for (String recipient : recipients) {
+            try {
+                emailService.sendReminderEmail(recipient, subject, scheduled.getEmailBody());
+                queued++;
+            } catch (Exception ex) {
+                System.err.println("Failed to queue scheduled email " + emailId + " for " + recipient + ": "
+                        + ex.getMessage());
+                throw new IllegalStateException("Failed to queue all scheduled email recipients", ex);
+            }
+        }
+
+        if (queued == recipients.size()) {
+            scheduled.setSent(true);
+            scheduled.setSentAt(Instant.now());
+            scheduledEmailRepository.save(scheduled);
+            System.out.println("📅 Scheduled email " + emailId + " queued for " + queued + " recipient(s)");
         }
     }
 
