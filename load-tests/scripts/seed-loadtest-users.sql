@@ -18,14 +18,6 @@ SELECT
 FROM generate_series(1, 2000) AS g
 ON CONFLICT (email) DO NOTHING;
 
-INSERT INTO authorized_users (email, user_type, created_at)
-SELECT
-  'loadtest-voter-' || LPAD(g::text, 4, '0') || '@' || trim(both '''' from :'email_domain'),
-  'user',
-  NOW()
-FROM generate_series(1, 2000) AS g
-ON CONFLICT DO NOTHING;
-
 -- For listed elections — add voters to election 10
 INSERT INTO allowed_voters (election_id, user_email)
 SELECT :election_id,

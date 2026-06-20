@@ -6,7 +6,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -44,13 +43,6 @@ public class ElectionProgressStreamService {
         return thread;
     });
 
-    /** Background sends — keeps Tomcat request threads free after subscribe returns. */
-    private final ExecutorService sseWorker = Executors.newCachedThreadPool(r -> {
-        Thread thread = new Thread(r, "election-sse-worker");
-        thread.setDaemon(true);
-        return thread;
-    });
-
     {
         heartbeatScheduler.scheduleAtFixedRate(
             this::sendHeartbeats,
@@ -68,18 +60,7 @@ public class ElectionProgressStreamService {
         emitter.onTimeout(() -> removeEmitter(electionId, emitter));
         emitter.onError(ex -> removeEmitter(electionId, emitter));
 
-        try {
-            emitter.send(SseEmitter.event()
-                .name("connect")
-                .data("{\"eventType\":\"connect\"}"));
-        } catch (IOException e) {
-            removeEmitter(electionId, emitter);
-            emitter.completeWithError(e);
-            return emitter;
-        }
-
-        // Heavy snapshot queries run off the request thread so Tomcat recycles immediately.
-        sseWorker.execute(() -> sendSnapshot(emitter, electionId, userEmail));
+        sendSnapshot(emitter, electionId, userEmail);
         return emitter;
     }
 
@@ -195,8 +176,7 @@ public class ElectionProgressStreamService {
     }
 
     @PreDestroy
-    void shutdown() {
+    void shutdownHeartbeat() {
         heartbeatScheduler.shutdownNow();
-        sseWorker.shutdownNow();
     }
 }

@@ -40,6 +40,7 @@ public class AuthorizedUserService {
 
     private static final Set<String> MANAGE_ROLES = Set.of(USER_TYPE_ADMIN, USER_TYPE_OWNER);
     private static final Pattern CSV_SPLITTER = Pattern.compile("[\\n\\r,;\\t ]+");
+    private static final Pattern LOADTEST_EMAIL = Pattern.compile("^loadtest-voter-\\d+@.+$", Pattern.CASE_INSENSITIVE);
 
     private final AuthorizedUserRepository authorizedUserRepository;
     private final AppUserRepository appUserRepository;
@@ -103,6 +104,9 @@ public class AuthorizedUserService {
     @Transactional
     public void markLastActive(String email) {
         String normalized = normalizeEmail(email);
+        if (LOADTEST_EMAIL.matcher(normalized).matches()) {
+            return;
+        }
         AuthorizedUser record = authorizedUserRepository.findByEmail(normalized)
                 .orElseGet(() -> AuthorizedUser.builder()
                         .email(normalized)
