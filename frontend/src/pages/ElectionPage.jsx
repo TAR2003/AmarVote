@@ -121,7 +121,7 @@ const ElectionTimer = ({ startTime, endTime }) => {
     const updateTimer = () => {
       if (!startTime || !endTime) {
         setTimeInfo({
-          timeLeft: 'Waiting for key ceremony completion and schedule activation',
+          timeLeft: 'Election schedule not set yet',
           progress: 0,
           phase: 'upcoming'
         });
@@ -134,7 +134,6 @@ const ElectionTimer = ({ startTime, endTime }) => {
       const totalDuration = end - start;
 
       if (now < start) {
-        // Election hasn't started
         const timeUntilStart = start - now;
         const days = Math.floor(timeUntilStart / (1000 * 60 * 60 * 24));
         const hours = Math.floor((timeUntilStart % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -144,17 +143,15 @@ const ElectionTimer = ({ startTime, endTime }) => {
         setTimeInfo({
           timeLeft: `${days}d ${hours}h ${minutes}m ${seconds}s until start`,
           progress: 0,
-          phase: 'upcoming'
+          phase: 'scheduled'
         });
       } else if (now > end) {
-        // Election has ended
         setTimeInfo({
-          timeLeft: 'Election has ended',
+          timeLeft: 'Election has finished',
           progress: 100,
-          phase: 'ended'
+          phase: 'finished'
         });
       } else {
-        // Election is active
         const elapsed = now - start;
         const remaining = end - now;
         const progressPercent = (elapsed / totalDuration) * 100;
@@ -167,7 +164,7 @@ const ElectionTimer = ({ startTime, endTime }) => {
         setTimeInfo({
           timeLeft: `${days}d ${hours}h ${minutes}m ${seconds}s remaining`,
           progress: progressPercent,
-          phase: 'active'
+          phase: 'ongoing'
         });
       }
     };
@@ -181,8 +178,9 @@ const ElectionTimer = ({ startTime, endTime }) => {
   const getProgressColor = () => {
     switch (timeInfo.phase) {
       case 'upcoming': return '#f59e0b';
-      case 'active': return '#10b981';
-      case 'ended': return '#ef4444';
+      case 'scheduled': return '#3b82f6';
+      case 'ongoing': return '#10b981';
+      case 'finished': return '#ef4444';
       default: return '#6b7280';
     }
   };
@@ -1706,7 +1704,7 @@ export default function ElectionPage() {
 
         // Auto-load results if election has ended
         const electionStatus = getElectionStatusFromData(data);
-        if (electionStatus === 'Ended') {
+        if (electionStatus === 'finished') {
           const guardiansSubmitted = data.guardiansSubmitted || 0;
           const electionQuorum = data.electionQuorum || data.totalGuardians || 0;
           const quorumMet = guardiansSubmitted >= electionQuorum;
@@ -1975,22 +1973,14 @@ export default function ElectionPage() {
 
   // Define functions first
   const getElectionStatus = useCallback(() => {
-    if (!electionData) return 'Unknown';
-    if (!electionData.startingTime || !electionData.endingTime) return 'Key Ceremony';
-
-    const now = new Date();
-    const startDate = new Date(electionData.startingTime);
-    const endDate = new Date(electionData.endingTime);
-
-    if (now < startDate) return 'Upcoming';
-    if (now > endDate) return 'Ended';
-    return 'Active';
+    if (!electionData) return 'unknown';
+    return timezoneUtils.getElectionStatus(electionData.startingTime, electionData.endingTime);
   }, [electionData]);
 
   const canUserViewResults = useCallback(() => {
     return electionData?.userRoles?.includes('admin') ||
       electionData?.userRoles?.includes('guardian') ||
-      getElectionStatus() === 'Ended';
+      getElectionStatus() === 'finished';
   }, [electionData, getElectionStatus]);
 
   const processElectionResults = useCallback((apiResponseData = null, electionDataParam = null) => {
@@ -2860,24 +2850,16 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
   };
 
   const getElectionStatusFromData = (data) => {
-    if (!data) return 'Unknown';
-    if (!data.startingTime || !data.endingTime) return 'Key Ceremony';
-
-    const now = new Date();
-    const startDate = new Date(data.startingTime);
-    const endDate = new Date(data.endingTime);
-
-    if (now < startDate) return 'Upcoming';
-    if (now > endDate) return 'Ended';
-    return 'Active';
+    if (!data) return 'unknown';
+    return timezoneUtils.getElectionStatus(data.startingTime, data.endingTime);
   };
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'Key Ceremony': return 'bg-purple-100 text-purple-800';
-      case 'Upcoming': return 'bg-yellow-100 text-yellow-800';
-      case 'Active': return 'bg-green-100 text-green-800';
-      case 'Ended': return 'bg-red-100 text-red-800';
+      case 'upcoming': return 'bg-amber-100 text-amber-800';
+      case 'scheduled': return 'bg-blue-100 text-blue-800';
+      case 'ongoing': return 'bg-green-100 text-green-800';
+      case 'finished': return 'bg-red-100 text-red-800';
       default: return 'bg-gray-100 text-gray-800';
     }
   };
@@ -3037,7 +3019,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
     if (!canUserManageGuardian()) return { canSubmit: false, reason: 'Not a guardian' };
 
     const electionStatus = getElectionStatus();
-    if (electionStatus !== 'Ended') {
+    if (electionStatus !== 'finished') {
       return { canSubmit: false, reason: 'Election has not ended yet' };
     }
 
@@ -3434,7 +3416,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-4 flex-wrap w-full sm:w-auto">
-              <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium ${getStatusColor(getElectionStatus())}`}>
+              <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium capitalize ${getStatusColor(getElectionStatus())}`}>
                 {getElectionStatus()}
               </span>
               <div className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm text-gray-600">
@@ -4797,7 +4779,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 <div>
                   <h4 className="font-medium text-gray-900 mb-3">Guardian Status</h4>
 
-                  {getElectionStatus() === 'Ended' && (
+                  {getElectionStatus() === 'finished' && (
                     <>
                       {/* Guardian Progress Summary */}
                       <div className="mb-4 p-3 bg-gray-50 rounded-lg">

@@ -107,15 +107,17 @@ export const timezoneUtils = {
     });
   },
 
-  // Get election status based on current time
+  // Time-based election status for display (independent of backend workflow status)
   getElectionStatus(startTime, endTime) {
+    if (!startTime || !endTime) return 'upcoming';
+
     const now = new Date();
     const start = new Date(startTime);
     const end = new Date(endTime);
-    
-    if (now < start) return 'upcoming';
-    if (now > end) return 'completed';
-    return 'ongoing';
+
+    if (now > end) return 'finished';
+    if (now >= start) return 'ongoing';
+    return 'scheduled';
   }
 };
 
