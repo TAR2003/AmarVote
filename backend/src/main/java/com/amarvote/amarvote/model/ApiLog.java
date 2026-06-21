@@ -2,6 +2,8 @@ package com.amarvote.amarvote.model;
 
 import java.time.LocalDateTime;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
@@ -97,6 +99,8 @@ public class ApiLog {
         this.userAgent = userAgent;
     }
 
+    /** Legacy column — no longer populated; kept for schema compatibility. */
+    @JsonIgnore
     public String getBearerToken() {
         return bearerToken;
     }
@@ -113,6 +117,8 @@ public class ApiLog {
         this.extractedEmail = extractedEmail;
     }
 
+    /** Legacy column — no longer populated; kept for schema compatibility. */
+    @JsonIgnore
     public String getRequestBody() {
         return requestBody;
     }

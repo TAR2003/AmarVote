@@ -2,13 +2,13 @@ package com.amarvote.amarvote.filter;
 
 import java.io.IOException;
 import java.time.LocalDateTime;
+import java.util.regex.Pattern;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
-import org.springframework.web.util.ContentCachingRequestWrapper;
-import org.springframework.web.util.ContentCachingResponseWrapper;
 
 import com.amarvote.amarvote.model.ApiLog;
 import com.amarvote.amarvote.service.ApiLogService;
@@ -20,109 +20,100 @@ import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 
+/**
+ * Records metadata-only access logs (method, path, status, IP, user email, timing).
+ * Does not persist JWTs, request bodies, or response bodies.
+ */
 @Component
-@Order(1) // Execute before JWTFilter
+@Order(1)
 public class ApiLoggingFilter extends OncePerRequestFilter {
+
+    private static final Pattern PROGRESS_STREAM = Pattern.compile("^/api/elections/\\d+/progress/stream$");
 
     @Autowired
     private ApiLogService apiLogService;
-    
+
     @Autowired
     private JWTService jwtService;
 
+    @Value("${amarvote.api-logging.enabled:true}")
+    private boolean loggingEnabled;
+
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
+        if (!loggingEnabled) {
+            return true;
+        }
+
         String path = request.getRequestURI();
-        // SSE streams must not be wrapped — ContentCachingResponseWrapper breaks event delivery
-        return path != null && path.matches("/api/elections/\\d+/progress/stream");
+        if (path == null) {
+            return false;
+        }
+
+        if ("OPTIONS".equalsIgnoreCase(request.getMethod())) {
+            return true;
+        }
+
+        if (path.startsWith("/actuator") || "/api/health".equals(path)) {
+            return true;
+        }
+
+        return PROGRESS_STREAM.matcher(path).matches();
     }
 
     @Override
     protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
             throws ServletException, IOException {
-        
+
         long startTime = System.currentTimeMillis();
-        
-        // Wrap request and response to capture content
-        ContentCachingRequestWrapper wrappedRequest = new ContentCachingRequestWrapper(request);
-        ContentCachingResponseWrapper wrappedResponse = new ContentCachingResponseWrapper(response);
-        
-        // Create log entry
+
         ApiLog apiLog = new ApiLog();
         apiLog.setRequestMethod(request.getMethod());
         apiLog.setRequestPath(request.getRequestURI());
         apiLog.setRequestIp(getClientIp(request));
-        apiLog.setUserAgent(request.getHeader("User-Agent"));
+        apiLog.setUserAgent(truncate(request.getHeader("User-Agent"), 500));
         apiLog.setRequestTime(LocalDateTime.now());
-        
-        // Extract JWT token
-        String jwtToken = extractJwtToken(request);
-        if (jwtToken != null) {
-            apiLog.setBearerToken(jwtToken);
-            
-            // Try to extract email from token
-            try {
-                String email = jwtService.extractUserEmailFromToken(jwtToken);
-                apiLog.setExtractedEmail(email);
-            } catch (Exception e) {
-                // Token might be invalid, but we still log it
-            }
+
+        String email = extractEmailFromRequest(request);
+        if (email != null) {
+            apiLog.setExtractedEmail(email);
         }
-        
+
         try {
-            // Continue the filter chain
-            filterChain.doFilter(wrappedRequest, wrappedResponse);
-            
-            // After request processing
-            long endTime = System.currentTimeMillis();
-            apiLog.setResponseTime(endTime - startTime);
-            apiLog.setResponseStatus(wrappedResponse.getStatus());
-            
-            // Get request body (for POST/PUT/PATCH)
-            if ("POST".equalsIgnoreCase(request.getMethod()) || 
-                "PUT".equalsIgnoreCase(request.getMethod()) || 
-                "PATCH".equalsIgnoreCase(request.getMethod())) {
-                
-                byte[] content = wrappedRequest.getContentAsByteArray();
-                if (content.length > 0) {
-                    String requestBody = new String(content, wrappedRequest.getCharacterEncoding());
-                    // Truncate if too long
-                    if (requestBody.length() > 5000) {
-                        requestBody = requestBody.substring(0, 5000) + "... [truncated]";
-                    }
-                    // Don't log sensitive data like passwords
-                    if (!requestBody.contains("password") && !requestBody.contains("otp_code")) {
-                        apiLog.setRequestBody(requestBody);
-                    }
-                }
-            }
-            
+            filterChain.doFilter(request, response);
+            apiLog.setResponseStatus(response.getStatus());
         } catch (Exception e) {
-            apiLog.setErrorMessage(e.getMessage());
-            apiLog.setResponseStatus(500);
+            apiLog.setErrorMessage(truncate(e.getMessage(), 500));
+            apiLog.setResponseStatus(response.getStatus() > 0 ? response.getStatus() : 500);
             throw e;
         } finally {
-            // Save log asynchronously
+            apiLog.setResponseTime(System.currentTimeMillis() - startTime);
             try {
                 apiLogService.saveLog(apiLog);
             } catch (Exception e) {
-                // Don't fail the request if logging fails
                 System.err.println("Failed to save API log: " + e.getMessage());
             }
-            
-            // Copy response back to original response
-            wrappedResponse.copyBodyToResponse();
         }
     }
-    
+
+    private String extractEmailFromRequest(HttpServletRequest request) {
+        String jwtToken = extractJwtToken(request);
+        if (jwtToken == null) {
+            return null;
+        }
+        try {
+            return jwtService.extractUserEmailFromToken(jwtToken);
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
     private String extractJwtToken(HttpServletRequest request) {
-        // First try Authorization header
         String authHeader = request.getHeader("Authorization");
         if (authHeader != null && authHeader.startsWith("Bearer ")) {
             return authHeader.substring(7);
         }
-        
-        // Then try cookie
+
         Cookie[] cookies = request.getCookies();
         if (cookies != null) {
             for (Cookie cookie : cookies) {
@@ -131,10 +122,10 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
                 }
             }
         }
-        
+
         return null;
     }
-    
+
     private String getClientIp(HttpServletRequest request) {
         String ip = request.getHeader("X-Forwarded-For");
         if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
@@ -143,10 +134,19 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
             ip = request.getRemoteAddr();
         }
-        // If multiple IPs, take the first one
         if (ip != null && ip.contains(",")) {
             ip = ip.split(",")[0].trim();
         }
         return ip;
+    }
+
+    private static String truncate(String value, int maxLength) {
+        if (value == null) {
+            return null;
+        }
+        if (value.length() <= maxLength) {
+            return value;
+        }
+        return value.substring(0, maxLength);
     }
 }

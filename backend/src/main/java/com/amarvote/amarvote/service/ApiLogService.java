@@ -1,8 +1,10 @@
 package com.amarvote.amarvote.service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -17,6 +19,9 @@ public class ApiLogService {
     
     @Autowired
     private ApiLogRepository apiLogRepository;
+
+    @Value("${amarvote.api-logging.retention-days:90}")
+    private int retentionDays;
     
     @Transactional
     public void saveLog(ApiLog log) {
@@ -70,5 +75,19 @@ public class ApiLogService {
             }
         }
         return deleted;
+    }
+
+    @Transactional
+    public int scrubSensitiveFields() {
+        return apiLogRepository.scrubSensitiveFields();
+    }
+
+    @Transactional
+    public int purgeLogsOlderThanRetention() {
+        if (retentionDays <= 0) {
+            return 0;
+        }
+        LocalDateTime cutoff = LocalDateTime.now().minusDays(retentionDays);
+        return apiLogRepository.deleteByRequestTimeBefore(cutoff);
     }
 }

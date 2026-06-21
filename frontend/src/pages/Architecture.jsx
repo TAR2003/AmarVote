@@ -247,7 +247,7 @@ const Architecture = () => {
                     "partial_decryption + compensated_decryption: per-guardian, per-chunk share tables",
                     "election_result: final plaintext totals + Chaum-Pedersen proof JSON per candidate",
                     "election_job: task_id, phase, chunk_index, status, attempt_count, error_message",
-                    "api_log: method, path, status, request_body, response_body, execution_ms",
+                    "api_log: method, path, status, execution_ms, user_email, IP",
                     "user, otp, voter_eligibility, election_image: auth + eligibility + media tables",
                   ]
                 },

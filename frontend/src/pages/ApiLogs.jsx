@@ -354,7 +354,7 @@ export default function ApiLogs() {
                   API Logs Analytics
                 </h1>
               </div>
-              <p className="text-sm text-slate-500 ml-1">Real-time monitoring · Security tracking · User activity</p>
+              <p className="text-sm text-slate-500 ml-1">Metadata-only access logs · No tokens or request bodies · 90-day retention</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">

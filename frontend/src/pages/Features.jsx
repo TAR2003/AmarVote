@@ -363,7 +363,7 @@ function Features() {
                 ]} />
               <FeatureCard icon="📝" color="amber" title="Audit & Transparency"
                 items={[
-                  "Every API call logged: method, path, status, request body, response body, timing, user",
+                  "Every API call logged: method, path, status, timing, user email, IP (no tokens or bodies)",
                   "Admin API log page: paginated table with search",
                   "Election audit trail: all ballots, all chunks, all partial shares in DB",
                   "Guardian decrypted_or_not flag: transparency over who participated",

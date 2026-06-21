@@ -543,10 +543,10 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 </div>
                 <div className="bg-white border border-gray-200 rounded-2xl p-5">
                   <h3 className="font-bold text-gray-900 mb-4">API Audit Logging</h3>
-                  <p className="text-gray-700 text-sm mb-3">All API requests and responses are logged to the api_log table in PostgreSQL with request body, response body, status code, execution time, and user identity (if authenticated).</p>
+                  <p className="text-gray-700 text-sm mb-3">API access metadata (method, path, status, IP, user email, timing) is logged to the api_logs table for admin audit. JWTs and request bodies are never stored; logs are purged after 90 days.</p>
                   <div className="space-y-2 text-sm text-gray-700">
                     <div><strong>Table:</strong> api_log</div>
-                    <div><strong>Fields:</strong> method, path, status_code, request_body, response_body, execution_ms, user_email, timestamp</div>
+                    <div><strong>Fields:</strong> method, path, status_code, execution_ms, user_email, IP, timestamp</div>
                     <div><strong>Admin view:</strong> /api-logs page in admin dashboard (paginated)</div>
                     <div><strong>Use cases:</strong> Security audit, debugging, performance monitoring</div>
                   </div>

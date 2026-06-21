@@ -6,7 +6,9 @@ import java.util.List;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
+import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import com.amarvote.amarvote.model.ApiLog;
@@ -35,4 +37,16 @@ public interface ApiLogRepository extends JpaRepository<ApiLog, Long> {
     // Custom query for statistics
     @Query("SELECT COUNT(a) FROM ApiLog a WHERE a.responseStatus >= 400")
     long countErrorLogs();
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("""
+            UPDATE ApiLog a
+               SET a.bearerToken = null, a.requestBody = null
+             WHERE a.bearerToken IS NOT NULL OR a.requestBody IS NOT NULL
+            """)
+    int scrubSensitiveFields();
+
+    @Modifying(clearAutomatically = true, flushAutomatically = true)
+    @Query("DELETE FROM ApiLog a WHERE a.requestTime < :cutoff")
+    int deleteByRequestTimeBefore(@Param("cutoff") LocalDateTime cutoff);
 }
