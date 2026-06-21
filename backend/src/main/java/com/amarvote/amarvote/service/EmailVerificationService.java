@@ -24,6 +24,7 @@ public class EmailVerificationService {
     private final OtpVerificationRepository otpVerificationRepository;
     private final EmailService emailService;
     private final TempJwtService tempJwtService;
+    private final AuthRateLimitService authRateLimitService;
 
     @Transactional
     @SuppressWarnings("null")
@@ -72,17 +73,20 @@ public class EmailVerificationService {
     @Transactional
     public Optional<String> verifyEmailCodeAndIssueToken(String email, String code) {
         String normalizedEmail = email.trim().toLowerCase();
+        authRateLimitService.ensureAllowed("email-verify", normalizedEmail);
 
         Optional<OtpVerification> verificationOpt = otpVerificationRepository
                 .findByUserEmailAndOtpCodeAndIsUsedFalseAndExpiresAtAfter(normalizedEmail, code, Instant.now());
 
         if (verificationOpt.isEmpty()) {
+            authRateLimitService.recordFailure("email-verify", normalizedEmail);
             return Optional.empty();
         }
 
         OtpVerification verification = verificationOpt.get();
         verification.setIsUsed(true);
         otpVerificationRepository.save(verification);
+        authRateLimitService.resetFailures("email-verify", normalizedEmail);
 
         return Optional.of(tempJwtService.generateEmailVerificationToken(normalizedEmail));
     }
@@ -90,17 +94,20 @@ public class EmailVerificationService {
     @Transactional
     public Optional<String> verifyPasswordResetCodeAndIssueToken(String email, String code) {
         String normalizedEmail = email.trim().toLowerCase();
+        authRateLimitService.ensureAllowed("password-reset-verify", normalizedEmail);
 
         Optional<OtpVerification> verificationOpt = otpVerificationRepository
                 .findByUserEmailAndOtpCodeAndIsUsedFalseAndExpiresAtAfter(normalizedEmail, code, Instant.now());
 
         if (verificationOpt.isEmpty()) {
+            authRateLimitService.recordFailure("password-reset-verify", normalizedEmail);
             return Optional.empty();
         }
 
         OtpVerification verification = verificationOpt.get();
         verification.setIsUsed(true);
         otpVerificationRepository.save(verification);
+        authRateLimitService.resetFailures("password-reset-verify", normalizedEmail);
 
         return Optional.of(tempJwtService.generatePasswordResetToken(normalizedEmail));
     }

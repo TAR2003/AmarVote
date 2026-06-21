@@ -8,8 +8,13 @@ import com.amarvote.amarvote.repository.TallyWorkerLogRepository;
 import com.amarvote.amarvote.repository.DecryptionWorkerLogRepository;
 import com.amarvote.amarvote.repository.CombineWorkerLogRepository;
 import com.amarvote.amarvote.repository.ElectionJobRepository;
+import com.amarvote.amarvote.service.ElectionService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 import java.time.Duration;
@@ -20,134 +25,132 @@ import java.util.stream.Collectors;
 @RestController
 @RequestMapping("/api/worker-logs")
 @RequiredArgsConstructor
-@CrossOrigin(origins = "*")
 public class WorkerLogController {
 
     private final TallyWorkerLogRepository tallyWorkerLogRepository;
     private final DecryptionWorkerLogRepository decryptionWorkerLogRepository;
     private final CombineWorkerLogRepository combineWorkerLogRepository;
     private final ElectionJobRepository electionJobRepository;
+    private final ElectionService electionService;
 
-    /**
-     * Get tally worker logs with statistics for an election
-     */
     @GetMapping("/tally/{electionId}")
-    public ResponseEntity<Map<String, Object>> getTallyWorkerLogs(@PathVariable Long electionId) {
-        List<TallyWorkerLog> logs = tallyWorkerLogRepository.findByElectionIdOrderByStartTimeAsc(electionId);
-
-        String initiatorEmail = electionJobRepository
-            .findFirstByElectionIdAndOperationTypeOrderByStartedAtDesc(electionId, "TALLY")
-            .map(ElectionJob::getCreatedBy)
-            .orElse(null);
-
-        Map<String, Object> stats = new HashMap<>(calculateStatistics(logs));
-        stats.put("initiatorEmail", initiatorEmail);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("logs", logs.stream().map(this::mapTallyLog).collect(Collectors.toList()));
-        response.put("statistics", stats);
-        
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> getTallyWorkerLogs(@PathVariable Long electionId) {
+        return authorizedResponse(electionId, () -> {
+            List<TallyWorkerLog> logs = tallyWorkerLogRepository.findByElectionIdOrderByStartTimeAsc(electionId);
+            String initiatorEmail = electionJobRepository
+                .findFirstByElectionIdAndOperationTypeOrderByStartedAtDesc(electionId, "TALLY")
+                .map(ElectionJob::getCreatedBy)
+                .orElse(null);
+            Map<String, Object> stats = new HashMap<>(calculateStatistics(logs));
+            stats.put("initiatorEmail", initiatorEmail);
+            Map<String, Object> response = new HashMap<>();
+            response.put("logs", logs.stream().map(this::mapTallyLog).collect(Collectors.toList()));
+            response.put("statistics", stats);
+            return ResponseEntity.ok(response);
+        });
     }
 
-    /**
-     * Get partial decryption worker logs with statistics for an election
-     */
     @GetMapping("/decryption/partial/{electionId}")
-    public ResponseEntity<Map<String, Object>> getPartialDecryptionWorkerLogs(@PathVariable Long electionId) {
-        List<DecryptionWorkerLog> logs = decryptionWorkerLogRepository
-            .findByElectionIdAndDecryptionTypeOrderByStartTimeAsc(electionId, "PARTIAL");
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("logs", logs.stream().map(this::mapDecryptionLog).collect(Collectors.toList()));
-        response.put("statistics", calculateDecryptionStatistics(logs));
-        
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> getPartialDecryptionWorkerLogs(@PathVariable Long electionId) {
+        return authorizedResponse(electionId, () -> {
+            List<DecryptionWorkerLog> logs = decryptionWorkerLogRepository
+                .findByElectionIdAndDecryptionTypeOrderByStartTimeAsc(electionId, "PARTIAL");
+            Map<String, Object> response = new HashMap<>();
+            response.put("logs", logs.stream().map(this::mapDecryptionLog).collect(Collectors.toList()));
+            response.put("statistics", calculateDecryptionStatistics(logs));
+            return ResponseEntity.ok(response);
+        });
     }
 
-    /**
-     * Get compensated decryption worker logs with statistics for an election
-     */
     @GetMapping("/decryption/compensated/{electionId}")
-    public ResponseEntity<Map<String, Object>> getCompensatedDecryptionWorkerLogs(@PathVariable Long electionId) {
-        List<DecryptionWorkerLog> logs = decryptionWorkerLogRepository
-            .findByElectionIdAndDecryptionTypeOrderByStartTimeAsc(electionId, "COMPENSATED");
-        
-        Map<String, Object> response = new HashMap<>();
-        response.put("logs", logs.stream().map(this::mapDecryptionLog).collect(Collectors.toList()));
-        response.put("statistics", calculateDecryptionStatistics(logs));
-        
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> getCompensatedDecryptionWorkerLogs(@PathVariable Long electionId) {
+        return authorizedResponse(electionId, () -> {
+            List<DecryptionWorkerLog> logs = decryptionWorkerLogRepository
+                .findByElectionIdAndDecryptionTypeOrderByStartTimeAsc(electionId, "COMPENSATED");
+            Map<String, Object> response = new HashMap<>();
+            response.put("logs", logs.stream().map(this::mapDecryptionLog).collect(Collectors.toList()));
+            response.put("statistics", calculateDecryptionStatistics(logs));
+            return ResponseEntity.ok(response);
+        });
     }
 
-    /**
-     * Get combine worker logs with statistics for an election
-     */
     @GetMapping("/combine/{electionId}")
-    public ResponseEntity<Map<String, Object>> getCombineWorkerLogs(@PathVariable Long electionId) {
-        List<CombineWorkerLog> logs = combineWorkerLogRepository.findByElectionIdOrderByStartTimeAsc(electionId);
-
-        String initiatorEmail = electionJobRepository
-            .findFirstByElectionIdAndOperationTypeOrderByStartedAtDesc(electionId, "COMBINE")
-            .map(ElectionJob::getCreatedBy)
-            .orElse(null);
-
-        Map<String, Object> stats = new HashMap<>(calculateCombineStatistics(logs));
-        stats.put("initiatorEmail", initiatorEmail);
-
-        Map<String, Object> response = new HashMap<>();
-        response.put("logs", logs.stream().map(this::mapCombineLog).collect(Collectors.toList()));
-        response.put("statistics", stats);
-        
-        return ResponseEntity.ok(response);
+    public ResponseEntity<?> getCombineWorkerLogs(@PathVariable Long electionId) {
+        return authorizedResponse(electionId, () -> {
+            List<CombineWorkerLog> logs = combineWorkerLogRepository.findByElectionIdOrderByStartTimeAsc(electionId);
+            String initiatorEmail = electionJobRepository
+                .findFirstByElectionIdAndOperationTypeOrderByStartedAtDesc(electionId, "COMBINE")
+                .map(ElectionJob::getCreatedBy)
+                .orElse(null);
+            Map<String, Object> stats = new HashMap<>(calculateCombineStatistics(logs));
+            stats.put("initiatorEmail", initiatorEmail);
+            Map<String, Object> response = new HashMap<>();
+            response.put("logs", logs.stream().map(this::mapCombineLog).collect(Collectors.toList()));
+            response.put("statistics", stats);
+            return ResponseEntity.ok(response);
+        });
     }
 
-    /**
-     * Get all worker logs summary for an election
-     */
     @GetMapping("/summary/{electionId}")
-    public ResponseEntity<Map<String, Object>> getWorkerLogsSummary(@PathVariable Long electionId) {
-        Map<String, Object> summary = new HashMap<>();
-        
-        // Tally logs
-        List<TallyWorkerLog> tallyLogs = tallyWorkerLogRepository.findByElectionIdOrderByStartTimeAsc(electionId);
-        summary.put("tally", Map.of(
-            "count", tallyLogs.size(),
-            "completed", tallyLogs.stream().filter(l -> "COMPLETED".equals(l.getStatus())).count(),
-            "failed", tallyLogs.stream().filter(l -> "FAILED".equals(l.getStatus())).count(),
-            "statistics", calculateStatistics(tallyLogs)
-        ));
-        
-        // Partial decryption logs
-        List<DecryptionWorkerLog> partialLogs = decryptionWorkerLogRepository
-            .findByElectionIdAndDecryptionTypeOrderByStartTimeAsc(electionId, "PARTIAL");
-        summary.put("partial_decryption", Map.of(
-            "count", partialLogs.size(),
-            "completed", partialLogs.stream().filter(l -> "COMPLETED".equals(l.getStatus())).count(),
-            "failed", partialLogs.stream().filter(l -> "FAILED".equals(l.getStatus())).count(),
-            "statistics", calculateDecryptionStatistics(partialLogs)
-        ));
-        
-        // Compensated decryption logs
-        List<DecryptionWorkerLog> compensatedLogs = decryptionWorkerLogRepository
-            .findByElectionIdAndDecryptionTypeOrderByStartTimeAsc(electionId, "COMPENSATED");
-        summary.put("compensated_decryption", Map.of(
-            "count", compensatedLogs.size(),
-            "completed", compensatedLogs.stream().filter(l -> "COMPLETED".equals(l.getStatus())).count(),
-            "failed", compensatedLogs.stream().filter(l -> "FAILED".equals(l.getStatus())).count(),
-            "statistics", calculateDecryptionStatistics(compensatedLogs)
-        ));
-        
-        // Combine logs
-        List<CombineWorkerLog> combineLogs = combineWorkerLogRepository.findByElectionIdOrderByStartTimeAsc(electionId);
-        summary.put("combine", Map.of(
-            "count", combineLogs.size(),
-            "completed", combineLogs.stream().filter(l -> "COMPLETED".equals(l.getStatus())).count(),
-            "failed", combineLogs.stream().filter(l -> "FAILED".equals(l.getStatus())).count(),
-            "statistics", calculateCombineStatistics(combineLogs)
-        ));
-        
-        return ResponseEntity.ok(summary);
+    public ResponseEntity<?> getWorkerLogsSummary(@PathVariable Long electionId) {
+        return authorizedResponse(electionId, () -> {
+            Map<String, Object> summary = new HashMap<>();
+            List<TallyWorkerLog> tallyLogs = tallyWorkerLogRepository.findByElectionIdOrderByStartTimeAsc(electionId);
+            summary.put("tally", Map.of(
+                "count", tallyLogs.size(),
+                "completed", tallyLogs.stream().filter(l -> "COMPLETED".equals(l.getStatus())).count(),
+                "failed", tallyLogs.stream().filter(l -> "FAILED".equals(l.getStatus())).count(),
+                "statistics", calculateStatistics(tallyLogs)
+            ));
+            List<DecryptionWorkerLog> partialLogs = decryptionWorkerLogRepository
+                .findByElectionIdAndDecryptionTypeOrderByStartTimeAsc(electionId, "PARTIAL");
+            summary.put("partial_decryption", Map.of(
+                "count", partialLogs.size(),
+                "completed", partialLogs.stream().filter(l -> "COMPLETED".equals(l.getStatus())).count(),
+                "failed", partialLogs.stream().filter(l -> "FAILED".equals(l.getStatus())).count(),
+                "statistics", calculateDecryptionStatistics(partialLogs)
+            ));
+            List<DecryptionWorkerLog> compensatedLogs = decryptionWorkerLogRepository
+                .findByElectionIdAndDecryptionTypeOrderByStartTimeAsc(electionId, "COMPENSATED");
+            summary.put("compensated_decryption", Map.of(
+                "count", compensatedLogs.size(),
+                "completed", compensatedLogs.stream().filter(l -> "COMPLETED".equals(l.getStatus())).count(),
+                "failed", compensatedLogs.stream().filter(l -> "FAILED".equals(l.getStatus())).count(),
+                "statistics", calculateDecryptionStatistics(compensatedLogs)
+            ));
+            List<CombineWorkerLog> combineLogs = combineWorkerLogRepository.findByElectionIdOrderByStartTimeAsc(electionId);
+            summary.put("combine", Map.of(
+                "count", combineLogs.size(),
+                "completed", combineLogs.stream().filter(l -> "COMPLETED".equals(l.getStatus())).count(),
+                "failed", combineLogs.stream().filter(l -> "FAILED".equals(l.getStatus())).count(),
+                "statistics", calculateCombineStatistics(combineLogs)
+            ));
+            return ResponseEntity.ok(summary);
+        });
+    }
+
+    private ResponseEntity<?> authorizedResponse(Long electionId, java.util.function.Supplier<ResponseEntity<?>> action) {
+        String email = getAuthenticatedEmail();
+        if (email == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of("message", "Authentication required"));
+        }
+        if (!electionService.canViewWorkerLogs(electionId, email)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of("message", "Access denied"));
+        }
+        return action.get();
+    }
+
+    private String getAuthenticatedEmail() {
+        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+        if (authentication == null || !authentication.isAuthenticated()
+                || "anonymousUser".equals(authentication.getPrincipal())) {
+            return null;
+        }
+        Object principal = authentication.getPrincipal();
+        if (principal instanceof UserDetails userDetails) {
+            return userDetails.getUsername();
+        }
+        return authentication.getName();
     }
 
     // Helper methods to map entities to DTOs
@@ -201,7 +204,6 @@ public class WorkerLogController {
         return Duration.between(start, end).toMillis();
     }
 
-    // Statistics calculation methods
     private Map<String, Object> calculateStatistics(List<TallyWorkerLog> logs) {
         List<TallyWorkerLog> completedLogs = logs.stream()
             .filter(l -> "COMPLETED".equals(l.getStatus()) && l.getEndTime() != null)

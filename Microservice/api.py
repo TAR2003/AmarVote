@@ -182,6 +182,21 @@ app.config['JSON_SORT_KEYS'] = False  # Preserve JSON order for better performan
 app.config['REQUEST_TIMEOUT'] = 300  # 5 minutes timeout per request
 app.config['RESPONSE_TIMEOUT'] = 300  # 5 minutes response timeout
 
+INTERNAL_API_KEY = os.environ.get('ELECTIONGUARD_INTERNAL_API_KEY', '')
+
+
+@app.before_request
+def verify_internal_api_key():
+    if request.method == 'OPTIONS':
+        return None
+    if request.path in ('/health', '/api/health'):
+        return None
+    if not INTERNAL_API_KEY:
+        return None
+    provided = request.headers.get('X-ElectionGuard-Internal-Key', '')
+    if provided != INTERNAL_API_KEY:
+        return jsonify({'error': 'Unauthorized', 'message': 'Invalid internal API key'}), 401
+
 # Security Configuration
 PQ_ALGORITHM = "ML-KEM-1024"  # Official NIST name
 SCRYPT_SALT_LENGTH = 32

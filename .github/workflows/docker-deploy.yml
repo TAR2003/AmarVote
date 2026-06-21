@@ -50,9 +50,7 @@ jobs:
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
           "cp ~/.env ~/app/.env && \
            echo '✅ .env copied' && \
-           ls -la ~/app/.env && \
-           echo '---- FIRST 5 LINES ----' && \
-           head -5 ~/app/.env"
+           ls -la ~/app/.env"
 
     
 

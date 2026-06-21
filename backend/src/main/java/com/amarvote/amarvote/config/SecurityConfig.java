@@ -1,8 +1,10 @@
 package com.amarvote.amarvote.config;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -15,15 +17,37 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.web.cors.CorsConfigurationSource;
 
-import com.amarvote.amarvote.filter.JWTFilter; // ✅ required import
+import com.amarvote.amarvote.filter.JWTFilter;
 
 import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    private static final String[] PUBLIC_AUTH_PATHS = {
+            "/api/auth/register",
+            "/api/auth/register/send-email-code",
+            "/api/auth/register/verify-email-code",
+            "/api/auth/login",
+            "/api/auth/mfa/confirm-setup",
+            "/api/auth/mfa/verify",
+            "/api/auth/session",
+            "/api/auth/request-otp",
+            "/api/auth/verify-otp",
+            "/api/auth/logout",
+            "/api/auth/password/send-email-code",
+            "/api/auth/password/verify-email-code",
+            "/api/auth/password/reset",
+            "/api/password/forgot-password",
+            "/api/password/create-password",
+            "/api/verify/send-code",
+            "/api/verify/verify-code",
+            "/api/health"
+    };
 
     @Autowired
     private UserDetailsService userDetailsService;
@@ -37,29 +61,45 @@ public class SecurityConfig {
     @Autowired
     private CookieCsrfTokenRepository cookieCsrfTokenRepository;
 
+    @Value("${amarvote.chatbot.enabled:false}")
+    private boolean chatbotEnabled;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
-        return http
+        CsrfTokenRequestAttributeHandler csrfHandler = new CsrfTokenRequestAttributeHandler();
+        csrfHandler.setCsrfRequestAttributeName(null);
+
+        http
                 .cors(cors -> cors.configurationSource(corsConfigurationSource))
-                // Issue XSRF-TOKEN cookie for the frontend; API routes skip CSRF validation (JWT cookie auth)
                 .csrf(csrf -> csrf
                         .csrfTokenRepository(cookieCsrfTokenRepository)
-                        .ignoringRequestMatchers("/api/**", "/actuator/**"))
-                .authorizeHttpRequests(authorize -> authorize
-                .requestMatchers("/api/auth/register", "/api/auth/register/send-email-code", "/api/auth/register/verify-email-code", "/api/auth/login", "/api/auth/mfa/confirm-setup", "/api/auth/mfa/verify", "/api/auth/session", "/api/auth/request-otp", "/api/auth/verify-otp", "/api/auth/logout", "/api/auth/password/send-email-code", "/api/auth/password/verify-email-code", "/api/auth/password/reset", "/api/password/forgot-password", "/api/password/create-password", "/api/verify/send-code", "/api/verify/verify-code", "/api/test-deepseek", "/api/health", "/api/chatbot/**", 
-                                "/actuator/prometheus", "/actuator/health",
-                                "/actuator/metrics").permitAll() // Allow public access to these endpoints
-                .anyRequest().authenticated())
+                        .csrfTokenRequestHandler(csrfHandler)
+                        .ignoringRequestMatchers(PUBLIC_AUTH_PATHS))
+                .authorizeHttpRequests(authorize -> {
+                    authorize.requestMatchers(PUBLIC_AUTH_PATHS).permitAll();
+                    authorize.requestMatchers(
+                            "/actuator/health", "/actuator/prometheus", "/actuator/metrics").permitAll();
+                    if (chatbotEnabled) {
+                        authorize.requestMatchers("/api/chatbot/**", "/api/test-deepseek").permitAll();
+                    }
+                    authorize.requestMatchers("/actuator/**").authenticated();
+                    authorize.anyRequest().authenticated();
+                })
                 .exceptionHandling(ex -> ex
                         .authenticationEntryPoint((request, response, authException) -> {
                             response.setStatus(HttpServletResponse.SC_UNAUTHORIZED);
                             response.setContentType("application/json");
                             response.getWriter().write("{\"message\":\"Authentication required\"}");
+                        })
+                        .accessDeniedHandler((request, response, accessDeniedException) -> {
+                            response.setStatus(HttpStatus.FORBIDDEN.value());
+                            response.setContentType("application/json");
+                            response.getWriter().write("{\"message\":\"Access denied\"}");
                         }))
-                .sessionManagement(session -> session
-                .sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
-                .build();
+                .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+                .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class);
+
+        return http.build();
     }
 
     @Bean
@@ -73,5 +113,4 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
     }
-
 }

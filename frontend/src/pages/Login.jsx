@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Layout from "./Layout";
 import OtpInput from "../components/OtpInput";
+import { getCsrfToken } from "../utils/api";
 
 const STAGES = {
   IDLE: "IDLE",
@@ -27,7 +28,11 @@ export default function Login({ setUserEmail }) {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          "X-XSRF-TOKEN": getCsrfToken() || "",
+        },
+        credentials: "include",
         body: JSON.stringify({ email, password }),
       });
 
@@ -65,6 +70,7 @@ export default function Login({ setUserEmail }) {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "X-XSRF-TOKEN": getCsrfToken() || "",
         },
         credentials: "include",
         body: JSON.stringify({ totpCode: codeToSubmit }),

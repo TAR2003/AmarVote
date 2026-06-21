@@ -5,7 +5,7 @@ const API_BASE_URL = '/api';
 const DEFAULT_TIMEOUT = 5 * 60 * 1000; // 300,000ms = 5 minutes
 
 // Get CSRF token from cookie
-function getCsrfToken() {
+export function getCsrfToken() {
   const cookies = document.cookie.split('; ');
   const csrfCookie = cookies.find(cookie => cookie.startsWith('XSRF-TOKEN='));
   return csrfCookie ? csrfCookie.split('=')[1] : '';
@@ -579,11 +579,14 @@ export async function confirmProfileMfaSetup(totpCode) {
 
 /**
  * Disable MFA from profile.
+ * @param {string} currentPassword
+ * @param {string} totpCode
  * @returns {Promise<Object>}
  */
-export async function disableProfileMfa() {
+export async function disableProfileMfa(currentPassword, totpCode) {
   return apiRequest('/auth/profile/mfa/disable', {
     method: 'POST',
+    body: JSON.stringify({ currentPassword, totpCode }),
   });
 }
 

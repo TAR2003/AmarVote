@@ -34,8 +34,8 @@ public class CredentialCacheService {
 
     private final RedisTemplate<String, String> redisTemplate;
     
-    // TTL for credentials: 6 hours (sufficient for long-running decryption processes)
-    private static final long CREDENTIAL_TTL_MINUTES = 360;
+    // TTL for credentials: 30 minutes (minimize exposure in Redis)
+    private static final long CREDENTIAL_TTL_MINUTES = 30;
     
     // Key prefixes for different credential types
     private static final String PRIVATE_KEY_PREFIX = "guardian:privatekey:";

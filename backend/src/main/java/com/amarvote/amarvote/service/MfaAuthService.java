@@ -24,8 +24,11 @@ public class MfaAuthService {
     private final JWTService jwtService;
     private final EmailService emailService;
     private final AuthorizedUserService authorizedUserService;
+    private final AuthRateLimitService authRateLimitService;
 
     private final BCryptPasswordEncoder passwordEncoder = new BCryptPasswordEncoder(12);
+    private static final java.util.regex.Pattern STRONG_PASSWORD = java.util.regex.Pattern.compile(
+            "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z0-9]).{12,}$");
 
     @Transactional
     @SuppressWarnings("null")
@@ -42,6 +45,8 @@ public class MfaAuthService {
         if (appUserRepository.existsByEmail(normalizedEmail)) {
             throw new IllegalArgumentException("User already exists");
         }
+
+        validatePasswordStrength(password);
 
         AppUser user = AppUser.builder()
                 .email(normalizedEmail)
@@ -72,7 +77,6 @@ public class MfaAuthService {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("status", "MFA_SETUP_REQUIRED");
         response.put("qrCodeDataUri", qrCodeDataUri);
-        response.put("secret", secret);
         return response;
     }
 
@@ -105,17 +109,22 @@ public class MfaAuthService {
 
     public Optional<Map<String, Object>> loginStepOne(String email, String password) {
         String normalizedEmail = email.trim().toLowerCase();
+        authRateLimitService.ensureAllowed("login", normalizedEmail);
         authorizedUserService.ensureAllowedForLogin(normalizedEmail);
         Optional<AppUser> userOpt = appUserRepository.findByEmail(normalizedEmail);
 
         if (userOpt.isEmpty()) {
+            authRateLimitService.recordFailure("login", normalizedEmail);
             return Optional.empty();
         }
 
         AppUser user = userOpt.get();
         if (!passwordEncoder.matches(password, user.getPasswordHash())) {
+            authRateLimitService.recordFailure("login", normalizedEmail);
             return Optional.empty();
         }
+
+        authRateLimitService.resetFailures("login", normalizedEmail);
 
         if (!Boolean.TRUE.equals(user.getIsMfaEnabled())) {
             Map<String, Object> response = new LinkedHashMap<>();
@@ -140,21 +149,26 @@ public class MfaAuthService {
         }
 
         String email = emailOpt.get();
+        authRateLimitService.ensureAllowed("mfa", email);
         Optional<AppUser> userOpt = appUserRepository.findByEmail(email);
         if (userOpt.isEmpty()) {
+            authRateLimitService.recordFailure("mfa", email);
             return Optional.empty();
         }
 
         AppUser user = userOpt.get();
         if (!Boolean.TRUE.equals(user.getIsMfaEnabled()) || user.getMfaSecret() == null) {
+            authRateLimitService.recordFailure("mfa", email);
             return Optional.empty();
         }
 
         boolean valid = totpService.verifyCode(user.getMfaSecret(), totpCode);
         if (!valid) {
+            authRateLimitService.recordFailure("mfa", email);
             return Optional.empty();
         }
 
+        authRateLimitService.resetFailures("mfa", email);
         authorizedUserService.markSuccessfulLogin(email);
 
         return Optional.of(jwtService.generateJWTToken(email));
@@ -183,6 +197,7 @@ public class MfaAuthService {
             throw new IllegalArgumentException("Current password is incorrect");
         }
 
+        validatePasswordStrength(newPassword);
         user.setPasswordHash(passwordEncoder.encode(newPassword));
         appUserRepository.save(user);
     }
@@ -205,7 +220,6 @@ public class MfaAuthService {
         Map<String, Object> response = new LinkedHashMap<>();
         response.put("status", "MFA_SETUP_REQUIRED");
         response.put("qrCodeDataUri", qrCodeDataUri);
-        response.put("secret", secret);
         return response;
     }
 
@@ -229,14 +243,24 @@ public class MfaAuthService {
     }
 
     @Transactional
-    public void disableProfileMfa(String email) {
+    public void disableProfileMfa(String email, String currentPassword, String totpCode) {
         String normalizedEmail = email.trim().toLowerCase();
         AppUser user = appUserRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
-        user.setIsMfaEnabled(false);
-        user.setMfaRegistered(false);
-        user.setMfaSecret(null);
+        if (!passwordEncoder.matches(currentPassword, user.getPasswordHash())) {
+            throw new IllegalArgumentException("Current password is incorrect");
+        }
+
+        if (!Boolean.TRUE.equals(user.getIsMfaEnabled()) || user.getMfaSecret() == null) {
+            throw new IllegalArgumentException("2FA is not enabled");
+        }
+
+        if (!totpService.verifyCode(user.getMfaSecret(), totpCode)) {
+            throw new IllegalArgumentException("Invalid 2FA code");
+        }
+
+        disableMfa(user);
         appUserRepository.save(user);
     }
 
@@ -251,7 +275,22 @@ public class MfaAuthService {
         AppUser user = appUserRepository.findByEmail(normalizedEmail)
                 .orElseThrow(() -> new IllegalArgumentException("User not found"));
 
+        validatePasswordStrength(newPassword);
         user.setPasswordHash(passwordEncoder.encode(newPassword));
+        disableMfa(user);
         appUserRepository.save(user);
+    }
+
+    private void disableMfa(AppUser user) {
+        user.setIsMfaEnabled(false);
+        user.setMfaRegistered(false);
+        user.setMfaSecret(null);
+    }
+
+    private void validatePasswordStrength(String password) {
+        if (password == null || !STRONG_PASSWORD.matcher(password).matches()) {
+            throw new IllegalArgumentException(
+                    "Password must be at least 12 characters and include upper, lower, digit, and special character");
+        }
     }
 }

@@ -99,14 +99,44 @@ public class CloudinaryService {
             throw new IllegalArgumentException("File cannot be null or empty");
         }
 
-        // Basic file type check - allow all image types
+        if (file.getSize() > 10 * 1024 * 1024) {
+            throw new IllegalArgumentException("Image must be 10 MB or smaller");
+        }
+
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
             throw new IllegalArgumentException("File must be an image");
         }
-        
-        // No size restrictions - allow any size
-        // No format restrictions - allow all image formats
+
+        if ("image/svg+xml".equalsIgnoreCase(contentType)) {
+            throw new IllegalArgumentException("SVG uploads are not allowed");
+        }
+
+        byte[] header = new byte[12];
+        try {
+            int read = file.getInputStream().read(header);
+            if (read < 4 || !looksLikeImage(header, contentType)) {
+                throw new IllegalArgumentException("File content does not match declared image type");
+            }
+        } catch (IOException e) {
+            throw new IllegalArgumentException("Unable to read uploaded file");
+        }
+    }
+
+    private boolean looksLikeImage(byte[] header, String contentType) {
+        if (contentType.contains("jpeg") || contentType.contains("jpg")) {
+            return header[0] == (byte) 0xFF && header[1] == (byte) 0xD8;
+        }
+        if (contentType.contains("png")) {
+            return header[0] == (byte) 0x89 && header[1] == 'P' && header[2] == 'N' && header[3] == 'G';
+        }
+        if (contentType.contains("gif")) {
+            return header[0] == 'G' && header[1] == 'I' && header[2] == 'F';
+        }
+        if (contentType.contains("webp")) {
+            return header[0] == 'R' && header[1] == 'I' && header[2] == 'F' && header[3] == 'F';
+        }
+        return true;
     }
 
     /**

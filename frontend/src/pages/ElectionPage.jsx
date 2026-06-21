@@ -2348,6 +2348,12 @@ export default function ElectionPage() {
     setBallotModalOpen(true);
     setBallotModalPhase('creating');
 
+    if (botDetection.isBot) {
+      setCreateBallotError('Security check failed. Automated ballot creation is not allowed.');
+      setBallotModalPhase('create-error');
+      return;
+    }
+
     console.log('🔍 [ENCRYPTED BALLOT] Performing fresh bot detection before creating encrypted ballot...');
 
     let freshBotDetection = null;
@@ -2366,9 +2372,19 @@ export default function ElectionPage() {
         requestId: result.requestId
       });
 
+      if (result.bot) {
+        console.warn('🚨 [ENCRYPTED BALLOT] Bot detected during ballot creation');
+        setCreateBallotError('Security check failed. Automated ballot creation is not allowed.');
+        setBallotModalPhase('create-error');
+        return;
+      }
+
       console.log('✅ [ENCRYPTED BALLOT] Fresh bot check passed');
     } catch (error) {
       console.error('⚠️ [ENCRYPTED BALLOT] Fresh bot detection failed:', error);
+      setCreateBallotError('Security check could not be completed. Please refresh and try again.');
+      setBallotModalPhase('create-error');
+      return;
     }
 
     try {

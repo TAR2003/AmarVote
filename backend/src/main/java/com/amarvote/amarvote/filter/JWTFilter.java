@@ -7,7 +7,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.NonNull;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.context.SecurityContextHolder;
-import org.springframework.security.core.userdetails.User;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
@@ -27,97 +26,7 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class JWTFilter extends OncePerRequestFilter {
 
-    @Autowired
-    private JWTService jwtService;
-
-    @Autowired
-    private MyUserDetailsService userDetailsService;
-
-    @Autowired
-    private AuthorizedUserService authorizedUserService;
-
-    @Override
-    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
-            throws ServletException, IOException {
-
-        String requestPath = request.getRequestURI();
-
-        String jwtToken = null;
-        String userEmail = null;
-
-        // First try to extract JWT from Authorization header
-        String authHeader = request.getHeader("Authorization");
-        if (authHeader != null && authHeader.startsWith("Bearer ")) {
-            jwtToken = authHeader.substring(7);
-        }
-
-        // If not found in header, try cookie
-        if (jwtToken == null) {
-            Cookie[] cookies = request.getCookies();
-            if (cookies != null) {
-                for (Cookie cookie : cookies) {
-                    if ("jwtToken".equals(cookie.getName())) {
-                        jwtToken = cookie.getValue();
-                        break;
-                    }
-                }
-            }
-        }
-
-        if (jwtToken != null) {
-            try {
-                userEmail = jwtService.extractUserEmailFromToken(jwtToken);
-                if (userEmail != null) {
-                    userEmail = userEmail.trim().toLowerCase();
-                }
-            } catch (Exception e) {
-                logger.warn("Failed to extract user from JWT", e);
-            }
-
-            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
-                try {
-                    // parseSignedClaims (above) already verified the HMAC signature
-                    if (jwtService.isTokenExpired(jwtToken)) {
-                        logger.debug("Expired JWT for " + userEmail);
-                    } else {
-                        Optional<String> denialReason = authorizedUserService.getApiAccessDenialReason(userEmail);
-                        if (denialReason.isPresent()) {
-                            sendForbidden(response, denialReason.get());
-                            return;
-                        }
-                        authorizedUserService.markLastActive(userEmail);
-                        UserDetails userDetails = resolveUserDetails(userEmail);
-                        UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
-                                userDetails, null, userDetails.getAuthorities());
-                        authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
-                        SecurityContextHolder.getContext().setAuthentication(authToken);
-
-                        request.setAttribute("jwtToken", jwtToken);
-                        request.setAttribute("userEmail", userEmail);
-                    }
-                } catch (Exception e) {
-                    logger.warn("JWT authentication failed for " + userEmail, e);
-                }
-            }
-        }
-
-        // Public routes do not require authentication (Bearer above is optional)
-        if (isPublicRoute(requestPath)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
-        filterChain.doFilter(request, response);
-    }
-
-    private void sendForbidden(HttpServletResponse response, String message) throws IOException {
-        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
-        response.setContentType("application/json");
-        response.getWriter().write("{\"message\":\"" + message.replace("\"", "\\\"") + "\"}");
-    }
-    
-    private boolean isPublicRoute(String requestPath) {
-        String[] publicPaths = {
+    private static final String[] PUBLIC_PATHS = {
             "/api/auth/register",
             "/api/auth/register/send-email-code",
             "/api/auth/register/verify-email-code",
@@ -135,12 +44,98 @@ public class JWTFilter extends OncePerRequestFilter {
             "/api/password/create-password",
             "/api/verify/send-code",
             "/api/verify/verify-code",
-            "/api/test-deepseek",
-            "/api/health",
-            "/api/chatbot/"
-        };
+            "/api/health"
+    };
 
-        for (String path : publicPaths) {
+    @Autowired
+    private JWTService jwtService;
+
+    @Autowired
+    private MyUserDetailsService userDetailsService;
+
+    @Autowired
+    private AuthorizedUserService authorizedUserService;
+
+    @Override
+    protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
+            throws ServletException, IOException {
+
+        String requestPath = request.getRequestURI();
+        String jwtToken = extractJwtToken(request);
+        String userEmail = null;
+
+        if (jwtToken != null) {
+            try {
+                userEmail = jwtService.extractUserEmailFromToken(jwtToken);
+                if (userEmail != null) {
+                    userEmail = userEmail.trim().toLowerCase();
+                }
+            } catch (Exception e) {
+                logger.warn("Failed to extract user from JWT", e);
+            }
+
+            if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
+                try {
+                    if (jwtService.isTokenExpired(jwtToken)) {
+                        logger.debug("Expired JWT for " + userEmail);
+                    } else {
+                        Optional<String> denialReason = authorizedUserService.getApiAccessDenialReason(userEmail);
+                        if (denialReason.isPresent()) {
+                            sendForbidden(response, denialReason.get());
+                            return;
+                        }
+                        UserDetails userDetails = resolveUserDetails(userEmail);
+                        if (userDetails == null) {
+                            logger.debug("JWT valid but user no longer exists: " + userEmail);
+                        } else {
+                            authorizedUserService.markLastActive(userEmail);
+                            UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
+                                    userDetails, null, userDetails.getAuthorities());
+                            authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
+                            SecurityContextHolder.getContext().setAuthentication(authToken);
+                            request.setAttribute("jwtToken", jwtToken);
+                            request.setAttribute("userEmail", userEmail);
+                        }
+                    }
+                } catch (Exception e) {
+                    logger.warn("JWT authentication failed for " + userEmail, e);
+                }
+            }
+        }
+
+        if (isPublicRoute(requestPath)) {
+            filterChain.doFilter(request, response);
+            return;
+        }
+
+        filterChain.doFilter(request, response);
+    }
+
+    private String extractJwtToken(HttpServletRequest request) {
+        String authHeader = request.getHeader("Authorization");
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring(7);
+        }
+
+        Cookie[] cookies = request.getCookies();
+        if (cookies != null) {
+            for (Cookie cookie : cookies) {
+                if ("jwtToken".equals(cookie.getName())) {
+                    return cookie.getValue();
+                }
+            }
+        }
+        return null;
+    }
+
+    private void sendForbidden(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"message\":\"" + message.replace("\"", "\\\"") + "\"}");
+    }
+
+    private boolean isPublicRoute(String requestPath) {
+        for (String path : PUBLIC_PATHS) {
             if (requestPath.startsWith(path)) {
                 return true;
             }
@@ -152,14 +147,7 @@ public class JWTFilter extends OncePerRequestFilter {
         try {
             return userDetailsService.loadUserByUsername(userEmail);
         } catch (UsernameNotFoundException ex) {
-            return User.withUsername(userEmail)
-                    .password("")
-                    .authorities("ROLE_USER")
-                    .accountExpired(false)
-                    .accountLocked(false)
-                    .credentialsExpired(false)
-                    .disabled(false)
-                    .build();
+            return null;
         }
     }
 }

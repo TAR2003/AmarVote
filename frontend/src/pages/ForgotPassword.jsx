@@ -113,7 +113,7 @@ export default function ForgotPassword() {
         throw new Error(data.message || "Failed to reset password");
       }
 
-      setSuccess("Password reset successful. Redirecting to login...");
+      setSuccess("Password reset successful. Two-factor authentication has been turned off — log in and re-enable it from Profile if you want. Redirecting to login...");
       setTimeout(() => navigate("/login"), 1000);
     } catch (err) {
       setError(err.message || "Failed to reset password");

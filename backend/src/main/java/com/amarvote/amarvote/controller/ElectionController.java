@@ -1423,6 +1423,12 @@ public class ElectionController {
             @PathVariable String electionId,
             @PathVariable String trackingCode) {
 
+        if (blockchainService.isDisabled()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "success", false,
+                    "message", "Blockchain integration is disabled"));
+        }
+
         try {
             System.out.println(
                     "🔍 Verifying ballot on blockchain - Election: " + electionId + ", Tracking: " + trackingCode);
@@ -1452,6 +1458,12 @@ public class ElectionController {
      */
     @GetMapping("/blockchain/logs/{electionId}")
     public ResponseEntity<?> getElectionLogsFromBlockchain(@PathVariable String electionId) {
+
+        if (blockchainService.isDisabled()) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "success", false,
+                    "message", "Blockchain integration is disabled"));
+        }
 
         try {
             System.out.println("📜 Retrieving blockchain logs for election: " + electionId);

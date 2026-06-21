@@ -3,6 +3,8 @@ import { FiCheck, FiClock, FiCalendar, FiUsers, FiLock, FiUnlock, FiBox, FiChevr
 import { electionApi } from '../utils/electionApi';
 import axios from 'axios';
 
+axios.defaults.withCredentials = true;
+
 const ElectionTimeline = ({ electionId, electionData }) => {
   const [timelineData, setTimelineData] = useState([]);
   const [workerLogTasks, setWorkerLogTasks] = useState([]);

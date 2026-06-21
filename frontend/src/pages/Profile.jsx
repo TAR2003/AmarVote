@@ -32,6 +32,9 @@ const Profile = () => {
   });
   const [mfaCode, setMfaCode] = useState("");
   const [mfaBusy, setMfaBusy] = useState(false);
+  const [disablePassword, setDisablePassword] = useState("");
+  const [disableMfaCode, setDisableMfaCode] = useState("");
+  const [showDisableMfaForm, setShowDisableMfaForm] = useState(false);
 
   const loadProfile = async () => {
     try {
@@ -134,15 +137,29 @@ const Profile = () => {
     }
   };
 
-  const handleDisableMfa = async () => {
+  const handleDisableMfa = async (e) => {
+    e.preventDefault();
     setError("");
     setSuccess("");
 
+    const code = disableMfaCode.replace(/\D/g, "").slice(0, 6);
+    if (!disablePassword.trim()) {
+      setError("Current password is required to disable 2FA");
+      return;
+    }
+    if (code.length !== 6) {
+      setError("Enter the current 6-digit 2FA code");
+      return;
+    }
+
     try {
       setMfaBusy(true);
-      await disableProfileMfa();
+      await disableProfileMfa(disablePassword, code);
       setMfaSetup({ qrCodeDataUri: "", secret: "" });
       setMfaCode("");
+      setDisablePassword("");
+      setDisableMfaCode("");
+      setShowDisableMfaForm(false);
       setSuccess("Two-step verification has been disabled.");
       await loadProfile();
     } catch (err) {
@@ -205,14 +222,53 @@ const Profile = () => {
             </div>
 
             {profile.mfaEnabled ? (
-              <button
-                type="button"
-                onClick={handleDisableMfa}
-                disabled={mfaBusy}
-                className="w-full sm:w-auto px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-60"
-              >
-                {mfaBusy ? "Disabling..." : "Turn Off"}
-              </button>
+              showDisableMfaForm ? (
+                <form className="w-full sm:max-w-md space-y-3" onSubmit={handleDisableMfa}>
+                  <input
+                    type="password"
+                    required
+                    placeholder="Current password"
+                    value={disablePassword}
+                    onChange={(e) => setDisablePassword(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200"
+                  />
+                  <OtpInput
+                    value={disableMfaCode}
+                    onChange={setDisableMfaCode}
+                    disabled={mfaBusy}
+                  />
+                  <div className="flex flex-col sm:flex-row gap-2">
+                    <button
+                      type="submit"
+                      disabled={mfaBusy || disableMfaCode.replace(/\D/g, "").length !== 6}
+                      className="w-full sm:w-auto px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-60"
+                    >
+                      {mfaBusy ? "Disabling..." : "Confirm Disable"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowDisableMfaForm(false);
+                        setDisablePassword("");
+                        setDisableMfaCode("");
+                      }}
+                      disabled={mfaBusy}
+                      className="w-full sm:w-auto px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                </form>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => setShowDisableMfaForm(true)}
+                  disabled={mfaBusy}
+                  className="w-full sm:w-auto px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-60"
+                >
+                  Turn Off
+                </button>
+              )
             ) : (
               <button
                 type="button"

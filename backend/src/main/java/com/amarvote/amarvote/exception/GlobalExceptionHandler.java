@@ -15,6 +15,8 @@ import org.springframework.web.server.ResponseStatusException;
 
 import jakarta.validation.ConstraintViolationException;
 
+import com.amarvote.amarvote.service.AuthRateLimitService.AuthRateLimitExceededException;
+
 @RestControllerAdvice
 public class GlobalExceptionHandler {
 
@@ -71,6 +73,15 @@ public class GlobalExceptionHandler {
         Map<String, String> error = new HashMap<>();
         error.put("error", "Upstream service unavailable. Please retry.");
         return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE).body(error);
+    }
+
+    @ExceptionHandler(AuthRateLimitExceededException.class)
+    public ResponseEntity<Map<String, String>> handleAuthRateLimit(AuthRateLimitExceededException ex) {
+        Map<String, String> error = new HashMap<>();
+        error.put("error", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+                .header("Retry-After", "900")
+                .body(error);
     }
 
     @ExceptionHandler(ElectionGuardCapacityException.class)

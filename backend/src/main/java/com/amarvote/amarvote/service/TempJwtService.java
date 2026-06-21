@@ -8,6 +8,7 @@ import javax.crypto.SecretKey;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
+import jakarta.annotation.PostConstruct;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -17,12 +18,20 @@ import io.jsonwebtoken.security.Keys;
 @Service
 public class TempJwtService {
 
-    @Value("${jwt.temp-secret:QW1hclZvdGVUZW1wVG9rZW5TZWNyZXRGb3JNZmFTdGVwVXBfMjAyNl8wM18xNF9BbWFyVm90ZQ==}")
+    @Value("${jwt.temp-secret:}")
     private String tempSecretKey;
 
     private static final long TEMP_TOKEN_VALIDITY_MILLIS = 2 * 60 * 1000;
     private static final long EMAIL_VERIFICATION_TOKEN_VALIDITY_MILLIS = 10 * 60 * 1000;
     private static final long PASSWORD_RESET_TOKEN_VALIDITY_MILLIS = 10 * 60 * 1000;
+
+    @PostConstruct
+    void requireTempSecret() {
+        if (tempSecretKey == null || tempSecretKey.isBlank()) {
+            throw new IllegalStateException(
+                    "jwt.temp-secret (JWT_TEMP_SECRET) must be set — no default is allowed in production");
+        }
+    }
 
     public String generateMfaPendingToken(String email) {
         long now = System.currentTimeMillis();

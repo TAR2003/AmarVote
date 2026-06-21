@@ -1,6 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
-import rehypeRaw from 'rehype-raw';
 import remarkHtml from 'remark-html';
 import { 
   FiMessageCircle, 
@@ -189,7 +188,6 @@ const Chatbot = () => {
           {message.type === 'bot' ? (
             <div className="prose prose-sm prose-blue max-w-none">
               <ReactMarkdown
-                rehypePlugins={[rehypeRaw]}
                 remarkPlugins={[remarkHtml]}
                 components={{
                   h1: ({node, ...props}) => <h1 className="text-xl font-bold mt-4 mb-3 text-blue-800 border-b border-blue-200 pb-2" {...props} />,

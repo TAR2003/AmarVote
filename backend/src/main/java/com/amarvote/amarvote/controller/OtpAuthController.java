@@ -21,6 +21,7 @@ import org.springframework.web.bind.annotation.RestController;
 import com.amarvote.amarvote.dto.AuthLoginRequestDto;
 import com.amarvote.amarvote.dto.AuthRegisterRequestDto;
 import com.amarvote.amarvote.dto.ChangePasswordRequestDto;
+import com.amarvote.amarvote.dto.DisableMfaRequestDto;
 import com.amarvote.amarvote.dto.MfaConfirmSetupRequestDto;
 import com.amarvote.amarvote.dto.MfaVerifyRequestDto;
 import com.amarvote.amarvote.dto.OtpLoginResponseDto;
@@ -135,7 +136,7 @@ public class OtpAuthController {
             clearCookie(response, "passwordResetToken");
             return ResponseEntity.ok(Map.of(
                     "status", "PASSWORD_RESET_SUCCESS",
-                    "message", "Password reset successful. You can now log in."));
+                    "message", "Password reset successful. Two-factor authentication has been turned off — log in and re-enable 2FA from Profile if you want it."));
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(Map.of("message", ex.getMessage()));
@@ -299,15 +300,19 @@ public class OtpAuthController {
     }
 
     @PostMapping("/profile/mfa/disable")
-    public ResponseEntity<?> disableProfileMfa() {
+    public ResponseEntity<?> disableProfileMfa(@Valid @RequestBody DisableMfaRequestDto request) {
         String userEmail = getAuthenticatedEmail();
         if (userEmail == null) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
                     .body(Map.of("message", "Unauthorized"));
         }
 
-        mfaAuthService.disableProfileMfa(userEmail);
-        return ResponseEntity.ok(Map.of("success", true, "message", "2FA disabled successfully"));
+        try {
+            mfaAuthService.disableProfileMfa(userEmail, request.getCurrentPassword(), request.getTotpCode());
+            return ResponseEntity.ok(Map.of("success", true, "message", "2FA disabled successfully"));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(Map.of("message", ex.getMessage()));
+        }
     }
 
     @PostMapping("/mfa/verify")

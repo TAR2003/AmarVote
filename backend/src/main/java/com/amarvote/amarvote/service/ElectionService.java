@@ -300,6 +300,17 @@ public class ElectionService {
                 .orElse(false);
     }
 
+    public boolean canViewWorkerLogs(Long electionId, String userEmail) {
+        if (electionId == null || userEmail == null || userEmail.isBlank()) {
+            return false;
+        }
+        String normalized = userEmail.trim().toLowerCase();
+        return electionRepository.findById(electionId)
+                .map(election -> isElectionAdmin(election, normalized)
+                        || !guardianRepository.findByElectionIdAndUserEmail(electionId, normalized).isEmpty())
+                .orElse(false);
+    }
+
     private void requireElectionAdmin(Election election, String userEmail, String actionDescription) {
         if (!isElectionAdmin(election, userEmail)) {
             throw new IllegalArgumentException(actionDescription);

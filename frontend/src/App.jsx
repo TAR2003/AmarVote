@@ -18,7 +18,6 @@ import CreateElection from "./pages/CreateElection";
 import ElectionPage from "./pages/ElectionPage";
 import AllElections from "./pages/AllElections";
 import LoadingScreen from "./pages/Loading";
-import Chatbot from "./components/Chatbot";
 import About from "./pages/About";
 import Features from "./pages/Features";
 import ApiLogs from "./pages/ApiLogs";
@@ -139,9 +138,6 @@ function App() {
           {/* Add other authenticated routes here */}
         </Route>
       </Routes>
-      
-      {/* Show chatbot only for authenticated users */}
-      {isAuthenticated && <Chatbot />}
     </Router>
   );
 }

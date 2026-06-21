@@ -9,10 +9,13 @@ import org.apache.hc.client5.http.impl.classic.CloseableHttpClient;
 import org.apache.hc.client5.http.impl.classic.HttpClients;
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.core5.util.Timeout;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.client.ClientHttpRequestInterceptor;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.http.client.reactive.ReactorClientHttpConnector;
@@ -63,7 +66,9 @@ public class ExternalApiWebClientConfig {
      * Uses Apache HttpClient with connection pooling for better reliability
      */
     @Bean("electionGuardRestTemplate")
-    public RestTemplate electionGuardRestTemplate() {
+    public RestTemplate electionGuardRestTemplate(
+            @Autowired @Qualifier("electionGuardInternalAuthInterceptor")
+            ClientHttpRequestInterceptor electionGuardInternalAuthInterceptor) {
         // Configure connection pool
         PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
         connectionManager.setMaxTotal(electionGuardMaxConnections);
@@ -92,7 +97,9 @@ public class ExternalApiWebClientConfig {
         // Create request factory with HttpClient
         HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
         
-        return new RestTemplate(requestFactory);
+        RestTemplate restTemplate = new RestTemplate(requestFactory);
+        restTemplate.setInterceptors(java.util.List.of(electionGuardInternalAuthInterceptor));
+        return restTemplate;
     }
 
     @Bean

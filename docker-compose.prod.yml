@@ -17,7 +17,7 @@ services:
     environment:
       - POSTGRES_DB=amarvote_db
       - POSTGRES_USER=amarvote_user
-      - POSTGRES_PASSWORD=amarvote_password
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./Database/creation/:/docker-entrypoint-initdb.d/:ro
@@ -58,15 +58,17 @@ services:
     restart: unless-stopped
     env_file:
       - .env
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
     # maxmemory must stay below container limit (96M)
-    command: redis-server --save "" --maxmemory 64mb --maxmemory-policy allkeys-lru --maxclients 2000
+    command: redis-server --save "" --maxmemory 64mb --maxmemory-policy allkeys-lru --maxclients 2000 --requirepass ${REDIS_PASSWORD}
     ports:
       - "127.0.0.1:6379:6379"   # Bound to localhost only — use SSH tunnel to access
     networks:
       election_net:
         ipv4_address: 172.20.0.75
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
       interval: 10s
       timeout: 3s
       retries: 3
@@ -85,9 +87,11 @@ services:
       - .env
     environment:
       - RABBITMQ_DEFAULT_USER=amarvote_user
-      - RABBITMQ_DEFAULT_PASS=amarvote_password
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    # No public AMQP port — only reachable inside election_net
+    expose:
+      - "5672"
     ports:
-      - "5672:5672"                    # AMQP — public (as requested)
       - "127.0.0.1:15672:15672"        # Management UI — localhost only, use SSH tunnel
     volumes:
       - rabbitmq_data:/var/lib/rabbitmq
@@ -119,8 +123,8 @@ services:
     environment:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/amarvote_db
       - SPRING_DATASOURCE_USERNAME=amarvote_user
-      - SPRING_DATASOURCE_PASSWORD=amarvote_password
-      - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
       - SPRING_JPA_OPEN_IN_VIEW=false
       - SPRING_DEVTOOLS_RESTART_ENABLED=false
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=false
@@ -130,6 +134,10 @@ services:
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - JWT_SECRET=${JWT_SECRET}
+      - JWT_TEMP_SECRET=${JWT_TEMP_SECRET}
+      - ELECTIONGUARD_INTERNAL_API_KEY=${ELECTIONGUARD_INTERNAL_API_KEY}
+      - COOKIE_SECURE=true
+      - AMARVOTE_CHATBOT_ENABLED=false
       - RESEND_API_KEY=${RESEND_API_KEY}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - CLOUDINARY_NAME=${CLOUDINARY_NAME}
@@ -142,11 +150,11 @@ services:
       - SPRING_RABBITMQ_HOST=rabbitmq
       - SPRING_RABBITMQ_PORT=5672
       - SPRING_RABBITMQ_USERNAME=amarvote_user
-      - SPRING_RABBITMQ_PASSWORD=amarvote_password
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
       # Redis Configuration
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
-      - SPRING_REDIS_PASSWORD=
+      - SPRING_REDIS_PASSWORD=${REDIS_PASSWORD}
       # ElectionGuard Service URLs
       - ELECTIONGUARD_API_URL=http://electionguard-api:5000
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
@@ -232,6 +240,7 @@ services:
     environment:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
+      - ELECTIONGUARD_INTERNAL_API_KEY=${ELECTIONGUARD_INTERNAL_API_KEY}
       # 2 vCPU host: 6 sync workers (CPU-bound crypto). Worker recycle limits heap growth.
       - GUNICORN_WORKERS=6
       - GUNICORN_THREADS=1
@@ -263,6 +272,7 @@ services:
     environment:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
+      - ELECTIONGUARD_INTERNAL_API_KEY=${ELECTIONGUARD_INTERNAL_API_KEY}
     volumes:
       - ./Microservice/io:/app/io:rw
     deploy:
