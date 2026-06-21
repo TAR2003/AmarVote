@@ -10,8 +10,9 @@ import org.springframework.stereotype.Component;
 import com.amarvote.amarvote.exception.ElectionGuardCapacityException;
 
 /**
- * Limits in-flight ElectionGuard HTTP calls to match Gunicorn worker capacity.
- * Prevents unbounded Tomcat threads from queueing at EG and exhausting DB/HTTP pools.
+ * Independent in-flight limits for the two ElectionGuard containers:
+ * - API (electionguard-api): ballot encryption, guardians, benaloh
+ * - Worker (electionguard-worker): tally, partial/compensated decrypt, combine
  */
 @Component
 public class ElectionGuardConcurrencyGate {
@@ -20,16 +21,28 @@ public class ElectionGuardConcurrencyGate {
     private final Semaphore workerSemaphore;
     private final long apiAcquireTimeoutMs;
     private final long workerAcquireTimeoutMs;
+    private final int apiCapacity;
+    private final int workerCapacity;
 
     public ElectionGuardConcurrencyGate(
             @Value("${amarvote.electionguard.api.max-concurrent:6}") int apiMaxConcurrent,
             @Value("${amarvote.electionguard.api.acquire-timeout-ms:180000}") long apiAcquireTimeoutMs,
-            @Value("${amarvote.electionguard.worker.max-concurrent:2}") int workerMaxConcurrent,
+            @Value("${amarvote.electionguard.worker.max-concurrent:6}") int workerMaxConcurrent,
             @Value("${amarvote.electionguard.worker.acquire-timeout-ms:600000}") long workerAcquireTimeoutMs) {
-        this.apiSemaphore = new Semaphore(Math.max(1, apiMaxConcurrent), true);
-        this.workerSemaphore = new Semaphore(Math.max(1, workerMaxConcurrent), true);
+        this.apiCapacity = Math.max(1, apiMaxConcurrent);
+        this.workerCapacity = Math.max(1, workerMaxConcurrent);
+        this.apiSemaphore = new Semaphore(this.apiCapacity, true);
+        this.workerSemaphore = new Semaphore(this.workerCapacity, true);
         this.apiAcquireTimeoutMs = apiAcquireTimeoutMs;
         this.workerAcquireTimeoutMs = workerAcquireTimeoutMs;
+    }
+
+    public int getApiCapacity() {
+        return apiCapacity;
+    }
+
+    public int getWorkerCapacity() {
+        return workerCapacity;
     }
 
     public <T> T executeApi(Supplier<T> action) {

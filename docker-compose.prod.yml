@@ -155,9 +155,11 @@ services:
       - SPRING_REDIS_HOST=redis
       - SPRING_REDIS_PORT=6379
       - SPRING_REDIS_PASSWORD=${REDIS_PASSWORD}
-      # ElectionGuard Service URLs
+      # ElectionGuard Service URLs + per-container throughput (must match GUNICORN_WORKERS below)
       - ELECTIONGUARD_API_URL=http://electionguard-api:5000
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
+      - ELECTIONGUARD_API_GUNICORN_WORKERS=6
+      - ELECTIONGUARD_WORKER_GUNICORN_WORKERS=4
       # 4 GB host: 1792M container — Xmx896m + 384m metaspace (128m cap caused Metaspace OOM)
       - JAVA_OPTS=-Xms384m -Xmx896m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=384m -XX:MaxDirectMemorySize=256m
     volumes:
@@ -273,12 +275,16 @@ services:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
       - ELECTIONGUARD_INTERNAL_API_KEY=${ELECTIONGUARD_INTERNAL_API_KEY}
+      - GUNICORN_WORKERS=4
+      - GUNICORN_THREADS=1
+      - GUNICORN_MAX_REQUESTS=5000
+      - GUNICORN_MAX_REQUESTS_JITTER=40
     volumes:
       - ./Microservice/io:/app/io:rw
     deploy:
       resources:
         limits:
-          memory: 320M
+          memory: 384M
 
   prometheus:
     image: prom/prometheus:latest

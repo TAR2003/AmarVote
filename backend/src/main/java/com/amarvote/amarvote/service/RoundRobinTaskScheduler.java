@@ -65,8 +65,11 @@ public class RoundRobinTaskScheduler {
     private final ObjectMapper objectMapper;
     private final ProcessCancellationService cancellationService;
 
-    @Value("${rabbitmq.worker.concurrency.max:4}")
+    @Value("${rabbitmq.worker.concurrency.max:6}")
     private int maxWorkerConcurrency;
+
+    @Value("${rabbitmq.scheduler.max-queued-chunks-per-task:${rabbitmq.worker.concurrency.max:6}}")
+    private int maxQueuedChunksPerTask;
 
     /**
      * All active task instances (key: taskInstanceId)
@@ -106,17 +109,10 @@ public class RoundRobinTaskScheduler {
     private static final long INITIAL_RETRY_DELAY_MS = 5000; // 5 seconds
     
     /**
-     * Maximum chunks to keep queued per task instance to maintain fairness
-     * This prevents one task from flooding the queue while others wait
-     * UPDATED: Reduced to 1 for true round-robin (each task gets 1 chunk queued at a time)
-     */
-    private static final int MAX_QUEUED_CHUNKS_PER_TASK = 1;
-    
-    /**
-     * Round-robin passes per dispatch cycle — sized to keep worker pool busy.
+     * Round-robin passes per dispatch cycle — prime enough chunks to saturate workers.
      */
     private int targetChunksPerCycle() {
-        return Math.max(maxWorkerConcurrency, 4);
+        return Math.max(maxWorkerConcurrency * 2, maxQueuedChunksPerTask);
     }
 
     // ==================== PUBLIC API ====================
@@ -435,7 +431,7 @@ public class RoundRobinTaskScheduler {
                         .filter(c -> c.getState() == ChunkState.QUEUED)
                         .count();
 
-                    if (currentlyQueued >= MAX_QUEUED_CHUNKS_PER_TASK) {
+                    if (currentlyQueued >= maxQueuedChunksPerTask) {
                         continue;
                     }
 

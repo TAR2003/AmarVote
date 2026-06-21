@@ -30,81 +30,99 @@ import reactor.netty.http.client.HttpClient;
 import reactor.netty.resources.ConnectionProvider;
 
 /**
- * WebClient and RestTemplate configuration for external APIs
- * - WebClient: For reactive/async APIs (DeepSeek, etc.)
- * - RestTemplate: For blocking APIs (RAG service, ElectionGuard)
+ * External HTTP clients.
+ * ElectionGuard API and Worker are separate containers with independent connection pools.
  */
 @Configuration
 public class ExternalApiWebClientConfig {
 
-    @Value("${electionguard.max.connections:200}")
-    private int electionGuardMaxConnections;
+    @Value("${electionguard.api.max.connections:6}")
+    private int electionGuardApiMaxConnections;
 
-    @Value("${electionguard.max.per.route:100}")
-    private int electionGuardMaxPerRoute;
+    @Value("${electionguard.api.max.per.route:6}")
+    private int electionGuardApiMaxPerRoute;
+
+    @Value("${electionguard.worker.max.connections:6}")
+    private int electionGuardWorkerMaxConnections;
+
+    @Value("${electionguard.worker.max.per.route:6}")
+    private int electionGuardWorkerMaxPerRoute;
 
     @Value("${electionguard.connection.request.timeout:60000}")
     private int electionGuardConnectionRequestTimeoutMs;
 
-    /**
-     * RestTemplate bean for blocking HTTP calls (RAG service)
-     */
     @Bean
     public RestTemplate restTemplate(RestTemplateBuilder builder) {
         return builder
                 .requestFactory(() -> {
                     SimpleClientHttpRequestFactory factory = new SimpleClientHttpRequestFactory();
-                    factory.setConnectTimeout(30000); // 30 seconds
-                    factory.setReadTimeout(300000);   // 5 minutes for long operations
+                    factory.setConnectTimeout(30000);
+                    factory.setReadTimeout(300000);
                     return factory;
                 })
                 .build();
     }
 
-    /**
-     * Separate RestTemplate bean for ElectionGuard service
-     * Uses Apache HttpClient with connection pooling for better reliability
-     */
-    @Bean("electionGuardRestTemplate")
-    public RestTemplate electionGuardRestTemplate(
+    /** Fast ballot/guardian calls → electionguard-api:5000 */
+    @Bean("electionGuardApiRestTemplate")
+    public RestTemplate electionGuardApiRestTemplate(
             @Autowired @Qualifier("electionGuardInternalAuthInterceptor")
             ClientHttpRequestInterceptor electionGuardInternalAuthInterceptor) {
-        // Configure connection pool
+        return buildElectionGuardRestTemplate(
+                electionGuardApiMaxConnections,
+                electionGuardApiMaxPerRoute,
+                Timeout.ofMinutes(5),
+                electionGuardInternalAuthInterceptor);
+    }
+
+    /** Heavy tally/decrypt/combine → electionguard-worker:5001 */
+    @Bean("electionGuardWorkerRestTemplate")
+    public RestTemplate electionGuardWorkerRestTemplate(
+            @Autowired @Qualifier("electionGuardInternalAuthInterceptor")
+            ClientHttpRequestInterceptor electionGuardInternalAuthInterceptor) {
+        return buildElectionGuardRestTemplate(
+                electionGuardWorkerMaxConnections,
+                electionGuardWorkerMaxPerRoute,
+                Timeout.ofMinutes(10),
+                electionGuardInternalAuthInterceptor);
+    }
+
+    private RestTemplate buildElectionGuardRestTemplate(
+            int maxConnections,
+            int maxPerRoute,
+            Timeout responseTimeout,
+            ClientHttpRequestInterceptor interceptor) {
         PoolingHttpClientConnectionManager connectionManager = new PoolingHttpClientConnectionManager();
-        connectionManager.setMaxTotal(electionGuardMaxConnections);
-        connectionManager.setDefaultMaxPerRoute(electionGuardMaxPerRoute);
-        
-        // Configure connection timeouts
+        connectionManager.setMaxTotal(maxConnections);
+        connectionManager.setDefaultMaxPerRoute(maxPerRoute);
+
         ConnectionConfig connectionConfig = ConnectionConfig.custom()
                 .setConnectTimeout(Timeout.ofSeconds(30))
-                .setSocketTimeout(Timeout.ofMinutes(10)) // 10 minutes for crypto operations
+                .setSocketTimeout(responseTimeout)
                 .build();
         connectionManager.setDefaultConnectionConfig(connectionConfig);
-        
-        // Configure request timeouts
+
         RequestConfig requestConfig = RequestConfig.custom()
                 .setConnectionRequestTimeout(Timeout.ofMilliseconds(electionGuardConnectionRequestTimeoutMs))
-                .setResponseTimeout(Timeout.ofMinutes(10))
+                .setResponseTimeout(responseTimeout)
                 .build();
-        
-        // Create HttpClient with connection pool
+
         CloseableHttpClient httpClient = HttpClients.custom()
                 .setConnectionManager(connectionManager)
                 .setDefaultRequestConfig(requestConfig)
                 .evictIdleConnections(Timeout.ofMinutes(2))
                 .build();
-        
-        // Create request factory with HttpClient
-        HttpComponentsClientHttpRequestFactory requestFactory = new HttpComponentsClientHttpRequestFactory(httpClient);
-        
+
+        HttpComponentsClientHttpRequestFactory requestFactory =
+                new HttpComponentsClientHttpRequestFactory(httpClient);
+
         RestTemplate restTemplate = new RestTemplate(requestFactory);
-        restTemplate.setInterceptors(java.util.List.of(electionGuardInternalAuthInterceptor));
+        restTemplate.setInterceptors(java.util.List.of(interceptor));
         return restTemplate;
     }
 
     @Bean
     public WebClient webClient() {
-        // Configure connection provider
         ConnectionProvider connectionProvider = ConnectionProvider.builder("external-api")
                 .maxConnections(50)
                 .maxIdleTime(Duration.ofSeconds(120))
@@ -113,16 +131,14 @@ public class ExternalApiWebClientConfig {
                 .evictInBackground(Duration.ofSeconds(120))
                 .build();
 
-        // Increase buffer size for large responses
         ExchangeStrategies exchangeStrategies = ExchangeStrategies.builder()
-                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10485760)) // 10MB
+                .codecs(configurer -> configurer.defaultCodecs().maxInMemorySize(10485760))
                 .build();
 
-        // Configure HttpClient with timeouts
         HttpClient httpClient = HttpClient.create(connectionProvider)
-                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000) // 30 seconds
-                .responseTimeout(Duration.ofSeconds(300)) // 5 minutes for long operations
-                .doOnConnected(conn -> 
+                .option(ChannelOption.CONNECT_TIMEOUT_MILLIS, 30000)
+                .responseTimeout(Duration.ofSeconds(300))
+                .doOnConnected(conn ->
                     conn.addHandlerLast(new ReadTimeoutHandler(300, TimeUnit.SECONDS))
                         .addHandlerLast(new WriteTimeoutHandler(300, TimeUnit.SECONDS))
                 )

@@ -58,8 +58,12 @@ public class ElectionGuardService {
     private static final MediaType MSGPACK_MEDIA_TYPE = MediaType.valueOf("application/msgpack");
 
     @Autowired
-    @Qualifier("electionGuardRestTemplate")
-    private RestTemplate restTemplate;
+    @Qualifier("electionGuardApiRestTemplate")
+    private RestTemplate apiRestTemplate;
+
+    @Autowired
+    @Qualifier("electionGuardWorkerRestTemplate")
+    private RestTemplate workerRestTemplate;
 
     @Autowired
     private ElectionGuardConcurrencyGate concurrencyGate;
@@ -86,11 +90,8 @@ public class ElectionGuardService {
                endpoint.contains("/combine_decryption_shares");
     }
 
-    /**
-     * Get the appropriate base URL for the given endpoint.
-     */
-    private String getServiceUrl(String endpoint) {
-        return isWorkerEndpoint(endpoint) ? workerUrl : apiUrl;
+    private RestTemplate restTemplateFor(String endpoint) {
+        return isWorkerEndpoint(endpoint) ? workerRestTemplate : apiRestTemplate;
     }
 
     /**
@@ -110,18 +111,16 @@ public class ElectionGuardService {
         String threadName = Thread.currentThread().getName();
         long threadId = Thread.currentThread().threadId();
         Instant startTime = Instant.now();
-        String serviceUrl = getServiceUrl(endpoint);
+        String serviceUrl = isWorkerEndpoint(endpoint) ? workerUrl : apiUrl;
         String serviceType = isWorkerEndpoint(endpoint) ? "WORKER" : "API";
 
-        log.info("[REQ-{}][Thread-{}:{}] ===== STARTING POST REQUEST (msgpack) =====", requestId, threadName, threadId);
-        log.info("[REQ-{}] Service Type: {} ({})", requestId, serviceType, serviceUrl);
-        log.info("[REQ-{}] Endpoint: {}", requestId, endpoint);
-        log.info("[REQ-{}] Full URL: {}{}", requestId, serviceUrl, endpoint);
-        log.info("[REQ-{}] Request body class: {}", requestId, requestBody.getClass().getSimpleName());
+        log.debug("[REQ-{}][Thread-{}:{}] POST {} ({})", requestId, threadName, threadId, endpoint, serviceType);
+        log.debug("[REQ-{}] URL: {}{}", requestId, serviceUrl, endpoint);
 
-        logConnectionPoolStats(requestId, "BEFORE");
+        RestTemplate client = restTemplateFor(endpoint);
+        logConnectionPoolStats(requestId, "BEFORE", client);
 
-        Supplier<String> sendRequest = () -> sendPostRequest(requestId, serviceUrl, endpoint, requestBody, startTime);
+        Supplier<String> sendRequest = () -> sendPostRequest(requestId, client, serviceUrl, endpoint, requestBody, startTime);
 
         try {
             if (isWorkerEndpoint(endpoint)) {
@@ -134,12 +133,11 @@ public class ElectionGuardService {
         }
     }
 
-    private String sendPostRequest(long requestId, String serviceUrl, String endpoint, Object requestBody, Instant startTime) {
+    private String sendPostRequest(long requestId, RestTemplate client, String serviceUrl, String endpoint, Object requestBody, Instant startTime) {
         try {
             // -- Serialize request -> msgpack bytes -----------------------------
-            log.info("[REQ-{}] Serializing request to msgpack...", requestId);
             byte[] requestBytes = MSGPACK_MAPPER.writeValueAsBytes(requestBody);
-            log.info("[REQ-{}] Serialized request size: {} bytes", requestId, requestBytes.length);
+            log.debug("[REQ-{}] Serialized request: {} bytes", requestId, requestBytes.length);
 
             // -- Build HTTP entity with msgpack content-type -------------------
             HttpHeaders headers = new HttpHeaders();
@@ -149,9 +147,9 @@ public class ElectionGuardService {
 
             // -- Send request, expecting raw bytes back ------------------------
             Instant requestSentTime = Instant.now();
-            log.info("[REQ-{}] Sending msgpack request to microservice...", requestId);
+            log.debug("[REQ-{}] Sending msgpack request...", requestId);
 
-            ResponseEntity<byte[]> response = restTemplate.postForEntity(
+            ResponseEntity<byte[]> response = client.postForEntity(
                     serviceUrl + endpoint,
                     entity,
                     byte[].class
@@ -161,23 +159,16 @@ public class ElectionGuardService {
             long requestDuration = responseReceivedTime.toEpochMilli() - requestSentTime.toEpochMilli();
             long totalDuration = responseReceivedTime.toEpochMilli() - startTime.toEpochMilli();
 
-            log.info("[REQ-{}] ===== RESPONSE RECEIVED =====", requestId);
-            log.info("[REQ-{}] Status code: {}", requestId, response.getStatusCode());
-            log.info("[REQ-{}] Request duration: {}ms", requestId, requestDuration);
-            log.info("[REQ-{}] Total duration (including setup): {}ms", requestId, totalDuration);
+            log.debug("[REQ-{}] {} {}ms (total {}ms)", requestId, response.getStatusCode(), requestDuration, totalDuration);
 
-            logConnectionPoolStats(requestId, "AFTER");
+            logConnectionPoolStats(requestId, "AFTER", client);
 
             byte[] responseBytes = response.getBody();
             if (response.getStatusCode().is2xxSuccessful() && responseBytes != null) {
-                log.info("[REQ-{}] Response size: {} bytes", requestId, responseBytes.length);
-
-                // -- Deserialize msgpack response -> Java object tree -> JSON string --
+                log.debug("[REQ-{}] Response {} bytes", requestId, responseBytes.length);
                 Object responseObj = MSGPACK_MAPPER.readValue(responseBytes, Object.class);
                 String jsonString = JSON_MAPPER.writeValueAsString(responseObj);
-                log.info("[REQ-{}] JSON response length: {} chars", requestId, jsonString.length());
-                log.info("[REQ-{}] [OK] Successfully received valid response from {}", requestId, endpoint);
-                log.info("[REQ-{}] ===== REQUEST COMPLETED SUCCESSFULLY =====", requestId);
+                log.debug("[REQ-{}] OK {} ({}ms)", requestId, endpoint, totalDuration);
                 return jsonString;
             } else {
                 log.error("[REQ-{}] [ERROR] Unexpected response for {}: {}", requestId, endpoint, response.getStatusCode());
@@ -195,7 +186,7 @@ public class ElectionGuardService {
             log.error("[REQ-{}] Time elapsed before error: {}ms", requestId, errorDuration);
             log.error("[REQ-{}] Stack trace:", requestId, e);
 
-            logConnectionPoolStats(requestId, "ERROR");
+            logConnectionPoolStats(requestId, "ERROR", client);
             throw e;
         } catch (Exception e) {
             Instant errorTime = Instant.now();
@@ -206,12 +197,8 @@ public class ElectionGuardService {
             log.error("[REQ-{}] Error message: {}", requestId, e.getMessage());
             log.error("[REQ-{}] Time elapsed before error: {}ms", requestId, errorDuration);
 
-            logConnectionPoolStats(requestId, "ERROR");
+            logConnectionPoolStats(requestId, "ERROR", client);
             throw new RuntimeException("msgpack transport error for " + endpoint + ": " + e.getMessage(), e);
-        } finally {
-            Instant endTime = Instant.now();
-            long finalDuration = endTime.toEpochMilli() - startTime.toEpochMilli();
-            log.info("[REQ-{}] ===== REQUEST LIFECYCLE ENDED (Total: {}ms) =====", requestId, finalDuration);
         }
     }
 
@@ -220,11 +207,13 @@ public class ElectionGuardService {
      * GET responses (health checks, status queries) remain plain JSON.
      */
     public String getRequest(String endpoint) {
-        String serviceUrl = getServiceUrl(endpoint);
-        log.info("Making GET request to ElectionGuard ({}): {}", serviceUrl, endpoint);
+        boolean worker = isWorkerEndpoint(endpoint);
+        String serviceUrl = worker ? workerUrl : apiUrl;
+        RestTemplate client = worker ? workerRestTemplate : apiRestTemplate;
+        log.debug("GET {} ({})", endpoint, worker ? "WORKER" : "API");
 
         try {
-            ResponseEntity<String> response = restTemplate.getForEntity(
+            ResponseEntity<String> response = client.getForEntity(
                     serviceUrl + endpoint,
                     String.class
             );
@@ -248,10 +237,10 @@ public class ElectionGuardService {
      */
     public boolean isHealthy() {
         try {
-            ResponseEntity<String> apiResponse = restTemplate.getForEntity(
+            ResponseEntity<String> apiResponse = apiRestTemplate.getForEntity(
                     apiUrl + "/health", String.class);
 
-            ResponseEntity<String> workerResponse = restTemplate.getForEntity(
+            ResponseEntity<String> workerResponse = workerRestTemplate.getForEntity(
                     workerUrl + "/health", String.class);
 
             boolean apiHealthy = apiResponse.getStatusCode().is2xxSuccessful();
@@ -276,10 +265,10 @@ public class ElectionGuardService {
     // Internal helpers
     // --------------------------------------------------------------------------
 
-    private void logConnectionPoolStats(long requestId, String phase) {
+    private void logConnectionPoolStats(long requestId, String phase, RestTemplate client) {
         try {
             HttpComponentsClientHttpRequestFactory factory =
-                    (HttpComponentsClientHttpRequestFactory) restTemplate.getRequestFactory();
+                    (HttpComponentsClientHttpRequestFactory) client.getRequestFactory();
 
             java.lang.reflect.Method method = factory.getHttpClient().getClass().getMethod("getConnectionManager");
             HttpClientConnectionManager connectionManager =
@@ -291,7 +280,7 @@ public class ElectionGuardService {
                 int pending   = poolingManager.getTotalStats().getPending();
                 int max       = poolingManager.getTotalStats().getMax();
 
-                log.info("[REQ-{}][POOL-{}] Pool: available={} leased={} pending={} max={}",
+                log.debug("[REQ-{}][POOL-{}] available={} leased={} pending={} max={}",
                         requestId, phase, available, leased, pending, max);
 
                 if (leased >= max * 0.8) {
