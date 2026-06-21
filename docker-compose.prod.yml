@@ -1,7 +1,7 @@
 # Production compose — tuned for 4 GB RAM + 4 GB swap (amarvote2026.me, 2 vCPU).
 #
-# Memory budget (container limits, ~3584M total):
-#   backend 1792M | electionguard-api 512M (6 workers) | postgres 384M | rabbitmq 320M
+# Memory budget (container limits, ~3712M total):
+#   backend 1792M | electionguard-api 512M (6 workers) | postgres 512M | rabbitmq 320M
 #   electionguard-worker 320M | prometheus+grafana 256M | frontend 96M | redis 96M | nginx 64M
 #
 # GitHub deploy uses THIS FILE ONLY. Nginx always uses nginx-proxy.conf (DDoS limits).
@@ -35,14 +35,22 @@ services:
     command: >
       postgres
       -c max_connections=150
-      -c shared_buffers=96MB
-      -c effective_cache_size=256MB
-      -c work_mem=2MB
-      -c maintenance_work_mem=32MB
+      -c shared_buffers=128MB
+      -c effective_cache_size=384MB
+      -c work_mem=4MB
+      -c maintenance_work_mem=64MB
+      -c max_wal_size=1GB
+      -c min_wal_size=256MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c max_parallel_workers_per_gather=2
+      -c max_parallel_workers=4
     deploy:
       resources:
         limits:
-          memory: 384M
+          memory: 512M
 
   redis:
     image: redis:7-alpine
@@ -113,6 +121,7 @@ services:
       - SPRING_DATASOURCE_USERNAME=amarvote_user
       - SPRING_DATASOURCE_PASSWORD=amarvote_password
       - SPRING_JPA_HIBERNATE_DDL_AUTO=update
+      - SPRING_JPA_OPEN_IN_VIEW=false
       - SPRING_DEVTOOLS_RESTART_ENABLED=false
       - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=false
       - RAG_SERVICE_URL=http://rag-service:5001

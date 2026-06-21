@@ -3,6 +3,7 @@ package com.amarvote.amarvote.service;
 import java.time.Instant;
 import java.util.Collections;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.Supplier;
 
 import org.apache.hc.client5.http.impl.io.PoolingHttpClientConnectionManager;
 import org.apache.hc.client5.http.io.HttpClientConnectionManager;
@@ -23,6 +24,7 @@ import org.springframework.web.client.RestTemplate;
 
 import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.amarvote.amarvote.exception.ElectionGuardCapacityException;
 
 @Service
 public class ElectionGuardService {
@@ -58,6 +60,9 @@ public class ElectionGuardService {
     @Autowired
     @Qualifier("electionGuardRestTemplate")
     private RestTemplate restTemplate;
+
+    @Autowired
+    private ElectionGuardConcurrencyGate concurrencyGate;
 
     @Value("${electionguard.api.url:http://electionguard-api:5000}")
     private String apiUrl;
@@ -116,6 +121,20 @@ public class ElectionGuardService {
 
         logConnectionPoolStats(requestId, "BEFORE");
 
+        Supplier<String> sendRequest = () -> sendPostRequest(requestId, serviceUrl, endpoint, requestBody, startTime);
+
+        try {
+            if (isWorkerEndpoint(endpoint)) {
+                return concurrencyGate.executeWorker(sendRequest);
+            }
+            return concurrencyGate.executeApi(sendRequest);
+        } catch (ElectionGuardCapacityException e) {
+            log.warn("[REQ-{}] Capacity limit reached for {}: {}", requestId, endpoint, e.getMessage());
+            throw e;
+        }
+    }
+
+    private String sendPostRequest(long requestId, String serviceUrl, String endpoint, Object requestBody, Instant startTime) {
         try {
             // -- Serialize request -> msgpack bytes -----------------------------
             log.info("[REQ-{}] Serializing request to msgpack...", requestId);

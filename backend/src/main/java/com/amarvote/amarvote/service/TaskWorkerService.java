@@ -51,8 +51,6 @@ import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.SubmittedBallotRepository;
 import com.amarvote.amarvote.repository.TallyWorkerLogRepository;
 
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
 import lombok.RequiredArgsConstructor;
 
 /**
@@ -63,9 +61,6 @@ import lombok.RequiredArgsConstructor;
 @Service
 @RequiredArgsConstructor
 public class TaskWorkerService {
-
-    @PersistenceContext
-    private EntityManager entityManager;
 
     private final BallotRepository ballotRepository;
     private final ElectionCenterRepository electionCenterRepository;
@@ -135,11 +130,11 @@ public class TaskWorkerService {
     }
 
     /**
-     * Worker for tally creation tasks
-     * Processes one chunk of ballots at a time
+     * Worker for tally creation tasks.
+     * No class-level @Transactional — ElectionGuard calls can take minutes; each repository
+     * call uses its own short transaction so Hikari connections are not held during crypto.
      */
     @RabbitListener(queues = RabbitMQConfig.TALLY_CREATION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
     public void processTallyCreationTask(TallyCreationTask task) {
         String lockKey = "tally_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
         
@@ -261,10 +256,6 @@ public class TaskWorkerService {
                 );
             }
             
-            // CRITICAL: Aggressive memory cleanup
-            entityManager.flush();
-            entityManager.clear();
-            
             chunkBallots.clear();
             chunkEncryptedBallots.clear();
             
@@ -304,7 +295,6 @@ public class TaskWorkerService {
      * Processes one chunk at a time for a specific guardian
      */
     @RabbitListener(queues = RabbitMQConfig.PARTIAL_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
     public void processPartialDecryptionTask(PartialDecryptionTask task) {
         String lockKey = "partial_" + task.getElectionId() + "_g" + task.getGuardianId() + "_chunk_" + task.getChunkNumber();
         
@@ -445,10 +435,6 @@ public class TaskWorkerService {
             // Update progress
             updatePartialDecryptionProgress(task.getElectionId(), task.getGuardianId(), task.getChunkNumber());
             
-            // CRITICAL: Memory cleanup
-            entityManager.flush();
-            entityManager.clear();
-            
             ballotCipherTexts.clear();
             
             // Log memory after
@@ -487,7 +473,6 @@ public class TaskWorkerService {
      * Processes one compensated share at a time
      */
     @RabbitListener(queues = RabbitMQConfig.COMPENSATED_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
     public void processCompensatedDecryptionTask(CompensatedDecryptionTask task) {
         String lockKey = "compensated_" + task.getElectionId() + "_g" + task.getSourceGuardianId() + 
                         "_for_" + task.getTargetGuardianId() + "_chunk_" + task.getChunkNumber();
@@ -665,10 +650,6 @@ public class TaskWorkerService {
             // Update progress
             updateCompensatedDecryptionProgress(task.getElectionId(), task.getSourceGuardianId());
             
-            // CRITICAL: Memory cleanup
-            entityManager.flush();
-            entityManager.clear();
-            
             ballotCipherTexts.clear();
             
             // Log memory after
@@ -707,7 +688,6 @@ public class TaskWorkerService {
      * Processes one chunk at a time to combine all decryption shares
      */
     @RabbitListener(queues = RabbitMQConfig.COMBINE_DECRYPTION_QUEUE, concurrency = "${rabbitmq.worker.concurrency.min}-${rabbitmq.worker.concurrency.max}")
-    @Transactional
     public void processCombineDecryptionTask(CombineDecryptionTask task) {
         String lockKey = "combine_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
         
@@ -908,10 +888,6 @@ public class TaskWorkerService {
             
             // Removed: updateCombineDecryptionProgress - status is now queried directly from database
             System.out.println("✅ Combine chunk " + task.getChunkNumber() + " completed");
-            
-            // CRITICAL: Memory cleanup
-            entityManager.flush();
-            entityManager.clear();
             
             ballotCipherTexts.clear();
             decryptions.clear();

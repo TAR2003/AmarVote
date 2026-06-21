@@ -88,11 +88,7 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
             throw e;
         } finally {
             apiLog.setResponseTime(System.currentTimeMillis() - startTime);
-            try {
-                apiLogService.saveLog(apiLog);
-            } catch (Exception e) {
-                System.err.println("Failed to save API log: " + e.getMessage());
-            }
+            apiLogService.saveLogAsync(apiLog);
         }
     }
 

@@ -9,6 +9,7 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
@@ -17,7 +18,10 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "ballots")
+@Table(name = "ballots", indexes = {
+    @Index(name = "idx_ballots_election_status", columnList = "election_id, status"),
+    @Index(name = "idx_ballots_election_tracking", columnList = "election_id, tracking_code")
+})
 @Getter
 @Setter
 @NoArgsConstructor

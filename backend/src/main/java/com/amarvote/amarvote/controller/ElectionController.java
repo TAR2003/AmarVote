@@ -5,6 +5,7 @@ package com.amarvote.amarvote.controller;
 import java.util.List;
 import java.util.Map;
 
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
@@ -873,6 +874,10 @@ public class ElectionController {
             if (response.isSuccess()) {
                 System.out.println("✅ [SECURE BALLOT] Ballot created successfully");
                 return ResponseEntity.ok(response);
+            } else if ("Service temporarily at capacity".equals(response.getErrorReason())) {
+                return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
+                        .header(HttpHeaders.RETRY_AFTER, "5")
+                        .body(response);
             } else {
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
             }

@@ -30,6 +30,7 @@ import com.amarvote.amarvote.dto.ElectionGuardBenalohResponse;
 import com.amarvote.amarvote.dto.EligibilityCheckRequest;
 import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.dto.worker.VoteReceiptTask;
+import com.amarvote.amarvote.exception.ElectionGuardCapacityException;
 import com.amarvote.amarvote.model.Ballot;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionChoice;
@@ -560,6 +561,8 @@ public class BallotService {
             }
 
             return objectMapper.readValue(response, ElectionGuardBallotResponse.class);
+        } catch (ElectionGuardCapacityException e) {
+            throw e;
         } catch (Exception e) {
             System.err.println("Failed to call ElectionGuard service: " + e.getMessage());
             throw new RuntimeException("Failed to call ElectionGuard service", e);
@@ -751,6 +754,12 @@ public class BallotService {
                     .ballot_id(guardResponse.getBallot_id())
                     .build();
 
+        } catch (ElectionGuardCapacityException e) {
+            return CreateEncryptedBallotResponse.builder()
+                    .success(false)
+                    .message("Voting system is busy encrypting ballots. Please wait a moment and try again.")
+                    .errorReason("Service temporarily at capacity")
+                    .build();
         } catch (Exception e) {
             return CreateEncryptedBallotResponse.builder()
                     .success(false)

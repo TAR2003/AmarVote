@@ -9,10 +9,13 @@ import jakarta.persistence.Entity;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.Index;
 import jakarta.persistence.Table;
 
 @Entity
-@Table(name = "api_logs")
+@Table(name = "api_logs", indexes = {
+    @Index(name = "idx_api_logs_request_time", columnList = "request_time")
+})
 public class ApiLog {
     
     @Id
