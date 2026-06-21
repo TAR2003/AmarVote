@@ -39,4 +39,8 @@ public interface BallotRepository extends JpaRepository<Ballot, Long> {
     // Find ballots by list of IDs
     @Query("SELECT b FROM Ballot b WHERE b.ballotId IN :ballotIds")
     List<Ballot> findByBallotIdIn(@Param("ballotIds") List<Long> ballotIds);
+
+    // Cipher texts only — avoids loading full Ballot entities before tally crypto
+    @Query("SELECT b.cipherText FROM Ballot b WHERE b.ballotId IN :ballotIds")
+    List<String> findCipherTextsByBallotIdIn(@Param("ballotIds") List<Long> ballotIds);
 }

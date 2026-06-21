@@ -186,13 +186,8 @@ public class TaskWorkerService {
             long memoryBeforeMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
             System.out.println("🧠 Memory before: " + memoryBeforeMB + " MB");
             
-            // Fetch only the ballots needed for this chunk
-            List<Ballot> chunkBallots = ballotRepository.findByBallotIdIn(task.getBallotIds());
-            
-            // Extract cipher texts
-            List<String> chunkEncryptedBallots = chunkBallots.stream()
-                .map(Ballot::getCipherText)
-                .collect(Collectors.toList());
+            // Fetch cipher texts only (not full Ballot entities — each ciphertext is large)
+            List<String> chunkEncryptedBallots = ballotRepository.findCipherTextsByBallotIdIn(task.getBallotIds());
             
             // Build request
             ElectionGuardTallyRequest guardRequest = ElectionGuardTallyRequest.builder()
@@ -219,20 +214,21 @@ public class TaskWorkerService {
             electionCenter.setEncryptedTally(toJsonString(guardResponse.getCiphertext_tally()));
             electionCenterRepository.save(electionCenter);
             
-            // Save submitted ballots
-            if (guardResponse.getSubmitted_ballots() != null) {
-                for (Object submittedBallotRaw : guardResponse.getSubmitted_ballots()) {
+            // Batch persist — fresh election_center has no prior rows; per-row exists+save starved EG worker
+            Object[] submittedBallotRaws = guardResponse.getSubmitted_ballots();
+            if (submittedBallotRaws != null && submittedBallotRaws.length > 0) {
+                Long centerId = electionCenter.getElectionCenterId();
+                List<SubmittedBallot> submittedBallots = new ArrayList<>(submittedBallotRaws.length);
+                for (Object submittedBallotRaw : submittedBallotRaws) {
                     String submittedBallotCipherText = toJsonString(submittedBallotRaw);
-                    if (submittedBallotCipherText != null &&
-                            !submittedBallotRepository.existsByElectionCenterIdAndCipherText(
-                            electionCenter.getElectionCenterId(), submittedBallotCipherText)) {
-                        SubmittedBallot submittedBallot = SubmittedBallot.builder()
-                            .electionCenterId(electionCenter.getElectionCenterId())
+                    if (submittedBallotCipherText != null) {
+                        submittedBallots.add(SubmittedBallot.builder()
+                            .electionCenterId(centerId)
                             .cipherText(submittedBallotCipherText)
-                            .build();
-                        submittedBallotRepository.save(submittedBallot);
+                            .build());
                     }
                 }
+                submittedBallotRepository.saveAll(submittedBallots);
             }
             
             System.out.println("✅ Chunk " + task.getChunkNumber() + " processing complete");
@@ -256,7 +252,6 @@ public class TaskWorkerService {
                 );
             }
             
-            chunkBallots.clear();
             chunkEncryptedBallots.clear();
             
             // Log memory after
