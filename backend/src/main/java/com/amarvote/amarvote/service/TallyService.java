@@ -358,7 +358,6 @@ public class TallyService {
      * NOTE: @Transactional removed from async method to prevent Hibernate session memory leak.
      * Each chunk is processed in its own transaction via processChunkTransactional().
     */
-    @Async
     public void createTallyAsync(CreateTallyRequest request, String userEmail) {
         createTallyAsync(request, userEmail, null, false);
     }
