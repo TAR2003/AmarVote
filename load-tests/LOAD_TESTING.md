@@ -122,8 +122,29 @@ SINGLE_RUN=1 ./load-tests/run.sh scenarios/browse.js
 | **`browse.js`** | Read-heavy dashboard load | session → all-elections → election detail → eligibility |
 | **`vote-encrypt-only.js`** | Encrypt ballot stress only | eligibility → create-encrypted-ballot (same email may repeat) |
 | **`vote-encrypt-2000.js`** | Full encrypted vote path | eligibility → encrypt (repeat) → cast once per email |
+| **`vote-encrypt-2000-mixed.js`** | Browse + vote, stepped ramp | session → elections → detail → eligibility → encrypt → cast |
+| **`vote-encrypt-sequential.js`** | Fixed vote count benchmark | eligibility → encrypt → cast (SEQ_* vars) |
+| **`vote-encrypt-sequential-mixed.js`** | Browse + vote, fixed count | session → elections → detail → eligibility → encrypt → cast |
 | **`vote-flow.js`** | Full vote path (with crypto) | Same lifecycle as vote-encrypt-2000 |
 | **`mixed-2000.js`** | Realistic mix | ~65% browse, ~30% vote, ~5% static pages |
+| **`realistic-vote.js`** | **Recommended** realistic journey | Stepped ramp; browse / eligibility-only / vote mix; 1–3 encrypts, 1 cast |
+| **`realistic-vote-sequential.js`** | Realistic journey, fixed sessions | Same user model as `realistic-vote.js`, `SEQ_*` vars |
+
+### Realistic user journey (`realistic-vote.js`)
+
+Each virtual user is one **session** with random intent:
+
+| Intent | % (default) | API flow |
+|--------|-------------|----------|
+| Browse only | 15% | session → all-elections → [election-detail] → stop |
+| Eligibility only | 10% | … → election-detail → eligibility → stop |
+| Full vote | 75% | … → eligibility → encrypt (1×, sometimes 2–3×) → **cast once** |
+
+Tune in `.env.loadtest`: `REALISTIC_BROWSE_ONLY_PCT`, `REALISTIC_ELIGIBILITY_ONLY_PCT`, `REALISTIC_EXTRA_ENCRYPT_PCT`, `REALISTIC_EXTRA_ENCRYPT_MAX`, `REALISTIC_THINK_MIN_MS`, `REALISTIC_THINK_MAX_MS`.
+
+Reports include **per-API** completed counts, avg/p95 latency, failures, plus **journey stats** (sessions by type, multi-encrypt users, encrypt/cast latency).
+
+Set `ENCRYPT_WARMUP_ITERS=0` when running stepped `realistic-vote.js` so email reservation matches one email per session.
 
 ### Vote test behaviour
 
@@ -208,7 +229,11 @@ Recommended order: **smoke** → **nginx-limit-check** → **browse** → **vote
 |--------------|------|
 | `{test}-step-{N}-report.txt` | After each VU step (50, 100, …) |
 | `{test}-step-{N}-report.json` | Machine-readable same data |
-| `{test}-combined-report.txt` | Summary of all steps at end |
+| `{test}-combined-report.txt` | **Final report** — overview table, per-API summary by step, full detail for every step |
+| `{test}-combined-report.json` | Machine-readable combined data |
+| `vote-encrypt-sequential-combined-report.txt` | Same final format for fixed-count sequential runs |
+| `vote-encrypt-sequential-mixed-combined-report.txt` | Browse + vote sequential combined report |
+| `vote-encrypt-2000-mixed-combined-report.txt` | Browse + vote stepped combined report |
 | `nginx-limit-check-report.txt` | Nginx diagnostic |
 | `smoke-report.txt` | Smoke test summary |
 

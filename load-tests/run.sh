@@ -7,7 +7,10 @@
 #   ./load-tests/run.sh scenarios/browse.js          # stepped: 50→100→… with report after each
 #   ./load-tests/run.sh scenarios/vote-encrypt-only.js   # encrypt only (repeat per voter)
 #   ./load-tests/run.sh scenarios/vote-encrypt-2000.js   # encrypt + cast (one vote per email)
+#   ./load-tests/run.sh scenarios/vote-encrypt-2000-mixed.js   # browse + vote, stepped ramp
 #   ./load-tests/run.sh scenarios/vote-encrypt-sequential.js  # fixed votes (SEQ_* in .env.loadtest)
+#   ./load-tests/run.sh scenarios/realistic-vote.js          # realistic user journey, stepped ramp
+#   ./load-tests/run.sh scenarios/realistic-vote-sequential.js  # realistic journey, fixed sessions
 #   SINGLE_RUN=1 ./load-tests/run.sh scenarios/browse.js   # one long k6 run (all steps)
 #
 # Loads (in order, later overrides earlier):
@@ -75,7 +78,7 @@ if [[ "${SKIP_NGINX_CHECK:-}" != "1" && "${SCENARIO_REL}" != "scenarios/nginx-li
   "${LOADTEST_DIR}/check-nginx-limits.sh"
 fi
 
-VOTE_SCENARIOS="scenarios/vote-flow.js scenarios/vote-encrypt-only.js scenarios/vote-encrypt-2000.js scenarios/vote-encrypt-sequential.js scenarios/mixed-2000.js"
+VOTE_SCENARIOS="scenarios/vote-flow.js scenarios/vote-encrypt-only.js scenarios/vote-encrypt-2000.js scenarios/vote-encrypt-2000-mixed.js scenarios/vote-encrypt-sequential.js scenarios/vote-encrypt-sequential-mixed.js scenarios/realistic-vote.js scenarios/realistic-vote-sequential.js scenarios/mixed-2000.js"
 NEEDS_ELECTION=0
 for s in ${VOTE_SCENARIOS}; do
   if [[ "${SCENARIO_REL}" == "${s}" ]]; then NEEDS_ELECTION=1; break; fi
@@ -86,7 +89,7 @@ fi
 
 mkdir -p "${LOADTEST_DIR}/results"
 
-STEPPED_SCENARIOS="scenarios/browse.js scenarios/vote-flow.js scenarios/vote-encrypt-only.js scenarios/vote-encrypt-2000.js scenarios/mixed-2000.js"
+STEPPED_SCENARIOS="scenarios/browse.js scenarios/vote-flow.js scenarios/vote-encrypt-only.js scenarios/vote-encrypt-2000.js scenarios/vote-encrypt-2000-mixed.js scenarios/realistic-vote.js scenarios/mixed-2000.js"
 IS_STEPPED=0
 for s in ${STEPPED_SCENARIOS}; do
   if [[ "${SCENARIO_REL}" == "${s}" ]]; then IS_STEPPED=1; break; fi
@@ -104,8 +107,8 @@ echo "  VU_STEPS=${VU_STEPS} (+ ${MAX_VUS} peak)"
 echo "  STAGE_RAMP=${STAGE_RAMP_DURATION}  STAGE_HOLD=${STAGE_HOLD_DURATION}  RAMP_DOWN=${RAMP_DOWN_DURATION}"
 echo "  JWT_SECRET_B64=*** (${#JWT_SECRET_B64} chars)"
 echo "  Candidates → fetched from GET /api/election/${ELECTION_ID} at runtime"
-echo "  Reports → load-tests/results/*-step-*-report.txt (stepped) or *-report.txt"
-if [[ "${SCENARIO_REL}" == "scenarios/vote-encrypt-sequential.js" ]]; then
+  echo "  Reports → load-tests/results/*-step-*-report.txt, *-combined-report.txt"
+if [[ "${SCENARIO_REL}" == "scenarios/vote-encrypt-sequential.js" || "${SCENARIO_REL}" == "scenarios/vote-encrypt-sequential-mixed.js" || "${SCENARIO_REL}" == "scenarios/realistic-vote-sequential.js" ]]; then
   echo "  SEQ_CONCURRENT_VUS=${SEQ_CONCURRENT_VUS}  SEQ_TOTAL_VOTES=${SEQ_TOTAL_VOTES}"
 fi
 

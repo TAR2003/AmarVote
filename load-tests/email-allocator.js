@@ -71,6 +71,20 @@ function assignEmailForCycle(cycleKey) {
   lastCycleKey = cycleKey;
 }
 
+/** Unique email for one user session (= one k6 iteration). */
+export function emailForUserSession(oneBasedSeq) {
+  // k6 __ITER is 0-based; voterIndexForSeq expects 1-based seq
+  const seq = oneBasedSeq != null ? oneBasedSeq : __ITER + 1;
+  if (seq < 1) {
+    throw new Error(`Internal error: invalid email seq ${seq} for VU${__VU} (__ITER=${__ITER})`);
+  }
+  const index = voterIndexForSeq(__VU, seq);
+  return {
+    email: formatVoterEmail(env.emailPrefix, env.emailDomain, index, env.emailPadWidth),
+    emailIndex: index,
+  };
+}
+
 /**
  * Email for the current vote cycle (same address for warmup + cast in one cycle).
  */

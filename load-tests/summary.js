@@ -2,6 +2,10 @@
  * Per-step and per-API load test reports.
  */
 import { collectFailureCounters } from './failure-log.js';
+import { API_NAMES, apiMetricKey } from './metrics.js';
+import { formatApiTimingLine, formatCombinedReportText, buildCombinedReportJson } from './combined-report-format.mjs';
+
+export { formatApiTimingLine, formatCombinedReportText, buildCombinedReportJson };
 
 function round(n, digits = 2) {
   if (n == null || Number.isNaN(n)) return null;
@@ -14,31 +18,105 @@ function findSubmetric(metric, needle) {
   return metric.submetrics.find((s) => s.name.includes(needle)) || null;
 }
 
-function extractApiBreakdown(metrics) {
-  const byName = new Map();
+function durationStats(metric) {
+  return {
+    avg_duration_ms: round(metric?.values?.avg),
+    p95_duration_ms: round(metric?.values?.['p(95)']),
+  };
+}
 
-  for (const sub of metrics.http_reqs?.submetrics || []) {
-    const match = sub.name.match(/name:([^,}]+)/);
+function upsertApiRow(byName, api, patch) {
+  const existing = byName.get(api) || {
+    api,
+    http_requests_total: 0,
+    http_requests_ok: 0,
+    http_requests_failed: 0,
+    http_fail_rate_pct: 0,
+    avg_duration_ms: null,
+    p95_duration_ms: null,
+  };
+  byName.set(api, { ...existing, ...patch });
+}
+
+function extractCustomApiRows(metrics, byName) {
+  for (const api of API_NAMES) {
+    const key = apiMetricKey(api);
+    const ok = metrics[`live_ok_${key}`]?.values?.count ?? 0;
+    const failed = metrics[`live_fail_${key}`]?.values?.count ?? 0;
+    const total = ok + failed;
+    const durationMetric = metrics[`api_duration_${key}`];
+    const hasDuration = (durationMetric?.values?.count ?? 0) > 0;
+    if (total === 0 && !hasDuration) continue;
+
+    upsertApiRow(byName, api, {
+      http_requests_total: total,
+      http_requests_ok: ok,
+      http_requests_failed: failed,
+      http_fail_rate_pct: round(total > 0 ? (failed / total) * 100 : 0),
+      ...durationStats(durationMetric),
+    });
+  }
+}
+
+function extractTaggedApiRows(metrics, byName) {
+  for (const metricKey of Object.keys(metrics)) {
+    const match = metricKey.match(/^http_reqs\{name:([^}]+)\}$/);
     if (!match) continue;
+
     const api = match[1].trim();
-    const total = sub.values?.count ?? 0;
-    const failedMetric = findSubmetric(metrics.http_req_failed, `name:${api}`);
-    const durationMetric = findSubmetric(metrics.http_req_duration, `name:${api}`);
+    const total = metrics[metricKey]?.values?.count ?? 0;
+    if (total === 0) continue;
+
+    const failedMetric = metrics[`http_req_failed{name:${api}}`];
+    const durationMetric = metrics[`http_req_duration{name:${api}}`];
     const failRate = failedMetric?.values?.rate ?? 0;
     const failed = Math.round(total * failRate);
-    byName.set(api, {
-      api,
+
+    upsertApiRow(byName, api, {
       http_requests_total: total,
       http_requests_ok: total - failed,
       http_requests_failed: failed,
       http_fail_rate_pct: round(failRate * 100),
-      avg_duration_ms: round(durationMetric?.values?.avg),
-      p95_duration_ms: round(durationMetric?.values?.['p(95)']),
+      ...durationStats(durationMetric),
     });
   }
-
-  return [...byName.values()].sort((a, b) => a.api.localeCompare(b.api));
 }
+
+function extractLegacySubmetricRows(metrics, byName) {
+  for (const sub of metrics.http_reqs?.submetrics || []) {
+    const match = sub.name.match(/name:([^,}]+)/);
+    if (!match) continue;
+
+    const api = match[1].trim();
+    const total = sub.values?.count ?? 0;
+    if (total === 0) continue;
+
+    const failedMetric = findSubmetric(metrics.http_req_failed, `name:${api}`);
+    const durationMetric = findSubmetric(metrics.http_req_duration, `name:${api}`);
+    const failRate = failedMetric?.values?.rate ?? 0;
+    const failed = Math.round(total * failRate);
+
+    upsertApiRow(byName, api, {
+      http_requests_total: total,
+      http_requests_ok: total - failed,
+      http_requests_failed: failed,
+      http_fail_rate_pct: round(failRate * 100),
+      ...durationStats(durationMetric),
+    });
+  }
+}
+
+function extractApiBreakdown(metrics) {
+  const byName = new Map();
+  extractCustomApiRows(metrics, byName);
+  extractTaggedApiRows(metrics, byName);
+  extractLegacySubmetricRows(metrics, byName);
+
+  return [...byName.values()]
+    .filter((row) => row.http_requests_total > 0 || row.avg_duration_ms != null)
+    .sort((a, b) => a.api.localeCompare(b.api));
+}
+
 
 function buildAggregateRow(metrics) {
   const total = metrics.http_reqs?.values?.count ?? 0;
@@ -127,13 +205,10 @@ export function formatSingleStepReportText(report) {
   lines.push('');
 
   if (report.apis.length) {
-    lines.push('  Per API endpoint');
+    lines.push('  Per API endpoint (avg / p95 latency)');
     for (const api of report.apis) {
       lines.push(`    ${api.api}`);
-      lines.push(
-        `      ${api.http_requests_ok} ok / ${api.http_requests_failed} failed (${api.http_fail_rate_pct}%)` +
-          `  avg ${api.avg_duration_ms}ms  p95 ${api.p95_duration_ms}ms`,
-      );
+      lines.push(`      ${formatApiTimingLine(api)}`);
     }
     lines.push('');
   }
@@ -192,30 +267,23 @@ export function createStepSummary(testName) {
     }
     steps.sort((a, b) => a.vus - b.vus);
 
-    const text = formatCombinedReport(testName, steps);
+    const text = formatCombinedReport(testName, steps, {
+      generated_at: new Date().toISOString(),
+      mode: 'single-k6-run',
+    });
+    const combinedJson = buildCombinedReportJson(testName, steps, { mode: 'single-k6-run' });
     return {
       stdout: text,
       [`load-tests/results/${testName}-step-report.json`]: JSON.stringify({ test: testName, steps }, null, 2),
       [`load-tests/results/${testName}-step-report.txt`]: text,
+      [`load-tests/results/${testName}-combined-report.json`]: JSON.stringify(combinedJson, null, 2),
+      [`load-tests/results/${testName}-combined-report.txt`]: text,
     };
   };
 }
 
-export function formatCombinedReport(testName, stepSummaries) {
-  const lines = [];
-  lines.push('');
-  lines.push('══════════════════════════════════════════════════════════════');
-  lines.push(`  COMBINED REPORT — ${testName}`);
-  lines.push('══════════════════════════════════════════════════════════════');
-  for (const s of stepSummaries) {
-    const status = s.http_fail_rate_pct < 5 ? 'PASS' : 'FAIL';
-    lines.push(
-      `  ${s.vus} VUs [${status}]: ${s.http_requests_ok} ok / ${s.http_requests_failed} failed (${s.http_fail_rate_pct}%)`,
-    );
-  }
-  lines.push('══════════════════════════════════════════════════════════════');
-  lines.push('');
-  return lines.join('\n');
+export function formatCombinedReport(testName, stepSummaries, meta = {}) {
+  return formatCombinedReportText(testName, stepSummaries, meta);
 }
 
 export function createSimpleSummary(testName) {

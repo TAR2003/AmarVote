@@ -1,12 +1,12 @@
 /**
- * Fixed-count encrypt → cast benchmark — configurable concurrency.
+ * Mixed browse + vote — fixed-count sequential benchmark (same profile as vote-encrypt-sequential).
  *
- * Each iteration: eligibility → encrypt → cast for one unique voter email.
- * Set concurrent VUs and total votes in load-tests/.env.loadtest (SEQ_* vars).
+ * Each iteration: browser APIs (session → elections → detail → eligibility)
+ * then eligibility → encrypt → cast for one unique voter email.
  *
  * Run:
- *   ./load-tests/run.sh scenarios/vote-encrypt-sequential.js
- *   SEQ_CONCURRENT_VUS=2 SEQ_TOTAL_VOTES=200 ./load-tests/run.sh scenarios/vote-encrypt-sequential.js
+ *   ./load-tests/run.sh scenarios/vote-encrypt-sequential-mixed.js
+ *   SEQ_CONCURRENT_VUS=2 SEQ_TOTAL_VOTES=200 ./load-tests/run.sh scenarios/vote-encrypt-sequential-mixed.js
  */
 import exec from 'k6/execution';
 import http from 'k6/http';
@@ -18,18 +18,19 @@ import {
   authHeaders,
   postEncryptBallot,
 } from '../helpers.js';
+import { runBrowseFlow } from '../browse-flow.js';
 import { env, voterEmailBaseOffset } from '../env.js';
 import { formatVoterEmail } from '../voter-emails.js';
 import { electionSetup, pickCandidate } from '../election-setup.js';
 import { recordApiResult, recordEncryptOutcome } from '../metrics.js';
+import { createVoteSequentialSummaryOutputs } from '../sequential-report.js';
 import {
   isAlreadyVotedApi,
   parseEligibility,
-  voterHasAlreadyCast,
 } from '../vote-lifecycle.js';
 import { classifyAndLogFailure } from '../failure-log.js';
-import { buildSingleStepReport, formatSingleStepReportText } from '../summary.js';
-import { formatCombinedReportText, buildCombinedReportJson } from '../combined-report-format.mjs';
+
+const TEST_NAME = 'vote-encrypt-sequential-mixed';
 
 function parsePositiveInt(value, fallback) {
   const n = Number(value);
@@ -50,7 +51,7 @@ const votesSkipped = new Counter('votes_skipped');
 
 export const options = {
   scenarios: {
-    sequential_votes: {
+    sequential_votes_mixed: {
       executor: 'shared-iterations',
       vus: concurrentVus,
       iterations: totalVotes,
@@ -73,7 +74,6 @@ function sequentialVoterEmail(voteNumber) {
   return formatVoterEmail(env.emailPrefix, env.emailDomain, index, env.emailPadWidth);
 }
 
-/** Globally unique vote slot (0-based) across all concurrent VUs. */
 function currentVoteNumber() {
   return exec.scenario.iterationInTest + 1;
 }
@@ -87,6 +87,8 @@ export default function (data) {
   const candidate = pickCandidate(candidates, __VU, voteNumber);
   const failCtx = { email, emailIndex: voterEmailBaseOffset() + voteNumber, candidate };
   const cycleStart = Date.now();
+
+  runBrowseFlow(jwt);
 
   const eligRes = http.post(
     `${env.baseUrl}/api/eligibility`,
@@ -107,7 +109,7 @@ export default function (data) {
     selectedCandidates: [candidate],
     botDetection: {
       isBot: false,
-      requestId: `k6-seq-vu${__VU}-vote${voteNumber}`,
+      requestId: `k6-seq-mixed-vu${__VU}-vote${voteNumber}`,
       timestamp: new Date().toISOString(),
     },
   });
@@ -175,76 +177,6 @@ export default function (data) {
   }
 }
 
-function round(n, digits = 2) {
-  if (n == null || Number.isNaN(n)) return null;
-  const f = 10 ** digits;
-  return Math.round(n * f) / f;
-}
-
-function formatSequentialReport(data) {
-  const base = buildSingleStepReport(data, 'vote-encrypt-sequential', concurrentVus);
-  const completed = data.metrics.votes_completed?.values?.count ?? 0;
-  const skipped = data.metrics.votes_skipped?.values?.count ?? 0;
-  const durationSec = data.state?.testRunDurationMs ? data.state.testRunDurationMs / 1000 : null;
-  const votesPerMin =
-    durationSec && durationSec > 0 ? round((completed / durationSec) * 60, 2) : null;
-  const votesPerHour =
-    durationSec && durationSec > 0 ? round((completed / durationSec) * 3600, 1) : null;
-
-  const report = {
-    ...base,
-    mode: 'fixed-count',
-    concurrent_vus: concurrentVus,
-    vote_target: totalVotes,
-    votes_completed: completed,
-    votes_skipped: skipped,
-    test_duration_sec: round(durationSec),
-    throughput_votes_per_min: votesPerMin,
-    throughput_votes_per_hour: votesPerHour,
-    encrypt_avg_ms: round(data.metrics.vote_encrypt_duration?.values?.avg),
-    encrypt_p95_ms: round(data.metrics.vote_encrypt_duration?.values?.['p(95)']),
-    cast_avg_ms: round(data.metrics.vote_cast_duration?.values?.avg),
-    cast_p95_ms: round(data.metrics.vote_cast_duration?.values?.['p(95)']),
-    cycle_avg_ms: round(data.metrics.vote_cycle_duration?.values?.avg),
-    cycle_p95_ms: round(data.metrics.vote_cycle_duration?.values?.['p(95)']),
-  };
-
-  const lines = [
-    formatSingleStepReportText({ ...base, vus: concurrentVus }),
-    `  Fixed-count throughput (${concurrentVus} concurrent VU${concurrentVus === 1 ? '' : 's'})`,
-    `    Concurrent VUs     : ${report.concurrent_vus}`,
-    `    Target votes       : ${report.vote_target}`,
-    `    Completed          : ${report.votes_completed}`,
-    `    Skipped            : ${report.votes_skipped} (already voted / ineligible)`,
-    `    Wall time          : ${report.test_duration_sec}s`,
-    `    Throughput         : ${report.throughput_votes_per_min} votes/min  (${report.throughput_votes_per_hour}/hr)`,
-    `    Encrypt latency    : avg ${report.encrypt_avg_ms}ms  p95 ${report.encrypt_p95_ms}ms`,
-    `    Cast latency       : avg ${report.cast_avg_ms}ms  p95 ${report.cast_p95_ms}ms`,
-    `    Full cycle         : avg ${report.cycle_avg_ms}ms  p95 ${report.cycle_p95_ms}ms`,
-    '',
-  ];
-
-  return { report, text: lines.join('\n') };
-}
-
 export function handleSummary(data) {
-  const { report, text } = formatSequentialReport(data);
-  const combinedMeta = {
-    generated_at: report.generated_at,
-    base_url: env.baseUrl,
-    election_id: env.electionId,
-    mode: 'fixed-count',
-    concurrent_vus: concurrentVus,
-    vote_target: totalVotes,
-  };
-  const combinedText = formatCombinedReportText('vote-encrypt-sequential', [report], combinedMeta);
-  const combinedJson = buildCombinedReportJson('vote-encrypt-sequential', [report], combinedMeta);
-
-  return {
-    stdout: combinedText,
-    'load-tests/results/vote-encrypt-sequential-report.json': JSON.stringify(report, null, 2),
-    'load-tests/results/vote-encrypt-sequential-report.txt': text,
-    'load-tests/results/vote-encrypt-sequential-combined-report.json': JSON.stringify(combinedJson, null, 2),
-    'load-tests/results/vote-encrypt-sequential-combined-report.txt': combinedText,
-  };
+  return createVoteSequentialSummaryOutputs(data, TEST_NAME, concurrentVus, totalVotes);
 }

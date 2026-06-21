@@ -53,7 +53,7 @@ if [[ "${SKIP_NGINX_CHECK:-}" != "1" ]]; then
   "${LOADTEST_DIR}/check-nginx-limits.sh"
 fi
 
-VOTE_SCENARIOS="scenarios/vote-flow.js scenarios/vote-encrypt-only.js scenarios/vote-encrypt-2000.js scenarios/mixed-2000.js"
+VOTE_SCENARIOS="scenarios/vote-flow.js scenarios/vote-encrypt-only.js scenarios/vote-encrypt-2000.js scenarios/vote-encrypt-2000-mixed.js scenarios/realistic-vote.js scenarios/mixed-2000.js"
 NEEDS_ELECTION=0
 for s in ${VOTE_SCENARIOS}; do
   if [[ "${SCENARIO_REL}" == "${s}" ]]; then NEEDS_ELECTION=1; break; fi
@@ -191,26 +191,23 @@ for VUS in "${STEPS[@]}"; do
 done
 
 # Write combined report
-node -e "
-const fs = require('fs');
-const steps = JSON.parse(process.argv[1]);
-const test = process.argv[2];
-const out = { generated_at: new Date().toISOString(), test, steps };
-const lines = ['', '═'.repeat(62), '  COMBINED REPORT — ' + test, '═'.repeat(62)];
-for (const s of steps) {
-  const st = s.http_fail_rate_pct < 5 ? 'PASS' : 'FAIL';
-  lines.push('  ' + s.vus + ' VUs [' + st + ']: ' + s.http_requests_ok + ' ok / ' + s.http_requests_failed + ' failed (' + s.http_fail_rate_pct + '%)');
-  if (s.apis && s.apis.length) {
-    for (const a of s.apis) {
-      lines.push('      ' + a.api + ': ' + a.http_requests_ok + ' ok / ' + a.http_requests_failed + ' failed');
-    }
-  }
-}
-lines.push('═'.repeat(62), '');
-fs.writeFileSync(process.argv[3], JSON.stringify(out, null, 2));
-fs.writeFileSync(process.argv[4], lines.join('\n'));
-console.log(lines.join('\n'));
-" "${STEP_SUMMARIES}" "${TEST_NAME}" "${COMBINED_JSON}" "${COMBINED_TXT}"
+META_JSON="$(node -e "
+  console.log(JSON.stringify({
+    generated_at: new Date().toISOString(),
+    base_url: process.env.BASE_URL,
+    election_id: Number(process.env.ELECTION_ID),
+    stage_ramp: process.env.STAGE_RAMP_DURATION,
+    stage_hold: process.env.STAGE_HOLD_DURATION,
+    mode: 'stepped-ramp',
+  }));
+")"
+
+node "${LOADTEST_DIR}/write-combined-report.mjs" \
+  --test "${TEST_NAME}" \
+  --steps-json "${STEP_SUMMARIES}" \
+  --meta-json "${META_JSON}" \
+  --out-json "${COMBINED_JSON}" \
+  --out-txt "${COMBINED_TXT}"
 
 echo ""
 echo "Combined reports:"
