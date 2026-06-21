@@ -31,15 +31,26 @@ jobs:
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
           "mkdir -p ~/app"
 
-      # ✅ Copy project files
+      # ✅ Copy project files (exclude dev artifacts — saves ~700MB+ per deploy)
       - name: Copy files to VM
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" rsync -avz --delete \
             --exclude='.git' \
             --exclude='node_modules' \
+            --exclude='frontend/node_modules' \
+            --exclude='frontend/dist' \
+            --exclude='backend/target' \
+            --exclude='load-tests' \
             --exclude='.env' \
             --exclude='backend/logs' \
             --exclude='nginx/certs' \
+            --exclude='.github' \
+            --exclude='docs' \
+            --exclude='blockchain' \
+            --exclude='blockchain-microservice' \
+            --exclude='rag-service' \
+            --exclude='__pycache__' \
+            --exclude='test-results' \
             ./ ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }}:~/app/
 
       # ✅ COPY EXISTING .env (THIS IS THE KEY FIX)
@@ -54,7 +65,7 @@ jobs:
 
     
 
-     # 🚀 Deploy (production only — nginx-proxy.conf with DDoS rate limits)
+      # 🚀 Deploy (production only — nginx-proxy.conf with DDoS rate limits)
       # Load-test nginx: manual on server — see docs/PRODUCTION_DEPLOY_AND_LOADTEST.md
       - name: Deploy with Docker
         run: |
@@ -63,11 +74,7 @@ jobs:
           -o ServerAliveInterval=60 \
           -o ServerAliveCountMax=10 \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "cd ~/app && \
-           docker compose --env-file .env -f docker-compose.prod.yml down --remove-orphans || true && \
-           docker compose --env-file .env -f docker-compose.prod.yml build && \
-           docker compose --env-file .env -f docker-compose.prod.yml up -d && \
-           docker system prune -f"
+          "chmod +x ~/app/scripts/vm-deploy.sh && ~/app/scripts/vm-deploy.sh"
 
       # ✅ Verify
       - name: Verify deployment
@@ -75,4 +82,4 @@ jobs:
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
           -o StrictHostKeyChecking=no \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "cd ~/app && docker compose ps"
+          "cd ~/app && docker compose --env-file .env -f docker-compose.prod.yml ps"
