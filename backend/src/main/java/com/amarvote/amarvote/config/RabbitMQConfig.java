@@ -69,10 +69,10 @@ public class RabbitMQConfig {
         return template;
     }
 
-    @Value("${rabbitmq.worker.concurrency.min:6}")
+    @Value("${rabbitmq.worker.concurrency.min:2}")
     private int minConcurrentConsumers;
     
-    @Value("${rabbitmq.worker.concurrency.max:6}")
+    @Value("${rabbitmq.worker.concurrency.max:2}")
     private int maxConcurrentConsumers;
 
     @Value("${rabbitmq.email.concurrency.min:2}")

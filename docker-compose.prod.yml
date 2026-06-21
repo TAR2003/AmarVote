@@ -2,7 +2,7 @@
 #
 # Memory budget (container limits, ~3712M total):
 #   backend 1792M | electionguard-api 512M (6 workers) | postgres 512M | rabbitmq 320M
-#   electionguard-worker 320M | prometheus+grafana 256M | frontend 96M | redis 96M | nginx 64M
+#   electionguard-worker 320M (2 gunicorn workers) | prometheus+grafana 256M | frontend 96M | redis 96M | nginx 64M
 #
 # GitHub deploy uses THIS FILE ONLY. Nginx always uses nginx-proxy.conf (DDoS limits).
 # For load testing, switch nginx manually — see docs/PRODUCTION_DEPLOY_AND_LOADTEST.md
@@ -159,7 +159,8 @@ services:
       - ELECTIONGUARD_API_URL=http://electionguard-api:5000
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
       - ELECTIONGUARD_API_GUNICORN_WORKERS=6
-      - ELECTIONGUARD_WORKER_GUNICORN_WORKERS=4
+      - ELECTIONGUARD_WORKER_GUNICORN_WORKERS=2
+      - ELECTIONGUARD_WORKER_SCHEDULER_QUEUE_DEPTH=4
       # 4 GB host: 1792M container — Xmx896m + 384m metaspace (128m cap caused Metaspace OOM)
       - JAVA_OPTS=-Xms384m -Xmx896m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=384m -XX:MaxDirectMemorySize=256m
     volumes:
@@ -275,7 +276,7 @@ services:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
       - ELECTIONGUARD_INTERNAL_API_KEY=${ELECTIONGUARD_INTERNAL_API_KEY}
-      - GUNICORN_WORKERS=4
+      - GUNICORN_WORKERS=2
       - GUNICORN_THREADS=1
       - GUNICORN_MAX_REQUESTS=5000
       - GUNICORN_MAX_REQUESTS_JITTER=40
@@ -284,7 +285,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 384M
+          memory: 320M
 
   prometheus:
     image: prom/prometheus:latest

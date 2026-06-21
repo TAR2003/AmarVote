@@ -7,7 +7,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -96,6 +95,9 @@ public class TallyService {
 
     @Autowired
     private TallyWorkerLogRepository tallyWorkerLogRepository;
+
+    @Autowired
+    private AsyncTaskDispatcher asyncTaskDispatcher;
 
     private int getExpectedTallyChunkCount(Long electionId) {
         List<Long> ballotIds = ballotRepository.findBallotIdsByElectionIdAndStatus(electionId, "cast");
@@ -329,7 +331,7 @@ public class TallyService {
                 cancellationService.clearStop(request.getElection_id(), ProcessOperationType.TALLY, null);
             }
 
-            createTallyAsync(request, userEmail, totalChunks, completedChunks > 0);
+            asyncTaskDispatcher.run(() -> createTallyAsync(request, userEmail, totalChunks, completedChunks > 0));
             
             String resumeMessage = completedChunks > 0
                 ? "Resuming tally creation. Processing remaining chunks (" + completedChunks + "/" + totalChunks + " complete)..."
@@ -361,7 +363,6 @@ public class TallyService {
         createTallyAsync(request, userEmail, null, false);
     }
 
-    @Async
     public void createTallyAsync(CreateTallyRequest request, String userEmail, Integer knownTotalChunks, boolean resume) {
         Long electionId = request.getElection_id();
         String lockKey = RedisLockService.buildTallyLockKey(electionId);

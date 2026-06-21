@@ -8,7 +8,6 @@ import java.util.Optional;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import com.amarvote.amarvote.dto.CombinePartialDecryptionRequest;
@@ -63,6 +62,7 @@ public class PartialDecryptionService {
     private final DecryptionRepository decryptionRepository;
     private final ObjectMapper objectMapper;
     private final ElectionGuardCryptoService cryptoService;
+    private final AsyncTaskDispatcher asyncTaskDispatcher;
     
     @Autowired
     private ElectionGuardService electionGuardService;
@@ -122,156 +122,10 @@ public class PartialDecryptionService {
 
 
     /**
-     * NOTE: @Transactional removed to prevent Hibernate session memory leak.
-     * Each chunk is processed in its own transaction via processPartialDecryptionChunkTransactional().
+     * Legacy endpoint — delegates to the async RabbitMQ queue path so ElectionGuard workers stay saturated.
      */
     public CreatePartialDecryptionResponse createPartialDecryption(CreatePartialDecryptionRequest request, String userEmail) {
-        try {
-            System.out.println("=== Starting Partial Decryption Process ===");
-            System.out.println("Election ID: " + request.election_id() + ", User: " + userEmail);
-            
-            // 1. Find guardian record for this user and election
-            List<Guardian> guardians = guardianRepository.findByElectionIdAndUserEmail(request.election_id(), userEmail);
-            if (guardians.isEmpty()) {
-                return CreatePartialDecryptionResponse.builder()
-                    .success(false)
-                    .message("User is not a guardian for this election")
-                    .build();
-            }
-            Guardian guardian = guardians.get(0); // Should be only one
-
-            // 3. Get election information
-            Optional<Election> electionOpt = electionRepository.findById(request.election_id());
-            if (!electionOpt.isPresent()) {
-                return CreatePartialDecryptionResponse.builder()
-                    .success(false)
-                    .message("Election not found")
-                    .build();
-            }
-            Election election = electionOpt.get();
-
-            // 4. Get election choices for candidate names and party names
-            List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(request.election_id());
-            // choices.sort(Comparator.comparing(ElectionChoice::getChoiceId));
-            List<String> candidateNames = choices.stream()
-                .map(ElectionChoice::getOptionTitle)
-                .toList();
-            List<String> partyNames = choices.stream()
-                .map(ElectionChoice::getPartyName)
-                .toList();
-
-            // 5. Get number of guardians for this election
-            List<Guardian> allGuardians = guardianRepository.findByElectionId(request.election_id());
-            int numberOfGuardians = allGuardians.size();
-
-            // ===== CRITICAL CHECK: Tally must exist before guardian key submission =====
-            // Check if encrypted tally exists (check election_center table for chunks)
-            // MEMORY-EFFICIENT: Fetch only election center IDs first
-            List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(request.election_id());
-            System.out.println("=== TALLY VERIFICATION ===");
-            System.out.println("Checking if encrypted tally exists for election " + request.election_id());
-            System.out.println("Found " + electionCenterIds.size() + " chunk(s) in election_center table");
-            
-            if (electionCenterIds.isEmpty()) {
-                System.out.println("❌ NO ENCRYPTED TALLY FOUND - GUARDIAN KEYS CANNOT BE SUBMITTED");
-                return CreatePartialDecryptionResponse.builder()
-                    .success(false)
-                    .message("Tally has not been created yet. Please create the tally before submitting guardian keys.")
-                    .build();
-            }
-            
-            System.out.println("✅ TALLY EXISTS - PROCEEDING WITH GUARDIAN KEY SUBMISSION");
-            
-            // Continue with normal partial decryption process
-            System.out.println("=== PROCESSING GUARDIAN CREDENTIALS ===");
-            
-            // 6. Decrypt guardian credentials using the encrypted_data from request
-            String guardianCredentials = guardian.getCredentials();
-            if (guardianCredentials == null || guardianCredentials.trim().isEmpty()) {
-                return CreatePartialDecryptionResponse.builder()
-                    .success(false)
-                    .message("Guardian credentials not found. Please contact the administrator.")
-                    .build();
-            }
-
-            String decryptedPrivateKey;
-            String decryptedPolynomial;
-            try {
-                System.out.println("Decrypting guardian credentials...");
-                ElectionGuardCryptoService.GuardianDecryptionResult decryptionResult = cryptoService.decryptGuardianData(request.encrypted_data(), guardianCredentials);
-                decryptedPrivateKey = decryptionResult.getPrivateKey();
-                decryptedPolynomial = decryptionResult.getPolynomial();
-                System.out.println("Successfully decrypted guardian private key and polynomial");
-            } catch (Exception e) {
-                System.err.println("Failed to decrypt guardian credentials: " + e.getMessage());
-                return CreatePartialDecryptionResponse.builder()
-                    .success(false)
-                    .message("Failed to decrypt guardian credentials. Please ensure you uploaded the correct credential file.")
-                    .build();
-            }
-
-            // 10. ===== PROCESS EACH CHUNK (MEMORY-EFFICIENT) =====
-            System.out.println("=== PROCESSING " + electionCenterIds.size() + " CHUNKS ===");
-            int processedChunks = 0;
-            
-            for (Long electionCenterId : electionCenterIds) {
-                int chunkNumber = processedChunks + 1;
-                System.out.println("=== PROCESSING CHUNK " + chunkNumber + " (election_center_id: " + electionCenterId + ") ===");
-                
-                try {
-                    // Process chunk in isolated transaction
-                    processPartialDecryptionChunkTransactional(
-                        electionCenterId,
-                        chunkNumber,
-                        guardian,
-                        decryptedPrivateKey,
-                        decryptedPolynomial,
-                        candidateNames,
-                        partyNames,
-                        numberOfGuardians,
-                        election.getJointPublicKey(),
-                        election.getBaseHash(),
-                        election.getElectionQuorum()
-                    );
-                    
-                    processedChunks++;
-                    System.out.println("✅ Chunk " + chunkNumber + " completed successfully");
-                    
-                } catch (Exception e) {
-                    System.err.println("❌ Error processing chunk " + chunkNumber + ": " + e.getMessage());
-                    return CreatePartialDecryptionResponse.builder()
-                        .success(false)
-                        .message("Failed to process chunk " + chunkNumber + ": " + e.getMessage())
-                        .build();
-                }
-            }
-            
-            System.out.println("=== PROCESSED " + processedChunks + " CHUNKS SUCCESSFULLY ===");
-            
-            // 🔒 DO NOT mark guardian as decrypted yet - wait until compensated shares complete
-            // Mark guardian as having completed decryption AFTER compensated shares
-            // guardian.setDecryptedOrNot(true); // MOVED TO AFTER COMPENSATED SHARES
-
-            // Create compensated decryption shares for ALL other guardians using decrypted polynomial
-            createCompensatedDecryptionShares(election, guardian, decryptedPrivateKey, decryptedPolynomial, electionCenterIds);
-            
-            // ✅ NOW mark guardian as fully decrypted (both phases complete)
-            guardian.setDecryptedOrNot(true);
-            guardianRepository.save(guardian);
-            System.out.println("✅ Guardian marked as fully decrypted (both phases complete)");
-
-            return CreatePartialDecryptionResponse.builder()
-                .success(true)
-                .message("Partial decryption completed successfully for " + processedChunks + " chunks")
-                .build();
-
-        } catch (Exception e) {
-            System.err.println("Error creating partial decryption: " + e.getMessage());
-            return CreatePartialDecryptionResponse.builder()
-                .success(false)
-                .message("Internal server error: " + e.getMessage())
-                .build();
-        }
+        return initiateDecryption(request, userEmail);
     }
 
     /**
@@ -456,7 +310,7 @@ public class PartialDecryptionService {
                 System.out.println("✅ Starting async processing...");
                 
                 // 8. Start async processing (credentials already validated)
-                processDecryptionAsync(request, userEmail, guardian);
+                asyncTaskDispatcher.run(() -> processDecryptionAsync(request, userEmail, guardian));
                 
                 return CreatePartialDecryptionResponse.builder()
                     .success(true)
@@ -789,7 +643,6 @@ public class PartialDecryptionService {
      * NOTE: @Transactional removed from async method to prevent Hibernate session memory leak.
      * Each chunk is processed in its own transaction via processChunkTransactional().
     */
-    @Async
     public void processDecryptionAsync(CreatePartialDecryptionRequest request, String userEmail, 
                                        Guardian guardian) {
         String lockKey = RedisLockService.buildDecryptionLockKey(
@@ -1232,7 +1085,7 @@ public class PartialDecryptionService {
                 System.out.println("✅ Starting async processing...");
                 
                 // 4. Start async processing (lock will be held during processing)
-                processCombineAsync(electionId, initiatorEmail);
+                asyncTaskDispatcher.run(() -> processCombineAsync(electionId, initiatorEmail));
                 
                 return CombinePartialDecryptionResponse.builder()
                     .success(true)
@@ -1259,7 +1112,6 @@ public class PartialDecryptionService {
      * Process combine asynchronously with progress updates
      * NEW: Uses RabbitMQ queue to process chunks individually
      */
-    @Async
     public void processCombineAsync(Long electionId, String userEmail) {
         String lockKey = RedisLockService.buildCombineLockKey(electionId);
         

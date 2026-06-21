@@ -65,10 +65,10 @@ public class RoundRobinTaskScheduler {
     private final ObjectMapper objectMapper;
     private final ProcessCancellationService cancellationService;
 
-    @Value("${rabbitmq.worker.concurrency.max:6}")
+    @Value("${rabbitmq.worker.concurrency.max:2}")
     private int maxWorkerConcurrency;
 
-    @Value("${rabbitmq.scheduler.max-queued-chunks-per-task:${rabbitmq.worker.concurrency.max:6}}")
+    @Value("${rabbitmq.scheduler.max-queued-chunks-per-task:${rabbitmq.worker.concurrency.max:2}}")
     private int maxQueuedChunksPerTask;
 
     /**
@@ -112,7 +112,7 @@ public class RoundRobinTaskScheduler {
      * Round-robin passes per dispatch cycle — prime enough chunks to saturate workers.
      */
     private int targetChunksPerCycle() {
-        return Math.max(maxWorkerConcurrency * 2, maxQueuedChunksPerTask);
+        return Math.max(maxWorkerConcurrency * 3, maxQueuedChunksPerTask * 2);
     }
 
     // ==================== PUBLIC API ====================

@@ -3,7 +3,7 @@
 # Match rabbitmq.worker.concurrency.max in backend application.properties.
 set -e
 
-WORKERS="${GUNICORN_WORKERS:-6}"
+WORKERS="${GUNICORN_WORKERS:-2}"
 THREADS="${GUNICORN_THREADS:-1}"
 MAX_REQUESTS="${GUNICORN_MAX_REQUESTS:-5000}"
 MAX_REQUESTS_JITTER="${GUNICORN_MAX_REQUESTS_JITTER:-40}"

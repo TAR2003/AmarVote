@@ -42,10 +42,10 @@ public class ExternalApiWebClientConfig {
     @Value("${electionguard.api.max.per.route:6}")
     private int electionGuardApiMaxPerRoute;
 
-    @Value("${electionguard.worker.max.connections:6}")
+    @Value("${electionguard.worker.max.connections:2}")
     private int electionGuardWorkerMaxConnections;
 
-    @Value("${electionguard.worker.max.per.route:6}")
+    @Value("${electionguard.worker.max.per.route:2}")
     private int electionGuardWorkerMaxPerRoute;
 
     @Value("${electionguard.connection.request.timeout:60000}")

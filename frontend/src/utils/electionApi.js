@@ -438,21 +438,10 @@ export const electionApi = {
   },
 
   /**
-   * Submit guardian partial decryption credentials
+   * Submit guardian partial decryption credentials (async queue — same as initiateDecryption)
    */
   async submitGuardianKey(electionId, encryptedCredentials) {
-    try {
-      return await apiRequest('/create-partial-decryption', {
-        method: 'POST',
-        body: JSON.stringify({
-          election_id: electionId,
-          encrypted_data: encryptedCredentials
-        }),
-      }, EXTENDED_TIMEOUT);
-    } catch (error) {
-      console.error('Error submitting guardian credentials:', error);
-      throw error;
-    }
+    return this.initiateDecryption(electionId, encryptedCredentials);
   },
 
   /**
