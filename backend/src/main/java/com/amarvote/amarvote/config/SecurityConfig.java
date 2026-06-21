@@ -22,6 +22,7 @@ import org.springframework.web.cors.CorsConfigurationSource;
 
 import com.amarvote.amarvote.filter.JWTFilter;
 
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 
 @Configuration
@@ -76,6 +77,8 @@ public class SecurityConfig {
                         .csrfTokenRequestHandler(csrfHandler)
                         .ignoringRequestMatchers(PUBLIC_AUTH_PATHS))
                 .authorizeHttpRequests(authorize -> {
+                    // SSE async dispatch re-enters the filter chain without SecurityContext — do not re-authorize
+                    authorize.dispatcherTypeMatchers(DispatcherType.ASYNC).permitAll();
                     authorize.requestMatchers(PUBLIC_AUTH_PATHS).permitAll();
                     authorize.requestMatchers(
                             "/actuator/health", "/actuator/prometheus", "/actuator/metrics").permitAll();

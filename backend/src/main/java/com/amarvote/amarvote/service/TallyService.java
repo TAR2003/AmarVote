@@ -236,8 +236,27 @@ public class TallyService {
             int totalChunks = chunkConfig.getNumChunks();
             
             System.out.println("✅ Calculated " + totalChunks + " chunks for " + ballotIds.size() + " ballots");
-            
-            // 3. Try to acquire Redis lock FIRST
+
+            long completedChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(request.getElection_id());
+            if (completedChunks >= totalChunks && totalChunks > 0) {
+                System.out.println("✅ Tally already exists");
+                return CreateTallyResponse.builder()
+                    .success(true)
+                    .message("Tally already exists")
+                    .encryptedTally("COMPLETED")
+                    .build();
+            }
+
+            if (hasActiveTallySchedulerTasks(request.getElection_id())) {
+                System.out.println("⚠️ Tally already in progress for election: " + request.getElection_id());
+                return CreateTallyResponse.builder()
+                    .success(true)
+                    .message("Tally creation is already in progress")
+                    .encryptedTally("IN_PROGRESS")
+                    .build();
+            }
+
+            // Try to acquire Redis lock only when we are about to start (or resume) work
             String lockKey = RedisLockService.buildTallyLockKey(request.getElection_id());
             boolean lockAcquired = redisLockService.tryAcquireLock(
                 lockKey,
@@ -266,26 +285,9 @@ public class TallyService {
                 }
             }
             
-            // 4. Lock acquired - now check database to see if work already exists
+            // 4. Lock acquired - clean up stale jobs if scheduler has no live tasks
 
-            // 4a. Check for an active ElectionJob (IN_PROGRESS or QUEUED).
-            // Strategy:
-            //   - If an active job exists in the DB AND the scheduler has live TALLY
-            //     tasks for this election → genuinely in progress, reject the duplicate.
-            //   - If an active job exists BUT the scheduler has NO live tasks → the
-            //     previous createTallyAsync() died or hit an error without ever marking
-            //     the job COMPLETED/FAILED (stale record). Clean it up and proceed.
             if (jobRepository.existsActiveJob(request.getElection_id(), "TALLY")) {
-                if (hasActiveTallySchedulerTasks(request.getElection_id())) {
-                    redisLockService.releaseLock(lockKey);
-                    System.out.println("⚠️ Active tally job with live scheduler tasks for election: " + request.getElection_id() + " - rejecting duplicate request");
-                    return CreateTallyResponse.builder()
-                        .success(true)
-                        .message("Tally creation is already in progress")
-                        .encryptedTally("IN_PROGRESS")
-                        .build();
-                }
-
                 List<ElectionJob> staleJobs = jobRepository.findByElectionIdOrderByStartedAtDesc(request.getElection_id())
                     .stream()
                     .filter(j -> ("IN_PROGRESS".equals(j.getStatus()) || "QUEUED".equals(j.getStatus()))
@@ -298,17 +300,6 @@ public class TallyService {
                     jobRepository.save(staleJob);
                 }
                 System.out.println("🧹 Cleaned up " + staleJobs.size() + " stale TALLY job(s) for election " + request.getElection_id() + " - proceeding with fresh run");
-            }
-
-            long completedChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(request.getElection_id());
-            if (completedChunks >= totalChunks && totalChunks > 0) {
-                redisLockService.releaseLock(lockKey);
-                System.out.println("✅ Tally already exists");
-                return CreateTallyResponse.builder()
-                    .success(true)
-                    .message("Tally already exists")
-                    .encryptedTally("COMPLETED")
-                    .build();
             }
 
             if (hasActiveTallySchedulerTasks(request.getElection_id())) {

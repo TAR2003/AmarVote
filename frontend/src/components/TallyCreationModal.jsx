@@ -9,11 +9,17 @@ import {
   shouldApplyTallyEvent,
 } from '../utils/progressSnapshot';
 
-const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
+const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatusChange }) => {
   const [status, setStatus] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState(null);
+
+  const updateStatus = (next) => {
+    setStatus(next);
+    onStatusChange?.(next);
+  };
 
   // Calculate estimated time remaining
   const calculateEstimatedTime = (status) => {
@@ -54,7 +60,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
     if (!shouldApplyTallyEvent(event)) return;
     const tally = pickTally(getSnapshotFromEvent(event));
     if (tally) {
-      setStatus(tally);
+      updateStatus(tally);
       setError(null);
     }
   };
@@ -63,10 +69,12 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
     setIsRefreshing(true);
     try {
       const statusData = await electionApi.getTallyStatus(electionId);
-      setStatus(statusData);
+      updateStatus(statusData);
       setError(null);
+      return statusData;
     } catch (err) {
       console.error('Error refreshing tally status:', err);
+      return null;
     } finally {
       setIsRefreshing(false);
     }
@@ -76,8 +84,22 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
     if (!isOpen) {
       setStatus(null);
       setError(null);
+      setIsConnecting(false);
+      return;
     }
-  }, [isOpen]);
+
+    let cancelled = false;
+    setIsConnecting(true);
+    refreshStatus().finally(() => {
+      if (!cancelled) {
+        setIsConnecting(false);
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, electionId]);
 
   useElectionProgressStream(electionId, {
     enabled: isOpen && Boolean(electionId),
@@ -90,9 +112,33 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
 
     try {
       const response = await electionApi.initiateTallyCreation(electionId);
-      
+
       if (response.success) {
         setError(null);
+        const totalFromResponse = (() => {
+          const marker = response.encryptedTally || '';
+          const initiated = marker.match(/^INITIATED:(\d+)/);
+          if (initiated) return Number(initiated[1]);
+          const resuming = marker.match(/^RESUMING:\d+\/(\d+)/);
+          if (resuming) return Number(resuming[1]);
+          return status?.totalChunks || 0;
+        })();
+
+        setStatus((prev) => {
+          const next = {
+            ...(prev || {}),
+            success: true,
+            status: response.encryptedTally === 'COMPLETED' ? 'completed' : 'in_progress',
+            totalChunks: totalFromResponse || prev?.totalChunks || 0,
+            processedChunks: prev?.processedChunks || 0,
+            progressPercentage: prev?.progressPercentage || 0,
+            message: response.message,
+          };
+          onStatusChange?.(next);
+          return next;
+        });
+
+        await refreshStatus();
       } else {
         setError(response.message || 'Failed to initiate tally creation');
       }
@@ -123,7 +169,9 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi }) => {
           </div>
           <div className="p-6 text-center py-8">
             <FiLoader className="h-10 w-10 text-blue-500 mx-auto animate-spin" />
-            <p className="text-gray-600 mt-4">Connecting to live progress…</p>
+            <p className="text-gray-600 mt-4">
+              {isConnecting ? 'Loading tally status…' : 'Connecting to live progress…'}
+            </p>
           </div>
         </div>
       </div>

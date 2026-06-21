@@ -82,6 +82,7 @@ import {
   getSnapshotFromEvent,
   pickCombine,
   pickMyDecryption,
+  pickTally,
 } from '../utils/progressSnapshot';
 import { getVoterFriendlyError } from '../utils/voterMessages';
 
@@ -1826,8 +1827,24 @@ export default function ElectionPage() {
       if (combine && combine.status) {
         setCombineStatus(combine);
       }
+
+      const tally = pickTally(snapshot);
+      if (tally && tally.status) {
+        setTallyStatus(tally);
+      }
     },
   });
+
+  useEffect(() => {
+    if (!id || !electionData?.endingTime) return;
+    if (new Date(electionData.endingTime) >= new Date()) return;
+
+    electionApi.getTallyStatus(id)
+      .then((data) => {
+        if (data?.status) setTallyStatus(data);
+      })
+      .catch(() => {});
+  }, [id, electionData?.endingTime]);
 
   const loadKeyCeremonyProgress = useCallback(async () => {
     if (activeTab !== 'guardian' || !electionData) {
@@ -3350,6 +3367,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             electionApi.getElectionById(id).then(setElectionData);
           }
         }}
+        onStatusChange={setTallyStatus}
         electionId={id}
         electionApi={electionApi}
       />
@@ -4461,10 +4479,36 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     </div>
                     <button
                       onClick={() => setIsTallyModalOpen(true)}
-                      className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors flex items-center space-x-2"
+                      disabled={tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending'}
+                      className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
+                        tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending'
+                          ? 'bg-blue-400 text-white cursor-default'
+                          : tallyStatus?.status === 'completed'
+                            ? 'bg-green-600 text-white hover:bg-green-700'
+                            : 'bg-blue-600 text-white hover:bg-blue-700'
+                      }`}
                     >
-                      <FiRefreshCw className="h-5 w-5" />
-                      <span>Create/Check Tally Status</span>
+                      {(tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending') ? (
+                        <>
+                          <FiLoader className="h-5 w-5 animate-spin" />
+                          <span>
+                            Tally In Progress
+                            {tallyStatus.totalChunks
+                              ? ` (${tallyStatus.processedChunks || 0}/${tallyStatus.totalChunks})`
+                              : ''}
+                          </span>
+                        </>
+                      ) : tallyStatus?.status === 'completed' ? (
+                        <>
+                          <FiCheckCircle className="h-5 w-5" />
+                          <span>View Tally Status</span>
+                        </>
+                      ) : (
+                        <>
+                          <FiRefreshCw className="h-5 w-5" />
+                          <span>Create Tally</span>
+                        </>
+                      )}
                     </button>
                     {electionData?.userRoles?.includes('admin') && (
                       <ProcessControlPanel
