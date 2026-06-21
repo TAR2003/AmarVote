@@ -40,7 +40,6 @@ public class AuthorizedUserService {
 
     private static final Set<String> MANAGE_ROLES = Set.of(USER_TYPE_ADMIN, USER_TYPE_OWNER);
     private static final Pattern CSV_SPLITTER = Pattern.compile("[\\n\\r,;\\t ]+");
-    private static final Pattern LOADTEST_EMAIL = Pattern.compile("^loadtest-voter-\\d+@.+$", Pattern.CASE_INSENSITIVE);
 
     private final AuthorizedUserRepository authorizedUserRepository;
     private final AppUserRepository appUserRepository;
@@ -101,23 +100,33 @@ public class AuthorizedUserService {
         markLastActive(email);
     }
 
+    @Transactional(readOnly = true)
+    public boolean isAllowedAuthorizedUser(String email) {
+        return getApiAccessDenialReason(email).isEmpty();
+    }
+
+    @Transactional(readOnly = true)
+    public Optional<String> getApiAccessDenialReason(String email) {
+        String normalized = normalizeEmail(email);
+        Optional<AuthorizedUser> recordOpt = authorizedUserRepository.findByEmail(normalized);
+        if (recordOpt.isEmpty()) {
+            return Optional.of("This email is not in the authorized users list.");
+        }
+        if (!Boolean.TRUE.equals(recordOpt.get().getIsAllowed())) {
+            return Optional.of("This email is currently blocked from accessing the system.");
+        }
+        return Optional.empty();
+    }
+
     @Transactional
     public void markLastActive(String email) {
         String normalized = normalizeEmail(email);
-        if (LOADTEST_EMAIL.matcher(normalized).matches()) {
-            return;
-        }
-        AuthorizedUser record = authorizedUserRepository.findByEmail(normalized)
-                .orElseGet(() -> AuthorizedUser.builder()
-                        .email(normalized)
-                        .isAllowed(true)
-                        .registeredOrNot(false)
-                        .userType(USER_TYPE_USER)
-                        .canCreateElections(false)
-                        .build());
-        record.setRegisteredOrNot(true);
-        record.setLastLogin(Instant.now());
-        authorizedUserRepository.save(record);
+        authorizedUserRepository.findByEmail(normalized)
+                .filter(record -> Boolean.TRUE.equals(record.getIsAllowed()))
+                .ifPresent(record -> {
+                    record.setLastLogin(Instant.now());
+                    authorizedUserRepository.save(record);
+                });
     }
 
     @Transactional(readOnly = true)

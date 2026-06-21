@@ -1,6 +1,7 @@
 package com.amarvote.amarvote.filter;
 
 import java.io.IOException;
+import java.util.Optional;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.lang.NonNull;
@@ -79,6 +80,12 @@ public class JWTFilter extends OncePerRequestFilter {
                     if (jwtService.isTokenExpired(jwtToken)) {
                         logger.debug("Expired JWT for " + userEmail);
                     } else {
+                        Optional<String> denialReason = authorizedUserService.getApiAccessDenialReason(userEmail);
+                        if (denialReason.isPresent()) {
+                            sendForbidden(response, denialReason.get());
+                            return;
+                        }
+                        authorizedUserService.markLastActive(userEmail);
                         UserDetails userDetails = resolveUserDetails(userEmail);
                         UsernamePasswordAuthenticationToken authToken = new UsernamePasswordAuthenticationToken(
                                 userDetails, null, userDetails.getAuthorities());
@@ -87,7 +94,6 @@ public class JWTFilter extends OncePerRequestFilter {
 
                         request.setAttribute("jwtToken", jwtToken);
                         request.setAttribute("userEmail", userEmail);
-                        authorizedUserService.markLastActive(userEmail);
                     }
                 } catch (Exception e) {
                     logger.warn("JWT authentication failed for " + userEmail, e);
@@ -102,6 +108,12 @@ public class JWTFilter extends OncePerRequestFilter {
         }
 
         filterChain.doFilter(request, response);
+    }
+
+    private void sendForbidden(HttpServletResponse response, String message) throws IOException {
+        response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+        response.setContentType("application/json");
+        response.getWriter().write("{\"message\":\"" + message.replace("\"", "\\\"") + "\"}");
     }
     
     private boolean isPublicRoute(String requestPath) {

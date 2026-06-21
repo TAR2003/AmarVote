@@ -14,7 +14,7 @@ import lombok.RequiredArgsConstructor;
 /**
  * UserDetailsService backed by the users table.
  * When registration is open to all, accepts any email from a valid JWT
- * even if the user has not completed signup yet (load tests, first-time voters).
+ * even if the user has not completed signup yet.
  */
 @Service
 @RequiredArgsConstructor
