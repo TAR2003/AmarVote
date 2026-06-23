@@ -515,13 +515,24 @@ def generate_ballot_hash_from_serialized(serialized_ballot: Dict) -> str:
     ballot_json = json.dumps(serialized_ballot, sort_keys=True)
     return hashlib.sha256(ballot_json.encode('utf-8')).hexdigest()
 
+def get_client_ip() -> str:
+    """Resolve the originating client IP behind reverse proxies and Cloudflare."""
+    for header in ("CF-Connecting-IP", "True-Client-IP", "X-Forwarded-For", "X-Real-IP"):
+        value = request.headers.get(header)
+        if not value or value.strip().lower() == "unknown":
+            continue
+        ip = value.split(",")[0].strip()
+        if ip:
+            return ip
+    return request.remote_addr or "unknown"
+
 # New helper functions for post-quantum cryptography
 def rate_limit(max_requests=10, window_minutes=1):
     """Simple rate limiting decorator"""
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            client_ip = request.remote_addr
+            client_ip = get_client_ip()
             current_time = datetime.now()
             
             # Clean old entries
@@ -1778,7 +1789,7 @@ def encrypt_it():
         # Final credentials with HMAC tag
         final_credentials = json.dumps(credentials_data, separators=(',', ':')).encode('utf-8')
 
-        logger.info(f"Successful encryption for IP: {request.remote_addr}")
+        logger.info(f"Successful encryption for IP: {get_client_ip()}")
         
         # Return only 2 storage items instead of 3
         return make_binary_response({
@@ -1894,7 +1905,7 @@ def decrypt_it():
         ).derive(combined_key)
         
         if not verify_hmac(hmac_key, credentials_for_verification_json, hmac_tag):
-            logger.warning(f"HMAC verification failed for IP: {request.remote_addr}")
+            logger.warning(f"HMAC verification failed for IP: {get_client_ip()}")
             if is_msgpack_client:
                 return make_binary_response({'error': 'Authentication failed - credentials tampered'}, 403)
             response = jsonify({'status': 'error', 'message': 'Authentication failed - credentials tampered'})
@@ -1911,7 +1922,7 @@ def decrypt_it():
         decryptor = cipher.decryptor()
         decrypted_data = decryptor.update(encrypted_data) + decryptor.finalize()
 
-        logger.info(f"Successful decryption for IP: {request.remote_addr}")
+        logger.info(f"Successful decryption for IP: {get_client_ip()}")
 
         if is_msgpack_client:
             return make_binary_response({

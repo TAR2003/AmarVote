@@ -3,6 +3,7 @@ import { FiRefreshCw } from 'react-icons/fi';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { electionApi } from '../utils/electionApi';
+import { timezoneUtils } from '../utils/timezoneUtils';
 import useElectionProgressStream from '../hooks/useElectionProgressStream';
 import {
   getSnapshotFromEvent,
@@ -322,7 +323,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                           <div className="flex items-center gap-2">
                             <span className="text-amber-700 font-medium">Started at:</span>
                             <span className="text-amber-900 font-semibold">
-                              {new Date(status.lockStartTime).toLocaleString()}
+                              {timezoneUtils.formatDateTime(status.lockStartTime)}
                             </span>
                           </div>
                         )}
@@ -432,7 +433,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                           )}
                           <p className="text-sm text-gray-600">
                             <span className="font-medium">Started:</span>{' '}
-                            <span className="text-gray-900">{new Date(status.startedAt || status.lockStartTime).toLocaleString()}</span>
+                            <span className="text-gray-900">{timezoneUtils.formatDateTime(status.startedAt || status.lockStartTime)}</span>
                           </p>
                         </div>
                       )}
@@ -616,7 +617,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                           <p className="text-xs text-green-900 font-semibold">Your contribution to the election decryption is complete</p>
                           {status.completedAt && (
                             <p className="text-xs text-green-700">
-                              Completed at: {new Date(status.completedAt).toLocaleString()}
+                              Completed at: {timezoneUtils.formatDateTime(status.completedAt)}
                             </p>
                           )}
                         </div>
@@ -675,7 +676,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                       <p className="text-sm font-medium text-gray-900">Decryption Initiated</p>
                       {status.startedAt && (
                         <p className="text-xs text-gray-600">
-                          {new Date(status.startedAt).toLocaleString()}
+                          {timezoneUtils.formatDateTime(status.startedAt)}
                         </p>
                       )}
                     </div>
@@ -712,7 +713,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                       <p className="text-sm font-medium text-gray-900">Decryption Complete</p>
                       {status.completedAt && (
                         <p className="text-xs text-gray-600">
-                          {new Date(status.completedAt).toLocaleString()}
+                          {timezoneUtils.formatDateTime(status.completedAt)}
                         </p>
                       )}
                     </div>

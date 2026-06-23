@@ -15,4 +15,5 @@ services:
   nginx:
     volumes:
       - ./nginx-proxy.loadtest.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx-cloudflare-realip.conf:/etc/nginx/cloudflare-realip.conf:ro
       - ./nginx/certs:/etc/letsencrypt:ro

@@ -36,6 +36,7 @@ import {
   Cell,
   ComposedChart
 } from 'recharts';
+import { timezoneUtils } from '../utils/timezoneUtils';
 
 const WorkerProceedings = ({ electionId }) => {
   const [activeTab, setActiveTab] = useState('tally');
@@ -185,25 +186,12 @@ const WorkerProceedings = ({ electionId }) => {
 
   const formatTime = (dateTimeString) => {
     if (!dateTimeString) return 'N/A';
-    const date = new Date(dateTimeString);
-    return date.toLocaleString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+    return timezoneUtils.formatDateTime(dateTimeString);
   };
 
   const formatTimeShort = (dateTimeString) => {
     if (!dateTimeString) return 'N/A';
-    const date = new Date(dateTimeString);
-    return date.toLocaleTimeString('en-US', {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    });
+    return timezoneUtils.formatTimeOnly(dateTimeString);
   };
 
   const getColorForTab = (tabId) => {

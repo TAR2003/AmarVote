@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { FiCheck, FiClock, FiCalendar, FiUsers, FiLock, FiUnlock, FiBox, FiChevronDown, FiChevronRight, FiZap, FiPackage } from 'react-icons/fi';
 import { electionApi } from '../utils/electionApi';
 import axios from 'axios';
+import { timezoneUtils } from '../utils/timezoneUtils';
 
 axios.defaults.withCredentials = true;
 
@@ -296,15 +297,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
 
   const formatTimestamp = (timestamp) => {
     if (!timestamp) return 'N/A';
-    return new Intl.DateTimeFormat('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit',
-      hour12: true
-    }).format(timestamp);
+    return timezoneUtils.formatDateTime(timestamp);
   };
 
   const formatDuration = (milliseconds) => {

@@ -1,6 +1,7 @@
 ﻿import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteApiLogs } from "../utils/api";
+import { timezoneUtils } from "../utils/timezoneUtils";
 
 // icons
 const Icon = ({ d, className = "w-5 h-5" }) => (
@@ -28,10 +29,7 @@ const ICONS = {
 
 function formatDate(ds) {
   if (!ds) return "—";
-  return new Date(ds).toLocaleString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-    hour: "2-digit", minute: "2-digit", second: "2-digit"
-  });
+  return timezoneUtils.formatDateTime(ds);
 }
 
 function methodColor(m) {

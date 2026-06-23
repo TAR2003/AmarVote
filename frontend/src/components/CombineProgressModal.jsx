@@ -4,6 +4,7 @@ import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { electionApi } from '../utils/electionApi';
 import useElectionProgressStream from '../hooks/useElectionProgressStream';
+import { timezoneUtils } from '../utils/timezoneUtils';
 import {
   getSnapshotFromEvent,
   pickCombine,
@@ -227,7 +228,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                           <div className="flex items-center gap-2">
                             <span className="text-amber-700 font-medium">Started at:</span>
                             <span className="text-amber-900 font-semibold">
-                              {new Date(status.lockStartTime).toLocaleString()}
+                              {timezoneUtils.formatDateTime(status.lockStartTime)}
                             </span>
                           </div>
                         )}
@@ -301,7 +302,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Started:</span>
                           <span className="font-semibold text-gray-800">
-                            {new Date(status.startedAt || status.lockStartTime).toLocaleTimeString()}
+                            {timezoneUtils.formatTimeOnly(status.startedAt || status.lockStartTime)}
                           </span>
                         </div>
                       )}
@@ -309,7 +310,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                         <div className="flex justify-between text-sm">
                           <span className="text-gray-600">Completed:</span>
                           <span className="font-semibold text-gray-800">
-                            {new Date(status.completedAt).toLocaleTimeString()}
+                            {timezoneUtils.formatTimeOnly(status.completedAt)}
                           </span>
                         </div>
                       )}

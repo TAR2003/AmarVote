@@ -13,6 +13,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 import com.amarvote.amarvote.model.ApiLog;
 import com.amarvote.amarvote.service.ApiLogService;
 import com.amarvote.amarvote.service.JWTService;
+import com.amarvote.amarvote.util.ClientIpUtil;
 
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -70,7 +71,7 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         ApiLog apiLog = new ApiLog();
         apiLog.setRequestMethod(request.getMethod());
         apiLog.setRequestPath(request.getRequestURI());
-        apiLog.setRequestIp(getClientIp(request));
+        apiLog.setRequestIp(ClientIpUtil.resolve(request));
         apiLog.setUserAgent(truncate(request.getHeader("User-Agent"), 500));
         apiLog.setRequestTime(LocalDateTime.now());
 
@@ -120,20 +121,6 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
         }
 
         return null;
-    }
-
-    private String getClientIp(HttpServletRequest request) {
-        String ip = request.getHeader("X-Forwarded-For");
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getHeader("X-Real-IP");
-        }
-        if (ip == null || ip.isEmpty() || "unknown".equalsIgnoreCase(ip)) {
-            ip = request.getRemoteAddr();
-        }
-        if (ip != null && ip.contains(",")) {
-            ip = ip.split(",")[0].trim();
-        }
-        return ip;
     }
 
     private static String truncate(String value, int maxLength) {

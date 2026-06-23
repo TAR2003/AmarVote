@@ -13,6 +13,7 @@ import {
   FiRefreshCw,
   FiMoreVertical
 } from 'react-icons/fi';
+import { timezoneUtils } from '../utils/timezoneUtils';
 
 const Chatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -163,9 +164,10 @@ const Chatbot = () => {
   };
 
   const formatTimestamp = (timestamp) => {
-    return timestamp.toLocaleTimeString('en-US', {
+    return timezoneUtils.formatTimeOnly(timestamp, {
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
+      second: undefined,
     });
   };
 

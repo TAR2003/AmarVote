@@ -3,6 +3,7 @@ import { FiLoader, FiCheckCircle, FiAlertCircle, FiX, FiRefreshCw } from 'react-
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import useElectionProgressStream from '../hooks/useElectionProgressStream';
+import { timezoneUtils } from '../utils/timezoneUtils';
 import {
   getSnapshotFromEvent,
   pickTally,
@@ -248,7 +249,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
                       <div className="flex items-center gap-2">
                         <span className="text-amber-700 font-medium">Started at:</span>
                         <span className="text-amber-900 font-semibold">
-                          {new Date(status.lockStartTime).toLocaleString()}
+                          {timezoneUtils.formatDateTime(status.lockStartTime)}
                         </span>
                       </div>
                     )}
@@ -300,7 +301,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
                   <p className="text-sm text-gray-600 mt-1">
                     <span className="font-medium">Started:</span>{' '}
                     <span className="text-gray-900">
-                      {new Date(status.startedAt || status.lockStartTime).toLocaleString()}
+                      {timezoneUtils.formatDateTime(status.startedAt || status.lockStartTime)}
                     </span>
                   </p>
                 )}

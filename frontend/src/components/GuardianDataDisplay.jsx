@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { FiDownload, FiChevronDown, FiChevronUp, FiUser, FiKey, FiShield, FiDatabase, FiInfo } from 'react-icons/fi';
 import { saveAs } from 'file-saver';
+import { timezoneUtils } from '../utils/timezoneUtils';
 
 const GuardianDataDisplay = ({ electionId }) => {
   const [guardians, setGuardians] = useState([]);
@@ -176,7 +177,7 @@ const GuardianDataDisplay = ({ electionId }) => {
               </h6>
               {chunk.datePerformed && (
                 <span className="text-xs text-gray-500">
-                  {new Date(chunk.datePerformed).toLocaleDateString()}
+                  {timezoneUtils.formatDateOnly(chunk.datePerformed)}
                 </span>
               )}
             </div>

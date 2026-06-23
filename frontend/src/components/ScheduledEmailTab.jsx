@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { FiMail, FiTrash2, FiEdit2, FiClock, FiCheckCircle } from 'react-icons/fi';
 import toast from 'react-hot-toast';
 import { electionApi } from '../utils/electionApi';
+import { timezoneUtils } from '../utils/timezoneUtils';
 
 const RECIPIENT_GROUPS = [
   { value: 'voters', label: 'Voters' },
@@ -66,15 +67,11 @@ function buildEmailTemplate(electionData, group) {
 
 function formatDateTime(value) {
   if (!value) return '—';
-  return new Date(value).toLocaleString();
+  return timezoneUtils.formatDateTime(value);
 }
 
 function toLocalInputValue(isoString) {
-  if (!isoString) return '';
-  const date = new Date(isoString);
-  const offset = date.getTimezoneOffset();
-  const local = new Date(date.getTime() - offset * 60000);
-  return local.toISOString().slice(0, 16);
+  return timezoneUtils.toLocalInputValue(isoString);
 }
 
 export default function ScheduledEmailTab({ electionId, electionData }) {

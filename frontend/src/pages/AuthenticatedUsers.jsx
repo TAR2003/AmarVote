@@ -21,6 +21,7 @@ import {
   updateAuthorizedUser,
   uploadAuthorizedUsersCsv,
 } from "../utils/api";
+import { timezoneUtils } from "../utils/timezoneUtils";
 
 const PAGE_SIZE = 50;
 const ROLE_OPTIONS = [
@@ -402,7 +403,7 @@ const AuthenticatedUsers = () => {
           </div>
           <div>
             <p className="text-xs text-gray-500 mb-1">Last Active</p>
-            <p className="text-sm text-gray-700">{row.lastActive ? new Date(row.lastActive).toLocaleString() : "-"}</p>
+            <p className="text-sm text-gray-700">{row.lastActive ? timezoneUtils.formatDateTime(row.lastActive) : "-"}</p>
           </div>
         </div>
       );
@@ -479,7 +480,7 @@ const AuthenticatedUsers = () => {
             </span>
           )}
         </td>
-        <td className="px-4 py-3 text-sm text-gray-700">{row.lastActive ? new Date(row.lastActive).toLocaleString() : "-"}</td>
+        <td className="px-4 py-3 text-sm text-gray-700">{row.lastActive ? timezoneUtils.formatDateTime(row.lastActive) : "-"}</td>
       </tr>
     );
   };
@@ -820,7 +821,7 @@ const AuthenticatedUsers = () => {
                   ) : (
                     auditLogs.map((log) => (
                       <div key={log.auditLogId} className="p-4 space-y-2">
-                        <div className="text-xs text-gray-500">{log.createdAt ? new Date(log.createdAt).toLocaleString() : "-"}</div>
+                        <div className="text-xs text-gray-500">{log.createdAt ? timezoneUtils.formatDateTime(log.createdAt) : "-"}</div>
                         <div className="text-sm font-semibold text-gray-900 break-words">{log.actionType}</div>
                         <div className="text-sm text-gray-700 break-all">Actor: {log.actorEmail || "-"}</div>
                         <div className="text-sm text-gray-700 break-all">Target: {log.targetEmail || "-"}</div>
@@ -853,7 +854,7 @@ const AuthenticatedUsers = () => {
                       ) : (
                         auditLogs.map((log) => (
                           <tr key={log.auditLogId} className="hover:bg-gray-50/60">
-                            <td className="px-4 py-3 text-sm text-gray-700">{log.createdAt ? new Date(log.createdAt).toLocaleString() : "-"}</td>
+                            <td className="px-4 py-3 text-sm text-gray-700">{log.createdAt ? timezoneUtils.formatDateTime(log.createdAt) : "-"}</td>
                             <td className="px-4 py-3 text-sm font-semibold text-gray-900">{log.actionType}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">{log.actorEmail}</td>
                             <td className="px-4 py-3 text-sm text-gray-700">{log.targetEmail}</td>

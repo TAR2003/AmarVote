@@ -16,6 +16,7 @@ import {
 } from "react-icons/fi";
 import { fetchAllElections } from "../utils/api";
 import { electionApi } from "../utils/electionApi";
+import { timezoneUtils } from "../utils/timezoneUtils";
 
 const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   const [searchQuery, setSearchQuery] = useState("");
@@ -283,11 +284,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
   const formatDate = (dateString) => {
     if (!dateString) return 'Not scheduled';
-    return new Date(dateString).toLocaleDateString('en-US', {
-      month: 'short',
-      day: 'numeric',
-      year: 'numeric'
-    });
+    return timezoneUtils.formatDateOnly(dateString);
   };
 
   const mobileNavItems = [
