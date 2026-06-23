@@ -15,6 +15,8 @@ public interface AppUserRepository extends JpaRepository<AppUser, Long> {
 
     boolean existsByEmail(String email);
 
+    java.util.List<AppUser> findTop10ByEmailContainingIgnoreCaseOrderByEmailAsc(String email);
+
     @Query(value = "SELECT * FROM users WHERE mfa_secret IS NOT NULL AND LENGTH(TRIM(mfa_secret)) < 40", nativeQuery = true)
     java.util.List<AppUser> findUsersWithPlaintextMfaSecrets();
 

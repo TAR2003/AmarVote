@@ -1,16 +1,26 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import toast from 'react-hot-toast';
 import { electionApi } from '../utils/electionApi';
 
 const ProcessControlPanel = ({
   electionId,
   guardianId = null,
+  guardians = [],
   canControlTally = false,
   canControlDecryption = false,
   canControlCombine = false,
   onActionComplete = null,
 }) => {
   const [busy, setBusy] = useState('');
+  const [selectedGuardianId, setSelectedGuardianId] = useState(guardianId || guardians[0]?.guardianId || null);
+
+  useEffect(() => {
+    if (guardianId) {
+      setSelectedGuardianId(guardianId);
+    } else if (!selectedGuardianId && guardians.length > 0) {
+      setSelectedGuardianId(guardians[0].guardianId);
+    }
+  }, [guardianId, guardians, selectedGuardianId]);
 
   const run = async (key, fn, successMsg) => {
     setBusy(key);
@@ -31,11 +41,13 @@ const ProcessControlPanel = ({
     return null;
   }
 
+  const activeGuardianId = selectedGuardianId || guardianId;
+
   return (
     <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
       <h4 className="text-sm font-semibold text-amber-900">Process Controls</h4>
       <p className="mb-3 text-xs text-amber-800">
-        Stop in-flight work or remove stored results to restart from a clean state.
+        Stop in-flight work or remove stored results to restart from a clean state. Admin and co-admin only.
       </p>
 
       <div className="flex flex-wrap gap-2">
@@ -60,12 +72,25 @@ const ProcessControlPanel = ({
           </>
         )}
 
-        {canControlDecryption && guardianId && (
+        {canControlDecryption && activeGuardianId && (
           <>
+            {guardians.length > 1 && (
+              <select
+                value={activeGuardianId}
+                onChange={(e) => setSelectedGuardianId(Number(e.target.value))}
+                className="rounded border border-red-200 bg-white px-2 py-1.5 text-xs text-gray-800"
+              >
+                {guardians.map((g) => (
+                  <option key={g.guardianId} value={g.guardianId}>
+                    Guardian {g.sequenceOrder}: {g.userEmail}
+                  </option>
+                ))}
+              </select>
+            )}
             <button
               type="button"
               disabled={!!busy}
-              onClick={() => run('stopDec', () => electionApi.stopGuardianDecryption(electionId, guardianId), 'Decryption stop requested')}
+              onClick={() => run('stopDec', () => electionApi.stopGuardianDecryption(electionId, activeGuardianId), 'Decryption stop requested')}
               className="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
             >
               {busy === 'stopDec' ? 'Stopping…' : 'Stop Decryption'}
@@ -73,7 +98,7 @@ const ProcessControlPanel = ({
             <button
               type="button"
               disabled={!!busy}
-              onClick={() => run('deleteDec', () => electionApi.deleteGuardianDecryption(electionId, guardianId), 'Decryption data removed')}
+              onClick={() => run('deleteDec', () => electionApi.deleteGuardianDecryption(electionId, activeGuardianId), 'Decryption data removed')}
               className="rounded border border-red-600 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-50 disabled:opacity-50"
             >
               {busy === 'deleteDec' ? 'Deleting…' : 'Delete Guardian Decryption'}

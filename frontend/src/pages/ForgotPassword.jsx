@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "./Layout";
 import OtpInput from "../components/OtpInput";
+import PasswordInput from "../components/PasswordInput";
+import { formatPasswordErrors, getPasswordValidationErrors } from "../utils/passwordUtils";
 
-const EMAIL_CODE_RATE_LIMIT_MESSAGE = "You can only request email verifcation code 1 time in 10 minutes";
+const EMAIL_CODE_RATE_LIMIT_MESSAGE = "You can only request an email verification code once per minute";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -88,8 +90,9 @@ export default function ForgotPassword() {
     setError("");
     setSuccess("");
 
-    if (newPassword.length < 8) {
-      setError("Password must be at least 8 characters");
+    const passwordErrors = getPasswordValidationErrors(newPassword);
+    if (passwordErrors.length > 0) {
+      setError(formatPasswordErrors(passwordErrors));
       return;
     }
 
@@ -214,25 +217,25 @@ export default function ForgotPassword() {
 
           {step === 3 && (
             <form className="mt-6 space-y-4" onSubmit={submitNewPassword}>
-              <input
-                type="password"
-                required
-                minLength={8}
+              <PasswordInput
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="New password (min 8 chars)"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                placeholder="New password"
+                required
+                autoComplete="new-password"
               />
 
-              <input
-                type="password"
-                required
-                minLength={8}
+              <PasswordInput
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm new password"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                required
+                autoComplete="new-password"
+                showRequirements={false}
               />
+              {confirmPassword && newPassword !== confirmPassword && (
+                <p className="text-xs text-red-600">Password and confirm password do not match.</p>
+              )}
 
               <button
                 type="submit"

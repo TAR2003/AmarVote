@@ -288,9 +288,44 @@ public class MfaAuthService {
     }
 
     private void validatePasswordStrength(String password) {
-        if (password == null || !STRONG_PASSWORD.matcher(password).matches()) {
-            throw new IllegalArgumentException(
-                    "Password must be at least 12 characters and include upper, lower, digit, and special character");
+        java.util.List<String> missing = getPasswordValidationErrors(password);
+        if (!missing.isEmpty()) {
+            throw new IllegalArgumentException(formatPasswordValidationMessage(missing));
         }
+    }
+
+    private java.util.List<String> getPasswordValidationErrors(String password) {
+        java.util.List<String> errors = new java.util.ArrayList<>();
+        if (password == null || password.isEmpty()) {
+            errors.add("a password");
+            return errors;
+        }
+        if (password.length() < 12) {
+            errors.add("at least 12 characters");
+        }
+        if (!password.chars().anyMatch(Character::isLowerCase)) {
+            errors.add("a lowercase letter");
+        }
+        if (!password.chars().anyMatch(Character::isUpperCase)) {
+            errors.add("an uppercase letter");
+        }
+        if (!password.chars().anyMatch(Character::isDigit)) {
+            errors.add("a digit");
+        }
+        if (!password.matches(".*[^A-Za-z0-9].*")) {
+            errors.add("a special character");
+        }
+        return errors;
+    }
+
+    private String formatPasswordValidationMessage(java.util.List<String> missing) {
+        if (missing.isEmpty()) {
+            return "Password does not meet requirements";
+        }
+        if (missing.size() == 1) {
+            return "Password must include " + missing.get(0) + ".";
+        }
+        String last = missing.remove(missing.size() - 1);
+        return "Password must include " + String.join(", ", missing) + ", and " + last + ".";
     }
 }

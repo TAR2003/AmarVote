@@ -5,6 +5,22 @@ export const timezoneUtils = {
     return Intl.DateTimeFormat().resolvedOptions().timeZone;
   },
 
+  // Get GMT offset label like "GMT+6:00"
+  getTimezoneOffsetLabel(date = new Date()) {
+    const offsetMinutes = -date.getTimezoneOffset();
+    const sign = offsetMinutes >= 0 ? '+' : '-';
+    const absMinutes = Math.abs(offsetMinutes);
+    const hours = Math.floor(absMinutes / 60);
+    const minutes = absMinutes % 60;
+    return `GMT${sign}${hours}:${String(minutes).padStart(2, '0')}`;
+  },
+
+  // Full timezone display: "Asia/Dhaka (GMT+6:00)"
+  getTimezoneLabel(date = new Date()) {
+    const tz = this.getUserTimezone();
+    return `${tz} (${this.getTimezoneOffsetLabel(date)})`;
+  },
+
   // Convert local date to UTC for backend
   convertToUTC(localDate) {
     if (!localDate) return null;
@@ -25,21 +41,23 @@ export const timezoneUtils = {
     return new Date(utcString);
   },
 
-  // Format date for display in user's timezone
+  // Format date for display in user's timezone with offset label
   formatForDisplay(utcString, options = {}) {
     if (!utcString) return '';
     
     const date = new Date(utcString);
+    const { showTimezone = true, ...localeOptions } = options;
     const defaultOptions = {
       year: 'numeric',
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      timeZoneName: 'short'
     };
     
-    return date.toLocaleString(undefined, { ...defaultOptions, ...options });
+    const formatted = date.toLocaleString(undefined, { ...defaultOptions, ...localeOptions });
+    if (!showTimezone) return formatted;
+    return `${formatted} · ${this.getTimezoneOffsetLabel(date)}`;
   },
 
   // Check if an election is currently active
@@ -85,14 +103,12 @@ export const timezoneUtils = {
 
   // Standardized date formatting for election times
   formatElectionDate(utcString) {
-    if (!utcString) return '';
-    const date = new Date(utcString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-      hour: "2-digit",
-      minute: "2-digit",
+    return this.formatForDisplay(utcString, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
+      hour: '2-digit',
+      minute: '2-digit',
     });
   },
 
@@ -100,11 +116,12 @@ export const timezoneUtils = {
   formatShortDate(utcString) {
     if (!utcString) return '';
     const date = new Date(utcString);
-    return date.toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
+    const formatted = date.toLocaleDateString(undefined, {
+      year: 'numeric',
+      month: 'short',
+      day: 'numeric',
     });
+    return `${formatted} · ${this.getTimezoneOffsetLabel(date)}`;
   },
 
   // Time-based election status for display (independent of backend workflow status)

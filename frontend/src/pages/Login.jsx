@@ -2,6 +2,7 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Layout from "./Layout";
 import OtpInput from "../components/OtpInput";
+import PasswordInput from "../components/PasswordInput";
 import { getCsrfToken } from "../utils/api";
 
 const STAGES = {
@@ -125,13 +126,13 @@ export default function Login({ setUserEmail }) {
                 placeholder="Email"
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
-              <input
-                type="password"
-                required
+              <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                required
+                autoComplete="current-password"
+                showValidation={false}
               />
 
               <button

@@ -53,20 +53,9 @@ public class ElectionProcessControlService {
         Election election = electionRepository.findById(electionId)
             .orElseThrow(() -> new IllegalArgumentException("Election not found"));
 
-        if (electionService.isElectionAdmin(election, userEmail)) {
-            return;
+        if (!electionService.isElectionAdmin(election, userEmail)) {
+            throw new IllegalArgumentException("Only the election admin or co-admins can control this process");
         }
-
-        if (guardianIdForGuardianOnly != null) {
-            List<Guardian> guardians = guardianRepository.findByElectionIdAndUserEmail(electionId, userEmail);
-            boolean ownsGuardian = guardians.stream()
-                .anyMatch(g -> g.getGuardianId().equals(guardianIdForGuardianOnly));
-            if (ownsGuardian) {
-                return;
-            }
-        }
-
-        throw new IllegalArgumentException("Only election admins or the owning guardian can control this process");
     }
 
     @Transactional

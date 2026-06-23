@@ -77,6 +77,7 @@ public class ElectionDetailResponse {
         private String guardianPublicKey;
         private Integer sequenceOrder;
         private Boolean guardianKeySubmitted;
+        private Boolean backupSharesSubmitted;
         private Boolean decryptedOrNot;
         private String partialDecryptedTally;
         private String proof;

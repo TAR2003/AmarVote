@@ -7,7 +7,9 @@ const ImageUpload = ({
   uploadType = 'profile', // 'profile', 'candidate', 'party', 'election'
   className = '',
   disabled = false,
-  size = 'default', // 'default' | 'compact'
+  size = 'default', // 'default' | 'compact' | 'mini'
+  iconOnly = false,
+  placeholder,
   acceptedFormats = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/jpg', 'image/bmp', 'image/tiff']
 }) => {
   const [dragActive, setDragActive] = useState(false);
@@ -116,6 +118,42 @@ const ImageUpload = ({
   };
 
   const isCompact = size === 'compact';
+  const isMini = size === 'mini';
+
+  if (iconOnly || isMini) {
+    return (
+      <div className={`relative ${className}`}>
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept={acceptedFormats.join(',')}
+          onChange={handleFileChange}
+          className="hidden"
+          disabled={disabled || uploading}
+        />
+        <button
+          type="button"
+          onClick={openFileDialog}
+          disabled={disabled || uploading}
+          title={placeholder || 'Upload photo'}
+          className={`relative flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
+            preview
+              ? 'border-blue-300 bg-blue-50 hover:bg-blue-100'
+              : 'border-gray-300 bg-white hover:bg-gray-50'
+          } disabled:opacity-50`}
+        >
+          {preview ? (
+            <img src={preview} alt="" className="h-full w-full rounded-full object-cover" />
+          ) : uploading ? (
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+          ) : (
+            <FiImage className="h-4 w-4 text-gray-500" />
+          )}
+        </button>
+        {error && <p className="absolute top-full mt-1 w-32 text-[10px] text-red-600">{error}</p>}
+      </div>
+    );
+  }
 
   const removeImage = () => {
     setPreview(null);

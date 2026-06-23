@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useParams, useNavigate, useLocation } from 'react-router-dom';
 import { electionApi } from '../utils/electionApi';
 import { timezoneUtils } from '../utils/timezoneUtils';
@@ -75,6 +75,7 @@ import WorkerProceedings from '../components/WorkerProceedings';
 import VoterStatusSlot from '../components/VoterStatusSlot';
 import BallotWorkflowModal from '../components/BallotWorkflowModal';
 import GuardianProgressPanel from '../components/GuardianProgressPanel';
+import ProcessProgressPanel from '../components/ProcessProgressPanel';
 import ProcessControlPanel from '../components/ProcessControlPanel';
 import ScheduledEmailTab from '../components/ScheduledEmailTab';
 import useElectionProgressStream from '../hooks/useElectionProgressStream';
@@ -1665,6 +1666,8 @@ export default function ElectionPage() {
     endingTime: '',
   });
   const [activatingElection, setActivatingElection] = useState(false);
+  const [descriptionDraft, setDescriptionDraft] = useState('');
+  const [editingDescription, setEditingDescription] = useState(false);
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [keyCeremonyUiMessage, setKeyCeremonyUiMessage] = useState('');
   const [keyCeremonyUiError, setKeyCeremonyUiError] = useState('');
@@ -1994,11 +1997,26 @@ export default function ElectionPage() {
     return timezoneUtils.getElectionStatus(electionData.startingTime, electionData.endingTime);
   }, [electionData]);
 
+  const isElectionFinished = useCallback(() => getElectionStatus() === 'finished', [getElectionStatus]);
+  const isKeyCeremonyPending = electionData?.status === 'key_ceremony_pending';
+  const isTallyComplete = tallyStatus?.status === 'completed';
+  const isCombineComplete = combineStatus?.status === 'completed' || Boolean(resultsData);
+  const combineNavigatedRef = useRef(false);
+  const isElectionAdminUser = () => electionData?.userRoles?.includes('admin');
+
+  useEffect(() => {
+    if (combineStatus?.status === 'completed' && !combineNavigatedRef.current) {
+      combineNavigatedRef.current = true;
+      handleTabClick('results');
+    }
+    if (combineStatus?.status !== 'completed') {
+      combineNavigatedRef.current = false;
+    }
+  }, [combineStatus?.status]);
+
   const canUserViewResults = useCallback(() => {
-    return electionData?.userRoles?.includes('admin') ||
-      electionData?.userRoles?.includes('guardian') ||
-      getElectionStatus() === 'finished';
-  }, [electionData, getElectionStatus]);
+    return isCombineComplete;
+  }, [isCombineComplete]);
 
   const processElectionResults = useCallback((apiResponseData = null, electionDataParam = null) => {
     // Use provided electionDataParam or fall back to state electionData
@@ -2210,9 +2228,9 @@ export default function ElectionPage() {
       setCombineStatus(status);
       
       if (status.status === 'completed') {
-        toast.success('Combine completed! Refreshing results...');
-        // Reload results after successful combine
-        fetchElectionData();
+        toast.success('Combine completed! Opening results...');
+        await fetchElectionData();
+        handleTabClick('results');
       } else if (status.status === 'in_progress') {
         toast('Combine in progress. Opening progress modal...', { icon: '🔄' });
         setIsCombineModalOpen(true);
@@ -2267,7 +2285,9 @@ export default function ElectionPage() {
     } catch (err) {
       console.warn('Failed to fetch cached results after combining:', err);
     }
-  }, [id, fetchElectionData, processElectionResults]);
+
+    handleTabClick('results');
+  }, [id, fetchElectionData, processElectionResults, electionData]);
 
   const loadElectionResults = useCallback(async () => {
     setLoadingResults(true);
@@ -3281,6 +3301,28 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
   const canManageBallotReceiptSetting = () =>
     electionData?.userRoles?.includes('admin');
 
+  const canEditElectionDescription = () =>
+    electionData?.userRoles?.includes('admin') &&
+    (!electionData?.startingTime || new Date(electionData.startingTime) > new Date());
+
+  const handleSaveDescription = async () => {
+    try {
+      setSettingsSaving(true);
+      const response = await electionApi.updateElectionSettings(id, {
+        electionDescription: descriptionDraft,
+      });
+      if (response?.election) {
+        setElectionData(response.election);
+      }
+      setEditingDescription(false);
+      toast.success('Election description updated');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update description');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
   const handleUpdateElectionSettings = async (settings) => {
     try {
       setSettingsSaving(true);
@@ -3468,10 +3510,16 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             <nav className="flex space-x-2 sm:space-x-4 md:space-x-8 pb-px min-w-max">
               {subMenus
                 .filter((menu) => {
-                  if (menu.key === 'worker-proceedings' && electionData?.status === 'key_ceremony_pending') {
+                  if (menu.key === 'worker-proceedings' && isKeyCeremonyPending) {
                     return false;
                   }
                   if (menu.adminOnly && !electionData?.userRoles?.includes('admin')) {
+                    return false;
+                  }
+                  if (menu.key === 'results' && !isCombineComplete) {
+                    return false;
+                  }
+                  if (menu.key === 'ballots' && !isElectionFinished()) {
                     return false;
                   }
                   return true;
@@ -3522,7 +3570,55 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   <h4 className="font-medium text-gray-900 mb-2">Basic Information</h4>
                   <div className="space-y-2 text-sm">
                     <p><span className="font-medium">Title:</span> {electionData.electionTitle}</p>
-                    <p><span className="font-medium">Description:</span> {electionData.electionDescription || 'No description provided'}</p>
+                    <div>
+                      <span className="font-medium">Description:</span>{' '}
+                      {canEditElectionDescription() && editingDescription ? (
+                        <div className="mt-2 space-y-2">
+                          <textarea
+                            value={descriptionDraft}
+                            onChange={(e) => setDescriptionDraft(e.target.value)}
+                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            rows={3}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              type="button"
+                              disabled={settingsSaving}
+                              onClick={handleSaveDescription}
+                              className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setEditingDescription(false);
+                                setDescriptionDraft(electionData.electionDescription || '');
+                              }}
+                              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                            >
+                              Cancel
+                            </button>
+                          </div>
+                        </div>
+                      ) : (
+                        <span>
+                          {electionData.electionDescription || 'No description provided'}
+                          {canEditElectionDescription() && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setDescriptionDraft(electionData.electionDescription || '');
+                                setEditingDescription(true);
+                              }}
+                              className="ml-2 text-xs font-medium text-blue-600 hover:underline"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        </span>
+                      )}
+                    </div>
                     <p><span className="font-medium">Status:</span> {electionData.status}</p>
                     <div>
                       <span className="font-medium">Privacy:</span>{' '}
@@ -3584,9 +3680,10 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2">Timeline</h4>
                   <div className="space-y-2 text-sm">
-                    <p className="flex items-center"><FiCalendar className="h-4 w-4 mr-2" /><span className="font-medium">Starts:</span> {formatDate(electionData.startingTime)}</p>
-                    <p className="flex items-center"><FiCalendar className="h-4 w-4 mr-2" /><span className="font-medium">Ends:</span> {formatDate(electionData.endingTime)}</p>
-                    <p className="flex items-center"><FiClock className="h-4 w-4 mr-2" /><span className="font-medium">Created:</span> {formatDate(electionData.createdAt)}</p>
+                    <p className="flex items-center flex-wrap gap-1"><FiCalendar className="h-4 w-4 mr-1" /><span className="font-medium">Starts:</span> {formatDate(electionData.startingTime)}</p>
+                    <p className="flex items-center flex-wrap gap-1"><FiCalendar className="h-4 w-4 mr-1" /><span className="font-medium">Ends:</span> {formatDate(electionData.endingTime)}</p>
+                    <p className="flex items-center flex-wrap gap-1"><FiClock className="h-4 w-4 mr-1" /><span className="font-medium">Created:</span> {formatDate(electionData.createdAt)}</p>
+                    <p className="text-xs text-gray-500">Times shown in your timezone: {timezoneUtils.getTimezoneLabel()}</p>
                   </div>
                 </div>
               </div>
@@ -3631,7 +3728,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 </div>
               </div>
 
-              {electionData?.endingTime && new Date(electionData.endingTime) < new Date() && (
+              {isElectionFinished() && isTallyComplete && (
                 <div className="mt-6">
                   <GuardianProgressPanel
                     electionId={Number(id)}
@@ -4263,6 +4360,42 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       </div>
                     </div>
 
+                    {/* Guardian completion overview during key ceremony */}
+                    {isKeyCeremonyPending && (
+                      <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div className="rounded-xl border border-indigo-200 bg-white p-4 flex items-center gap-4">
+                          <div className="h-20 w-20">
+                            <CircularProgressbar
+                              value={getRound1Progress()}
+                              text={`${getRound1Progress()}%`}
+                              styles={buildStyles({ pathColor: '#4f46e5', textColor: '#111827', trailColor: '#e5e7eb' })}
+                            />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">Step 1: Key Pairs</p>
+                            <p className="text-sm text-gray-600">
+                              {(adminKeyCeremonyStatus?.submittedGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians completed
+                            </p>
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-violet-200 bg-white p-4 flex items-center gap-4">
+                          <div className="h-20 w-20">
+                            <CircularProgressbar
+                              value={getRound2Progress()}
+                              text={`${getRound2Progress()}%`}
+                              styles={buildStyles({ pathColor: '#7c3aed', textColor: '#111827', trailColor: '#e5e7eb' })}
+                            />
+                          </div>
+                          <div>
+                            <p className="font-semibold text-gray-900">Step 2: Backup Shares</p>
+                            <p className="text-sm text-gray-600">
+                              {(adminKeyCeremonyStatus?.submittedBackupGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians completed
+                            </p>
+                          </div>
+                        </div>
+                      </div>
+                    )}
+
                     {/* Modern process stepper */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
                       <div className={`rounded-xl border p-3 ${getKeyCeremonyStep() >= 1 ? 'border-indigo-300 bg-indigo-50' : 'border-gray-200 bg-gray-50'}`}>
@@ -4287,6 +4420,31 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             ? 'Ready for schedule setup'
                             : 'Waiting for all guardians to finish steps 1-2'}
                         </p>
+                      </div>
+                    </div>
+
+                    <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4">
+                      <h5 className="text-sm font-semibold text-gray-900 mb-3">Guardian Ceremony Progress</h5>
+                      <div className="space-y-2">
+                        {electionData.guardians?.map((guardian) => (
+                          <div key={guardian.userEmail} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border rounded-lg bg-gray-50">
+                            <div className="flex items-center gap-3 min-w-0">
+                              <FiUser className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                              <div className="min-w-0">
+                                <p className="font-medium text-gray-900 truncate">{guardian.userName || guardian.userEmail}</p>
+                                <p className="text-xs text-gray-500">Order {guardian.sequenceOrder}</p>
+                              </div>
+                            </div>
+                            <div className="flex flex-wrap gap-2">
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${guardian.guardianKeySubmitted ? 'bg-indigo-100 text-indigo-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                Step 1: {guardian.guardianKeySubmitted ? 'Keypair submitted' : 'Keypair pending'}
+                              </span>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${guardian.backupSharesSubmitted ? 'bg-violet-100 text-violet-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                Step 2: {guardian.backupSharesSubmitted ? 'Backup shared' : 'Backup pending'}
+                              </span>
+                            </div>
+                          </div>
+                        ))}
                       </div>
                     </div>
 
@@ -4467,9 +4625,13 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 )}
 
                 {/* Tally Creation Section - Only show if election has ended */}
-                {electionData && new Date(electionData.endingTime) < new Date() && (
-                  <div className="border border-blue-200 rounded-lg p-6 bg-blue-50">
-                    <div className="flex items-center justify-between mb-4">
+                {isElectionFinished() && !isKeyCeremonyPending && (
+                  <div className="border border-blue-200 rounded-lg p-6 bg-blue-50 space-y-4">
+                    <ProcessProgressPanel
+                      title="Tally Creation Progress"
+                      status={tallyStatus}
+                    />
+                    <div className="flex items-center justify-between">
                       <div>
                         <h4 className="font-medium text-blue-900 mb-2">Step 1: Create Encrypted Tally</h4>
                         <p className="text-sm text-blue-800">
@@ -4477,6 +4639,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         </p>
                       </div>
                     </div>
+                    {isElectionAdminUser() && (
                     <button
                       onClick={() => setIsTallyModalOpen(true)}
                       disabled={tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending'}
@@ -4510,54 +4673,102 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         </>
                       )}
                     </button>
-                    {electionData?.userRoles?.includes('admin') && (
+                    )}
+                    {isElectionAdminUser() && (
                       <ProcessControlPanel
                         electionId={Number(id)}
                         canControlTally
-                        canControlCombine
+                        canControlCombine={false}
                       />
                     )}
                   </div>
                 )}
 
-                <GuardianProgressPanel
-                  electionId={Number(id)}
-                  guardians={electionData?.guardians || []}
-                  onElectionRefresh={fetchElectionData}
-                />
-
-                {(() => {
-                  const currentGuardian = electionData?.guardians?.find((g) => g.isCurrentUser);
-                  const isAdmin = electionData?.userRoles?.includes('admin');
-                  return (
-                    <ProcessControlPanel
-                      electionId={Number(id)}
-                      guardianId={currentGuardian?.guardianId}
-                      canControlDecryption={Boolean(isAdmin || currentGuardian?.guardianId)}
+                {isElectionFinished() && isTallyComplete && (
+                  <>
+                    <ProcessProgressPanel
+                      title="Combine Decryption Shares Progress"
+                      status={combineStatus}
                     />
-                  );
-                })()}
 
-                {/* Guardian Key Submission Status */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div className="p-4 bg-blue-50 rounded-lg">
-                    <h4 className="font-medium text-blue-900 mb-2">Election Information</h4>
-                    <p className="text-sm text-blue-800">
-                      Status: {getElectionStatus()} |
-                      Required Guardians: {electionData.numberOfGuardians} |
-                      Quorum: {electionData.electionQuorum}
-                    </p>
-                  </div>
-                  <div className="p-4 bg-green-50 rounded-lg">
-                    <h4 className="font-medium text-green-900 mb-2">Step 2: Decryption Status</h4>
-                    <p className="text-sm text-green-800">
-                      {electionData.guardiansSubmitted || 0} of {electionData.totalGuardians || 0} guardians have submitted keys
-                    </p>
-                  </div>
-                </div>
+                    {(() => {
+                      const guardiansSubmitted = electionData.guardiansSubmitted || 0;
+                      const electionQuorum = electionData.electionQuorum || electionData.totalGuardians || 0;
+                      const quorumMet = guardiansSubmitted >= electionQuorum;
+                      const needsDecryption = !isCombineComplete && combineStatus?.status !== 'in_progress' && combineStatus?.status !== 'pending';
+                      return (
+                        <>
+                          {needsDecryption && !quorumMet && (
+                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+                              <div className="flex items-center">
+                                <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
+                                <div>
+                                  <h4 className="font-medium text-yellow-900">Waiting for Guardian Keys</h4>
+                                  <p className="text-sm text-yellow-800">
+                                    Need at least {electionQuorum} guardians to submit keys ({guardiansSubmitted} of {electionQuorum} submitted).
+                                  </p>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {needsDecryption && quorumMet && isElectionAdminUser() && (
+                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                              <div className="text-center">
+                                <FiKey className="h-12 w-12 text-blue-500 mx-auto mb-4" />
+                                <h4 className="font-medium text-blue-900 mb-2">Step 3: Combine Decryption Shares</h4>
+                                <p className="text-sm text-blue-800 mb-4">
+                                  Quorum met. Combine all guardian partial decryptions to reveal final results.
+                                </p>
+                                <div className="flex flex-wrap justify-center gap-3">
+                                  <button
+                                    onClick={handleInitiateCombine}
+                                    disabled={combiningDecryptions}
+                                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
+                                  >
+                                    {combiningDecryptions ? 'Combining...' : 'Combine Partial Decryptions'}
+                                  </button>
+                                  <button
+                                    onClick={handleCheckCombineStatus}
+                                    disabled={combiningDecryptions}
+                                    className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors font-medium"
+                                  >
+                                    <FiRefreshCw className="inline h-4 w-4 mr-2" />
+                                    Check Status
+                                  </button>
+                                </div>
+                              </div>
+                            </div>
+                          )}
+
+                          {isCombineComplete && (
+                            <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
+                              Decryption shares combined successfully. Results are available in the Results tab.
+                            </div>
+                          )}
+                        </>
+                      );
+                    })()}
+
+                    <GuardianProgressPanel
+                      electionId={Number(id)}
+                      guardians={electionData?.guardians || []}
+                      onElectionRefresh={fetchElectionData}
+                    />
+
+                    {isElectionAdminUser() && (
+                      <ProcessControlPanel
+                        electionId={Number(id)}
+                        guardians={electionData?.guardians || []}
+                        canControlDecryption
+                        canControlCombine
+                      />
+                    )}
+                  </>
+                )}
 
                 {/* Active Decryption Process Banner */}
-                {guardianDecryptionStatus && 
+                {isElectionFinished() && isTallyComplete && guardianDecryptionStatus &&
                  (guardianDecryptionStatus.status === 'in_progress' || guardianDecryptionStatus.status === 'pending') && (
                   <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg p-4 shadow-lg animate-pulse">
                     <div className="flex items-center justify-between">
@@ -4582,7 +4793,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 )}
 
                 {/* Key Submission Form */}
-                {(() => {
+                {isElectionFinished() && isTallyComplete && (() => {
                   const submitStatus = canSubmitGuardianKey();
 
                   if (submitStatus.canSubmit) {
@@ -4879,18 +5090,22 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             <p className="text-sm text-gray-600">{guardian.userEmail}</p>
                           </div>
                         </div>
-                        <div className="flex items-center space-x-2">
+                        <div className="flex items-center space-x-2 flex-wrap justify-end gap-1">
                           <span className="text-sm font-medium text-gray-600">Order: {guardian.sequenceOrder}</span>
-                          <span className={`px-2 py-1 rounded-full text-xs ${(electionData.status === 'key_ceremony_pending'
-                            ? guardian.guardianKeySubmitted
-                            : guardian.decryptedOrNot) ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'
-                            }`}>
-                            {(electionData.status === 'key_ceremony_pending'
-                              ? guardian.guardianKeySubmitted
-                              : guardian.decryptedOrNot)
-                              ? 'Key Submitted'
-                              : 'Pending'}
-                          </span>
+                          {electionData.status === 'key_ceremony_pending' ? (
+                            <>
+                              <span className={`px-2 py-1 rounded-full text-xs ${guardian.guardianKeySubmitted ? 'bg-indigo-100 text-indigo-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                {guardian.guardianKeySubmitted ? 'Keypair done' : 'Keypair pending'}
+                              </span>
+                              <span className={`px-2 py-1 rounded-full text-xs ${guardian.backupSharesSubmitted ? 'bg-violet-100 text-violet-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                                {guardian.backupSharesSubmitted ? 'Backup shared' : 'Backup pending'}
+                              </span>
+                            </>
+                          ) : (
+                            <span className={`px-2 py-1 rounded-full text-xs ${guardian.decryptedOrNot ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              {guardian.decryptedOrNot ? 'Key Submitted' : 'Pending'}
+                            </span>
+                          )}
                         </div>
                       </div>
                     ))}
@@ -4912,7 +5127,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 <FiTrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
                 <h4 className="text-lg font-semibold text-gray-700 mb-2">Results Not Available</h4>
                 <p className="text-gray-600">
-                  Results will be available after the election ends or if you have administrative privileges.
+                  Results will be available after decryption shares are combined on the Guardian tab.
                 </p>
               </div>
             ) : (
@@ -4962,7 +5177,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   const hasResults = animatedResults?.success && animatedResults?.results?.finalTallies;
                   // ✅ FIXED: Removed problematic totalVotesInChoices !== totalBallots condition
                   // Show combine button when: not loading, not already decrypted, combine not completed, and no results yet
-                  const needsDecryption = !loading && !isAlreadyDecrypted && !isCombineCompleted && !hasResults;
+                  const needsDecryption = false;
                   
                   console.log('🔍 [Button Display Logic]', {
                     electionStatus: electionData.status,
@@ -4995,52 +5210,6 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                   return (
                     <>
-                      {needsDecryption && !quorumMet && (
-                        <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                          <div className="flex items-center">
-                            <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
-                            <div>
-                              <h4 className="font-medium text-yellow-900">Waiting for Guardian Keys</h4>
-                              <p className="text-sm text-yellow-800">
-                                Final results are not yet available. Need at least {electionQuorum} guardians to submit their partial decryption keys.
-                                ({guardiansSubmitted} of {electionQuorum} required submitted)
-                              </p>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {needsDecryption && quorumMet && (
-                        <div className="bg-blue-50 border border-blue-200 rounded-lg p-6 mb-6">
-                          <div className="text-center">
-                            <FiKey className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-                            <h4 className="font-medium text-blue-900 mb-2">Ready to Combine Decryptions</h4>
-                            <p className="text-sm text-blue-800 mb-4">
-                              ✅ Quorum met! {guardiansSubmitted} of {electionQuorum} required guardians have submitted their keys.
-                              Click below to combine and decrypt final results.
-                            </p>
-                            <div className="space-x-4">
-                              <button
-                                onClick={handleInitiateCombine}
-                                disabled={combiningDecryptions}
-                                className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
-                              >
-                                {combiningDecryptions ? 'Combining...' : 'Combine Partial Decryptions'}
-                              </button>
-                              <button
-                                onClick={handleCheckCombineStatus}
-                                disabled={combiningDecryptions}
-                                className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors font-medium"
-                              >
-                                <FiRefreshCw className="inline h-4 w-4 mr-2" />
-                                Check Status
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-
-                      {/* Animated Results Component */}
                       {animatedResults && (
                         <div className="mb-6">
                           <AnimatedResults electionResults={animatedResults} />

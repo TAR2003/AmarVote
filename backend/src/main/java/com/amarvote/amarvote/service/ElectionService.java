@@ -358,8 +358,8 @@ public class ElectionService {
         Election election = electionRepository.findById(electionId)
                 .orElseThrow(() -> new IllegalArgumentException("Election not found"));
 
-        if (!authorizedUserService.canDeleteAnyElection(userEmail)) {
-            throw new IllegalArgumentException("Only app owners and admins can delete elections");
+        if (!isElectionAdmin(election, userEmail)) {
+            throw new IllegalArgumentException("Only the election admin or co-admins can delete this election");
         }
 
         electionRepository.delete(election);
@@ -432,6 +432,15 @@ public class ElectionService {
         if (request.sendBallotReceipt() != null) {
             requireElectionAdmin(election, userEmail, "Only election admins can change ballot receipt settings");
             election.setSendBallotReceipt(request.sendBallotReceipt());
+            updated = true;
+        }
+
+        if (request.electionDescription() != null) {
+            requireElectionAdmin(election, userEmail, "Only election admins can edit the election description");
+            if (!isBeforeElectionStart(election)) {
+                throw new IllegalArgumentException("Election description can only be edited before the election starts");
+            }
+            election.setElectionDescription(request.electionDescription().trim());
             updated = true;
         }
 
@@ -1532,6 +1541,7 @@ public class ElectionService {
     private List<ElectionDetailResponse.GuardianInfo> getGuardianInfoForElection(Long electionId,
             String currentUserEmail) {
         List<Guardian> guardians = guardianRepository.findByElectionId(electionId);
+        int totalGuardians = guardians.size();
 
         return guardians.stream()
                 .map(guardian -> {
@@ -1542,6 +1552,7 @@ public class ElectionService {
                             .guardianPublicKey(guardian.getGuardianPublicKey())
                             .sequenceOrder(guardian.getSequenceOrder())
                             .guardianKeySubmitted(guardian.getGuardianKeySubmitted())
+                            .backupSharesSubmitted(hasRequiredBackups(guardian, totalGuardians))
                             .decryptedOrNot(guardian.getDecryptedOrNot())
                             .partialDecryptedTally(null) // Now in Decryptions table
                             .proof(null) // Removed field

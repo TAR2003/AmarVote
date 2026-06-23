@@ -1,5 +1,6 @@
-import React, { useRef, useState } from "react";
-import { FiUpload, FiTrash2, FiX, FiUsers, FiMail } from "react-icons/fi";
+import React, { useRef, useState, useEffect, useCallback } from "react";
+import { FiUpload, FiTrash2, FiX, FiUsers, FiMail, FiUser } from "react-icons/fi";
+import { userApi } from "../utils/userApi";
 
 const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
@@ -26,6 +27,10 @@ export function parseVoterEmailsFromText(text) {
   return valid;
 }
 
+function entityLabelTitle(entityLabel) {
+  return `${entityLabel.charAt(0).toUpperCase()}${entityLabel.slice(1)}`;
+}
+
 /**
  * Reusable voter list editor for election creation and pre-start voter management.
  */
@@ -39,10 +44,17 @@ export default function VoterListEditor({
   maxHeightClass = "max-h-72",
   emptyMessage = "No voter emails added yet",
   entityLabel = "voter",
+  enableUserSuggestions = true,
 }) {
   const fileInputRef = useRef(null);
+  const suggestionsRef = useRef(null);
+  const debounceRef = useRef(null);
   const [manualEmail, setManualEmail] = useState("");
   const [feedback, setFeedback] = useState(null);
+  const [suggestions, setSuggestions] = useState([]);
+  const [searching, setSearching] = useState(false);
+
+  const labelTitle = entityLabelTitle(entityLabel);
 
   const showFeedback = (type, message) => {
     setFeedback({ type, message });
@@ -103,8 +115,8 @@ export default function VoterListEditor({
     reader.readAsText(file);
   };
 
-  const handleManualAdd = () => {
-    const email = manualEmail.trim().toLowerCase();
+  const handleManualAdd = (emailOverride) => {
+    const email = (emailOverride ?? manualEmail).trim().toLowerCase();
     if (!email) return;
 
     if (!EMAIL_PATTERN.test(email)) {
@@ -119,13 +131,60 @@ export default function VoterListEditor({
 
     onChange([...emails, email]);
     setManualEmail("");
-    showFeedback("success", `${entityLabel.charAt(0).toUpperCase()}${entityLabel.slice(1)} added.`);
+    setSuggestions([]);
+    showFeedback("success", `${labelTitle} added.`);
   };
 
   const handleRemoveAll = () => {
     if (!emails.length || disabled) return;
     onRemoveAll?.();
   };
+
+  const loadSuggestions = useCallback(async (query) => {
+    if (!enableUserSuggestions || !query || query.trim().length < 2) {
+      setSuggestions([]);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      const results = await userApi.searchUsers(query.trim());
+      const filtered = (results || []).filter((user) => !emails.includes(user.email));
+      setSuggestions(filtered.slice(0, 8));
+    } catch {
+      setSuggestions([]);
+    } finally {
+      setSearching(false);
+    }
+  }, [emails, enableUserSuggestions]);
+
+  useEffect(() => {
+    if (!enableUserSuggestions) return undefined;
+
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+    }
+
+    debounceRef.current = setTimeout(() => {
+      loadSuggestions(manualEmail);
+    }, 250);
+
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
+  }, [manualEmail, loadSuggestions, enableUserSuggestions]);
+
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (suggestionsRef.current && !suggestionsRef.current.contains(event.target)) {
+        setSuggestions([]);
+      }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
 
   return (
     <div className="space-y-4">
@@ -172,7 +231,7 @@ export default function VoterListEditor({
 
       {showManualAdd && (
         <div className="flex flex-col sm:flex-row gap-2">
-          <div className="relative flex-1">
+          <div className="relative flex-1" ref={suggestionsRef}>
             <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
             <input
               type="email"
@@ -182,20 +241,47 @@ export default function VoterListEditor({
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
                   e.preventDefault();
-                  handleManualAdd();
+                  if (suggestions.length > 0) {
+                    handleManualAdd(suggestions[0].email);
+                  } else {
+                    handleManualAdd();
+                  }
                 }
               }}
-              placeholder="Add voter email manually"
+              placeholder={`Add ${entityLabel} email manually`}
               className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
             />
+            {enableUserSuggestions && (suggestions.length > 0 || searching) && manualEmail.trim().length >= 2 && (
+              <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-52 overflow-y-auto">
+                {searching && suggestions.length === 0 && (
+                  <div className="px-3 py-2 text-xs text-gray-500">Searching users…</div>
+                )}
+                {suggestions.map((user) => (
+                  <button
+                    key={user.email}
+                    type="button"
+                    onClick={() => handleManualAdd(user.email)}
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-blue-50"
+                  >
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                      <FiUser className="h-4 w-4" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="truncate text-sm font-medium text-gray-900">{user.email}</p>
+                      <p className="text-xs text-gray-500 capitalize">{user.source || 'user'} account</p>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <button
             type="button"
             disabled={disabled || !manualEmail.trim()}
-            onClick={handleManualAdd}
+            onClick={() => handleManualAdd()}
             className="px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
-            Add Voter
+            Add {labelTitle}
           </button>
         </div>
       )}
@@ -222,7 +308,7 @@ export default function VoterListEditor({
             <FiUsers className="h-8 w-8 mb-2 text-gray-300" />
             <p className="text-sm">{emptyMessage}</p>
             <p className="text-xs mt-1 text-gray-400">
-              Import a CSV/TXT file or add emails one at a time. New imports append to this list.
+              Import a CSV/TXT file or add emails one at a time. Start typing to see suggestions.
             </p>
           </div>
         ) : (
@@ -254,7 +340,7 @@ export default function VoterListEditor({
       </div>
 
       <p className="text-xs text-gray-500">
-        CSV and TXT imports add to the current list without removing existing voters. Remove voters individually or use Remove All.
+        CSV and TXT imports add to the current list. Type at least 2 characters to search registered and authorized users.
       </p>
     </div>
   );

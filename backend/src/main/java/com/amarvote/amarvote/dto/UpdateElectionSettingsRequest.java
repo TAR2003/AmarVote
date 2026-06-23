@@ -2,5 +2,6 @@ package com.amarvote.amarvote.dto;
 
 public record UpdateElectionSettingsRequest(
     String privacy,
-    Boolean sendBallotReceipt
+    Boolean sendBallotReceipt,
+    String electionDescription
 ) {}

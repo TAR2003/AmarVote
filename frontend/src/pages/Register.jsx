@@ -2,8 +2,10 @@ import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Layout from "./Layout";
 import OtpInput from "../components/OtpInput";
+import PasswordInput from "../components/PasswordInput";
+import { formatPasswordErrors, getPasswordValidationErrors } from "../utils/passwordUtils";
 
-const EMAIL_CODE_RATE_LIMIT_MESSAGE = "You can only request email verifcation code 1 time in 10 minutes";
+const EMAIL_CODE_RATE_LIMIT_MESSAGE = "You can only request an email verification code once per minute";
 
 export default function Register({ setUserEmail }) {
   const navigate = useNavigate();
@@ -94,8 +96,9 @@ export default function Register({ setUserEmail }) {
     e.preventDefault();
     setError("");
 
-    if (password.length < 8) {
-      setError("Password must be at least 8 characters");
+    const passwordErrors = getPasswordValidationErrors(password);
+    if (passwordErrors.length > 0) {
+      setError(formatPasswordErrors(passwordErrors));
       return;
     }
 
@@ -254,24 +257,25 @@ export default function Register({ setUserEmail }) {
 
           {step === 3 && (
             <form className="mt-6 space-y-4" onSubmit={handleRegister}>
-              <input
-                type="password"
-                required
-                minLength={8}
+              <PasswordInput
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password (min 8 chars)"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
-              />
-              <input
-                type="password"
+                placeholder="Password"
                 required
-                minLength={8}
+                autoComplete="new-password"
+              />
+              <PasswordInput
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 placeholder="Confirm password"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                required
+                autoComplete="new-password"
+                showRequirements={false}
+                showValidation={confirmPassword.length > 0 && password !== confirmPassword}
               />
+              {confirmPassword && password !== confirmPassword && (
+                <p className="text-xs text-red-600">Password and confirm password do not match.</p>
+              )}
 
               <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-900">
                 <strong>Why 2FA is important:</strong> it protects your account even if your password is exposed.

@@ -2,11 +2,14 @@ package com.amarvote.amarvote.service;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.PlatformTransactionManager;
@@ -113,6 +116,11 @@ public class ScheduledElectionEmailService {
         scheduledEmailRepository.delete(entity);
     }
 
+    @EventListener(ApplicationReadyEvent.class)
+    public void dispatchOverdueOnStartup() {
+        dispatchDueEmails();
+    }
+
     @Scheduled(fixedDelayString = "${amarvote.scheduled-email.poll-ms:60000}")
     public void dispatchDueEmails() {
         List<ScheduledElectionEmail> dueEmails =
@@ -120,6 +128,8 @@ public class ScheduledElectionEmailService {
         if (dueEmails.isEmpty()) {
             return;
         }
+
+        dueEmails.sort(Comparator.comparing(ScheduledElectionEmail::getScheduledTime));
 
         for (ScheduledElectionEmail scheduled : dueEmails) {
             try {

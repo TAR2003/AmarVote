@@ -54,6 +54,9 @@ public class TallyService {
     
     @Autowired
     private ElectionRepository electionRepository;
+
+    @Autowired
+    private ElectionService electionService;
     
     @Autowired
     private ElectionChoiceRepository electionChoiceRepository;
@@ -216,6 +219,12 @@ public class TallyService {
             }
             
             Election election = electionOpt.get();
+            if (!electionService.isElectionAdmin(election, userEmail)) {
+                return CreateTallyResponse.builder()
+                    .success(false)
+                    .message("Only the election admin or co-admins can create a tally")
+                    .build();
+            }
             if (election.getEndingTime().isAfter(Instant.now())) {
                 return CreateTallyResponse.builder()
                     .success(false)

@@ -55,6 +55,7 @@ public class PartialDecryptionService {
 
     private final GuardianRepository guardianRepository;
     private final ElectionRepository electionRepository;
+    private final ElectionService electionService;
     private final ElectionChoiceRepository electionChoiceRepository;
     private final SubmittedBallotRepository submittedBallotRepository;
     private final CompensatedDecryptionRepository compensatedDecryptionRepository;
@@ -991,6 +992,20 @@ public class PartialDecryptionService {
      */
     public CombinePartialDecryptionResponse initiateCombine(Long electionId, String userEmail) {
         try {
+            Election election = electionRepository.findById(electionId).orElse(null);
+            if (election == null) {
+                return CombinePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("Election not found")
+                    .build();
+            }
+            if (!electionService.isElectionAdmin(election, userEmail)) {
+                return CombinePartialDecryptionResponse.builder()
+                    .success(false)
+                    .message("Only the election admin or co-admins can combine decryptions")
+                    .build();
+            }
+
             // 1. Check if election centers exist
             List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
             if (electionCenters == null || electionCenters.isEmpty()) {

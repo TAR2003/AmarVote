@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from "react";
 import { FiAlertCircle, FiCheckCircle, FiLock, FiShield, FiMail } from "react-icons/fi";
 import OtpInput from "../components/OtpInput";
+import PasswordInput from "../components/PasswordInput";
+import { formatPasswordErrors, getPasswordValidationErrors } from "../utils/passwordUtils";
 import {
   changePassword,
   confirmProfileMfaSetup,
@@ -74,8 +76,9 @@ const Profile = () => {
     setError("");
     setSuccess("");
 
-    if (passwordForm.newPassword.length < 8) {
-      setError("New password must be at least 8 characters");
+    const passwordErrors = getPasswordValidationErrors(passwordForm.newPassword);
+    if (passwordErrors.length > 0) {
+      setError(formatPasswordErrors(passwordErrors));
       return;
     }
 
@@ -319,34 +322,35 @@ const Profile = () => {
           </h2>
 
           <form className="mt-4 space-y-4 max-w-lg" onSubmit={handlePasswordChange}>
-            <input
-              type="password"
-              required
-              placeholder="Current password"
+            <PasswordInput
               value={passwordForm.currentPassword}
               onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              placeholder="Current password"
+              required
+              autoComplete="current-password"
+              showRequirements={false}
+              showValidation={false}
             />
 
-            <input
-              type="password"
-              required
-              minLength={8}
-              placeholder="New password (min 8 characters)"
+            <PasswordInput
               value={passwordForm.newPassword}
               onChange={(e) => setPasswordForm((prev) => ({ ...prev, newPassword: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              placeholder="New password"
+              required
+              autoComplete="new-password"
             />
 
-            <input
-              type="password"
-              required
-              minLength={8}
-              placeholder="Confirm new password"
+            <PasswordInput
               value={passwordForm.confirmPassword}
               onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirmPassword: e.target.value }))}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+              placeholder="Confirm new password"
+              required
+              autoComplete="new-password"
+              showRequirements={false}
             />
+            {passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword && (
+              <p className="text-xs text-red-600">New password and confirm password do not match.</p>
+            )}
 
             <button
               type="submit"

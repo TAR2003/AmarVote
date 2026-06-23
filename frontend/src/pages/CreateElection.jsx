@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
+import { FiUpload, FiUser } from "react-icons/fi";
 import { electionApi } from "../utils/electionApi";
 import { uploadCandidateImage } from "../utils/api";
+import { userApi } from "../utils/userApi";
 import ImageUpload from "../components/ImageUpload";
 import VoterListEditor from "../components/VoterListEditor";
 
@@ -14,7 +16,9 @@ const CreateElection = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [canCreateElections, setCanCreateElections] = useState(false);
     const [checkingPermission, setCheckingPermission] = useState(true);
+    const [showConfirmModal, setShowConfirmModal] = useState(false);
     const suggestionsRef = useRef(null);
+    const candidateFileInputRef = useRef(null);
 
     const [form, setForm] = useState({
         electionTitle: "",
@@ -26,8 +30,9 @@ const CreateElection = () => {
         quorumNumber: "",
         guardianEmails: [],
         coAdminEmails: [],
-        candidateNames: [""],
-        candidatePictures: [""],
+        candidateNames: ["", ""],
+        candidatePictures: ["", ""],
+        totalCandidates: 2,
         maxChoices: 1,
         sendBallotReceipt: false
     });
@@ -274,64 +279,9 @@ const CreateElection = () => {
         e.target.value = null;
     };
 
-    // Email validation and suggestion based on common providers
-    const commonEmailProviders = [
-        '@gmail.com',
-        '@yahoo.com',
-        '@outlook.com',
-        '@hotmail.com',
-        '@icloud.com',
-        '@protonmail.com',
-        '@aol.com',
-        '@mail.com',
-        '@zoho.com',
-        '@yandex.com'
-    ];
+    const isValidEmail = (email) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
 
-    // Validate email format
-    const isValidEmail = (email) => {
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        return emailRegex.test(email);
-    };
-
-    // Generate email suggestions based on input
-    const generateEmailSuggestions = (query) => {
-        if (!query || query.length < 2) {
-            return [];
-        }
-
-        const suggestions = [];
-        const lowerQuery = query.toLowerCase();
-
-        // If query contains @, suggest completing the domain
-        if (lowerQuery.includes('@')) {
-            const [localPart, domainPart] = lowerQuery.split('@');
-            
-            // If domain is partially typed, suggest matching providers
-            if (domainPart !== undefined) {
-                commonEmailProviders.forEach(provider => {
-                    if (provider.toLowerCase().startsWith('@' + domainPart)) {
-                        suggestions.push({
-                            email: localPart + provider,
-                            isComplete: true
-                        });
-                    }
-                });
-            }
-        } else {
-            // If @ not typed yet, suggest adding common providers
-            commonEmailProviders.forEach(provider => {
-                suggestions.push({
-                    email: lowerQuery + provider,
-                    isComplete: true
-                });
-            });
-        }
-
-        return suggestions.slice(0, 5); // Limit to 5 suggestions
-    };
-
-    // Create a debounced search function
+    // Create a debounced search function for guardian email suggestions
     const debouncedSearch = useRef(
         debounce(async (query) => {
             if (!query || query.length < 2) {
@@ -340,17 +290,16 @@ const CreateElection = () => {
             }
 
             try {
-                // Generate email suggestions based on common providers
-                const suggestions = generateEmailSuggestions(query);
-                
-                // Filter out already selected emails
-                const filteredSuggestions = suggestions.filter(
-                    suggestion => !form.guardianEmails.includes(suggestion.email)
-                );
-
-                setEmailSuggestions(filteredSuggestions);
+                const results = await userApi.searchUsers(query);
+                const filtered = (results || [])
+                    .filter((user) => !form.guardianEmails.includes(user.email))
+                    .map((user) => ({
+                        email: user.email,
+                        source: user.source,
+                    }));
+                setEmailSuggestions(filtered);
             } catch (error) {
-                console.error("Error generating email suggestions:", error);
+                console.error("Error searching users:", error);
                 setEmailSuggestions([]);
             }
         }, 300)
@@ -422,28 +371,81 @@ const CreateElection = () => {
     };
 
     // Candidates management
-    const addCandidate = () => {
-        setForm(prev => ({
-            ...prev,
-            candidateNames: [...prev.candidateNames, ""],
-            candidatePictures: [...prev.candidatePictures, ""]
-        }));
-        setCandidateImages(prev => [...prev, ""]);
+    const resizeCandidateSlots = (count) => {
+        const n = Math.max(2, Math.min(50, parseInt(count, 10) || 2));
+        setForm((prev) => {
+            const names = [...prev.candidateNames];
+            const pictures = [...prev.candidatePictures];
+            while (names.length < n) {
+                names.push("");
+                pictures.push("");
+            }
+            while (names.length > n) {
+                names.pop();
+                pictures.pop();
+            }
+            return { ...prev, totalCandidates: n, candidateNames: names, candidatePictures: pictures };
+        });
+        setCandidateImages((prev) => {
+            const imgs = [...prev];
+            while (imgs.length < n) imgs.push("");
+            while (imgs.length > n) imgs.pop();
+            return imgs;
+        });
+    };
+
+    const handleTotalCandidatesChange = (e) => {
+        resizeCandidateSlots(e.target.value);
+    };
+
+    const handleCandidateFileUpload = (e) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const names = event.target.result
+                .split(/\r?\n/)
+                .flatMap((line) => line.split(/[,;\t]/))
+                .map((name) => name.trim())
+                .filter((name) => name.length > 0);
+
+            if (names.length < 2) {
+                setError("Candidate file must contain at least 2 names");
+                setTimeout(() => setError(""), 3000);
+                return;
+            }
+
+            const uniqueNames = [...new Set(names.map((n) => n.trim()))];
+            resizeCandidateSlots(uniqueNames.length);
+            setForm((prev) => ({
+                ...prev,
+                candidateNames: uniqueNames,
+                candidatePictures: uniqueNames.map((_, i) => prev.candidatePictures[i] || ""),
+            }));
+            setSuccess(`Loaded ${uniqueNames.length} candidate name(s) from file.`);
+            setTimeout(() => setSuccess(""), 4000);
+            e.target.value = "";
+        };
+        reader.readAsText(file);
     };
 
     const removeCandidate = (index) => {
-        // Prevent removing if it would result in less than 2 candidates
         if (form.candidateNames.length <= 2) {
-            setError("At least 2 candidates are required. Cannot remove more candidates.");
+            setError("At least 2 candidates are required.");
             return;
         }
-
-        setForm(prev => ({
-            ...prev,
-            candidateNames: prev.candidateNames.filter((_, i) => i !== index),
-            candidatePictures: prev.candidatePictures.filter((_, i) => i !== index)
-        }));
-        setCandidateImages(prev => prev.filter((_, i) => i !== index));
+        setForm((prev) => {
+            const names = prev.candidateNames.filter((_, i) => i !== index);
+            const pictures = prev.candidatePictures.filter((_, i) => i !== index);
+            return {
+                ...prev,
+                totalCandidates: names.length,
+                candidateNames: names,
+                candidatePictures: pictures,
+            };
+        });
+        setCandidateImages((prev) => prev.filter((_, i) => i !== index));
     };
 
     const handleCandidateChange = (index, field, value) => {
@@ -484,6 +486,69 @@ const CreateElection = () => {
         return hasDuplicateCandidates;
     };
 
+    const validateForm = () => {
+        if (form.candidateNames.some(name => !name || !name.trim())) {
+            setError("All candidate names are required");
+            return false;
+        }
+
+        const validCandidateNames = form.candidateNames.filter(name => name.trim() !== '');
+        if (validCandidateNames.length < 2) {
+            setError("At least 2 candidates are required for an election");
+            return false;
+        }
+
+        if (hasDuplicateNames()) {
+            setError("Candidate names must be unique. Please remove any duplicate names.");
+            return false;
+        }
+
+        if (form.electionPrivacy === "private" && form.voterEmails.length === 0) {
+            setError("Voter list is required for private elections");
+            return false;
+        }
+
+        if (form.electionEligibility === "listed" && form.voterEmails.length === 0) {
+            setError("Voter list is required for listed eligibility elections");
+            return false;
+        }
+
+        const guardianCount = parseInt(form.guardianNumber) || 0;
+        const quorumCount = parseInt(form.quorumNumber) || 0;
+
+        if (guardianCount <= 0) {
+            setError("Number of guardians must be at least 1");
+            return false;
+        }
+
+        if (quorumCount <= 0) {
+            setError("Quorum number must be at least 1");
+            return false;
+        }
+
+        if (quorumCount > guardianCount) {
+            setError(`Quorum number (${quorumCount}) cannot be greater than the number of guardians (${guardianCount})`);
+            return false;
+        }
+
+        const maxChoicesVal = parseInt(form.maxChoices) || 1;
+        if (maxChoicesVal < 1) {
+            setError("Max choices must be at least 1");
+            return false;
+        }
+        if (maxChoicesVal > validCandidateNames.length) {
+            setError(`Max choices (${maxChoicesVal}) cannot exceed the number of candidates (${validCandidateNames.length})`);
+            return false;
+        }
+
+        if (form.guardianEmails.length === 0 || form.guardianEmails.length < guardianCount) {
+            setError(`At least ${guardianCount} guardian emails are required`);
+            return false;
+        }
+
+        return true;
+    };
+
     const handleSubmit = async (e) => {
         e.preventDefault();
 
@@ -492,68 +557,16 @@ const CreateElection = () => {
             return;
         }
 
-        // Validate form
-        if (form.candidateNames.some(name => !name || !name.trim())) {
-            setError("All candidate names are required");
+        if (!validateForm()) {
             return;
         }
 
-        // Check minimum candidate count
+        setError("");
+        setShowConfirmModal(true);
+    };
+
+    const confirmCreateElection = async () => {
         const validCandidateNames = form.candidateNames.filter(name => name.trim() !== '');
-        if (validCandidateNames.length < 2) {
-            setError("At least 2 candidates are required for an election");
-            return;
-        }
-
-        // Check for duplicate names
-        if (hasDuplicateNames()) {
-            setError("Candidate names must be unique. Please remove any duplicate names.");
-            return;
-        }
-
-        if (form.electionPrivacy === "private" && form.voterEmails.length === 0) {
-            setError("Voter list is required for private elections");
-            return;
-        }
-
-        if (form.electionEligibility === "listed" && form.voterEmails.length === 0) {
-            setError("Voter list is required for listed eligibility elections");
-            return;
-        }
-
-        // Enhanced guardian and quorum validation
-        const guardianCount = parseInt(form.guardianNumber) || 0;
-        const quorumCount = parseInt(form.quorumNumber) || 0;
-
-        if (guardianCount <= 0) {
-            setError("Number of guardians must be at least 1");
-            return;
-        }
-
-        if (quorumCount <= 0) {
-            setError("Quorum number must be at least 1");
-            return;
-        }
-
-        if (quorumCount > guardianCount) {
-            setError(`Quorum number (${quorumCount}) cannot be greater than the number of guardians (${guardianCount})`);
-            return;
-        }
-
-        const maxChoicesVal = parseInt(form.maxChoices) || 1;
-        if (maxChoicesVal < 1) {
-            setError("Max choices must be at least 1");
-            return;
-        }
-        if (maxChoicesVal > validCandidateNames.length) {
-            setError(`Max choices (${maxChoicesVal}) cannot exceed the number of candidates (${validCandidateNames.length})`);
-            return;
-        }
-
-        if (form.guardianEmails.length === 0 || form.guardianEmails.length < guardianCount) {
-            setError(`At least ${guardianCount} guardian emails are required`);
-            return;
-        }
 
         setError("");
         setIsSubmitting(true);
@@ -566,15 +579,16 @@ const CreateElection = () => {
             };
 
             const response = await electionApi.createElection(electionData);
+            setShowConfirmModal(false);
             setSuccess("Election created successfully!");
 
-            // Redirect to election details page after a short delay
             setTimeout(() => {
                 navigate(`/election-page/${response.electionId}`);
             }, 2000);
         } catch (err) {
             console.error("Error creating election:", err);
             setError(err.message || "Failed to create election. Please try again.");
+            setShowConfirmModal(false);
         } finally {
             setIsSubmitting(false);
         }
@@ -615,8 +629,8 @@ const CreateElection = () => {
                         </div>
                         <div className="flex-1">
                             <div className="font-medium text-gray-800">{suggestion.email}</div>
-                            <div className="text-xs text-gray-500">
-                                {isValidEmail(suggestion.email) ? "Valid email format" : "Complete the email"}
+                            <div className="text-xs text-gray-500 capitalize">
+                                {suggestion.source ? `${suggestion.source} account` : "Registered user"}
                             </div>
                         </div>
                     </div>
@@ -958,137 +972,151 @@ const CreateElection = () => {
 
                 {/* Candidate Information */}
                 <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-                    <div className="mb-5 flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+                    <div className="mb-5">
+                        <h2 className="text-xl font-semibold text-gray-700">Candidates</h2>
+                        <p className="text-sm text-gray-500 mt-1">
+                            Set how many candidates voters can choose from, then enter each name below. Photos are optional.
+                        </p>
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                         <div>
-                            <h2 className="text-xl font-semibold text-gray-700">Candidates</h2>
-                            <p className="text-sm text-gray-500 mt-1">
-                                Add each candidate with a clear name and optional photo for better ballot recognition.
-                            </p>
+                            <label className="block text-gray-700 font-medium mb-2">
+                                Total Candidates <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="number"
+                                min={2}
+                                max={50}
+                                value={form.totalCandidates}
+                                onChange={handleTotalCandidatesChange}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            />
                         </div>
-                        <div className="inline-flex items-center rounded-full bg-slate-100 px-3 py-1 text-xs font-medium text-slate-700">
-                            {form.candidateNames.length} candidate{form.candidateNames.length !== 1 ? 's' : ''}
+                        <div>
+                            <label className="block text-gray-700 font-medium mb-2">
+                                Max Choices <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="number"
+                                name="maxChoices"
+                                value={form.maxChoices}
+                                onChange={handleChange}
+                                min={1}
+                                max={form.candidateNames.filter(n => n.trim() !== '').length || 1}
+                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                required
+                            />
+                            {form.maxChoices > 1 && (
+                                <p className="text-xs text-blue-600 mt-1">
+                                    Voters can select up to {form.maxChoices} candidates.
+                                </p>
+                            )}
                         </div>
                     </div>
 
-                    {form.candidateNames.map((name, index) => {
-                        const candidateValidation = getCandidateNameValidation(index, name);
+                    <div className="mb-4 flex flex-wrap items-center gap-2">
+                        <button
+                            type="button"
+                            onClick={() => candidateFileInputRef.current?.click()}
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100"
+                        >
+                            <FiUpload className="h-4 w-4" />
+                            Import Names (CSV/TXT)
+                        </button>
+                        <input
+                            ref={candidateFileInputRef}
+                            type="file"
+                            accept=".csv,.txt"
+                            onChange={handleCandidateFileUpload}
+                            className="hidden"
+                        />
+                        <span className="text-xs text-gray-500">One candidate name per line or comma-separated</span>
+                    </div>
 
-                        return (
-                            <div
-                                key={index}
-                                className="mb-4 rounded-xl border border-slate-200 bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm"
-                            >
-                                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 mb-3">
-                                    <h3 className="font-semibold text-slate-800">Candidate {index + 1}</h3>
-
-                                    {index > 0 && (
+                    <div className="space-y-3 mb-5">
+                        {form.candidateNames.map((name, index) => {
+                            const candidateValidation = getCandidateNameValidation(index, name);
+                            return (
+                                <div key={index} className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
+                                    <span className="mt-2 text-xs font-semibold text-gray-500 w-6">{index + 1}.</span>
+                                    <div className="flex-1 min-w-0">
+                                        <input
+                                            type="text"
+                                            value={name}
+                                            placeholder={`Candidate ${index + 1} name`}
+                                            onChange={(e) => handleCandidateChange(index, 'candidateNames', e.target.value)}
+                                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                                                !candidateValidation.isValid
+                                                    ? 'border-red-500 bg-red-50 focus:ring-red-500'
+                                                    : 'border-gray-300 bg-white focus:ring-blue-500'
+                                            }`}
+                                            required
+                                        />
+                                        {!candidateValidation.isValid && (
+                                            <p className="mt-1 text-xs text-red-600">{candidateValidation.message}</p>
+                                        )}
+                                    </div>
+                                    <div className="flex-shrink-0 w-12">
+                                        <ImageUpload
+                                            currentImage={candidateImages[index]}
+                                            onImageUpload={(file) => handleImageChange(index, file)}
+                                            uploadType="candidate"
+                                            size="mini"
+                                            placeholder=""
+                                            iconOnly
+                                        />
+                                    </div>
+                                    {form.candidateNames.length > 2 && (
                                         <button
                                             type="button"
                                             onClick={() => removeCandidate(index)}
-                                            disabled={form.candidateNames.length <= 2}
-                                            className={`text-sm ${form.candidateNames.length <= 2
-                                                    ? 'text-gray-400 cursor-not-allowed'
-                                                    : 'text-red-500 hover:text-red-700'
-                                                }`}
-                                            title={form.candidateNames.length <= 2 ? 'At least 2 candidates are required' : 'Remove candidate'}
+                                            className="mt-1 text-xs text-red-500 hover:text-red-700"
                                         >
                                             Remove
                                         </button>
                                     )}
                                 </div>
-
-                                <div className="grid grid-cols-1 lg:grid-cols-12 gap-4">
-                                    <div className="lg:col-span-7">
-                                        <label className="block text-slate-700 text-sm font-medium mb-1">
-                                            Candidate Name <span className="text-red-500">*</span>
-                                        </label>
-                                        <input
-                                            type="text"
-                                            value={name}
-                                            placeholder={`Enter name for candidate ${index + 1}`}
-                                            onChange={(e) => handleCandidateChange(index, 'candidateNames', e.target.value)}
-                                            className={`w-full px-3 py-2.5 border rounded-lg shadow-sm focus:outline-none focus:ring-2 transition-colors ${!candidateValidation.isValid
-                                                    ? 'border-red-500 bg-red-50 text-red-900 focus:ring-red-500'
-                                                    : 'border-slate-300 bg-white focus:ring-blue-500'
-                                                }`}
-                                            required
-                                        />
-                                        {!candidateValidation.isValid && (
-                                            <p className="mt-1 text-sm text-red-600 flex items-center">
-                                                <span className="mr-1">⚠️</span>
-                                                {candidateValidation.message}
-                                            </p>
-                                        )}
-                                        <p className="mt-2 text-xs text-slate-500">
-                                            Use full names to avoid ambiguity for voters.
-                                        </p>
-                                    </div>
-
-                                    <div className="lg:col-span-5">
-                                        <label className="block text-slate-700 text-sm font-medium mb-1">
-                                            Candidate Picture
-                                        </label>
-                                        <ImageUpload
-                                            currentImage={candidateImages[index]}
-                                            onImageUpload={(file) => handleImageChange(index, file)}
-                                            uploadType="candidate"
-                                            size="compact"
-                                            placeholder="Upload candidate picture"
-                                        />
-                                    </div>
-                                </div>
-                            </div>
-                        )
-                    })}
-
-                    <div className="mb-4 p-4 border border-gray-200 rounded-md bg-gray-50">
-                        <label className="block text-gray-700 font-medium mb-2">
-                            Max Choices <span className="text-red-500">*</span>
-                        </label>
-                        <p className="text-sm text-gray-500 mb-2">
-                            How many candidates can each voter select? (1 = single choice, more = multiple choice)
-                        </p>
-                        <input
-                            type="number"
-                            name="maxChoices"
-                            value={form.maxChoices}
-                            onChange={handleChange}
-                            min={1}
-                            max={form.candidateNames.filter(n => n.trim() !== '').length || 1}
-                            className="w-full sm:w-32 px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                            required
-                        />
-                        {form.maxChoices > 1 && (
-                            <p className="text-sm text-blue-600 mt-2">
-                                ℹ️ Voters will be able to select up to {form.maxChoices} candidates.
-                            </p>
-                        )}
+                            );
+                        })}
                     </div>
 
-                    {/* Validation Summary */}
-                    {(form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()) && (
-                        <div className="mb-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md">
-                            <div className="flex items-center">
-                                <span className="text-yellow-600 mr-2">⚠️</span>
-                                <div className="text-yellow-800">
-                                    {form.candidateNames.filter(name => name.trim() !== '').length < 2 && (
-                                        <p className="text-sm">• At least 2 candidates are required to create an election</p>
-                                    )}
-                                    {hasDuplicateNames() && (
-                                        <p className="text-sm">• Remove duplicate candidate names before proceeding</p>
-                                    )}
-                                </div>
+                    {form.candidateNames.some((name) => name.trim()) && (
+                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
+                            <h3 className="text-sm font-semibold text-slate-800 mb-3">Added Candidates</h3>
+                            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                                {form.candidateNames
+                                    .map((name, index) => ({ name, index, image: candidateImages[index] }))
+                                    .filter((item) => item.name.trim())
+                                    .map((item) => (
+                                        <div key={item.index} className="flex items-center gap-3 rounded-lg border border-white bg-white px-3 py-2 shadow-sm">
+                                            {item.image ? (
+                                                <img src={item.image} alt={item.name} className="h-10 w-10 rounded-full object-cover" />
+                                            ) : (
+                                                <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
+                                                    <FiUser className="h-4 w-4" />
+                                                </div>
+                                            )}
+                                            <div className="min-w-0">
+                                                <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
+                                                <p className="text-xs text-gray-500">Candidate {item.index + 1}</p>
+                                            </div>
+                                        </div>
+                                    ))}
                             </div>
                         </div>
                     )}
 
-                    <button
-                        type="button"
-                        onClick={addCandidate}
-                        className="mt-2 w-full sm:w-auto px-4 py-2 bg-green-500 text-white rounded-md hover:bg-green-600"
-                    >
-                        + Add Another Candidate
-                    </button>
+                    {(form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()) && (
+                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+                            {form.candidateNames.filter(name => name.trim() !== '').length < 2 && (
+                                <p>• At least 2 candidates are required</p>
+                            )}
+                            {hasDuplicateNames() && (
+                                <p>• Remove duplicate candidate names before proceeding</p>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-between">
@@ -1112,6 +1140,70 @@ const CreateElection = () => {
                     </button>
                 </div>
             </form>
+
+            {showConfirmModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+                    <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
+                        <div className="border-b border-gray-200 px-6 py-4">
+                            <h2 className="text-xl font-bold text-gray-900">Confirm Election Details</h2>
+                            <p className="text-sm text-gray-600 mt-1">Review everything before creating this election.</p>
+                        </div>
+                        <div className="px-6 py-5 space-y-5 text-sm">
+                            <section>
+                                <h3 className="font-semibold text-gray-900 mb-2">Basic Information</h3>
+                                <p><span className="font-medium">Title:</span> {form.electionTitle}</p>
+                                <p><span className="font-medium">Description:</span> {form.electionDescription || '—'}</p>
+                            </section>
+                            <section>
+                                <h3 className="font-semibold text-gray-900 mb-2">Settings</h3>
+                                <p><span className="font-medium">Privacy:</span> {form.electionPrivacy}</p>
+                                <p><span className="font-medium">Eligibility:</span> {form.electionEligibility}</p>
+                                <p><span className="font-medium">Max choices:</span> {form.maxChoices}</p>
+                                <p><span className="font-medium">Ballot receipts:</span> {form.sendBallotReceipt ? 'Enabled' : 'Disabled'}</p>
+                            </section>
+                            <section>
+                                <h3 className="font-semibold text-gray-900 mb-2">Co-Admins ({form.coAdminEmails.length})</h3>
+                                <p className="text-gray-700">{form.coAdminEmails.length ? form.coAdminEmails.join(', ') : 'None'}</p>
+                            </section>
+                            <section>
+                                <h3 className="font-semibold text-gray-900 mb-2">Voters ({form.voterEmails.length})</h3>
+                                <p className="text-gray-700 break-words">{form.voterEmails.length ? form.voterEmails.join(', ') : 'None / open eligibility'}</p>
+                            </section>
+                            <section>
+                                <h3 className="font-semibold text-gray-900 mb-2">Guardians ({form.guardianEmails.length})</h3>
+                                <p><span className="font-medium">Count / Quorum:</span> {form.guardianNumber} / {form.quorumNumber}</p>
+                                <p className="text-gray-700 break-words mt-1">{form.guardianEmails.join(', ')}</p>
+                            </section>
+                            <section>
+                                <h3 className="font-semibold text-gray-900 mb-2">Candidates ({form.candidateNames.filter(n => n.trim()).length})</h3>
+                                <ol className="list-decimal list-inside text-gray-700 space-y-1">
+                                    {form.candidateNames.filter(n => n.trim()).map((name) => (
+                                        <li key={name}>{name}</li>
+                                    ))}
+                                </ol>
+                            </section>
+                        </div>
+                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 border-t border-gray-200 px-6 py-4">
+                            <button
+                                type="button"
+                                onClick={() => setShowConfirmModal(false)}
+                                disabled={isSubmitting}
+                                className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                            >
+                                Go Back
+                            </button>
+                            <button
+                                type="button"
+                                onClick={confirmCreateElection}
+                                disabled={isSubmitting}
+                                className="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                            >
+                                {isSubmitting ? 'Creating...' : 'Confirm & Create Election'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            )}
         </div>
     );
 };
