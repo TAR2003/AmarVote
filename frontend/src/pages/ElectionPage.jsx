@@ -3619,7 +3619,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         </span>
                       )}
                     </div>
-                    <p><span className="font-medium">Status:</span> {electionData.status}</p>
+                    <p><span className="font-medium">Status:</span> {timezoneUtils.getElectionStatusLabel(electionData.status, electionData.startingTime, electionData.endingTime)}</p>
                     <div>
                       <span className="font-medium">Privacy:</span>{' '}
                       {canManageElectionPrivacy() ? (

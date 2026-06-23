@@ -505,6 +505,45 @@ public class ElectionService {
         return startingTime == null || Instant.now().isBefore(startingTime);
     }
 
+    /**
+     * Derive the election workflow status from stored status and voting window.
+     * key_ceremony_pending and decrypted are preserved; otherwise status follows schedule.
+     */
+    private String resolveElectionStatus(Election election) {
+        return resolveElectionStatus(election.getStatus(), election.getStartingTime(), election.getEndingTime());
+    }
+
+    private String resolveElectionStatus(String workflowStatus, Instant startingTime, Instant endingTime) {
+        if (workflowStatus == null) {
+            workflowStatus = "draft";
+        }
+        if ("key_ceremony_pending".equals(workflowStatus) || "decrypted".equals(workflowStatus)) {
+            return workflowStatus;
+        }
+        if (startingTime == null || endingTime == null) {
+            return workflowStatus;
+        }
+
+        Instant now = Instant.now();
+        if (now.isAfter(endingTime)) {
+            return "completed";
+        }
+        if (!now.isBefore(startingTime)) {
+            return "active";
+        }
+        return "draft";
+    }
+
+    private void syncElectionStatusIfNeeded(Election election) {
+        String resolved = resolveElectionStatus(election);
+        if (!resolved.equals(election.getStatus())
+                && !"key_ceremony_pending".equals(election.getStatus())
+                && !"decrypted".equals(election.getStatus())) {
+            election.setStatus(resolved);
+            electionRepository.save(election);
+        }
+    }
+
     private Set<String> normalizeAndValidateVoterEmails(List<String> voterEmails) {
         if (voterEmails == null || voterEmails.isEmpty()) {
             return Set.of();
@@ -1050,7 +1089,7 @@ public class ElectionService {
             election.setStartingTime(request.startingTime());
             election.setEndingTime(request.endingTime());
 
-            election.setStatus("draft");
+            election.setStatus(resolveElectionStatus("draft", request.startingTime(), request.endingTime()));
             electionRepository.save(election);
 
             Map<String, Object> response = new HashMap<>();
@@ -1226,7 +1265,7 @@ public class ElectionService {
                         .electionId(opt.getElectionId())
                         .electionTitle(opt.getElectionTitle())
                         .electionDescription(opt.getElectionDescription())
-                        .status(opt.getStatus())
+                        .status(resolveElectionStatus(opt.getStatus(), opt.getStartingTime(), opt.getEndingTime()))
                         .startingTime(opt.getStartingTime())
                         .endingTime(opt.getEndingTime())
                         .profilePic(opt.getProfilePic())
@@ -1325,7 +1364,7 @@ public class ElectionService {
                 .electionId(election.getElectionId())
                 .electionTitle(election.getElectionTitle())
                 .electionDescription(election.getElectionDescription())
-                .status(election.getStatus())
+                .status(resolveElectionStatus(election))
                 .startingTime(election.getStartingTime())
                 .endingTime(election.getEndingTime())
                 .profilePic(election.getProfilePic())
@@ -1374,6 +1413,8 @@ public class ElectionService {
         }
 
         System.out.println("User " + userEmail + " is authorized to view election " + electionId);
+
+        syncElectionStatusIfNeeded(election);
 
         // Build the detailed response
         return buildElectionDetailResponse(election, userEmail);
@@ -1478,7 +1519,7 @@ public class ElectionService {
                 .maxChoices(election.getMaxChoices())
                 .jointPublicKey(election.getJointPublicKey())
                 .manifestHash(election.getManifestHash())
-                .status(election.getStatus())
+                .status(resolveElectionStatus(election))
                 .startingTime(election.getStartingTime())
                 .endingTime(election.getEndingTime())
                 .reminderTime(election.getReminderTime())
@@ -2223,7 +2264,7 @@ public class ElectionService {
                 .message("Results retrieved successfully")
                 .electionId(electionId)
                 .electionTitle(election.getElectionTitle())
-                .status(election.getStatus())
+                .status(resolveElectionStatus(election))
                 .chunkResults(chunkResults)
                 .finalResults(finalResults)
                 .totalVotes(totalVotes)

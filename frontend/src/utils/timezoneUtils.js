@@ -135,6 +135,20 @@ export const timezoneUtils = {
     if (now > end) return 'finished';
     if (now >= start) return 'ongoing';
     return 'scheduled';
+  },
+
+  // Human-readable status label combining workflow and schedule
+  getElectionStatusLabel(workflowStatus, startTime, endTime) {
+    if (workflowStatus === 'key_ceremony_pending') return 'Key Ceremony';
+    if (workflowStatus === 'decrypted') return 'Decrypted';
+
+    const timeStatus = this.getElectionStatus(startTime, endTime);
+    switch (timeStatus) {
+      case 'finished': return 'Finished';
+      case 'ongoing': return 'Ongoing';
+      case 'scheduled': return 'Scheduled';
+      default: return workflowStatus || 'Unknown';
+    }
   }
 };
 
