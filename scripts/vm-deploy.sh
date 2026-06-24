@@ -50,7 +50,11 @@ if [ "${redis_health}" != "healthy" ]; then
   exit 1
 fi
 
-# Drop dangling layers only; keep tagged images for instant rollback.
-docker image prune -f
+# 1. Safely delete all tagged images that are NOT tied to a running container
+docker image prune -a -f
 
-docker system prune -f
+# 2. Wipe the temporary layer build caches
+docker builder prune -f
+
+# 3. Clean up the 25+ empty, anonymous volume footprints
+docker volume prune -f
