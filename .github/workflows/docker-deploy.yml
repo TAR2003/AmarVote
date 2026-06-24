@@ -1,11 +1,66 @@
+# Build images in GitHub Actions, push to GHCR, then pull + swap on the VM.
+# Requires repo secret GHCR_READ_TOKEN (classic PAT with read:packages) for VM docker login.
+# Server .env stays at ~/.env — copied to ~/app/.env each deploy (not from git).
+
 name: Deploy to VM
 
 on:
   push:
     branches: [main]
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_OWNER: tar2003
+
 jobs:
+  build-and-push:
+    name: Build & push images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: backend
+            context: backend
+            dockerfile: Dockerfile
+          - name: frontend
+            context: frontend
+            dockerfile: Dockerfile
+          - name: electionguard-api
+            context: Microservice
+            dockerfile: Dockerfile.api
+          - name: electionguard-worker
+            context: Microservice
+            dockerfile: Dockerfile.worker
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push ${{ matrix.name }}
+        uses: docker/build-push-action@v6
+        with:
+          context: ./${{ matrix.context }}
+          file: ./${{ matrix.context }}/${{ matrix.dockerfile }}
+          push: true
+          tags: |
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/amarvote-${{ matrix.name }}:${{ github.sha }}
+            ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/amarvote-${{ matrix.name }}:main
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
   deploy:
+    name: Deploy to VM
+    needs: build-and-push
     runs-on: ubuntu-latest
 
     steps:
@@ -15,7 +70,6 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
 
-      # ✅ Test SSH
       - name: Test SSH
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
@@ -23,7 +77,6 @@ jobs:
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
           "echo '✅ SSH Connected'"
 
-      # ✅ Prepare directory
       - name: Prepare VM directory
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
@@ -31,7 +84,7 @@ jobs:
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
           "mkdir -p ~/app"
 
-      # ✅ Copy project files (exclude dev artifacts — saves ~700MB+ per deploy)
+      # Config + runtime mounts only — app images are pulled from GHCR.
       - name: Copy files to VM
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" rsync -avz --delete \
@@ -39,6 +92,7 @@ jobs:
             --exclude='node_modules' \
             --exclude='frontend/node_modules' \
             --exclude='frontend/dist' \
+            --exclude='frontend/src' \
             --exclude='backend/target' \
             --exclude='load-tests' \
             --exclude='.env' \
@@ -53,7 +107,6 @@ jobs:
             --exclude='test-results' \
             ./ ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }}:~/app/
 
-      # ✅ COPY EXISTING .env (THIS IS THE KEY FIX)
       - name: Copy .env from home to app
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
@@ -63,20 +116,24 @@ jobs:
            echo '✅ .env copied' && \
            ls -la ~/app/.env"
 
-    
+      - name: Log in to GHCR on VM
+        env:
+          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+        run: |
+          sshpass -p "${{ secrets.VM_SECRET }}" ssh \
+          -o StrictHostKeyChecking=no \
+          ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
+          "echo '${GHCR_READ_TOKEN}' | docker login ${{ env.REGISTRY }} -u ${{ env.IMAGE_OWNER }} --password-stdin"
 
-      # 🚀 Deploy (production only — nginx-proxy.conf with DDoS rate limits)
-      # Load-test nginx: manual on server — see docs/PRODUCTION_DEPLOY_AND_LOADTEST.md
-      - name: Deploy with Docker
+      - name: Deploy pre-built images
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
           -o StrictHostKeyChecking=no \
           -o ServerAliveInterval=60 \
           -o ServerAliveCountMax=10 \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "chmod +x ~/app/scripts/vm-deploy.sh && ~/app/scripts/vm-deploy.sh"
+          "export IMAGE_TAG='${{ github.sha }}' && chmod +x ~/app/scripts/vm-deploy.sh && ~/app/scripts/vm-deploy.sh"
 
-      # ✅ Verify
       - name: Verify deployment
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \

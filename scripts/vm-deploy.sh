@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
-# Fast production deploy on the VM: build while traffic is still served, then swap containers.
+# Production deploy: pull pre-built images (built in GitHub Actions), then swap containers.
+# Old containers keep serving until "up" recreates them — minimal downtime.
 set -euo pipefail
 
 cd ~/app
 
-export DOCKER_BUILDKIT=1
-export COMPOSE_DOCKER_CLI_BUILD=1
+IMAGE_TAG="${IMAGE_TAG:-main}"
+export IMAGE_TAG
 
 COMPOSE=(docker compose --env-file .env -f docker-compose.prod.yml)
 
-# Rebuild only services whose build context changed; recreate containers as needed.
-"${COMPOSE[@]}" up -d --build --remove-orphans
+APP_SERVICES=(backend frontend electionguard-api electionguard-worker)
 
-# Drop dangling image layers from this deploy (old untagged intermediates). Keep build cache.
+echo "Deploying image tag: ${IMAGE_TAG}"
+
+# Pull while current containers are still running.
+"${COMPOSE[@]}" pull "${APP_SERVICES[@]}"
+
+# Recreate only services whose image or config changed (no on-VM build).
+"${COMPOSE[@]}" up -d --remove-orphans --no-build
+
+# Drop dangling image layers from this deploy. Keep pulled images for rollback.
 docker image prune -f

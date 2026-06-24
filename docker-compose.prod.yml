@@ -110,9 +110,7 @@ services:
           memory: 320M
 
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: ${AMARVOTE_REGISTRY:-ghcr.io/tar2003}/amarvote-backend:${IMAGE_TAG:-main}
     container_name: amarvote_backend
     restart: unless-stopped
     env_file:
@@ -183,9 +181,7 @@ services:
           memory: 1792M
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: ${AMARVOTE_REGISTRY:-ghcr.io/tar2003}/amarvote-frontend:${IMAGE_TAG:-main}
     container_name: amarvote_frontend
     restart: unless-stopped
     env_file:
@@ -229,9 +225,7 @@ services:
           memory: 64M
 
   electionguard-api:
-    build:
-      context: ./Microservice
-      dockerfile: Dockerfile.api
+    image: ${AMARVOTE_REGISTRY:-ghcr.io/tar2003}/amarvote-electionguard-api:${IMAGE_TAG:-main}
     container_name: electionguard_api
     restart: unless-stopped
     env_file:
@@ -261,9 +255,7 @@ services:
           memory: 512M
 
   electionguard-worker:
-    build:
-      context: ./Microservice
-      dockerfile: Dockerfile.worker
+    image: ${AMARVOTE_REGISTRY:-ghcr.io/tar2003}/amarvote-electionguard-worker:${IMAGE_TAG:-main}
     container_name: electionguard_worker
     restart: unless-stopped
     env_file:
