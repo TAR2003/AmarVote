@@ -12,11 +12,27 @@ vi.mock("react-router-dom", async () => {
     };
 });
 
-// Mock electionApi
 vi.mock("../utils/electionApi", () => ({
     electionApi: {
         getElectionById: vi.fn(),
+        getTallyStatus: vi.fn().mockResolvedValue({ status: "not_started" }),
+        getCombineStatus: vi.fn().mockResolvedValue({ status: "not_started" }),
+        getElectionResults: vi.fn().mockResolvedValue(null),
+        getPendingKeyCeremonies: vi.fn().mockResolvedValue([]),
+        getKeyCeremonyStatus: vi.fn().mockResolvedValue({ status: "completed" }),
+        checkEligibility: vi.fn().mockResolvedValue({ eligible: true }),
+        getDecryptionStatus: vi.fn().mockResolvedValue({ status: "idle" }),
     },
+}));
+
+vi.mock("../hooks/useElectionProgressStream", () => ({
+    default: () => ({ progress: null, connected: false }),
+}));
+
+vi.mock("@fingerprintjs/botd", () => ({
+    load: vi.fn().mockResolvedValue({
+        detect: vi.fn().mockResolvedValue({ bot: false }),
+    }),
 }));
 
 import { electionApi } from "../utils/electionApi";
@@ -25,6 +41,13 @@ import ElectionPage from "../pages/ElectionPage";
 describe("ElectionPage Component", () => {
     beforeEach(() => {
         vi.clearAllMocks();
+        electionApi.getTallyStatus.mockResolvedValue({ status: "not_started" });
+        electionApi.getCombineStatus.mockResolvedValue({ status: "not_started" });
+        electionApi.getElectionResults.mockResolvedValue(null);
+        electionApi.getPendingKeyCeremonies.mockResolvedValue([]);
+        electionApi.getKeyCeremonyStatus.mockResolvedValue({ status: "completed" });
+        electionApi.checkEligibility.mockResolvedValue({ eligible: true });
+        electionApi.getDecryptionStatus.mockResolvedValue({ status: "idle" });
     });
 
     it("renders election information when data is loaded", async () => {
@@ -48,9 +71,8 @@ describe("ElectionPage Component", () => {
             </MemoryRouter>
         );
 
-        // More specific query to handle multiple elements
         const electionTitles = await screen.findAllByText(/Mock Election/);
-        expect(electionTitles.length).toBeGreaterThan(0); // At least one exists
+        expect(electionTitles.length).toBeGreaterThan(0);
         expect(screen.getByText(/This is a mock\./)).toBeInTheDocument();
     });
 
@@ -65,9 +87,7 @@ describe("ElectionPage Component", () => {
             </MemoryRouter>
         );
 
-        // More flexible error detection that works with different implementations
         await waitFor(() => {
-            // Check for common error indicators
             const errorIndicator = screen.queryByRole('alert') ||
                 screen.queryByText(/error/i) ||
                 screen.queryByText(/fail/i) ||
@@ -75,16 +95,15 @@ describe("ElectionPage Component", () => {
                 screen.queryByText(/fetch/i);
 
             expect(errorIndicator).toBeInTheDocument();
-        }, { timeout: 2000 }); // Extended timeout for async operations
+        }, { timeout: 2000 });
     });
+
     it("displays loading indicator while fetching election data", async () => {
         const mockElection = {
             electionId: "123",
             electionTitle: "Mock Election",
-            // ... other fields
         };
 
-        // Delay the mock response
         electionApi.getElectionById.mockImplementationOnce(
             () => new Promise((resolve) => setTimeout(() => resolve(mockElection), 200))
         );
@@ -97,7 +116,6 @@ describe("ElectionPage Component", () => {
             </MemoryRouter>
         );
 
-        // Look for common loading text patterns
         expect(screen.getByText(/loading/i)).toBeInTheDocument();
 
         await waitFor(() => {

@@ -4,10 +4,12 @@ import {
   FiCalendar,
   FiCheckCircle,
   FiBarChart2,
-  FiClock,
+  FiUsers,
+  FiUserCheck,
   FiAward,
 } from "react-icons/fi";
 import { fetchAllElections } from "../utils/api";
+import { userApi } from "../utils/userApi";
 import { timezoneUtils } from "../utils/timezoneUtils";
 
 // Helper function to determine if user can vote in an election based on eligibility
@@ -141,6 +143,7 @@ const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 const Dashboard = ({ userEmail }) => {
   const navigate = useNavigate();
   const [elections, setElections] = useState([]);
+  const [userStats, setUserStats] = useState({ registeredUsers: 0, activeUsers: 0 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
@@ -185,108 +188,103 @@ const Dashboard = ({ userEmail }) => {
     };
   }, [elections]);
 
-  // Compute dashboard counters from all elections using only start/end timestamps.
+  // Compute dashboard counters from all elections.
   const electionCounts = useMemo(() => {
     const now = new Date();
-    let upcomingCount = 0;
-    let availableCount = 0;
     let completedCount = 0;
 
     elections.forEach((election) => {
-      if (!election.startingTime || !election.endingTime) return;
+      if (!election.endingTime) return;
 
-      const startTime = new Date(election.startingTime);
       const endTime = new Date(election.endingTime);
-
-      if (Number.isNaN(startTime.getTime()) || Number.isNaN(endTime.getTime())) {
-        return;
-      }
-
-      if (startTime > now) {
-        upcomingCount += 1;
-      } else if (startTime <= now && endTime > now) {
-        availableCount += 1;
-      } else if (endTime <= now) {
+      if (!Number.isNaN(endTime.getTime()) && endTime <= now) {
         completedCount += 1;
       }
     });
 
     return {
-      upcomingCount,
-      availableCount,
+      totalCount: elections.length,
       completedCount,
-      totalCount: upcomingCount + availableCount + completedCount,
     };
   }, [elections]);
 
-  // Dashboard stats should reflect actual time-based election states.
   const stats = useMemo(() => [
-    {
-      name: "Upcoming Elections",
-      value: electionCounts.upcomingCount.toString(),
-      icon: FiCalendar,
-    },
-    {
-      name: "Available Elections", 
-      value: electionCounts.availableCount.toString(),
-      icon: FiCheckCircle,
-    },
     {
       name: "Total Elections",
       value: electionCounts.totalCount.toString(),
       icon: FiBarChart2,
+      gradient: "from-blue-500 to-indigo-600",
+      iconBg: "bg-blue-100",
+      iconColor: "text-blue-600",
+      ring: "ring-blue-100",
     },
     {
-      name: "Completed",
+      name: "Completed Elections",
       value: electionCounts.completedCount.toString(),
-      icon: FiClock,
+      icon: FiCheckCircle,
+      gradient: "from-emerald-500 to-teal-600",
+      iconBg: "bg-emerald-100",
+      iconColor: "text-emerald-600",
+      ring: "ring-emerald-100",
     },
-  ], [electionCounts]);
+    {
+      name: "Registered Users",
+      value: userStats.registeredUsers.toLocaleString(),
+      icon: FiUsers,
+      gradient: "from-violet-500 to-purple-600",
+      iconBg: "bg-violet-100",
+      iconColor: "text-violet-600",
+      ring: "ring-violet-100",
+    },
+    {
+      name: "Active Users",
+      value: userStats.activeUsers.toLocaleString(),
+      subtitle: "30m",
+      icon: FiUserCheck,
+      gradient: "from-amber-500 to-orange-600",
+      iconBg: "bg-amber-100",
+      iconColor: "text-amber-600",
+      ring: "ring-amber-100",
+      pulse: userStats.activeUsers > 0,
+    },
+  ], [electionCounts, userStats]);
 
   // Optimized data loading with caching
   useEffect(() => {
-    const loadElections = async () => {
+    const loadDashboardData = async () => {
       if (!userEmail) return;
       
       try {
         setLoading(true);
         
-        // Check cache first - use the same cache key as AllElections
-        // to avoid multiple API calls if both components are used in the same session
         const cacheKey = 'all_elections';
         const cached = electionCache.get(cacheKey);
         
-        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-          console.log('Dashboard: Using cached election data');
-          setElections(cached.data);
-          setLoading(false);
-          setInitialLoadComplete(true);
-          return;
-        }
+        const electionsPromise = (cached && Date.now() - cached.timestamp < CACHE_DURATION)
+          ? Promise.resolve(cached.data)
+          : fetchAllElections().then((electionData) => {
+              electionCache.set(cacheKey, { data: electionData, timestamp: Date.now() });
+              return electionData;
+            });
+
+        const [electionData, statsData] = await Promise.all([
+          electionsPromise,
+          userApi.getUserStats(),
+        ]);
         
-        // Make a single API call to fetch all election data
-        console.log('Dashboard: Fetching fresh election data');
-        const electionData = await fetchAllElections();
-        
-        // Store all data from the API call
         setElections(electionData);
+        setUserStats(statsData);
         setLoading(false);
         setInitialLoadComplete(true);
         
-        // Cache the data with timestamp - using same cache key for consistency
-        electionCache.set(cacheKey, { 
-          data: electionData, 
-          timestamp: Date.now() 
-        });
-        
       } catch (err) {
         setError(err.message);
-        console.error("Error loading elections:", err);
+        console.error("Error loading dashboard data:", err);
         setLoading(false);
       }
     };
 
-    loadElections();
+    loadDashboardData();
   }, [userEmail]);
 
   // Handle navigation to election page
@@ -367,7 +365,7 @@ const Dashboard = ({ userEmail }) => {
         </div>
         
         {/* Stats Skeleton */}
-        <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+        <div className="grid grid-cols-4 gap-2 sm:gap-4">
           {[...Array(4)].map((_, i) => (
             <div key={i} className="bg-white shadow rounded-xl p-4 sm:p-6">
               <div className="animate-pulse">
@@ -403,7 +401,7 @@ const Dashboard = ({ userEmail }) => {
         <div className="bg-red-50 border border-red-200 rounded-lg p-4">
           <div className="flex">
             <div className="flex-shrink-0">
-              <FiClock className="h-5 w-5 text-red-400" />
+              <FiBarChart2 className="h-5 w-5 text-red-400" />
             </div>
             <div className="ml-3">
               <h3 className="text-sm font-medium text-red-800">
@@ -443,39 +441,36 @@ const Dashboard = ({ userEmail }) => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-5 lg:grid-cols-4">
+      <div className="grid grid-cols-4 gap-2 sm:gap-4">
         {stats.map((stat) => (
           <div
             key={stat.name}
-            className="bg-white overflow-hidden border border-gray-100 shadow-sm rounded-xl hover:shadow-md transition-shadow duration-200"
+            className={`relative overflow-hidden rounded-xl sm:rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 ring-1 ${stat.ring}`}
           >
+            <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${stat.gradient}`} />
             <div className="p-3 sm:p-5">
-              <div className="flex flex-col items-start sm:items-center sm:flex-row gap-1 sm:gap-0">
-                <div className="flex-shrink-0">
-                  <stat.icon className="h-5 w-5 sm:h-6 sm:w-6 text-blue-600" />
-                </div>
-                <div className="sm:ml-5 w-full sm:w-0 sm:flex-1">
-                  <dt className="text-xs sm:text-sm font-medium text-gray-500 leading-tight">
+              <div className="flex items-center justify-between gap-2">
+                <div className="min-w-0 flex-1">
+                  <p className="text-[10px] sm:text-xs font-medium text-gray-500 leading-tight truncate">
                     {stat.name}
-                  </dt>
-                  <dd className="flex items-baseline mt-0.5">
-                    <div className="text-xl sm:text-2xl font-semibold text-gray-900">
-                      {stat.value}
-                    </div>
-                    {stat.change && (
-                      <div
-                        className={`ml-2 flex items-baseline text-xs sm:text-sm font-semibold ${
-                          stat.changeType === "positive"
-                            ? "text-green-600"
-                            : stat.changeType === "negative"
-                            ? "text-red-600"
-                            : "text-gray-500"
-                        }`}
-                      >
-                        {stat.change}
-                      </div>
+                    {stat.subtitle && (
+                      <span className="text-gray-400"> · {stat.subtitle}</span>
                     )}
-                  </dd>
+                  </p>
+                  <div className="mt-1 flex items-center gap-1.5">
+                    <p className="text-lg sm:text-3xl font-bold text-gray-900 tracking-tight">
+                      {stat.value}
+                    </p>
+                    {stat.pulse && (
+                      <span className="relative flex h-2 w-2">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+                      </span>
+                    )}
+                  </div>
+                </div>
+                <div className={`hidden sm:flex flex-shrink-0 p-2.5 rounded-xl ${stat.iconBg}`}>
+                  <stat.icon className={`h-5 w-5 ${stat.iconColor}`} />
                 </div>
               </div>
             </div>

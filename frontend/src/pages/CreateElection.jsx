@@ -32,8 +32,8 @@ const CreateElection = () => {
         coAdminEmails: [],
         candidateNames: ["", ""],
         candidatePictures: ["", ""],
-        totalCandidates: 2,
-        maxChoices: 1,
+        totalCandidates: "2",
+        maxChoices: "1",
         sendBallotReceipt: false
     });
 
@@ -370,9 +370,44 @@ const CreateElection = () => {
         setForm((prev) => ({ ...prev, voterEmails: [] }));
     };
 
+    const parseTotalCandidates = (value) => {
+        if (value === "" || value === null || value === undefined) {
+            return 0;
+        }
+        const parsed = parseInt(String(value), 10);
+        return Number.isNaN(parsed) || parsed < 0 ? 0 : Math.min(50, parsed);
+    };
+
+    const isTotalCandidatesInvalid = (value) => {
+        if (value === "" || value === null || value === undefined) {
+            return true;
+        }
+        const parsed = parseInt(String(value), 10);
+        return Number.isNaN(parsed) || parsed < 2;
+    };
+
+    const getMaxChoicesNumber = (value) => {
+        if (value === "" || value === null || value === undefined) {
+            return NaN;
+        }
+        return parseInt(String(value), 10);
+    };
+
+    const isMaxChoicesInvalid = (maxChoicesValue, totalCandidatesValue) => {
+        if (maxChoicesValue === "" || maxChoicesValue === null || maxChoicesValue === undefined) {
+            return true;
+        }
+        const maxChoicesNum = getMaxChoicesNumber(maxChoicesValue);
+        if (Number.isNaN(maxChoicesNum) || maxChoicesNum < 1) {
+            return true;
+        }
+        const totalNum = parseTotalCandidates(totalCandidatesValue);
+        return maxChoicesNum > totalNum;
+    };
+
     // Candidates management
-    const resizeCandidateSlots = (count) => {
-        const n = Math.max(2, Math.min(50, parseInt(count, 10) || 2));
+    const resizeCandidateSlots = (rawCount) => {
+        const n = parseTotalCandidates(rawCount);
         setForm((prev) => {
             const names = [...prev.candidateNames];
             const pictures = [...prev.candidatePictures];
@@ -384,7 +419,12 @@ const CreateElection = () => {
                 names.pop();
                 pictures.pop();
             }
-            return { ...prev, totalCandidates: n, candidateNames: names, candidatePictures: pictures };
+            return {
+                ...prev,
+                totalCandidates: rawCount === null || rawCount === undefined ? "" : String(rawCount),
+                candidateNames: names,
+                candidatePictures: pictures,
+            };
         });
         setCandidateImages((prev) => {
             const imgs = [...prev];
@@ -431,16 +471,12 @@ const CreateElection = () => {
     };
 
     const removeCandidate = (index) => {
-        if (form.candidateNames.length <= 2) {
-            setError("At least 2 candidates are required.");
-            return;
-        }
         setForm((prev) => {
             const names = prev.candidateNames.filter((_, i) => i !== index);
             const pictures = prev.candidatePictures.filter((_, i) => i !== index);
             return {
                 ...prev,
-                totalCandidates: names.length,
+                totalCandidates: names.length === 0 ? "" : String(names.length),
                 candidateNames: names,
                 candidatePictures: pictures,
             };
@@ -486,7 +522,22 @@ const CreateElection = () => {
         return hasDuplicateCandidates;
     };
 
+    const isFormReadyForSubmit = () => {
+        const validCandidateNames = form.candidateNames.filter(name => name.trim() !== '');
+        return !isSubmitting
+            && !isTotalCandidatesInvalid(form.totalCandidates)
+            && !isMaxChoicesInvalid(form.maxChoices, form.totalCandidates)
+            && validCandidateNames.length >= 2
+            && !form.candidateNames.some(name => !name || !name.trim())
+            && !hasDuplicateNames();
+    };
+
     const validateForm = () => {
+        if (isTotalCandidatesInvalid(form.totalCandidates)) {
+            setError("Total number of candidates must be at least 2");
+            return false;
+        }
+
         if (form.candidateNames.some(name => !name || !name.trim())) {
             setError("All candidate names are required");
             return false;
@@ -500,6 +551,11 @@ const CreateElection = () => {
 
         if (hasDuplicateNames()) {
             setError("Candidate names must be unique. Please remove any duplicate names.");
+            return false;
+        }
+
+        if (isMaxChoicesInvalid(form.maxChoices, form.totalCandidates)) {
+            setError("Max choices must be at least 1 and cannot exceed the total number of candidates");
             return false;
         }
 
@@ -531,8 +587,8 @@ const CreateElection = () => {
             return false;
         }
 
-        const maxChoicesVal = parseInt(form.maxChoices) || 1;
-        if (maxChoicesVal < 1) {
+        const maxChoicesVal = getMaxChoicesNumber(form.maxChoices);
+        if (Number.isNaN(maxChoicesVal) || maxChoicesVal < 1) {
             setError("Max choices must be at least 1");
             return false;
         }
@@ -986,12 +1042,19 @@ const CreateElection = () => {
                             </label>
                             <input
                                 type="number"
-                                min={2}
-                                max={50}
                                 value={form.totalCandidates}
                                 onChange={handleTotalCandidatesChange}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                                    isTotalCandidatesInvalid(form.totalCandidates)
+                                        ? "border-red-500 bg-red-50 focus:ring-red-500"
+                                        : "border-gray-300 focus:ring-blue-500"
+                                }`}
                             />
+                            {isTotalCandidatesInvalid(form.totalCandidates) && (
+                                <p className="mt-1 text-xs text-red-600">
+                                    Total number of candidates must be at least 2
+                                </p>
+                            )}
                         </div>
                         <div>
                             <label className="block text-gray-700 font-medium mb-2">
@@ -1002,14 +1065,20 @@ const CreateElection = () => {
                                 name="maxChoices"
                                 value={form.maxChoices}
                                 onChange={handleChange}
-                                min={1}
-                                max={form.candidateNames.filter(n => n.trim() !== '').length || 1}
-                                className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                                required
+                                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                                    isMaxChoicesInvalid(form.maxChoices, form.totalCandidates)
+                                        ? "border-red-500 bg-red-50 focus:ring-red-500"
+                                        : "border-gray-300 focus:ring-blue-500"
+                                }`}
                             />
-                            {form.maxChoices > 1 && (
+                            {isMaxChoicesInvalid(form.maxChoices, form.totalCandidates) && (
+                                <p className="mt-1 text-xs text-red-600">
+                                    Max choices must be at least 1 and cannot exceed the total number of candidates
+                                </p>
+                            )}
+                            {!isMaxChoicesInvalid(form.maxChoices, form.totalCandidates) && getMaxChoicesNumber(form.maxChoices) > 1 && (
                                 <p className="text-xs text-blue-600 mt-1">
-                                    Voters can select up to {form.maxChoices} candidates.
+                                    Voters can select up to {getMaxChoicesNumber(form.maxChoices)} candidates.
                                 </p>
                             )}
                         </div>
@@ -1037,6 +1106,7 @@ const CreateElection = () => {
                     <div className="space-y-3 mb-5">
                         {form.candidateNames.map((name, index) => {
                             const candidateValidation = getCandidateNameValidation(index, name);
+                            const isNameBlank = !name || !name.trim();
                             return (
                                 <div key={index} className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
                                     <span className="mt-2 text-xs font-semibold text-gray-500 w-6">{index + 1}.</span>
@@ -1049,12 +1119,16 @@ const CreateElection = () => {
                                             className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                                                 !candidateValidation.isValid
                                                     ? 'border-red-500 bg-red-50 focus:ring-red-500'
+                                                    : isNameBlank
+                                                    ? 'border-red-500 bg-red-50 focus:ring-red-500'
                                                     : 'border-gray-300 bg-white focus:ring-blue-500'
                                             }`}
-                                            required
                                         />
                                         {!candidateValidation.isValid && (
                                             <p className="mt-1 text-xs text-red-600">{candidateValidation.message}</p>
+                                        )}
+                                        {candidateValidation.isValid && isNameBlank && (
+                                            <p className="mt-1 text-xs text-red-600">Candidate name is required</p>
                                         )}
                                     </div>
                                     <div className="flex-shrink-0 w-12">
@@ -1067,7 +1141,7 @@ const CreateElection = () => {
                                             iconOnly
                                         />
                                     </div>
-                                    {form.candidateNames.length > 2 && (
+                                    {form.candidateNames.length > 0 && (
                                         <button
                                             type="button"
                                             onClick={() => removeCandidate(index)}
@@ -1130,8 +1204,8 @@ const CreateElection = () => {
 
                     <button
                         type="submit"
-                        disabled={isSubmitting || form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()}
-                        className={`w-full sm:w-auto px-6 py-3 text-white rounded-md ${isSubmitting || form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()
+                        disabled={!isFormReadyForSubmit()}
+                        className={`w-full sm:w-auto px-6 py-3 text-white rounded-md ${!isFormReadyForSubmit()
                                 ? 'bg-gray-400 cursor-not-allowed'
                                 : 'bg-blue-500 hover:bg-blue-600'
                             }`}

@@ -54,6 +54,32 @@ const userApi = {
             console.error('Error getting user count:', error);
             return 0;
         }
+    },
+
+    /**
+     * Get registered and active user counts for the dashboard.
+     *
+     * @returns {Promise<{registeredUsers: number, activeUsers: number}>}
+     */
+    async getUserStats() {
+        try {
+            const response = await fetch('/api/users/stats', {
+                method: 'GET',
+                credentials: 'include',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+            });
+
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+
+            return await response.json();
+        } catch (error) {
+            console.error('Error getting user stats:', error);
+            return { registeredUsers: 0, activeUsers: 0 };
+        }
     }
 };
 

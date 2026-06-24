@@ -10,6 +10,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 import com.amarvote.amarvote.dto.UserSearchResult;
 import com.amarvote.amarvote.service.UserSearchService;
+import com.amarvote.amarvote.service.UserStatsService;
 
 import lombok.RequiredArgsConstructor;
 
@@ -19,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 public class UserController {
 
     private final UserSearchService userSearchService;
+    private final UserStatsService userStatsService;
 
     @GetMapping("/search")
     public ResponseEntity<List<UserSearchResult>> searchUsers(@RequestParam String query) {
@@ -27,6 +29,12 @@ public class UserController {
 
     @GetMapping("/count")
     public ResponseEntity<java.util.Map<String, Long>> getUserCount() {
-        return ResponseEntity.ok(java.util.Map.of("count", 0L));
+        java.util.Map<String, Long> stats = userStatsService.getUserStats();
+        return ResponseEntity.ok(java.util.Map.of("count", stats.get("registeredUsers")));
+    }
+
+    @GetMapping("/stats")
+    public ResponseEntity<java.util.Map<String, Long>> getUserStats() {
+        return ResponseEntity.ok(userStatsService.getUserStats());
     }
 }
