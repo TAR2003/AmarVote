@@ -9,3 +9,8 @@ __pycache__/
 io/
 scripts/
 docs/
+.github/
+tests/
+examples/
+loadtesting/
+files_for_testing/

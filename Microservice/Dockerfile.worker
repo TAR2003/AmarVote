@@ -1,34 +1,40 @@
-# Dockerfile for ElectionGuard Worker Service
-# Heavy crypto: tally, partial/compensated decryption, combine
+FROM python:3.12-slim AS builder
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc g++ python3-dev libmpfr-dev libmpc-dev \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+COPY requirements-prod.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements-prod.txt
 
 FROM python:3.12-slim
 
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV FLASK_APP=api.py
-ENV FLASK_ENV=production
-ENV PYTHONOPTIMIZE=2
-ENV MALLOC_TRIM_THRESHOLD_=100000
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FLASK_APP=api.py \
+    FLASK_ENV=production \
+    PYTHONOPTIMIZE=2 \
+    MALLOC_TRIM_THRESHOLD_=100000
 
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    python3-dev \
-    curl \
+    curl libgmp10 libmpfr6 libmpc3 \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY . .
+COPY --from=builder /install /usr/local
+COPY api.py binary_serialize.py manifest_cache.py ballot_publisher.py ballot_sanitizer.py ./
+COPY electionguard/ electionguard/
+COPY electionguard_tools/ electionguard_tools/
+COPY services/ services/
+COPY docker-entrypoint-worker.sh /docker-entrypoint-worker.sh
+RUN find . -type d -name __pycache__ -prune -exec rm -rf {} + \
+    && chmod +x /docker-entrypoint-worker.sh
 
 EXPOSE 5001
 
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:5001/health || exit 1
-
-COPY docker-entrypoint-worker.sh /docker-entrypoint-worker.sh
-RUN chmod +x /docker-entrypoint-worker.sh
 
 CMD ["/docker-entrypoint-worker.sh"]

@@ -1,47 +1,41 @@
-# Dockerfile for ElectionGuard API Service
-# Optimized for fast response times and low latency user-facing operations
-# Handles: setup_guardians, create_encrypted_ballot, benaloh_challenge, encrypt, decrypt
+FROM python:3.12-slim AS builder
 
-FROM python:3.12
-
-# Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1
-ENV PYTHONUNBUFFERED=1
-ENV PYTHONOPTIMIZE=2
-ENV PYTHONHASHSEED=0
-ENV MALLOC_TRIM_THRESHOLD_=100000
-ENV FLASK_APP=api.py
-ENV FLASK_ENV=production
-
-# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    gcc \
-    python3-dev \
-    curl \
+    gcc g++ python3-dev libmpfr-dev libmpc-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Create and set working directory
+WORKDIR /app
+COPY requirements-prod.txt .
+RUN pip install --no-cache-dir --prefix=/install -r requirements-prod.txt
+
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONOPTIMIZE=2 \
+    PYTHONHASHSEED=0 \
+    MALLOC_TRIM_THRESHOLD_=100000 \
+    FLASK_APP=api.py \
+    FLASK_ENV=production
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl libgmp10 libmpfr6 libmpc3 \
+    && rm -rf /var/lib/apt/lists/*
+
 WORKDIR /app
 
-# Copy requirements first to leverage Docker cache
-COPY requirements.txt .
+COPY --from=builder /install /usr/local
+COPY api.py binary_serialize.py manifest_cache.py ballot_publisher.py ballot_sanitizer.py ./
+COPY electionguard/ electionguard/
+COPY electionguard_tools/ electionguard_tools/
+COPY services/ services/
+COPY docker-entrypoint-api.sh /docker-entrypoint-api.sh
+RUN find . -type d -name __pycache__ -prune -exec rm -rf {} + \
+    && chmod +x /docker-entrypoint-api.sh
 
-# Install Python dependencies
-RUN pip install -r requirements.txt
-
-# Copy application code
-COPY . .
-
-# Expose the port
 EXPOSE 5000
 
-# Health check
 HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
     CMD curl -f http://localhost:5000/health || exit 1
-
-# Run with throughput settings for 4 GB RAM / 2 vCPU hosts (default: 6 sync workers).
-# Override via GUNICORN_WORKERS / GUNICORN_THREADS / GUNICORN_MAX_REQUESTS in docker-compose.
-COPY docker-entrypoint-api.sh /docker-entrypoint-api.sh
-RUN chmod +x /docker-entrypoint-api.sh
 
 CMD ["/docker-entrypoint-api.sh"]

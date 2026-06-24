@@ -4,3 +4,4 @@ logs/
 *.md
 .idea/
 .vscode/
+src/test/

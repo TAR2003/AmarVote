@@ -1,0 +1,15 @@
+requests
+flask
+gmpy2
+psutil
+pydantic
+click
+dacite
+python-dateutil
+dependency-injector
+gunicorn
+cryptography
+python-dotenv
+pqcrypto
+psycopg2-binary
+msgpack

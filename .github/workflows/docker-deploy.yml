@@ -55,6 +55,8 @@ jobs:
           context: ./${{ matrix.context }}
           file: ./${{ matrix.context }}/${{ matrix.dockerfile }}
           push: true
+          provenance: false
+          sbom: false
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/amarvote-${{ matrix.name }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/amarvote-${{ matrix.name }}:main
@@ -73,51 +75,31 @@ jobs:
       - name: Install sshpass
         run: sudo apt-get update && sudo apt-get install -y sshpass
 
-      - name: Test SSH
-        run: |
-          sshpass -p "${{ secrets.VM_SECRET }}" ssh \
-          -o StrictHostKeyChecking=no \
-          ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "echo '✅ SSH Connected'"
+      - name: Pack deploy bundle
+        run: chmod +x scripts/pack-deploy-bundle.sh && scripts/pack-deploy-bundle.sh deploy-bundle.tgz
 
-      - name: Prepare VM directory
+      - name: Copy deploy bundle to VM
         run: |
-          sshpass -p "${{ secrets.VM_SECRET }}" ssh \
-          -o StrictHostKeyChecking=no \
-          ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "mkdir -p ~/app"
+          sshpass -p "${{ secrets.VM_SECRET }}" scp \
+            -o StrictHostKeyChecking=no \
+            deploy-bundle.tgz \
+            ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }}:/tmp/deploy-bundle.tgz
 
-      # Config + runtime mounts only — app images are pulled from GHCR.
-      - name: Copy files to VM
-        run: |
-          sshpass -p "${{ secrets.VM_SECRET }}" rsync -avz --delete \
-            --exclude='.git' \
-            --exclude='node_modules' \
-            --exclude='frontend/node_modules' \
-            --exclude='frontend/dist' \
-            --exclude='frontend/src' \
-            --exclude='backend/target' \
-            --exclude='load-tests' \
-            --exclude='.env' \
-            --exclude='backend/logs' \
-            --exclude='nginx/certs' \
-            --exclude='.github' \
-            --exclude='docs' \
-            --exclude='blockchain' \
-            --exclude='blockchain-microservice' \
-            --exclude='rag-service' \
-            --exclude='__pycache__' \
-            --exclude='test-results' \
-            ./ ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }}:~/app/
+          sshpass -p "${{ secrets.VM_SECRET }}" ssh \
+            -o StrictHostKeyChecking=no \
+            ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
+            "mkdir -p ~/app/Microservice/io ~/app/nginx/certs && \
+             tar xzf /tmp/deploy-bundle.tgz -C ~/app && \
+             chmod +x ~/app/scripts/vm-deploy.sh && \
+             rm -f /tmp/deploy-bundle.tgz && \
+             echo '✅ Deploy bundle extracted'"
 
       - name: Copy .env from home to app
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
           -o StrictHostKeyChecking=no \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "cp ~/.env ~/app/.env && \
-           echo '✅ .env copied' && \
-           ls -la ~/app/.env"
+          "cp ~/.env ~/app/.env && echo '✅ .env copied'"
 
       - name: Log in to GHCR on VM
         env:
@@ -135,7 +117,7 @@ jobs:
           -o ServerAliveInterval=60 \
           -o ServerAliveCountMax=10 \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "export IMAGE_TAG='${{ github.sha }}' && chmod +x ~/app/scripts/vm-deploy.sh && ~/app/scripts/vm-deploy.sh"
+          "export IMAGE_TAG='${{ github.sha }}' && ~/app/scripts/vm-deploy.sh"
 
       - name: Verify deployment
         run: |
