@@ -1,6 +1,11 @@
 package com.amarvote.amarvote.service;
 
+import java.io.IOException;
+import java.io.PrintWriter;
+import java.io.Writer;
 import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
@@ -29,6 +34,9 @@ public class ApiLogService {
     private ApiLogViewRepository apiLogViewRepository;
 
     private static final int MAX_PAGE_SIZE = 200;
+    private static final int EXPORT_BATCH_SIZE = 2000;
+    private static final DateTimeFormatter CSV_TIME_FORMAT =
+            DateTimeFormatter.ofPattern("yyyy-MM-dd HH:mm:ss");
 
     @Value("${amarvote.api-logging.retention-days:90}")
     private int retentionDays;
@@ -206,6 +214,108 @@ public class ApiLogService {
             return timestamp.toLocalDateTime();
         }
         return LocalDateTime.parse(value.toString());
+    }
+
+    public void writeExportCsv(
+            Writer writer,
+            String view,
+            String tab,
+            String emailFilter,
+            String ipFilter,
+            String pathFilter,
+            String method,
+            String statusCode) throws IOException {
+        PrintWriter out = new PrintWriter(writer);
+        String normalizedView = normalizeView(view);
+        boolean includeClusterColumns = "clusters".equals(normalizedView);
+
+        writeCsvHeader(out, includeClusterColumns);
+
+        switch (normalizedView) {
+            case "unique-email" -> apiLogViewRepository.exportUniqueEmails(emailFilter, ipFilter, pathFilter)
+                    .forEach(row -> writeCsvRow(out, mapRow(row), false));
+            case "unique-ip" -> apiLogViewRepository.exportUniqueIps(emailFilter, ipFilter, pathFilter)
+                    .forEach(row -> writeCsvRow(out, mapRow(row), false));
+            case "clusters" -> apiLogViewRepository.exportClusters(emailFilter, ipFilter, pathFilter)
+                    .forEach(row -> writeCsvRow(out, mapClusterRow(row), true));
+            default -> writeStandardLogExport(
+                    out, tab, emailFilter, ipFilter, pathFilter, method, statusCode);
+        }
+
+        out.flush();
+    }
+
+    private void writeStandardLogExport(
+            PrintWriter out,
+            String tab,
+            String emailFilter,
+            String ipFilter,
+            String pathFilter,
+            String method,
+            String statusCode) {
+        int offset = 0;
+        while (true) {
+            List<Map<String, Object>> batch = apiLogViewRepository.findAllLogs(
+                    emailFilter,
+                    ipFilter,
+                    pathFilter,
+                    tab,
+                    method,
+                    statusCode,
+                    EXPORT_BATCH_SIZE,
+                    offset);
+            if (batch.isEmpty()) {
+                break;
+            }
+            batch.stream().map(this::mapRow).forEach(row -> writeCsvRow(out, row, false));
+            if (batch.size() < EXPORT_BATCH_SIZE) {
+                break;
+            }
+            offset += EXPORT_BATCH_SIZE;
+        }
+    }
+
+    private void writeCsvHeader(PrintWriter out, boolean includeClusterColumns) {
+        if (includeClusterColumns) {
+            out.println("Time,Method,Path,Status,IP,Email,Response Time,Token Status,Cluster Requests,Cluster Started");
+            return;
+        }
+        out.println("Time,Method,Path,Status,IP,Email,Response Time,Token Status");
+    }
+
+    private void writeCsvRow(PrintWriter out, ApiLogViewResponse log, boolean includeClusterColumns) {
+        List<String> columns = new ArrayList<>();
+        columns.add(csvValue(formatCsvTime(log.getRequestTime())));
+        columns.add(csvValue(log.getRequestMethod()));
+        columns.add(csvValue(log.getRequestPath()));
+        columns.add(csvValue(log.getResponseStatus() == null ? "N/A" : log.getResponseStatus().toString()));
+        columns.add(csvValue(log.getRequestIp() == null ? "N/A" : log.getRequestIp()));
+        columns.add(csvValue(
+                log.getExtractedEmail() == null || log.getExtractedEmail().isBlank()
+                        ? "Anonymous"
+                        : log.getExtractedEmail()));
+        columns.add(csvValue(log.getResponseTime() == null ? "-" : log.getResponseTime() + "ms"));
+        columns.add(csvValue(isInvalidToken(log.getResponseStatus()) ? "INVALID/EXPIRED" : "OK"));
+        if (includeClusterColumns) {
+            columns.add(csvValue(log.getClusterCount() == null ? "1" : log.getClusterCount().toString()));
+            columns.add(csvValue(formatCsvTime(log.getClusterStart())));
+        }
+        out.println(String.join(",", columns));
+    }
+
+    private boolean isInvalidToken(Integer status) {
+        return status != null && (status == 401 || status == 403);
+    }
+
+    private String formatCsvTime(LocalDateTime value) {
+        return value == null ? "-" : value.format(CSV_TIME_FORMAT);
+    }
+
+    private String csvValue(String value) {
+        if (value == null) {
+            return "\"\"";
+        }
+        return "\"" + value.replace("\"", "\"\"") + "\"";
     }
     
     public long getTotalLogs() {

@@ -4,7 +4,9 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -72,6 +74,40 @@ public class AdminController {
         }
 
         return ResponseEntity.ok(apiLogService.getLogs(view, page, size, email, ip, path));
+    }
+
+    @GetMapping(value = "/logs/export", produces = "text/csv")
+    public ResponseEntity<?> exportApiLogs(
+            @RequestParam(defaultValue = "all") String view,
+            @RequestParam(defaultValue = "all") String tab,
+            @RequestParam(required = false) String email,
+            @RequestParam(required = false) String ip,
+            @RequestParam(required = false) String path,
+            @RequestParam(required = false) String method,
+            @RequestParam(required = false) String statusCode) {
+
+        String currentEmail = getAuthenticatedEmail();
+        if (currentEmail == null) {
+            return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body("Unauthorized");
+        }
+
+        if (!authorizedUserService.canViewApiLogs(currentEmail)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body("Access denied. You are not allowed to export API logs.");
+        }
+
+        try {
+            java.io.StringWriter writer = new java.io.StringWriter();
+            apiLogService.writeExportCsv(writer, view, tab, email, ip, path, method, statusCode);
+            String filename = "api-logs-" + view + "-" + System.currentTimeMillis() + ".csv";
+            return ResponseEntity.ok()
+                    .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + filename + "\"")
+                    .contentType(MediaType.parseMediaType("text/csv"))
+                    .body(writer.toString());
+        } catch (Exception ex) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("message", "Failed to export API logs."));
+        }
     }
 
     /**

@@ -88,6 +88,7 @@ export default function ApiLogs() {
   const [appliedSearch, setAppliedSearch] = useState({ type: "email", value: "" });
   const [selectedLogIds, setSelectedLogIds] = useState(new Set());
   const [deleting, setDeleting] = useState(false);
+  const [exporting, setExporting] = useState(false);
 
   const [filters, setFilters] = useState({
     method: "", statusCode: "", dateFrom: "", dateTo: "",
@@ -313,31 +314,47 @@ export default function ApiLogs() {
     }
   }
 
-  function exportToCSV() {
-    const headers = activeTab === "clusters"
-      ? ["Time", "Method", "Path", "Status", "IP", "Email", "Response Time", "Token Status", "Cluster Requests", "Cluster Started"]
-      : ["Time", "Method", "Path", "Status", "IP", "Email", "Response Time", "Token Status"];
-    const rows = displayedLogs.map(l => {
-      const base = [
-        formatDate(l.requestTime),
-        l.requestMethod,
-        l.requestPath,
-        l.responseStatus || "N/A",
-        l.requestIp || "N/A",
-        l.extractedEmail || "Anonymous",
-        l.responseTime ? `${l.responseTime}ms` : "-",
-        isInvalidToken(l) ? "INVALID/EXPIRED" : "OK",
-      ];
-      if (activeTab === "clusters") {
-        base.push(String(l.clusterCount || 1), formatDate(l.clusterStart));
+  function getExportTab() {
+    if (["authenticated", "anonymous", "invalid"].includes(activeTab)) {
+      return activeTab;
+    }
+    return "all";
+  }
+
+  async function exportToCSV() {
+    setExporting(true);
+    setError(null);
+    try {
+      const view = getApiViewForTab(activeTab);
+      const tab = getExportTab();
+      let url = `/api/admin/logs/export?view=${encodeURIComponent(view)}&tab=${encodeURIComponent(tab)}`;
+
+      const value = appliedSearch.value?.trim();
+      if (value) {
+        if (appliedSearch.type === "email") url += `&email=${encodeURIComponent(value)}`;
+        else if (appliedSearch.type === "ip") url += `&ip=${encodeURIComponent(value)}`;
+        else if (appliedSearch.type === "path") url += `&path=${encodeURIComponent(value)}`;
       }
-      return base;
-    });
-    const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
-    a.download = `api-logs-${activeTab}-${new Date().toISOString()}.csv`;
-    a.click();
+      if (filters.method) url += `&method=${encodeURIComponent(filters.method)}`;
+      if (filters.statusCode) url += `&statusCode=${encodeURIComponent(filters.statusCode)}`;
+
+      const res = await fetch(url, { credentials: "include" });
+      if (!res.ok) {
+        throw new Error("Failed to export logs");
+      }
+
+      const blob = await res.blob();
+      const downloadUrl = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = downloadUrl;
+      a.download = `api-logs-${activeTab}-${new Date().toISOString()}.csv`;
+      a.click();
+      URL.revokeObjectURL(downloadUrl);
+    } catch (err) {
+      setError(err.message || "Failed to export logs.");
+    } finally {
+      setExporting(false);
+    }
   }
 
   const activeFiltersCount = Object.values(filters).filter(Boolean).length
@@ -441,11 +458,11 @@ export default function ApiLogs() {
 
               <button
                 onClick={exportToCSV}
-                disabled={displayedLogs.length === 0}
+                disabled={exporting || loading}
                 className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                <Icon d={ICONS.download} className="w-4 h-4" />
-                Export CSV
+                <Icon d={ICONS.download} className={`w-4 h-4 ${exporting ? "animate-pulse" : ""}`} />
+                {exporting ? "Exporting all…" : "Export CSV"}
               </button>
 
               <button

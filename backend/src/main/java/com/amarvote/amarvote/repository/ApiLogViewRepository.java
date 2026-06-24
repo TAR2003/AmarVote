@@ -194,6 +194,129 @@ public class ApiLogViewRepository {
         return jdbc.queryForList(sql, params);
     }
 
+    public List<Map<String, Object>> exportUniqueEmails(
+            String emailFilter, String ipFilter, String pathFilter) {
+        FilterParts filter = buildFilterParts(emailFilter, ipFilter, pathFilter, "l");
+        String sql = """
+                SELECT
+                    a.log_id,
+                    a.request_method,
+                    a.request_path,
+                    a.request_ip,
+                    a.extracted_email,
+                    a.response_status,
+                    a.request_time,
+                    a.response_time
+                FROM (
+                    SELECT DISTINCT ON (LOWER(TRIM(l.extracted_email)))
+                        l.log_id
+                    FROM api_logs l
+                    WHERE l.extracted_email IS NOT NULL AND TRIM(l.extracted_email) <> ''
+                    %s
+                    ORDER BY LOWER(TRIM(l.extracted_email)), l.request_time DESC
+                ) latest
+                JOIN api_logs a ON a.log_id = latest.log_id
+                ORDER BY a.request_time DESC
+                """.formatted(filter.sqlSuffix());
+        return jdbc.queryForList(sql, filter.params());
+    }
+
+    public List<Map<String, Object>> exportUniqueIps(
+            String emailFilter, String ipFilter, String pathFilter) {
+        FilterParts filter = buildFilterParts(emailFilter, ipFilter, pathFilter, "l");
+        String sql = """
+                SELECT
+                    a.log_id,
+                    a.request_method,
+                    a.request_path,
+                    a.request_ip,
+                    a.extracted_email,
+                    a.response_status,
+                    a.request_time,
+                    a.response_time
+                FROM (
+                    SELECT DISTINCT ON (l.request_ip)
+                        l.log_id
+                    FROM api_logs l
+                    WHERE l.request_ip IS NOT NULL AND TRIM(l.request_ip) <> ''
+                    %s
+                    ORDER BY l.request_ip, l.request_time DESC
+                ) latest
+                JOIN api_logs a ON a.log_id = latest.log_id
+                ORDER BY a.request_time DESC
+                """.formatted(filter.sqlSuffix());
+        return jdbc.queryForList(sql, filter.params());
+    }
+
+    public List<Map<String, Object>> exportClusters(
+            String emailFilter, String ipFilter, String pathFilter) {
+        FilterParts filter = buildFilterParts(emailFilter, ipFilter, pathFilter, "l");
+        String whereClause = filter.conditions().isEmpty() ? "" : "WHERE " + String.join(" AND ", filter.conditions());
+        String sql = CLUSTER_CTE.formatted(whereClause) + """
+                SELECT
+                    a.log_id,
+                    a.request_method,
+                    a.request_path,
+                    a.request_ip,
+                    a.extracted_email,
+                    a.response_status,
+                    a.request_time,
+                    a.response_time,
+                    c.cluster_count,
+                    c.cluster_start,
+                    c.cluster_end
+                FROM cluster_agg c
+                JOIN api_logs a ON a.log_id = c.latest_log_id
+                ORDER BY c.cluster_end DESC
+                """;
+        return jdbc.queryForList(sql, filter.params());
+    }
+
+    public List<Map<String, Object>> findAllLogs(
+            String emailFilter,
+            String ipFilter,
+            String pathFilter,
+            String tab,
+            String method,
+            String statusCode,
+            int limit,
+            int offset) {
+        ExportFilterParts filter = buildExportFilterParts(
+                emailFilter, ipFilter, pathFilter, tab, method, statusCode, "l");
+        Map<String, Object> params = new HashMap<>(filter.params());
+        params.put("limit", limit);
+        params.put("offset", offset);
+        String sql = """
+                SELECT
+                    l.log_id,
+                    l.request_method,
+                    l.request_path,
+                    l.request_ip,
+                    l.extracted_email,
+                    l.response_status,
+                    l.request_time,
+                    l.response_time
+                FROM api_logs l
+                %s
+                ORDER BY l.request_time DESC
+                LIMIT :limit OFFSET :offset
+                """.formatted(filter.whereClause());
+        return jdbc.queryForList(sql, params);
+    }
+
+    public long countAllLogs(
+            String emailFilter,
+            String ipFilter,
+            String pathFilter,
+            String tab,
+            String method,
+            String statusCode) {
+        ExportFilterParts filter = buildExportFilterParts(
+                emailFilter, ipFilter, pathFilter, tab, method, statusCode, "l");
+        String sql = "SELECT COUNT(*) FROM api_logs l " + filter.whereClause();
+        return queryForLong(sql, filter.params());
+    }
+
     private long queryForLong(String sql, Map<String, Object> params) {
         Long value = jdbc.queryForObject(sql, params, Long.class);
         return value == null ? 0L : value;
@@ -219,12 +342,66 @@ public class ApiLogViewRepository {
         return new FilterParts(conditions, params);
     }
 
+    private ExportFilterParts buildExportFilterParts(
+            String emailFilter,
+            String ipFilter,
+            String pathFilter,
+            String tab,
+            String method,
+            String statusCode,
+            String alias) {
+        List<String> conditions = new ArrayList<>();
+        Map<String, Object> params = new HashMap<>();
+
+        if (emailFilter != null && !emailFilter.isBlank()) {
+            conditions.add("LOWER(" + alias + ".extracted_email) LIKE LOWER(:emailFilter)");
+            params.put("emailFilter", "%" + emailFilter.trim() + "%");
+        }
+        if (ipFilter != null && !ipFilter.isBlank()) {
+            conditions.add(alias + ".request_ip LIKE :ipFilter");
+            params.put("ipFilter", "%" + ipFilter.trim() + "%");
+        }
+        if (pathFilter != null && !pathFilter.isBlank()) {
+            conditions.add("LOWER(" + alias + ".request_path) LIKE LOWER(:pathFilter)");
+            params.put("pathFilter", "%" + pathFilter.trim() + "%");
+        }
+        if (method != null && !method.isBlank()) {
+            conditions.add(alias + ".request_method = :method");
+            params.put("method", method.trim().toUpperCase());
+        }
+        if (statusCode != null && !statusCode.isBlank()) {
+            conditions.add(alias + ".response_status = :statusCode");
+            params.put("statusCode", Integer.parseInt(statusCode.trim()));
+        }
+
+        String normalizedTab = tab == null ? "all" : tab.trim().toLowerCase();
+        switch (normalizedTab) {
+            case "authenticated" -> conditions.add(
+                    alias + ".extracted_email IS NOT NULL AND TRIM(" + alias + ".extracted_email) <> ''");
+            case "anonymous" -> conditions.add(
+                    "(" + alias + ".extracted_email IS NULL OR TRIM(" + alias + ".extracted_email) = '')");
+            case "invalid" -> conditions.add(alias + ".response_status IN (401, 403)");
+            default -> { /* all */ }
+        }
+
+        return new ExportFilterParts(conditions, params);
+    }
+
     private record FilterParts(List<String> conditions, Map<String, Object> params) {
         String sqlSuffix() {
             if (conditions.isEmpty()) {
                 return "";
             }
             return "AND " + String.join(" AND ", conditions);
+        }
+    }
+
+    private record ExportFilterParts(List<String> conditions, Map<String, Object> params) {
+        String whereClause() {
+            if (conditions.isEmpty()) {
+                return "";
+            }
+            return "WHERE " + String.join(" AND ", conditions);
         }
     }
 }
