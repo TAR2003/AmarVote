@@ -71,6 +71,7 @@ public class TaskWorkerService {
     private final GuardianRepository guardianRepository;
     private final DecryptionTaskQueueService decryptionTaskQueueService;
     private final TallyWorkerLogRepository tallyWorkerLogRepository;
+    private final TallyChunkPersistenceService tallyChunkPersistenceService;
     private final DecryptionWorkerLogRepository decryptionWorkerLogRepository;
     private final CombineWorkerLogRepository combineWorkerLogRepository;
     private final EmailService emailService;
@@ -209,16 +210,23 @@ public class TaskWorkerService {
             if (!"success".equals(guardResponse.getStatus())) {
                 throw new RuntimeException("ElectionGuard service failed: " + guardResponse.getMessage());
             }
-            
-            // Store encrypted tally
-            electionCenter.setEncryptedTally(toJsonString(guardResponse.getCiphertext_tally()));
-            electionCenterRepository.save(electionCenter);
-            
-            // Batch persist — fresh election_center has no prior rows; per-row exists+save starved EG worker
+
+            if (skipIfCancelled(ProcessOperationType.TALLY, task.getElectionId(), null, task.getChunkId())) {
+                System.out.println("⏭️ Tally chunk " + task.getChunkNumber() + " cancelled before persist — skipping results");
+                if (workerLog != null) {
+                    workerLog.setEndTime(LocalDateTime.now());
+                    workerLog.setStatus("CANCELLED");
+                    workerLog.setErrorMessage("Cancelled before results could be saved");
+                    tallyWorkerLogRepository.save(workerLog);
+                }
+                return;
+            }
+
+            Long centerId = electionCenter.getElectionCenterId();
+            List<SubmittedBallot> submittedBallots = new ArrayList<>();
             Object[] submittedBallotRaws = guardResponse.getSubmitted_ballots();
             if (submittedBallotRaws != null && submittedBallotRaws.length > 0) {
-                Long centerId = electionCenter.getElectionCenterId();
-                List<SubmittedBallot> submittedBallots = new ArrayList<>(submittedBallotRaws.length);
+                submittedBallots = new ArrayList<>(submittedBallotRaws.length);
                 for (Object submittedBallotRaw : submittedBallotRaws) {
                     String submittedBallotCipherText = toJsonString(submittedBallotRaw);
                     if (submittedBallotCipherText != null) {
@@ -228,8 +236,13 @@ public class TaskWorkerService {
                             .build());
                     }
                 }
-                submittedBallotRepository.saveAll(submittedBallots);
             }
+
+            tallyChunkPersistenceService.persistTallyResults(
+                centerId,
+                toJsonString(guardResponse.getCiphertext_tally()),
+                submittedBallots
+            );
             
             System.out.println("✅ Chunk " + task.getChunkNumber() + " processing complete");
             

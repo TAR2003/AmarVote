@@ -559,31 +559,34 @@ public class TallyService {
         // Store encrypted tally for this chunk
         String ciphertextTallyJson = toJsonString(guardResponse.getCiphertext_tally());
         electionCenter.setEncryptedTally(ciphertextTallyJson);
-        electionCenterRepository.save(electionCenter);
+        electionCenterRepository.saveAndFlush(electionCenter);
         System.out.println("✅ Encrypted tally saved for chunk " + chunkNumber);
         
         // Save submitted_ballots for this chunk (linked to election_center_id)
         if (guardResponse.getSubmitted_ballots() != null && guardResponse.getSubmitted_ballots().length > 0) {
             System.out.println("Processing " + guardResponse.getSubmitted_ballots().length + " submitted ballots for chunk " + chunkNumber);
             
+            Long centerId = electionCenter.getElectionCenterId();
+            List<SubmittedBallot> submittedBallots = new ArrayList<>();
             int savedCount = 0;
             for (Object submittedBallotRaw : guardResponse.getSubmitted_ballots()) {
                 try {
                     String submittedBallotCipherText = toJsonString(submittedBallotRaw);
                     if (submittedBallotCipherText != null &&
                             !submittedBallotRepository.existsByElectionCenterIdAndCipherText(
-                            electionCenter.getElectionCenterId(), submittedBallotCipherText)) {
-                        SubmittedBallot submittedBallot = SubmittedBallot.builder()
-                            .electionCenterId(electionCenter.getElectionCenterId())
+                            centerId, submittedBallotCipherText)) {
+                        submittedBallots.add(SubmittedBallot.builder()
+                            .electionCenterId(centerId)
                             .cipherText(submittedBallotCipherText)
-                            .build();
-                        
-                        submittedBallotRepository.save(submittedBallot);
+                            .build());
                         savedCount++;
                     }
                 } catch (Exception e) {
-                    System.err.println("Error saving submitted ballot for chunk " + chunkNumber + ": " + e.getMessage());
+                    System.err.println("Error preparing submitted ballot for chunk " + chunkNumber + ": " + e.getMessage());
                 }
+            }
+            if (!submittedBallots.isEmpty()) {
+                submittedBallotRepository.saveAll(submittedBallots);
             }
             
             System.out.println("✅ Saved " + savedCount + " submitted ballots for chunk " + chunkNumber);
