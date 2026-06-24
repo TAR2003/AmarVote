@@ -13,3 +13,5 @@ python-dotenv
 pqcrypto
 psycopg2-binary
 msgpack
+# Required at runtime: electionguard_tools/__init__.py imports factories/strategies (hypothesis-based)
+hypothesis
