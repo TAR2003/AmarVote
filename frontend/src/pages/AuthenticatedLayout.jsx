@@ -41,6 +41,8 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
     return location.pathname === path;
   };
 
+  const isWidePage = location.pathname === "/api-logs" || location.pathname === "/authenticated-users";
+
   const closeMobileMenu = () => {
     setMobileMenuOpen(false);
     setShowGuardianAttention(false);
@@ -694,7 +696,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto focus:outline-none">
-        <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8 py-4 sm:py-8 pb-24 md:pb-8">
+        <div className={`${isWidePage ? "max-w-[min(1920px,99vw)]" : "max-w-7xl"} mx-auto ${isWidePage ? "px-2 sm:px-4 lg:px-5" : "px-3 sm:px-6 lg:px-8"} py-4 sm:py-8 pb-24 md:pb-8`}>
           <Outlet />
         </div>
       </main>

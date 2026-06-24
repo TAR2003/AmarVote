@@ -416,8 +416,8 @@ export default function ApiLogs() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 py-6 px-4 sm:px-6 lg:px-8">
-        <div className="max-w-[1700px] mx-auto space-y-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 py-4 sm:py-6">
+        <div className="w-full mx-auto space-y-6">
 
           {/* Header */}
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -865,7 +865,7 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
 
   return (
     <div className="overflow-x-auto">
-      <table className="min-w-full">
+      <table className="min-w-[1280px] w-full">
         <thead className="bg-gradient-to-r from-gray-50 to-slate-50 border-b-2 border-gray-200">
           <tr>
             <th className="px-4 py-3.5 text-left text-xs font-bold text-gray-600 uppercase tracking-wide w-10">
@@ -905,8 +905,8 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className={`px-2.5 py-1 text-xs font-bold rounded-full ring-1 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
               </td>
-              <td className="px-4 py-3 max-w-xs">
-                <span className="text-xs font-mono bg-slate-100 text-slate-700 px-2 py-1 rounded truncate block">{log.requestPath}</span>
+              <td className="px-4 py-3 min-w-[320px] max-w-lg">
+                <span className="text-xs font-mono bg-slate-100 text-slate-700 px-2 py-1 rounded break-all">{log.requestPath}</span>
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
@@ -918,7 +918,7 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
                     <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
                       <Icon d={ICONS.user} className="w-3 h-3 text-blue-600" />
                     </div>
-                    <span className="text-xs text-slate-800 font-medium max-w-[180px] truncate">{log.extractedEmail}</span>
+                    <span className="text-xs text-slate-800 font-medium max-w-[280px] truncate">{log.extractedEmail}</span>
                   </div>
                 ) : (
                   <span className="text-xs text-gray-400 italic">Anonymous</span>
@@ -1044,7 +1044,7 @@ function LogDetailModal({ log, onClose }) {
   const invalid = isInvalidToken(log);
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-2xl max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         <div className={`px-6 py-5 flex items-center justify-between flex-shrink-0 ${invalid ? "bg-gradient-to-r from-rose-600 to-red-600" : "bg-gradient-to-r from-blue-600 to-indigo-600"}`}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
