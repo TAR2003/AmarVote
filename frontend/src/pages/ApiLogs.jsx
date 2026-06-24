@@ -60,15 +60,28 @@ function isInvalidToken(log) {
   return log.responseStatus === 401 || log.responseStatus === 403;
 }
 
+const SERVER_VIEW_TABS = new Set(["unique-email", "unique-ip", "clusters"]);
+const PAGE_SIZE_OPTIONS = [25, 50, 100, 200];
+
+function getApiViewForTab(activeTab) {
+  return SERVER_VIEW_TABS.has(activeTab) ? activeTab : "all";
+}
+
 export default function ApiLogs() {
   const [logs, setLogs]             = useState([]);
   const [stats, setStats]           = useState({ totalLogs: 0, errorLogs: 0 });
   const [loading, setLoading]       = useState(true);
   const [error, setError]           = useState(null);
   const [page, setPage]             = useState(0);
+  const [pageSize, setPageSize]     = useState(50);
   const [totalElements, setTotalElements] = useState(0);
   const [hasNext, setHasNext]       = useState(false);
   const [activeTab, setActiveTab]   = useState("all");
+  const [tabTotals, setTabTotals]   = useState({
+    "unique-email": null,
+    "unique-ip": null,
+    clusters: null,
+  });
 
   const [searchType, setSearchType] = useState("email");
   const [searchValue, setSearchValue] = useState("");
@@ -132,19 +145,20 @@ export default function ApiLogs() {
       refreshTimer.current = setInterval(() => { fetchLogs(); fetchStats(); }, refreshInterval * 1000);
     }
     return () => { if (refreshTimer.current) clearInterval(refreshTimer.current); };
-  }, [accessAllowed, autoRefresh, refreshInterval, page, appliedSearch, sortBy, sortOrder]);
+  }, [accessAllowed, autoRefresh, refreshInterval, page, pageSize, activeTab, appliedSearch, sortBy, sortOrder]);
 
   useEffect(() => {
     if (!accessAllowed) return;
     fetchLogs();
     fetchStats();
-  }, [accessAllowed, page, appliedSearch, sortBy, sortOrder]);
+  }, [accessAllowed, page, pageSize, activeTab, appliedSearch, sortBy, sortOrder]);
 
   async function fetchLogs() {
     setLoading(true);
     setError(null);
     try {
-      let url = `/api/admin/logs?page=${page}&size=50`;
+      const apiView = getApiViewForTab(activeTab);
+      let url = `/api/admin/logs?page=${page}&size=${pageSize}&view=${encodeURIComponent(apiView)}`;
       const value = appliedSearch.value?.trim();
       if (value) {
         if (appliedSearch.type === "email") url += `&email=${encodeURIComponent(value)}`;
@@ -167,9 +181,14 @@ export default function ApiLogs() {
       }
 
       setLogs(fetched);
-      setTotalElements(data.totalElements ?? 0);
+      const total = data.totalElements ?? 0;
+      setTotalElements(total);
       setHasNext(data.last === false);
       setSelectedLogIds(new Set());
+
+      if (SERVER_VIEW_TABS.has(activeTab)) {
+        setTabTotals((prev) => ({ ...prev, [activeTab]: total }));
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -202,9 +221,22 @@ export default function ApiLogs() {
       case "authenticated": return authenticatedLogs;
       case "anonymous":     return anonymousLogs;
       case "invalid":       return invalidLogs;
+      case "unique-email":
+      case "unique-ip":
+      case "clusters":      return logs;
       default:              return logs;
     }
   }, [activeTab, logs, authenticatedLogs, anonymousLogs, invalidLogs]);
+
+  function handleTabChange(tabId) {
+    setPage(0);
+    setActiveTab(tabId);
+  }
+
+  function handlePageSizeChange(nextSize) {
+    setPage(0);
+    setPageSize(Number(nextSize));
+  }
 
   function handleFilterChange(f, v) { setFilters(p => ({ ...p, [f]: v })); }
   function handleApplySearch(e) {
@@ -263,21 +295,44 @@ export default function ApiLogs() {
     }
   }
 
-  const rangeStart = totalElements === 0 ? 0 : page * 50 + 1;
-  const rangeEnd = Math.min((page + 1) * 50, totalElements);
+  const rangeStart = totalElements === 0 ? 0 : page * pageSize + 1;
+  const rangeEnd = Math.min((page + 1) * pageSize, totalElements);
+
+  function getTabCount(tabId) {
+    if (SERVER_VIEW_TABS.has(tabId)) {
+      if (activeTab === tabId) return totalElements;
+      return tabTotals[tabId] ?? "—";
+    }
+    switch (tabId) {
+      case "authenticated": return authenticatedLogs.length;
+      case "anonymous": return anonymousLogs.length;
+      case "invalid": return invalidLogs.length;
+      case "all":
+        return SERVER_VIEW_TABS.has(activeTab) ? stats.totalLogs : totalElements;
+      default: return logs.length;
+    }
+  }
 
   function exportToCSV() {
-    const headers = ["Time", "Method", "Path", "Status", "IP", "Email", "Response Time", "Token Status"];
-    const rows = displayedLogs.map(l => [
-      formatDate(l.requestTime),
-      l.requestMethod,
-      l.requestPath,
-      l.responseStatus || "N/A",
-      l.requestIp || "N/A",
-      l.extractedEmail || "Anonymous",
-      l.responseTime ? `${l.responseTime}ms` : "-",
-      isInvalidToken(l) ? "INVALID/EXPIRED" : "OK"
-    ]);
+    const headers = activeTab === "clusters"
+      ? ["Time", "Method", "Path", "Status", "IP", "Email", "Response Time", "Token Status", "Cluster Requests", "Cluster Started"]
+      : ["Time", "Method", "Path", "Status", "IP", "Email", "Response Time", "Token Status"];
+    const rows = displayedLogs.map(l => {
+      const base = [
+        formatDate(l.requestTime),
+        l.requestMethod,
+        l.requestPath,
+        l.responseStatus || "N/A",
+        l.requestIp || "N/A",
+        l.extractedEmail || "Anonymous",
+        l.responseTime ? `${l.responseTime}ms` : "-",
+        isInvalidToken(l) ? "INVALID/EXPIRED" : "OK",
+      ];
+      if (activeTab === "clusters") {
+        base.push(String(l.clusterCount || 1), formatDate(l.clusterStart));
+      }
+      return base;
+    });
     const csv = [headers, ...rows].map(r => r.map(c => `"${c}"`).join(",")).join("\n");
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv" }));
@@ -289,10 +344,13 @@ export default function ApiLogs() {
     + (appliedSearch.value ? 1 : 0);
 
   const TABS = [
-    { id: "all",           label: "All Requests",    icon: ICONS.chart,   count: logs.length,             color: "blue",    desc: "Every API call logged" },
-    { id: "authenticated", label: "With Email",       icon: ICONS.mail,    count: authenticatedLogs.length, color: "emerald", desc: "Requests from identified users" },
-    { id: "anonymous",     label: "Anonymous",        icon: ICONS.user,    count: anonymousLogs.length,     color: "amber",   desc: "Requests without user identity" },
-    { id: "invalid",       label: "Invalid / Expired",icon: ICONS.ban,     count: invalidLogs.length,       color: "rose",    desc: "401/403 — token invalid or expired" },
+    { id: "all",           label: "All Requests",    icon: ICONS.chart,   color: "blue",    desc: "Every API call logged" },
+    { id: "authenticated", label: "With Email",       icon: ICONS.mail,    color: "emerald", desc: "Requests from identified users" },
+    { id: "anonymous",     label: "Anonymous",        icon: ICONS.user,    color: "amber",   desc: "Requests without user identity" },
+    { id: "invalid",       label: "Invalid / Expired",icon: ICONS.ban,     color: "rose",    desc: "401/403 — token invalid or expired" },
+    { id: "unique-email",  label: "Unique Email",     icon: ICONS.mail,    color: "indigo",  desc: "Latest request per email, paginated across all logs" },
+    { id: "unique-ip",     label: "Unique IP",        icon: ICONS.globe,   color: "cyan",    desc: "Latest request per IP, paginated across all logs" },
+    { id: "clusters",      label: "Clusters",         icon: ICONS.shield,  color: "violet",  desc: "Visit sessions grouped by IP + email" },
   ];
 
   const TAB_COLOR_MAP = {
@@ -300,6 +358,9 @@ export default function ApiLogs() {
     emerald: { active: "bg-emerald-600 text-white shadow-emerald-200",inactive: "text-emerald-700 hover:bg-emerald-50",badge: "bg-emerald-100 text-emerald-700" },
     amber:   { active: "bg-amber-500 text-white shadow-amber-200",   inactive: "text-amber-700 hover:bg-amber-50",   badge: "bg-amber-100 text-amber-700" },
     rose:    { active: "bg-rose-600 text-white shadow-rose-200",     inactive: "text-rose-600 hover:bg-rose-50",     badge: "bg-rose-100 text-rose-700" },
+    indigo:  { active: "bg-indigo-600 text-white shadow-indigo-200", inactive: "text-indigo-700 hover:bg-indigo-50", badge: "bg-indigo-100 text-indigo-700" },
+    cyan:    { active: "bg-cyan-600 text-white shadow-cyan-200",     inactive: "text-cyan-700 hover:bg-cyan-50",     badge: "bg-cyan-100 text-cyan-700" },
+    violet:  { active: "bg-violet-600 text-white shadow-violet-200", inactive: "text-violet-700 hover:bg-violet-50", badge: "bg-violet-100 text-violet-700" },
   };
 
   const statCards = [
@@ -420,14 +481,14 @@ export default function ApiLogs() {
               return (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
+                  onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex-1 min-w-[130px] justify-center
                     ${isActive ? `${colors.active} shadow-md` : `text-gray-500 ${colors.inactive}`}`}
                 >
                   <Icon d={tab.icon} className="w-4 h-4 flex-shrink-0" />
                   <span className="whitespace-nowrap">{tab.label}</span>
                   <span className={`px-2 py-0.5 rounded-full text-xs font-bold ml-1 ${isActive ? "bg-white/25 text-white" : colors.badge}`}>
-                    {tab.count}
+                    {typeof getTabCount(tab.id) === "number" ? getTabCount(tab.id).toLocaleString() : getTabCount(tab.id)}
                   </span>
                 </button>
               );
@@ -471,6 +532,48 @@ export default function ApiLogs() {
                 <p className="text-sm font-semibold text-amber-800">Anonymous Requests</p>
                 <p className="text-xs text-amber-600 mt-0.5">
                   Requests with no user identity — unauthenticated calls, public endpoints, or requests with missing tokens.
+                </p>
+              </div>
+            </div>
+          )}
+          {activeTab === "unique-email" && (
+            <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon d={ICONS.mail} className="w-4 h-4 text-indigo-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-indigo-800">Unique Email View</p>
+                <p className="text-xs text-indigo-600 mt-0.5">
+                  Shows the <strong>latest request per email</strong> across the full log database.
+                  Each page contains up to {pageSize} unique emails.
+                </p>
+              </div>
+            </div>
+          )}
+          {activeTab === "unique-ip" && (
+            <div className="flex items-start gap-3 bg-cyan-50 border border-cyan-200 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-cyan-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon d={ICONS.globe} className="w-4 h-4 text-cyan-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-cyan-800">Unique IP View</p>
+                <p className="text-xs text-cyan-600 mt-0.5">
+                  Shows the <strong>latest request per IP address</strong> across the full log database.
+                  Each page contains up to {pageSize} unique IPs.
+                </p>
+              </div>
+            </div>
+          )}
+          {activeTab === "clusters" && (
+            <div className="flex items-start gap-3 bg-violet-50 border border-violet-200 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-violet-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon d={ICONS.shield} className="w-4 h-4 text-violet-600" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-violet-800">Visit Clusters</p>
+                <p className="text-xs text-violet-600 mt-0.5">
+                  Groups requests from the same <strong>IP + email</strong> into visit sessions across the full log database.
+                  A new cluster starts after 30 minutes of inactivity. Each page contains up to {pageSize} clusters.
                 </p>
               </div>
             </div>
@@ -625,6 +728,7 @@ export default function ApiLogs() {
                   ({TABS.find(t => t.id === activeTab)?.label})
                 </span>
               )}
+              <span className="text-xs text-gray-400 ml-2">· {pageSize} per page</span>
             </p>
           </div>
 
@@ -659,36 +763,51 @@ export default function ApiLogs() {
                 onToggleSelectAll={toggleSelectAllLogs}
                 allSelected={allDisplayedSelected}
                 deleting={deleting}
+                showClusterInfo={activeTab === "clusters"}
               />
             ) : viewMode === "cards" ? (
               <div className="p-5 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-                {displayedLogs.map(log => <LogCard key={log.logId} log={log} onSelect={setSelectedLog} />)}
+                {displayedLogs.map(log => <LogCard key={log.logId} log={log} onSelect={setSelectedLog} showClusterInfo={activeTab === "clusters"} />)}
               </div>
             ) : (
               <div className="divide-y divide-gray-100">
-                {displayedLogs.map(log => <CompactRow key={log.logId} log={log} onSelect={setSelectedLog} />)}
+                {displayedLogs.map(log => <CompactRow key={log.logId} log={log} onSelect={setSelectedLog} showClusterInfo={activeTab === "clusters"} />)}
               </div>
             )}
 
             {!loading && displayedLogs.length > 0 && (
-              <div className="border-t border-gray-100 px-5 py-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-gray-50/60">
-                <p className="text-sm text-gray-600">
-                  Showing {rangeStart}–{rangeEnd} of {totalElements.toLocaleString()}
-                </p>
+              <div className="border-t border-gray-100 px-5 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-gray-50/60">
+                <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                  <p className="text-sm text-gray-600">
+                    Showing {rangeStart}–{rangeEnd} of {totalElements.toLocaleString()}
+                  </p>
+                  <label className="flex items-center gap-2 text-sm text-gray-700">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Per page</span>
+                    <select
+                      value={pageSize}
+                      onChange={(e) => handlePageSizeChange(e.target.value)}
+                      className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      {PAGE_SIZE_OPTIONS.map((size) => (
+                        <option key={size} value={size}>{size}</option>
+                      ))}
+                    </select>
+                  </label>
+                </div>
                 <div className="flex gap-2">
                   <button
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                     disabled={page === 0 || loading}
                     className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                   >
-                    ← Previous 50
+                    ← Previous {pageSize}
                   </button>
                   <button
                     onClick={() => setPage((p) => p + 1)}
                     disabled={!hasNext || loading}
                     className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
                   >
-                    Next 50 →
+                    Next {pageSize} →
                   </button>
                 </div>
               </div>
@@ -703,7 +822,16 @@ export default function ApiLogs() {
   );
 }
 
-function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selectedLogIds, onToggleSelect, onToggleSelectAll, allSelected, deleting }) {
+function ClusterBadge({ log }) {
+  if (!log?.clusterCount || log.clusterCount <= 1) return null;
+  return (
+    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">
+      {log.clusterCount} requests
+    </span>
+  );
+}
+
+function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selectedLogIds, onToggleSelect, onToggleSelectAll, allSelected, deleting, showClusterInfo = false }) {
   const SortIcon = ({ field }) => sortBy === field ? (
     <span className="text-blue-500 font-bold text-base"> {sortOrder === "asc" ? "↑" : "↓"}</span>
   ) : null;
@@ -738,6 +866,7 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
             <Th field="responseStatus">Status</Th>
             <Th>IP Address</Th>
             <Th>Email</Th>
+            {showClusterInfo && <Th>Cluster</Th>}
             {activeTab === "invalid" && <Th>Token Status</Th>}
             <Th field="responseTime">Resp. Time</Th>
             <Th>Details</Th>
@@ -778,6 +907,12 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
                   <span className="text-xs text-gray-400 italic">Anonymous</span>
                 )}
               </td>
+              {showClusterInfo && (
+                <td className="px-4 py-3 whitespace-nowrap">
+                  <ClusterBadge log={log} />
+                  {!log.isCluster && <span className="text-xs text-gray-400">Single</span>}
+                </td>
+              )}
               {activeTab === "invalid" && (
                 <td className="px-4 py-3 whitespace-nowrap">
                   {isInvalidToken(log) ? (
@@ -807,7 +942,7 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
   );
 }
 
-function LogCard({ log, onSelect }) {
+function LogCard({ log, onSelect, showClusterInfo = false }) {
   const invalid = isInvalidToken(log);
   return (
     <div
@@ -815,9 +950,12 @@ function LogCard({ log, onSelect }) {
       className={`rounded-2xl border-2 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5
         ${invalid ? "border-rose-200 bg-rose-50/40 hover:border-rose-400" : "border-gray-100 bg-white hover:border-blue-300"}`}
     >
-      <div className="flex items-center justify-between mb-3">
+      <div className="flex items-center justify-between mb-3 gap-2">
         <span className={`px-2.5 py-1 text-xs font-bold rounded-full ring-1 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
-        <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
+        <div className="flex items-center gap-2">
+          {showClusterInfo && <ClusterBadge log={log} />}
+          <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
+        </div>
       </div>
       <div className="bg-gray-50 rounded-lg px-3 py-2 mb-3">
         <p className="text-xs font-mono text-slate-700 truncate">{log.requestPath}</p>
@@ -860,7 +998,7 @@ function LogCard({ log, onSelect }) {
   );
 }
 
-function CompactRow({ log, onSelect }) {
+function CompactRow({ log, onSelect, showClusterInfo = false }) {
   const invalid = isInvalidToken(log);
   return (
     <div
@@ -870,6 +1008,7 @@ function CompactRow({ log, onSelect }) {
     >
       <span className={`px-2 py-0.5 text-xs font-bold rounded ring-1 flex-shrink-0 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
       <span className="text-xs font-mono text-slate-700 flex-1 truncate">{log.requestPath}</span>
+      {showClusterInfo && <ClusterBadge log={log} />}
       {log.extractedEmail && (
         <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full hidden sm:block max-w-[180px] truncate">{log.extractedEmail}</span>
       )}
@@ -995,6 +1134,24 @@ function LogDetailModal({ log, onClose }) {
               <p className="text-sm text-slate-700 font-medium">{formatDate(log.requestTime)}</p>
             </div>
           </div>
+
+          {log.clusterCount > 1 && (
+            <div>
+              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Visit Cluster</p>
+              <div className="bg-violet-50 border border-violet-200 rounded-2xl p-4 space-y-2">
+                <p className="text-sm font-bold text-violet-800">{log.clusterCount} requests in this visit</p>
+                <p className="text-xs text-violet-700">
+                  Started: {formatDate(log.clusterStart)}
+                </p>
+                <p className="text-xs text-violet-700">
+                  Latest: {formatDate(log.clusterEnd || log.requestTime)}
+                </p>
+                <p className="text-xs text-violet-600">
+                  Grouped by matching IP and email with up to 30 minutes between requests.
+                </p>
+              </div>
+            </div>
+          )}
 
           <div>
             <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Log ID</p>

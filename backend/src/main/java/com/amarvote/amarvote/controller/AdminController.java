@@ -4,7 +4,6 @@ import java.util.HashMap;
 import java.util.Map;
 
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.data.domain.Page;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
@@ -18,7 +17,6 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import com.amarvote.amarvote.dto.BulkDeleteRequestDto;
-import com.amarvote.amarvote.model.ApiLog;
 import com.amarvote.amarvote.service.ApiLogService;
 import com.amarvote.amarvote.service.AuthorizedUserService;
 
@@ -58,6 +56,7 @@ public class AdminController {
     public ResponseEntity<?> getApiLogs(
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "50") int size,
+            @RequestParam(defaultValue = "all") String view,
             @RequestParam(required = false) String email,
             @RequestParam(required = false) String ip,
             @RequestParam(required = false) String path) {
@@ -72,19 +71,7 @@ public class AdminController {
                     .body("Access denied. You are not allowed to view API logs.");
         }
 
-        // Get logs based on filters
-        Page<ApiLog> logs;
-        if (email != null && !email.isEmpty()) {
-            logs = apiLogService.getLogsByEmail(email, page, size);
-        } else if (ip != null && !ip.isEmpty()) {
-            logs = apiLogService.getLogsByIp(ip, page, size);
-        } else if (path != null && !path.isEmpty()) {
-            logs = apiLogService.getLogsByPath(path, page, size);
-        } else {
-            logs = apiLogService.getAllLogs(page, size);
-        }
-        
-        return ResponseEntity.ok(logs);
+        return ResponseEntity.ok(apiLogService.getLogs(view, page, size, email, ip, path));
     }
 
     /**
