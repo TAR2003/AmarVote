@@ -60,9 +60,11 @@ services:
       - .env
     environment:
       - REDIS_PASSWORD=${REDIS_PASSWORD}
-    # maxmemory must stay below container limit (96M)
-    # --ignore-warnings: vm.overcommit_memory is set in scripts/vm-deploy.sh on the host
-    command: redis-server --save "" --maxmemory 64mb --maxmemory-policy allkeys-lru --maxclients 2000 --requirepass ${REDIS_PASSWORD} --ignore-warnings
+    # maxmemory must stay below container limit (96M); vm.overcommit_memory set in vm-deploy.sh
+    command:
+      - sh
+      - -c
+      - redis-server /usr/local/etc/redis/redis.prod.conf --requirepass "$$REDIS_PASSWORD"
     ports:
       - "127.0.0.1:6379:6379"   # Bound to localhost only — use SSH tunnel to access
     networks:
@@ -72,9 +74,11 @@ services:
       test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
       interval: 10s
       timeout: 3s
-      retries: 3
+      retries: 5
+      start_period: 10s
     volumes:
       - redis_data:/data
+      - ./redis.prod.conf:/usr/local/etc/redis/redis.prod.conf:ro
     deploy:
       resources:
         limits:

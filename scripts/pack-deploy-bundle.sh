@@ -9,6 +9,7 @@ cd "$ROOT"
 
 tar czf "$OUT" \
   docker-compose.prod.yml \
+  redis.prod.conf \
   nginx-proxy.conf \
   nginx-cloudflare-realip.conf \
   rabbitmq.conf \

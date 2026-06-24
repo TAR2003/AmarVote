@@ -35,6 +35,21 @@ echo "Deploying image tag: ${IMAGE_TAG}"
 # Recreate only services whose image or config changed (no on-VM build).
 "${COMPOSE[@]}" up -d --remove-orphans --no-build
 
+# Redis must be healthy before backend (depends_on). Fail fast if still broken.
+redis_health="$(docker inspect --format='{{.State.Health.Status}}' amarvote_redis 2>/dev/null || echo missing)"
+if [ "${redis_health}" != "healthy" ]; then
+  for _ in $(seq 1 30); do
+    redis_health="$(docker inspect --format='{{.State.Health.Status}}' amarvote_redis 2>/dev/null || echo missing)"
+    [ "${redis_health}" = "healthy" ] && break
+    sleep 1
+  done
+fi
+if [ "${redis_health}" != "healthy" ]; then
+  echo "Error: redis is not healthy (status=${redis_health})"
+  "${COMPOSE[@]}" logs --tail 30 redis || true
+  exit 1
+fi
+
 # Drop dangling layers only; keep tagged images for instant rollback.
 docker image prune -f
 
