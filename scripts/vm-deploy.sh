@@ -7,7 +7,7 @@ cd ~/app
 
 IMAGE_TAG="${IMAGE_TAG:-main}"
 export IMAGE_TAG
-export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-4}"
+export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-1}"
 
 COMPOSE=(docker compose --env-file .env -f docker-compose.prod.yml)
 
