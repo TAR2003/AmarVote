@@ -9,7 +9,7 @@ import msgpack
 from datetime import datetime
 from dotenv import load_dotenv
 
-# pip install psycopg2-binary requests msgpack python-dotenv
+# pip install psycopg2-binary requests msgpack python-dotenv 
 
 # ---------- Run configuration ----------
 ELECTION_ID = 8
