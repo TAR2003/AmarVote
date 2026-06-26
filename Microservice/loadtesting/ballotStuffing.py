@@ -12,7 +12,7 @@ from dotenv import load_dotenv
 # pip install psycopg2-binary requests msgpack python-dotenv 
 
 # ---------- Run configuration ----------
-ELECTION_ID = 8
+ELECTION_ID = 9
 NUM_BALLOTS = 10000
 
 # Load project .env (AmarVote/.env) so credentials match docker-compose.

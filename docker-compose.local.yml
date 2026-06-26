@@ -151,7 +151,7 @@ services:
       - ELECTIONGUARD_API_URL=http://electionguard-api:5000
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
       - ELECTIONGUARD_API_GUNICORN_WORKERS=6
-      - ELECTIONGUARD_WORKER_GUNICORN_WORKERS=6
+      - ELECTIONGUARD_WORKER_GUNICORN_WORKERS=1
       # Match prod JVM sizing (1792M container — Xmx896m + 384m metaspace)
       - JAVA_OPTS=-Xms384m -Xmx896m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=384m -XX:MaxDirectMemorySize=256m
     volumes:
@@ -264,7 +264,7 @@ services:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
       - ELECTIONGUARD_INTERNAL_API_KEY=${ELECTIONGUARD_INTERNAL_API_KEY}
-      - GUNICORN_WORKERS=2
+      - GUNICORN_WORKERS=1
       - GUNICORN_THREADS=1
       - GUNICORN_MAX_REQUESTS=5000
       - GUNICORN_MAX_REQUESTS_JITTER=40
@@ -273,7 +273,7 @@ services:
     deploy:
       resources:
         limits:
-          memory: 320M
+          memory: 512M
 
   prometheus:
     image: prom/prometheus:latest
