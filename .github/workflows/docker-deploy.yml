@@ -1,5 +1,5 @@
-# Build images in GitHub Actions, push to GHCR, then pull + swap on the VM.
-# Requires repo secret GHCR_READ_TOKEN (classic PAT with read:packages) for VM docker login.
+# Build images in GitHub Actions, push to GHCR, stream to VM over SSH, then swap containers.
+# VM does not pull from GHCR (unreliable on lossy links). GHCR_READ_TOKEN is no longer required.
 # Server .env stays at ~/.env — copied to ~/app/.env each deploy (not from git).
 
 name: Deploy to VM
@@ -67,6 +67,9 @@ jobs:
     name: Deploy to VM
     needs: build-and-push
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: read
 
     steps:
       - name: Checkout code
@@ -101,14 +104,24 @@ jobs:
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
           "cp ~/.env ~/app/.env && echo '✅ .env copied'"
 
-      - name: Log in to GHCR on VM
+      - name: Log in to GHCR on runner
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Stream images to VM over SSH
         env:
-          GHCR_READ_TOKEN: ${{ secrets.GHCR_READ_TOKEN }}
+          REGISTRY: ${{ env.REGISTRY }}
+          IMAGE_OWNER: ${{ env.IMAGE_OWNER }}
+          IMAGE_TAG: ${{ github.sha }}
+          VM_HOST: ${{ secrets.VM_HOST }}
+          VM_USERNAME: ${{ secrets.VM_USERNAME }}
+          VM_SECRET: ${{ secrets.VM_SECRET }}
         run: |
-          sshpass -p "${{ secrets.VM_SECRET }}" ssh \
-          -o StrictHostKeyChecking=no \
-          ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "echo '${GHCR_READ_TOKEN}' | docker login ${{ env.REGISTRY }} -u ${{ env.IMAGE_OWNER }} --password-stdin"
+          chmod +x scripts/gha-sync-images-to-vm.sh
+          scripts/gha-sync-images-to-vm.sh
 
       - name: Deploy pre-built images
         run: |
@@ -117,7 +130,7 @@ jobs:
           -o ServerAliveInterval=60 \
           -o ServerAliveCountMax=10 \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "export IMAGE_TAG='${{ github.sha }}' && ~/app/scripts/vm-deploy.sh"
+          "export IMAGE_TAG='${{ github.sha }}' SKIP_PULL=1 && ~/app/scripts/vm-deploy.sh"
 
       - name: Verify deployment
         run: |

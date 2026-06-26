@@ -1,5 +1,7 @@
 #!/usr/bin/env bash
-# Production deploy: pull pre-built images (built in GitHub Actions), then swap containers.
+# Production deploy: use pre-built images (built in GitHub Actions), then swap containers.
+# Images are streamed to the VM over SSH during CI (SKIP_PULL=1). Set SKIP_PULL=0 to pull
+# from the registry on the VM instead (e.g. manual deploy with stable registry access).
 # Old containers keep serving until "up" recreates them — minimal downtime.
 set -euo pipefail
 
@@ -27,10 +29,16 @@ fi
 
 APP_SERVICES=(backend frontend electionguard-api electionguard-worker)
 
+SKIP_PULL="${SKIP_PULL:-1}"
+
 echo "Deploying image tag: ${IMAGE_TAG}"
 
-# Pull while current containers are still running (parallel layer downloads).
-"${COMPOSE[@]}" pull --quiet "${APP_SERVICES[@]}"
+if [ "${SKIP_PULL}" = "1" ]; then
+  echo "Skipping registry pull (images pre-loaded on VM)"
+else
+  # Pull while current containers are still running.
+  "${COMPOSE[@]}" pull --quiet "${APP_SERVICES[@]}"
+fi
 
 # Recreate only services whose image or config changed (no on-VM build).
 "${COMPOSE[@]}" up -d --remove-orphans --no-build
