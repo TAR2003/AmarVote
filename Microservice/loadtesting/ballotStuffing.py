@@ -1,11 +1,45 @@
+import os
+from pathlib import Path
+
 import psycopg2
 from psycopg2.extras import RealDictCursor, execute_batch
 import requests
 import json
 import msgpack
 from datetime import datetime
+from dotenv import load_dotenv
 
-# pip install psycopg2-binary requests msgpack
+# pip install psycopg2-binary requests msgpack python-dotenv
+
+# ---------- Run configuration ----------
+ELECTION_ID = 8
+NUM_BALLOTS = 10000
+
+# Load project .env (AmarVote/.env) so credentials match docker-compose.
+load_dotenv(Path(__file__).resolve().parents[2] / ".env")
+
+# Postgres is not published to localhost in docker-compose; use the Docker network IP
+# when running this script on the host. DB_HOST=postgres in .env is for containers only.
+DB_CONFIG = {
+    "database": os.getenv("POSTGRES_DB", "amarvote_db"),
+    "user": os.getenv("POSTGRES_USER", "amarvote_user"),
+    "password": os.getenv("POSTGRES_PASSWORD", ""),
+    "host": os.getenv("LOADTEST_DB_HOST", "172.20.0.20"),
+    "port": os.getenv("LOADTEST_DB_PORT", os.getenv("DB_PORT", "5432")),
+}
+
+ELECTIONGUARD_API_URL = os.getenv(
+    "LOADTEST_ELECTIONGUARD_API_URL",
+    "http://172.20.0.10:5000/create_encrypted_ballot",
+)
+ELECTIONGUARD_INTERNAL_API_KEY = os.getenv("ELECTIONGUARD_INTERNAL_API_KEY", "")
+
+
+def get_db_connection():
+    if not DB_CONFIG["password"]:
+        raise ValueError("POSTGRES_PASSWORD is not set (check AmarVote/.env)")
+    return psycopg2.connect(**DB_CONFIG)
+
 
 def get_election_by_id(election_id):
     """
@@ -18,14 +52,7 @@ def get_election_by_id(election_id):
         dict: Election data as dictionary, or None if not found
     """
     try:
-        connection = psycopg2.connect(
-            database="amarvote_db",
-            user="amarvote_user",
-            password="amarvote_password",
-            host="localhost",
-            port="5432"
-        )
-        
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=RealDictCursor)
         
         query = "SELECT * FROM elections WHERE election_id = %s"
@@ -58,14 +85,7 @@ def get_election_choices(election_id):
         list: List of choice dictionaries, or empty list if error
     """
     try:
-        connection = psycopg2.connect(
-            database="amarvote_db",
-            user="amarvote_user",
-            password="amarvote_password",
-            host="localhost",
-            port="5432"
-        )
-        
+        connection = get_db_connection()
         cursor = connection.cursor(cursor_factory=RealDictCursor)
         
         query = "SELECT * FROM election_choices WHERE election_id = %s ORDER BY choice_id"
@@ -83,7 +103,7 @@ def get_election_choices(election_id):
         return []
 
 
-def create_encrypted_ballot(ballot_data, api_url="http://localhost:5000/create_encrypted_ballot"):
+def create_encrypted_ballot(ballot_data, api_url=ELECTIONGUARD_API_URL):
     """
     Call the ElectionGuard API to create an encrypted ballot.
 
@@ -107,6 +127,8 @@ def create_encrypted_ballot(ballot_data, api_url="http://localhost:5000/create_e
     """
     try:
         headers = {'Content-Type': 'application/json'}
+        if ELECTIONGUARD_INTERNAL_API_KEY:
+            headers['X-ElectionGuard-Internal-Key'] = ELECTIONGUARD_INTERNAL_API_KEY
         response = requests.post(api_url, json=ballot_data, headers=headers, timeout=300)
 
         if response.status_code == 200:
@@ -148,15 +170,9 @@ def add_ballot_to_db(election_id, ballot_id, ballot_hash, cipher_text, user_emai
     Returns:
         bool: True if successful, False otherwise
     """
+    connection = None
     try:
-        connection = psycopg2.connect(
-            database="amarvote_db",
-            user="amarvote_user",
-            password="amarvote_password",
-            host="localhost",
-            port="5432"
-        )
-        
+        connection = get_db_connection()
         cursor = connection.cursor()
         connection.autocommit = False
         
@@ -191,7 +207,8 @@ def add_ballot_to_db(election_id, ballot_id, ballot_hash, cipher_text, user_emai
         return True
         
     except Exception as error:
-        connection.rollback()
+        if connection is not None:
+            connection.rollback()
         print(f"Error adding ballot to database: {error}")
         return False
 
@@ -318,7 +335,7 @@ def generate_ballots(election_id, num_ballots=1000):
             }
             # Call ElectionGuard API
             api_response = create_encrypted_ballot(payload)
-            print('api response: ', api_response)
+            # print('api response: ', api_response)
             if api_response and api_response.get('status') == 'success':
                 # Extract response data
                 # Use ballot_hash from the published ballot
@@ -364,8 +381,4 @@ def generate_ballots(election_id, num_ballots=1000):
 
 
 if __name__ == "__main__":
-    # Set your election ID here
-    ELECTION_ID = 1
-    NUM_BALLOTS = 1300
-    
     generate_ballots(ELECTION_ID, NUM_BALLOTS)
