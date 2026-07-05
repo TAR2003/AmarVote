@@ -14,4 +14,6 @@ public class RegisterSendEmailCodeRequestDto {
     @NotBlank(message = "Email is required")
     @Email(message = "Invalid email format")
     private String email;
+
+    private String captchaToken;
 }

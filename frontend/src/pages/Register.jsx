@@ -3,45 +3,62 @@ import { useNavigate, Link } from "react-router-dom";
 import Layout from "./Layout";
 import OtpInput from "../components/OtpInput";
 import PasswordInput from "../components/PasswordInput";
+import TurnstileWidget, { isTurnstileConfigured } from "../components/TurnstileWidget";
 import { formatPasswordErrors, getPasswordValidationErrors } from "../utils/passwordUtils";
-
-const EMAIL_CODE_RATE_LIMIT_MESSAGE = "You can only request an email verification code once per minute";
+import { buildEmailCodePayload, getAuthErrorMessage } from "../utils/authApi";
 
 export default function Register({ setUserEmail }) {
   const navigate = useNavigate();
+  const captchaRequired = isTurnstileConfigured();
 
-  const [step, setStep] = useState(1); // 1=email, 2=verify-email-code, 3=set-password, 4=totp-setup
+  const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
   const [emailCode, setEmailCode] = useState("");
+  const [captchaToken, setCaptchaToken] = useState("");
+  const [turnstileReset, setTurnstileReset] = useState(0);
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [secret, setSecret] = useState("");
   const [qrCodeDataUri, setQrCodeDataUri] = useState("");
   const [otpCode, setOtpCode] = useState("");
   const [error, setError] = useState("");
+  const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const resetCaptcha = () => {
+    setCaptchaToken("");
+    setTurnstileReset((value) => value + 1);
+  };
 
   const handleSendEmailCode = async (e) => {
     if (e?.preventDefault) {
       e.preventDefault();
     }
     setError("");
+    setInfo("");
+
+    if (captchaRequired && !captchaToken) {
+      setError("Please complete the CAPTCHA verification.");
+      return false;
+    }
+
     setLoading(true);
 
     try {
       const res = await fetch("/api/auth/register/send-email-code", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email }),
+        body: JSON.stringify(buildEmailCodePayload(email, captchaToken)),
       });
 
+      const data = await res.json().catch(() => ({}));
+
       if (res.status === 429) {
-        throw new Error(EMAIL_CODE_RATE_LIMIT_MESSAGE);
+        throw new Error(getAuthErrorMessage(data, "Please wait before requesting another verification code."));
       }
 
-      const data = await res.json().catch(() => ({}));
       if (!res.ok) {
-        throw new Error(data.message || "Failed to send verification code");
+        throw new Error(getAuthErrorMessage(data, "Failed to send verification code"));
       }
 
       if (data.status !== "EMAIL_CODE_SENT") {
@@ -49,8 +66,13 @@ export default function Register({ setUserEmail }) {
       }
 
       setStep(2);
+      setInfo(data.message || "Verification code sent to your email.");
+      resetCaptcha();
+      return true;
     } catch (err) {
       setError(err.message || "Failed to send verification code");
+      resetCaptcha();
+      return false;
     } finally {
       setLoading(false);
     }
@@ -199,6 +221,12 @@ export default function Register({ setUserEmail }) {
             </div>
           )}
 
+          {info && (
+            <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+              {info}
+            </div>
+          )}
+
           {step === 1 && (
             <form className="mt-6 space-y-4" onSubmit={handleSendEmailCode}>
               <input
@@ -210,9 +238,15 @@ export default function Register({ setUserEmail }) {
                 className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
               />
 
+              <TurnstileWidget
+                onVerify={setCaptchaToken}
+                resetKey={turnstileReset}
+                className="flex justify-center"
+              />
+
               <button
                 type="submit"
-                disabled={loading}
+                disabled={loading || (captchaRequired && !captchaToken)}
                 className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
               >
                 {loading ? "Sending code..." : "Send verification code"}
@@ -244,11 +278,17 @@ export default function Register({ setUserEmail }) {
                 {loading ? "Verifying..." : "Verify email"}
               </button>
 
+              <TurnstileWidget
+                onVerify={setCaptchaToken}
+                resetKey={turnstileReset}
+                className="flex justify-center"
+              />
+
               <button
                 type="button"
                 onClick={handleSendEmailCode}
-                disabled={loading}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                disabled={loading || (captchaRequired && !captchaToken)}
+                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100"
               >
                 Resend code
               </button>

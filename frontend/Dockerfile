@@ -1,5 +1,8 @@
 FROM node:20-alpine AS build
 
+ARG VITE_TURNSTILE_SITE_KEY=
+ENV VITE_TURNSTILE_SITE_KEY=$VITE_TURNSTILE_SITE_KEY
+
 WORKDIR /app
 COPY package*.json ./
 RUN npm ci --include=dev

@@ -10,4 +10,11 @@ import lombok.NoArgsConstructor;
 public class OtpResponseDto {
     private boolean success;
     private String message;
+    private String status;
+    private boolean alreadySent;
+
+    public OtpResponseDto(boolean success, String message) {
+        this.success = success;
+        this.message = message;
+    }
 }

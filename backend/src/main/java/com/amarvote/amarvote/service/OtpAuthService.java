@@ -3,58 +3,70 @@ package com.amarvote.amarvote.service;
 import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
+import java.util.Locale;
 import java.util.Optional;
 
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.amarvote.amarvote.dto.OtpSendResult;
 import com.amarvote.amarvote.model.OtpVerification;
 import com.amarvote.amarvote.repository.OtpVerificationRepository;
 import com.amarvote.amarvote.util.JwtUtil;
 
+import lombok.RequiredArgsConstructor;
+
 @Service
+@RequiredArgsConstructor
 public class OtpAuthService {
 
-    @Autowired
-    private OtpVerificationRepository otpVerificationRepository;
-
-    @Autowired
-    private EmailService emailService;
-
-    @Autowired
-    private JwtUtil jwtUtil;
-
-    private static final SecureRandom random = new SecureRandom();
+    private static final SecureRandom RANDOM = new SecureRandom();
     private static final int OTP_VALIDITY_MINUTES = 5;
 
-    /**
-     * Generate a 6-digit OTP code
-     */
+    private final OtpVerificationRepository otpVerificationRepository;
+    private final EmailService emailService;
+    private final JwtUtil jwtUtil;
+    private final AuthRateLimitService authRateLimitService;
+
     private String generateOtpCode() {
-        int otp = 100000 + random.nextInt(900000);
-        return String.valueOf(otp);
+        return String.format("%06d", RANDOM.nextInt(1_000_000));
     }
 
-    /**
-     * Send OTP to user email
-     * @param userEmail User email address
-     * @return true if OTP sent successfully
-     */
-    @Transactional
-    public boolean sendOtp(String userEmail) {
-        try {
-            // Delete any existing OTPs for this email
-            otpVerificationRepository.deleteByUserEmail(userEmail);
+    private static String normalizeEmail(String email) {
+        return email == null ? "" : email.trim().toLowerCase(Locale.ROOT);
+    }
 
-            // Generate new OTP
-            String otpCode = generateOtpCode();
+    @Transactional
+    public OtpSendResult sendOtp(String userEmail) {
+        String normalizedEmail = normalizeEmail(userEmail);
+        String scope = AuthRateLimitService.SCOPE_OTP_LOGIN_SEND;
+
+        try {
+            authRateLimitService.ensureOtpDailyLimit(scope, normalizedEmail);
+
             Instant now = Instant.now();
+            Optional<OtpVerification> activeOtp = otpVerificationRepository
+                    .findFirstByUserEmailAndIsUsedFalseAndExpiresAtAfter(normalizedEmail, now);
+
+            if (activeOtp.isPresent()) {
+                if (authRateLimitService.isOnOtpSendCooldown(scope, normalizedEmail)) {
+                    return OtpSendResult.alreadySent(
+                            "A verification code was already sent to your email. Please check your inbox or wait before requesting another.");
+                }
+
+                String existingCode = activeOtp.get().getOtpCode();
+                emailService.sendOtpEmail(normalizedEmail, existingCode);
+                authRateLimitService.recordOtpSend(scope, normalizedEmail);
+                return OtpSendResult.resent("Verification code resent to your email.");
+            }
+
+            authRateLimitService.ensureOtpSendCooldown(scope, normalizedEmail);
+
+            String otpCode = generateOtpCode();
             Instant expiresAt = now.plus(OTP_VALIDITY_MINUTES, ChronoUnit.MINUTES);
 
-            // Save OTP to database
             OtpVerification otp = OtpVerification.builder()
-                    .userEmail(userEmail)
+                    .userEmail(normalizedEmail)
                     .otpCode(otpCode)
                     .createdAt(now)
                     .expiresAt(expiresAt)
@@ -62,47 +74,33 @@ public class OtpAuthService {
                     .build();
 
             otpVerificationRepository.save(otp);
+            emailService.sendOtpEmail(normalizedEmail, otpCode);
+            authRateLimitService.recordOtpSend(scope, normalizedEmail);
 
-            // Send OTP email
-            emailService.sendOtpEmail(userEmail, otpCode);
-
-            System.out.println("✅ OTP sent to: " + userEmail);
-            return true;
-
-        } catch (Exception e) {
-            System.err.println("❌ Failed to send OTP to " + userEmail + ": " + e.getMessage());
-            e.printStackTrace();
-            return false;
+            return OtpSendResult.sent("Verification code sent to your email.");
+        } catch (AuthRateLimitService.AuthRateLimitExceededException ex) {
+            throw ex;
+        } catch (Exception ex) {
+            return OtpSendResult.failed("Failed to send verification code. Please try again.");
         }
     }
 
-    /**
-     * Verify OTP and generate JWT token
-     * @param userEmail User email address
-     * @param otpCode OTP code to verify
-     * @return JWT token if verification successful, empty otherwise
-     */
     @Transactional
     public Optional<String> verifyOtpAndGenerateToken(String userEmail, String otpCode) {
+        String normalizedEmail = normalizeEmail(userEmail);
         Instant now = Instant.now();
 
         Optional<OtpVerification> otpOpt = otpVerificationRepository
-                .findByUserEmailAndOtpCodeAndIsUsedFalseAndExpiresAtAfter(userEmail, otpCode, now);
+                .findByUserEmailAndOtpCodeAndIsUsedFalseAndExpiresAtAfter(normalizedEmail, otpCode, now);
 
         if (otpOpt.isEmpty()) {
-            System.out.println("❌ Invalid or expired OTP for: " + userEmail);
             return Optional.empty();
         }
 
-        // Mark OTP as used
         OtpVerification otp = otpOpt.get();
         otp.setIsUsed(true);
         otpVerificationRepository.save(otp);
 
-        // Generate JWT token
-        String token = jwtUtil.generateToken(userEmail);
-
-        System.out.println("✅ OTP verified and token generated for: " + userEmail);
-        return Optional.of(token);
+        return Optional.of(jwtUtil.generateToken(normalizedEmail));
     }
 }

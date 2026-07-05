@@ -79,8 +79,9 @@ public class GlobalExceptionHandler {
     public ResponseEntity<Map<String, String>> handleAuthRateLimit(AuthRateLimitExceededException ex) {
         Map<String, String> error = new HashMap<>();
         error.put("error", ex.getMessage());
+        error.put("message", ex.getMessage());
         return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
-                .header("Retry-After", "900")
+                .header("Retry-After", String.valueOf(ex.getRetryAfterSeconds()))
                 .body(error);
     }
 

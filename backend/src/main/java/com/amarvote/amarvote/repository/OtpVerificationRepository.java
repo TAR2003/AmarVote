@@ -12,6 +12,9 @@ import com.amarvote.amarvote.model.OtpVerification;
 public interface OtpVerificationRepository extends JpaRepository<OtpVerification, Long> {
     Optional<OtpVerification> findByUserEmailAndOtpCodeAndIsUsedFalseAndExpiresAtAfter(
         String userEmail, String otpCode, Instant expiresAt);
-    
+
+    Optional<OtpVerification> findFirstByUserEmailAndIsUsedFalseAndExpiresAtAfter(
+        String userEmail, Instant expiresAt);
+
     void deleteByUserEmail(String userEmail);
 }

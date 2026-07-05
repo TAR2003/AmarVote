@@ -129,6 +129,8 @@ services:
       - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
       - RESEND_API_KEY=${RESEND_API_KEY}
       - JWT_SECRET=${JWT_SECRET}
+      - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
+      - TURNSTILE_ENABLED=${TURNSTILE_ENABLED:-true}
       - JWT_TEMP_SECRET=${JWT_TEMP_SECRET}
       - ELECTIONGUARD_INTERNAL_API_KEY=${ELECTIONGUARD_INTERNAL_API_KEY}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
@@ -179,6 +181,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
     container_name: amarvote_frontend
     restart: unless-stopped
     env_file:

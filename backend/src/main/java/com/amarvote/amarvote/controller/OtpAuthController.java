@@ -27,6 +27,7 @@ import com.amarvote.amarvote.dto.MfaVerifyRequestDto;
 import com.amarvote.amarvote.dto.OtpLoginResponseDto;
 import com.amarvote.amarvote.dto.OtpRequestDto;
 import com.amarvote.amarvote.dto.OtpResponseDto;
+import com.amarvote.amarvote.dto.OtpSendResult;
 import com.amarvote.amarvote.dto.OtpVerifyDto;
 import com.amarvote.amarvote.dto.PasswordResetWithTokenRequestDto;
 import com.amarvote.amarvote.dto.ProfileMfaCodeRequestDto;
@@ -37,6 +38,7 @@ import com.amarvote.amarvote.service.AuthorizedUserService;
 import com.amarvote.amarvote.service.EmailVerificationService;
 import com.amarvote.amarvote.service.MfaAuthService;
 import com.amarvote.amarvote.service.OtpAuthService;
+import com.amarvote.amarvote.service.TurnstileService;
 
 import jakarta.servlet.http.Cookie;
 import jakarta.servlet.http.HttpServletRequest;
@@ -55,12 +57,18 @@ public class OtpAuthController {
     private final EmailVerificationService emailVerificationService;
     private final MfaAuthService mfaAuthService;
     private final AuthorizedUserService authorizedUserService;
+    private final TurnstileService turnstileService;
     
     @Value("${cookie.secure:false}")
     private boolean cookieSecure;
 
     @PostMapping("/register/send-email-code")
     public ResponseEntity<?> sendRegistrationEmailCode(@Valid @RequestBody RegisterSendEmailCodeRequestDto request) {
+        ResponseEntity<?> captchaFailure = verifyCaptchaOrRespond(request.getCaptchaToken());
+        if (captchaFailure != null) {
+            return captchaFailure;
+        }
+
         try {
             authorizedUserService.ensureAllowedForRegistration(request.getEmail());
         } catch (IllegalArgumentException ex) {
@@ -68,22 +76,23 @@ public class OtpAuthController {
                     .body(Map.of("message", ex.getMessage()));
         }
 
-        emailVerificationService.sendEmailVerificationCode(request.getEmail());
-        return ResponseEntity.ok(Map.of(
-                "status", "EMAIL_CODE_SENT",
-                "message", "Verification code sent"));
+        OtpSendResult result = emailVerificationService.sendEmailVerificationCode(request.getEmail());
+        return buildEmailCodeResponse(result, "EMAIL_CODE_SENT");
     }
 
     @PostMapping("/password/send-email-code")
     public ResponseEntity<?> sendPasswordResetEmailCode(@Valid @RequestBody RegisterSendEmailCodeRequestDto request) {
+        ResponseEntity<?> captchaFailure = verifyCaptchaOrRespond(request.getCaptchaToken());
+        if (captchaFailure != null) {
+            return captchaFailure;
+        }
+
         String normalizedEmail = request.getEmail().trim().toLowerCase();
 
         try {
             authorizedUserService.ensureAllowedForLogin(normalizedEmail);
-            emailVerificationService.sendPasswordResetCode(normalizedEmail);
-            return ResponseEntity.ok(Map.of(
-                    "status", "PASSWORD_RESET_CODE_SENT",
-                    "message", "Password reset verification code sent"));
+            OtpSendResult result = emailVerificationService.sendPasswordResetCode(normalizedEmail);
+            return buildEmailCodeResponse(result, "PASSWORD_RESET_CODE_SENT");
         } catch (IllegalArgumentException ex) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
                     .body(Map.of("message", ex.getMessage()));
@@ -355,6 +364,11 @@ public class OtpAuthController {
      */
     @PostMapping("/request-otp")
     public ResponseEntity<OtpResponseDto> requestOtp(@Valid @RequestBody OtpRequestDto request) {
+        ResponseEntity<OtpResponseDto> captchaFailure = verifyCaptchaOrRespondForOtp(request.getCaptchaToken());
+        if (captchaFailure != null) {
+            return captchaFailure;
+        }
+
         try {
             authorizedUserService.ensureAllowedForLogin(request.getEmail());
         } catch (IllegalArgumentException ex) {
@@ -362,14 +376,13 @@ public class OtpAuthController {
                     .body(new OtpResponseDto(false, ex.getMessage()));
         }
 
-        boolean success = otpAuthService.sendOtp(request.getEmail());
-        
-        if (success) {
-            return ResponseEntity.ok(new OtpResponseDto(true, "OTP sent to your email"));
-        } else {
+        OtpSendResult result = otpAuthService.sendOtp(request.getEmail());
+        if (!result.isSuccess()) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(new OtpResponseDto(false, "Failed to send OTP"));
+                    .body(toOtpResponse(result));
         }
+
+        return ResponseEntity.ok(toOtpResponse(result));
     }
 
     /**
@@ -519,6 +532,59 @@ public class OtpAuthController {
         }
 
         return authentication.getName();
+    }
+
+    private ResponseEntity<?> verifyCaptchaOrRespond(String captchaToken) {
+        if (!turnstileService.isEnabled()) {
+            return null;
+        }
+        if (captchaToken == null || captchaToken.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("message", "CAPTCHA verification is required."));
+        }
+        if (!turnstileService.verify(captchaToken)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", "CAPTCHA verification failed. Please try again."));
+        }
+        return null;
+    }
+
+    private ResponseEntity<OtpResponseDto> verifyCaptchaOrRespondForOtp(String captchaToken) {
+        if (!turnstileService.isEnabled()) {
+            return null;
+        }
+        if (captchaToken == null || captchaToken.isBlank()) {
+            return ResponseEntity.badRequest()
+                    .body(new OtpResponseDto(false, "CAPTCHA verification is required."));
+        }
+        if (!turnstileService.verify(captchaToken)) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(new OtpResponseDto(false, "CAPTCHA verification failed. Please try again."));
+        }
+        return null;
+    }
+
+    private ResponseEntity<Map<String, Object>> buildEmailCodeResponse(OtpSendResult result, String status) {
+        if (!result.isSuccess()) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of(
+                            "message", result.getMessage(),
+                            "status", "FAILED",
+                            "alreadySent", false));
+        }
+
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("status", status);
+        body.put("message", result.getMessage());
+        body.put("alreadySent", OtpSendResult.STATUS_ALREADY_SENT.equals(result.getStatus()));
+        return ResponseEntity.ok(body);
+    }
+
+    private OtpResponseDto toOtpResponse(OtpSendResult result) {
+        OtpResponseDto response = new OtpResponseDto(result.isSuccess(), result.getMessage());
+        response.setStatus(result.getStatus());
+        response.setAlreadySent(OtpSendResult.STATUS_ALREADY_SENT.equals(result.getStatus()));
+        return response;
     }
 
 }
