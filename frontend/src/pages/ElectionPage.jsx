@@ -2892,6 +2892,17 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
         ranked,
         winnerCount,
         formatGeneratedAt: timezoneUtils.formatForDisplay(new Date().toISOString()),
+        formatStartTime: electionData?.startingTime
+          ? timezoneUtils.formatForDisplay(electionData.startingTime)
+          : null,
+        formatEndTime: electionData?.endingTime
+          ? timezoneUtils.formatForDisplay(electionData.endingTime)
+          : null,
+        statusLabel: timezoneUtils.getElectionStatusLabel(
+          electionData?.status,
+          electionData?.startingTime,
+          electionData?.endingTime,
+        ),
       });
     } catch (err) {
       console.error('PDF export failed:', err);
