@@ -48,6 +48,10 @@ else
   "${COMPOSE[@]}" pull --quiet "${APP_SERVICES[@]}"
 fi
 
+# Apply schema migrations while postgres is up (prod uses ddl-auto=validate).
+chmod +x scripts/run-db-migrations.sh
+COMPOSE_FILE=docker-compose.prod.yml scripts/run-db-migrations.sh
+
 # Recreate only services defined in docker-compose.prod.yml (no on-VM build).
 "${COMPOSE[@]}" up -d --remove-orphans --no-build
 

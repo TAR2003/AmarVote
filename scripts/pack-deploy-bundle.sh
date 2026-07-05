@@ -14,7 +14,9 @@ tar czf "$OUT" \
   nginx-cloudflare-realip.conf \
   rabbitmq.conf \
   scripts/vm-deploy.sh \
+  scripts/run-db-migrations.sh \
   Database/creation \
+  Database/migrations \
   backend/src/main/resources/templates
 
 echo "Created $OUT ($(du -h "$OUT" | cut -f1))"

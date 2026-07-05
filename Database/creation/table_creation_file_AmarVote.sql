@@ -100,6 +100,8 @@ CREATE TABLE IF NOT EXISTS elections (
 	privacy TEXT,
     eligibility TEXT,
     send_ballot_receipt BOOLEAN NOT NULL DEFAULT FALSE,
+    max_choices INTEGER DEFAULT 1,
+    winner_no INTEGER,
     CONSTRAINT valid_election_times CHECK (
         (starting_time IS NULL AND ending_time IS NULL)
         OR (starting_time IS NOT NULL AND ending_time IS NOT NULL AND ending_time > starting_time)
@@ -287,6 +289,11 @@ ALTER TABLE IF EXISTS elections ADD COLUMN IF NOT EXISTS reminder_sent BOOLEAN N
 ALTER TABLE IF EXISTS elections ADD COLUMN IF NOT EXISTS reminder_subject TEXT;
 ALTER TABLE IF EXISTS elections ADD COLUMN IF NOT EXISTS reminder_body TEXT;
 ALTER TABLE IF EXISTS elections ADD COLUMN IF NOT EXISTS reminder_recipients TEXT;
+ALTER TABLE IF EXISTS elections ADD COLUMN IF NOT EXISTS max_choices INTEGER DEFAULT 1;
+ALTER TABLE IF EXISTS elections ADD COLUMN IF NOT EXISTS winner_no INTEGER;
+UPDATE elections
+SET winner_no = COALESCE(max_choices, 1)
+WHERE winner_no IS NULL;
 
 -- OTP Verification table indexes
 CREATE INDEX IF NOT EXISTS idx_otp_email ON otp_verifications(user_email);
