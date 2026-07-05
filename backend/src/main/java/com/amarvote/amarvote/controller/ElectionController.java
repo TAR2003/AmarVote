@@ -55,6 +55,7 @@ import com.amarvote.amarvote.dto.UpdateElectionSettingsRequest;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.service.AuthorizedUserService;
 import com.amarvote.amarvote.service.BallotService;
+import com.amarvote.amarvote.util.SiteUrlResolver;
 import com.amarvote.amarvote.service.CloudinaryService;
 import com.amarvote.amarvote.service.ElectionService;
 import com.amarvote.amarvote.service.PartialDecryptionService;
@@ -79,6 +80,7 @@ public class ElectionController {
     private final AuthorizedUserService authorizedUserService;
     private final ScheduledElectionEmailService scheduledElectionEmailService;
     private final ObjectMapper objectMapper;
+    private final SiteUrlResolver siteUrlResolver;
 
     @PostMapping("/create-election")
     public ResponseEntity<?> createElection(
@@ -794,7 +796,8 @@ public class ElectionController {
         }
 
         try {
-            CastBallotResponse response = ballotService.castBallot(request, userEmail);
+            CastBallotResponse response = ballotService.castBallot(
+                    request, userEmail, siteUrlResolver.resolve(httpRequest));
 
             if (response.isSuccess()) {
                 return ResponseEntity.ok(response);
@@ -964,7 +967,8 @@ public class ElectionController {
         }
 
         try {
-            CastBallotResponse response = ballotService.castEncryptedBallot(request, userEmail);
+            CastBallotResponse response = ballotService.castEncryptedBallot(
+                    request, userEmail, siteUrlResolver.resolve(httpRequest));
 
             if (response.isSuccess()) {
                 return ResponseEntity.ok(response);

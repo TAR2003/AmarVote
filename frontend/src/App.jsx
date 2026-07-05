@@ -26,6 +26,7 @@ import Security from "./pages/Security";
 import Profile from "./pages/Profile";
 import AuthenticatedUsers from "./pages/AuthenticatedUsers";
 import Documentation from "./pages/Documentation";
+import ReceiptDownload from "./pages/ReceiptDownload";
 
 function App() {
   const [userEmail, setUserEmail] = useState(null);
@@ -64,7 +65,9 @@ function App() {
     return () => window.removeEventListener("storage", syncLogout);
   }, []);
 
-  if (loading) return <LoadingScreen />;
+  if (loading && !window.location.pathname.startsWith('/receipt/download')) {
+    return <LoadingScreen />;
+  }
 
   const isAuthenticated = !!userEmail;
 
@@ -79,6 +82,7 @@ function App() {
         <Route path="/architecture" element={<Architecture />} />
         <Route path="/security" element={<Security />} />
         <Route path="/documentation" element={<Documentation />} />
+        <Route path="/receipt/download" element={<ReceiptDownload />} />
         <Route
           path="/login"
           element={

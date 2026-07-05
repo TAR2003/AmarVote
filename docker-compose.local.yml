@@ -153,6 +153,7 @@ services:
       - ELECTIONGUARD_API_GUNICORN_WORKERS=4
       - ELECTIONGUARD_WORKER_GUNICORN_WORKERS=1
       - ELECTIONGUARD_WORKER_SCHEDULER_QUEUE_DEPTH=4
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:-}
       # Match prod JVM sizing (1792M container — Xmx896m + 384m metaspace)
       - JAVA_OPTS=-Xms384m -Xmx896m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=384m -XX:MaxDirectMemorySize=256m
     volumes:

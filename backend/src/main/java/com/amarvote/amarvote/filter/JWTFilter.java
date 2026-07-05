@@ -26,27 +26,6 @@ import jakarta.servlet.http.HttpServletResponse;
 @Component
 public class JWTFilter extends OncePerRequestFilter {
 
-    private static final String[] PUBLIC_PATHS = {
-            "/api/auth/register",
-            "/api/auth/register/send-email-code",
-            "/api/auth/register/verify-email-code",
-            "/api/auth/login",
-            "/api/auth/mfa/confirm-setup",
-            "/api/auth/mfa/verify",
-            "/api/auth/session",
-            "/api/auth/request-otp",
-            "/api/auth/verify-otp",
-            "/api/auth/logout",
-            "/api/auth/password/send-email-code",
-            "/api/auth/password/verify-email-code",
-            "/api/auth/password/reset",
-            "/api/password/forgot-password",
-            "/api/password/create-password",
-            "/api/verify/send-code",
-            "/api/verify/verify-code",
-            "/api/health"
-    };
-
     @Autowired
     private JWTService jwtService;
 
@@ -60,7 +39,6 @@ public class JWTFilter extends OncePerRequestFilter {
     protected void doFilterInternal(@NonNull HttpServletRequest request, @NonNull HttpServletResponse response, @NonNull FilterChain filterChain)
             throws ServletException, IOException {
 
-        String requestPath = request.getRequestURI();
         String jwtToken = extractJwtToken(request);
         String userEmail = null;
 
@@ -103,11 +81,6 @@ public class JWTFilter extends OncePerRequestFilter {
             }
         }
 
-        if (isPublicRoute(requestPath)) {
-            filterChain.doFilter(request, response);
-            return;
-        }
-
         filterChain.doFilter(request, response);
     }
 
@@ -132,15 +105,6 @@ public class JWTFilter extends OncePerRequestFilter {
         response.setStatus(HttpServletResponse.SC_FORBIDDEN);
         response.setContentType("application/json");
         response.getWriter().write("{\"message\":\"" + message.replace("\"", "\\\"") + "\"}");
-    }
-
-    private boolean isPublicRoute(String requestPath) {
-        for (String path : PUBLIC_PATHS) {
-            if (requestPath.startsWith(path)) {
-                return true;
-            }
-        }
-        return false;
     }
 
     private UserDetails resolveUserDetails(String userEmail) {

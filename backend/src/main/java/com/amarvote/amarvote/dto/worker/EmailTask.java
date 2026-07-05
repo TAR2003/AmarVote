@@ -47,6 +47,8 @@ public class EmailTask implements Serializable {
 
     private String trackingCode;
     private String receiptContent;
+    private String receiptDownloadToken;
+    private String siteBaseUrl;
 
     private String subject;
     private String htmlContent;

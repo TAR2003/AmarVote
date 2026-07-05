@@ -10,6 +10,7 @@ import java.util.Locale;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Service;
+import org.springframework.web.util.HtmlUtils;
 
 import com.amarvote.amarvote.dto.worker.EmailTask;
 import com.amarvote.amarvote.email.EmailAttachment;
@@ -17,6 +18,7 @@ import com.amarvote.amarvote.email.EmailBatchDispatcher;
 import com.amarvote.amarvote.email.EmailMessage;
 import com.amarvote.amarvote.email.EmailQueueType;
 import com.amarvote.amarvote.email.ResendEmailSender;
+import com.amarvote.amarvote.util.SiteUrlResolver;
 
 import lombok.RequiredArgsConstructor;
 
@@ -30,6 +32,7 @@ public class EmailService {
 
     private final EmailBatchDispatcher emailBatchDispatcher;
     private final TaskPublisherService taskPublisherService;
+    private final SiteUrlResolver siteUrlResolver;
 
     @Value("${amarvote.email.batch-size:100}")
     private int batchSize;
@@ -115,8 +118,13 @@ public class EmailService {
         }
     }
 
-    public void sendVoteReceiptEmail(String toEmail, String electionTitle, Long electionId, String receiptContent,
-            String trackingCode) {
+    public void sendVoteReceiptEmail(
+            String toEmail,
+            String electionTitle,
+            Long electionId,
+            String receiptContent,
+            String trackingCode,
+            String receiptDownloadToken) {
         taskPublisherService.publishEmailTask(EmailTask.builder()
             .emailType(EmailTask.EmailType.VOTE_RECEIPT)
             .toEmail(toEmail)
@@ -124,6 +132,7 @@ public class EmailService {
             .electionId(electionId)
             .receiptContent(receiptContent)
             .trackingCode(trackingCode)
+            .receiptDownloadToken(receiptDownloadToken)
             .build());
     }
 
@@ -215,21 +224,50 @@ public class EmailService {
     }
 
     private EmailMessage voteReceiptMessage(EmailTask task) {
-        String htmlContent = "<p>Your vote was cast successfully.</p>"
-                + "<p>Your receipt is attached as a TXT file. Please keep it for verification.</p>"
-                + "<p><strong>Tracking Code:</strong> " + task.getTrackingCode() + "</p>";
+        String plaintext = task.getReceiptContent() == null ? "" : task.getReceiptContent();
+        String escapedPlaintext = HtmlUtils.htmlEscape(plaintext);
+        String downloadUrl = buildReceiptDownloadUrl(task);
+
+        String htmlContent = """
+                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
+                  <h2 style="color: #16a34a;">Your AmarVote Receipt</h2>
+                  <p>Your vote was cast successfully. Please save this receipt for verification.</p>
+                  <pre style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; \
+                white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.5;">%s</pre>
+                  <p style="margin-top: 24px;">
+                    <a href="%s" style="display: inline-block; background: #2563eb; color: #ffffff; \
+                text-decoration: none; padding: 12px 20px; border-radius: 8px; font-weight: 600;">
+                      Download TXT Receipt
+                    </a>
+                  </p>
+                  <p style="font-size: 12px; color: #64748b; margin-top: 16px;">
+                    This secure link expires in 30 days. Do not share it — anyone with the link can download this receipt.
+                  </p>
+                </div>
+                """.formatted(escapedPlaintext, HtmlUtils.htmlEscape(downloadUrl));
 
         return EmailMessage.builder()
                 .to(task.getToEmail())
                 .subject("Your AmarVote Receipt - " + task.getElectionTitle())
                 .htmlContent(htmlContent)
-                .attachment(EmailAttachment.fromContent(
-                        buildVoteReceiptFilename(
-                                task.getElectionTitle(),
-                                task.getElectionId(),
-                                task.getTrackingCode()),
-                        task.getReceiptContent().getBytes(StandardCharsets.UTF_8)))
                 .build();
+    }
+
+    private String buildReceiptDownloadUrl(EmailTask task) {
+        if (task.getReceiptDownloadToken() == null || task.getReceiptDownloadToken().isBlank()) {
+            throw new IllegalArgumentException("Receipt download token is required");
+        }
+
+        String base = task.getSiteBaseUrl();
+        if (base == null || base.isBlank()) {
+            base = siteUrlResolver.getConfiguredBaseUrl();
+        }
+        if (base == null || base.isBlank()) {
+            throw new IllegalStateException(
+                    "Cannot build receipt download URL: no site URL from vote request and PUBLIC_BASE_URL is not set");
+        }
+
+        return base + "/receipt/download?token=" + task.getReceiptDownloadToken();
     }
 
     private List<EmailMessage> batchReminderMessages(List<String> toEmails, String subject, String rawContent) {
@@ -243,12 +281,6 @@ public class EmailService {
             messages.add(htmlMessage(toEmail, subject, html));
         }
         return messages;
-    }
-
-    private String buildVoteReceiptFilename(String electionTitle, Long electionId, String trackingCode) {
-        String safeTitle = sanitizeForFilename(electionTitle);
-        String safeTracking = sanitizeForFilename(trackingCode);
-        return "vote_receipt_" + safeTitle + "_election_" + electionId + "_" + safeTracking + ".txt";
     }
 
     private String buildGuardianCredentialFilename(String electionTitle, Long electionId) {

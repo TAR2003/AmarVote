@@ -2,8 +2,6 @@ package com.amarvote.amarvote.service;
 
 import java.time.Duration;
 import java.time.Instant;
-import java.time.ZoneOffset;
-import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -77,7 +75,10 @@ public class BallotService {
     @Autowired
     private TaskPublisherService taskPublisherService;
 
-    public CastBallotResponse castBallot(CastBallotRequest request, String userEmail) {
+    @Autowired
+    private VoteReceiptService voteReceiptService;
+
+    public CastBallotResponse castBallot(CastBallotRequest request, String userEmail, String siteBaseUrl) {
         try {
             // 0. Validate bot detection data
             if (request.getBotDetection() != null) {
@@ -266,7 +267,8 @@ public class BallotService {
                     guardResponse.getBallot_hash(),
                     ballotHashId,
                     request.getSelectedCandidate(),
-                    findPartyForCandidate(choices, request.getSelectedCandidate()));
+                    findPartyForCandidate(choices, request.getSelectedCandidate()),
+                    siteBaseUrl);
 
             return CastBallotResponse.builder()
                     .success(true)
@@ -926,7 +928,7 @@ public class BallotService {
      * Cast a pre-encrypted ballot.
      * Not {@code @Transactional}: eligibility checks stay outside the DB transaction.
      */
-    public CastBallotResponse castEncryptedBallot(CastEncryptedBallotRequest request, String userEmail) {
+    public CastBallotResponse castEncryptedBallot(CastEncryptedBallotRequest request, String userEmail, String siteBaseUrl) {
         try {
             // 1. Find election
             Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
@@ -987,7 +989,8 @@ public class BallotService {
                     request.getBallot_hash(),
                     request.getBallot_tracking_code(),
                     null,
-                    null);
+                    null,
+                    siteBaseUrl);
 
             return CastBallotResponse.builder()
                     .success(true)
@@ -1014,14 +1017,15 @@ public class BallotService {
     }
 
     private void queueVoteReceiptEmail(String userEmail, Election election, String hashCode, String trackingCode,
-            String candidateName, String partyName) {
+            String candidateName, String partyName, String siteBaseUrl) {
         if (!Boolean.TRUE.equals(election.getSendBallotReceipt())) {
             return;
         }
 
         try {
-            String receipt = buildVoteReceiptContent(
-                    election.getElectionTitle(),
+            VoteReceiptService.PreparedReceiptEmail prepared = voteReceiptService.prepareReceiptEmail(
+                    userEmail,
+                    election,
                     hashCode,
                     trackingCode,
                     candidateName,
@@ -1033,27 +1037,15 @@ public class BallotService {
                 .voterEmail(userEmail)
                 .trackingCode(trackingCode)
                 .hashCode(hashCode)
-                .receiptContent(receipt)
+                .receiptContent(prepared.plaintextContent())
+                .receiptDownloadToken(prepared.downloadToken())
+                .siteBaseUrl(siteBaseUrl)
                 .build();
 
             taskPublisherService.publishVoteReceiptTask(task);
         } catch (Exception e) {
             System.err.println("⚠️ Failed to queue vote receipt email task: " + e.getMessage());
         }
-    }
-
-    private String buildVoteReceiptContent(String electionTitle, String hashCode, String trackingCode,
-            String candidateName, String partyName) {
-        String formattedTime = DateTimeFormatter.ISO_LOCAL_DATE_TIME
-                .withZone(ZoneOffset.UTC)
-                .format(Instant.now());
-
-        return ("Election: " + electionTitle + "\n"
-                + "Vote Hash: " + hashCode + "\n"
-                + "Tracking Code: " + trackingCode + "\n"
-                + "Date: " + formattedTime + "\n"
-                + "Candidate: " + (candidateName == null || candidateName.isBlank() ? "Unknown" : candidateName) + "\n"
-                + "Party: " + (partyName == null || partyName.isBlank() ? "N/A" : partyName)).trim();
     }
 }
 

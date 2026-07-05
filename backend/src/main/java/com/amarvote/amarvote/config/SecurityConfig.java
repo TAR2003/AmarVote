@@ -47,7 +47,8 @@ public class SecurityConfig {
             "/api/password/create-password",
             "/api/verify/send-code",
             "/api/verify/verify-code",
-            "/api/health"
+            "/api/health",
+            "/api/receipt/download"
     };
 
     @Autowired

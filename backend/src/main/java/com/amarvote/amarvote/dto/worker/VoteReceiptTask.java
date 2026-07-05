@@ -21,4 +21,6 @@ public class VoteReceiptTask implements Serializable {
     private String trackingCode;
     private String hashCode;
     private String receiptContent;
+    private String receiptDownloadToken;
+    private String siteBaseUrl;
 }

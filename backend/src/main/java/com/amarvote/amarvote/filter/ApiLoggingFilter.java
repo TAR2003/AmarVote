@@ -59,6 +59,10 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
             return true;
         }
 
+        if (path.startsWith("/api/receipt/download")) {
+            return true;
+        }
+
         return PROGRESS_STREAM.matcher(path).matches();
     }
 

@@ -116,6 +116,8 @@ public class TaskPublisherService {
             .electionTitle(task.getElectionTitle())
             .trackingCode(task.getTrackingCode())
             .receiptContent(task.getReceiptContent())
+            .receiptDownloadToken(task.getReceiptDownloadToken())
+            .siteBaseUrl(task.getSiteBaseUrl())
             .build();
         publishEmailTask(emailTask);
     }

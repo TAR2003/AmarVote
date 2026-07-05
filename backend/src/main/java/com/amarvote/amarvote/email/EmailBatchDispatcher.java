@@ -247,6 +247,8 @@ public class EmailBatchDispatcher {
         .credentialFilePath(task.getCredentialFilePath())
         .trackingCode(task.getTrackingCode())
         .receiptContent(task.getReceiptContent())
+        .receiptDownloadToken(task.getReceiptDownloadToken())
+        .siteBaseUrl(task.getSiteBaseUrl())
         .subject(task.getSubject())
         .htmlContent(task.getHtmlContent())
         .attempt(task.getAttempt())
