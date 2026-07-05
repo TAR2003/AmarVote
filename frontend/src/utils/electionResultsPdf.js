@@ -47,8 +47,12 @@ const CHART_COLORS = [
   '#4F46E5', '#0EA5E9', '#8B5CF6', '#0D9488', '#DB2777',
   '#2563EB', '#7C3AED', '#0891B2', '#C026D3', '#4338CA',
 ];
-/** Pie palette mirrors the Results tab (recharts COLORS) for a 1:1 match. */
-const PIE_COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
+/** Vivid, high-contrast categorical palette so every slice is distinct. */
+const PIE_COLORS = [
+  '#4F46E5', '#F97316', '#10B981', '#EAB308', '#EC4899',
+  '#06B6D4', '#8B5CF6', '#EF4444', '#14B8A6', '#A855F7',
+  '#0EA5E9', '#F59E0B', '#22C55E', '#DB2777', '#6366F1',
+];
 /** Column fill mirrors the Results tab bar (#3B82F6). */
 const COLUMN_HEX = '#3B82F6';
 const COLUMN_HEX_LIGHT = '#60A5FA';
@@ -318,7 +322,7 @@ function renderColumnChartImage(data, winnerCount, logicalW, logicalH, labelMaxL
 /** Full pie chart — vote share (mirrors the Results tab) with a legend. */
 function renderPieChartImage(data, winnerCount, logicalW, logicalH, labelMaxLen = 18) {
   const { canvas, ctx } = createHiDPICanvas(logicalW, logicalH);
-  drawChartFrame(ctx, logicalW, logicalH, 'Vote Share', 'Proportional breakdown of all votes', PIE_COLORS[1]);
+  drawChartFrame(ctx, logicalW, logicalH, 'Vote Share', 'Proportional breakdown of all votes', PIE_COLORS[0]);
 
   const total = data.reduce((sum, d) => sum + d.votes, 0);
   const cx = logicalW * 0.28;
@@ -339,6 +343,17 @@ function renderPieChartImage(data, winnerCount, logicalW, logicalH, labelMaxLen 
       ? WINNER_HEX
       : PIE_COLORS[i % PIE_COLORS.length];
 
+  // Soft drop shadow beneath the whole pie for depth.
+  ctx.save();
+  ctx.shadowColor = 'rgba(15, 23, 42, 0.20)';
+  ctx.shadowBlur = 18;
+  ctx.shadowOffsetY = 7;
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = '#FFFFFF';
+  ctx.fill();
+  ctx.restore();
+
   // Slices
   let startAngle = -Math.PI / 2;
   data.forEach((item, i) => {
@@ -353,7 +368,7 @@ function renderPieChartImage(data, winnerCount, logicalW, logicalH, labelMaxLen 
     ctx.fillStyle = colorFor(item, i);
     ctx.fill();
     ctx.strokeStyle = '#FFFFFF';
-    ctx.lineWidth = 2;
+    ctx.lineWidth = 2.4;
     ctx.stroke();
 
     // Percentage label on slices large enough to read
@@ -361,38 +376,66 @@ function renderPieChartImage(data, winnerCount, logicalW, logicalH, labelMaxLen 
       const mid = startAngle + slice / 2;
       const lx = cx + Math.cos(mid) * R * 0.62;
       const ly = cy + Math.sin(mid) * R * 0.62;
+      ctx.save();
+      ctx.shadowColor = 'rgba(0, 0, 0, 0.35)';
+      ctx.shadowBlur = 3;
       ctx.fillStyle = '#FFFFFF';
       ctx.font = `700 10px ${FONT}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText(`${((item.votes / total) * 100).toFixed(1)}%`, lx, ly);
+      ctx.restore();
     }
     startAngle = endAngle;
   });
 
-  // Legend
-  const legendX = logicalW * 0.56;
+  // Glossy inner highlight for a polished finish.
+  const gloss = ctx.createRadialGradient(cx - R * 0.3, cy - R * 0.35, R * 0.1, cx, cy, R);
+  gloss.addColorStop(0, 'rgba(255, 255, 255, 0.28)');
+  gloss.addColorStop(0.4, 'rgba(255, 255, 255, 0)');
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = gloss;
+  ctx.fill();
+
+  // Legend — color chip, name, votes and share (winner rows highlighted).
+  const legendX = logicalW * 0.54;
+  const legendRight = logicalW - 18;
   const rows = data.length;
   const availH = logicalH - 76;
-  const rowH = Math.min(22, availH / Math.max(rows, 1));
+  const rowH = Math.min(24, availH / Math.max(rows, 1));
   let legendY = 76 + (availH - rowH * rows) / 2 + rowH / 2;
 
   data.forEach((item, i) => {
     const pct = ((item.votes / total) * 100).toFixed(1);
+    const isWinner = isWinnerByRank(item.rank, winnerCount) && item.votes > 0;
+
+    if (isWinner) {
+      ctx.fillStyle = '#FFFBEB';
+      roundRectPath(ctx, legendX - 6, legendY - rowH / 2 + 1, legendRight - legendX + 12, rowH - 2, 5);
+      ctx.fill();
+    }
+
     ctx.fillStyle = colorFor(item, i);
-    roundRectPath(ctx, legendX, legendY - 5, 10, 10, 3);
+    ctx.beginPath();
+    ctx.arc(legendX + 4, legendY, 5, 0, Math.PI * 2);
     ctx.fill();
 
-    ctx.fillStyle = '#334155';
+    ctx.fillStyle = isWinner ? '#92400E' : '#334155';
     ctx.font = `600 11px ${FONT}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(truncateChartLabel(item.name, labelMaxLen), legendX + 18, legendY);
+    ctx.fillText(truncateChartLabel(item.name, labelMaxLen), legendX + 16, legendY);
+
+    ctx.fillStyle = '#94A3B8';
+    ctx.font = `500 9px ${FONT}`;
+    ctx.textAlign = 'right';
+    ctx.fillText(`${item.votes} votes`, legendRight - 46, legendY);
 
     ctx.fillStyle = '#0F172A';
     ctx.font = `700 11px ${FONT}`;
     ctx.textAlign = 'right';
-    ctx.fillText(`${pct}%`, logicalW - 20, legendY);
+    ctx.fillText(`${pct}%`, legendRight, legendY);
     legendY += rowH;
   });
 
