@@ -10,56 +10,74 @@ import io.github.resilience4j.retry.Retry;
 import io.github.resilience4j.retry.RetryRegistry;
 
 /**
- * Sends outbound email through the configured provider with API-call rate limiting
- * and transient-failure retries. Resend allows 5 API requests/second; batch calls
- * can include up to 100 emails each.
+ * Sends outbound email through the configured provider with per-lane rate limiting
+ * (1 API request/second each) and exponential backoff on transient failures including 429.
  */
 @Component
 public class EmailDeliveryGateway {
 
-    private static final String INSTANCE_NAME = "email";
+  private static final String TRANSACTIONAL_INSTANCE = "email-transactional";
+  private static final String BULK_INSTANCE = "email-bulk";
 
-    private final EmailSender emailSender;
-    private final RateLimiter rateLimiter;
-    private final Retry retry;
+  private final EmailSender emailSender;
+  private final RateLimiter transactionalRateLimiter;
+  private final RateLimiter bulkRateLimiter;
+  private final Retry transactionalRetry;
+  private final Retry bulkRetry;
 
-    public EmailDeliveryGateway(
-            EmailSender emailSender,
-            RateLimiterRegistry rateLimiterRegistry,
-            RetryRegistry retryRegistry) {
-        this.emailSender = emailSender;
-        this.rateLimiter = rateLimiterRegistry.rateLimiter(INSTANCE_NAME);
-        this.retry = retryRegistry.retry(INSTANCE_NAME);
+  public EmailDeliveryGateway(
+      EmailSender emailSender,
+      RateLimiterRegistry rateLimiterRegistry,
+      RetryRegistry retryRegistry) {
+    this.emailSender = emailSender;
+    this.transactionalRateLimiter = rateLimiterRegistry.rateLimiter(TRANSACTIONAL_INSTANCE);
+    this.bulkRateLimiter = rateLimiterRegistry.rateLimiter(BULK_INSTANCE);
+    this.transactionalRetry = retryRegistry.retry(TRANSACTIONAL_INSTANCE);
+    this.bulkRetry = retryRegistry.retry(BULK_INSTANCE);
+  }
+
+  public void deliver(EmailQueueType queueType, EmailMessage message) {
+    executeWithResilience(queueType, () -> {
+      emailSender.send(message);
+      return null;
+    });
+  }
+
+  public void deliverBatch(EmailQueueType queueType, List<EmailMessage> messages) {
+    if (messages == null || messages.isEmpty()) {
+      return;
     }
+    executeWithResilience(queueType, () -> {
+      emailSender.sendBatch(messages);
+      return null;
+    });
+  }
 
-    /** One Resend API call for a single email. */
-    public void deliver(EmailMessage message) {
-        executeWithResilience(() -> {
-            emailSender.send(message);
-            return null;
-        });
-    }
+  /** @deprecated Use {@link #deliver(EmailQueueType, EmailMessage)} */
+  @Deprecated
+  public void deliver(EmailMessage message) {
+    deliver(EmailQueueType.TRANSACTIONAL, message);
+  }
 
-    /** One Resend API call for up to 100 emails via the batch endpoint. */
-    public void deliverBatch(List<EmailMessage> messages) {
-        if (messages == null || messages.isEmpty()) {
-            return;
-        }
-        executeWithResilience(() -> {
-            emailSender.sendBatch(messages);
-            return null;
-        });
-    }
+  /** @deprecated Use {@link #deliverBatch(EmailQueueType, List)} */
+  @Deprecated
+  public void deliverBatch(List<EmailMessage> messages) {
+    deliverBatch(EmailQueueType.TRANSACTIONAL, messages);
+  }
 
-    private void executeWithResilience(java.util.concurrent.Callable<Void> action) {
-        try {
-            RateLimiter.decorateCallable(
-                    rateLimiter,
-                    Retry.decorateCallable(retry, action)).call();
-        } catch (RuntimeException ex) {
-            throw ex;
-        } catch (Exception ex) {
-            throw new RuntimeException("Email delivery failed", ex);
-        }
+  private void executeWithResilience(EmailQueueType queueType, java.util.concurrent.Callable<Void> action) {
+    RateLimiter rateLimiter =
+        queueType == EmailQueueType.BULK ? bulkRateLimiter : transactionalRateLimiter;
+    Retry retry = queueType == EmailQueueType.BULK ? bulkRetry : transactionalRetry;
+
+    try {
+      RateLimiter.decorateCallable(rateLimiter, Retry.decorateCallable(retry, action)).call();
+    } catch (RuntimeException ex) {
+      throw ex instanceof EmailDeliveryException
+          ? ex
+          : EmailDeliveryException.wrap(ex);
+    } catch (Exception ex) {
+      throw EmailDeliveryException.wrap(ex);
     }
+  }
 }

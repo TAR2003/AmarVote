@@ -15,6 +15,7 @@ public class ScheduledElectionEmailResponse {
     private Long emailId;
     private Long electionId;
     private String recipientGroup;
+    private String voterFilter;
     private String emailBody;
     private Instant scheduledTime;
     private Boolean sent;

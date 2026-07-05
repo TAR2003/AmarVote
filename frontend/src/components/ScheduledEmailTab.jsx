@@ -4,6 +4,12 @@ import toast from 'react-hot-toast';
 import { electionApi } from '../utils/electionApi';
 import { timezoneUtils } from '../utils/timezoneUtils';
 
+const VOTER_FILTERS = [
+  { value: 'both', label: 'All voters (voted and not voted)' },
+  { value: 'voted', label: 'Voters who submitted their vote' },
+  { value: 'not_voted', label: 'Voters who have not voted yet' },
+];
+
 const RECIPIENT_GROUPS = [
   { value: 'voters', label: 'Voters' },
   { value: 'guardians', label: 'Guardians' },
@@ -81,6 +87,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
   const [editingId, setEditingId] = useState(null);
   const [form, setForm] = useState({
     recipientGroup: 'voters',
+    voterFilter: 'both',
     emailBody: '',
     scheduledTime: '',
   });
@@ -122,6 +129,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
     setEditingId(null);
     setForm({
       recipientGroup: 'voters',
+      voterFilter: 'both',
       emailBody: buildEmailTemplate(electionData, 'voters'),
       scheduledTime: '',
     });
@@ -141,6 +149,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
 
     const payload = {
       recipientGroup: form.recipientGroup,
+      voterFilter: form.recipientGroup === 'voters' ? form.voterFilter : 'both',
       emailBody: form.emailBody.trim(),
       scheduledTime: new Date(form.scheduledTime).toISOString(),
     };
@@ -168,6 +177,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
     setEditingId(email.emailId);
     setForm({
       recipientGroup: email.recipientGroup,
+      voterFilter: email.voterFilter || 'both',
       emailBody: email.emailBody,
       scheduledTime: toLocalInputValue(email.scheduledTime),
     });
@@ -189,6 +199,9 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
 
   const groupLabel = (value) =>
     RECIPIENT_GROUPS.find((g) => g.value === value)?.label || value;
+
+  const voterFilterLabel = (value) =>
+    VOTER_FILTERS.find((f) => f.value === value)?.label || value;
 
   return (
     <div className="space-y-6">
@@ -221,6 +234,29 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
               ))}
             </div>
           </div>
+
+          {form.recipientGroup === 'voters' && (
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Voter audience</label>
+              <div className="space-y-2">
+                {VOTER_FILTERS.map((filter) => (
+                  <label key={filter.value} className="flex items-start gap-2">
+                    <input
+                      type="radio"
+                      name="voterFilter"
+                      value={filter.value}
+                      checked={form.voterFilter === filter.value}
+                      onChange={() =>
+                        setForm((prev) => ({ ...prev, voterFilter: filter.value }))
+                      }
+                      className="form-radio text-blue-600 mt-1"
+                    />
+                    <span className="text-sm text-gray-700">{filter.label}</span>
+                  </label>
+                ))}
+              </div>
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
@@ -290,6 +326,12 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
                       )}
                       <span className="font-medium text-gray-900">
                         {groupLabel(email.recipientGroup)}
+                        {email.recipientGroup === 'voters' && email.voterFilter && email.voterFilter !== 'both' && (
+                          <span className="text-gray-500 font-normal">
+                            {' '}
+                            · {voterFilterLabel(email.voterFilter)}
+                          </span>
+                        )}
                       </span>
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full ${

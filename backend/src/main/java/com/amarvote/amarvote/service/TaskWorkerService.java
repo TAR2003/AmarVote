@@ -101,21 +101,35 @@ public class TaskWorkerService {
     private static final ConcurrentHashMap<String, Boolean> processingLocks = new ConcurrentHashMap<>();
 
     /**
-     * Worker for all asynchronous email delivery.
+     * Worker for transactional email delivery (verification, OTP, receipts, etc.).
      */
     @RabbitListener(
-            queues = RabbitMQConfig.EMAIL_QUEUE,
-            containerFactory = "emailRabbitListenerContainerFactory")
-    public void processEmailTask(EmailTask task) {
+            queues = RabbitMQConfig.EMAIL_TRANSACTIONAL_QUEUE,
+            containerFactory = "transactionalEmailRabbitListenerContainerFactory")
+    public void processTransactionalEmailTask(EmailTask task) {
+        processEmailTaskInternal(task, "transactional");
+    }
+
+    /**
+     * Worker for bulk/campaign email delivery (voters, guardians, admins).
+     */
+    @RabbitListener(
+            queues = RabbitMQConfig.EMAIL_BULK_QUEUE,
+            containerFactory = "bulkEmailRabbitListenerContainerFactory")
+    public void processBulkEmailTask(EmailTask task) {
+        processEmailTaskInternal(task, "bulk");
+    }
+
+    private void processEmailTaskInternal(EmailTask task, String lane) {
         try {
-            System.out.println("=== WORKER: Processing Email Task ===");
+            System.out.println("=== WORKER: Processing " + lane + " Email Task ===");
             System.out.println("Type: " + task.getEmailType()
                     + ", Recipient: " + formatRecipient(task)
                     + ", Attempt: " + (task.getAttempt() + 1));
 
             emailService.processEmailTask(task);
 
-            System.out.println("✅ Email task completed for " + task.getToEmail());
+            System.out.println("✅ Email task buffered for " + formatRecipient(task));
         } catch (Exception e) {
             System.err.println("❌ Email task failed for " + formatRecipient(task)
                     + " (attempt " + (task.getAttempt() + 1) + "): " + e.getMessage());

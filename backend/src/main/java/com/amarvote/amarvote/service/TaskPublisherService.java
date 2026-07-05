@@ -10,6 +10,7 @@ import com.amarvote.amarvote.dto.worker.EmailTask;
 import com.amarvote.amarvote.dto.worker.PartialDecryptionTask;
 import com.amarvote.amarvote.dto.worker.TallyCreationTask;
 import com.amarvote.amarvote.dto.worker.VoteReceiptTask;
+import com.amarvote.amarvote.email.EmailQueueType;
 
 import lombok.RequiredArgsConstructor;
 
@@ -76,20 +77,32 @@ public class TaskPublisherService {
     }
 
     /**
-     * Publish a generic email task to the dedicated email queue.
+     * Publish an email task to the correct lane (transactional vs bulk).
      */
     public void publishEmailTask(EmailTask task) {
         if (task.getAttempt() < 0) {
             task.setAttempt(0);
         }
-        System.out.println("📤 Publishing email task type=" + task.getEmailType()
+        EmailQueueType lane = resolveEmailQueueType(task);
+        String routingKey =
+            lane == EmailQueueType.BULK
+                ? RabbitMQConfig.EMAIL_BULK_ROUTING_KEY
+                : RabbitMQConfig.EMAIL_TRANSACTIONAL_ROUTING_KEY;
+
+        System.out.println("📤 Publishing email task lane=" + lane
+                + ", type=" + task.getEmailType()
                 + ", to=" + formatRecipient(task)
                 + ", attempt=" + task.getAttempt());
-        rabbitTemplate.convertAndSend(
-            RabbitMQConfig.TASK_EXCHANGE,
-            RabbitMQConfig.EMAIL_ROUTING_KEY,
-            task
-        );
+        rabbitTemplate.convertAndSend(RabbitMQConfig.TASK_EXCHANGE, routingKey, task);
+    }
+
+    public void publishEmailTaskToDlq(EmailTask task) {
+        EmailQueueType lane = resolveEmailQueueType(task);
+        String routingKey =
+            lane == EmailQueueType.BULK
+                ? RabbitMQConfig.EMAIL_BULK_DLQ_ROUTING_KEY
+                : RabbitMQConfig.EMAIL_TRANSACTIONAL_DLQ_ROUTING_KEY;
+        rabbitTemplate.convertAndSend(RabbitMQConfig.EMAIL_DLX, routingKey, task);
     }
 
     /**
@@ -105,6 +118,13 @@ public class TaskPublisherService {
             .receiptContent(task.getReceiptContent())
             .build();
         publishEmailTask(emailTask);
+    }
+
+    public static EmailQueueType resolveEmailQueueType(EmailTask task) {
+        if (task != null && task.getEmailType() == EmailTask.EmailType.BATCH_REMINDER) {
+            return EmailQueueType.BULK;
+        }
+        return EmailQueueType.TRANSACTIONAL;
     }
 
     private static String formatRecipient(EmailTask task) {

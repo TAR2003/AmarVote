@@ -45,7 +45,7 @@ public class ResendEmailSender implements EmailSender {
         try {
             resend.emails().send(toCreateEmailOptions(message));
         } catch (ResendException e) {
-            throw new RuntimeException("Failed to send email via Resend", e);
+            throw EmailDeliveryException.wrap(e);
         }
     }
 
@@ -70,7 +70,7 @@ public class ResendEmailSender implements EmailSender {
         try {
             resend.batch().send(options);
         } catch (ResendException e) {
-            throw new RuntimeException("Failed to send email batch via Resend", e);
+            throw EmailDeliveryException.wrap(e);
         }
     }
 
