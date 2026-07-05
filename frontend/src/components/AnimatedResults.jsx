@@ -1,5 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { motion, AnimatePresence } from 'framer-motion';
+import React, { useState, useEffect, useMemo } from 'react';
+import { motion } from 'framer-motion';
+import TruncatedCandidateName from './TruncatedCandidateName';
+import {
+  buildCompetitionRankings,
+  formatOrdinal,
+  getVoteCountFromTally,
+  isWinnerByRank,
+} from '../utils/electionRankings';
 
 const AnimatedResults = ({ electionResults, winnerCount = 1, votersWhoVoted = null }) => {
   const [animationStep, setAnimationStep] = useState(0);
@@ -11,39 +18,24 @@ const AnimatedResults = ({ electionResults, winnerCount = 1, votersWhoVoted = nu
     if (!electionResults || !electionResults.results || !electionResults.results.chunks) return;
 
     const chunks = electionResults.results.chunks;
-    
-    // Create a unique key for this data to prevent re-animation of the same data
+
     const dataKey = JSON.stringify({
       totalChunks: chunks.length,
       finalTallies: electionResults.results.finalTallies,
-      totalBallots: electionResults.results.allBallots?.length
+      totalBallots: electionResults.results.allBallots?.length,
     });
-    
-    console.log('🎬 [AnimatedResults] Checking animation trigger:', {
-      currentKey: dataKey,
-      lastKey: lastAnimatedDataKey,
-      willAnimate: dataKey !== lastAnimatedDataKey,
-      finalTallies: electionResults.results.finalTallies
-    });
-    
-    // Don't re-animate if we've already animated this exact data
+
     if (dataKey === lastAnimatedDataKey) {
-      console.log('⏭️ [AnimatedResults] Skipping animation - same data already animated');
-      // Set final state immediately without animation
       setCurrentTotals(electionResults.results.finalTallies || {});
       setIsAnimating(false);
       return;
     }
-    
-    console.log('✨ [AnimatedResults] Starting new animation with fresh data');
+
     setLastAnimatedDataKey(dataKey);
-    
-    // Start animation
     setIsAnimating(true);
     setAnimationStep(0);
     setCurrentTotals({});
 
-    // Animate through each chunk
     const animateNextChunk = (chunkIndex) => {
       if (chunkIndex >= chunks.length) {
         setIsAnimating(false);
@@ -52,36 +44,19 @@ const AnimatedResults = ({ electionResults, winnerCount = 1, votersWhoVoted = nu
 
       setTimeout(() => {
         const chunk = chunks[chunkIndex];
-        
-        console.log(`🎬 [AnimatedResults] Processing chunk ${chunkIndex + 1}:`, {
-          chunkIndex: chunk.chunkIndex,
-          candidateVotes: chunk.candidateVotes,
-          electionCenterId: chunk.electionCenterId
-        });
-        
-        // Update current totals by adding this chunk's votes
-        setCurrentTotals(prev => {
+
+        setCurrentTotals((prev) => {
           const newTotals = { ...prev };
           Object.entries(chunk.candidateVotes || {}).forEach(([candidate, voteData]) => {
-            // Handle simple integers, strings, and nested object formats
-            let votes = 0;
-            if (typeof voteData === 'number') {
-              votes = voteData;
-            } else if (typeof voteData === 'object' && voteData.votes) {
-              votes = typeof voteData.votes === 'string' ? parseInt(voteData.votes) : voteData.votes;
-            } else if (typeof voteData === 'string') {
-              votes = parseInt(voteData);
-            }
-            console.log(`  📝 Adding ${votes} votes for ${candidate} (was ${prev[candidate] || 0})`);
+            const votes = getVoteCountFromTally(voteData);
             newTotals[candidate] = (newTotals[candidate] || 0) + votes;
           });
-          console.log(`  ✅ New totals:`, newTotals);
           return newTotals;
         });
 
         setAnimationStep(chunkIndex + 1);
         animateNextChunk(chunkIndex + 1);
-      }, 1500); // 1.5 seconds between chunks
+      }, 1500);
     };
 
     animateNextChunk(0);
@@ -96,50 +71,24 @@ const AnimatedResults = ({ electionResults, winnerCount = 1, votersWhoVoted = nu
   }
 
   const results = electionResults.results;
-  const candidates = Object.keys(results.finalTallies || {});
+  const finalTallies = results.finalTallies || {};
 
-  const getVoteCount = (tallyData) => {
-    if (typeof tallyData === 'number') return tallyData;
-    if (typeof tallyData === 'object' && tallyData.votes) {
-      return typeof tallyData.votes === 'string' ? parseInt(tallyData.votes, 10) : tallyData.votes;
-    }
-    if (typeof tallyData === 'string') return parseInt(tallyData, 10);
-    return 0;
-  };
+  const rankedCandidates = useMemo(() => {
+    const items = Object.keys(finalTallies).map((name) => ({
+      name,
+      votes: getVoteCountFromTally(finalTallies[name]),
+    }));
+    return buildCompetitionRankings(items);
+  }, [finalTallies]);
 
-  const rankedWinners = [...candidates]
-    .sort((a, b) => getVoteCount(results.finalTallies[b]) - getVoteCount(results.finalTallies[a]))
-    .slice(0, Math.max(1, winnerCount));
-  const winnerSet = new Set(rankedWinners);
-  
-  // Calculate total votes properly - handle both simple integers and nested objects
-  const totalVotes = Object.values(results.finalTallies || {}).reduce((sum, tallyData) => {
-    if (typeof tallyData === 'number') {
-      return sum + tallyData;
-    } else if (typeof tallyData === 'object' && tallyData.votes) {
-      return sum + (typeof tallyData.votes === 'string' ? parseInt(tallyData.votes) : tallyData.votes);
-    } else if (typeof tallyData === 'string') {
-      return sum + parseInt(tallyData);
-    }
-    return sum;
-  }, 0);
-  
-  // Prefer explicit voter count; fall back to ballot count from tally payload
+  const totalVotes = rankedCandidates.reduce((sum, item) => sum + item.votes, 0);
+
   const votersWhoVotedCount = votersWhoVoted != null
     ? votersWhoVoted
     : (results.allBallots?.length || results.total_ballots_cast || results.total_valid_ballots || 0);
-  
-  console.log('📊 [AnimatedResults] Rendering with data:', {
-    finalTallies: results.finalTallies,
-    totalVotes,
-    votersWhoVotedCount,
-    currentTotals,
-    isAnimating
-  });
 
   return (
     <div className="space-y-8">
-      {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg p-6 shadow-lg">
         <h2 className="text-3xl font-bold mb-2">Election Results</h2>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
@@ -147,49 +96,51 @@ const AnimatedResults = ({ electionResults, winnerCount = 1, votersWhoVoted = nu
             Voters Who Voted: <span className="font-bold text-white">{votersWhoVotedCount}</span>
           </p>
           <p className="text-blue-100 text-sm">
-            Candidate selections are aggregated below (multi-choice elections may show more selections than voters).
+            Ranked by votes received (highest first). Tied candidates share the same position.
           </p>
         </div>
       </div>
 
-      {/* Animated Vote Columns */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {candidates.map((candidate, index) => {
-          // ALWAYS use finalTallies for display, not currentTotals (which may be wrong during animation)
-          const finalTallyData = results.finalTallies[candidate];
-          let finalVotes = 0;
-          if (typeof finalTallyData === 'number') {
-            finalVotes = finalTallyData;
-          } else if (typeof finalTallyData === 'object' && finalTallyData.votes) {
-            finalVotes = typeof finalTallyData.votes === 'string' ? parseInt(finalTallyData.votes) : finalTallyData.votes;
-          } else if (typeof finalTallyData === 'string') {
-            finalVotes = parseInt(finalTallyData);
-          }
-          
-          // Use finalVotes for display and percentage calculation
-          const displayVotes = finalVotes;
+        {rankedCandidates.map((candidate, index) => {
+          const displayVotes = candidate.votes;
           const percentage = totalVotes > 0 ? (displayVotes / totalVotes) * 100 : 0;
-          const isWinner = winnerSet.has(candidate) && finalVotes > 0;
+          const isWinner = isWinnerByRank(candidate.rank, winnerCount) && displayVotes > 0;
+          const positionLabel = formatOrdinal(candidate.rank);
 
           return (
             <motion.div
-              key={candidate}
+              key={candidate.name}
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
               className={`bg-white rounded-lg shadow-lg p-6 border-2 ${
-                isWinner && !isAnimating ? 'border-yellow-400 ring-4 ring-yellow-100 bg-gradient-to-br from-yellow-50 to-white' : 'border-gray-200'
+                isWinner && !isAnimating
+                  ? 'border-yellow-400 ring-4 ring-yellow-100 bg-gradient-to-br from-yellow-50 to-white'
+                  : 'border-gray-200'
               }`}
             >
-              {/* Candidate Name */}
-              <div className="flex items-center justify-between mb-4">
-                <h3 className={`text-xl font-bold ${isWinner && !isAnimating ? 'text-amber-800' : 'text-gray-800'}`}>{candidate}</h3>
+              <div className="flex items-start justify-between gap-2 mb-4">
+                <div className="min-w-0 flex-1">
+                  <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${
+                    isWinner && !isAnimating ? 'text-amber-600' : 'text-gray-500'
+                  }`}>
+                    {positionLabel}
+                  </p>
+                  <h3 className={`text-lg font-bold leading-snug ${
+                    isWinner && !isAnimating ? 'text-amber-800' : 'text-gray-800'
+                  }`}>
+                    <TruncatedCandidateName name={candidate.name} />
+                  </h3>
+                </div>
                 {isWinner && !isAnimating && (
-                  <span className="text-2xl">🏆</span>
+                  <span className="flex flex-col items-center flex-shrink-0" title={`${positionLabel} place`}>
+                    <span className="text-2xl leading-none">🏆</span>
+                    <span className="text-[10px] font-bold text-amber-700 mt-0.5">{positionLabel}</span>
+                  </span>
                 )}
               </div>
 
-              {/* Vote Count */}
               <motion.div
                 className="text-4xl font-extrabold text-blue-600 mb-4"
                 key={displayVotes}
@@ -200,11 +151,10 @@ const AnimatedResults = ({ electionResults, winnerCount = 1, votersWhoVoted = nu
                 {displayVotes}
               </motion.div>
 
-              {/* Animated Bar */}
               <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden">
                 <motion.div
                   className={`h-full ${
-                    isWinner && !isAnimating 
+                    isWinner && !isAnimating
                       ? 'bg-gradient-to-r from-yellow-400 to-yellow-500'
                       : 'bg-gradient-to-r from-blue-500 to-blue-600'
                   }`}
@@ -220,10 +170,6 @@ const AnimatedResults = ({ electionResults, winnerCount = 1, votersWhoVoted = nu
           );
         })}
       </div>
-
-      {/* Chunk Breakdown removed from here - now displayed in results tab after detailed results */}
-
-      {/* All Ballots section removed - ballots are displayed in the separate Ballots tab */}
     </div>
   );
 };

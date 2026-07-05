@@ -294,17 +294,17 @@ public class PartialDecryptionService {
                         redisLockService.releaseLock(lockKey);
                         return CreatePartialDecryptionResponse.builder()
                             .success(false)
-                            .message("The credential file you provided is incorrect. Please upload the correct credentials.txt file that was sent to you via email.")
+                            .message("Please submit the right key")
                             .build();
                     }
-                    
+                
                     System.out.println("✅ Credentials validated successfully");
                 } catch (Exception validationError) {
                     System.err.println("❌ Credential validation failed: " + validationError.getMessage());
                     redisLockService.releaseLock(lockKey);
                     return CreatePartialDecryptionResponse.builder()
                         .success(false)
-                        .message("Invalid credential file. Please ensure you uploaded the correct credentials.txt file sent to you via email.")
+                        .message("Please submit the right key")
                         .build();
                 }
                 
@@ -329,9 +329,16 @@ public class PartialDecryptionService {
             // Stack trace available in exception: e
             return CreatePartialDecryptionResponse.builder()
                 .success(false)
-                .message("Failed to initiate decryption: " + e.getMessage())
+                .message(isCredentialOrDecryptFailure(e) ? "Please submit the right key" : "Failed to initiate decryption: " + e.getMessage())
                 .build();
         }
+    }
+
+    private boolean isCredentialOrDecryptFailure(Exception e) {
+        String msg = e.getMessage();
+        if (msg == null) return false;
+        String lower = msg.toLowerCase();
+        return lower.contains("decrypt") || lower.contains("credential") || lower.contains("bad request");
     }
 
     /**

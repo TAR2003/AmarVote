@@ -57,3 +57,29 @@ export function getVoterFriendlyError(error) {
 
   return message || VOTER_STATUS_COPY.unexpected;
 }
+
+const GUARDIAN_KEY_WRONG_MESSAGE = 'Please submit the right key';
+
+/**
+ * Map guardian credential / decryption failures to a plain, non-technical message.
+ * @param {unknown} error
+ * @returns {string}
+ */
+export function getGuardianKeyFriendlyError(error) {
+  const message = typeof error?.message === 'string' ? error.message : String(error || '');
+  const lower = message.toLowerCase();
+
+  if (
+    lower.includes('decrypt') ||
+    lower.includes('credential') ||
+    lower.includes('invalid credential') ||
+    lower.includes('wrong key') ||
+    lower.includes('incorrect') ||
+    lower.includes('bad request') ||
+    error?.status === 400
+  ) {
+    return GUARDIAN_KEY_WRONG_MESSAGE;
+  }
+
+  return message || GUARDIAN_KEY_WRONG_MESSAGE;
+}

@@ -164,10 +164,10 @@ public class ElectionGuardCryptoService {
             
         } catch (RestClientException e) {
             System.err.println("ElectionGuard decryption service error: " + e.getMessage());
-            throw new RuntimeException("Failed to decrypt guardian data: " + e.getMessage(), e);
+            throw new RuntimeException("Please submit the right key", e);
         } catch (Exception e) {
             System.err.println("Error calling ElectionGuard decryption service: " + e.getMessage());
-            throw new RuntimeException("Failed to decrypt guardian data", e);
+            throw new RuntimeException("Please submit the right key", e);
         }
     }
 

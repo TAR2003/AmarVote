@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { FiKey, FiClock, FiCheckCircle } from 'react-icons/fi';
 import { electionApi } from '../utils/electionApi';
+import { getGuardianKeyFriendlyError } from '../utils/voterMessages';
 
 const triggerAutoCredentialDownload = ({ electionId, encryptedCredential }) => {
   const blob = new Blob([String(encryptedCredential || '').trim()], { type: 'text/plain' });
@@ -133,7 +134,7 @@ export default function KeyCeremonyDashboard() {
       setMessage('Guardian key submitted successfully. Credentials were encrypted using your local password and credentials.txt was downloaded automatically.');
       await loadData();
     } catch (e) {
-      setError(e.message || 'Failed to submit guardian key');
+      setError(getGuardianKeyFriendlyError(e));
     }
   };
 

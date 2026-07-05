@@ -61,13 +61,18 @@ import 'react-circular-progressbar/dist/styles.css';
 import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { saveAs } from 'file-saver';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
-import 'jspdf-autotable';
+import { generateElectionResultsPdf, truncateChartLabel } from '../utils/electionResultsPdf';
 import ErrorBoundary from '../components/ErrorBoundary';
 import GuardianDataDisplay from '../components/GuardianDataDisplay';
 import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
 import AnimatedResults from '../components/AnimatedResults';
+import TruncatedCandidateName from '../components/TruncatedCandidateName';
+import {
+  buildCompetitionRankings,
+  formatOrdinal,
+  isWinnerByRank,
+} from '../utils/electionRankings';
+import { getVoterFriendlyError, getGuardianKeyFriendlyError } from '../utils/voterMessages';
 import TallyCreationModal from '../components/TallyCreationModal';
 import DecryptionProgressModal from '../components/DecryptionProgressModal';
 import CombineProgressModal from '../components/CombineProgressModal';
@@ -86,7 +91,6 @@ import {
   pickMyDecryption,
   pickTally,
 } from '../utils/progressSnapshot';
-import { getVoterFriendlyError } from '../utils/voterMessages';
 
 const getTotalVoters = (data) => {
   if (!data) return 0;
@@ -112,42 +116,6 @@ const sortVotersVotedFirst = (voters) => {
     }
     return a.hasVoted ? -1 : 1;
   });
-};
-
-const TruncatedCandidateName = ({ name, className = '' }) => {
-  const [expanded, setExpanded] = useState(false);
-  const maxLen = 48;
-  const needsTruncate = name && name.length > maxLen;
-
-  if (!needsTruncate || expanded) {
-    return (
-      <span className={className}>
-        {name}
-        {needsTruncate && (
-          <button
-            type="button"
-            onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
-            className="ml-1 text-xs text-blue-600 hover:underline font-medium"
-          >
-            show less
-          </button>
-        )}
-      </span>
-    );
-  }
-
-  return (
-    <span className={className}>
-      {name.slice(0, maxLen)}…
-      <button
-        type="button"
-        onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
-        className="ml-1 text-xs text-blue-600 hover:underline font-medium"
-      >
-        show more
-      </button>
-    </span>
-  );
 };
 
 const subMenus = [
@@ -2805,13 +2773,15 @@ export default function ElectionPage() {
           }
         }, 2000);
       } else {
-        setKeySubmissionError(result.message || 'Failed to submit guardian credentials');
-        toast.error(result.message || 'Failed to submit credentials');
+        const friendly = getGuardianKeyFriendlyError({ message: result.message });
+        setKeySubmissionError(friendly);
+        toast.error(friendly);
       }
     } catch (err) {
       console.error('Error in handleGuardianKeySubmit:', err);
-      setKeySubmissionError(err.message || 'Failed to submit guardian credentials');
-      toast.error(err.message || 'Failed to submit credentials');
+      const friendly = getGuardianKeyFriendlyError(err);
+      setKeySubmissionError(friendly);
+      toast.error(friendly);
     } finally {
       setIsSubmittingKey(false);
     }
@@ -2839,7 +2809,7 @@ export default function ElectionPage() {
       const fileContent = await file.text();
       setGuardianKey(fileContent.trim());
     } catch (error) {
-      setKeySubmissionError(`Failed to read credential file: ${error.message}`);
+      setKeySubmissionError(getGuardianKeyFriendlyError({ message: `Failed to read credential file: ${error.message}` }));
       setGuardianKey('');
     }
   };
@@ -2906,72 +2876,23 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
     setDownloadingPdf(true);
     try {
-      if (resultsExportRef.current) {
-        const canvas = await html2canvas(resultsExportRef.current, {
-          scale: 2,
-          useCORS: true,
-          backgroundColor: '#ffffff',
-          logging: false,
-        });
-
-        const imgData = canvas.toDataURL('image/png');
-        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
-        const pageWidth = pdf.internal.pageSize.getWidth();
-        const pageHeight = pdf.internal.pageSize.getHeight();
-        const margin = 10;
-        const imgWidth = pageWidth - margin * 2;
-        const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
-        let heightLeft = imgHeight;
-        let position = margin;
-
-        pdf.setFontSize(18);
-        pdf.setTextColor(30, 58, 138);
-        pdf.text('AmarVote — Election Results Report', margin, 12);
-        pdf.setFontSize(10);
-        pdf.setTextColor(75, 85, 99);
-        pdf.text(`Generated: ${timezoneUtils.formatForDisplay(new Date().toISOString())}`, margin, 18);
-
-        pdf.addImage(imgData, 'PNG', margin, 24, imgWidth, imgHeight);
-        heightLeft -= pageHeight - 34;
-
-        while (heightLeft > 0) {
-          position = heightLeft - imgHeight + margin;
-          pdf.addPage();
-          pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-          heightLeft -= pageHeight;
-        }
-
-        const safeTitle = (electionData?.electionTitle || 'election')
-          .replace(/[^a-z0-9]+/gi, '_')
-          .slice(0, 60);
-        pdf.save(`election-results-${safeTitle}-${id}.pdf`);
-        return;
-      }
-
       const winnerCount = getWinnerCount(electionData);
-      const sorted = [...processedResults.chartData].sort((a, b) => b.votes - a.votes);
-      const doc = new jsPDF();
-      doc.setFontSize(20);
-      doc.setTextColor(30, 58, 138);
-      doc.text('Election Results', 20, 24);
-      doc.setFontSize(12);
-      doc.setTextColor(55, 65, 81);
-      doc.text(`Election: ${electionData.electionTitle}`, 20, 36);
-      doc.text(`Max choices per voter: ${electionData.maxChoices || 1}`, 20, 44);
-      doc.text(`Number of winners: ${winnerCount}`, 20, 52);
-      doc.text(`Voters who voted: ${processedResults.totalVotedUsers || 0}`, 20, 60);
-      doc.text(`Turnout: ${processedResults.turnoutRate}%`, 20, 68);
+      const ranked = buildCompetitionRankings(
+        processedResults.chartData.map((item) => ({
+          name: item.name,
+          votes: item.votes,
+          percentage: item.percentage,
+        }))
+      );
 
-      let yPosition = 84;
-      sorted.forEach((item, index) => {
-        const isWinner = index < winnerCount;
-        const prefix = isWinner ? '🏆 ' : `#${index + 1} `;
-        doc.text(`${prefix}${item.name}: ${item.votes} votes (${item.percentage}%)`, 24, yPosition);
-        yPosition += 10;
+      generateElectionResultsPdf({
+        electionData,
+        electionId: id,
+        processedResults,
+        ranked,
+        winnerCount,
+        formatGeneratedAt: timezoneUtils.formatForDisplay(new Date().toISOString()),
       });
-
-      doc.save(`election-results-${id}.pdf`);
     } catch (err) {
       console.error('PDF export failed:', err);
       toast.error('Failed to generate PDF. Please try again.');
@@ -4972,11 +4893,37 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                   if (submitStatus.canSubmit) {
                     return (
-                      <div className="border border-green-200 rounded-lg p-6">
-                        <h4 className="font-medium text-green-900 mb-4 flex items-center">
-                          <FiKey className="h-5 w-5 mr-2" />
-                          Submit Your Guardian Credentials
-                        </h4>
+                      <div className="rounded-2xl border-2 border-indigo-300 bg-gradient-to-br from-indigo-50 via-white to-violet-50 shadow-lg overflow-hidden">
+                        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-5 sm:px-6 py-4 text-white">
+                          <div className="flex items-start gap-3">
+                            <div className="rounded-xl bg-white/20 p-3 flex-shrink-0">
+                              <FiKey className="h-7 w-7" />
+                            </div>
+                            <div>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-indigo-100">Guardian action required</p>
+                              <h4 className="text-lg sm:text-xl font-bold mt-1">Submit Your Guardian Key for Decryption</h4>
+                              <p className="text-sm text-indigo-100 mt-1 max-w-2xl">
+                                Upload the <strong className="text-white">credentials.txt</strong> file from your guardian key ceremony email. This unlocks your share of the encrypted results.
+                              </p>
+                            </div>
+                          </div>
+                        </div>
+
+                        <div className="p-5 sm:p-6 space-y-5">
+                          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
+                            <div className="rounded-xl border border-indigo-100 bg-white p-3">
+                              <p className="text-xs font-bold text-indigo-600 uppercase">Step 1</p>
+                              <p className="mt-1 text-gray-800">Find <span className="font-semibold">credentials.txt</span> in your email</p>
+                            </div>
+                            <div className="rounded-xl border border-indigo-100 bg-white p-3">
+                              <p className="text-xs font-bold text-indigo-600 uppercase">Step 2</p>
+                              <p className="mt-1 text-gray-800">Choose the file below (do not edit it)</p>
+                            </div>
+                            <div className="rounded-xl border border-indigo-100 bg-white p-3">
+                              <p className="text-xs font-bold text-indigo-600 uppercase">Step 3</p>
+                              <p className="mt-1 text-gray-800">Press the big green submit button</p>
+                            </div>
+                          </div>
 
                         {/* Check Status Button - Always visible if guardian has any decryption status */}
                         {(() => {
@@ -4995,7 +4942,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               : guardianDecryptionStatus?.status === 'pending'
                               ? 'Your decryption is pending...'
                               : guardianDecryptionStatus?.status === 'failed'
-                              ? '❌ Decryption failed. Click to view details and retry with correct credentials.'
+                              ? 'Please submit the right key. Click below to try again.'
                               : 'Click below to check your decryption progress.';
                             
                             const bgColor = guardianDecryptionStatus?.status === 'failed'
@@ -5091,35 +5038,37 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         )}
 
                         {keySubmissionError && (
-                          <div className="bg-red-50 border border-red-200 rounded-lg p-4 mb-4">
-                            <div className="flex items-center">
-                              <FiAlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                          <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4">
+                            <div className="flex items-start gap-3">
+                              <FiAlertCircle className="h-6 w-6 text-red-500 flex-shrink-0 mt-0.5" />
                               <div>
-                                <h5 className="font-medium text-red-900">Credential Submission Failed</h5>
+                                <h5 className="font-semibold text-red-900">Could not verify your key</h5>
                                 <p className="text-sm text-red-800 mt-1">{keySubmissionError}</p>
+                                <p className="text-xs text-red-700 mt-2">Double-check that you selected the correct credentials.txt file from your guardian email, then try again.</p>
                               </div>
                             </div>
                           </div>
                         )}
 
-                        <form onSubmit={handleGuardianKeySubmit} className="space-y-4">
-                          <div>
-                            <label className="block text-sm font-medium text-gray-700 mb-2">
-                              Guardian Credential File
+                        <form onSubmit={handleGuardianKeySubmit} className="space-y-5">
+                          <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white p-5 sm:p-6">
+                            <label className="block text-base font-semibold text-indigo-900 mb-2">
+                              Upload credentials.txt
                             </label>
                             <input
                               type="file"
                               accept=".txt"
                               onChange={handleCredentialFileChange}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500"
+                              className="w-full text-sm file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white file:font-semibold hover:file:bg-indigo-700 cursor-pointer"
                               required
                             />
-                            <p className="text-sm text-gray-600 mt-1">
-                              Upload the credentials.txt file generated during the guardian key ceremony.
+                            <p className="text-sm text-gray-600 mt-3">
+                              Only the plain text file named <span className="font-mono font-semibold">credentials.txt</span> from your guardian ceremony will work.
                             </p>
                             {guardianKey && (
-                              <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded">
-                                <p className="text-sm text-green-800">✓ Credential file loaded successfully</p>
+                              <div className="mt-3 flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
+                                <FiCheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
+                                <p className="text-sm font-medium text-green-800">File loaded — ready to submit</p>
                               </div>
                             )}
                           </div>
@@ -5135,16 +5084,16 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 <button
                                   type="submit"
                                   disabled={isDisabled}
-                                  className={`px-6 py-2 rounded-lg font-medium text-white transition-colors ${
+                                  className={`w-full sm:w-auto min-w-[260px] px-8 py-3.5 rounded-xl text-base font-bold text-white shadow-md transition-all ${
                                     isCompleted
                                       ? 'bg-green-500 cursor-not-allowed'
                                       : isInProgress
                                       ? 'bg-blue-500 cursor-not-allowed'
                                       : isFailed
-                                      ? 'bg-orange-600 hover:bg-orange-700'
+                                      ? 'bg-orange-600 hover:bg-orange-700 hover:shadow-lg'
                                       : isDisabled
                                       ? 'bg-gray-400 cursor-not-allowed'
-                                      : 'bg-green-600 hover:bg-green-700'
+                                      : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 hover:shadow-lg'
                                   }`}
                                 >
                                   {isCompleted ? (
@@ -5168,13 +5117,14 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                       <span>🔄 Retry with Correct Credentials</span>
                                     </div>
                                   ) : (
-                                    'Submit Guardian Credentials'
+                                    'Submit Guardian Key'
                                   )}
                                 </button>
                               );
                             })()}
                           </div>
                         </form>
+                        </div>
                       </div>
                     );
                   } else {
@@ -5472,13 +5422,24 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             Vote Distribution
                           </h4>
                           <ResponsiveContainer width="100%" height={250}>
-                            <BarChart data={processedResults.chartData}>
+                            <BarChart data={buildCompetitionRankings([...processedResults.chartData])}>
                               <CartesianGrid strokeDasharray="3 3" />
-                              <XAxis dataKey="name" />
+                              <XAxis
+                                dataKey="name"
+                                tick={{ fontSize: 10 }}
+                                interval={0}
+                                angle={-20}
+                                textAnchor="end"
+                                height={70}
+                                tickFormatter={(label) => truncateChartLabel(label, 14)}
+                              />
                               <YAxis />
-                              <Tooltip />
-                              <Legend />
-                              <Bar dataKey="votes" fill="#3B82F6" />
+                              <Tooltip
+                                formatter={(value) => [value, 'Votes']}
+                                labelFormatter={(label) => label}
+                              />
+                              <Legend formatter={(value) => truncateChartLabel(value, 18)} />
+                              <Bar dataKey="votes" fill="#3B82F6" name="Votes" />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -5492,11 +5453,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           <ResponsiveContainer width="100%" height={250}>
                             <PieChart>
                               <Pie
-                                data={processedResults.chartData}
+                                data={buildCompetitionRankings([...processedResults.chartData])}
                                 cx="50%"
                                 cy="50%"
                                 labelLine={false}
-                                label={({ name, percentage }) => `${name}: ${percentage}%`}
+                                label={({ percentage }) => `${percentage}%`}
                                 outerRadius={80}
                                 fill="#8884d8"
                                 dataKey="votes"
@@ -5505,7 +5466,9 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                   <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
                                 ))}
                               </Pie>
-                              <Tooltip />
+                              <Tooltip
+                                formatter={(value, name, props) => [value, props.payload?.name || 'Votes']}
+                              />
                             </PieChart>
                           </ResponsiveContainer>
                         </div>
@@ -5518,7 +5481,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           <table className="w-full border-collapse min-w-[500px]">
                             <thead>
                               <tr className="border-b-2 border-gray-300">
-                                <th className="text-left p-3 font-medium text-gray-900">Rank</th>
+                                <th className="text-left p-3 font-medium text-gray-900">Position</th>
                                 <th className="text-left p-3 font-medium text-gray-900">Candidate</th>
                                 <th className="text-left p-3 font-medium text-gray-900">Votes</th>
                                 <th className="text-left p-3 font-medium text-gray-900">Percentage</th>
@@ -5526,24 +5489,22 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               </tr>
                             </thead>
                             <tbody>
-                              {[...processedResults.chartData]
-                                .sort((a, b) => b.votes - a.votes)
-                                .map((candidate, index) => {
-                                  const isWinner = index < getWinnerCount(electionData);
-                                  return (
+                              {buildCompetitionRankings([...processedResults.chartData]).map((candidate) => {
+                                const winnerCount = getWinnerCount(electionData);
+                                const isWinner = isWinnerByRank(candidate.rank, winnerCount);
+                                const positionLabel = formatOrdinal(candidate.rank);
+                                return (
                                   <tr key={candidate.name} className={`border-b border-gray-200 hover:bg-gray-100 ${isWinner ? 'bg-amber-50/60' : ''}`}>
                                     <td className="p-3">
-                                      <span className={`px-2 py-1 rounded-full text-sm font-medium ${
-                                        isWinner ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' :
-                                          index === 1 ? 'bg-silver-100 text-gray-700' :
-                                            index === 2 ? 'bg-bronze-100 text-orange-700' :
-                                              'bg-gray-100 text-gray-600'
-                                        }`}>
-                                        {isWinner ? '🏆' : `#${index + 1}`}
+                                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium ${
+                                        isWinner ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' : 'bg-gray-100 text-gray-600'
+                                      }`}>
+                                        {isWinner && <span aria-hidden>🏆</span>}
+                                        {positionLabel}
                                       </span>
                                     </td>
-                                    <td className={`p-3 font-medium ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>
-                                      {candidate.name}
+                                    <td className={`p-3 font-medium min-w-0 ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>
+                                      <TruncatedCandidateName name={candidate.name} />
                                       {isWinner && <span className="ml-2 text-xs font-bold text-amber-600">Winner</span>}
                                     </td>
                                     <td className="p-3 font-semibold text-gray-900">{candidate.votes}</td>
@@ -5551,14 +5512,14 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                     <td className="p-3">
                                       <div className="w-20 bg-gray-200 rounded-full h-2">
                                         <div
-                                          className="bg-blue-600 h-2 rounded-full transition-all duration-1000"
+                                          className={`h-2 rounded-full transition-all duration-1000 ${isWinner ? 'bg-yellow-500' : 'bg-blue-600'}`}
                                           style={{ width: `${candidate.percentage}%` }}
-                                        ></div>
+                                        />
                                       </div>
                                     </td>
                                   </tr>
-                                  );
-                                })}
+                                );
+                              })}
                             </tbody>
                           </table>
                         </div>
@@ -5573,45 +5534,45 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               Election Rankings
                             </h4>
                             <div className="space-y-3">
-                              {[...processedResults.chartData]
-                                .sort((a, b) => b.votes - a.votes)
-                                .map((candidate, index) => {
-                                  const isWinner = index < getWinnerCount(electionData);
-                                  const medals = ['🥇', '🥈', '🥉'];
-                                  const winnerStyle = { bg: 'bg-gradient-to-r from-yellow-50 to-amber-50', border: 'border-yellow-300', badge: 'bg-yellow-100 text-yellow-800 border border-yellow-300', rank: 'text-yellow-600', bar: 'from-yellow-400 to-amber-500' };
-                                  const rankStyles = [
-                                    winnerStyle,
-                                    { bg: 'bg-gradient-to-r from-slate-50 to-gray-50', border: 'border-gray-200', badge: 'bg-gray-100 text-gray-700 border border-gray-300', rank: 'text-gray-500', bar: 'from-slate-400 to-gray-500' },
-                                    { bg: 'bg-gradient-to-r from-orange-50 to-amber-50', border: 'border-orange-200', badge: 'bg-orange-100 text-orange-800 border border-orange-300', rank: 'text-orange-600', bar: 'from-orange-400 to-amber-500' },
-                                    { bg: 'bg-blue-50', border: 'border-blue-100', badge: 'bg-blue-50 text-blue-700 border border-blue-200', rank: 'text-blue-500', bar: 'from-blue-400 to-indigo-500' },
-                                  ];
-                                  const style = isWinner ? winnerStyle : rankStyles[Math.min(index, rankStyles.length - 1)];
-                                  return (
-                                    <div key={candidate.name} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border ${style.bg} ${style.border} transition-all hover:shadow-md`}>
-                                      <div className="text-2xl sm:text-3xl w-10 text-center flex-shrink-0">
-                                        {isWinner ? '🏆' : index < 3
-                                          ? medals[index]
-                                          : <span className={`text-base font-extrabold ${style.rank}`}>#{index + 1}</span>
-                                        }
-                                      </div>
-                                      <div className="flex-1 min-w-0">
-                                        <p className={`font-bold text-sm sm:text-base truncate ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>{candidate.name}</p>
-                                        <div className="mt-1.5 w-full bg-white/70 rounded-full h-1.5 overflow-hidden border border-white">
-                                          <div
-                                            className={`h-1.5 rounded-full bg-gradient-to-r ${style.bar} transition-all duration-1000`}
-                                            style={{ width: `${candidate.percentage}%` }}
-                                          />
+                              {buildCompetitionRankings([...processedResults.chartData]).map((candidate) => {
+                                const winnerCount = getWinnerCount(electionData);
+                                const isWinner = isWinnerByRank(candidate.rank, winnerCount);
+                                const positionLabel = formatOrdinal(candidate.rank);
+                                const style = isWinner
+                                  ? { bg: 'bg-gradient-to-r from-yellow-50 to-amber-50', border: 'border-yellow-300', badge: 'bg-yellow-100 text-yellow-800 border border-yellow-300', rank: 'text-yellow-600', bar: 'from-yellow-400 to-amber-500' }
+                                  : { bg: 'bg-blue-50', border: 'border-blue-100', badge: 'bg-blue-50 text-blue-700 border border-blue-200', rank: 'text-blue-500', bar: 'from-blue-400 to-indigo-500' };
+                                return (
+                                  <div key={candidate.name} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border ${style.bg} ${style.border} transition-all hover:shadow-md`}>
+                                    <div className="w-14 text-center flex-shrink-0">
+                                      {isWinner ? (
+                                        <div className="flex flex-col items-center">
+                                          <span className="text-2xl leading-none">🏆</span>
+                                          <span className={`text-xs font-extrabold mt-1 ${style.rank}`}>{positionLabel}</span>
                                         </div>
-                                      </div>
-                                      <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                        <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${style.badge}`}>
-                                          {candidate.votes} votes
-                                        </span>
-                                        <span className="text-xs font-semibold text-gray-500">{candidate.percentage}%</span>
+                                      ) : (
+                                        <span className={`text-sm font-extrabold ${style.rank}`}>{positionLabel}</span>
+                                      )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                      <p className={`font-bold text-sm sm:text-base ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>
+                                        <TruncatedCandidateName name={candidate.name} />
+                                      </p>
+                                      <div className="mt-1.5 w-full bg-white/70 rounded-full h-1.5 overflow-hidden border border-white">
+                                        <div
+                                          className={`h-1.5 rounded-full bg-gradient-to-r ${style.bar} transition-all duration-1000`}
+                                          style={{ width: `${candidate.percentage}%` }}
+                                        />
                                       </div>
                                     </div>
-                                  );
-                                })}
+                                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
+                                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${style.badge}`}>
+                                        {candidate.votes} votes
+                                      </span>
+                                      <span className="text-xs font-semibold text-gray-500">{candidate.percentage}%</span>
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
                           </div>
                         </div>
