@@ -25,7 +25,7 @@ public class ElectionGuardConcurrencyGate {
     private final int workerCapacity;
 
     public ElectionGuardConcurrencyGate(
-            @Value("${amarvote.electionguard.api.max-concurrent:6}") int apiMaxConcurrent,
+            @Value("${amarvote.electionguard.api.max-concurrent:4}") int apiMaxConcurrent,
             @Value("${amarvote.electionguard.api.acquire-timeout-ms:180000}") long apiAcquireTimeoutMs,
             @Value("${amarvote.electionguard.worker.max-concurrent:2}") int workerMaxConcurrent,
             @Value("${amarvote.electionguard.worker.acquire-timeout-ms:600000}") long workerAcquireTimeoutMs) {

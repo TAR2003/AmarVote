@@ -1,7 +1,7 @@
 # Production compose — tuned for 4 GB RAM + 4 GB swap (amarvote2026.me, 2 vCPU).
 #
 # Memory budget (container limits, ~3712M total):
-#   backend 1792M | electionguard-api 512M (6 workers) | postgres 512M | rabbitmq 320M
+#   backend 1792M | electionguard-api 512M (4 workers) | postgres 512M | rabbitmq 320M
 #   electionguard-worker 320M (2 gunicorn workers) | prometheus+grafana 256M | frontend 96M | redis 96M | nginx 64M
 #
 # GitHub deploy uses THIS FILE ONLY. Nginx always uses nginx-proxy.conf (DDoS limits).
@@ -161,7 +161,7 @@ services:
       # ElectionGuard Service URLs + per-container throughput (must match GUNICORN_WORKERS below)
       - ELECTIONGUARD_API_URL=http://electionguard-api:5000
       - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
-      - ELECTIONGUARD_API_GUNICORN_WORKERS=6
+      - ELECTIONGUARD_API_GUNICORN_WORKERS=4
       - ELECTIONGUARD_WORKER_GUNICORN_WORKERS=1
       - ELECTIONGUARD_WORKER_SCHEDULER_QUEUE_DEPTH=4
       # 4 GB host: 1792M container — Xmx896m + 384m metaspace (128m cap caused Metaspace OOM)
@@ -243,8 +243,8 @@ services:
       - FLASK_DEBUG=0
       - MASTER_KEY_PQ=${MASTER_KEY_PQ}
       - ELECTIONGUARD_INTERNAL_API_KEY=${ELECTIONGUARD_INTERNAL_API_KEY}
-      # 2 vCPU host: 6 sync workers (CPU-bound crypto). Worker recycle limits heap growth.
-      - GUNICORN_WORKERS=6
+      # 2 vCPU host: 4 sync workers (CPU-bound crypto). Worker recycle limits heap growth.
+      - GUNICORN_WORKERS=4
       - GUNICORN_THREADS=1
       - GUNICORN_MAX_REQUESTS=300
       - GUNICORN_MAX_REQUESTS_JITTER=50

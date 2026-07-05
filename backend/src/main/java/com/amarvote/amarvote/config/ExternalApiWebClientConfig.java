@@ -36,10 +36,10 @@ import reactor.netty.resources.ConnectionProvider;
 @Configuration
 public class ExternalApiWebClientConfig {
 
-    @Value("${electionguard.api.max.connections:6}")
+    @Value("${electionguard.api.max.connections:4}")
     private int electionGuardApiMaxConnections;
 
-    @Value("${electionguard.api.max.per.route:6}")
+    @Value("${electionguard.api.max.per.route:4}")
     private int electionGuardApiMaxPerRoute;
 
     @Value("${electionguard.worker.max.connections:2}")
