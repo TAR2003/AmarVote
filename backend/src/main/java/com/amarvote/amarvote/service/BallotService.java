@@ -2,6 +2,7 @@ package com.amarvote.amarvote.service;
 
 import java.time.Duration;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -571,6 +572,112 @@ public class BallotService {
         }
     }
 
+    private static final String UNSELECTED_CANDIDATE_PLACEHOLDER = "__AMARVOTE_UNSELECTED__";
+
+    /**
+     * Decode a fixed-width stuffed candidate slot from the client payload.
+     * Frontend pads names with U+00A0 (NBSP); Java trim() does not strip those.
+     */
+    private String decodeStuffedCandidateSlot(String candidate) {
+        if (candidate == null || candidate.isEmpty()) {
+            return "";
+        }
+
+        int end = candidate.length();
+        while (end > 0 && candidate.charAt(end - 1) == '\u00A0') {
+            end--;
+        }
+
+        String decoded = candidate.substring(0, end).trim();
+        if (decoded.isEmpty() || UNSELECTED_CANDIDATE_PLACEHOLDER.equals(decoded)) {
+            return "";
+        }
+        return decoded;
+    }
+
+    private List<String> normalizeSelectedCandidates(List<String> selectedCandidates, int maxChoices) {
+        if (selectedCandidates == null) {
+            return List.of();
+        }
+
+        List<String> normalized = selectedCandidates.stream()
+                .map(this::decodeStuffedCandidateSlot)
+                .filter(candidate -> !candidate.isBlank())
+                .collect(Collectors.toList());
+
+        if (selectedCandidates.size() != maxChoices) {
+            System.out.println("⚠️ [BALLOT STUFFING] Expected " + maxChoices
+                    + " selection slots but received " + selectedCandidates.size());
+        }
+
+        return normalized;
+    }
+
+    private String normalizeCandidateTitle(String title) {
+        if (title == null) {
+            return "";
+        }
+        return title.replace('\u00A0', ' ').replaceAll("\\s+", " ").trim();
+    }
+
+    private boolean candidateTitlesMatch(String dbTitle, String selectedTitle) {
+        String normalizedDb = normalizeCandidateTitle(dbTitle);
+        String normalizedSelected = normalizeCandidateTitle(selectedTitle);
+        if (normalizedDb.equals(normalizedSelected)) {
+            return true;
+        }
+        // Stuffed slots may truncate very long names at 128 chars
+        if (normalizedSelected.length() >= CANDIDATE_NAME_SLOT_WIDTH - 1) {
+            return normalizedDb.startsWith(normalizedSelected)
+                    || normalizedSelected.startsWith(normalizedDb);
+        }
+        return false;
+    }
+
+    private static final int CANDIDATE_NAME_SLOT_WIDTH = 128;
+
+    /**
+     * Resolve client selections to canonical DB option titles.
+     * Prefers choice IDs when provided; falls back to normalized title matching.
+     */
+    private List<String> resolveSelectedCandidateTitles(
+            List<Long> selectedChoiceIds,
+            List<String> rawSelectedNames,
+            List<ElectionChoice> choices,
+            int maxChoices) {
+
+        if (selectedChoiceIds != null && !selectedChoiceIds.isEmpty()) {
+            Map<Long, ElectionChoice> choiceById = choices.stream()
+                    .collect(Collectors.toMap(ElectionChoice::getChoiceId, c -> c, (a, b) -> a));
+
+            List<String> resolved = new ArrayList<>();
+            for (Long choiceId : selectedChoiceIds) {
+                ElectionChoice choice = choiceById.get(choiceId);
+                if (choice == null) {
+                    System.out.println("❌ [BALLOT] Invalid choice ID: " + choiceId);
+                    return null;
+                }
+                resolved.add(choice.getOptionTitle());
+            }
+            return resolved;
+        }
+
+        List<String> decodedNames = normalizeSelectedCandidates(rawSelectedNames, maxChoices);
+        List<String> resolved = new ArrayList<>();
+        for (String decodedName : decodedNames) {
+            Optional<ElectionChoice> match = choices.stream()
+                    .filter(choice -> candidateTitlesMatch(choice.getOptionTitle(), decodedName))
+                    .findFirst();
+            if (match.isEmpty()) {
+                System.out.println("❌ [BALLOT] No election choice matches decoded selection: ["
+                        + decodedName + "]");
+                return null;
+            }
+            resolved.add(match.get().getOptionTitle());
+        }
+        return resolved;
+    }
+
     /**
      * Maximum packet size for createEncryptedBallot request (in bytes)
      * This ensures all requests have the same size to prevent traffic analysis.
@@ -678,12 +785,20 @@ public class BallotService {
 
             // 6. Validate candidate choices (multi-select)
             List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
-            List<String> selectedCandidates = request.getSelectedCandidates();
+            Integer electionMaxChoices = election.getMaxChoices();
+            int maxChoices = (electionMaxChoices != null) ? electionMaxChoices : 1;
+            List<String> selectedCandidates = resolveSelectedCandidateTitles(
+                    request.getSelectedChoiceIds(),
+                    request.getSelectedCandidates(),
+                    choices,
+                    maxChoices);
             if (selectedCandidates == null || selectedCandidates.isEmpty()) {
                 return CreateEncryptedBallotResponse.builder()
                         .success(false)
-                        .message("No candidates selected")
-                        .errorReason("No candidates selected")
+                        .message(selectedCandidates == null
+                                ? "One or more invalid candidate selections"
+                                : "No candidates selected")
+                        .errorReason(selectedCandidates == null ? "Invalid candidate" : "No candidates selected")
                         .build();
             }
             // Check for duplicates
@@ -696,25 +811,11 @@ public class BallotService {
                         .build();
             }
             // Check maxChoices
-            Integer electionMaxChoices = election.getMaxChoices();
-            int maxChoices = (electionMaxChoices != null) ? electionMaxChoices : 1;
             if (selectedCandidates.size() > maxChoices) {
                 return CreateEncryptedBallotResponse.builder()
                         .success(false)
                         .message("You can select at most " + maxChoices + " candidate(s)")
                         .errorReason("Too many candidates selected")
-                        .build();
-            }
-            // Validate each candidate exists in election choices
-            Set<String> validChoiceTitles = choices.stream()
-                    .map(ElectionChoice::getOptionTitle)
-                    .collect(Collectors.toSet());
-            boolean allValid = selectedCandidates.stream().allMatch(validChoiceTitles::contains);
-            if (!allValid) {
-                return CreateEncryptedBallotResponse.builder()
-                        .success(false)
-                        .message("One or more invalid candidate selections")
-                        .errorReason("Invalid candidate")
                         .build();
             }
 

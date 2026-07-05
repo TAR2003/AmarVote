@@ -34,6 +34,7 @@ const CreateElection = () => {
         candidatePictures: ["", ""],
         totalCandidates: "2",
         maxChoices: "1",
+        winnerNo: "1",
         sendBallotReceipt: false
     });
 
@@ -597,6 +598,16 @@ const CreateElection = () => {
             return false;
         }
 
+        const winnerNoVal = getMaxChoicesNumber(form.winnerNo);
+        if (Number.isNaN(winnerNoVal) || winnerNoVal < 1) {
+            setError("Number of winners must be at least 1");
+            return false;
+        }
+        if (winnerNoVal > validCandidateNames.length) {
+            setError(`Number of winners (${winnerNoVal}) cannot exceed the number of candidates (${validCandidateNames.length})`);
+            return false;
+        }
+
         if (form.guardianEmails.length === 0 || form.guardianEmails.length < guardianCount) {
             setError(`At least ${guardianCount} guardian emails are required`);
             return false;
@@ -630,6 +641,8 @@ const CreateElection = () => {
         try {
             const electionData = {
                 ...form,
+                maxChoices: getMaxChoicesNumber(form.maxChoices),
+                winnerNo: getMaxChoicesNumber(form.winnerNo || form.maxChoices),
                 partyNames: validCandidateNames.map((_, index) => `${index + 1}`),
                 partyPictures: []
             };
@@ -1082,6 +1095,32 @@ const CreateElection = () => {
                                 </p>
                             )}
                         </div>
+                        <div>
+                            <label className="block text-gray-700 font-medium mb-2">
+                                Number of Winners <span className="text-red-500">*</span>
+                            </label>
+                            <input
+                                type="number"
+                                name="winnerNo"
+                                value={form.winnerNo}
+                                onChange={handleChange}
+                                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                                    isMaxChoicesInvalid(form.winnerNo, form.totalCandidates)
+                                        ? "border-red-500 bg-red-50 focus:ring-red-500"
+                                        : "border-gray-300 focus:ring-blue-500"
+                                }`}
+                            />
+                            {isMaxChoicesInvalid(form.winnerNo, form.totalCandidates) && (
+                                <p className="mt-1 text-xs text-red-600">
+                                    Number of winners must be at least 1 and cannot exceed the total number of candidates
+                                </p>
+                            )}
+                            {!isMaxChoicesInvalid(form.winnerNo, form.totalCandidates) && (
+                                <p className="text-xs text-amber-700 mt-1">
+                                    Top {getMaxChoicesNumber(form.winnerNo)} candidate{getMaxChoicesNumber(form.winnerNo) === 1 ? '' : 's'} will be declared winner{getMaxChoicesNumber(form.winnerNo) === 1 ? '' : 's'}.
+                                </p>
+                            )}
+                        </div>
                     </div>
 
                     <div className="mb-4 flex flex-wrap items-center gap-2">
@@ -1233,6 +1272,7 @@ const CreateElection = () => {
                                 <p><span className="font-medium">Privacy:</span> {form.electionPrivacy}</p>
                                 <p><span className="font-medium">Eligibility:</span> {form.electionEligibility}</p>
                                 <p><span className="font-medium">Max choices:</span> {form.maxChoices}</p>
+                                <p><span className="font-medium">Winners:</span> Top {form.winnerNo || form.maxChoices}</p>
                                 <p><span className="font-medium">Ballot receipts:</span> {form.sendBallotReceipt ? 'Enabled' : 'Disabled'}</p>
                             </section>
                             <section>

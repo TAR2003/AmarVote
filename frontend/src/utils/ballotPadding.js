@@ -20,6 +20,57 @@
  */
 export const TARGET_SIZE = 18980;
 
+/** Placeholder for unselected ballot slots — filtered server-side */
+export const UNSELECTED_CANDIDATE_PLACEHOLDER = '__AMARVOTE_UNSELECTED__';
+
+/** Fixed width per candidate name so JSON size is constant regardless of name length */
+export const CANDIDATE_NAME_SLOT_WIDTH = 128;
+
+/** Target JSON payload size before PKCS#7 (keeps inner structure uniform) */
+export const BALLOT_JSON_TARGET_SIZE = 1800;
+
+/**
+ * Pad a candidate name to a fixed character width using non-breaking spaces.
+ */
+export function padCandidateName(name, width = CANDIDATE_NAME_SLOT_WIDTH) {
+  const value = (name || '').slice(0, width);
+  return value.padEnd(width, '\u00A0');
+}
+
+/**
+ * Build a fixed-size ballot request body: always maxChoices slots, padded names, random padding field.
+ */
+export function buildStuffedBallotPayload(electionId, selectedNames, maxChoices, botDetectionData = null, selectedChoiceIds = null) {
+  const slots = Array.from({ length: maxChoices }, (_, index) => {
+    const name = selectedNames[index];
+    if (!name) {
+      return padCandidateName(UNSELECTED_CANDIDATE_PLACEHOLDER);
+    }
+    return padCandidateName(name);
+  });
+
+  const requestBody = {
+    electionId,
+    selectedCandidates: slots,
+    maxChoices,
+    padding: '',
+  };
+
+  if (selectedChoiceIds && selectedChoiceIds.length > 0) {
+    requestBody.selectedChoiceIds = selectedChoiceIds;
+  }
+
+  if (botDetectionData) {
+    requestBody.botDetection = botDetectionData;
+  }
+
+  const baseLength = JSON.stringify(requestBody).length;
+  const paddingLength = Math.max(64, BALLOT_JSON_TARGET_SIZE - baseLength);
+  requestBody.padding = 'P'.repeat(paddingLength);
+
+  return requestBody;
+}
+
 /**
  * Pad encrypted ballot data to fixed size using PKCS#7 standard
  * 

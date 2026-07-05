@@ -62,6 +62,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { saveAs } from 'file-saver';
 import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
 import 'jspdf-autotable';
 import ErrorBoundary from '../components/ErrorBoundary';
 import GuardianDataDisplay from '../components/GuardianDataDisplay';
@@ -97,6 +98,56 @@ const getVotedCount = (data) => {
   if (!data) return 0;
   if (data.votedCount != null) return data.votedCount;
   return (data.voters || []).filter((v) => v.hasVoted).length;
+};
+
+const getWinnerCount = (electionData) => {
+  if (!electionData) return 1;
+  return electionData.winnerNo || electionData.maxChoices || 1;
+};
+
+const sortVotersVotedFirst = (voters) => {
+  return [...(voters || [])].sort((a, b) => {
+    if (a.hasVoted === b.hasVoted) {
+      return (a.userEmail || '').localeCompare(b.userEmail || '');
+    }
+    return a.hasVoted ? -1 : 1;
+  });
+};
+
+const TruncatedCandidateName = ({ name, className = '' }) => {
+  const [expanded, setExpanded] = useState(false);
+  const maxLen = 48;
+  const needsTruncate = name && name.length > maxLen;
+
+  if (!needsTruncate || expanded) {
+    return (
+      <span className={className}>
+        {name}
+        {needsTruncate && (
+          <button
+            type="button"
+            onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
+            className="ml-1 text-xs text-blue-600 hover:underline font-medium"
+          >
+            show less
+          </button>
+        )}
+      </span>
+    );
+  }
+
+  return (
+    <span className={className}>
+      {name.slice(0, maxLen)}…
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
+        className="ml-1 text-xs text-blue-600 hover:underline font-medium"
+      >
+        show more
+      </button>
+    </span>
+  );
 };
 
 const subMenus = [
@@ -1602,6 +1653,8 @@ export default function ElectionPage() {
   // Voting-related state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const resultsExportRef = useRef(null);
+  const [downloadingPdf, setDownloadingPdf] = useState(false);
   const [voteResult, setVoteResult] = useState(null);
   const [voteError, setVoteError] = useState(null);
   const [createBallotError, setCreateBallotError] = useState(null);
@@ -1668,6 +1721,9 @@ export default function ElectionPage() {
   const [activatingElection, setActivatingElection] = useState(false);
   const [descriptionDraft, setDescriptionDraft] = useState('');
   const [editingDescription, setEditingDescription] = useState(false);
+  const [editingVotingRules, setEditingVotingRules] = useState(false);
+  const [maxChoicesDraft, setMaxChoicesDraft] = useState('1');
+  const [winnerNoDraft, setWinnerNoDraft] = useState('1');
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [keyCeremonyUiMessage, setKeyCeremonyUiMessage] = useState('');
   const [keyCeremonyUiError, setKeyCeremonyUiError] = useState('');
@@ -2356,10 +2412,9 @@ export default function ElectionPage() {
     });
   }, [electionData?.maxChoices]);
 
-  const handleVoteSubmit = async (e) => {
-    e.preventDefault();
-    if (!selectedCandidates.length) return;
-    await handleCreateEncryptedBallot();
+  const handleOpenConfirmModal = (canCreateBallot) => {
+    if (!canCreateBallot || !selectedCandidates.length || ballotModalOpen) return;
+    setShowConfirmModal(true);
   };
 
   const handleCreateEncryptedBallot = async () => {
@@ -2419,13 +2474,15 @@ export default function ElectionPage() {
         choice => selectedCandidates.includes(choice.choiceId.toString())
       );
       const optionTitles = selectedChoices.map(c => c.optionTitle);
+      const selectedChoiceIds = selectedChoices.map(c => c.choiceId);
 
       console.log('📤 [ENCRYPTED BALLOT] Creating encrypted ballot...');
       const result = await electionApi.createEncryptedBallot(
         id,
-        selectedChoices.length === 1 ? selectedChoices[0].choiceId : null,
+        selectedChoiceIds,
         optionTitles,
-        freshBotDetection
+        freshBotDetection,
+        electionData.maxChoices || 1
       );
 
       setEncryptedBallotData(result);
@@ -2841,28 +2898,86 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
     }
   };
 
-  const downloadResultsPDF = () => {
-    if (!resultsData) return;
+  const downloadResultsPDF = async () => {
+    if (!resultsData && !processElectionResults()) return;
 
-    const doc = new jsPDF();
-    doc.setFontSize(20);
-    doc.text('Election Results', 20, 30);
+    const processedResults = resultsData || processElectionResults();
+    if (!processedResults) return;
 
-    doc.setFontSize(14);
-    doc.text(`Election: ${electionData.electionTitle}`, 20, 50);
-    doc.text(`Total Votes: ${resultsData.totalVotes}`, 20, 70);
-    doc.text(`Turnout: ${resultsData.turnoutRate}%`, 20, 90);
+    setDownloadingPdf(true);
+    try {
+      if (resultsExportRef.current) {
+        const canvas = await html2canvas(resultsExportRef.current, {
+          scale: 2,
+          useCORS: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+        });
 
-    let yPosition = 120;
-    doc.setFontSize(12);
-    doc.text('Results:', 20, yPosition);
+        const imgData = canvas.toDataURL('image/png');
+        const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+        const pageWidth = pdf.internal.pageSize.getWidth();
+        const pageHeight = pdf.internal.pageSize.getHeight();
+        const margin = 10;
+        const imgWidth = pageWidth - margin * 2;
+        const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-    resultsData.chartData.forEach((item) => {
-      yPosition += 20;
-      doc.text(`${item.name}: ${item.votes} votes (${item.percentage}%)`, 30, yPosition);
-    });
+        let heightLeft = imgHeight;
+        let position = margin;
 
-    doc.save(`election-results-${id}.pdf`);
+        pdf.setFontSize(18);
+        pdf.setTextColor(30, 58, 138);
+        pdf.text('AmarVote — Election Results Report', margin, 12);
+        pdf.setFontSize(10);
+        pdf.setTextColor(75, 85, 99);
+        pdf.text(`Generated: ${timezoneUtils.formatForDisplay(new Date().toISOString())}`, margin, 18);
+
+        pdf.addImage(imgData, 'PNG', margin, 24, imgWidth, imgHeight);
+        heightLeft -= pageHeight - 34;
+
+        while (heightLeft > 0) {
+          position = heightLeft - imgHeight + margin;
+          pdf.addPage();
+          pdf.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+          heightLeft -= pageHeight;
+        }
+
+        const safeTitle = (electionData?.electionTitle || 'election')
+          .replace(/[^a-z0-9]+/gi, '_')
+          .slice(0, 60);
+        pdf.save(`election-results-${safeTitle}-${id}.pdf`);
+        return;
+      }
+
+      const winnerCount = getWinnerCount(electionData);
+      const sorted = [...processedResults.chartData].sort((a, b) => b.votes - a.votes);
+      const doc = new jsPDF();
+      doc.setFontSize(20);
+      doc.setTextColor(30, 58, 138);
+      doc.text('Election Results', 20, 24);
+      doc.setFontSize(12);
+      doc.setTextColor(55, 65, 81);
+      doc.text(`Election: ${electionData.electionTitle}`, 20, 36);
+      doc.text(`Max choices per voter: ${electionData.maxChoices || 1}`, 20, 44);
+      doc.text(`Number of winners: ${winnerCount}`, 20, 52);
+      doc.text(`Voters who voted: ${processedResults.totalVotedUsers || 0}`, 20, 60);
+      doc.text(`Turnout: ${processedResults.turnoutRate}%`, 20, 68);
+
+      let yPosition = 84;
+      sorted.forEach((item, index) => {
+        const isWinner = index < winnerCount;
+        const prefix = isWinner ? '🏆 ' : `#${index + 1} `;
+        doc.text(`${prefix}${item.name}: ${item.votes} votes (${item.percentage}%)`, 24, yPosition);
+        yPosition += 10;
+      });
+
+      doc.save(`election-results-${id}.pdf`);
+    } catch (err) {
+      console.error('PDF export failed:', err);
+      toast.error('Failed to generate PDF. Please try again.');
+    } finally {
+      setDownloadingPdf(false);
+    }
   };
 
   const downloadResultsCSV = () => {
@@ -3305,6 +3420,51 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
     electionData?.userRoles?.includes('admin') &&
     (!electionData?.startingTime || new Date(electionData.startingTime) > new Date());
 
+  const canEditVotingRules = () => canEditElectionDescription();
+
+  const candidateCountForElection = () =>
+    electionData?.electionChoices?.length || electionData?.noOfCandidates || 0;
+
+  const handleSaveVotingRules = async () => {
+    const candidateCount = candidateCountForElection();
+    const maxChoicesVal = parseInt(maxChoicesDraft, 10);
+    const winnerNoVal = parseInt(winnerNoDraft, 10);
+
+    if (Number.isNaN(maxChoicesVal) || maxChoicesVal < 1) {
+      toast.error('Max choices must be at least 1');
+      return;
+    }
+    if (maxChoicesVal > candidateCount) {
+      toast.error(`Max choices cannot exceed ${candidateCount} candidates`);
+      return;
+    }
+    if (Number.isNaN(winnerNoVal) || winnerNoVal < 1) {
+      toast.error('Number of winners must be at least 1');
+      return;
+    }
+    if (winnerNoVal > candidateCount) {
+      toast.error(`Number of winners cannot exceed ${candidateCount} candidates`);
+      return;
+    }
+
+    try {
+      setSettingsSaving(true);
+      const response = await electionApi.updateElectionSettings(id, {
+        maxChoices: maxChoicesVal,
+        winnerNo: winnerNoVal,
+      });
+      if (response?.election) {
+        setElectionData(response.election);
+      }
+      setEditingVotingRules(false);
+      toast.success('Voting rules updated');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update voting rules');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
   const handleSaveDescription = async () => {
     try {
       setSettingsSaving(true);
@@ -3651,6 +3811,82 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     </div>
                     <p><span className="font-medium">Voting Eligibility:</span> {electionData.eligibility === 'listed' ? 'Listed voters only' : 'Open to anyone'}</p>
                     <div>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="font-medium">Voting rules:</span>
+                        {canEditVotingRules() && !editingVotingRules && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setMaxChoicesDraft(String(electionData.maxChoices || 1));
+                              setWinnerNoDraft(String(getWinnerCount(electionData)));
+                              setEditingVotingRules(true);
+                            }}
+                            className="text-xs font-medium text-blue-600 hover:underline"
+                          >
+                            Edit
+                          </button>
+                        )}
+                        {canEditVotingRules() && editingVotingRules && (
+                          <span className="inline-flex gap-2">
+                            <button
+                              type="button"
+                              disabled={settingsSaving}
+                              onClick={handleSaveVotingRules}
+                              className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-50"
+                            >
+                              Save
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => setEditingVotingRules(false)}
+                              className="text-xs font-medium text-gray-600 hover:underline"
+                            >
+                              Cancel
+                            </button>
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-1 space-y-1 text-sm">
+                        <p>
+                          <span className="text-gray-600">Max choices per voter:</span>{' '}
+                          {canEditVotingRules() && editingVotingRules ? (
+                            <input
+                              type="number"
+                              min={1}
+                              max={candidateCountForElection()}
+                              value={maxChoicesDraft}
+                              onChange={(e) => setMaxChoicesDraft(e.target.value)}
+                              className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                            />
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+                              {electionData.maxChoices || 1} {electionData.maxChoices === 1 ? 'choice' : 'choices'}
+                            </span>
+                          )}
+                        </p>
+                        <p>
+                          <span className="text-gray-600">Number of winners:</span>{' '}
+                          {canEditVotingRules() && editingVotingRules ? (
+                            <input
+                              type="number"
+                              min={1}
+                              max={candidateCountForElection()}
+                              value={winnerNoDraft}
+                              onChange={(e) => setWinnerNoDraft(e.target.value)}
+                              className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                            />
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                              Top {getWinnerCount(electionData)} candidate{getWinnerCount(electionData) === 1 ? '' : 's'}
+                            </span>
+                          )}
+                        </p>
+                        {canEditVotingRules() && (
+                          <p className="text-xs text-gray-500">Editable until the election begins.</p>
+                        )}
+                      </div>
+                    </div>
+                    <div>
                       <span className="font-medium">Ballot receipt emails:</span>{' '}
                       {canManageBallotReceiptSetting() ? (
                         <label className="inline-flex items-center gap-2 ml-1 text-sm">
@@ -3912,7 +4148,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                 {showVoterList && (electionData.voters || []).length > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-y-auto pr-1">
-                    {(electionData.eligibility === 'listed' ? electionData.voters : electionData.voters.filter(v => v.hasVoted)).map((voter, index) => (
+                    {sortVotersVotedFirst(
+                      electionData.eligibility === 'listed'
+                        ? electionData.voters
+                        : electionData.voters.filter(v => v.hasVoted)
+                    ).map((voter, index) => (
                       <div
                         key={voter.userEmail || index}
                         className={`flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all ${
@@ -4076,197 +4316,145 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               />
             )}
 
-            {/* All Available Choices (Always Shown) */}
+            {/* Candidate selection — always visible; ballot action blurred when voting is unavailable */}
             {!checkingEligibility && electionData?.electionChoices && (
               <div className="mb-6">
-                <h4 className="text-lg font-semibold text-gray-900 mb-4">Election Candidates</h4>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {electionData.electionChoices.map((choice) => (
-                    <div
-                      key={choice.choiceId}
-                      className="border-2 border-gray-200 rounded-lg p-4 hover:border-gray-300 transition-colors"
-                    >
-                      <div className="flex items-center space-x-4">
-                        {choice.candidatePic && (
-                          <img
-                            src={choice.candidatePic}
-                            alt={choice.optionTitle}
-                            className="h-16 w-16 rounded-full object-cover"
-                          />
-                        )}
-                        <div className="flex-1">
-                          <h5 className="font-semibold text-gray-900 text-lg">{choice.optionTitle}</h5>
-                          {choice.optionDescription && (
-                            <p className="text-sm text-gray-500 mt-1">{choice.optionDescription}</p>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+                {(() => {
+                  const maxChoices = electionData.maxChoices || 1;
+                  const electionOngoing = getElectionStatus() === 'ongoing';
+                  const canCreateBallot = !!eligibilityData?.eligible
+                    && !voteResult
+                    && electionOngoing
+                    && !botDetection.loading
+                    && !botDetection.isBot;
 
-            {/* Voting Form - Only Enabled if Eligible and Bot Check Passed */}
-            {!checkingEligibility && eligibilityData?.eligible && !voteResult && !ballotModalOpen && (
-              <div className="max-w-2xl">
-                {/* Show warning if bot detection is still loading or failed */}
-                {(botDetection.loading || botDetection.isBot) && (
-                  <div className={`border rounded-lg p-4 mb-6 ${botDetection.loading
-                      ? 'bg-blue-50 border-blue-200'
-                      : 'bg-red-50 border-red-200'
-                    }`}>
-                    <div className="flex items-center">
-                      {botDetection.loading ? (
-                        <FiLoader className="h-5 w-5 text-blue-500 mr-3 animate-spin" />
-                      ) : (
-                        <FiAlertCircle className="h-5 w-5 text-red-500 mr-3" />
-                      )}
-                      <div>
-                        <h4 className={`font-medium ${botDetection.loading ? 'text-blue-900' : 'text-red-900'
-                          }`}>
-                          {botDetection.loading
-                            ? 'Please Wait - Security Check in Progress'
-                            : 'Voting Blocked - Security Check Failed'
-                          }
-                        </h4>
-                        <p className={`text-sm ${botDetection.loading ? 'text-blue-800' : 'text-red-800'
-                          }`}>
-                          {botDetection.loading
-                            ? 'Voting will be enabled once the security check completes.'
-                            : 'Automated access detected. Please refresh the page and try again.'
-                          }
-                        </p>
-                      </div>
-                    </div>
-                  </div>
-                )}
-
-                <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
-                  <div className="flex items-center">
-                    <FiInfo className="h-5 w-5 text-yellow-600 mr-2" />
-                    <div>
-                      <h4 className="font-medium text-yellow-900">Voting Instructions</h4>
-                      <p className="text-sm text-yellow-800 mt-1">
-                        {electionData.maxChoices > 1
-                          ? `Select up to ${electionData.maxChoices} candidates from the list below and click "Create Encrypted Ballot".`
-                          : 'Select one candidate from the list below and click "Create Encrypted Ballot" to generate your encrypted ballot files.'}
-                        {' '}You can only vote once in this election.
-                      </p>
-                    </div>
-                  </div>
-                </div>
-
-                <form onSubmit={handleVoteSubmit}>
-                  <div className="mb-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-3">
-                      {electionData.maxChoices > 1
-                        ? `Select up to ${electionData.maxChoices} candidate(s): (${selectedCandidates.length}/${electionData.maxChoices} selected)`
-                        : 'Select your candidate:'}
-                    </label>
-                    <div className="space-y-3">
-                      {electionData.electionChoices?.map((choice) => {
-                        const isSelected = selectedCandidates.includes(choice.choiceId.toString());
-                        const maxChoices = electionData.maxChoices || 1;
-                        const isDisabled = !isSelected && selectedCandidates.length >= maxChoices;
-                        return (
-                          <div key={choice.choiceId} className={`flex items-center p-4 border-2 rounded-lg transition-all ${
-                              isDisabled ? 'border-gray-100 bg-gray-50 opacity-50 cursor-not-allowed'
-                              : isSelected ? 'border-blue-500 bg-blue-50 cursor-pointer'
-                              : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50 cursor-pointer'
-                            }`}
-                            onClick={() => {
-                              if (isDisabled) return;
-                              const idStr = choice.choiceId.toString();
-                              setSelectedCandidates(prev =>
-                                prev.includes(idStr) ? prev.filter(x => x !== idStr) : [...prev, idStr]
-                              );
-                            }}
-                          >
-                            <input
-                              type={maxChoices > 1 ? 'checkbox' : 'radio'}
-                              id={choice.choiceId}
-                              name="candidate"
-                              value={choice.choiceId}
-                              checked={isSelected}
-                              disabled={isDisabled}
-                              onChange={() => {}}
-                              className="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 pointer-events-none"
-                            />
-                            <label htmlFor={choice.choiceId} className="ml-4 flex-1 cursor-pointer">
-                              <div className="flex items-center space-x-4">
-                                {choice.candidatePic && (
-                                  <img
-                                    src={choice.candidatePic}
-                                    alt={choice.optionTitle}
-                                    className="h-12 w-12 rounded-full object-cover"
-                                  />
-                                )}
-                                <div>
-                                  <p className="font-medium text-gray-900 text-lg">{choice.optionTitle}</p>
-                                  {choice.optionDescription && (
-                                    <p className="text-sm text-gray-500 mt-1">{choice.optionDescription}</p>
-                                  )}
-                                </div>
-                              </div>
-                            </label>
+                  return (
+                    <>
+                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                        <div className="flex items-center">
+                          <FiInfo className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0" />
+                          <div>
+                            <h4 className="font-medium text-yellow-900">Voting Instructions</h4>
+                            <p className="text-sm text-yellow-800 mt-1">
+                              {maxChoices > 1
+                                ? `Select up to ${maxChoices} candidates, then create your encrypted ballot.`
+                                : 'Select one candidate, then create your encrypted ballot.'}
+                              {' '}You may vote only once in this election.
+                            </p>
+                            <p className="text-xs text-yellow-700 mt-2 font-medium">
+                              Max choices allowed: {maxChoices} · Winners declared: top {getWinnerCount(electionData)}
+                            </p>
                           </div>
-                        );
-                      })}
-                    </div>
-                  </div>
+                        </div>
+                      </div>
 
-                  <div className="flex justify-center">
-                    <button
-                      type="submit"
-                      disabled={!selectedCandidates.length || ballotModalOpen || botDetection.loading || botDetection.isBot}
-                      className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${!selectedCandidates.length || ballotModalOpen || botDetection.loading || botDetection.isBot
-                          ? 'bg-gray-400 cursor-not-allowed'
-                          : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
-                        }`}
-                    >
-                      {botDetection.loading ? (
-                        <div className="flex items-center space-x-2">
-                          <FiLoader className="h-4 w-4 animate-spin" />
-                          <span>Security Check...</span>
+                      <div className="max-w-2xl">
+                        <div className="mb-6">
+                          <label className="block text-sm font-medium text-gray-700 mb-3">
+                            {maxChoices > 1
+                              ? `Select up to ${maxChoices} candidate(s): (${selectedCandidates.length}/${maxChoices} selected)`
+                              : 'Select your candidate:'}
+                          </label>
+                          <div className="space-y-2">
+                            {electionData.electionChoices?.map((choice) => {
+                              const isSelected = selectedCandidates.includes(choice.choiceId.toString());
+                              const isDisabled = !isSelected && selectedCandidates.length >= maxChoices;
+                              const inputId = `vote-choice-${choice.choiceId}`;
+                              return (
+                                <label
+                                  key={choice.choiceId}
+                                  htmlFor={inputId}
+                                  className={`flex items-start gap-3 py-2 px-1 rounded-md ${
+                                    isDisabled
+                                      ? 'opacity-50 cursor-not-allowed'
+                                      : 'cursor-pointer hover:bg-gray-50'
+                                  }`}
+                                >
+                                  <input
+                                    type={maxChoices > 1 ? 'checkbox' : 'radio'}
+                                    id={inputId}
+                                    name="candidate"
+                                    value={choice.choiceId}
+                                    checked={isSelected}
+                                    disabled={isDisabled}
+                                    onChange={() => {
+                                      if (isDisabled) return;
+                                      const idStr = choice.choiceId.toString();
+                                      setSelectedCandidates(prev =>
+                                        maxChoices > 1
+                                          ? (prev.includes(idStr)
+                                            ? prev.filter(x => x !== idStr)
+                                            : [...prev, idStr])
+                                          : [idStr]
+                                      );
+                                    }}
+                                    className="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 flex-shrink-0"
+                                  />
+                                  <span className="text-sm sm:text-base text-gray-900 leading-snug min-w-0 flex-1">
+                                    <TruncatedCandidateName name={choice.optionTitle} />
+                                  </span>
+                                </label>
+                              );
+                            })}
+                          </div>
                         </div>
-                      ) : botDetection.isBot ? (
-                        <div className="flex items-center space-x-2">
-                          <FiX className="h-4 w-4" />
-                          <span>Voting Blocked</span>
+
+                        <div className="flex flex-col items-center gap-3">
+                          {!canCreateBallot && (
+                            <p className="text-sm text-gray-600 text-center max-w-md">
+                              {!electionOngoing
+                                ? (getElectionStatus() === 'finished'
+                                  ? 'Voting has ended for this election.'
+                                  : `Voting opens on ${formatDate(electionData.startingTime)}.`)
+                                : eligibilityData?.hasVoted
+                                  ? 'You have already voted in this election.'
+                                  : eligibilityData?.message || 'You are not eligible to vote in this election.'}
+                            </p>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => handleOpenConfirmModal(canCreateBallot)}
+                            disabled={!canCreateBallot || !selectedCandidates.length || ballotModalOpen}
+                            className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${
+                              !canCreateBallot || !selectedCandidates.length || ballotModalOpen
+                                ? 'bg-gray-400 cursor-not-allowed'
+                                : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+                            }`}
+                          >
+                            {botDetection.loading ? (
+                              <div className="flex items-center space-x-2">
+                                <FiLoader className="h-4 w-4 animate-spin" />
+                                <span>Security Check...</span>
+                              </div>
+                            ) : botDetection.isBot ? (
+                              <div className="flex items-center space-x-2">
+                                <FiX className="h-4 w-4" />
+                                <span>Voting Blocked</span>
+                              </div>
+                            ) : (
+                              'Create Encrypted Ballot'
+                            )}
+                          </button>
                         </div>
-                      ) : (
-                        'Create Encrypted Ballot'
-                      )}
-                    </button>
-                  </div>
-                </form>
+                      </div>
+                    </>
+                  );
+                })()}
               </div>
             )}
 
-            {/* Voting Not Available - Show when not eligible and not already voted */}
-            {!checkingEligibility && eligibilityData && !eligibilityData.eligible && !eligibilityData.hasVoted && (
-              <div className="text-center py-8">
-                <FiAlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-gray-700 mb-2">Voting Not Available</h4>
-                <p className="text-gray-600 mb-4">{eligibilityData.message}</p>
-                {eligibilityData.reason === 'Election not active' && eligibilityData.electionStatus === 'Not Started' && (
-                  <p className="text-sm text-gray-500">
-                    Voting starts: {formatDate(electionData.startingTime)}
-                  </p>
-                )}
-              </div>
-            )}
+            {/* Legacy voting-not-available block removed — status shown inline above */}
           </div>
         )}
 
-        {/* Vote Confirmation Modal */}
+        {/* Encrypted Ballot Confirmation Modal */}
         {showConfirmModal && (
-          <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-3 sm:p-4 z-50">
+          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-4 z-[100]">
             <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-3 sm:mb-4">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Confirm Your Vote</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Confirm Encrypted Ballot</h3>
                 <button
+                  type="button"
                   onClick={() => setShowConfirmModal(false)}
                   disabled={isSubmitting}
                   className="text-gray-400 hover:text-gray-600"
@@ -4277,39 +4465,28 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
               <div className="mb-4 sm:mb-6">
                 <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
-                  You are about to cast your vote for:
+                  You are about to create an encrypted ballot with the following selection{selectedCandidates.length === 1 ? '' : 's'}:
                 </p>
-                {(() => {
-                  const selectedChoice = electionData.electionChoices.find(
-                    choice => choice.choiceId.toString() === selectedCandidate
-                  );
-                  return (
-                    <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4">
-                      <div className="flex items-center space-x-2 sm:space-x-3">
-                        {selectedChoice?.candidatePic && (
-                          <img
-                            src={selectedChoice.candidatePic}
-                            alt={selectedChoice.optionTitle}
-                            className="h-8 w-8 sm:h-10 sm:w-10 rounded-full object-cover flex-shrink-0"
-                          />
-                        )}
-                        <div className="min-w-0">
-                          <p className="font-medium text-blue-900 text-sm sm:text-base">{selectedChoice?.optionTitle}</p>
-                        </div>
-                      </div>
-                    </div>
-                  );
-                })()}
+                <ul className="space-y-2 list-disc list-inside text-sm text-gray-900">
+                  {electionData.electionChoices
+                    .filter(choice => selectedCandidates.includes(choice.choiceId.toString()))
+                    .map((choice) => (
+                      <li key={choice.choiceId} className="min-w-0">
+                        <TruncatedCandidateName name={choice.optionTitle} />
+                      </li>
+                    ))}
+                </ul>
 
                 <div className="mt-3 sm:mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
                   <p className="text-xs sm:text-sm text-yellow-800">
-                    <strong>Warning:</strong> This action cannot be undone. You will not be able to change your vote after submission.
+                    <strong>Please confirm:</strong> This will generate your encrypted ballot. Review your choices carefully before proceeding.
                   </p>
                 </div>
               </div>
 
               <div className="flex space-x-2 sm:space-x-3">
                 <button
+                  type="button"
                   onClick={() => setShowConfirmModal(false)}
                   disabled={isSubmitting}
                   className="flex-1 bg-gray-200 text-gray-800 py-2 px-3 sm:px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50 text-sm sm:text-base"
@@ -4317,18 +4494,15 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   Cancel
                 </button>
                 <button
-                  onClick={handleConfirmVote}
+                  type="button"
+                  onClick={async () => {
+                    setShowConfirmModal(false);
+                    await handleCreateEncryptedBallot();
+                  }}
                   disabled={isSubmitting}
                   className="flex-1 bg-blue-600 text-white py-2 px-3 sm:px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm sm:text-base"
                 >
-                  {isSubmitting ? (
-                    <div className="flex items-center justify-center space-x-2">
-                      <FiLoader className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
-                      <span>Submitting...</span>
-                    </div>
-                  ) : (
-                    'Confirm Vote'
-                  )}
+                  Confirm &amp; Create Ballot
                 </button>
               </div>
             </div>
@@ -5209,20 +5383,41 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   });
 
                   return (
-                    <>
+                    <div ref={resultsExportRef} className="space-y-6 bg-white">
                       {animatedResults && (
                         <div className="mb-6">
-                          <AnimatedResults electionResults={animatedResults} />
+                          <AnimatedResults
+                            electionResults={animatedResults}
+                            winnerCount={getWinnerCount(electionData)}
+                            votersWhoVoted={processedResults.totalVotedUsers || 0}
+                          />
                         </div>
                       )}
 
-                      {/* Results Summary */}
-                      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2 sm:gap-4 mb-6">
-                        <div className="p-3 sm:p-4 bg-blue-50 border border-blue-100 rounded-xl text-center">
-                          <div className="text-2xl mb-1">🗳️</div>
-                          <h4 className="font-medium text-blue-700 mb-1 text-xs sm:text-sm">Total Votes Cast</h4>
-                          <p className="text-xl sm:text-3xl font-extrabold text-blue-800">{processedResults.totalVotes}</p>
+                      {/* Results meta banner for PDF export */}
+                      <div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-blue-50 p-4 sm:p-5">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">Election</p>
+                            <p className="font-bold text-gray-900 mt-1">{electionData.electionTitle}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">Max Choices</p>
+                            <p className="font-bold text-gray-900 mt-1">{electionData.maxChoices || 1}</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">Winners</p>
+                            <p className="font-bold text-amber-700 mt-1">Top {getWinnerCount(electionData)} 🏆</p>
+                          </div>
+                          <div>
+                            <p className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">Eligible Voters</p>
+                            <p className="font-bold text-gray-900 mt-1">{processedResults.totalEligibleVoters}</p>
+                          </div>
                         </div>
+                      </div>
+
+                      {/* Results Summary */}
+                      <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
                         <div className="p-3 sm:p-4 bg-teal-50 border border-teal-100 rounded-xl text-center">
                           <div className="text-2xl mb-1">👥</div>
                           <h4 className="font-medium text-teal-700 mb-1 text-xs sm:text-sm">Voters Who Voted</h4>
@@ -5249,10 +5444,15 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       <div className="flex flex-wrap justify-center gap-2 sm:gap-4 mb-6">
                         <button
                           onClick={downloadResultsPDF}
-                          className="flex items-center space-x-1 sm:space-x-2 bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 text-xs sm:text-sm"
+                          disabled={downloadingPdf}
+                          className="flex items-center space-x-1 sm:space-x-2 bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 text-xs sm:text-sm disabled:opacity-60"
                         >
-                          <FiDownload className="h-3 w-3 sm:h-4 sm:w-4" />
-                          <span>PDF</span>
+                          {downloadingPdf ? (
+                            <FiLoader className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
+                          ) : (
+                            <FiDownload className="h-3 w-3 sm:h-4 sm:w-4" />
+                          )}
+                          <span>{downloadingPdf ? 'Generating…' : 'PDF'}</span>
                         </button>
                         <button
                           onClick={downloadResultsCSV}
@@ -5326,20 +5526,26 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               </tr>
                             </thead>
                             <tbody>
-                              {processedResults.chartData
+                              {[...processedResults.chartData]
                                 .sort((a, b) => b.votes - a.votes)
-                                .map((candidate, index) => (
-                                  <tr key={candidate.name} className="border-b border-gray-200 hover:bg-gray-100">
+                                .map((candidate, index) => {
+                                  const isWinner = index < getWinnerCount(electionData);
+                                  return (
+                                  <tr key={candidate.name} className={`border-b border-gray-200 hover:bg-gray-100 ${isWinner ? 'bg-amber-50/60' : ''}`}>
                                     <td className="p-3">
-                                      <span className={`px-2 py-1 rounded-full text-sm font-medium ${index === 0 ? 'bg-gold-100 text-gold-800' :
+                                      <span className={`px-2 py-1 rounded-full text-sm font-medium ${
+                                        isWinner ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' :
                                           index === 1 ? 'bg-silver-100 text-gray-700' :
                                             index === 2 ? 'bg-bronze-100 text-orange-700' :
                                               'bg-gray-100 text-gray-600'
                                         }`}>
-                                        #{index + 1}
+                                        {isWinner ? '🏆' : `#${index + 1}`}
                                       </span>
                                     </td>
-                                    <td className="p-3 font-medium text-gray-900">{candidate.name}</td>
+                                    <td className={`p-3 font-medium ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>
+                                      {candidate.name}
+                                      {isWinner && <span className="ml-2 text-xs font-bold text-amber-600">Winner</span>}
+                                    </td>
                                     <td className="p-3 font-semibold text-gray-900">{candidate.votes}</td>
                                     <td className="p-3 text-gray-900">{candidate.percentage}%</td>
                                     <td className="p-3">
@@ -5351,7 +5557,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                       </div>
                                     </td>
                                   </tr>
-                                ))}
+                                  );
+                                })}
                             </tbody>
                           </table>
                         </div>
@@ -5369,24 +5576,26 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               {[...processedResults.chartData]
                                 .sort((a, b) => b.votes - a.votes)
                                 .map((candidate, index) => {
+                                  const isWinner = index < getWinnerCount(electionData);
                                   const medals = ['🥇', '🥈', '🥉'];
+                                  const winnerStyle = { bg: 'bg-gradient-to-r from-yellow-50 to-amber-50', border: 'border-yellow-300', badge: 'bg-yellow-100 text-yellow-800 border border-yellow-300', rank: 'text-yellow-600', bar: 'from-yellow-400 to-amber-500' };
                                   const rankStyles = [
-                                    { bg: 'bg-gradient-to-r from-yellow-50 to-amber-50', border: 'border-yellow-200', badge: 'bg-yellow-100 text-yellow-800 border border-yellow-300', rank: 'text-yellow-600', bar: 'from-yellow-400 to-amber-500' },
+                                    winnerStyle,
                                     { bg: 'bg-gradient-to-r from-slate-50 to-gray-50', border: 'border-gray-200', badge: 'bg-gray-100 text-gray-700 border border-gray-300', rank: 'text-gray-500', bar: 'from-slate-400 to-gray-500' },
                                     { bg: 'bg-gradient-to-r from-orange-50 to-amber-50', border: 'border-orange-200', badge: 'bg-orange-100 text-orange-800 border border-orange-300', rank: 'text-orange-600', bar: 'from-orange-400 to-amber-500' },
                                     { bg: 'bg-blue-50', border: 'border-blue-100', badge: 'bg-blue-50 text-blue-700 border border-blue-200', rank: 'text-blue-500', bar: 'from-blue-400 to-indigo-500' },
                                   ];
-                                  const style = rankStyles[Math.min(index, rankStyles.length - 1)];
+                                  const style = isWinner ? winnerStyle : rankStyles[Math.min(index, rankStyles.length - 1)];
                                   return (
                                     <div key={candidate.name} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border ${style.bg} ${style.border} transition-all hover:shadow-md`}>
                                       <div className="text-2xl sm:text-3xl w-10 text-center flex-shrink-0">
-                                        {index < 3
+                                        {isWinner ? '🏆' : index < 3
                                           ? medals[index]
                                           : <span className={`text-base font-extrabold ${style.rank}`}>#{index + 1}</span>
                                         }
                                       </div>
                                       <div className="flex-1 min-w-0">
-                                        <p className="font-bold text-gray-900 text-sm sm:text-base truncate">{candidate.name}</p>
+                                        <p className={`font-bold text-sm sm:text-base truncate ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>{candidate.name}</p>
                                         <div className="mt-1.5 w-full bg-white/70 rounded-full h-1.5 overflow-hidden border border-white">
                                           <div
                                             className={`h-1.5 rounded-full bg-gradient-to-r ${style.bar} transition-all duration-1000`}
@@ -5510,7 +5719,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           </div>
                         </div>
                       )}
-                    </>
+                    </div>
                   );
                 })()}
 

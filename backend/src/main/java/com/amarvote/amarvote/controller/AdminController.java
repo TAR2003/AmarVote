@@ -45,7 +45,7 @@ public class AdminController {
         boolean allowed = authorizedUserService.canViewApiLogs(currentEmail);
         if (!allowed) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN)
-                    .body(Map.of("allowed", false, "message", "Not allowed", "email", currentEmail));
+                    .body(Map.of("allowed", false, "message", "Access denied. Admin or owner privileges required.", "email", currentEmail));
         }
 
         return ResponseEntity.ok(Map.of("allowed", true, "email", currentEmail));

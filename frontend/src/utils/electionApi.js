@@ -1,6 +1,6 @@
 // API utility functions for election-related operations
 import { apiRequest, apiBinaryRequest } from './api.js';
-import { prepareBallotForTransmission, TARGET_SIZE } from './ballotPadding.js';
+import { prepareBallotForTransmission, TARGET_SIZE, buildStuffedBallotPayload } from './ballotPadding.js';
 
 // Extended timeout for computationally intensive operations (5 minutes)
 const EXTENDED_TIMEOUT = 5 * 60 * 1000; // 300,000ms = 5 minutes
@@ -228,19 +228,21 @@ export const electionApi = {
    * Create an encrypted ballot without casting it
    * Uses PKCS#7 padding to ensure constant packet size (17520 bytes)
    */
-  async createEncryptedBallot(electionId, choiceId, optionTitles, botDetectionData = null) {
+  async createEncryptedBallot(electionId, selectedChoiceIds, optionTitles, botDetectionData = null, maxChoices = 1) {
     try {
-      const requestBody = {
+      const selectedNames = Array.isArray(optionTitles) ? optionTitles : [optionTitles];
+      const choiceIds = Array.isArray(selectedChoiceIds)
+        ? selectedChoiceIds
+        : (selectedChoiceIds != null ? [selectedChoiceIds] : []);
+      const requestBody = buildStuffedBallotPayload(
         electionId,
-        selectedCandidates: Array.isArray(optionTitles) ? optionTitles : [optionTitles]
-      };
+        selectedNames,
+        Math.max(1, maxChoices),
+        botDetectionData,
+        choiceIds
+      );
 
-      // Include bot detection data if provided
-      if (botDetectionData) {
-        requestBody.botDetection = botDetectionData;
-      }
-
-      // Apply PKCS#7 padding to create fixed-size payload (17520 bytes)
+      // Apply PKCS#7 padding to create fixed-size payload (18980 bytes)
       const paddedPayload = prepareBallotForTransmission(requestBody, TARGET_SIZE);
 
       console.log(`🔒 [CREATE BALLOT] Sending ${paddedPayload.length} byte fixed-size encrypted ballot`);

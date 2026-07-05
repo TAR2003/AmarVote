@@ -61,7 +61,12 @@ public class AuthorizedUserController {
                     .body(Map.of("message", "Unauthorized"));
         }
 
-        return ResponseEntity.ok(authorizedUserService.getAuthorizedUsers(userEmail, page, size, search, userTypes));
+        try {
+            return ResponseEntity.ok(authorizedUserService.getAuthorizedUsers(userEmail, page, size, search, userTypes));
+        } catch (IllegalArgumentException ex) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN)
+                    .body(Map.of("message", ex.getMessage()));
+        }
     }
 
     @GetMapping("/audit-logs")

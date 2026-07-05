@@ -24,6 +24,7 @@ public record ElectionCreationRequest(
     Instant startingTime,
     Instant endingTime,
     Integer maxChoices,
+    Integer winnerNo,
     Boolean sendBallotReceipt
 ) {
     @AssertTrue(message = "Ending time must be after starting time")

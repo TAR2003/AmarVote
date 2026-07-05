@@ -131,11 +131,23 @@ public class AuthorizedUserService {
 
     @Transactional(readOnly = true)
     public boolean canViewApiLogs(String email) {
+        return isAdminOrOwner(email);
+    }
+
+    @Transactional(readOnly = true)
+    public boolean isAdminOrOwner(String email) {
         String normalized = normalizeEmail(email);
         return authorizedUserRepository.findByEmail(normalized)
                 .filter(record -> Boolean.TRUE.equals(record.getIsAllowed()))
-                .map(record -> Boolean.TRUE.equals(record.getApiLogViewerAllowed()))
+                .map(record -> MANAGE_ROLES.contains(normalizeRole(record.getUserType())))
                 .orElse(false);
+    }
+
+    @Transactional(readOnly = true)
+    public void ensureAdminOrOwner(String email) {
+        if (!isAdminOrOwner(email)) {
+            throw new IllegalArgumentException("Access denied. Admin or owner privileges required.");
+        }
     }
 
     @Transactional(readOnly = true)
@@ -149,7 +161,7 @@ public class AuthorizedUserService {
         response.put("userType", currentUserType);
         response.put("isAllowed", recordOpt.map(r -> Boolean.TRUE.equals(r.getIsAllowed())).orElse(false));
         response.put("canManageAuthorizedUsers", MANAGE_ROLES.contains(currentUserType));
-        response.put("canViewApiLogs", canViewApiLogs(normalized));
+        response.put("canViewApiLogs", isAdminOrOwner(normalized));
         response.put("canCreateElections", canUserCreateElection(normalized));
         response.put("canDeleteAnyElection", canDeleteAnyElection(normalized));
         return response;
@@ -184,6 +196,8 @@ public class AuthorizedUserService {
 
     @Transactional(readOnly = true)
     public Map<String, Object> getAuthorizedUsers(String actorEmail, int page, int size, String search, List<String> userTypes) {
+        ensureAdminOrOwner(actorEmail);
+
         String normalizedActor = normalizeEmail(actorEmail);
         Optional<AuthorizedUser> actorOpt = authorizedUserRepository.findByEmail(normalizedActor);
         String actorType = actorOpt.map(r -> normalizeRole(r.getUserType())).orElse(USER_TYPE_USER);

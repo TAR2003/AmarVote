@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
-const AnimatedResults = ({ electionResults }) => {
+const AnimatedResults = ({ electionResults, winnerCount = 1, votersWhoVoted = null }) => {
   const [animationStep, setAnimationStep] = useState(0);
   const [currentTotals, setCurrentTotals] = useState({});
   const [isAnimating, setIsAnimating] = useState(false);
@@ -97,7 +97,20 @@ const AnimatedResults = ({ electionResults }) => {
 
   const results = electionResults.results;
   const candidates = Object.keys(results.finalTallies || {});
-  const maxVotes = Math.max(...Object.values(currentTotals), 1);
+
+  const getVoteCount = (tallyData) => {
+    if (typeof tallyData === 'number') return tallyData;
+    if (typeof tallyData === 'object' && tallyData.votes) {
+      return typeof tallyData.votes === 'string' ? parseInt(tallyData.votes, 10) : tallyData.votes;
+    }
+    if (typeof tallyData === 'string') return parseInt(tallyData, 10);
+    return 0;
+  };
+
+  const rankedWinners = [...candidates]
+    .sort((a, b) => getVoteCount(results.finalTallies[b]) - getVoteCount(results.finalTallies[a]))
+    .slice(0, Math.max(1, winnerCount));
+  const winnerSet = new Set(rankedWinners);
   
   // Calculate total votes properly - handle both simple integers and nested objects
   const totalVotes = Object.values(results.finalTallies || {}).reduce((sum, tallyData) => {
@@ -111,13 +124,15 @@ const AnimatedResults = ({ electionResults }) => {
     return sum;
   }, 0);
   
-  // Get total ballots from results
-  const totalBallots = results.allBallots?.length || results.total_ballots_cast || results.total_valid_ballots || totalVotes;
+  // Prefer explicit voter count; fall back to ballot count from tally payload
+  const votersWhoVotedCount = votersWhoVoted != null
+    ? votersWhoVoted
+    : (results.allBallots?.length || results.total_ballots_cast || results.total_valid_ballots || 0);
   
   console.log('📊 [AnimatedResults] Rendering with data:', {
     finalTallies: results.finalTallies,
     totalVotes,
-    totalBallots,
+    votersWhoVotedCount,
     currentTotals,
     isAnimating
   });
@@ -127,9 +142,13 @@ const AnimatedResults = ({ electionResults }) => {
       {/* Header */}
       <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg p-6 shadow-lg">
         <h2 className="text-3xl font-bold mb-2">Election Results</h2>
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between">
-          <p className="text-blue-100 text-lg">Total Votes Cast: <span className="font-bold text-white">{totalVotes}</span></p>
-          <p className="text-blue-100 text-lg">Total Ballots: <span className="font-bold text-white">{totalBallots}</span></p>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
+          <p className="text-blue-100 text-lg">
+            Voters Who Voted: <span className="font-bold text-white">{votersWhoVotedCount}</span>
+          </p>
+          <p className="text-blue-100 text-sm">
+            Candidate selections are aggregated below (multi-choice elections may show more selections than voters).
+          </p>
         </div>
       </div>
 
@@ -150,17 +169,7 @@ const AnimatedResults = ({ electionResults }) => {
           // Use finalVotes for display and percentage calculation
           const displayVotes = finalVotes;
           const percentage = totalVotes > 0 ? (displayVotes / totalVotes) * 100 : 0;
-          
-          // Calculate max from final tallies properly - handle all formats
-          const maxFinalVotes = Math.max(...Object.values(results.finalTallies).map(v => {
-            if (typeof v === 'number') return v;
-            if (typeof v === 'object' && v.votes) {
-              return typeof v.votes === 'string' ? parseInt(v.votes) : v.votes;
-            }
-            if (typeof v === 'string') return parseInt(v);
-            return 0;
-          }));
-          const isWinner = finalVotes === maxFinalVotes && maxFinalVotes > 0;
+          const isWinner = winnerSet.has(candidate) && finalVotes > 0;
 
           return (
             <motion.div
@@ -169,12 +178,12 @@ const AnimatedResults = ({ electionResults }) => {
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
               className={`bg-white rounded-lg shadow-lg p-6 border-2 ${
-                isWinner && !isAnimating ? 'border-yellow-400 ring-4 ring-yellow-100' : 'border-gray-200'
+                isWinner && !isAnimating ? 'border-yellow-400 ring-4 ring-yellow-100 bg-gradient-to-br from-yellow-50 to-white' : 'border-gray-200'
               }`}
             >
               {/* Candidate Name */}
               <div className="flex items-center justify-between mb-4">
-                <h3 className="text-xl font-bold text-gray-800">{candidate}</h3>
+                <h3 className={`text-xl font-bold ${isWinner && !isAnimating ? 'text-amber-800' : 'text-gray-800'}`}>{candidate}</h3>
                 {isWinner && !isAnimating && (
                   <span className="text-2xl">🏆</span>
                 )}

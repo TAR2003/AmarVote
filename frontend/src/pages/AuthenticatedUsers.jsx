@@ -40,6 +40,7 @@ const AuthenticatedUsers = () => {
 
   const [activeTab, setActiveTab] = useState("users");
   const [canManage, setCanManage] = useState(false);
+  const [accessDenied, setAccessDenied] = useState(false);
   const [currentUserType, setCurrentUserType] = useState("user");
 
   const [users, setUsers] = useState([]);
@@ -124,7 +125,11 @@ const AuthenticatedUsers = () => {
       }
       setError("");
     } catch (err) {
-      setError(err.message || "Failed to load authenticated users data.");
+      const message = err.message || "Failed to load authenticated users data.";
+      if (/access denied|admin or owner|forbidden|not allowed/i.test(message)) {
+        setAccessDenied(true);
+      }
+      setError(message);
     } finally {
       setLoading(false);
     }
@@ -487,6 +492,15 @@ const AuthenticatedUsers = () => {
 
   return (
     <div className="max-w-[1800px] mx-auto py-4 sm:py-8 px-3 sm:px-6 lg:px-8">
+      {accessDenied || (!loading && !canManage && error) ? (
+        <div className="bg-white rounded-2xl shadow-sm border border-red-200 p-8 text-center max-w-lg mx-auto">
+          <FiShield className="h-12 w-12 text-red-500 mx-auto mb-4" />
+          <h1 className="text-xl font-bold text-gray-900 mb-2">Access Restricted</h1>
+          <p className="text-gray-600 text-sm">
+            The Authenticated Users page is only available to app owners and administrators.
+          </p>
+        </div>
+      ) : (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
         <div className="bg-gradient-to-r from-slate-800 via-blue-800 to-indigo-800 p-6 text-white">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
@@ -496,7 +510,7 @@ const AuthenticatedUsers = () => {
                 Authenticated Users
               </h1>
               <p className="text-sm text-blue-100 mt-1">
-                Viewable by all logged-in users. Managed by admin and owner.
+                Manage authorized users, roles, and registration settings. Admin and owner only.
               </p>
             </div>
             <button
@@ -894,6 +908,7 @@ const AuthenticatedUsers = () => {
           </div>
         )}
       </div>
+      )}
     </div>
   );
 };

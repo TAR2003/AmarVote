@@ -13,9 +13,11 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.context.event.ApplicationReadyEvent;
+import org.springframework.context.event.EventListener;
 import org.springframework.stereotype.Service;
 
-import com.amarvote.amarvote.dto.ActivateElectionRequest; // Fixed: Use Spring's HttpHeaders, not Netty's
+import com.amarvote.amarvote.dto.ActivateElectionRequest;
 import com.amarvote.amarvote.dto.ChunkResultResponse;
 import com.amarvote.amarvote.dto.ElectionCreationRequest;
 import com.amarvote.amarvote.dto.ElectionDetailResponse;
@@ -170,7 +172,10 @@ public class ElectionService {
         election.setPrivacy(request.electionPrivacy()); // Set privacy field
         election.setEligibility(request.electionEligibility()); // Set eligibility field
         Integer requestedMaxChoices = request.maxChoices();
-        election.setMaxChoices(requestedMaxChoices != null ? requestedMaxChoices : 1);
+        int maxChoices = requestedMaxChoices != null ? requestedMaxChoices : 1;
+        election.setMaxChoices(maxChoices);
+        Integer requestedWinnerNo = request.winnerNo();
+        election.setWinnerNo(requestedWinnerNo != null ? requestedWinnerNo : maxChoices);
         election.setSendBallotReceipt(Boolean.TRUE.equals(request.sendBallotReceipt()));
 
         // ✅ Save to DB to get generated ID
@@ -444,6 +449,44 @@ public class ElectionService {
             updated = true;
         }
 
+        if (request.maxChoices() != null || request.winnerNo() != null) {
+            requireElectionAdmin(election, userEmail, "Only election admins and co-admins can edit voting rules");
+            if (!isBeforeElectionStart(election)) {
+                throw new IllegalArgumentException("Max choices and number of winners can only be edited before the election starts");
+            }
+
+            int candidateCount = election.getNoOfCandidates() != null ? election.getNoOfCandidates() : 0;
+            if (candidateCount < 1) {
+                throw new IllegalArgumentException("Election must have at least one candidate configured");
+            }
+
+            if (request.maxChoices() != null) {
+                int maxChoices = request.maxChoices();
+                if (maxChoices < 1) {
+                    throw new IllegalArgumentException("Max choices must be at least 1");
+                }
+                if (maxChoices > candidateCount) {
+                    throw new IllegalArgumentException(
+                            "Max choices cannot exceed the number of candidates (" + candidateCount + ")");
+                }
+                election.setMaxChoices(maxChoices);
+                updated = true;
+            }
+
+            if (request.winnerNo() != null) {
+                int winnerNo = request.winnerNo();
+                if (winnerNo < 1) {
+                    throw new IllegalArgumentException("Number of winners must be at least 1");
+                }
+                if (winnerNo > candidateCount) {
+                    throw new IllegalArgumentException(
+                            "Number of winners cannot exceed the number of candidates (" + candidateCount + ")");
+                }
+                election.setWinnerNo(winnerNo);
+                updated = true;
+            }
+        }
+
         if (!updated) {
             throw new IllegalArgumentException("No settings provided to update");
         }
@@ -532,6 +575,26 @@ public class ElectionService {
             return "active";
         }
         return "draft";
+    }
+
+    private Integer resolveWinnerNo(Election election) {
+        if (election.getWinnerNo() != null) {
+            return election.getWinnerNo();
+        }
+        Integer maxChoices = election.getMaxChoices();
+        return maxChoices != null ? maxChoices : 1;
+    }
+
+    @EventListener(ApplicationReadyEvent.class)
+    @Transactional
+    public void backfillWinnerNoForExistingElections() {
+        electionRepository.findAll().stream()
+                .filter(election -> election.getWinnerNo() == null)
+                .forEach(election -> {
+                    Integer maxChoices = election.getMaxChoices();
+                    election.setWinnerNo(maxChoices != null ? maxChoices : 1);
+                    electionRepository.save(election);
+                });
     }
 
     private void syncElectionStatusIfNeeded(Election election) {
@@ -1517,6 +1580,7 @@ public class ElectionService {
                 .electionQuorum(election.getElectionQuorum())
                 .noOfCandidates(election.getNoOfCandidates())
                 .maxChoices(election.getMaxChoices())
+                .winnerNo(resolveWinnerNo(election))
                 .jointPublicKey(election.getJointPublicKey())
                 .manifestHash(election.getManifestHash())
                 .status(resolveElectionStatus(election))

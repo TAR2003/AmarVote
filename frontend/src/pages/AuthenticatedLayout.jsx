@@ -29,6 +29,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   const [showGuardianAttention, setShowGuardianAttention] = useState(false);
   const [loadingGuardianAttention, setLoadingGuardianAttention] = useState(false);
   const [canCreateElections, setCanCreateElections] = useState(false);
+  const [canManageAuthorizedUsers, setCanManageAuthorizedUsers] = useState(false);
   const searchRef = useRef(null);
   const suggestionsRef = useRef(null);
   const notificationRef = useRef(null);
@@ -90,8 +91,10 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
 
         const data = await res.json();
         setCanCreateElections(!!data.canCreateElections);
+        setCanManageAuthorizedUsers(!!data.canManageAuthorizedUsers);
       } catch {
         setCanCreateElections(false);
+        setCanManageAuthorizedUsers(false);
       }
     };
 
@@ -293,7 +296,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
     { key: 'dashboard', label: 'Home', path: '/dashboard', icon: FiHome },
     { key: 'all-elections', label: 'Elections', path: '/all-elections', icon: FiBarChart2 },
     ...(canCreateElections ? [{ key: 'create-election', label: 'Create', path: '/create-election', icon: FiPlus }] : []),
-    { key: 'authenticated-users', label: 'Users', path: '/authenticated-users', icon: FiUsers },
+    ...(canManageAuthorizedUsers ? [{ key: 'authenticated-users', label: 'Users', path: '/authenticated-users', icon: FiUsers }] : []),
   ];
 
 
@@ -583,31 +586,35 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
               </Link>
             ) : null}
 
-            <button
-              onClick={() => {
-                closeMobileMenu();
-                handleApiLogsAccess();
-              }}
-              className={`flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/api-logs')
-                  ? 'text-blue-700 bg-blue-50/80'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
-                }`}
-            >
-              <FiBarChart2 className="h-5 w-5" />
-              <span>API Logs</span>
-            </button>
+            {canManageAuthorizedUsers ? (
+              <>
+                <button
+                  onClick={() => {
+                    closeMobileMenu();
+                    handleApiLogsAccess();
+                  }}
+                  className={`flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/api-logs')
+                      ? 'text-blue-700 bg-blue-50/80'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+                    }`}
+                >
+                  <FiBarChart2 className="h-5 w-5" />
+                  <span>API Logs</span>
+                </button>
 
-            <Link
-              to="/authenticated-users"
-              onClick={closeMobileMenu}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/authenticated-users')
-                  ? 'text-blue-700 bg-blue-50/80'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
-                }`}
-            >
-              <FiUsers className="h-5 w-5" />
-              <span>Authenticated Users</span>
-            </Link>
+                <Link
+                  to="/authenticated-users"
+                  onClick={closeMobileMenu}
+                  className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/authenticated-users')
+                      ? 'text-blue-700 bg-blue-50/80'
+                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+                    }`}
+                >
+                  <FiUsers className="h-5 w-5" />
+                  <span>Authenticated Users</span>
+                </Link>
+              </>
+            ) : null}
 
             <Link
               to="/profile"

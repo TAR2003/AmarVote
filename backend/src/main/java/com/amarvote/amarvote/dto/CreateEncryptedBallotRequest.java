@@ -17,6 +17,8 @@ public class CreateEncryptedBallotRequest {
     
     private Long electionId;
     private List<String> selectedCandidates;
+    /** Canonical choice IDs from the client — preferred for validation over padded name slots */
+    private List<Long> selectedChoiceIds;
     private BotDetectionData botDetection;
     
     /**
