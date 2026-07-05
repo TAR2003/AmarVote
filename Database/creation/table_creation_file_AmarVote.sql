@@ -142,6 +142,7 @@ CREATE TABLE IF NOT EXISTS scheduled_election_emails (
     email_id BIGSERIAL PRIMARY KEY,
     election_id BIGINT NOT NULL,
     recipient_group TEXT NOT NULL CHECK (recipient_group IN ('voters', 'guardians', 'admins')),
+    voter_filter TEXT DEFAULT 'both',
     email_body TEXT NOT NULL,
     scheduled_time TIMESTAMP WITH TIME ZONE NOT NULL,
     sent BOOLEAN NOT NULL DEFAULT FALSE,
@@ -154,6 +155,9 @@ CREATE TABLE IF NOT EXISTS scheduled_election_emails (
 CREATE INDEX IF NOT EXISTS idx_scheduled_election_emails_due
     ON scheduled_election_emails (scheduled_time)
     WHERE sent = FALSE;
+
+ALTER TABLE IF EXISTS scheduled_election_emails ADD COLUMN IF NOT EXISTS voter_filter TEXT;
+UPDATE scheduled_election_emails SET voter_filter = 'both' WHERE voter_filter IS NULL;
 
 -- Guardians Table
 CREATE TABLE IF NOT EXISTS guardians (
