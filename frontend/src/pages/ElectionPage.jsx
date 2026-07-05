@@ -62,6 +62,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { saveAs } from 'file-saver';
 import { generateElectionResultsPdf, truncateChartLabel } from '../utils/electionResultsPdf';
+import { prepareElectionResultsCsvContent } from '../utils/electionResultsCsv';
 import ErrorBoundary from '../components/ErrorBoundary';
 import GuardianDataDisplay from '../components/GuardianDataDisplay';
 import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
@@ -2934,19 +2935,23 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
   };
 
   const downloadResultsCSV = () => {
-    if (!resultsData) return;
+    const processedResults = resultsData || processElectionResults();
+    if (!processedResults) return;
 
-    const csvContent = [
-      ['Candidate', 'Votes', 'Percentage'],
-      ...resultsData.chartData.map(item => [
-        item.name,
-        item.votes,
-        item.percentage + '%'
-      ])
-    ].map(row => row.join(',')).join('\n');
+    try {
+      const { content, filename } = prepareElectionResultsCsvContent({
+        electionData,
+        electionId: id,
+        processedResults,
+        winnerCount: getWinnerCount(electionData),
+      });
 
-    const blob = new Blob([csvContent], { type: 'text/csv' });
-    saveAs(blob, `election-results-${id}.csv`);
+      const blob = new Blob([content], { type: 'text/csv;charset=utf-8' });
+      saveAs(blob, filename);
+    } catch (err) {
+      console.error('CSV export failed:', err);
+      toast.error('Failed to generate CSV. Please try again.');
+    }
   };
 
   const formatDate = (dateString) => {
