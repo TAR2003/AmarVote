@@ -156,6 +156,18 @@ public class TaskWorkerService {
         TallyWorkerLog workerLog = null;
         
         try {
+            if (tallyWorkerLogRepository.existsByElectionIdAndChunkNumberAndStatus(
+                    task.getElectionId(), task.getChunkNumber(), "COMPLETED")) {
+                if (task.getChunkId() != null) {
+                    roundRobinTaskScheduler.updateChunkState(
+                        task.getChunkId(),
+                        com.amarvote.amarvote.model.scheduler.ChunkState.COMPLETED,
+                        null
+                    );
+                }
+                return;
+            }
+
             if (skipIfCancelled(ProcessOperationType.TALLY, task.getElectionId(), null, task.getChunkId())) {
                 return;
             }

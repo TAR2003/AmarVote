@@ -1,11 +1,14 @@
 package com.amarvote.amarvote.service;
 
-import java.security.SecureRandom;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Random;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
@@ -18,8 +21,6 @@ public class ChunkingService {
     
     @Value("${amarvote.chunking.chunk-size:2}")
     private int CHUNK_SIZE;
-    
-    private static final SecureRandom secureRandom = new SecureRandom();
     
     /**
      * Calculate optimal number of chunks and their sizes
@@ -91,26 +92,13 @@ public class ChunkingService {
      * @return Map of chunk number to list of ballots assigned to that chunk
      */
     public Map<Integer, List<Ballot>> assignBallotsToChunks(
-            List<Ballot> ballots, ChunkConfiguration config) {
-        
-        
-        // Shuffle ballots using secure random
-        List<Ballot> shuffled = new ArrayList<>(ballots);
-        Collections.shuffle(shuffled, secureRandom);
-        
-        Map<Integer, List<Ballot>> chunks = new HashMap<>();
-        int ballotIndex = 0;
-        
-        // Distribute shuffled ballots according to chunk sizes
-        for (int chunkNum = 0; chunkNum < config.getNumChunks(); chunkNum++) {
-            int chunkSize = config.getChunkSizes().get(chunkNum);
-            List<Ballot> chunkBallots = new ArrayList<>(
-                shuffled.subList(ballotIndex, ballotIndex + chunkSize));
-            chunks.put(chunkNum, chunkBallots);
-            ballotIndex += chunkSize;
-        }
-        
-        return chunks;
+            List<Ballot> ballots, ChunkConfiguration config, Long electionId) {
+        List<Ballot> uniqueBallots = deduplicateBallotsById(ballots);
+        List<Ballot> shuffled = new ArrayList<>(uniqueBallots);
+        Collections.shuffle(shuffled, createAssignmentRandom(electionId, uniqueBallots.stream()
+            .map(Ballot::getBallotId)
+            .collect(Collectors.toList())));
+        return distributeToChunks(shuffled, config);
     }
     
     /**
@@ -125,19 +113,18 @@ public class ChunkingService {
         for (List<Ballot> chunkBallots : chunks.values()) {
             assignedBallots.addAll(chunkBallots);
         }
-        
-        // Check all ballots are assigned
-        if (assignedBallots.size() != originalBallots.size()) {
+
+        List<Ballot> uniqueOriginal = deduplicateBallotsById(originalBallots);
+        if (assignedBallots.size() != uniqueOriginal.size()) {
             return false;
         }
         
-        // Check no duplicates
         long uniqueCount = assignedBallots.stream()
             .map(Ballot::getBallotId)
             .distinct()
             .count();
             
-        return uniqueCount == originalBallots.size();
+        return uniqueCount == uniqueOriginal.size();
     }
 
     /**
@@ -149,25 +136,84 @@ public class ChunkingService {
      * @return Map of chunk number to list of IDs assigned to that chunk
      */
     public Map<Integer, List<Long>> assignIdsToChunks(
-            List<Long> ids, ChunkConfiguration config) {
-        
-        
-        // Shuffle IDs using secure random
-        List<Long> shuffled = new ArrayList<>(ids);
-        Collections.shuffle(shuffled, secureRandom);
-        
-        Map<Integer, List<Long>> chunks = new HashMap<>();
-        int idIndex = 0;
-        
-        // Distribute shuffled IDs according to chunk sizes
+            List<Long> ids, ChunkConfiguration config, Long electionId) {
+        List<Long> uniqueIds = deduplicateIds(ids);
+        List<Long> shuffled = new ArrayList<>(uniqueIds);
+        Collections.shuffle(shuffled, createAssignmentRandom(electionId, uniqueIds));
+        return distributeIdsToChunks(shuffled, config);
+    }
+
+    /**
+     * Verify that all IDs are assigned exactly once across chunks.
+     */
+    public boolean verifyIdChunkAssignment(List<Long> originalIds, Map<Integer, List<Long>> chunks) {
+        List<Long> assignedIds = new ArrayList<>();
+        for (List<Long> chunkIds : chunks.values()) {
+            assignedIds.addAll(chunkIds);
+        }
+
+        List<Long> uniqueOriginal = deduplicateIds(originalIds);
+        if (assignedIds.size() != uniqueOriginal.size()) {
+            return false;
+        }
+
+        long uniqueCount = assignedIds.stream().distinct().count();
+        return uniqueCount == uniqueOriginal.size();
+    }
+
+    private List<Long> deduplicateIds(List<Long> ids) {
+        return ids.stream().distinct().sorted().collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    private List<Ballot> deduplicateBallotsById(List<Ballot> ballots) {
+        Map<Long, Ballot> byId = new HashMap<>();
+        for (Ballot ballot : ballots) {
+            byId.putIfAbsent(ballot.getBallotId(), ballot);
+        }
+        return byId.values().stream()
+            .sorted((a, b) -> Long.compare(a.getBallotId(), b.getBallotId()))
+            .collect(Collectors.toCollection(ArrayList::new));
+    }
+
+    /**
+     * Deterministic shuffle seed so resume/retry reuses the same ballot-to-chunk mapping.
+     */
+    private Random createAssignmentRandom(Long electionId, List<Long> uniqueSortedIds) {
+        long seed = electionId != null ? electionId : 0L;
+        for (Long id : uniqueSortedIds) {
+            seed = seed * 31L + id;
+        }
+        return new Random(seed);
+    }
+
+    private <T> Map<Integer, List<T>> distributeToChunks(List<T> shuffled, ChunkConfiguration config) {
+        Map<Integer, List<T>> chunks = new HashMap<>();
+        int index = 0;
         for (int chunkNum = 0; chunkNum < config.getNumChunks(); chunkNum++) {
             int chunkSize = config.getChunkSizes().get(chunkNum);
-            List<Long> chunkIds = new ArrayList<>(
-                shuffled.subList(idIndex, idIndex + chunkSize));
-            chunks.put(chunkNum, chunkIds);
-            idIndex += chunkSize;
+            List<T> chunkItems = new ArrayList<>(shuffled.subList(index, index + chunkSize));
+            chunks.put(chunkNum, chunkItems);
+            index += chunkSize;
         }
-        
         return chunks;
+    }
+
+    private Map<Integer, List<Long>> distributeIdsToChunks(List<Long> shuffled, ChunkConfiguration config) {
+        return distributeToChunks(shuffled, config);
+    }
+
+    /**
+     * Ensure no ballot ID appears in more than one chunk (defensive check before queueing work).
+     */
+    public void assertNoDuplicateIdsAcrossChunks(Map<Integer, List<Long>> chunks) {
+        Set<Long> seen = new HashSet<>();
+        for (Map.Entry<Integer, List<Long>> entry : chunks.entrySet()) {
+            for (Long id : entry.getValue()) {
+                if (!seen.add(id)) {
+                    throw new IllegalStateException(
+                        "Duplicate ballot ID " + id + " assigned to multiple tally chunks");
+                }
+            }
+        }
     }
 }

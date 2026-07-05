@@ -102,8 +102,14 @@ public class TallyService {
     @Autowired
     private AsyncTaskDispatcher asyncTaskDispatcher;
 
+    private List<Long> distinctCastBallotIds(Long electionId) {
+        return ballotRepository.findBallotIdsByElectionIdAndStatus(electionId, "cast").stream()
+            .distinct()
+            .collect(Collectors.toList());
+    }
+
     private int getExpectedTallyChunkCount(Long electionId) {
-        List<Long> ballotIds = ballotRepository.findBallotIdsByElectionIdAndStatus(electionId, "cast");
+        List<Long> ballotIds = distinctCastBallotIds(electionId);
         if (ballotIds.isEmpty()) {
             return 0;
         }
@@ -221,7 +227,7 @@ public class TallyService {
             }
             
             // 2. Calculate chunks upfront to return chunk count to frontend
-            List<Long> ballotIds = ballotRepository.findBallotIdsByElectionIdAndStatus(request.getElection_id(), "cast");
+            List<Long> ballotIds = distinctCastBallotIds(request.getElection_id());
             if (ballotIds.isEmpty()) {
                 return CreateTallyResponse.builder()
                     .success(false)
@@ -371,16 +377,21 @@ public class TallyService {
             
             Election election = electionOpt.get();
             
-            List<Long> ballotIds = ballotRepository.findBallotIdsByElectionIdAndStatus(electionId, "cast");
+            List<Long> ballotIds = distinctCastBallotIds(electionId);
             
             if (ballotIds.isEmpty()) {
                 throw new RuntimeException("No cast ballots found for this election");
             }
             
-            
             ChunkConfiguration chunkConfig = chunkingService.calculateChunks(ballotIds.size());
             
-            java.util.Map<Integer, List<Long>> chunkIdMap = chunkingService.assignIdsToChunks(ballotIds, chunkConfig);
+            java.util.Map<Integer, List<Long>> chunkIdMap =
+                chunkingService.assignIdsToChunks(ballotIds, chunkConfig, electionId);
+
+            if (!chunkingService.verifyIdChunkAssignment(ballotIds, chunkIdMap)) {
+                throw new RuntimeException("Internal error: Tally chunk assignment verification failed");
+            }
+            chunkingService.assertNoDuplicateIdsAcrossChunks(chunkIdMap);
             
             Set<Integer> completedChunkNumbers = new HashSet<>(
                 tallyWorkerLogRepository.findCompletedChunkNumbersByElectionId(electionId)
@@ -634,10 +645,12 @@ public class TallyService {
             }
             
             // ===== CHUNKING LOGIC START =====
-            ChunkConfiguration chunkConfig = chunkingService.calculateChunks(ballots.size());
+            int uniqueBallotCount = (int) ballots.stream().map(Ballot::getBallotId).distinct().count();
+            ChunkConfiguration chunkConfig = chunkingService.calculateChunks(uniqueBallotCount);
             
-            // Assign ballots to chunks randomly
-            java.util.Map<Integer, List<Ballot>> chunks = chunkingService.assignBallotsToChunks(ballots, chunkConfig);
+            // Assign ballots to chunks (deterministic per election so resume keeps the same mapping)
+            java.util.Map<Integer, List<Ballot>> chunks =
+                chunkingService.assignBallotsToChunks(ballots, chunkConfig, request.getElection_id());
             
             // Verify assignment
             if (!chunkingService.verifyChunkAssignment(ballots, chunks)) {

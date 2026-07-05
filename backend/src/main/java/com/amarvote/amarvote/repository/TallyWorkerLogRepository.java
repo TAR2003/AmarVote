@@ -27,5 +27,11 @@ public interface TallyWorkerLogRepository extends JpaRepository<TallyWorkerLog, 
     @Query("SELECT t.chunkNumber FROM TallyWorkerLog t WHERE t.electionId = :electionId AND t.status = 'COMPLETED'")
     List<Integer> findCompletedChunkNumbersByElectionId(@Param("electionId") Long electionId);
 
+    @Query("SELECT COUNT(t) > 0 FROM TallyWorkerLog t WHERE t.electionId = :electionId AND t.chunkNumber = :chunkNumber AND t.status = :status")
+    boolean existsByElectionIdAndChunkNumberAndStatus(
+        @Param("electionId") Long electionId,
+        @Param("chunkNumber") Integer chunkNumber,
+        @Param("status") String status);
+
     void deleteByElectionId(Long electionId);
 }
