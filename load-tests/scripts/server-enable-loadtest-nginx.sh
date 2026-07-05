@@ -14,5 +14,5 @@ echo "✓ Load-test nginx active"
 docker inspect amarvote_nginx --format '{{range .Mounts}}{{.Source}}{{"\n"}}{{end}}' | grep nginx-proxy || true
 
 echo ""
-echo "Optional — free RAM before peak test:"
-echo "  docker compose -f docker-compose.prod.yml stop prometheus grafana"
+echo "Optional — confirm only prod services are running:"
+echo "  docker compose -f docker-compose.prod.yml ps"

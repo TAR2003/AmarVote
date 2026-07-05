@@ -15,7 +15,6 @@ tar czf "$OUT" \
   rabbitmq.conf \
   scripts/vm-deploy.sh \
   Database/creation \
-  backend/src/main/resources/templates \
-  prometheus/prometheus.yml
+  backend/src/main/resources/templates
 
 echo "Created $OUT ($(du -h "$OUT" | cut -f1))"

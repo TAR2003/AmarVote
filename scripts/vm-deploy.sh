@@ -2,7 +2,9 @@
 # Production deploy: use pre-built images (built in GitHub Actions), then swap containers.
 # Images are streamed to the VM over SSH during CI (SKIP_PULL=1). Set SKIP_PULL=0 to pull
 # from the registry on the VM instead (e.g. manual deploy with stable registry access).
-# Old containers keep serving until "up" recreates them — minimal downtime.
+#
+# Named data volumes (postgres_data, redis_data, rabbitmq_data, credentials_data) are never
+# removed — compose down/up and volume prune only drop unused anonymous volumes.
 set -euo pipefail
 
 cd ~/app
@@ -19,28 +21,34 @@ if [ "$(sysctl -n vm.overcommit_memory 2>/dev/null || echo 0)" != "1" ]; then
     echo "Warning: could not set vm.overcommit_memory=1 (run as root or add to /etc/sysctl.conf)"
 fi
 
-# Grafana volume must be writable by uid 472 when user: is set in compose.
-GRAFANA_VOL="$(docker volume ls -q --filter name=grafana_data | head -1 || true)"
-if [ -n "${GRAFANA_VOL}" ]; then
-  docker run --rm -v "${GRAFANA_VOL}:/var/lib/grafana" alpine:3.20 \
-    sh -c 'mkdir -p /var/lib/grafana/plugins && chown -R 472:472 /var/lib/grafana' \
-    >/dev/null 2>&1 || true
-fi
-
 APP_SERVICES=(backend frontend electionguard-api electionguard-worker)
 
 SKIP_PULL="${SKIP_PULL:-1}"
 
 echo "Deploying image tag: ${IMAGE_TAG}"
 
+# Stop every running container (brief downtime; data volumes stay on disk).
+running="$(docker ps -q)"
+if [ -n "${running}" ]; then
+  echo "Stopping all running containers..."
+  docker stop ${running}
+fi
+
+# Remove legacy monitoring containers no longer defined in docker-compose.prod.yml.
+for legacy in amarvote_grafana amarvote_prometheus prometheus grafana; do
+  docker rm -f "${legacy}" 2>/dev/null || true
+done
+
+# Tear down the compose project without -v (keeps postgres_data and all named volumes).
+"${COMPOSE[@]}" down --remove-orphans
+
 if [ "${SKIP_PULL}" = "1" ]; then
   echo "Skipping registry pull (images pre-loaded on VM)"
 else
-  # Pull while current containers are still running.
   "${COMPOSE[@]}" pull --quiet "${APP_SERVICES[@]}"
 fi
 
-# Recreate only services whose image or config changed (no on-VM build).
+# Recreate only services defined in docker-compose.prod.yml (no on-VM build).
 "${COMPOSE[@]}" up -d --remove-orphans --no-build
 
 # Redis must be healthy before backend (depends_on). Fail fast if still broken.
@@ -64,5 +72,8 @@ docker image prune -a -f
 # 2. Wipe the temporary layer build caches
 docker builder prune -f
 
-# 3. Clean up the 25+ empty, anonymous volume footprints
+# 3. Clean up empty, anonymous volume footprints (named data volumes are in use — kept)
 docker volume prune -f
+
+echo "Deploy complete. Active services:"
+"${COMPOSE[@]}" ps
