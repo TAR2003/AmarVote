@@ -67,9 +67,11 @@ import GuardianDataDisplay from '../components/GuardianDataDisplay';
 import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
 import AnimatedResults from '../components/AnimatedResults';
 import TruncatedCandidateName from '../components/TruncatedCandidateName';
+import CandidateThumbnail from '../components/CandidateThumbnail';
 import {
   buildCompetitionRankings,
   formatOrdinal,
+  getCandidatePic,
   isWinnerByRank,
 } from '../utils/electionRankings';
 import { getVoterFriendlyError, getGuardianKeyFriendlyError } from '../utils/voterMessages';
@@ -2373,6 +2375,25 @@ export default function ElectionPage() {
       if (prev.includes(choiceIdStr)) {
         return prev.filter((id) => id !== choiceIdStr);
       }
+      if (maxChoices === 1) {
+        return [choiceIdStr];
+      }
+      if (prev.length >= maxChoices) {
+        return prev;
+      }
+      return [...prev, choiceIdStr];
+    });
+  }, [electionData?.maxChoices]);
+
+  const handleCandidateToggle = useCallback((choiceIdStr) => {
+    const maxChoices = electionData?.maxChoices || 1;
+    setSelectedCandidates((prev) => {
+      if (prev.includes(choiceIdStr)) {
+        return prev.filter((id) => id !== choiceIdStr);
+      }
+      if (maxChoices === 1) {
+        return [choiceIdStr];
+      }
       if (prev.length >= maxChoices) {
         return prev;
       }
@@ -2885,7 +2906,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
         }))
       );
 
-      generateElectionResultsPdf({
+      await generateElectionResultsPdf({
         electionData,
         electionId: id,
         processedResults,
@@ -4291,41 +4312,48 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             {electionData.electionChoices?.map((choice) => {
                               const isSelected = selectedCandidates.includes(choice.choiceId.toString());
                               const isDisabled = !isSelected && selectedCandidates.length >= maxChoices;
-                              const inputId = `vote-choice-${choice.choiceId}`;
+                              const choiceIdStr = choice.choiceId.toString();
                               return (
-                                <label
+                                <div
                                   key={choice.choiceId}
-                                  htmlFor={inputId}
-                                  className={`flex items-start gap-3 py-2 px-1 rounded-md ${
+                                  role="button"
+                                  tabIndex={isDisabled ? -1 : 0}
+                                  onClick={() => {
+                                    if (isDisabled) return;
+                                    handleCandidateToggle(choiceIdStr);
+                                  }}
+                                  onKeyDown={(event) => {
+                                    if (isDisabled) return;
+                                    if (event.key === 'Enter' || event.key === ' ') {
+                                      event.preventDefault();
+                                      handleCandidateToggle(choiceIdStr);
+                                    }
+                                  }}
+                                  className={`flex items-center gap-3 py-2.5 px-3 rounded-lg border transition-colors ${
                                     isDisabled
-                                      ? 'opacity-50 cursor-not-allowed'
-                                      : 'cursor-pointer hover:bg-gray-50'
+                                      ? 'opacity-50 cursor-not-allowed border-gray-200'
+                                      : isSelected
+                                        ? 'cursor-pointer border-blue-500 bg-blue-50'
+                                        : 'cursor-pointer border-gray-200 hover:border-gray-300 hover:bg-gray-50'
                                   }`}
                                 >
                                   <input
-                                    type={maxChoices > 1 ? 'checkbox' : 'radio'}
-                                    id={inputId}
-                                    name="candidate"
-                                    value={choice.choiceId}
+                                    type="checkbox"
                                     checked={isSelected}
-                                    disabled={isDisabled}
-                                    onChange={() => {
-                                      if (isDisabled) return;
-                                      const idStr = choice.choiceId.toString();
-                                      setSelectedCandidates(prev =>
-                                        maxChoices > 1
-                                          ? (prev.includes(idStr)
-                                            ? prev.filter(x => x !== idStr)
-                                            : [...prev, idStr])
-                                          : [idStr]
-                                      );
-                                    }}
-                                    className="mt-0.5 h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 flex-shrink-0"
+                                    readOnly
+                                    tabIndex={-1}
+                                    aria-hidden
+                                    className="pointer-events-none h-4 w-4 text-blue-600 border-gray-300 rounded flex-shrink-0"
+                                  />
+                                  <CandidateThumbnail
+                                    src={choice.candidatePic}
+                                    name={choice.optionTitle}
+                                    size="md"
                                   />
                                   <span className="text-sm sm:text-base text-gray-900 leading-snug min-w-0 flex-1">
                                     <TruncatedCandidateName name={choice.optionTitle} />
                                   </span>
-                                </label>
+                                </div>
                               );
                             })}
                           </div>
@@ -5349,6 +5377,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         <div className="mb-6">
                           <AnimatedResults
                             electionResults={animatedResults}
+                            electionChoices={electionData.electionChoices}
                             winnerCount={getWinnerCount(electionData)}
                             votersWhoVoted={processedResults.totalVotedUsers || 0}
                           />
@@ -5515,8 +5544,17 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                       </span>
                                     </td>
                                     <td className={`p-3 font-medium min-w-0 ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>
-                                      <TruncatedCandidateName name={candidate.name} />
-                                      {isWinner && <span className="ml-2 text-xs font-bold text-amber-600">Winner</span>}
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <CandidateThumbnail
+                                          src={getCandidatePic(electionData.electionChoices, candidate.name)}
+                                          name={candidate.name}
+                                          size="sm"
+                                        />
+                                        <div className="min-w-0">
+                                          <TruncatedCandidateName name={candidate.name} />
+                                          {isWinner && <span className="ml-2 text-xs font-bold text-amber-600">Winner</span>}
+                                        </div>
+                                      </div>
                                     </td>
                                     <td className="p-3 font-semibold text-gray-900">{candidate.votes}</td>
                                     <td className="p-3 text-gray-900">{candidate.percentage}%</td>
@@ -5565,9 +5603,16 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                       )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <p className={`font-bold text-sm sm:text-base ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>
-                                        <TruncatedCandidateName name={candidate.name} />
-                                      </p>
+                                      <div className="flex items-center gap-3 min-w-0">
+                                        <CandidateThumbnail
+                                          src={getCandidatePic(electionData.electionChoices, candidate.name)}
+                                          name={candidate.name}
+                                          size="md"
+                                        />
+                                        <p className={`font-bold text-sm sm:text-base min-w-0 ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>
+                                          <TruncatedCandidateName name={candidate.name} />
+                                        </p>
+                                      </div>
                                       <div className="mt-1.5 w-full bg-white/70 rounded-full h-1.5 overflow-hidden border border-white">
                                         <div
                                           className={`h-1.5 rounded-full bg-gradient-to-r ${style.bar} transition-all duration-1000`}

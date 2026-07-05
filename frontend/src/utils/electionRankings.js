@@ -43,3 +43,20 @@ export function formatOrdinal(rank) {
 export function isWinnerByRank(rank, winnerCount) {
   return rank <= Math.max(1, winnerCount);
 }
+
+/** Map candidate display name → profile image URL from election choices. */
+export function buildCandidatePicMap(electionChoices = []) {
+  const map = new Map();
+  electionChoices.forEach((choice) => {
+    if (choice?.optionTitle && choice?.candidatePic) {
+      map.set(choice.optionTitle, choice.candidatePic);
+    }
+  });
+  return map;
+}
+
+export function getCandidatePic(electionChoices, candidateName) {
+  if (!candidateName || !electionChoices?.length) return null;
+  const match = electionChoices.find((choice) => choice.optionTitle === candidateName);
+  return match?.candidatePic || null;
+}

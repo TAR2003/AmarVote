@@ -1,14 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import TruncatedCandidateName from './TruncatedCandidateName';
+import CandidateThumbnail from './CandidateThumbnail';
 import {
   buildCompetitionRankings,
   formatOrdinal,
+  getCandidatePic,
   getVoteCountFromTally,
   isWinnerByRank,
 } from '../utils/electionRankings';
 
-const AnimatedResults = ({ electionResults, winnerCount = 1, votersWhoVoted = null }) => {
+const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 1, votersWhoVoted = null }) => {
   const [animationStep, setAnimationStep] = useState(0);
   const [currentTotals, setCurrentTotals] = useState({});
   const [isAnimating, setIsAnimating] = useState(false);
@@ -121,17 +123,24 @@ const AnimatedResults = ({ electionResults, winnerCount = 1, votersWhoVoted = nu
               }`}
             >
               <div className="flex items-start justify-between gap-2 mb-4">
-                <div className="min-w-0 flex-1">
-                  <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${
-                    isWinner && !isAnimating ? 'text-amber-600' : 'text-gray-500'
-                  }`}>
-                    {positionLabel}
-                  </p>
-                  <h3 className={`text-lg font-bold leading-snug ${
-                    isWinner && !isAnimating ? 'text-amber-800' : 'text-gray-800'
-                  }`}>
-                    <TruncatedCandidateName name={candidate.name} />
-                  </h3>
+                <div className="min-w-0 flex-1 flex items-start gap-3">
+                  <CandidateThumbnail
+                    src={getCandidatePic(electionChoices, candidate.name)}
+                    name={candidate.name}
+                    size="lg"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${
+                      isWinner && !isAnimating ? 'text-amber-600' : 'text-gray-500'
+                    }`}>
+                      {positionLabel}
+                    </p>
+                    <h3 className={`text-lg font-bold leading-snug ${
+                      isWinner && !isAnimating ? 'text-amber-800' : 'text-gray-800'
+                    }`}>
+                      <TruncatedCandidateName name={candidate.name} />
+                    </h3>
+                  </div>
                 </div>
                 {isWinner && !isAnimating && (
                   <span className="flex flex-col items-center flex-shrink-0" title={`${positionLabel} place`}>

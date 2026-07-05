@@ -132,6 +132,7 @@ function buildCandidateMetaMap(electionData) {
     map.set(choice.optionTitle, {
       title: choice.optionTitle,
       description: choice.optionDescription || '',
+      candidatePic: choice.candidatePic || '',
     });
   });
   return map;
@@ -142,7 +143,62 @@ export function enrichRankedWithMeta(ranked, electionData) {
   return ranked.map((row) => ({
     ...row,
     description: metaMap.get(row.name)?.description || '',
+    candidatePic: metaMap.get(row.name)?.candidatePic || '',
   }));
+}
+
+const CANDIDATE_IMG_MM = 10;
+
+function imageFormatFromDataUrl(dataUrl) {
+  if (!dataUrl) return 'JPEG';
+  if (dataUrl.startsWith('data:image/png')) return 'PNG';
+  if (dataUrl.startsWith('data:image/webp')) return 'WEBP';
+  return 'JPEG';
+}
+
+async function fetchImageAsDataUrl(url) {
+  if (!url) return null;
+  try {
+    const response = await fetch(url, { mode: 'cors' });
+    if (!response.ok) return null;
+    const blob = await response.blob();
+    return await new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
+      reader.onerror = () => resolve(null);
+      reader.readAsDataURL(blob);
+    });
+  } catch {
+    return null;
+  }
+}
+
+async function attachCandidateImageData(enrichedRanked) {
+  const uniqueUrls = [...new Set(enrichedRanked.map((row) => row.candidatePic).filter(Boolean))];
+  const urlToData = new Map();
+
+  await Promise.all(uniqueUrls.map(async (url) => {
+    const dataUrl = await fetchImageAsDataUrl(url);
+    if (dataUrl) urlToData.set(url, dataUrl);
+  }));
+
+  return enrichedRanked.map((row) => ({
+    ...row,
+    candidatePicDataUrl: row.candidatePic ? (urlToData.get(row.candidatePic) || null) : null,
+  }));
+}
+
+function drawCandidateImage(doc, dataUrl, x, y, size = CANDIDATE_IMG_MM) {
+  if (!dataUrl) return;
+  const formats = [imageFormatFromDataUrl(dataUrl), 'PNG', 'JPEG'];
+  for (const format of formats) {
+    try {
+      doc.addImage(dataUrl, format, x, y, size, size, undefined, 'FAST');
+      return;
+    } catch {
+      // try next format
+    }
+  }
 }
 
 function verificationId(electionData, electionId) {
@@ -619,17 +675,26 @@ function drawWinnerSpotlight(doc, pageWidth, contentWidth, y, ranked, winnerCoun
 
   if (winners.length === 1) {
     const w = winners[0];
+    const imageSize = 14;
+    let textX = MARGIN + 7;
+    const textY = y + 22;
+
+    if (w.candidatePicDataUrl) {
+      drawCandidateImage(doc, w.candidatePicDataUrl, MARGIN + 7, y + 10, imageSize);
+      textX = MARGIN + 7 + imageSize + 4;
+    }
+
     doc.setFont('helvetica', 'bold');
     setColor(doc, 'text', C.ink);
     let size = 20;
     doc.setFontSize(size);
-    let nameLines = doc.splitTextToSize(w.name, contentWidth - 70);
+    let nameLines = doc.splitTextToSize(w.name, contentWidth - 70 - (w.candidatePicDataUrl ? imageSize + 4 : 0));
     while (nameLines.length > 1 && size > 12) {
       size -= 2;
       doc.setFontSize(size);
-      nameLines = doc.splitTextToSize(w.name, contentWidth - 70);
+      nameLines = doc.splitTextToSize(w.name, contentWidth - 70 - (w.candidatePicDataUrl ? imageSize + 4 : 0));
     }
-    doc.text(nameLines[0], MARGIN + 7, y + 22);
+    doc.text(nameLines[0], textX, textY);
 
     // Votes / share on the right
     setColor(doc, 'text', C.goldDark);
@@ -647,13 +712,18 @@ function drawWinnerSpotlight(doc, pageWidth, contentWidth, y, ranked, winnerCoun
   const list = winners.slice(0, 4);
   let ly = y + 15;
   list.forEach((w) => {
+    let nameX = MARGIN + 22;
+    if (w.candidatePicDataUrl) {
+      drawCandidateImage(doc, w.candidatePicDataUrl, MARGIN + 20, ly - 4.5, 8);
+      nameX = MARGIN + 31;
+    }
     setColor(doc, 'text', C.goldDark);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(9);
     doc.text(formatOrdinal(w.rank), MARGIN + 7, ly);
     setColor(doc, 'text', C.ink);
     doc.setFontSize(10);
-    doc.text(doc.splitTextToSize(w.name, contentWidth - 60)[0], MARGIN + 22, ly);
+    doc.text(doc.splitTextToSize(w.name, contentWidth - 60 - (w.candidatePicDataUrl ? 10 : 0))[0], nameX, ly);
     setColor(doc, 'text', C.sub);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(9);
@@ -854,7 +924,9 @@ function drawAnalyticsPage(doc, pageWidth, pageHeight, contentWidth, ranked, win
  * ------------------------------------------------------------------ */
 
 function estimateCandidateCellHeight(doc, row, colWidth) {
-  const innerW = colWidth - 8;
+  const hasImage = !!row.candidatePicDataUrl;
+  const textOffset = hasImage ? CANDIDATE_IMG_MM + 4 : 0;
+  const innerW = colWidth - 8 - textOffset;
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   const nameLines = doc.splitTextToSize(row.name || '', innerW);
@@ -865,27 +937,36 @@ function estimateCandidateCellHeight(doc, row, colWidth) {
     const descLines = doc.splitTextToSize(row.description, innerW).slice(0, 3);
     height += 2 + descLines.length * 3.2;
   }
-  return Math.max(15, height + 5);
+  const imageBlock = hasImage ? CANDIDATE_IMG_MM + 4 : 0;
+  return Math.max(15, height + 5, imageBlock);
 }
 
 function drawCandidateCell(doc, cell, row, isWinner) {
-  const { x, y, width } = cell;
+  const { x, y, width, height } = cell;
   const padX = 4;
+  const imageSize = CANDIDATE_IMG_MM;
+  let textX = x + padX;
   let cursorY = y + 5.5;
+
+  if (row.candidatePicDataUrl) {
+    const imageY = y + Math.max(2, (height - imageSize) / 2);
+    drawCandidateImage(doc, row.candidatePicDataUrl, x + padX, imageY, imageSize);
+    textX = x + padX + imageSize + 3;
+  }
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(9.5);
   setColor(doc, 'text', isWinner ? C.goldDark : C.ink);
-  const nameLines = doc.splitTextToSize(row.name || '', width - padX * 2);
-  doc.text(nameLines, x + padX, cursorY);
+  const nameLines = doc.splitTextToSize(row.name || '', width - (textX - x) - padX);
+  doc.text(nameLines, textX, cursorY);
   cursorY += nameLines.length * 4 + 1;
 
   if (row.description) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
     setColor(doc, 'text', C.muted);
-    const descLines = doc.splitTextToSize(row.description, width - padX * 2).slice(0, 3);
-    doc.text(descLines, x + padX, cursorY);
+    const descLines = doc.splitTextToSize(row.description, width - (textX - x) - padX).slice(0, 3);
+    doc.text(descLines, textX, cursorY);
   }
 }
 
@@ -1048,7 +1129,7 @@ function addCertifiedFooter(doc, pageWidth, pageHeight, verifyId) {
  * Entry point
  * ------------------------------------------------------------------ */
 
-export function generateElectionResultsPdf({
+export async function generateElectionResultsPdf({
   electionData,
   electionId,
   processedResults,
@@ -1059,7 +1140,7 @@ export function generateElectionResultsPdf({
   formatEndTime = null,
   statusLabel = null,
 }) {
-  const enrichedRanked = enrichRankedWithMeta(ranked, electionData);
+  const enrichedRanked = await attachCandidateImageData(enrichRankedWithMeta(ranked, electionData));
   const verifyId = verificationId(electionData, electionId);
 
   const doc = new jsPDF({
