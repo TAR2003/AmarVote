@@ -43,6 +43,7 @@ public class SecurityConfig {
             "/api/auth/password/send-email-code",
             "/api/auth/password/verify-email-code",
             "/api/auth/password/reset",
+            "/api/auth/captcha-config",
             "/api/password/forgot-password",
             "/api/password/create-password",
             "/api/verify/send-code",

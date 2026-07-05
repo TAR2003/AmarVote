@@ -62,6 +62,15 @@ public class OtpAuthController {
     @Value("${cookie.secure:false}")
     private boolean cookieSecure;
 
+    /** Public config — site key from VITE_TURNSTILE_SITE_KEY in ~/.env */
+    @GetMapping("/captcha-config")
+    public Map<String, Object> captchaConfig() {
+        Map<String, Object> body = new LinkedHashMap<>();
+        body.put("enabled", turnstileService.isEnabled());
+        body.put("siteKey", turnstileService.getSiteKey());
+        return body;
+    }
+
     @PostMapping("/register/send-email-code")
     public ResponseEntity<?> sendRegistrationEmailCode(@Valid @RequestBody RegisterSendEmailCodeRequestDto request) {
         ResponseEntity<?> captchaFailure = verifyCaptchaOrRespond(request.getCaptchaToken());

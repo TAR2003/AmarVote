@@ -55,7 +55,7 @@ public class ApiLoggingFilter extends OncePerRequestFilter {
             return true;
         }
 
-        if (path.startsWith("/actuator") || "/api/health".equals(path)) {
+        if (path.startsWith("/actuator") || "/api/health".equals(path) || "/api/auth/captcha-config".equals(path)) {
             return true;
         }
 

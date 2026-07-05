@@ -3,13 +3,14 @@ import { Link, useNavigate } from "react-router-dom";
 import Layout from "./Layout";
 import OtpInput from "../components/OtpInput";
 import PasswordInput from "../components/PasswordInput";
-import TurnstileWidget, { isTurnstileConfigured } from "../components/TurnstileWidget";
+import TurnstileWidget from "../components/TurnstileWidget";
+import useCaptchaConfig from "../hooks/useCaptchaConfig";
 import { formatPasswordErrors, getPasswordValidationErrors } from "../utils/passwordUtils";
 import { buildEmailCodePayload, getAuthErrorMessage } from "../utils/authApi";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
-  const captchaRequired = isTurnstileConfigured();
+  const { loading: captchaLoading, required: captchaRequired } = useCaptchaConfig();
 
   const [step, setStep] = useState(1);
   const [email, setEmail] = useState("");
@@ -191,7 +192,7 @@ export default function ForgotPassword() {
 
               <button
                 type="submit"
-                disabled={loading || (captchaRequired && !captchaToken)}
+                disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
                 className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
               >
                 {loading ? "Sending code..." : "Send verification code"}
@@ -238,7 +239,7 @@ export default function ForgotPassword() {
               <button
                 type="button"
                 onClick={sendResetCode}
-                disabled={loading || (captchaRequired && !captchaToken)}
+                disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
                 className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100"
               >
                 Resend code

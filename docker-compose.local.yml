@@ -2,7 +2,7 @@
 # Local-only differences:
 #   - build: (not pre-built GHCR images) for backend, frontend, electionguard-api, electionguard-worker
 #   - nginx: nginx-proxy.dev.conf, HTTP :80 only (no TLS / Cloudflare origin certs)
-#   - frontend: local Dockerfile build + VITE_TURNSTILE_SITE_KEY from .env
+#   - Turnstile: VITE_TURNSTILE_SITE_KEY + TURNSTILE_SECRET in .env → backend /api/auth/captcha-config
 #   - backend: COOKIE_SECURE=false (HTTP gateway); prod uses true behind HTTPS
 #
 # Memory budget (matches prod):
@@ -153,6 +153,7 @@ services:
       - COOKIE_SECURE=false
       - AMARVOTE_CHATBOT_ENABLED=false
       - RESEND_API_KEY=${RESEND_API_KEY}
+      - VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY:-}
       - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
       - TURNSTILE_ENABLED=${TURNSTILE_ENABLED:-true}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
@@ -203,8 +204,6 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
-      args:
-        VITE_TURNSTILE_SITE_KEY: ${VITE_TURNSTILE_SITE_KEY:-}
     container_name: amarvote_frontend
     restart: unless-stopped
     oom_score_adj: 500

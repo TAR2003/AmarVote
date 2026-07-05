@@ -1,4 +1,5 @@
-import React, { useEffect, useRef } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { fetchCaptchaConfig } from "../utils/captchaConfig";
 
 const TURNSTILE_SCRIPT_ID = "cf-turnstile-script";
 const TURNSTILE_SCRIPT_SRC = "https://challenges.cloudflare.com/turnstile/v0/api.js?render=explicit";
@@ -9,14 +10,12 @@ function loadTurnstileScript() {
       resolve(window.turnstile);
       return;
     }
-
     const existing = document.getElementById(TURNSTILE_SCRIPT_ID);
     if (existing) {
       existing.addEventListener("load", () => resolve(window.turnstile));
       existing.addEventListener("error", reject);
       return;
     }
-
     const script = document.createElement("script");
     script.id = TURNSTILE_SCRIPT_ID;
     script.src = TURNSTILE_SCRIPT_SRC;
@@ -39,34 +38,33 @@ export default function TurnstileWidget({
   const widgetIdRef = useRef(null);
   const onVerifyRef = useRef(onVerify);
   const onExpireRef = useRef(onExpire);
-  const siteKey = import.meta.env.VITE_TURNSTILE_SITE_KEY;
+  const [siteKey, setSiteKey] = useState("");
+  const [loadError, setLoadError] = useState(null);
+
+  useEffect(() => { onVerifyRef.current = onVerify; }, [onVerify]);
+  useEffect(() => { onExpireRef.current = onExpire; }, [onExpire]);
 
   useEffect(() => {
-    onVerifyRef.current = onVerify;
-  }, [onVerify]);
+    let cancelled = false;
+    fetchCaptchaConfig().then((config) => {
+      if (!cancelled) setSiteKey(config.siteKey || "");
+    });
+    return () => { cancelled = true; };
+  }, []);
 
   useEffect(() => {
-    onExpireRef.current = onExpire;
-  }, [onExpire]);
-
-  useEffect(() => {
-    if (!siteKey || !containerRef.current) {
-      return undefined;
-    }
+    if (!siteKey || !containerRef.current) return undefined;
 
     let cancelled = false;
+    setLoadError(null);
 
     loadTurnstileScript()
       .then((turnstile) => {
-        if (cancelled || !containerRef.current) {
-          return;
-        }
-
+        if (cancelled || !containerRef.current) return;
         if (widgetIdRef.current != null) {
           turnstile.remove(widgetIdRef.current);
           widgetIdRef.current = null;
         }
-
         widgetIdRef.current = turnstile.render(containerRef.current, {
           sitekey: siteKey,
           theme,
@@ -77,11 +75,13 @@ export default function TurnstileWidget({
           },
           "error-callback": () => {
             onVerifyRef.current?.("");
+            setLoadError("CAPTCHA failed to load. Refresh and try again.");
           },
         });
       })
       .catch(() => {
         onVerifyRef.current?.("");
+        setLoadError("CAPTCHA could not be loaded. Check your connection.");
       });
 
     return () => {
@@ -93,13 +93,14 @@ export default function TurnstileWidget({
     };
   }, [siteKey, resetKey, theme]);
 
-  if (!siteKey) {
-    return null;
-  }
+  if (!siteKey && !loadError) return null;
 
-  return <div ref={containerRef} className={className} />;
-}
-
-export function isTurnstileConfigured() {
-  return Boolean(import.meta.env.VITE_TURNSTILE_SITE_KEY);
+  return (
+    <div className={className}>
+      <div ref={containerRef} />
+      {loadError && (
+        <p className="mt-2 text-sm text-red-600 text-center" role="alert">{loadError}</p>
+      )}
+    </div>
+  );
 }

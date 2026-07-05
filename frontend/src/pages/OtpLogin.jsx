@@ -1,7 +1,8 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "./Layout";
-import TurnstileWidget, { isTurnstileConfigured } from "../components/TurnstileWidget";
+import TurnstileWidget from "../components/TurnstileWidget";
+import useCaptchaConfig from "../hooks/useCaptchaConfig";
 import { buildEmailCodePayload, getAuthErrorMessage } from "../utils/authApi";
 
 export default function OtpLogin({ setUserEmail }) {
@@ -15,7 +16,7 @@ export default function OtpLogin({ setUserEmail }) {
   const [loading, setLoading] = useState(false);
   const [timeLeft, setTimeLeft] = useState(300);
   const navigate = useNavigate();
-  const captchaRequired = isTurnstileConfigured();
+  const { loading: captchaLoading, required: captchaRequired } = useCaptchaConfig();
 
   useEffect(() => {
     if (step === 2 && timeLeft > 0) {
@@ -178,7 +179,7 @@ export default function OtpLogin({ setUserEmail }) {
 
                 <button
                   type="submit"
-                  disabled={loading || (captchaRequired && !captchaToken)}
+                  disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
                   className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed"
                 >
                   {loading ? "Sending..." : "Continue"}
@@ -235,7 +236,7 @@ export default function OtpLogin({ setUserEmail }) {
                   <button
                     type="button"
                     onClick={handleResendOTP}
-                    disabled={loading || (captchaRequired && !captchaToken)}
+                    disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
                     className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     Resend Code

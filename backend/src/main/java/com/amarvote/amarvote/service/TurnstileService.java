@@ -18,6 +18,9 @@ public class TurnstileService {
 
     private static final String VERIFY_URL = "https://challenges.cloudflare.com/turnstile/v0/siteverify";
 
+    @Value("${turnstile.site-key:}")
+    private String siteKey;
+
     @Value("${turnstile.secret:}")
     private String secret;
 
@@ -27,7 +30,13 @@ public class TurnstileService {
     private final RestTemplate restTemplate;
 
     public boolean isEnabled() {
-        return enabled && secret != null && !secret.isBlank();
+        return enabled
+                && siteKey != null && !siteKey.isBlank()
+                && secret != null && !secret.isBlank();
+    }
+
+    public String getSiteKey() {
+        return isEnabled() ? siteKey : "";
     }
 
     public boolean verify(String token) {

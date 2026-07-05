@@ -57,8 +57,6 @@ jobs:
           push: true
           provenance: false
           sbom: false
-          build-args: |
-            VITE_TURNSTILE_SITE_KEY=${{ matrix.name == 'frontend' && secrets.VITE_TURNSTILE_SITE_KEY || '' }}
           tags: |
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/amarvote-${{ matrix.name }}:${{ github.sha }}
             ${{ env.REGISTRY }}/${{ env.IMAGE_OWNER }}/amarvote-${{ matrix.name }}:main
