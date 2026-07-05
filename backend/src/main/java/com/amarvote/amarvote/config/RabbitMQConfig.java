@@ -173,9 +173,6 @@ public class RabbitMQConfig {
         
         factory.setDefaultRequeueRejected(false); // Don't requeue on failure
         
-        System.out.println("⚙️ RabbitMQ Worker Concurrency configured: min=" + minConcurrentConsumers + ", max=" + maxConcurrentConsumers);
-        System.out.println("⚠️ PREFETCH COUNT: 1 (ENFORCED - critical for fair scheduling)");
-        System.out.println("✅ Multiple workers + prefetch=1 = Concurrent round-robin processing!");
         
         return factory;
     }

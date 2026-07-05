@@ -122,10 +122,7 @@ public class ElectionService {
     @Transactional
     public Election createElection(ElectionCreationRequest request, String jwtToken, String userEmail) {
         // Log the received token and email
-        System.out.println("=========== ELECTION SERVICE ===========");
         // System.out.println("Received JWT Token: " + jwtToken);
-        System.out.println("Received User Email: " + userEmail);
-        System.out.println("========================================");
 
         // Validate minimum candidate count
         if (request.candidateNames().size() < 2) {
@@ -223,7 +220,6 @@ public class ElectionService {
             guardianRepository.save(guardian);
         }
 
-        System.out.println("Guardians saved successfully for decentralized key ceremony.");
 
         List<String> candidateNames = request.candidateNames();
         List<String> candidatePictures = request.candidatePictures();
@@ -247,7 +243,6 @@ public class ElectionService {
             electionChoiceRepository.save(choice);
         }
 
-        System.out.println("Election choices saved successfully.");
 
         // Only save voters for "listed" eligibility elections
         List<String> voterEmails = request.voterEmails();
@@ -261,9 +256,7 @@ public class ElectionService {
 
                 allowedVoterRepository.save(allowedVoter);
             }
-            System.out.println("Allowed voters saved successfully for listed election.");
         } else {
-            System.out.println("No voters saved - election eligibility is 'unlisted' or no voter emails provided.");
         }
 
         Set<String> coAdminEmails = normalizeAndValidateCoAdminEmails(request.coAdminEmails(), userEmail);
@@ -274,7 +267,6 @@ public class ElectionService {
                     .build());
         }
         if (!coAdminEmails.isEmpty()) {
-            System.out.println("Co-admins saved successfully: " + coAdminEmails.size());
         }
 
         return election;
@@ -1310,7 +1302,6 @@ public class ElectionService {
      * to avoid N+1 query problems when fetching hundreds of elections.
      */
     public List<ElectionResponse> getAllAccessibleElections(String userEmail) {
-        System.out.println("Fetching optimized accessible elections for user: " + userEmail);
         long startTime = System.currentTimeMillis();
 
         List<Object[]> queryResults = authorizedUserService.canDeleteAnyElection(userEmail)
@@ -1346,8 +1337,6 @@ public class ElectionService {
                 .collect(Collectors.toList());
 
         long endTime = System.currentTimeMillis();
-        System.out.println("Found " + responses.size() + " accessible elections for user: " + userEmail +
-                " in " + (endTime - startTime) + "ms");
 
         return responses;
     }
@@ -1458,12 +1447,10 @@ public class ElectionService {
      * @return ElectionDetailResponse if authorized, null if not authorized
      */
     public ElectionDetailResponse getElectionById(Long electionId, String userEmail) {
-        System.out.println("Fetching election details for ID: " + electionId + " by user: " + userEmail);
 
         // First, check if the election exists
         Optional<Election> electionOpt = electionRepository.findById(electionId);
         if (!electionOpt.isPresent()) {
-            System.out.println("Election not found: " + electionId);
             return null;
         }
 
@@ -1471,11 +1458,9 @@ public class ElectionService {
 
         // Check if user is authorized to view this election
         if (!isUserAuthorizedToViewElection(election, userEmail)) {
-            System.out.println("User " + userEmail + " is not authorized to view election " + electionId);
             return null;
         }
 
-        System.out.println("User " + userEmail + " is authorized to view election " + electionId);
 
         syncElectionStatusIfNeeded(election);
 
@@ -1505,14 +1490,12 @@ public class ElectionService {
 
         // Check if user is the main admin or a co-admin
         if (userHasAdminRole(election, userEmail)) {
-            System.out.println("User is admin of election " + election.getElectionId());
             return true;
         }
 
         // Check if user is a guardian
         List<Guardian> guardians = guardianRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail);
         if (!guardians.isEmpty()) {
-            System.out.println("User is guardian of election " + election.getElectionId());
             return true;
         }
 
@@ -1520,17 +1503,14 @@ public class ElectionService {
         Optional<AllowedVoter> allowedVoterOpt = allowedVoterRepository.findByElectionIdAndUserEmail(election.getElectionId(),
                 userEmail);
         if (allowedVoterOpt.isPresent()) {
-            System.out.println("User is voter of election " + election.getElectionId());
             return true;
         }
 
         // Check if election is public (privacy = 'public')
         if ("public".equals(election.getPrivacy())) {
-            System.out.println("Election " + election.getElectionId() + " is public");
             return true;
         }
 
-        System.out.println("User is not authorized to view election " + election.getElectionId());
         return false;
     }
 
@@ -1733,7 +1713,6 @@ public class ElectionService {
             // .bodyToMono(String.class)
             // .block();
             // return "Backend response: " + response;
-            System.out.println("Calling ElectionGuard service at: " + url);
             // HttpHeaders headers = new HttpHeaders();
             // headers.setContentType(MediaType.APPLICATION_JSON);
 
@@ -2142,11 +2121,9 @@ public class ElectionService {
      */
     public List<Map<String, Object>> getCompensatedDecryptionsForVerification(Long electionId) {
         try {
-            System.out.println("Fetching compensated decryptions for election: " + electionId);
             
             // Get all election centers (chunks) for this election
             List<ElectionCenter> centers = electionCenterRepository.findByElectionId(electionId);
-            System.out.println("Found " + centers.size() + " chunks for election " + electionId);
             
             // Map to track unique guardian pairs and aggregate their data
             Map<String, Map<String, Object>> uniqueCompensations = new HashMap<>();
@@ -2155,7 +2132,6 @@ public class ElectionService {
                 List<CompensatedDecryption> compensatedDecryptions = 
                     compensatedDecryptionRepository.findByElectionCenterId(center.getElectionCenterId());
                 
-                System.out.println("Found " + compensatedDecryptions.size() + " compensated decryptions for chunk " + center.getElectionCenterId());
                 
                 for (CompensatedDecryption cd : compensatedDecryptions) {
                     // Create unique key for this guardian pair
@@ -2199,7 +2175,6 @@ public class ElectionService {
             }
             
             List<Map<String, Object>> result = new ArrayList<>(uniqueCompensations.values());
-            System.out.println("Returning " + result.size() + " unique compensated decryption pairs (aggregated across " + centers.size() + " chunks)");
             return result;
         } catch (Exception e) {
             System.err.println("Error retrieving compensated decryptions for verification: " + e.getMessage());
@@ -2214,7 +2189,6 @@ public class ElectionService {
      */
     public ElectionResultsResponse getElectionResults(Long electionId, String userEmail) {
         try {
-            System.out.println("Fetching election results for ID: " + electionId + " by user: " + userEmail);
             
             // Check if election exists and user is authorized
             Optional<Election> electionOpt = electionRepository.findById(electionId);

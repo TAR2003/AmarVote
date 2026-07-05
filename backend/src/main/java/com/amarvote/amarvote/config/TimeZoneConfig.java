@@ -17,6 +17,5 @@ public class TimeZoneConfig {
     public void init() {
         // Set the default timezone to UTC for the entire application
         TimeZone.setDefault(TimeZone.getTimeZone("UTC"));
-        System.out.println("Application timezone set to: " + TimeZone.getDefault().getID());
     }
 }

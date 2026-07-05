@@ -100,7 +100,6 @@ public class ElectionController {
         }
 
         // System.out.println("Creating election with JWT: " + jwtToken);
-        System.out.println("User email: " + userEmail);
 
         if (userEmail == null || userEmail.isBlank()) {
             return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
@@ -459,13 +458,10 @@ public class ElectionController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
 
-            System.out.println("API: Fetching optimized accessible elections for user: " + userEmail);
 
             // Get all elections accessible to the user using the optimized method
             List<ElectionResponse> accessibleElections = electionService.getAllAccessibleElections(userEmail);
 
-            System.out.println("API: Found " + accessibleElections.size()
-                    + " accessible elections - data includes all fields required by frontend");
 
             return ResponseEntity.ok(accessibleElections);
 
@@ -496,7 +492,6 @@ public class ElectionController {
                 return ResponseEntity.status(HttpStatus.UNAUTHORIZED).build();
             }
 
-            System.out.println("Fetching election details for ID: " + id + " by user: " + userEmail);
 
             // Get election details if user is authorized
             ElectionDetailResponse electionDetails = electionService.getElectionById(id, userEmail);
@@ -506,7 +501,6 @@ public class ElectionController {
                 return ResponseEntity.ok(null);
             }
 
-            System.out.println("Successfully retrieved election details for ID: " + id);
             return ResponseEntity.ok(electionDetails);
 
         } catch (Exception e) {
@@ -776,7 +770,6 @@ public class ElectionController {
 
         // Get user email from request attributes (set by JWTFilter)
         String userEmail = (String) httpRequest.getAttribute("userEmail");
-        System.out.println("Casting ballot for election ID: " + request.getElectionId() + " by user: " + userEmail);
 
         // Alternative: Get user email from Spring Security context
         if (userEmail == null) {
@@ -842,11 +835,9 @@ public class ElectionController {
 
         try {
             // Log received payload size for security monitoring
-            System.out.println("🔒 [SECURE BALLOT] Received fixed-size payload: " + paddedData.length + " bytes");
             
             // Validate payload size matches expected constant size
             if (!BallotPaddingUtil.validateSize(paddedData, BallotPaddingUtil.TARGET_SIZE)) {
-                System.out.println("⚠️ [SECURE BALLOT] WARNING: Payload size mismatch - potential security issue");
                 return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                         .body(CreateEncryptedBallotResponse.builder()
                                 .success(false)
@@ -855,23 +846,19 @@ public class ElectionController {
             }
 
             // Log padding statistics for monitoring
-            System.out.println("📊 [SECURE BALLOT] " + BallotPaddingUtil.getPaddingStats(paddedData));
 
             // Remove PKCS#7 padding to extract original JSON payload
             String jsonPayload = BallotPaddingUtil.parseJsonFromPaddedData(paddedData);
             
-            System.out.println("✅ [SECURE BALLOT] Successfully extracted ballot data");
 
             // Parse JSON to CreateEncryptedBallotRequest
             CreateEncryptedBallotRequest request = objectMapper.readValue(jsonPayload, CreateEncryptedBallotRequest.class);
             
-            System.out.println("Creating encrypted ballot for election ID: " + request.getElectionId() + " by user: " + userEmail);
 
             // Process the ballot request
             CreateEncryptedBallotResponse response = ballotService.createEncryptedBallot(request, userEmail);
 
             if (response.isSuccess()) {
-                System.out.println("✅ [SECURE BALLOT] Ballot created successfully");
                 return ResponseEntity.ok(response);
             } else if ("Service temporarily at capacity".equals(response.getErrorReason())) {
                 return ResponseEntity.status(HttpStatus.SERVICE_UNAVAILABLE)
@@ -882,14 +869,12 @@ public class ElectionController {
             }
         } catch (IllegalArgumentException e) {
             // Padding validation errors
-            System.out.println("❌ [SECURE BALLOT] Padding validation failed: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.BAD_REQUEST)
                     .body(CreateEncryptedBallotResponse.builder()
                             .success(false)
                             .message("Invalid request format: " + e.getMessage())
                             .build());
         } catch (Exception e) {
-            System.out.println("❌ [SECURE BALLOT] Internal error: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(CreateEncryptedBallotResponse.builder()
                             .success(false)
@@ -905,7 +890,6 @@ public class ElectionController {
 
         // Get user email from request attributes (set by JWTFilter)
         String userEmail = (String) httpRequest.getAttribute("userEmail");
-        System.out.println("Performing Benaloh challenge for election ID: " + request.getElectionId() + " by user: " + userEmail);
 
         // Alternative: Get user email from Spring Security context
         if (userEmail == null) {
@@ -947,7 +931,6 @@ public class ElectionController {
 
         // Get user email from request attributes (set by JWTFilter)
         String userEmail = (String) httpRequest.getAttribute("userEmail");
-        System.out.println("Casting encrypted ballot for election ID: " + request.getElectionId() + " by user: " + userEmail);
 
         // Alternative: Get user email from Spring Security context
         if (userEmail == null) {
@@ -1056,7 +1039,6 @@ public class ElectionController {
                             .build());
         }
         
-        System.out.println("Initiating tally creation for election ID: " + request.getElection_id() + " by user: " + userEmail);
         
         try {
             CreateTallyResponse response = tallyService.initiateTallyCreation(request, userEmail);
@@ -1082,7 +1064,6 @@ public class ElectionController {
     @GetMapping("/election/{electionId}/tally-status")
     public ResponseEntity<?> getTallyStatus(@PathVariable Long electionId) {
         try {
-            System.out.println("Fetching tally status for election ID: " + electionId);
             com.amarvote.amarvote.dto.TallyCreationStatusResponse status = tallyService.getTallyStatus(electionId);
             return ResponseEntity.ok(status);
         } catch (Exception e) {
@@ -1102,7 +1083,6 @@ public class ElectionController {
 
         // Get user email from request attributes (set by JWTFilter)
         String userEmail = (String) httpRequest.getAttribute("userEmail");
-        System.out.println("Creating tally for election ID: " + request.getElection_id() + " by user: " + userEmail);
 
         // Alternative: Get user email from Spring Security context
         if (userEmail == null) {
@@ -1145,8 +1125,6 @@ public class ElectionController {
 
         // Get user email from request attributes (set by JWTFilter)
         String userEmail = (String) httpRequest.getAttribute("userEmail");
-        System.out.println(
-                "Creating partial decryption for election ID: " + request.election_id() + " by user: " + userEmail);
 
         // Alternative: Get user email from Spring Security context
         if (userEmail == null) {
@@ -1193,7 +1171,6 @@ public class ElectionController {
 
         // Get user email from request attributes (set by JWTFilter)
         String userEmail = (String) httpRequest.getAttribute("userEmail");
-        System.out.println("Initiating decryption for election ID: " + request.election_id() + " by user: " + userEmail);
 
         // Alternative: Get user email from Spring Security context
         if (userEmail == null) {
@@ -1253,7 +1230,6 @@ public class ElectionController {
                     ));
         }
 
-        System.out.println("Getting decryption status for election: " + electionId + ", user: " + userEmail);
 
         try {
             com.amarvote.amarvote.dto.DecryptionStatusResponse response = 
@@ -1279,7 +1255,6 @@ public class ElectionController {
             @PathVariable Long electionId,
             @PathVariable Long guardianId) {
 
-        System.out.println("Getting decryption status for election: " + electionId + ", guardianId: " + guardianId);
 
         try {
             com.amarvote.amarvote.dto.DecryptionStatusResponse response = 
@@ -1313,7 +1288,6 @@ public class ElectionController {
     public ResponseEntity<CombinePartialDecryptionResponse> initiateCombine(
             @RequestParam Long electionId) {
 
-        System.out.println("Initiating combine for election ID: " + electionId);
 
         try {
             // Extract user email from authentication context
@@ -1369,7 +1343,6 @@ public class ElectionController {
     public ResponseEntity<CombinePartialDecryptionResponse> combinePartialDecryption(
             @Valid @RequestBody CombinePartialDecryptionRequest request) {
 
-        System.out.println("Combining partial decryption for election ID: " + request.election_id());
 
         try {
             CombinePartialDecryptionResponse response = partialDecryptionService.combinePartialDecryption(request);
@@ -1396,7 +1369,6 @@ public class ElectionController {
     @GetMapping("/election/{electionId}/cached-results")
     public ResponseEntity<?> getCachedElectionResults(@PathVariable Long electionId) {
         try {
-            System.out.println("Fetching cached election results for ID: " + electionId);
 
             Object results = partialDecryptionService.getElectionResults(electionId);
 
@@ -1423,17 +1395,14 @@ public class ElectionController {
             @PathVariable String trackingCode) {
 
         try {
-            System.out.println("🔍 Fetching ballot details - Election: " + electionId + ", Tracking: " + trackingCode);
 
             Map<String, Object> ballotDetails = ballotService.getBallotDetails(electionId, trackingCode);
 
             if (ballotDetails != null && !ballotDetails.isEmpty()) {
-                System.out.println("✅ Ballot details retrieved for " + trackingCode);
                 return ResponseEntity.ok(Map.of(
                         "success", true,
                         "ballot", ballotDetails));
             } else {
-                System.out.println("❌ Ballot not found for " + trackingCode);
                 return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
                         "success", false,
                         "message", "Ballot not found for the provided tracking code"));
@@ -1470,13 +1439,9 @@ public class ElectionController {
                 ));
             }
 
-            System.out.println("Received candidate image upload request. File: " + file.getOriginalFilename() + 
-                             ", Size: " + file.getSize() + ", Content-Type: " + file.getContentType() + 
-                             ", Candidate: " + candidateName);
                              
             String imageUrl = cloudinaryService.uploadImage(file, CloudinaryService.ImageType.CANDIDATE);
             
-            System.out.println("Successfully uploaded candidate image to: " + imageUrl);
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -1517,13 +1482,9 @@ public class ElectionController {
                 ));
             }
 
-            System.out.println("Received party image upload request. File: " + file.getOriginalFilename() + 
-                             ", Size: " + file.getSize() + ", Content-Type: " + file.getContentType() + 
-                             ", Party: " + partyName);
                              
             String imageUrl = cloudinaryService.uploadImage(file, CloudinaryService.ImageType.PARTY);
             
-            System.out.println("Successfully uploaded party image to: " + imageUrl);
             
             return ResponseEntity.ok(Map.of(
                 "success", true,

@@ -57,9 +57,6 @@ public class DecryptionTaskQueueService {
             String decryptedPrivateKey,
             String decryptedPolynomial) {
         
-        System.out.println("=== REGISTERING PARTIAL DECRYPTION TASK WITH SCHEDULER ===");
-        System.out.println("Election ID: " + electionId + ", Guardian ID: " + guardianId);
-        System.out.println("Number of chunks: " + electionCenterIds.size());
         
         // Fetch guardian info
         Guardian guardian = guardianRepository.findById(guardianId)
@@ -114,7 +111,6 @@ public class DecryptionTaskQueueService {
                 throw new RuntimeException("Failed to serialize task: " + e.getMessage());
             }
             
-            System.out.println("✅ Prepared task for chunk " + chunkNumber + " (election_center_id: " + electionCenterId + ")");
         }
         
         // Register with scheduler
@@ -127,9 +123,6 @@ public class DecryptionTaskQueueService {
             taskDataList
         );
         
-        System.out.println("=== PARTIAL DECRYPTION TASK REGISTERED WITH SCHEDULER ===");
-        System.out.println("✅ Task Instance ID: " + taskInstanceId);
-        System.out.println("Scheduler will publish chunks in fair round-robin order");
     }
 
     /**
@@ -147,8 +140,6 @@ public class DecryptionTaskQueueService {
             String decryptedPrivateKey,
             String decryptedPolynomial) {
         
-        System.out.println("=== REGISTERING COMPENSATED DECRYPTION TASKS WITH SCHEDULER ===");
-        System.out.println("Election ID: " + electionId + ", Source Guardian ID: " + sourceGuardianId);
         
         // Fetch source guardian
         Guardian sourceGuardian = guardianRepository.findById(sourceGuardianId)
@@ -175,17 +166,12 @@ public class DecryptionTaskQueueService {
             .sorted((g1, g2) -> g1.getSequenceOrder().compareTo(g2.getSequenceOrder()))
             .collect(Collectors.toList());
         
-        System.out.println("Number of other guardians: " + otherGuardians.size());
-        System.out.println("Number of chunks: " + electionCenterIds.size());
         
         // Handle single guardian case - no compensated shares needed
         if (otherGuardians.isEmpty()) {
-            System.out.println("✅ Single guardian election - no compensated shares needed");
-            System.out.println("=== COMPENSATED DECRYPTION TASKS SKIPPED (SINGLE GUARDIAN) ===");
             return;
         }
         
-        System.out.println("Total task instances to register: " + otherGuardians.size() + " (one per target guardian)");
         
         // Register one task instance per target guardian
         // Each task instance will have chunks for all election centers
@@ -238,12 +224,8 @@ public class DecryptionTaskQueueService {
                 taskDataList
             );
             
-            System.out.println("✅ Registered task instance " + taskInstanceId + " for target guardian " + 
-                targetGuardian.getSequenceOrder() + " with " + electionCenterIds.size() + " chunks");
         }
         
-        System.out.println("=== ALL COMPENSATED DECRYPTION TASKS REGISTERED WITH SCHEDULER ===");
-        System.out.println("Scheduler will publish chunks in fair round-robin order across all task instances");
     }
 
     /**
@@ -252,9 +234,6 @@ public class DecryptionTaskQueueService {
      * @param electionCenterIds List of chunk IDs to process
      */
     public void queueCombineDecryptionTasks(Long electionId, List<Long> electionCenterIds) {
-        System.out.println("=== REGISTERING COMBINE DECRYPTION TASKS WITH SCHEDULER ===");
-        System.out.println("Election ID: " + electionId);
-        System.out.println("Number of chunks: " + electionCenterIds.size());
         
         // Fetch election info
         Election election = electionRepository.findById(electionId)
@@ -300,7 +279,6 @@ public class DecryptionTaskQueueService {
                 throw new RuntimeException("Failed to serialize task: " + e.getMessage());
             }
             
-            System.out.println("✅ Prepared task for chunk " + chunkNumber + " (election_center_id: " + electionCenterId + ")");
         }
         
         // Register with scheduler
@@ -313,8 +291,5 @@ public class DecryptionTaskQueueService {
             taskDataList
         );
         
-        System.out.println("=== COMBINE DECRYPTION TASK REGISTERED WITH SCHEDULER ===");
-        System.out.println("✅ Task Instance ID: " + taskInstanceId);
-        System.out.println("Scheduler will publish chunks in fair round-robin order");
     }
 }

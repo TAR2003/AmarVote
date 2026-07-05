@@ -54,12 +54,9 @@ public class EmailDlqReprocessor {
 
             task.setAttempt(nextAttempt);
             taskPublisherService.publishEmailTask(task);
-            System.out.println("♻️ Re-queued email from DLQ (attempt " + nextAttempt + "/"
-                    + maxAttempts + ") — type=" + task.getEmailType() + ", to=" + formatRecipient(task));
         }
 
         if (processed > 0) {
-            System.out.println("📬 Email DLQ reprocessor handled " + processed + " message(s)");
         }
     }
 

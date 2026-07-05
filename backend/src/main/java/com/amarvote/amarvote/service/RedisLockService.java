@@ -69,13 +69,8 @@ public class RedisLockService {
                 .setIfAbsent(lockKey, metadataJson, expirationSeconds, TimeUnit.SECONDS);
             
             if (Boolean.TRUE.equals(success)) {
-                System.out.println("🔒 Lock acquired: " + lockKey);
-                System.out.println("   User: " + userEmail);
-                System.out.println("   Operation: " + operationType);
-                System.out.println("   Start time: " + metadata.getStartTime());
                 return true;
             } else {
-                System.out.println("⚠️ Lock already held: " + lockKey);
                 return false;
             }
         } catch (Exception e) {
@@ -117,10 +112,8 @@ public class RedisLockService {
         try {
             Boolean deleted = redisTemplate.delete(lockKey);
             if (Boolean.TRUE.equals(deleted)) {
-                System.out.println("🔓 Lock released: " + lockKey);
                 return true;
             } else {
-                System.out.println("⚠️ Lock not found when trying to release: " + lockKey);
                 return false;
             }
         } catch (Exception e) {
@@ -174,7 +167,6 @@ public class RedisLockService {
             if (currentTtl > 0) {
                 Boolean success = redisTemplate.expire(lockKey, currentTtl + additionalSeconds, TimeUnit.SECONDS);
                 if (Boolean.TRUE.equals(success)) {
-                    System.out.println("⏰ Lock extended: " + lockKey + " (+" + additionalSeconds + "s)");
                     return true;
                 }
             }

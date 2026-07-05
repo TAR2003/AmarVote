@@ -124,19 +124,9 @@ public class TallyService {
         long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
         long maxMemoryMB = runtime.maxMemory() / (1024 * 1024);
         double usagePercent = (usedMemoryMB * 100.0) / maxMemoryMB;
-        
-        System.out.printf("📊 Progress [%s]: %d/%d | Memory: %dMB/%dMB (%.1f%%)%n",
-            phase, currentChunk, totalChunks, usedMemoryMB, maxMemoryMB, usagePercent);
-        
-        // Suggest GC only if memory usage is high (above 70%)
+
         if (usagePercent > 70.0) {
-            System.out.println("🗑️ Memory usage high (" + String.format("%.1f", usagePercent) + "%) - Suggesting GC");
             System.gc();
-            
-            // Log memory after GC
-            long usedAfterGC = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-            long freedMB = usedMemoryMB - usedAfterGC;
-            System.out.println("🧹 GC completed - Freed " + freedMB + " MB");
         }
     }
 
@@ -206,8 +196,6 @@ public class TallyService {
      */
     public CreateTallyResponse initiateTallyCreation(CreateTallyRequest request, String userEmail) {
         try {
-            System.out.println("=== Initiating Tally Creation ===");
-            System.out.println("Election ID: " + request.getElection_id() + ", User: " + userEmail);
             
             // 1. Verify election has ended
             Optional<Election> electionOpt = electionRepository.findById(request.getElection_id());
@@ -244,11 +232,9 @@ public class TallyService {
             ChunkConfiguration chunkConfig = chunkingService.calculateChunks(ballotIds.size());
             int totalChunks = chunkConfig.getNumChunks();
             
-            System.out.println("✅ Calculated " + totalChunks + " chunks for " + ballotIds.size() + " ballots");
 
             long completedChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(request.getElection_id());
             if (completedChunks >= totalChunks && totalChunks > 0) {
-                System.out.println("✅ Tally already exists");
                 return CreateTallyResponse.builder()
                     .success(true)
                     .message("Tally already exists")
@@ -257,7 +243,6 @@ public class TallyService {
             }
 
             if (hasActiveTallySchedulerTasks(request.getElection_id())) {
-                System.out.println("⚠️ Tally already in progress for election: " + request.getElection_id());
                 return CreateTallyResponse.builder()
                     .success(true)
                     .message("Tally creation is already in progress")
@@ -308,7 +293,6 @@ public class TallyService {
                     staleJob.setCompletedAt(Instant.now());
                     jobRepository.save(staleJob);
                 }
-                System.out.println("🧹 Cleaned up " + staleJobs.size() + " stale TALLY job(s) for election " + request.getElection_id() + " - proceeding with fresh run");
             }
 
             if (hasActiveTallySchedulerTasks(request.getElection_id())) {
@@ -367,8 +351,6 @@ public class TallyService {
         String lockKey = RedisLockService.buildTallyLockKey(electionId);
         
         try {
-            System.out.println("=== Async Tally Creation Started (Memory-Efficient Mode) ===");
-            System.out.println("Election ID: " + electionId + (resume ? " [RESUME]" : ""));
             
             ElectionJob job = ElectionJob.builder()
                 .jobId(java.util.UUID.randomUUID())
@@ -381,7 +363,6 @@ public class TallyService {
                 .startedAt(Instant.now())
                 .build();
             jobRepository.save(job);
-            System.out.println("✅ Created ElectionJob record for tracking");
             
             Optional<Election> electionOpt = electionRepository.findById(electionId);
             if (electionOpt.isEmpty()) {
@@ -396,10 +377,8 @@ public class TallyService {
                 throw new RuntimeException("No cast ballots found for this election");
             }
             
-            System.out.println("✅ Found " + ballotIds.size() + " ballot IDs (not loading full ballots yet)");
             
             ChunkConfiguration chunkConfig = chunkingService.calculateChunks(ballotIds.size());
-            System.out.println("✅ Calculated " + chunkConfig.getNumChunks() + " chunks");
             
             java.util.Map<Integer, List<Long>> chunkIdMap = chunkingService.assignIdsToChunks(ballotIds, chunkConfig);
             
@@ -407,7 +386,6 @@ public class TallyService {
                 tallyWorkerLogRepository.findCompletedChunkNumbersByElectionId(electionId)
             );
             if (!completedChunkNumbers.isEmpty()) {
-                System.out.println("⏭️ Skipping " + completedChunkNumbers.size() + " already-completed chunks on resume");
             }
             
             List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(electionId);
@@ -421,7 +399,6 @@ public class TallyService {
             
             int numberOfGuardians = guardianRepository.countByElectionId(election.getElectionId());
             
-            System.out.println("=== REGISTERING TALLY TASK WITH ROUND-ROBIN SCHEDULER ===");
             
             List<String> taskDataList = new ArrayList<>();
             for (java.util.Map.Entry<Integer, List<Long>> entry : chunkIdMap.entrySet()) {
@@ -452,11 +429,9 @@ public class TallyService {
                     throw new RuntimeException("Failed to serialize task: " + e.getMessage());
                 }
                 
-                System.out.println("✅ Prepared task for chunk " + chunkNumber + " (" + chunkBallotIds.size() + " ballots)");
             }
 
             if (taskDataList.isEmpty()) {
-                System.out.println("✅ All tally chunks already complete — nothing to schedule");
                 job.setStatus("COMPLETED");
                 job.setCompletedAt(Instant.now());
                 job.setProcessedChunks(chunkConfig.getNumChunks());
@@ -474,18 +449,12 @@ public class TallyService {
                 taskDataList
             );
             
-            System.out.println("=== TASK REGISTERED WITH SCHEDULER ===");
-            System.out.println("✅ Task Instance ID: " + taskInstanceId);
-            System.out.println("✅ Remaining chunks: " + taskDataList.size() + " / " + chunkConfig.getNumChunks());
-            System.out.println("Scheduler will publish chunks in fair round-robin order across all active tasks");
             
-            System.out.println("=== Tally Creation Initiated Successfully ===");
             
         } catch (Exception e) {
             System.err.println("❌ Error in async tally creation: " + e.getMessage());
         } finally {
             redisLockService.releaseLock(lockKey);
-            System.out.println("🔓 Tally creation lock released for election: " + electionId);
         }
     }
 
@@ -520,7 +489,6 @@ public class TallyService {
             int quorum,
             int numberOfGuardians) {
         
-        System.out.println("Chunk size: " + chunkBallotIds.size() + " ballots (Transaction Start)");
         
         // Fetch ballots for this chunk
         List<Ballot> chunkBallots = ballotRepository.findByBallotIdIn(chunkBallotIds);
@@ -530,7 +498,6 @@ public class TallyService {
             .electionId(electionId)
             .build();
         electionCenter = electionCenterRepository.save(electionCenter);
-        System.out.println("✅ Created election_center entry ID: " + electionCenter.getElectionCenterId());
         
         // Extract cipher texts for this chunk
         List<String> chunkEncryptedBallots = chunkBallots.stream()
@@ -538,7 +505,6 @@ public class TallyService {
             .collect(Collectors.toList());
         
         // Call ElectionGuard microservice for this chunk
-        System.out.println("🚀 CALLING ELECTIONGUARD TALLY SERVICE FOR CHUNK " + chunkNumber);
         ElectionGuardTallyResponse guardResponse = callElectionGuardTallyService(
             partyNames, 
             candidateNames, 
@@ -554,17 +520,14 @@ public class TallyService {
             throw new RuntimeException("Failed to create encrypted tally for chunk " + chunkNumber + ": " + guardResponse.getMessage());
         }
         
-        System.out.println("✅ ElectionGuard service succeeded for chunk " + chunkNumber);
         
         // Store encrypted tally for this chunk
         String ciphertextTallyJson = toJsonString(guardResponse.getCiphertext_tally());
         electionCenter.setEncryptedTally(ciphertextTallyJson);
         electionCenterRepository.saveAndFlush(electionCenter);
-        System.out.println("✅ Encrypted tally saved for chunk " + chunkNumber);
         
         // Save submitted_ballots for this chunk (linked to election_center_id)
         if (guardResponse.getSubmitted_ballots() != null && guardResponse.getSubmitted_ballots().length > 0) {
-            System.out.println("Processing " + guardResponse.getSubmitted_ballots().length + " submitted ballots for chunk " + chunkNumber);
             
             Long centerId = electionCenter.getElectionCenterId();
             List<SubmittedBallot> submittedBallots = new ArrayList<>();
@@ -589,7 +552,6 @@ public class TallyService {
                 submittedBallotRepository.saveAll(submittedBallots);
             }
             
-            System.out.println("✅ Saved " + savedCount + " submitted ballots for chunk " + chunkNumber);
         }
         
         // ✅ AGGRESSIVE MEMORY CLEANUP
@@ -606,9 +568,6 @@ public class TallyService {
         // Log memory usage
         Runtime runtime = Runtime.getRuntime();
         long usedMemoryMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-        System.out.println("✅ Chunk " + chunkNumber + " transaction complete - All entities detached and cleared");
-        System.out.println("🗑️ Memory cleanup: EntityManager cleared, large objects nullified");
-        System.out.println("🧠 Current heap usage: " + usedMemoryMB + " MB");
         // Transaction ends here, Hibernate session closes automatically, all entities released from memory
     }
     
@@ -617,8 +576,6 @@ public class TallyService {
      */
     public CreateTallyResponse createTally(CreateTallyRequest request, String userEmail, boolean bypassEndTimeCheck) {
         try {
-            System.out.println("=== TallyService.createTally START ===");
-            System.out.println("Creating tally for election ID: " + request.getElection_id() + " by user: " + userEmail);
             
             // Fetch election details
             Optional<Election> electionOpt = electionRepository.findById(request.getElection_id());
@@ -631,9 +588,6 @@ public class TallyService {
             }
             
             Election election = electionOpt.get();
-            System.out.println("Election found: " + election.getElectionTitle());
-            System.out.println("Election ending time: " + election.getEndingTime());
-            System.out.println("Current time: " + Instant.now());
             
             // Check if user is authorized (admin of the election)
             // if (!election.getAdminEmail().equals(userEmail)) {
@@ -653,16 +607,13 @@ public class TallyService {
             }
             
             if (bypassEndTimeCheck) {
-                System.out.println("Bypassing election end time check for auto-creation during partial decryption");
             } else {
-                System.out.println("Election has ended, proceeding with tally creation");
             }
             
             long completedTallyChunks = electionCenterRepository.countByElectionIdAndEncryptedTallyNotNull(request.getElection_id());
             if (completedTallyChunks > 0) {
                 int expectedChunks = getExpectedTallyChunkCount(request.getElection_id());
                 if (expectedChunks > 0 && completedTallyChunks >= expectedChunks) {
-                    System.out.println("Encrypted tally already exists for election: " + request.getElection_id());
                     return CreateTallyResponse.builder()
                         .success(true)
                         .message("Encrypted tally already calculated")
@@ -672,9 +623,7 @@ public class TallyService {
             }
             
             // CAST ballots for this election
-            System.out.println("=== FETCHING CAST BALLOTS FOR TALLY ===");
             List<Ballot> ballots = ballotRepository.findByElectionIdAndStatus(request.getElection_id(), "cast");
-            System.out.println("Found " + ballots.size() + " cast ballots in Ballot table");
             
             if (ballots.isEmpty()) {
                 System.err.println("❌ NO CAST BALLOTS AVAILABLE FOR TALLY CREATION");
@@ -685,14 +634,10 @@ public class TallyService {
             }
             
             // ===== CHUNKING LOGIC START =====
-            System.out.println("=== CALCULATING CHUNKS ===");
             ChunkConfiguration chunkConfig = chunkingService.calculateChunks(ballots.size());
-            System.out.println("✅ Chunks calculated: " + chunkConfig.getNumChunks() + " chunks");
-            System.out.println("Chunk sizes: " + chunkConfig.getChunkSizes());
             
             // Assign ballots to chunks randomly
             java.util.Map<Integer, List<Ballot>> chunks = chunkingService.assignBallotsToChunks(ballots, chunkConfig);
-            System.out.println("✅ Ballots assigned to chunks");
             
             // Verify assignment
             if (!chunkingService.verifyChunkAssignment(ballots, chunks)) {
@@ -702,12 +647,9 @@ public class TallyService {
                     .message("Internal error: Chunk assignment verification failed")
                     .build();
             }
-            System.out.println("✅ Chunk assignment verified");
             
             // Fetch election choices ONCE (same for all chunks)
-            System.out.println("=== FETCHING ELECTION CHOICES ===");
             List<ElectionChoice> electionChoices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(request.getElection_id());
-            System.out.println("Found " + electionChoices.size() + " election choices");
             
             if (electionChoices.isEmpty()) {
                 System.err.println("❌ NO ELECTION CHOICES FOUND");
@@ -727,12 +669,9 @@ public class TallyService {
                 .map(ElectionChoice::getOptionTitle)
                 .collect(Collectors.toList());
             
-            System.out.println("✅ Party names (" + partyNames.size() + "): " + partyNames);
-            System.out.println("✅ Candidate names (" + candidateNames.size() + "): " + candidateNames);
             
             // ✅ MEMORY-EFFICIENT: Use count query instead of loading all guardians
             int numberOfGuardians = guardianRepository.countByElectionId(election.getElectionId());
-            System.out.println("Number of Guardians: " + numberOfGuardians);
             
             // ✅ Process each chunk in separate isolated transaction
             int processedSyncChunks = 0;
@@ -740,7 +679,6 @@ public class TallyService {
                 int chunkNumber = entry.getKey();
                 List<Ballot> chunkBallots = entry.getValue();
                 
-                System.out.println("=== PROCESSING CHUNK " + chunkNumber + " ===");
                 
                 // Extract ballot IDs from chunk ballots
                 List<Long> chunkBallotIds = chunkBallots.stream()
@@ -772,8 +710,6 @@ public class TallyService {
             // Update election status to completed in separate transaction
             updateElectionStatusTransactional(request.getElection_id(), "completed");
             
-            System.out.println("=== TALLY CREATION COMPLETED SUCCESSFULLY ===");
-            System.out.println("✅ Created " + chunkConfig.getNumChunks() + " chunks for election: " + request.getElection_id());
             
             return CreateTallyResponse.builder()
                 .success(true)
@@ -795,13 +731,6 @@ public class TallyService {
             String jointPublicKey, String commitmentHash, List<String> encryptedBallots,
             int quorum, int numberOfGuardians) {
         
-        System.out.println("=== CALLING ELECTIONGUARD MICROSERVICE ===");
-        System.out.println("Service endpoint: /create_encrypted_tally");
-        System.out.println("Party names count: " + partyNames.size());
-        System.out.println("Candidate names count: " + candidateNames.size());
-        System.out.println("Encrypted ballots count: " + encryptedBallots.size());
-        System.out.println("Quorum: " + quorum);
-        System.out.println("Number of guardians: " + numberOfGuardians);
         
         try {
             String url = "/create_encrypted_tally";
@@ -816,13 +745,9 @@ public class TallyService {
                 .quorum(quorum)
                 .build();
 
-            System.out.println("🚀 Sending request to ElectionGuard service at: " + url);
-            System.out.println("Request prepared successfully");
             
             String response = electionGuardService.postRequest(url, request);
             
-            System.out.println("✅ Received response from ElectionGuard tally service");
-            System.out.println("Response received (length: " + (response != null ? response.length() : 0) + " chars)");
             
             if (response == null) {
                 System.err.println("❌ NULL response from ElectionGuard service");
@@ -830,7 +755,6 @@ public class TallyService {
             }
 
             ElectionGuardTallyResponse parsedResponse = objectMapper.readValue(response, ElectionGuardTallyResponse.class);
-            System.out.println("✅ Response parsed successfully");
             return parsedResponse;
         } catch (Exception e) {
             System.err.println("❌ EXCEPTION in ElectionGuard service call: " + e.getMessage());
@@ -865,10 +789,8 @@ public class TallyService {
                 .collect(Collectors.toList());
             
             if (!ballotsToDelete.isEmpty()) {
-                System.out.println("Deleting " + ballotsToDelete.size() + " duplicate submitted ballots");
                 deleteDuplicateBallotsTransactional(ballotsToDelete);
             } else {
-                System.out.println("No duplicate submitted ballots found for election: " + electionId);
             }
         } catch (Exception e) {
             System.err.println("Error removing duplicate submitted ballots for election " + electionId + ": " + e.getMessage());
@@ -882,7 +804,6 @@ public class TallyService {
     @Transactional
     private void deleteDuplicateBallotsTransactional(List<SubmittedBallot> ballotsToDelete) {
         submittedBallotRepository.deleteAll(ballotsToDelete);
-        System.out.println("✅ Deleted " + ballotsToDelete.size() + " duplicate submitted ballots");
     }
     /**
      * Serialize a microservice response value to a JSON string for DB storage.

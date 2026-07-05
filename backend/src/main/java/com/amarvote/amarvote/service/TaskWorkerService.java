@@ -122,14 +122,9 @@ public class TaskWorkerService {
 
     private void processEmailTaskInternal(EmailTask task, String lane) {
         try {
-            System.out.println("=== WORKER: Processing " + lane + " Email Task ===");
-            System.out.println("Type: " + task.getEmailType()
-                    + ", Recipient: " + formatRecipient(task)
-                    + ", Attempt: " + (task.getAttempt() + 1));
 
             emailService.processEmailTask(task);
 
-            System.out.println("✅ Email task buffered for " + formatRecipient(task));
         } catch (Exception e) {
             System.err.println("❌ Email task failed for " + formatRecipient(task)
                     + " (attempt " + (task.getAttempt() + 1) + "): " + e.getMessage());
@@ -154,7 +149,6 @@ public class TaskWorkerService {
         String lockKey = "tally_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
         
         if (processingLocks.putIfAbsent(lockKey, true) != null) {
-            System.out.println("⚠️ Chunk already being processed: " + lockKey);
             return;
         }
         
@@ -165,10 +159,6 @@ public class TaskWorkerService {
             if (skipIfCancelled(ProcessOperationType.TALLY, task.getElectionId(), null, task.getChunkId())) {
                 return;
             }
-            System.out.println("=== WORKER: Processing Tally Creation Chunk " + task.getChunkNumber() + " ===");
-            System.out.println("Election ID: " + task.getElectionId());
-            System.out.println("Ballot IDs: " + task.getBallotIds().size());
-            System.out.println("Chunk ID: " + task.getChunkId());
             
             // Create election center entry first to get ID
             ElectionCenter electionCenter = ElectionCenter.builder()
@@ -185,7 +175,6 @@ public class TaskWorkerService {
                 .status("IN_PROGRESS")
                 .build();
             workerLog = tallyWorkerLogRepository.save(workerLog);
-            System.out.println("📊 Tally worker log created: ID=" + workerLog.getTallyWorkerLogId());
             
             // Report state: PROCESSING
             if (task.getChunkId() != null) {
@@ -199,7 +188,6 @@ public class TaskWorkerService {
             // Log memory before
             Runtime runtime = Runtime.getRuntime();
             long memoryBeforeMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-            System.out.println("🧠 Memory before: " + memoryBeforeMB + " MB");
             
             // Fetch cipher texts only (not full Ballot entities — each ciphertext is large)
             List<String> chunkEncryptedBallots = ballotRepository.findCipherTextsByBallotIdIn(task.getBallotIds());
@@ -217,7 +205,6 @@ public class TaskWorkerService {
                 .build();
             
             // Call ElectionGuard service
-            System.out.println("🚀 Calling ElectionGuard service for chunk " + task.getChunkNumber());
             String response = electionGuardService.postRequest("/create_encrypted_tally", guardRequest);
             ElectionGuardTallyResponse guardResponse = objectMapper.readValue(response, ElectionGuardTallyResponse.class);
             
@@ -226,7 +213,6 @@ public class TaskWorkerService {
             }
 
             if (skipIfCancelled(ProcessOperationType.TALLY, task.getElectionId(), null, task.getChunkId())) {
-                System.out.println("⏭️ Tally chunk " + task.getChunkNumber() + " cancelled before persist — skipping results");
                 if (workerLog != null) {
                     workerLog.setEndTime(LocalDateTime.now());
                     workerLog.setStatus("CANCELLED");
@@ -258,13 +244,11 @@ public class TaskWorkerService {
                 submittedBallots
             );
             
-            System.out.println("✅ Chunk " + task.getChunkNumber() + " processing complete");
             
             // LOG END TIME - Update worker log with completion
             workerLog.setEndTime(LocalDateTime.now());
             workerLog.setStatus("COMPLETED");
             tallyWorkerLogRepository.save(workerLog);
-            System.out.println("📊 Tally worker log updated: COMPLETED");
             publishWorkerProgress(task.getElectionId(), "TALLY", "chunk_completed", Map.of(
                 "chunkNumber", task.getChunkNumber(),
                 "electionCenterId", electionCenter.getElectionCenterId()
@@ -283,8 +267,6 @@ public class TaskWorkerService {
             
             // Log memory after
             long memoryAfterMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-            System.out.println("✅ Chunk " + task.getChunkNumber() + " complete. Memory freed: " + (memoryBeforeMB - memoryAfterMB) + " MB");
-            System.out.println("🧠 Memory after: " + memoryAfterMB + " MB");
             
         } catch (Exception e) {
             System.err.println("❌ Error processing tally chunk: " + e.getMessage());
@@ -295,7 +277,6 @@ public class TaskWorkerService {
                 workerLog.setStatus("FAILED");
                 workerLog.setErrorMessage(e.getMessage());
                 tallyWorkerLogRepository.save(workerLog);
-                System.out.println("📊 Tally worker log updated: FAILED");
             }
             
             // Report state: FAILED
@@ -321,7 +302,6 @@ public class TaskWorkerService {
         String lockKey = "partial_" + task.getElectionId() + "_g" + task.getGuardianId() + "_chunk_" + task.getChunkNumber();
         
         if (processingLocks.putIfAbsent(lockKey, true) != null) {
-            System.out.println("⚠️ Chunk already being processed: " + lockKey);
             return;
         }
         
@@ -332,9 +312,6 @@ public class TaskWorkerService {
             if (skipIfCancelled(ProcessOperationType.PARTIAL_DECRYPTION, task.getElectionId(), task.getGuardianId(), task.getChunkId())) {
                 return;
             }
-            System.out.println("=== WORKER: Processing Partial Decryption Chunk " + task.getChunkNumber() + " ===");
-            System.out.println("Election ID: " + task.getElectionId() + ", Guardian: " + task.getGuardianId());
-            System.out.println("Chunk ID: " + task.getChunkId());
             
             // LOG START TIME - Create worker log entry
             workerLog = DecryptionWorkerLog.builder()
@@ -348,7 +325,6 @@ public class TaskWorkerService {
                 .status("IN_PROGRESS")
                 .build();
             workerLog = decryptionWorkerLogRepository.save(workerLog);
-            System.out.println("📊 Decryption worker log created: ID=" + workerLog.getDecryptionWorkerLogId());
             
             // Report state: PROCESSING
             if (task.getChunkId() != null) {
@@ -362,7 +338,6 @@ public class TaskWorkerService {
             // Log memory before
             Runtime runtime = Runtime.getRuntime();
             long memoryBeforeMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-            System.out.println("🧠 Memory before: " + memoryBeforeMB + " MB");
             
             // Fetch election center
             ElectionCenter electionCenter = electionCenterRepository.findById(task.getElectionCenterId())
@@ -414,7 +389,6 @@ public class TaskWorkerService {
                 .build();
             
             // Call ElectionGuard service
-            System.out.println("🚀 Calling ElectionGuard service for partial decryption");
             String response = electionGuardService.postRequest("/create_partial_decryption", guardRequest);
             ElectionGuardPartialDecryptionResponse guardResponse = objectMapper.readValue(response, ElectionGuardPartialDecryptionResponse.class);
             
@@ -443,7 +417,6 @@ public class TaskWorkerService {
                 "chunkNumber", task.getChunkNumber(),
                 "decryptionId", decryption.getDecryptionId()
             ));
-            System.out.println("📊 Decryption worker log updated: COMPLETED");
             
             // Report state: COMPLETED
             if (task.getChunkId() != null) {
@@ -461,8 +434,6 @@ public class TaskWorkerService {
             
             // Log memory after
             long memoryAfterMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-            System.out.println("✅ Chunk " + task.getChunkNumber() + " complete. Memory freed: " + (memoryBeforeMB - memoryAfterMB) + " MB");
-            System.out.println("🧠 Memory after: " + memoryAfterMB + " MB");
             
         } catch (Exception e) {
             System.err.println("❌ Error processing partial decryption chunk: " + e.getMessage());
@@ -473,7 +444,6 @@ public class TaskWorkerService {
                 workerLog.setStatus("FAILED");
                 workerLog.setErrorMessage(e.getMessage());
                 decryptionWorkerLogRepository.save(workerLog);
-                System.out.println("📊 Decryption worker log updated: FAILED");
             }
             
             // Report state: FAILED
@@ -500,7 +470,6 @@ public class TaskWorkerService {
                         "_for_" + task.getTargetGuardianId() + "_chunk_" + task.getChunkNumber();
         
         if (processingLocks.putIfAbsent(lockKey, true) != null) {
-            System.out.println("⚠️ Compensated share already being processed: " + lockKey);
             return;
         }
         
@@ -511,9 +480,6 @@ public class TaskWorkerService {
             if (skipIfCancelled(ProcessOperationType.COMPENSATED_DECRYPTION, task.getElectionId(), task.getSourceGuardianId(), task.getChunkId())) {
                 return;
             }
-            System.out.println("=== WORKER: Processing Compensated Decryption Chunk " + task.getChunkNumber() + " ===");
-            System.out.println("Source Guardian: " + task.getSourceGuardianId() + ", Target Guardian: " + task.getTargetGuardianId());
-            System.out.println("Chunk ID: " + task.getChunkId());
             
             // LOG START TIME - Create worker log entry
             workerLog = DecryptionWorkerLog.builder()
@@ -527,7 +493,6 @@ public class TaskWorkerService {
                 .status("IN_PROGRESS")
                 .build();
             workerLog = decryptionWorkerLogRepository.save(workerLog);
-            System.out.println("📊 Compensated decryption worker log created: ID=" + workerLog.getDecryptionWorkerLogId());
             
             // Report state: PROCESSING
             if (task.getChunkId() != null) {
@@ -541,7 +506,6 @@ public class TaskWorkerService {
             // Log memory before
             Runtime runtime = Runtime.getRuntime();
             long memoryBeforeMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-            System.out.println("🧠 Memory before: " + memoryBeforeMB + " MB");
             
             // Fetch election center
             ElectionCenter electionCenter = electionCenterRepository.findById(task.getElectionCenterId())
@@ -601,8 +565,6 @@ public class TaskWorkerService {
                 .build();
             
             // Call ElectionGuard service with retry logic
-            System.out.println("🚀 Calling ElectionGuard service for compensated decryption");
-            System.out.println("📦 Request size - Ballots: " + ballotCipherTexts.size() + ", Tally length: " + ciphertextTallyString.length());
             
             ElectionGuardCompensatedDecryptionResponse guardResponse = null;
             int maxRetries = 3;
@@ -612,7 +574,6 @@ public class TaskWorkerService {
                 try {
                     attempt++;
                     if (attempt > 1) {
-                        System.out.println("⚠️ Retry attempt " + attempt + "/" + maxRetries);
                         TimeUnit.MILLISECONDS.sleep(2000L * attempt); // Exponential backoff
                     }
                     
@@ -658,7 +619,6 @@ public class TaskWorkerService {
                 "chunkNumber", task.getChunkNumber(),
                 "compensatedDecryptionId", compensatedDecryption.getCompensatedDecryptionId()
             ));
-            System.out.println("📊 Compensated decryption worker log updated: COMPLETED");
             
             // Report state: COMPLETED
             if (task.getChunkId() != null) {
@@ -676,8 +636,6 @@ public class TaskWorkerService {
             
             // Log memory after
             long memoryAfterMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-            System.out.println("✅ Compensated chunk complete. Memory freed: " + (memoryBeforeMB - memoryAfterMB) + " MB");
-            System.out.println("🧠 Memory after: " + memoryAfterMB + " MB");
             
         } catch (Exception e) {
             System.err.println("❌ Error processing compensated decryption: " + e.getMessage());
@@ -688,7 +646,6 @@ public class TaskWorkerService {
                 workerLog.setStatus("FAILED");
                 workerLog.setErrorMessage(e.getMessage());
                 decryptionWorkerLogRepository.save(workerLog);
-                System.out.println("📊 Compensated decryption worker log updated: FAILED");
             }
             
             // Report state: FAILED
@@ -714,7 +671,6 @@ public class TaskWorkerService {
         String lockKey = "combine_" + task.getElectionId() + "_chunk_" + task.getChunkNumber();
         
         if (processingLocks.putIfAbsent(lockKey, true) != null) {
-            System.out.println("⚠️ Combine chunk already being processed: " + lockKey);
             return;
         }
         
@@ -725,9 +681,6 @@ public class TaskWorkerService {
             if (skipIfCancelled(ProcessOperationType.COMBINE, task.getElectionId(), null, task.getChunkId())) {
                 return;
             }
-            System.out.println("=== WORKER: Processing Combine Decryption Chunk " + task.getChunkNumber() + " ===");
-            System.out.println("Election ID: " + task.getElectionId());
-            System.out.println("Chunk ID: " + task.getChunkId());
             
             // LOG START TIME - Create worker log entry
             workerLog = CombineWorkerLog.builder()
@@ -738,7 +691,6 @@ public class TaskWorkerService {
                 .status("IN_PROGRESS")
                 .build();
             workerLog = combineWorkerLogRepository.save(workerLog);
-            System.out.println("📊 Combine worker log created: ID=" + workerLog.getCombineWorkerLogId());
             
             // Report state: PROCESSING
             if (task.getChunkId() != null) {
@@ -752,7 +704,6 @@ public class TaskWorkerService {
             // Log memory before
             Runtime runtime = Runtime.getRuntime();
             long memoryBeforeMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-            System.out.println("🧠 Memory before: " + memoryBeforeMB + " MB");
             
             // Validate election exists, then fetch guardians
             electionRepository.findById(task.getElectionId())
@@ -877,7 +828,6 @@ public class TaskWorkerService {
                 .build();
             
             // Call ElectionGuard service
-            System.out.println("🚀 Calling ElectionGuard service for combine decryption");
             String response = electionGuardService.postRequest("/combine_decryption_shares", guardRequest);
             ElectionGuardCombineDecryptionSharesResponse guardResponse = objectMapper.readValue(response, ElectionGuardCombineDecryptionSharesResponse.class);
             
@@ -893,7 +843,6 @@ public class TaskWorkerService {
             workerLog.setEndTime(LocalDateTime.now());
             workerLog.setStatus("COMPLETED");
             combineWorkerLogRepository.save(workerLog);
-            System.out.println("📊 Combine worker log updated: COMPLETED");
             publishWorkerProgress(task.getElectionId(), "COMBINE", "chunk_completed", Map.of(
                 "chunkNumber", task.getChunkNumber(),
                 "electionCenterId", task.getElectionCenterId()
@@ -909,7 +858,6 @@ public class TaskWorkerService {
             }
             
             // Removed: updateCombineDecryptionProgress - status is now queried directly from database
-            System.out.println("✅ Combine chunk " + task.getChunkNumber() + " completed");
             
             ballotCipherTexts.clear();
             decryptions.clear();
@@ -917,8 +865,6 @@ public class TaskWorkerService {
             
             // Log memory after
             long memoryAfterMB = (runtime.totalMemory() - runtime.freeMemory()) / (1024 * 1024);
-            System.out.println("✅ Combine chunk complete. Memory freed: " + (memoryBeforeMB - memoryAfterMB) + " MB");
-            System.out.println("🧠 Memory after: " + memoryAfterMB + " MB");
             
         } catch (Exception e) {
             System.err.println("❌ Error processing combine decryption: " + e.getMessage());
@@ -929,7 +875,6 @@ public class TaskWorkerService {
                 workerLog.setStatus("FAILED");
                 workerLog.setErrorMessage(e.getMessage());
                 combineWorkerLogRepository.save(workerLog);
-                System.out.println("📊 Combine worker log updated: FAILED");
             }
             
             // Report state: FAILED
@@ -967,7 +912,6 @@ public class TaskWorkerService {
      */
     private void updatePartialDecryptionProgress(Long electionId, Long guardianId, int completedChunk) {
         try {
-            System.out.println("📊 Partial Decryption Progress (Guardian " + guardianId + "): Chunk " + completedChunk + " completed");
 
             List<Long> allChunks = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
             int totalChunks = allChunks.size();
@@ -986,7 +930,6 @@ public class TaskWorkerService {
                 atomicCount = decryptionRepository.countByElectionIdAndGuardianId(electionId, guardianId);
             }
 
-            System.out.println("📊 Atomic Phase-1 count: " + atomicCount + "/" + totalChunks + " for guardian " + guardianId);
 
             if (atomicCount < totalChunks) {
                 return; // Not all chunks done yet
@@ -998,12 +941,9 @@ public class TaskWorkerService {
             String triggerKey = RedisLockService.buildPhase1TriggerKey(electionId, guardianId);
             boolean isFirstToTrigger = redisLockService.setFlagIfAbsent(triggerKey, 14400);
             if (!isFirstToTrigger) {
-                System.out.println("⚠️ Phase-2 trigger already fired for guardian " + guardianId + " — skipping duplicate");
                 return;
             }
 
-            System.out.println("✅ All partial decryption chunks completed for guardian " + guardianId);
-            System.out.println("=== PHASE 1 COMPLETED - NOW QUEUEING PHASE 2 (COMPENSATED DECRYPTION) ===");
 
             List<Guardian> allGuardians = guardianRepository.findByElectionId(electionId);
             int totalCompensatedGuardians = Math.max(0, allGuardians.size() - 1);
@@ -1015,13 +955,10 @@ public class TaskWorkerService {
                 redisLockService.deleteKey(RedisLockService.buildPhase2CounterKey(electionId, guardianId));
                 redisLockService.deleteKey(RedisLockService.buildPhase2TriggerKey(electionId, guardianId));
                 markGuardianAsDecrypted(guardianId);
-                System.out.println("✅ Single guardian election — decryption completed for guardian " + guardianId);
                 return;
             }
 
             // Multiple guardians — queue compensated decryption tasks
-            System.out.println("🔄 Transitioning to compensated shares generation phase");
-            System.out.println("📊 Need to generate shares for " + totalCompensatedGuardians + " other guardians");
 
             String decryptedPrivateKey = credentialCacheService.getPrivateKey(electionId, guardianId);
             String decryptedPolynomial = credentialCacheService.getPolynomial(electionId, guardianId);
@@ -1035,13 +972,10 @@ public class TaskWorkerService {
 
             List<Long> electionCenterIds = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
             int totalCompensatedTasks = electionCenterIds.size() * totalCompensatedGuardians;
-            System.out.println("📋 Total compensated tasks to queue: " + totalCompensatedTasks +
-                " (" + electionCenterIds.size() + " chunks × " + totalCompensatedGuardians + " guardians)");
 
             try {
                 decryptionTaskQueueService.queueCompensatedDecryptionTasks(
                     electionId, guardianId, electionCenterIds, decryptedPrivateKey, decryptedPolynomial);
-                System.out.println("✅ Compensated decryption tasks queued successfully");
             } catch (Exception e) {
                 System.err.println("❌ Failed to queue compensated tasks: " + e.getMessage());
                 // Clear the trigger flag so a retry attempt can re-queue
@@ -1064,7 +998,6 @@ public class TaskWorkerService {
      */
     private void updateCompensatedDecryptionProgress(Long electionId, Long guardianId) {
         try {
-            System.out.println("📊 Compensated Decryption Progress for guardian " + guardianId);
 
             List<Long> allChunks = electionCenterRepository.findElectionCenterIdsWithTallyByElectionId(electionId);
             List<Guardian> allGuardians = guardianRepository.findByElectionId(electionId);
@@ -1089,7 +1022,6 @@ public class TaskWorkerService {
                     .countByElectionIdAndCompensatingGuardianId(electionId, guardianId);
             }
 
-            System.out.println("📊 Atomic Phase-2 count: " + atomicCount + "/" + totalExpected + " for guardian " + guardianId);
 
             if (atomicCount < totalExpected) {
                 return; // Not all compensated chunks done yet
@@ -1099,11 +1031,9 @@ public class TaskWorkerService {
             String triggerKey = RedisLockService.buildPhase2TriggerKey(electionId, guardianId);
             boolean isFirstToTrigger = redisLockService.setFlagIfAbsent(triggerKey, 14400);
             if (!isFirstToTrigger) {
-                System.out.println("⚠️ Phase-2 completion trigger already fired for guardian " + guardianId + " — skipping duplicate");
                 return;
             }
 
-            System.out.println("✅ ALL COMPENSATED SHARES COMPLETED FOR GUARDIAN " + guardianId);
 
             // Securely wipe credentials from Redis — they are no longer needed
             credentialCacheService.clearCredentials(electionId, guardianId);
@@ -1111,8 +1041,6 @@ public class TaskWorkerService {
             // Mark guardian as decrypted so the Combine button becomes available
             markGuardianAsDecrypted(guardianId);
 
-            System.out.println("✅ Decryption fully completed for guardian " + guardianId);
-            System.out.println("🔒 Credentials securely removed from Redis cache");
 
         } catch (Exception e) {
             System.err.println("Failed to update compensated decryption progress: " + e.getMessage());
@@ -1198,7 +1126,6 @@ public class TaskWorkerService {
                 Guardian guardian = guardianOpt.get();
                 guardian.setDecryptedOrNot(true);
                 guardianRepository.save(guardian);
-                System.out.println("✅ Guardian " + guardianId + " marked as decrypted (decryptedOrNot=true)");
             }
         } catch (Exception e) {
             System.err.println("Failed to mark guardian as decrypted: " + e.getMessage());

@@ -731,15 +731,8 @@ function drawOverviewPage(doc, pageWidth, contentWidth, opts) {
     y = drawGuardianTable(doc, contentWidth, y, guardians);
   }
 
-  // Cryptographic verification
-  y += 4;
-  y = drawSectionHeader(doc, MARGIN, y, 'Cryptographic Verification',
-    'ElectionGuard artifacts anchoring the integrity of this tally');
-  y = drawCryptoBlock(doc, contentWidth, y, [
-    ['Manifest Hash', electionData?.manifestHash],
-    ['Base Hash', electionData?.baseHash],
-    ['Joint Public Key', electionData?.jointPublicKey],
-  ]);
+  // Reserved blank space (Cryptographic Verification section removed intentionally).
+  y += 60;
 }
 
 function drawKeyValueGrid(doc, contentWidth, y, pairs) {
@@ -815,34 +808,6 @@ function drawGuardianTable(doc, contentWidth, y, guardians) {
     margin: { left: MARGIN, right: MARGIN, bottom: FOOTER_RESERVE },
   });
   return (doc.lastAutoTable?.finalY ?? y) + 4;
-}
-
-function drawCryptoBlock(doc, contentWidth, y, entries) {
-  entries.forEach(([label, value]) => {
-    const val = value && value !== 'Not available' ? String(value) : 'Not available';
-    doc.setFont('courier', 'normal');
-    doc.setFontSize(8);
-    const lines = doc.splitTextToSize(val, contentWidth - 12).slice(0, 3);
-    const blockH = 9 + lines.length * 3.6;
-
-    setColor(doc, 'fill', C.surface);
-    setColor(doc, 'draw', C.line);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(MARGIN, y, contentWidth, blockH, 2.6, 2.6, 'FD');
-
-    setColor(doc, 'text', C.brandDark);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7);
-    doc.text(String(label).toUpperCase(), MARGIN + 5, y + 5.5);
-
-    setColor(doc, 'text', C.sub);
-    doc.setFont('courier', 'normal');
-    doc.setFontSize(8);
-    doc.text(lines, MARGIN + 5, y + 10.5);
-
-    y += blockH + 4;
-  });
-  return y;
 }
 
 /* ------------------------------------------------------------------ *

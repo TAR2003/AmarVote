@@ -28,7 +28,6 @@ public class TaskPublisherService {
      * Publish a tally creation task to the queue
      */
     public void publishTallyCreationTask(TallyCreationTask task) {
-        System.out.println("📤 Publishing tally creation task for election " + task.getElectionId() + ", chunk " + task.getChunkNumber());
         rabbitTemplate.convertAndSend(
             RabbitMQConfig.TASK_EXCHANGE,
             RabbitMQConfig.TALLY_CREATION_ROUTING_KEY,
@@ -40,8 +39,6 @@ public class TaskPublisherService {
      * Publish a partial decryption task to the queue
      */
     public void publishPartialDecryptionTask(PartialDecryptionTask task) {
-        System.out.println("📤 Publishing partial decryption task for election " + task.getElectionId() + 
-                         ", guardian " + task.getGuardianId() + ", chunk " + task.getChunkNumber());
         rabbitTemplate.convertAndSend(
             RabbitMQConfig.TASK_EXCHANGE,
             RabbitMQConfig.PARTIAL_DECRYPTION_ROUTING_KEY,
@@ -53,10 +50,6 @@ public class TaskPublisherService {
      * Publish a compensated decryption task to the queue
      */
     public void publishCompensatedDecryptionTask(CompensatedDecryptionTask task) {
-        System.out.println("📤 Publishing compensated decryption task for election " + task.getElectionId() + 
-                         ", source guardian " + task.getSourceGuardianId() + 
-                         ", target guardian " + task.getTargetGuardianId() + 
-                         ", chunk " + task.getChunkNumber());
         rabbitTemplate.convertAndSend(
             RabbitMQConfig.TASK_EXCHANGE,
             RabbitMQConfig.COMPENSATED_DECRYPTION_ROUTING_KEY,
@@ -68,7 +61,6 @@ public class TaskPublisherService {
      * Publish a combine decryption task to the queue
      */
     public void publishCombineDecryptionTask(CombineDecryptionTask task) {
-        System.out.println("📤 Publishing combine decryption task for election " + task.getElectionId() + ", chunk " + task.getChunkNumber());
         rabbitTemplate.convertAndSend(
             RabbitMQConfig.TASK_EXCHANGE,
             RabbitMQConfig.COMBINE_DECRYPTION_ROUTING_KEY,
@@ -89,10 +81,6 @@ public class TaskPublisherService {
                 ? RabbitMQConfig.EMAIL_BULK_ROUTING_KEY
                 : RabbitMQConfig.EMAIL_TRANSACTIONAL_ROUTING_KEY;
 
-        System.out.println("📤 Publishing email task lane=" + lane
-                + ", type=" + task.getEmailType()
-                + ", to=" + formatRecipient(task)
-                + ", attempt=" + task.getAttempt());
         rabbitTemplate.convertAndSend(RabbitMQConfig.TASK_EXCHANGE, routingKey, task);
     }
 

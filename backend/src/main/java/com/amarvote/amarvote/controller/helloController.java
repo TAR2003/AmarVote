@@ -15,13 +15,11 @@ public class helloController {
 
     @RequestMapping("/api/health")
     public String hello() {
-        System.out.println("We are in the hello controller");
         return "Successfully connected with hello controller backend";
     }
 
     @GetMapping("/eg")
     public String getConnection() {
-        System.out.println("Trying to connect to ElectionGuard backend...");
         try {
             String response = electionGuardService.getRequest("/health");
             return "ElectionGuard backend response: " + response;

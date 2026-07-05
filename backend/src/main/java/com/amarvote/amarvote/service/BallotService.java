@@ -87,8 +87,6 @@ public class BallotService {
 
                 // Check if bot detection indicates this is a bot
                 if (botData.getIsBot() != null && botData.getIsBot()) {
-                    System.out.println("🚨 [BACKEND BOT DETECTION] Bot detected for user: " + userEmail +
-                            ", requestId: " + botData.getRequestId());
                     return CastBallotResponse.builder()
                             .success(false)
                             .message("Security check failed. Automated voting is not allowed.")
@@ -104,9 +102,6 @@ public class BallotService {
                         Duration timeDiff = Duration.between(botDetectionTime, now);
 
                         if (timeDiff.toMinutes() > 5) {
-                            System.out.println(
-                                    "⚠️ [BACKEND BOT DETECTION] Stale bot detection data for user: " + userEmail +
-                                            ", age: " + timeDiff.toMinutes() + " minutes");
                             return CastBallotResponse.builder()
                                     .success(false)
                                     .message("Security check expired. Please try again.")
@@ -114,16 +109,12 @@ public class BallotService {
                                     .build();
                         }
 
-                        System.out.println("✅ [BACKEND BOT DETECTION] Valid bot detection for user: " + userEmail +
-                                ", requestId: " + botData.getRequestId() +
-                                ", isBot: " + botData.getIsBot());
                     } catch (Exception e) {
                         System.out
                                 .println("⚠️ [BACKEND BOT DETECTION] Invalid timestamp format for user: " + userEmail);
                     }
                 }
             } else {
-                System.out.println("⚠️ [BACKEND BOT DETECTION] No bot detection data provided for user: " + userEmail);
                 // Uncomment the lines below to make bot detection mandatory
                 /*
                  * return CastBallotResponse.builder()
@@ -502,7 +493,6 @@ public class BallotService {
      * Get ballot details including cipher text by election ID and tracking code
      */
     public Map<String, Object> getBallotDetails(Long electionId, String trackingCode) {
-        System.out.println("🔍 Searching for ballot details - Election: " + electionId + ", Tracking: " + trackingCode);
 
         try {
             // Search in the ballots table first
@@ -510,7 +500,6 @@ public class BallotService {
 
             if (ballotOpt.isPresent()) {
                 Ballot ballot = ballotOpt.get();
-                System.out.println("✅ Ballot found in ballots table");
 
                 Map<String, Object> ballotDetails = new HashMap<>();
                 ballotDetails.put("election_id", ballot.getElectionId());
@@ -523,7 +512,6 @@ public class BallotService {
 
                 return ballotDetails;
             } else {
-                System.out.println("❌ Ballot not found in ballots table for tracking code: " + trackingCode);
                 return null;
             }
         } catch (Exception e) {
@@ -552,12 +540,9 @@ public class BallotService {
                     .max_choices(maxChoices)
                     .build();
 
-            System.out.println("Calling ElectionGuard ballot service at: " + url);
-            System.out.println("Sending request to ElectionGuard service: " + request);
 
             String response = electionGuardService.postRequest(url, request);
 
-            System.out.println("Received response from ElectionGuard service: ");
 
             if (response == null) {
                 throw new RuntimeException("Invalid response from ElectionGuard service");
@@ -606,8 +591,6 @@ public class BallotService {
                 .collect(Collectors.toList());
 
         if (selectedCandidates.size() != maxChoices) {
-            System.out.println("⚠️ [BALLOT STUFFING] Expected " + maxChoices
-                    + " selection slots but received " + selectedCandidates.size());
         }
 
         return normalized;
@@ -654,7 +637,6 @@ public class BallotService {
             for (Long choiceId : selectedChoiceIds) {
                 ElectionChoice choice = choiceById.get(choiceId);
                 if (choice == null) {
-                    System.out.println("❌ [BALLOT] Invalid choice ID: " + choiceId);
                     return null;
                 }
                 resolved.add(choice.getOptionTitle());
@@ -669,8 +651,6 @@ public class BallotService {
                     .filter(choice -> candidateTitlesMatch(choice.getOptionTitle(), decodedName))
                     .findFirst();
             if (match.isEmpty()) {
-                System.out.println("❌ [BALLOT] No election choice matches decoded selection: ["
-                        + decodedName + "]");
                 return null;
             }
             resolved.add(match.get().getOptionTitle());
@@ -695,7 +675,6 @@ public class BallotService {
             
             // Log padding statistics for monitoring (optional - can be removed in production)
             if (paddingLength < 100) {
-                System.out.println("⚠️ [PADDING WARNING] Very short padding detected: " + paddingLength + " chars. Expected close to " + MAX_PACKET_SIZE + " bytes");
             }
             
             // Padding is valid, remove it for processing
@@ -703,8 +682,6 @@ public class BallotService {
         }
         // If no padding exists, log a warning (should not happen in production)
         else {
-            System.out.println("⚠️ [SECURITY WARNING] No padding detected in createEncryptedBallot request. " +
-                    "This may indicate a security vulnerability or old client version.");
         }
     }
     
@@ -722,8 +699,6 @@ public class BallotService {
                 CastBallotRequest.BotDetectionData botData = request.getBotDetection();
 
                 if (botData.getIsBot() != null && botData.getIsBot()) {
-                    System.out.println("🚨 [BACKEND BOT DETECTION] Bot detected for user: " + userEmail +
-                            ", requestId: " + botData.getRequestId());
                     return CreateEncryptedBallotResponse.builder()
                             .success(false)
                             .message("Security check failed. Automated voting is not allowed.")
@@ -738,9 +713,6 @@ public class BallotService {
                         Duration timeDiff = Duration.between(botDetectionTime, now);
 
                         if (timeDiff.toMinutes() > 5) {
-                            System.out.println(
-                                    "⚠️ [BACKEND BOT DETECTION] Stale bot detection data for user: " + userEmail +
-                                            ", age: " + timeDiff.toMinutes() + " minutes");
                             return CreateEncryptedBallotResponse.builder()
                                     .success(false)
                                     .message("Security check expired. Please try again.")
@@ -748,8 +720,6 @@ public class BallotService {
                                     .build();
                         }
 
-                        System.out.println("✅ [BACKEND BOT DETECTION] Valid bot detection for user: " + userEmail +
-                                ", requestId: " + botData.getRequestId());
 
                     } catch (Exception e) {
                         System.err.println("⚠️ [BACKEND BOT DETECTION] Error parsing bot detection timestamp: " + e.getMessage());
@@ -877,14 +847,10 @@ public class BallotService {
      */
     public BenalohChallengeResponse performBenalohChallenge(BenalohChallengeRequest request, String userEmail) {
         try {
-            System.out.println("🔍 [BENALOH] Starting Benaloh challenge for user: " + userEmail);
-            System.out.println("🔍 [BENALOH] Request data: electionId=" + request.getElectionId() + 
-                              ", candidates=" + request.getCandidate_names_to_verify());
 
             // 1. Find election
             Optional<Election> electionOpt = electionRepository.findById(request.getElectionId());
             if (!electionOpt.isPresent()) {
-                System.out.println("❌ [BENALOH] Election not found");
                 return BenalohChallengeResponse.builder()
                         .success(false)
                         .message("Election not found")
@@ -892,14 +858,10 @@ public class BallotService {
                         .build();
             }
             Election election = electionOpt.get();
-            System.out.println("✅ [BENALOH] Election found: " + election.getElectionTitle());
 
             // 2. Validate candidate choices
-            System.out.println("🔍 [BENALOH] Fetching election choices...");
             List<ElectionChoice> choices = electionChoiceRepository.findByElectionIdOrderByChoiceIdAsc(election.getElectionId());
-            System.out.println("🔍 [BENALOH] Found " + choices.size() + " choices");
             for (ElectionChoice choice : choices) {
-                System.out.println("🔍 [BENALOH] Choice: " + choice.getOptionTitle());
             }
             
             List<String> candidatesToVerify = request.getCandidate_names_to_verify();
@@ -914,9 +876,7 @@ public class BallotService {
                     .map(ElectionChoice::getOptionTitle)
                     .collect(Collectors.toSet());
             boolean allValid = candidatesToVerify.stream().allMatch(validChoiceTitles::contains);
-            System.out.println("🔍 [BENALOH] All candidates valid: " + allValid);
             if (!allValid) {
-                System.out.println("❌ [BENALOH] Invalid candidate selection");
                 return BenalohChallengeResponse.builder()
                         .success(false)
                         .message("Invalid candidate selection for verification")
@@ -925,7 +885,6 @@ public class BallotService {
             }
 
             // 4. Prepare data for ElectionGuard Benaloh challenge API
-            System.out.println("🔍 [BENALOH] Preparing data for microservice call...");
             List<String> partyNames = choices.stream()
                     .map(ElectionChoice::getPartyName)
                     .collect(Collectors.toList());
@@ -934,19 +893,14 @@ public class BallotService {
                     .collect(Collectors.toList());
 
             String ballotId = "challenge-" + userEmail.hashCode() + "-" + election.getElectionId() + "-" + System.currentTimeMillis();
-            System.out.println("🔍 [BENALOH] Ballot ID: " + ballotId);
-            System.out.println("🔍 [BENALOH] Party names: " + partyNames);
-            System.out.println("🔍 [BENALOH] Candidate names: " + candidateNames);
 
             // 5. Call ElectionGuard Benaloh challenge service
-            System.out.println("📞 [BENALOH] Calling ElectionGuard Benaloh service...");
             ElectionGuardBenalohResponse guardResponse = callElectionGuardBenalohService(
                     partyNames, candidateNames, candidatesToVerify,
                     ballotId, election.getJointPublicKey(), election.getBaseHash(),
                     election.getElectionQuorum(),
                     guardianRepository.countByElectionId(election.getElectionId()),
                     request.getEncrypted_ballot_with_nonce());
-            System.out.println("📞 [BENALOH] Received response from ElectionGuard service");
 
             if (guardResponse == null || !"success".equals(guardResponse.getStatus())) {
                 return BenalohChallengeResponse.builder()
@@ -989,9 +943,7 @@ public class BallotService {
             int quorum, int numberOfGuardians, String encryptedBallotWithNonce) {
 
         try {
-            System.out.println("🌐 [BENALOH API] Starting microservice call...");
             String url = "/benaloh_challenge";
-            System.out.println("🌐 [BENALOH API] URL: " + url);
 
             ElectionGuardBenalohRequest request = ElectionGuardBenalohRequest.builder()
                     .party_names(partyNames)
@@ -1005,14 +957,9 @@ public class BallotService {
                     .encrypted_ballot_with_nonce(encryptedBallotWithNonce)
                     .build();
 
-            System.out.println("🌐 [BENALOH API] Request built successfully");
-            System.out.println("Calling ElectionGuard Benaloh challenge service at: " + url);
-            System.out.println("Sending request to ElectionGuard Benaloh service: " + request);
 
-            System.out.println("🌐 [BENALOH API] Making ElectionGuardService call...");
             String response = electionGuardService.postRequest(url, request);
 
-            System.out.println("Received response from ElectionGuard Benaloh service: ");
 
             if (response == null) {
                 throw new RuntimeException("Invalid response from ElectionGuard Benaloh service");

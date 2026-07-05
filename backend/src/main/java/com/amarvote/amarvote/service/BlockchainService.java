@@ -279,18 +279,14 @@ public class BlockchainService {
             
             String url = blockchainServiceUrl + "/get-logs/" + electionId;
             logger.info("📡 Making request to blockchain microservice: {}", url);
-            System.out.println("📡 Making request to blockchain microservice: " + url);
 
             // Make request and get String first for better error handling
             ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
             logger.info("📨 Received response from blockchain service - Status: {}, Body length: {}", 
                        response.getStatusCode(), response.getBody() != null ? response.getBody().length() : 0);
-            System.out.println("📨 Received response from blockchain service - Status: " + response.getStatusCode() + 
-                               ", Body length: " + (response.getBody() != null ? response.getBody().length() : 0));
             
             if (response.getBody() == null || response.getBody().trim().isEmpty()) {
                 logger.error("❌ Empty response from blockchain service");
-                System.out.println("❌ Empty response from blockchain service");
                 return BlockchainLogsResponse.builder()
                     .success(false)
                     .message("Empty response from blockchain service")
@@ -302,19 +298,14 @@ public class BlockchainService {
             logger.info("📋 Parsed blockchain response: status={}, message={}", 
                        responseNode.path("status").asText("N/A"), 
                        responseNode.path("message").asText("N/A"));
-            System.out.println("📋 Parsed blockchain response: status=" + 
-                               responseNode.path("status").asText("N/A") + 
-                               ", message=" + responseNode.path("message").asText("N/A"));
             
             if (responseNode != null && "success".equals(responseNode.path("status").asText())) {
                 logger.info("✅ Successfully retrieved logs for election {}", electionId);
-                System.out.println("✅ Successfully retrieved logs for election " + electionId);
                 
                 // Check if we have the expected structure
                 JsonNode resultNode = responseNode.path("result");
                 if (resultNode.isMissingNode()) {
                     logger.error("❌ Missing 'result' field in blockchain response");
-                    System.out.println("❌ Missing 'result' field in blockchain response");
                     return BlockchainLogsResponse.builder()
                         .success(false)
                         .message("Invalid response structure from blockchain service")
@@ -329,9 +320,6 @@ public class BlockchainService {
                     logger.info("📊 Blockchain logs parsed successfully - Election: {}, Log count: {}", 
                                logsResponse.getResult().getElection_id(), 
                                logsResponse.getResult().getLog_count());
-                    System.out.println("📊 Blockchain logs parsed successfully - Election: " + 
-                                       logsResponse.getResult().getElection_id() + 
-                                       ", Log count: " + logsResponse.getResult().getLog_count());
                 } else {
                     logger.warn("⚠️ Blockchain logs response has null result");
                 }
@@ -341,7 +329,6 @@ public class BlockchainService {
             } else {
                 String message = responseNode != null ? responseNode.path("message").asText("Failed to retrieve election logs") : "Failed to retrieve election logs";
                 logger.error("❌ Failed to retrieve logs for election {}: {}", electionId, message);
-                System.out.println("❌ Failed to retrieve logs for election " + electionId + ": " + message);
                 return BlockchainLogsResponse.builder()
                     .success(false)
                     .message(message)

@@ -43,8 +43,6 @@ public class CloudinaryService {
         // Validate file
         validateImageFile(file);
 
-        System.out.println("Starting Cloudinary upload for file: " + file.getOriginalFilename() + 
-                         ", Type: " + imageType + ", Size: " + file.getSize() + " bytes");
 
         Map<String, Object> uploadParams = ObjectUtils.asMap(
                 "folder", imageType.getFolder(),
@@ -52,13 +50,11 @@ public class CloudinaryService {
                 "quality", "auto:good"
         );
 
-        System.out.println("Upload parameters: " + uploadParams);
 
         try {
             Map<String, Object> uploadResult = cloudinary.uploader().upload(file.getBytes(), uploadParams);
             String secureUrl = (String) uploadResult.get("secure_url");
             
-            System.out.println("Upload successful. Secure URL: " + secureUrl);
             
             return secureUrl;
         } catch (Exception e) {

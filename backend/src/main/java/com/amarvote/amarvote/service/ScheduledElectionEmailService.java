@@ -178,8 +178,6 @@ public class ScheduledElectionEmailService {
             scheduled.setSentAt(Instant.now());
             scheduledEmailRepository.save(scheduled);
             int batchCount = (recipients.size() + 99) / 100;
-            System.out.println("📅 Scheduled email " + emailId + " queued for " + recipients.size()
-                    + " recipient(s) across " + batchCount + " batch task(s)");
         } catch (Exception ex) {
             System.err.println("Failed to queue scheduled email " + emailId + ": " + ex.getMessage());
             throw new IllegalStateException("Failed to queue scheduled email recipients", ex);

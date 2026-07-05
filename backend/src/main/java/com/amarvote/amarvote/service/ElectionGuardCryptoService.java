@@ -34,7 +34,6 @@ public class ElectionGuardCryptoService {
 
     public EncryptionResult encryptGuardianData(String privateKey, String polynomial, String password) {
         try {
-            System.out.println("Calling ElectionGuard encryption service for guardian private key and polynomial");
             
             // Create the combined string format
             String combinedData = createCombinedGuardianString(privateKey, polynomial);
@@ -64,7 +63,6 @@ public class ElectionGuardCryptoService {
             String encryptedData = (String) responseData.get("encrypted_data");
             String credentials = (String) responseData.get("credentials");
             
-            System.out.println("Successfully encrypted guardian private key and polynomial");
             
             return new EncryptionResult(encryptedData, credentials);
             
@@ -86,7 +84,6 @@ public class ElectionGuardCryptoService {
     @Deprecated
     public EncryptionResult encryptPrivateKey(String privateKey) {
         try {
-            System.out.println("Calling ElectionGuard encryption service for guardian private key (deprecated method)");
             
             // Prepare request body
             Map<String, String> requestBody = Map.of("private_key", privateKey);
@@ -109,7 +106,6 @@ public class ElectionGuardCryptoService {
             String encryptedData = (String) responseData.get("encrypted_data");
             String credentials = (String) responseData.get("credentials");
             
-            System.out.println("Successfully encrypted guardian private key");
             
             return new EncryptionResult(encryptedData, credentials);
             
@@ -130,7 +126,6 @@ public class ElectionGuardCryptoService {
      */
     public GuardianDecryptionResult decryptGuardianData(String encryptedData, String credentials) {
         try {
-            System.out.println("Calling ElectionGuard decryption service for guardian combined data");
             
             // Prepare request body
             Map<String, String> requestBody = Map.of(
@@ -158,7 +153,6 @@ public class ElectionGuardCryptoService {
             // Parse the combined string to extract private key and polynomial
             GuardianDecryptionResult result = parseCombinedGuardianString(decryptedCombinedData);
             
-            System.out.println("Successfully decrypted guardian private key and polynomial");
             
             return result;
             
@@ -181,7 +175,6 @@ public class ElectionGuardCryptoService {
     @Deprecated
     public String decryptPrivateKey(String encryptedData, String credentials) {
         try {
-            System.out.println("Calling ElectionGuard decryption service for guardian private key (deprecated method)");
             
             // Prepare request body
             Map<String, String> requestBody = Map.of(
@@ -206,7 +199,6 @@ public class ElectionGuardCryptoService {
             
             String privateKey = (String) responseData.get("private_key");
             
-            System.out.println("Successfully decrypted guardian private key");
             
             return privateKey;
             
