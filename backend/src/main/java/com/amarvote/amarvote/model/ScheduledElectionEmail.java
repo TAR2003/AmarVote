@@ -29,6 +29,10 @@ public class ScheduledElectionEmail {
     public static final String GROUP_GUARDIANS = "guardians";
     public static final String GROUP_ADMINS = "admins";
 
+    public static final String VOTER_FILTER_BOTH = "both";
+    public static final String VOTER_FILTER_VOTED = "voted";
+    public static final String VOTER_FILTER_NOT_VOTED = "not_voted";
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     @Column(name = "email_id")
@@ -40,6 +44,13 @@ public class ScheduledElectionEmail {
     /** One of: voters, guardians, admins (includes co-admins). */
     @Column(name = "recipient_group", nullable = false, columnDefinition = "TEXT")
     private String recipientGroup;
+
+    /**
+     * When {@code recipient_group} is voters: both (default), voted, or not_voted.
+     */
+    @Column(name = "voter_filter", columnDefinition = "TEXT")
+    @Builder.Default
+    private String voterFilter = VOTER_FILTER_BOTH;
 
     @Column(name = "email_body", nullable = false, columnDefinition = "TEXT")
     private String emailBody;

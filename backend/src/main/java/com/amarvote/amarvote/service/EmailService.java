@@ -13,8 +13,9 @@ import org.springframework.stereotype.Service;
 
 import com.amarvote.amarvote.dto.worker.EmailTask;
 import com.amarvote.amarvote.email.EmailAttachment;
-import com.amarvote.amarvote.email.EmailDeliveryGateway;
+import com.amarvote.amarvote.email.EmailBatchDispatcher;
 import com.amarvote.amarvote.email.EmailMessage;
+import com.amarvote.amarvote.email.EmailQueueType;
 import com.amarvote.amarvote.email.ResendEmailSender;
 
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,7 @@ import lombok.RequiredArgsConstructor;
 @RequiredArgsConstructor
 public class EmailService {
 
-    private final EmailDeliveryGateway emailDeliveryGateway;
+    private final EmailBatchDispatcher emailBatchDispatcher;
     private final TaskPublisherService taskPublisherService;
 
     @Value("${amarvote.email.batch-size:100}")
@@ -92,7 +93,8 @@ public class EmailService {
     }
 
     /**
-     * Queues batch tasks (up to 100 recipients per Resend API call) for identical reminder content.
+     * Queues recipients for the bulk email lane. Messages are batched (up to 100) and
+     * sent at 1 Resend API request/second by {@link EmailBatchDispatcher}.
      */
     public void sendBulkReminderEmail(List<String> toEmails, String subject, String htmlContent) {
         if (toEmails == null || toEmails.isEmpty()) {
@@ -126,129 +128,121 @@ public class EmailService {
     }
 
     /**
-     * Called by the RabbitMQ email worker — performs actual delivery via the configured provider.
+     * Called by the RabbitMQ email worker — builds messages and buffers them for batched delivery.
      */
     public void processEmailTask(EmailTask task) {
         if (task == null || task.getEmailType() == null) {
             throw new IllegalArgumentException("Email task or type is missing");
         }
 
+        EmailQueueType queueType = TaskPublisherService.resolveEmailQueueType(task);
+
         switch (task.getEmailType()) {
-            case SIGNUP_VERIFICATION -> sendSignupVerificationEmailImmediate(task.getToEmail(), task.getToken());
-            case PASSWORD_RESET_CODE -> sendPasswordResetCodeEmailImmediate(task.getToEmail(), task.getCode());
-            case FORGOT_PASSWORD -> sendForgotPasswordEmailImmediate(task.getToEmail(), task.getResetLink());
-            case GUARDIAN_PRIVATE_KEY -> sendGuardianPrivateKeyEmailImmediate(
-                    task.getToEmail(),
-                    task.getElectionTitle(),
-                    task.getElectionDescription(),
-                    task.getPrivateKey(),
-                    task.getElectionId());
-            case GUARDIAN_CREDENTIAL -> sendGuardianCredentialEmailImmediate(
-                    task.getToEmail(),
-                    task.getElectionTitle(),
-                    task.getElectionDescription(),
-                    task.getCredentialFilePath() == null ? null : Path.of(task.getCredentialFilePath()),
-                    task.getElectionId());
-            case OTP -> sendOtpEmailImmediate(task.getToEmail(), task.getCode());
-            case VOTE_RECEIPT -> sendVoteReceiptEmailImmediate(
-                    task.getToEmail(),
-                    task.getElectionTitle(),
-                    task.getElectionId(),
-                    task.getReceiptContent(),
-                    task.getTrackingCode());
+            case SIGNUP_VERIFICATION -> emailBatchDispatcher.enqueue(
+                    queueType,
+                    htmlMessage(task.getToEmail(), "📩 Signup Email Verification Code", loadVerificationCodeTemplate(task.getToken())),
+                    task);
+            case PASSWORD_RESET_CODE -> emailBatchDispatcher.enqueue(
+                    queueType,
+                    htmlMessage(task.getToEmail(), "🔐 Password Reset Verification Code", loadPasswordResetCodeTemplate(task.getCode())),
+                    task);
+            case FORGOT_PASSWORD -> emailBatchDispatcher.enqueue(
+                    queueType,
+                    htmlMessage(task.getToEmail(), "🔐 Password Reset Request", loadResetPasswordTemplate(task.getResetLink())),
+                    task);
+            case GUARDIAN_PRIVATE_KEY -> emailBatchDispatcher.enqueue(
+                    queueType,
+                    htmlMessage(
+                            task.getToEmail(),
+                            "🛡️ Your Guardian Private Key for Election: " + task.getElectionTitle(),
+                            loadGuardianPrivateKeyTemplate(
+                                    task.getElectionTitle(),
+                                    task.getElectionDescription(),
+                                    task.getPrivateKey(),
+                                    task.getElectionId())),
+                    task);
+            case GUARDIAN_CREDENTIAL -> emailBatchDispatcher.enqueue(
+                    queueType,
+                    guardianCredentialMessage(task),
+                    task);
+            case OTP -> emailBatchDispatcher.enqueue(
+                    queueType,
+                    htmlMessage(task.getToEmail(), "🔐 Your AmarVote Login Code", loadOtpEmailTemplate(task.getCode())),
+                    task);
+            case VOTE_RECEIPT -> emailBatchDispatcher.enqueue(
+                    queueType,
+                    voteReceiptMessage(task),
+                    task);
             case REMINDER -> {
                 String html = task.getHtmlContent() == null ? "" : task.getHtmlContent().replace("\n", "<br/>");
-                deliverHtmlEmail(task.getToEmail(), task.getSubject(), html);
+                emailBatchDispatcher.enqueue(
+                        queueType,
+                        htmlMessage(task.getToEmail(), task.getSubject(), html),
+                        task);
             }
-            case BATCH_REMINDER -> sendBatchReminderEmailImmediate(
-                    task.getToEmails(),
-                    task.getSubject(),
-                    task.getHtmlContent());
+            case BATCH_REMINDER -> emailBatchDispatcher.enqueueAll(
+                    queueType,
+                    batchReminderMessages(task.getToEmails(), task.getSubject(), task.getHtmlContent()),
+                    task);
             default -> throw new IllegalArgumentException("Unsupported email task type: " + task.getEmailType());
         }
     }
 
-    private void sendSignupVerificationEmailImmediate(String toEmail, String token) {
-        deliverHtmlEmail(toEmail, "📩 Signup Email Verification Code", loadVerificationCodeTemplate(token));
-    }
-
-    private void sendPasswordResetCodeEmailImmediate(String toEmail, String code) {
-        deliverHtmlEmail(toEmail, "🔐 Password Reset Verification Code", loadPasswordResetCodeTemplate(code));
-    }
-
-    private void sendForgotPasswordEmailImmediate(String toEmail, String resetLink) {
-        deliverHtmlEmail(toEmail, "🔐 Password Reset Request", loadResetPasswordTemplate(resetLink));
-    }
-
-    private void sendGuardianPrivateKeyEmailImmediate(String toEmail, String electionTitle, String electionDescription, String privateKey, Long electionId) {
-        deliverHtmlEmail(
-                toEmail,
-                "🛡️ Your Guardian Private Key for Election: " + electionTitle,
-                loadGuardianPrivateKeyTemplate(electionTitle, electionDescription, privateKey, electionId));
-    }
-
-    private void sendOtpEmailImmediate(String toEmail, String otpCode) {
-        deliverHtmlEmail(toEmail, "🔐 Your AmarVote Login Code", loadOtpEmailTemplate(otpCode));
-    }
-
-    private void sendGuardianCredentialEmailImmediate(String toEmail, String electionTitle, String electionDescription, Path credentialFilePath, Long electionId) {
-        if (credentialFilePath == null) {
-            throw new IllegalArgumentException("Credential file path is required for guardian credential email");
-        }
-
-        EmailMessage message = EmailMessage.builder()
-                .to(toEmail)
-                .subject("🛡️ Your Guardian Credentials for Election: " + electionTitle)
-                .htmlContent(loadGuardianCredentialTemplate(electionTitle, electionDescription, electionId))
-                .attachment(EmailAttachment.fromFile(
-                        buildGuardianCredentialFilename(electionTitle, electionId),
-                        credentialFilePath))
-                .build();
-
-        emailDeliveryGateway.deliver(message);
-    }
-
-    private void sendVoteReceiptEmailImmediate(String toEmail, String electionTitle, Long electionId, String receiptContent,
-            String trackingCode) {
-        String htmlContent = "<p>Your vote was cast successfully.</p>"
-                + "<p>Your receipt is attached as a TXT file. Please keep it for verification.</p>"
-                + "<p><strong>Tracking Code:</strong> " + trackingCode + "</p>";
-
-        EmailMessage message = EmailMessage.builder()
-                .to(toEmail)
-                .subject("Your AmarVote Receipt - " + electionTitle)
-                .htmlContent(htmlContent)
-                .attachment(EmailAttachment.fromContent(
-                        buildVoteReceiptFilename(electionTitle, electionId, trackingCode),
-                        receiptContent.getBytes(StandardCharsets.UTF_8)))
-                .build();
-
-        emailDeliveryGateway.deliver(message);
-    }
-
-    private void deliverHtmlEmail(String toEmail, String subject, String htmlContent) {
-        emailDeliveryGateway.deliver(EmailMessage.builder()
+    private EmailMessage htmlMessage(String toEmail, String subject, String htmlContent) {
+        return EmailMessage.builder()
                 .to(toEmail)
                 .subject(subject)
                 .htmlContent(htmlContent)
-                .build());
+                .build();
     }
 
-    private void sendBatchReminderEmailImmediate(List<String> toEmails, String subject, String rawContent) {
+    private EmailMessage guardianCredentialMessage(EmailTask task) {
+        if (task.getCredentialFilePath() == null) {
+            throw new IllegalArgumentException("Credential file path is required for guardian credential email");
+        }
+
+        return EmailMessage.builder()
+                .to(task.getToEmail())
+                .subject("🛡️ Your Guardian Credentials for Election: " + task.getElectionTitle())
+                .htmlContent(loadGuardianCredentialTemplate(
+                        task.getElectionTitle(),
+                        task.getElectionDescription(),
+                        task.getElectionId()))
+                .attachment(EmailAttachment.fromFile(
+                        buildGuardianCredentialFilename(task.getElectionTitle(), task.getElectionId()),
+                        Path.of(task.getCredentialFilePath())))
+                .build();
+    }
+
+    private EmailMessage voteReceiptMessage(EmailTask task) {
+        String htmlContent = "<p>Your vote was cast successfully.</p>"
+                + "<p>Your receipt is attached as a TXT file. Please keep it for verification.</p>"
+                + "<p><strong>Tracking Code:</strong> " + task.getTrackingCode() + "</p>";
+
+        return EmailMessage.builder()
+                .to(task.getToEmail())
+                .subject("Your AmarVote Receipt - " + task.getElectionTitle())
+                .htmlContent(htmlContent)
+                .attachment(EmailAttachment.fromContent(
+                        buildVoteReceiptFilename(
+                                task.getElectionTitle(),
+                                task.getElectionId(),
+                                task.getTrackingCode()),
+                        task.getReceiptContent().getBytes(StandardCharsets.UTF_8)))
+                .build();
+    }
+
+    private List<EmailMessage> batchReminderMessages(List<String> toEmails, String subject, String rawContent) {
         if (toEmails == null || toEmails.isEmpty()) {
-            return;
+            return List.of();
         }
 
         String html = rawContent == null ? "" : rawContent.replace("\n", "<br/>");
-        List<EmailMessage> messages = toEmails.stream()
-                .map(toEmail -> EmailMessage.builder()
-                        .to(toEmail)
-                        .subject(subject)
-                        .htmlContent(html)
-                        .build())
-                .toList();
-
-        emailDeliveryGateway.deliverBatch(messages);
+        List<EmailMessage> messages = new ArrayList<>(toEmails.size());
+        for (String toEmail : toEmails) {
+            messages.add(htmlMessage(toEmail, subject, html));
+        }
+        return messages;
     }
 
     private String buildVoteReceiptFilename(String electionTitle, Long electionId, String trackingCode) {

@@ -13,5 +13,7 @@ public record ScheduledElectionEmailRequest(
     String emailBody,
 
     @NotNull(message = "Scheduled time is required")
-    Instant scheduledTime
+    Instant scheduledTime,
+
+    String voterFilter
 ) {}

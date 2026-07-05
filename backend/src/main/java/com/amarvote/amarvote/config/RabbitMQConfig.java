@@ -35,8 +35,16 @@ public class RabbitMQConfig {
     public static final String COMPENSATED_DECRYPTION_QUEUE = "compensated.decryption.queue";
     public static final String COMBINE_DECRYPTION_QUEUE = "combine.decryption.queue";
     public static final String VOTE_RECEIPT_QUEUE = "vote.receipt.queue";
-    public static final String EMAIL_QUEUE = "email.queue";
-    public static final String EMAIL_DLQ = "email.queue.dlq";
+    public static final String EMAIL_TRANSACTIONAL_QUEUE = "email.transactional.queue";
+    public static final String EMAIL_BULK_QUEUE = "email.bulk.queue";
+    /** @deprecated Use {@link #EMAIL_TRANSACTIONAL_QUEUE} or {@link #EMAIL_BULK_QUEUE} */
+    @Deprecated
+    public static final String EMAIL_QUEUE = EMAIL_TRANSACTIONAL_QUEUE;
+    public static final String EMAIL_TRANSACTIONAL_DLQ = "email.transactional.queue.dlq";
+    public static final String EMAIL_BULK_DLQ = "email.bulk.queue.dlq";
+    /** @deprecated Use lane-specific DLQs */
+    @Deprecated
+    public static final String EMAIL_DLQ = EMAIL_TRANSACTIONAL_DLQ;
 
     // Exchange Names
     public static final String TASK_EXCHANGE = "task.exchange";
@@ -48,8 +56,16 @@ public class RabbitMQConfig {
     public static final String COMPENSATED_DECRYPTION_ROUTING_KEY = "task.compensated.decryption";
     public static final String COMBINE_DECRYPTION_ROUTING_KEY = "task.combine.decryption";
     public static final String VOTE_RECEIPT_ROUTING_KEY = "task.vote.receipt";
-    public static final String EMAIL_ROUTING_KEY = "task.email";
-    public static final String EMAIL_DLQ_ROUTING_KEY = "task.email.dead";
+    public static final String EMAIL_TRANSACTIONAL_ROUTING_KEY = "task.email.transactional";
+    public static final String EMAIL_BULK_ROUTING_KEY = "task.email.bulk";
+    /** @deprecated Use lane-specific routing keys */
+    @Deprecated
+    public static final String EMAIL_ROUTING_KEY = EMAIL_TRANSACTIONAL_ROUTING_KEY;
+    public static final String EMAIL_TRANSACTIONAL_DLQ_ROUTING_KEY = "task.email.transactional.dead";
+    public static final String EMAIL_BULK_DLQ_ROUTING_KEY = "task.email.bulk.dead";
+    /** @deprecated Use lane-specific DLQ routing keys */
+    @Deprecated
+    public static final String EMAIL_DLQ_ROUTING_KEY = EMAIL_TRANSACTIONAL_DLQ_ROUTING_KEY;
 
     /**
      * Message converter for JSON serialization/deserialization
@@ -75,13 +91,19 @@ public class RabbitMQConfig {
     @Value("${rabbitmq.worker.concurrency.max:2}")
     private int maxConcurrentConsumers;
 
-    @Value("${rabbitmq.email.concurrency.min:2}")
-    private int minEmailConcurrentConsumers;
+    @Value("${rabbitmq.email.transactional.concurrency.min:2}")
+    private int minTransactionalEmailConcurrentConsumers;
 
-    @Value("${rabbitmq.email.concurrency.max:4}")
-    private int maxEmailConcurrentConsumers;
+    @Value("${rabbitmq.email.transactional.concurrency.max:4}")
+    private int maxTransactionalEmailConcurrentConsumers;
 
-    @Value("${rabbitmq.email.prefetch:5}")
+    @Value("${rabbitmq.email.bulk.concurrency.min:1}")
+    private int minBulkEmailConcurrentConsumers;
+
+    @Value("${rabbitmq.email.bulk.concurrency.max:2}")
+    private int maxBulkEmailConcurrentConsumers;
+
+    @Value("${rabbitmq.email.prefetch:10}")
     private int emailPrefetchCount;
 
     /**
@@ -159,23 +181,48 @@ public class RabbitMQConfig {
     }
 
     /**
-     * Dedicated listener factory for the email queue.
-     * Email tasks are independent I/O-bound work on a separate queue from
-     * tally/decryption workers, so bulk sends do not compete for compute-heavy workers.
+     * Listener factory for transactional email tasks (verification, receipts, OTP, etc.).
      */
     @Bean
-    public SimpleRabbitListenerContainerFactory emailRabbitListenerContainerFactory(ConnectionFactory connectionFactory) {
+    public SimpleRabbitListenerContainerFactory transactionalEmailRabbitListenerContainerFactory(
+            ConnectionFactory connectionFactory) {
+        return buildEmailListenerFactory(
+            connectionFactory,
+            minTransactionalEmailConcurrentConsumers,
+            maxTransactionalEmailConcurrentConsumers);
+    }
+
+    /**
+     * Listener factory for bulk/campaign email tasks (voters, guardians, admins).
+     */
+    @Bean
+    public SimpleRabbitListenerContainerFactory bulkEmailRabbitListenerContainerFactory(
+            ConnectionFactory connectionFactory) {
+        return buildEmailListenerFactory(
+            connectionFactory,
+            minBulkEmailConcurrentConsumers,
+            maxBulkEmailConcurrentConsumers);
+    }
+
+    /** @deprecated Use lane-specific listener factories */
+    @Deprecated
+    @Bean
+    public SimpleRabbitListenerContainerFactory emailRabbitListenerContainerFactory(
+            ConnectionFactory connectionFactory) {
+        return transactionalEmailRabbitListenerContainerFactory(connectionFactory);
+    }
+
+    private SimpleRabbitListenerContainerFactory buildEmailListenerFactory(
+            ConnectionFactory connectionFactory,
+            int minConsumers,
+            int maxConsumers) {
         SimpleRabbitListenerContainerFactory factory = new SimpleRabbitListenerContainerFactory();
         factory.setConnectionFactory(connectionFactory);
         factory.setMessageConverter(jsonMessageConverter());
-        factory.setConcurrentConsumers(minEmailConcurrentConsumers);
-        factory.setMaxConcurrentConsumers(maxEmailConcurrentConsumers);
+        factory.setConcurrentConsumers(minConsumers);
+        factory.setMaxConcurrentConsumers(maxConsumers);
         factory.setPrefetchCount(emailPrefetchCount);
         factory.setDefaultRequeueRejected(false);
-
-        System.out.println("⚙️ RabbitMQ Email Concurrency configured: min=" + minEmailConcurrentConsumers
-                + ", max=" + maxEmailConcurrentConsumers + ", prefetch=" + emailPrefetchCount);
-
         return factory;
     }
 
@@ -261,37 +308,72 @@ public class RabbitMQConfig {
             .with(VOTE_RECEIPT_ROUTING_KEY);
     }
 
-    // ========== EMAIL QUEUE + DLQ ==========
+    // ========== EMAIL DEAD LETTER EXCHANGE ==========
 
     @Bean
     public DirectExchange emailDeadLetterExchange() {
         return new DirectExchange(EMAIL_DLX, true, false);
     }
 
+    // ========== TRANSACTIONAL EMAIL QUEUE + DLQ ==========
+
     @Bean
-    public Queue emailQueue() {
-        return QueueBuilder.durable(EMAIL_QUEUE)
+    public Queue emailTransactionalQueue() {
+        return QueueBuilder.durable(EMAIL_TRANSACTIONAL_QUEUE)
             .withArgument("x-dead-letter-exchange", EMAIL_DLX)
-            .withArgument("x-dead-letter-routing-key", EMAIL_DLQ_ROUTING_KEY)
+            .withArgument("x-dead-letter-routing-key", EMAIL_TRANSACTIONAL_DLQ_ROUTING_KEY)
             .build();
     }
 
     @Bean
-    public Binding emailBinding(Queue emailQueue, DirectExchange taskExchange) {
-        return BindingBuilder.bind(emailQueue)
+    public Binding emailTransactionalBinding(Queue emailTransactionalQueue, DirectExchange taskExchange) {
+        return BindingBuilder.bind(emailTransactionalQueue)
             .to(taskExchange)
-            .with(EMAIL_ROUTING_KEY);
+            .with(EMAIL_TRANSACTIONAL_ROUTING_KEY);
     }
 
     @Bean
-    public Queue emailDeadLetterQueue() {
-        return QueueBuilder.durable(EMAIL_DLQ).build();
+    public Queue emailTransactionalDeadLetterQueue() {
+        return QueueBuilder.durable(EMAIL_TRANSACTIONAL_DLQ).build();
     }
 
     @Bean
-    public Binding emailDeadLetterBinding(Queue emailDeadLetterQueue, DirectExchange emailDeadLetterExchange) {
-        return BindingBuilder.bind(emailDeadLetterQueue)
+    public Binding emailTransactionalDeadLetterBinding(
+            Queue emailTransactionalDeadLetterQueue,
+            DirectExchange emailDeadLetterExchange) {
+        return BindingBuilder.bind(emailTransactionalDeadLetterQueue)
             .to(emailDeadLetterExchange)
-            .with(EMAIL_DLQ_ROUTING_KEY);
+            .with(EMAIL_TRANSACTIONAL_DLQ_ROUTING_KEY);
+    }
+
+    // ========== BULK EMAIL QUEUE + DLQ ==========
+
+    @Bean
+    public Queue emailBulkQueue() {
+        return QueueBuilder.durable(EMAIL_BULK_QUEUE)
+            .withArgument("x-dead-letter-exchange", EMAIL_DLX)
+            .withArgument("x-dead-letter-routing-key", EMAIL_BULK_DLQ_ROUTING_KEY)
+            .build();
+    }
+
+    @Bean
+    public Binding emailBulkBinding(Queue emailBulkQueue, DirectExchange taskExchange) {
+        return BindingBuilder.bind(emailBulkQueue)
+            .to(taskExchange)
+            .with(EMAIL_BULK_ROUTING_KEY);
+    }
+
+    @Bean
+    public Queue emailBulkDeadLetterQueue() {
+        return QueueBuilder.durable(EMAIL_BULK_DLQ).build();
+    }
+
+    @Bean
+    public Binding emailBulkDeadLetterBinding(
+            Queue emailBulkDeadLetterQueue,
+            DirectExchange emailDeadLetterExchange) {
+        return BindingBuilder.bind(emailBulkDeadLetterQueue)
+            .to(emailDeadLetterExchange)
+            .with(EMAIL_BULK_DLQ_ROUTING_KEY);
     }
 }

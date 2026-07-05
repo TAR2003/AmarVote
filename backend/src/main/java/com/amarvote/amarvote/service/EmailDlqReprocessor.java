@@ -11,7 +11,7 @@ import com.amarvote.amarvote.dto.worker.EmailTask;
 import lombok.RequiredArgsConstructor;
 
 /**
- * Periodically drains the email dead-letter queue and re-publishes tasks that
+ * Periodically drains email dead-letter queues and re-publishes tasks that
  * have not yet exhausted their delivery attempt budget.
  */
 @Service
@@ -32,7 +32,11 @@ public class EmailDlqReprocessor {
         int processed = 0;
 
         while (processed < batchSize) {
-            Object payload = rabbitTemplate.receiveAndConvert(RabbitMQConfig.EMAIL_DLQ, 500);
+            Object payload =
+                    rabbitTemplate.receiveAndConvert(RabbitMQConfig.EMAIL_TRANSACTIONAL_DLQ, 250);
+            if (payload == null) {
+                payload = rabbitTemplate.receiveAndConvert(RabbitMQConfig.EMAIL_BULK_DLQ, 250);
+            }
             if (!(payload instanceof EmailTask task)) {
                 break;
             }

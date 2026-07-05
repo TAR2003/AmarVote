@@ -18,6 +18,7 @@ import org.springframework.transaction.support.TransactionTemplate;
 
 import com.amarvote.amarvote.dto.ScheduledElectionEmailRequest;
 import com.amarvote.amarvote.dto.ScheduledElectionEmailResponse;
+import com.amarvote.amarvote.email.EmailAddressValidator;
 import com.amarvote.amarvote.model.AllowedVoter;
 import com.amarvote.amarvote.model.Election;
 import com.amarvote.amarvote.model.ElectionCoAdmin;
@@ -38,6 +39,7 @@ public class ScheduledElectionEmailService {
     private final GuardianRepository guardianRepository;
     private final ElectionCoAdminRepository electionCoAdminRepository;
     private final EmailService emailService;
+    private final EmailAddressValidator emailAddressValidator;
     private final TransactionTemplate transactionTemplate;
 
     public ScheduledElectionEmailService(
@@ -47,6 +49,7 @@ public class ScheduledElectionEmailService {
             GuardianRepository guardianRepository,
             ElectionCoAdminRepository electionCoAdminRepository,
             EmailService emailService,
+            EmailAddressValidator emailAddressValidator,
             PlatformTransactionManager transactionManager) {
         this.scheduledEmailRepository = scheduledEmailRepository;
         this.electionRepository = electionRepository;
@@ -54,6 +57,7 @@ public class ScheduledElectionEmailService {
         this.guardianRepository = guardianRepository;
         this.electionCoAdminRepository = electionCoAdminRepository;
         this.emailService = emailService;
+        this.emailAddressValidator = emailAddressValidator;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -78,6 +82,7 @@ public class ScheduledElectionEmailService {
         ScheduledElectionEmail entity = ScheduledElectionEmail.builder()
                 .electionId(electionId)
                 .recipientGroup(normalizeGroup(request.recipientGroup()))
+                .voterFilter(normalizeVoterFilter(request.recipientGroup(), request.voterFilter()))
                 .emailBody(request.emailBody().trim())
                 .scheduledTime(request.scheduledTime())
                 .sent(false)
@@ -101,6 +106,7 @@ public class ScheduledElectionEmailService {
         validateScheduledTime(request.scheduledTime());
 
         entity.setRecipientGroup(normalizeGroup(request.recipientGroup()));
+        entity.setVoterFilter(normalizeVoterFilter(request.recipientGroup(), request.voterFilter()));
         entity.setEmailBody(request.emailBody().trim());
         entity.setScheduledTime(request.scheduledTime());
 
@@ -155,7 +161,8 @@ public class ScheduledElectionEmailService {
             return;
         }
 
-        List<String> recipients = resolveRecipients(election, scheduled.getRecipientGroup());
+        List<String> recipients = resolveRecipients(
+                election, scheduled.getRecipientGroup(), scheduled.getVoterFilter());
         if (recipients.isEmpty()) {
             scheduled.setSent(true);
             scheduled.setSentAt(Instant.now());
@@ -207,12 +214,14 @@ public class ScheduledElectionEmailService {
         };
     }
 
-    List<String> resolveRecipients(Election election, String recipientGroup) {
+    List<String> resolveRecipients(Election election, String recipientGroup, String voterFilter) {
         Long electionId = election.getElectionId();
         Set<String> emails = new LinkedHashSet<>();
+        String normalizedFilter = normalizeVoterFilter(recipientGroup, voterFilter);
 
         switch (normalizeGroup(recipientGroup)) {
             case ScheduledElectionEmail.GROUP_VOTERS -> allowedVoterRepository.findByElectionId(electionId).stream()
+                    .filter(voter -> matchesVoterFilter(voter, normalizedFilter))
                     .map(AllowedVoter::getUserEmail)
                     .forEach(emails::add);
             case ScheduledElectionEmail.GROUP_GUARDIANS -> guardianRepository.findByElectionId(electionId).stream()
@@ -230,6 +239,32 @@ public class ScheduledElectionEmailService {
         }
 
         return sanitize(new ArrayList<>(emails));
+    }
+
+    private boolean matchesVoterFilter(AllowedVoter voter, String voterFilter) {
+        boolean hasVoted = Boolean.TRUE.equals(voter.getHasVoted());
+        return switch (voterFilter) {
+            case ScheduledElectionEmail.VOTER_FILTER_VOTED -> hasVoted;
+            case ScheduledElectionEmail.VOTER_FILTER_NOT_VOTED -> !hasVoted;
+            default -> true;
+        };
+    }
+
+    private String normalizeVoterFilter(String recipientGroup, String voterFilter) {
+        if (!ScheduledElectionEmail.GROUP_VOTERS.equals(normalizeGroup(recipientGroup))) {
+            return ScheduledElectionEmail.VOTER_FILTER_BOTH;
+        }
+        if (voterFilter == null || voterFilter.isBlank()) {
+            return ScheduledElectionEmail.VOTER_FILTER_BOTH;
+        }
+        String normalized = voterFilter.trim().toLowerCase();
+        if (!ScheduledElectionEmail.VOTER_FILTER_BOTH.equals(normalized)
+                && !ScheduledElectionEmail.VOTER_FILTER_VOTED.equals(normalized)
+                && !ScheduledElectionEmail.VOTER_FILTER_NOT_VOTED.equals(normalized)) {
+            throw new IllegalArgumentException(
+                    "Voter filter must be both, voted, or not_voted");
+        }
+        return normalized;
     }
 
     private String buildSubject(Election election, String recipientGroup) {
@@ -302,14 +337,14 @@ public class ScheduledElectionEmailService {
             return List.of();
         }
         return rawEmails.stream()
-                .map(this::normalizeEmail)
-                .filter(email -> email != null && !email.isBlank())
+                .map(emailAddressValidator::normalize)
+                .filter(emailAddressValidator::isValid)
                 .distinct()
                 .collect(Collectors.toList());
     }
 
     private String normalizeEmail(String email) {
-        return email == null ? null : email.trim().toLowerCase();
+        return emailAddressValidator.normalize(email);
     }
 
     private ScheduledElectionEmailResponse toResponse(ScheduledElectionEmail entity) {
@@ -317,6 +352,7 @@ public class ScheduledElectionEmailService {
                 .emailId(entity.getEmailId())
                 .electionId(entity.getElectionId())
                 .recipientGroup(entity.getRecipientGroup())
+                .voterFilter(entity.getVoterFilter())
                 .emailBody(entity.getEmailBody())
                 .scheduledTime(entity.getScheduledTime())
                 .sent(entity.getSent())
