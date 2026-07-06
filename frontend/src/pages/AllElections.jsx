@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, memo, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
-import { deleteElection, fetchAllElections } from "../utils/api";
+import { deleteElection, invalidateElectionsCache } from "../utils/api";
+import { useElections } from "../context/ElectionsContext";
 import { timezoneUtils } from "../utils/timezoneUtils";
 import { FiCalendar, FiClock, FiUsers, FiInfo, FiLoader, FiTrash2 } from "react-icons/fi";
 
@@ -47,10 +48,6 @@ const ElectionCardSkeleton = () => (
     </div>
   </div>
 );
-
-// Cache for election data
-const electionCache = new Map();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 // Memoized Election Card component for better performance
 const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getStatusColor }) => {
@@ -181,59 +178,27 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
 
 const AllElections = () => {
   const navigate = useNavigate();
-  const [elections, setElections] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const { elections, setElections, loading, error: electionsError } = useElections();
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [filter, setFilter] = useState("all");
-  const [displayLimit, setDisplayLimit] = useState(10); // Limit initial render
+  const [displayLimit, setDisplayLimit] = useState(10);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [electionToDelete, setElectionToDelete] = useState(null);
   const [deletingElectionId, setDeletingElectionId] = useState(null);
   const canDeleteElection = useCallback((election) => election.userRoles?.includes('admin'), []);
 
-  // Optimized data loading with caching
   useEffect(() => {
-    const loadElections = async () => {
-      try {
-        setLoading(true);
-        
-        // Check cache first
-        const cacheKey = 'all_elections';
-        const cached = electionCache.get(cacheKey);
-        
-        if (cached && Date.now() - cached.timestamp < CACHE_DURATION) {
-          console.log('Using cached election data');
-          setElections(cached.data);
-          setLoading(false);
-          setInitialLoadComplete(true);
-          return;
-        }
-        
-        // Make a single API call to fetch all election data
-        console.log('Fetching fresh election data');
-        const electionData = await fetchAllElections();
-        
-        // Store all data from the API call
-        setElections(electionData);
-        setInitialLoadComplete(true);
-        
-        // Cache the data with timestamp
-        electionCache.set(cacheKey, { 
-          data: electionData, 
-          timestamp: Date.now() 
-        });
-        
-      } catch (err) {
-        setError(err.message);
-        console.error("Error loading elections:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
+    if (electionsError) {
+      setError(electionsError);
+    }
+  }, [electionsError]);
 
-    loadElections();
-  }, []);
+  useEffect(() => {
+    if (!loading) {
+      setInitialLoadComplete(true);
+    }
+  }, [loading]);
 
   // Handle navigation to election page - memoized
   const handleElectionClick = useCallback((electionId) => {
@@ -292,6 +257,7 @@ const AllElections = () => {
       setError(null);
       await deleteElection(electionToDelete.electionId);
       setElections((prev) => prev.filter((e) => e.electionId !== electionToDelete.electionId));
+      invalidateElectionsCache();
       setSuccessMessage(`Election \"${electionToDelete.electionTitle}\" deleted successfully.`);
       setElectionToDelete(null);
     } catch (err) {
@@ -299,7 +265,7 @@ const AllElections = () => {
     } finally {
       setDeletingElectionId(null);
     }
-  }, [electionToDelete]);
+  }, [electionToDelete, setElections]);
 
   useEffect(() => {
     if (!successMessage) return;

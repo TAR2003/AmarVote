@@ -14,17 +14,22 @@ import {
   FiBell,
   FiUsers,
 } from "react-icons/fi";
-import { fetchAllElections } from "../utils/api";
 import { electionApi } from "../utils/electionApi";
+import { ElectionsProvider, useElections } from "../context/ElectionsContext";
 import { timezoneUtils } from "../utils/timezoneUtils";
 
-const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
+const AuthenticatedLayout = ({ userEmail, setUserEmail }) => (
+  <ElectionsProvider userEmail={userEmail}>
+    <AuthenticatedLayoutContent userEmail={userEmail} setUserEmail={setUserEmail} />
+  </ElectionsProvider>
+);
+
+const AuthenticatedLayoutContent = ({ userEmail, setUserEmail }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchSuggestions, setSearchSuggestions] = useState([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
-  const [allElections, setAllElections] = useState([]);
-  const [isLoadingElections, setIsLoadingElections] = useState(false);
+  const { elections: allElections, loading: isLoadingElections } = useElections();
   const [guardianAttentionItems, setGuardianAttentionItems] = useState([]);
   const [showGuardianAttention, setShowGuardianAttention] = useState(false);
   const [loadingGuardianAttention, setLoadingGuardianAttention] = useState(false);
@@ -52,26 +57,7 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
     });
   };
 
-  // Load elections when component mounts
-  useEffect(() => {
-    const loadElections = async () => {
-      if (!userEmail) return;
-
-      setIsLoadingElections(true);
-      try {
-        const elections = await fetchAllElections();
-        setAllElections(elections);
-      } catch (error) {
-        console.error("Failed to load elections for search:", error);
-      } finally {
-        setIsLoadingElections(false);
-      }
-    };
-
-    loadElections();
-  }, [userEmail]);
-
-  useEffect(() => {
+  // Load create-election permissions when user is known
     const loadCreatePermission = async () => {
       if (!userEmail) {
         setCanCreateElections(false);
@@ -201,6 +187,10 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
   }, []);
 
   useEffect(() => {
+    let cancelled = false;
+    let idleId = null;
+    let timeoutId = null;
+
     const loadGuardianAttentionItems = async () => {
       if (!userEmail || allElections.length === 0) {
         setGuardianAttentionItems([]);
@@ -216,6 +206,8 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
       setLoadingGuardianAttention(true);
       try {
         const pendingCeremonyResp = await electionApi.getPendingKeyCeremonies().catch(() => ({ elections: [] }));
+        if (cancelled) return;
+
         const pendingCeremonies = pendingCeremonyResp?.elections || [];
         const pendingByElection = new Map(
           pendingCeremonies.map((item) => [Number(item.electionId), item])
@@ -247,44 +239,50 @@ const AuthenticatedLayout = ({ userEmail, setUserEmail }) => {
         });
 
         const now = new Date();
-        const decryptionCandidates = guardianElections.filter((e) => {
-          if (!e.endingTime) return false;
-          if (e.status === 'key_ceremony_pending') return false;
-          if (String(e.status || '').toLowerCase() === 'decrypted' || String(e.status || '').toLowerCase() === 'completed') return false;
-          return new Date(e.endingTime) < now;
-        });
-
-        const details = await Promise.all(
-          decryptionCandidates.map(async (e) => {
-            try {
-              return await electionApi.getElectionById(e.electionId);
-            } catch {
-              return null;
-            }
-          })
-        );
-
-        details.forEach((detail) => {
-          if (!detail?.guardians) return;
-          const currentGuardian = detail.guardians.find((g) => g.isCurrentUser);
-          if (!currentGuardian) return;
-          if (!currentGuardian.decryptedOrNot) {
+        guardianElections.forEach((election) => {
+          if (!election.endingTime) return;
+          if (election.status === 'key_ceremony_pending') return;
+          if (['decrypted', 'completed'].includes(String(election.status || '').toLowerCase())) return;
+          if (new Date(election.endingTime) >= now) return;
+          if (election.guardianDecrypted === false) {
             attentionItems.push({
-              electionId: detail.electionId,
-              electionTitle: detail.electionTitle,
+              electionId: election.electionId,
+              electionTitle: election.electionTitle,
               type: 'decryption',
               detail: 'Election ended. Your decryption share is required.',
             });
           }
         });
 
-        setGuardianAttentionItems(attentionItems);
+        if (!cancelled) {
+          setGuardianAttentionItems(attentionItems);
+        }
       } finally {
-        setLoadingGuardianAttention(false);
+        if (!cancelled) {
+          setLoadingGuardianAttention(false);
+        }
       }
     };
 
-    loadGuardianAttentionItems();
+    const scheduleLoad = () => {
+      if (typeof window !== 'undefined' && typeof window.requestIdleCallback === 'function') {
+        idleId = window.requestIdleCallback(() => loadGuardianAttentionItems());
+        return;
+      }
+      timeoutId = setTimeout(loadGuardianAttentionItems, 250);
+    };
+
+    scheduleLoad();
+
+    return () => {
+      cancelled = true;
+      if (idleId != null && typeof window !== 'undefined' && typeof window.cancelIdleCallback === 'function') {
+        window.cancelIdleCallback(idleId);
+      }
+      if (timeoutId != null) {
+        clearTimeout(timeoutId);
+      }
+    };
   }, [userEmail, allElections, location.pathname]);
 
   const formatDate = (dateString) => {

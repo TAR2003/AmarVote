@@ -8,7 +8,10 @@ import * as api from "../utils/api";
 // 1) Mock the API module
 vi.mock("../utils/api", () => ({
   fetchAllElections: vi.fn(),
+  invalidateElectionsCache: vi.fn(),
 }));
+
+import { ElectionsProvider } from "../context/ElectionsContext";
 
 // 2) Mock react-router navigate if your component uses it
 const mockNavigate = vi.fn();
@@ -19,7 +22,11 @@ vi.mock("react-router-dom", async () => ({
 
 // 3) Simple Router wrapper
 const RouterWrapper = ({ children }) => (
-  <BrowserRouter>{children}</BrowserRouter>
+  <BrowserRouter>
+    <ElectionsProvider userEmail="test@example.com">
+      {children}
+    </ElectionsProvider>
+  </BrowserRouter>
 );
 
 describe("AllElections Component", () => {

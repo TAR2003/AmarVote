@@ -38,4 +38,7 @@ public class ElectionResponse {
     
     // Indicates if the current user has already voted in this election
     private Boolean hasVoted;
+
+    // When the current user is a guardian, whether they have submitted decryption
+    private Boolean guardianDecrypted;
 }

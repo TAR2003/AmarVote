@@ -43,6 +43,9 @@ public class OptimizedElectionResponse {
     
     // Indicates if the current user has already voted in this election
     private Boolean hasVoted;
+
+    // When the current user is a guardian, whether they have submitted decryption
+    private Boolean guardianDecrypted;
     
     // Helper: safely convert possible JDBC / query timestamp values to Instant
     private static Instant toInstant(Object value) {
@@ -75,12 +78,9 @@ public class OptimizedElectionResponse {
         Integer numberOfGuardians = result[i] != null ? ((Number) result[i]).intValue() : null; i++;
         Integer electionQuorum = result[i] != null ? ((Number) result[i]).intValue() : null; i++;
         Integer noOfCandidates = result[i] != null ? ((Number) result[i]).intValue() : null; i++;
-        i++; // Skip jointPublicKey
-        i++; // Skip manifestHash
         String status = (String) result[i++];
         Instant startingTime = toInstant(result[i++]);
         Instant endingTime = toInstant(result[i++]);
-        i++; // Skip baseHash
         Instant createdAt = toInstant(result[i++]);
         String profilePic = (String) result[i++];
         String adminEmail = (String) result[i++];
@@ -93,6 +93,7 @@ public class OptimizedElectionResponse {
         Boolean isGuardian = (Boolean) result[i++];
         Boolean isVoter = (Boolean) result[i++];
         Boolean hasVoted = (Boolean) result[i++];
+        Boolean guardianDecrypted = result[i] != null ? (Boolean) result[i] : null; i++;
         
         // Build user roles list
         List<String> userRoles = new ArrayList<>();
@@ -127,6 +128,7 @@ public class OptimizedElectionResponse {
                 .isPublic(isPublic)
                 .eligibility(eligibility)
                 .hasVoted(hasVoted)
+                .guardianDecrypted(guardianDecrypted)
                 .build();
     }
 }

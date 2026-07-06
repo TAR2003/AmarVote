@@ -173,30 +173,52 @@ export async function apiBinaryRequest(endpoint, binaryData, contentType = 'appl
   }
 }
 
+const ELECTIONS_CACHE_DURATION_MS = 5 * 60 * 1000;
+let electionsCache = null;
+let electionsCacheTimestamp = 0;
+let electionsInflightRequest = null;
+
+export function invalidateElectionsCache() {
+  electionsCache = null;
+  electionsCacheTimestamp = 0;
+}
+
 /**
- * Fetch all elections accessible to the current user
- * This returns ALL necessary election data including:
- * - Basic election info (title, description, dates)
- * - User's role in each election (voter, admin, guardian)
- * - User's voting status (hasVoted)
- * - Election visibility (isPublic)
- * - Election metadata (noOfCandidates, adminName, adminEmail)
- * 
- * The frontend will use ONLY this data without making additional API calls
+ * Fetch all elections accessible to the current user.
+ * Results are cached in-memory and concurrent callers share one in-flight request.
+ * @param {{ forceRefresh?: boolean }} options
  * @returns {Promise<Array>} Array of complete election objects
  */
-export async function fetchAllElections() {
-  try {
-    console.log('API: Making single API call to fetch all elections data');
-    const elections = await apiRequest('/all-elections', {
-      method: 'GET',
-    });
-    console.log(`API: Fetched ${elections.length} elections with complete data`);
-    return elections;
-  } catch (error) {
-    console.error('Error fetching elections:', error);
-    throw error;
+export async function fetchAllElections({ forceRefresh = false } = {}) {
+  if (
+    !forceRefresh &&
+    electionsCache &&
+    Date.now() - electionsCacheTimestamp < ELECTIONS_CACHE_DURATION_MS
+  ) {
+    return electionsCache;
   }
+
+  if (electionsInflightRequest) {
+    return electionsInflightRequest;
+  }
+
+  electionsInflightRequest = apiRequest('/all-elections', {
+    method: 'GET',
+  })
+    .then((elections) => {
+      electionsCache = elections;
+      electionsCacheTimestamp = Date.now();
+      return elections;
+    })
+    .catch((error) => {
+      console.error('Error fetching elections:', error);
+      throw error;
+    })
+    .finally(() => {
+      electionsInflightRequest = null;
+    });
+
+  return electionsInflightRequest;
 }
 
 /**

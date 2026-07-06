@@ -6,7 +6,9 @@ import jakarta.persistence.*;
 import lombok.*;
 
 @Entity
-@Table(name = "allowed_voters")
+@Table(name = "allowed_voters", indexes = {
+    @Index(name = "idx_allowed_voters_user_email", columnList = "user_email")
+})
 @Getter
 @Setter
 @NoArgsConstructor

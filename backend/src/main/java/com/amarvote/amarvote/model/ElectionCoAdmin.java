@@ -7,6 +7,7 @@ import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.Id;
 import jakarta.persistence.IdClass;
+import jakarta.persistence.Index;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.Table;
 import lombok.AllArgsConstructor;
@@ -17,7 +18,9 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 @Entity
-@Table(name = "election_co_admins")
+@Table(name = "election_co_admins", indexes = {
+    @Index(name = "idx_election_co_admins_admin_email", columnList = "admin_email")
+})
 @Getter
 @Setter
 @NoArgsConstructor

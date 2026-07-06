@@ -1359,6 +1359,7 @@ public class ElectionService {
                         .isPublic(opt.getIsPublic())
                         .eligibility(opt.getEligibility())
                         .hasVoted(opt.getHasVoted())
+                        .guardianDecrypted(opt.getGuardianDecrypted())
                         .build())
                 .collect(Collectors.toList());
 

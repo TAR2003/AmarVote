@@ -8,8 +8,8 @@ import {
   FiUserCheck,
   FiAward,
 } from "react-icons/fi";
-import { fetchAllElections } from "../utils/api";
 import { userApi } from "../utils/userApi";
+import { useElections } from "../context/ElectionsContext";
 import { timezoneUtils } from "../utils/timezoneUtils";
 
 // Helper function to determine if user can vote in an election based on eligibility
@@ -136,17 +136,15 @@ const ElectionCard = React.memo(({ election, getVoteButtonInfo, handleElectionCl
   );
 });
 
-// Cache for election data
-const electionCache = new Map();
-const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
-
 const Dashboard = ({ userEmail }) => {
   const navigate = useNavigate();
-  const [elections, setElections] = useState([]);
+  const { elections, loading: electionsLoading, error: electionsError } = useElections();
   const [userStats, setUserStats] = useState({ registeredUsers: 0, activeUsers: 0 });
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+
+  const loading = electionsLoading || statsLoading;
+  const error = electionsError;
   
   // Number of elections to display per section
   const MAX_DISPLAY_COUNT = 3;
@@ -249,43 +247,37 @@ const Dashboard = ({ userEmail }) => {
     },
   ], [electionCounts, userStats]);
 
-  // Optimized data loading with caching
   useEffect(() => {
-    const loadDashboardData = async () => {
-      if (!userEmail) return;
-      
-      try {
-        setLoading(true);
-        
-        const cacheKey = 'all_elections';
-        const cached = electionCache.get(cacheKey);
-        
-        const electionsPromise = (cached && Date.now() - cached.timestamp < CACHE_DURATION)
-          ? Promise.resolve(cached.data)
-          : fetchAllElections().then((electionData) => {
-              electionCache.set(cacheKey, { data: electionData, timestamp: Date.now() });
-              return electionData;
-            });
+    if (!userEmail) return;
 
-        const [electionData, statsData] = await Promise.all([
-          electionsPromise,
-          userApi.getUserStats(),
-        ]);
-        
-        setElections(electionData);
-        setUserStats(statsData);
-        setLoading(false);
-        setInitialLoadComplete(true);
-        
-      } catch (err) {
-        setError(err.message);
-        console.error("Error loading dashboard data:", err);
-        setLoading(false);
-      }
+    let cancelled = false;
+    setStatsLoading(true);
+
+    userApi.getUserStats()
+      .then((statsData) => {
+        if (!cancelled) {
+          setUserStats(statsData);
+        }
+      })
+      .catch((err) => {
+        console.error("Error loading user stats:", err);
+      })
+      .finally(() => {
+        if (!cancelled) {
+          setStatsLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
     };
-
-    loadDashboardData();
   }, [userEmail]);
+
+  useEffect(() => {
+    if (!electionsLoading) {
+      setInitialLoadComplete(true);
+    }
+  }, [electionsLoading]);
 
   // Handle navigation to election page
   const handleElectionClick = useCallback((electionId) => {

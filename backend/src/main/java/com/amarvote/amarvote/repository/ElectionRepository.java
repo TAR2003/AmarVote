@@ -46,8 +46,7 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
             "WITH accessible_elections AS (" +
             "    SELECT DISTINCT e.election_id, e.election_title, e.election_description, " +
             "           e.number_of_guardians, e.election_quorum, e.no_of_candidates, " +
-            "           e.joint_public_key, e.manifest_hash, e.status, " +
-            "           e.starting_time, e.ending_time, e.base_hash, e.created_at, " +
+            "           e.status, e.starting_time, e.ending_time, e.created_at, " +
             "           e.profile_pic, e.admin_email, e.privacy, e.eligibility " +
             "    FROM elections e " +
             "    LEFT JOIN allowed_voters av ON e.election_id = av.election_id " +
@@ -83,20 +82,26 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
             "    SELECT av.election_id, av.has_voted " +
             "    FROM allowed_voters av " +
             "    WHERE av.user_email = :userEmail" +
+            "), " +
+            "guardian_decryption AS (" +
+            "    SELECT g.election_id, g.decrypted_or_not " +
+            "    FROM guardians g " +
+            "    WHERE g.user_email = :userEmail" +
             ") " +
             // Final combined query - explicitly list columns in predictable order
             "SELECT e.election_id, e.election_title, e.election_description, " +
             "    e.number_of_guardians, e.election_quorum, e.no_of_candidates, " +
-            "    e.joint_public_key, e.manifest_hash, e.status, " +
-            "    e.starting_time, e.ending_time, e.base_hash, e.created_at, " +
+            "    e.status, e.starting_time, e.ending_time, e.created_at, " +
             "    e.profile_pic, e.admin_email, e.privacy, e.eligibility, " +
             "    a.admin_name, " +
             "    r.is_admin, r.is_guardian, r.is_voter, " +
-            "    COALESCE(v.has_voted, false) as has_voted " +
+            "    COALESCE(v.has_voted, false) as has_voted, " +
+            "    gd.decrypted_or_not as guardian_decrypted " +
             "FROM accessible_elections e " +
             "LEFT JOIN admin_info a ON e.election_id = a.election_id " +
             "LEFT JOIN user_roles r ON e.election_id = r.election_id " +
             "LEFT JOIN vote_status v ON e.election_id = v.election_id " +
+            "LEFT JOIN guardian_decryption gd ON e.election_id = gd.election_id " +
             "ORDER BY e.created_at DESC", 
             nativeQuery = true)
     List<Object[]> findOptimizedAccessibleElectionsWithDetails(@Param("userEmail") String userEmail);
@@ -105,8 +110,7 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
             "WITH accessible_elections AS (" +
             "    SELECT DISTINCT e.election_id, e.election_title, e.election_description, " +
             "           e.number_of_guardians, e.election_quorum, e.no_of_candidates, " +
-            "           e.joint_public_key, e.manifest_hash, e.status, " +
-            "            e.starting_time, e.ending_time, e.base_hash, e.created_at, " +
+            "           e.status, e.starting_time, e.ending_time, e.created_at, " +
             "           e.profile_pic, e.admin_email, e.privacy, e.eligibility " +
             "    FROM elections e" +
             "), " +
@@ -130,19 +134,25 @@ public interface ElectionRepository extends JpaRepository<Election, Long> {
             "    SELECT av.election_id, av.has_voted " +
             "    FROM allowed_voters av " +
             "    WHERE av.user_email = :userEmail" +
+            "), " +
+            "guardian_decryption AS (" +
+            "    SELECT g.election_id, g.decrypted_or_not " +
+            "    FROM guardians g " +
+            "    WHERE g.user_email = :userEmail" +
             ") " +
             "SELECT e.election_id, e.election_title, e.election_description, " +
             "    e.number_of_guardians, e.election_quorum, e.no_of_candidates, " +
-            "    e.joint_public_key, e.manifest_hash, e.status, " +
-            "    e.starting_time, e.ending_time, e.base_hash, e.created_at, " +
+            "    e.status, e.starting_time, e.ending_time, e.created_at, " +
             "    e.profile_pic, e.admin_email, e.privacy, e.eligibility, " +
             "    a.admin_name, " +
             "    r.is_admin, r.is_guardian, r.is_voter, " +
-            "    COALESCE(v.has_voted, false) as has_voted " +
+            "    COALESCE(v.has_voted, false) as has_voted, " +
+            "    gd.decrypted_or_not as guardian_decrypted " +
             "FROM accessible_elections e " +
             "LEFT JOIN admin_info a ON e.election_id = a.election_id " +
             "LEFT JOIN user_roles r ON e.election_id = r.election_id " +
             "LEFT JOIN vote_status v ON e.election_id = v.election_id " +
+            "LEFT JOIN guardian_decryption gd ON e.election_id = gd.election_id " +
             "ORDER BY e.created_at DESC",
             nativeQuery = true)
     List<Object[]> findOptimizedAllElectionsWithDetails(@Param("userEmail") String userEmail);
