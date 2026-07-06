@@ -1439,6 +1439,60 @@ public class ElectionController {
     }
 
     /**
+     * Verify a vote receipt (tracking code + hash) against the final tally.
+     */
+    @PostMapping("/verify-vote")
+    public ResponseEntity<?> verifyVote(@RequestBody Map<String, Object> request) {
+        try {
+            Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+            if (authentication == null || !authentication.isAuthenticated()
+                    || "anonymousUser".equals(authentication.getPrincipal())) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED).body(Map.of(
+                    "status", "error",
+                    "message", "Authentication required",
+                    "found_ballot", false
+                ));
+            }
+
+            Object electionIdObj = request.get("election_id");
+            String trackingCode = request.get("tracking_code") != null
+                ? String.valueOf(request.get("tracking_code")) : null;
+            String hashCode = request.get("hash_code") != null
+                ? String.valueOf(request.get("hash_code")) : null;
+
+            if (electionIdObj == null) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "status", "error",
+                    "message", "election_id is required",
+                    "found_ballot", false
+                ));
+            }
+
+            Long electionId = Long.valueOf(String.valueOf(electionIdObj));
+            String userEmail = authentication.getName();
+
+            if (!electionService.canUserViewElection(electionId, userEmail)) {
+                return ResponseEntity.status(HttpStatus.FORBIDDEN).body(Map.of(
+                    "status", "error",
+                    "message", "You are not authorized to verify votes in this election",
+                    "found_ballot", false
+                ));
+            }
+
+            Map<String, Object> result = partialDecryptionService.verifyVoteInTally(
+                electionId, trackingCode, hashCode);
+            return ResponseEntity.ok(result);
+        } catch (Exception e) {
+            System.err.println("Error verifying vote: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "status", "error",
+                "message", "Internal server error: " + e.getMessage(),
+                "found_ballot", false
+            ));
+        }
+    }
+
+    /**
      * Get ballot details including cipher text by election ID and tracking code
      */
     @GetMapping("/ballot-details/{electionId}/{trackingCode}")

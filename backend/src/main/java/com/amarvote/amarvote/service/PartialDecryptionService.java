@@ -2135,6 +2135,91 @@ public class PartialDecryptionService {
     }
 
     /**
+     * Verify a vote receipt against the decrypted tally without returning all ballots.
+     */
+    public Map<String, Object> verifyVoteInTally(Long electionId, String trackingCode, String hashCode) {
+        if (trackingCode == null || trackingCode.isBlank() || hashCode == null || hashCode.isBlank()) {
+            return Map.of(
+                "status", "error",
+                "message", "Tracking code and hash code are required",
+                "found_ballot", false
+            );
+        }
+
+        String normalizedTracking = trackingCode.trim();
+        String normalizedHash = hashCode.trim().toLowerCase();
+
+        List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
+        if (electionCenters == null || electionCenters.isEmpty()) {
+            return Map.of(
+                "status", "not_found",
+                "message", "No tally data found for this election",
+                "found_ballot", false
+            );
+        }
+
+        for (int i = 0; i < electionCenters.size(); i++) {
+            ElectionCenter chunk = electionCenters.get(i);
+            if (chunk.getElectionResult() == null || chunk.getElectionResult().trim().isEmpty()) {
+                continue;
+            }
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> chunkData = objectMapper.readValue(chunk.getElectionResult(), Map.class);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> verification = (Map<String, Object>) chunkData.get("verification");
+                if (verification == null) {
+                    continue;
+                }
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> ballots = (List<Map<String, Object>>) verification.get("ballots");
+                if (ballots == null) {
+                    continue;
+                }
+
+                for (Map<String, Object> ballot : ballots) {
+                    if (!normalizedTracking.equals(stringValue(ballot.get("ballot_id")))) {
+                        continue;
+                    }
+
+                    Map<String, Object> ballotSummary = toBallotSummary(ballot);
+                    ballotSummary.put("chunkIndex", i + 1);
+
+                    String initialHash = stringValue(ballot.get("initial_hash")).toLowerCase();
+                    String decryptedHash = stringValue(ballot.get("decrypted_hash")).toLowerCase();
+                    boolean hashMatches = normalizedHash.equals(initialHash) || normalizedHash.equals(decryptedHash);
+
+                    if (hashMatches) {
+                        Map<String, Object> response = new HashMap<>();
+                        response.put("status", "verified");
+                        response.put("message", "Vote verified successfully");
+                        response.put("found_ballot", true);
+                        response.put("ballot_info", ballotSummary);
+                        return response;
+                    }
+
+                    Map<String, Object> response = new HashMap<>();
+                    response.put("status", "corrupted");
+                    response.put("message", "Hash mismatch detected - possible tampering");
+                    response.put("found_ballot", true);
+                    response.put("ballot_info", ballotSummary);
+                    response.put("expected_hash", ballot.get("initial_hash"));
+                    response.put("provided_hash", hashCode.trim());
+                    return response;
+                }
+            } catch (Exception e) {
+                System.err.println("Error verifying vote in chunk " + (i + 1) + ": " + e.getMessage());
+            }
+        }
+
+        return Map.of(
+            "status", "not_found",
+            "message", "Tracking code not found in the tally",
+            "found_ballot", false
+        );
+    }
+
+    /**
      * Parses the results string from the microservice response
      */
 

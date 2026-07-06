@@ -62,7 +62,7 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { saveAs } from 'file-saver';
 import { generateElectionResultsPdf, truncateChartLabel } from '../utils/electionResultsPdf';
-import { prepareElectionResultsCsvContent } from '../utils/electionResultsCsv';
+import { prepareElectionResultsCsvContent, escapeCsvField } from '../utils/electionResultsCsv';
 import ErrorBoundary from '../components/ErrorBoundary';
 import GuardianDataDisplay from '../components/GuardianDataDisplay';
 import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
@@ -977,30 +977,33 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
   const downloadAllBallotsCSV = async () => {
     try {
       setDownloadingCsv(true);
-      const response = await electionApi.getElectionBallots(electionId, {
-        page: 0,
-        size: Math.max(totalBallots, 1),
-        search: debouncedSearch,
+      const response = await electionApi.getAllElectionBallots(electionId, {
         sortBy,
         sortOrder,
       });
-      const allBallots = response?.ballots || [];
+      const allBallots = response.ballots || [];
+
+      if (allBallots.length === 0) {
+        toast.error('No ballots available to export');
+        return;
+      }
+
       const csvHeaders = ['Chunk #', 'Tracking Code', 'Hash Code', 'Decrypted Hash', 'Status', 'Verification'];
-      const csvRows = allBallots.map(ballot => [
-        ballot.chunkIndex || 'N/A',
-        ballot.ballot_id,
-        ballot.initial_hash || 'N/A',
-        ballot.decrypted_hash || 'N/A',
-        ballot.status,
-        ballot.verification
+      const csvRows = allBallots.map((ballot) => [
+        ballot.chunkIndex ?? 'N/A',
+        ballot.ballot_id ?? '',
+        ballot.initial_hash ?? 'N/A',
+        ballot.decrypted_hash ?? 'N/A',
+        ballot.status ?? '',
+        ballot.verification ?? '',
       ]);
 
       const csvContent = [csvHeaders, ...csvRows]
-        .map(row => row.map(field => `"${field}"`).join(','))
+        .map((row) => row.map((field) => escapeCsvField(field)).join(','))
         .join('\n');
-
-      const blob = new Blob([csvContent], { type: 'text/csv' });
+      const blob = new Blob(['\uFEFF' + csvContent], { type: 'text/csv;charset=utf-8' });
       saveAs(blob, `all_ballots_verification_${new Date().toISOString().split('T')[0]}.csv`);
+      toast.success(`Downloaded ${allBallots.length} ballots as CSV`);
     } catch (error) {
       console.error('Error downloading ballots CSV:', error);
       toast.error('Failed to download ballots CSV');
@@ -1120,7 +1123,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
       )}
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {ballots.map((ballot, index) => {
+        {ballots.map((ballot) => {
           const statusInfo = getVerificationStatus(ballot);
           const StatusIcon = statusInfo.icon;
 
@@ -1134,19 +1137,16 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
                   <div className={`${statusInfo.bgColor} rounded-full p-2 mr-3`}>
                     <FiFileText className={`h-4 w-4 ${statusInfo.textColor}`} />
                   </div>
-                  <div>
-                    <h4 className="font-medium text-gray-900">Ballot #{index + 1}</h4>
-                    <div className="flex items-center gap-2 mt-1">
-                      <div className={`flex items-center ${statusInfo.textColor}`}>
-                        <StatusIcon className="h-3 w-3 mr-1" />
-                        <span className="text-xs font-medium">{statusInfo.text}</span>
-                      </div>
-                      {ballot.chunkIndex && (
-                        <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">
-                          Chunk {ballot.chunkIndex}
-                        </span>
-                      )}
+                  <div className="flex items-center gap-2">
+                    <div className={`flex items-center ${statusInfo.textColor}`}>
+                      <StatusIcon className="h-3 w-3 mr-1" />
+                      <span className="text-xs font-medium">{statusInfo.text}</span>
                     </div>
+                    {ballot.chunkIndex && (
+                      <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">
+                        Chunk {ballot.chunkIndex}
+                      </span>
+                    )}
                   </div>
                 </div>
                 <button
@@ -1266,7 +1266,17 @@ const VerifyVoteSection = ({ electionId }) => {
               setVerificationFile(jsonData);
               verifyVoteData(jsonData);
               return;
-            } else if (jsonData.ballot_id && (jsonData.initial_hash || jsonData.hash)) {
+            }
+            if (jsonData.trackingCode && jsonData.hashCode) {
+              const normalized = {
+                tracking_code: jsonData.trackingCode,
+                hash_code: jsonData.hashCode,
+              };
+              setVerificationFile(normalized);
+              verifyVoteData(normalized);
+              return;
+            }
+            if (jsonData.ballot_id && (jsonData.initial_hash || jsonData.hash || jsonData.hash_code)) {
               // Alternative format that might be used
               const data = {
                 tracking_code: jsonData.ballot_id,
@@ -1345,13 +1355,22 @@ const VerifyVoteSection = ({ electionId }) => {
       setVerifyingVote(true);
       setVerificationResult(null);
 
-      // Verify via API (ballots are no longer preloaded for the whole page)
       const result = await electionApi.verifyVote(electionId, data);
-      setVerificationResult(result);
+      if (result?.status) {
+        setVerificationResult(result);
+        return;
+      }
+
+      setVerificationResult({
+        status: 'error',
+        message: result?.message || 'Unexpected verification response',
+        found_ballot: false,
+      });
     } catch (error) {
       setVerificationResult({
         status: 'error',
-        message: 'Failed to verify vote: ' + error.message
+        message: 'Failed to verify vote: ' + error.message,
+        found_ballot: false,
       });
     } finally {
       setVerifyingVote(false);
@@ -3183,8 +3202,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
   };
 
   const canUserViewVerification = () => {
-    // Only show verification after results have been displayed to the user
-    return canUserViewResults() && resultsData !== null;
+    // Available once combine is complete; does not require full results/ballots preloaded in the client
+    return canUserViewResults();
   };
 
   const getKeyCeremonyProgressMessage = () => {

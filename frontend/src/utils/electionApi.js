@@ -550,6 +550,45 @@ export const electionApi = {
   },
 
   /**
+   * Fetch every ballot in the tally (paginates past the server page-size cap of 200).
+   */
+  async getAllElectionBallots(electionId, {
+    search = '',
+    sortBy = 'ballot_id',
+    sortOrder = 'asc',
+  } = {}) {
+    const PAGE_SIZE = 200;
+    let page = 0;
+    let allBallots = [];
+    let total = 0;
+
+    while (true) {
+      const response = await this.getElectionBallots(electionId, {
+        page,
+        size: PAGE_SIZE,
+        search,
+        sortBy,
+        sortOrder,
+      });
+
+      if (!response?.success) {
+        throw new Error(response?.message || 'Failed to fetch ballots');
+      }
+
+      const ballots = response.ballots || [];
+      total = response.total ?? ballots.length;
+      allBallots = allBallots.concat(ballots);
+
+      if (allBallots.length >= total || ballots.length === 0) {
+        break;
+      }
+      page += 1;
+    }
+
+    return { success: true, ballots: allBallots, total };
+  },
+
+  /**
    * Verify a vote using tracking code and hash
    */
   async verifyVote(electionId, verificationData) {
