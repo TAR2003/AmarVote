@@ -493,12 +493,17 @@ export const electionApi = {
 
   /**
    * Get election results with chunk breakdown
+   * @param {Object} [options]
+   * @param {boolean} [options.includeBallots=false] - Include full ballot list (heavy for large elections)
    */
-  async getElectionResults(electionId) {
+  async getElectionResults(electionId, options = {}) {
+    const includeBallots = options.includeBallots === true;
     try {
-      const response = await apiRequest(`/election/${electionId}/cached-results`, {
-        method: 'GET',
-      }, EXTENDED_TIMEOUT);
+      const response = await apiRequest(
+        `/election/${electionId}/cached-results?includeBallots=${includeBallots}`,
+        { method: 'GET' },
+        EXTENDED_TIMEOUT
+      );
       return response;
     } catch (error) {
       // Don't throw 404 errors - results just aren't ready yet
@@ -507,6 +512,38 @@ export const electionApi = {
         return { success: false, results: null };
       }
       console.error('Error fetching election results:', error);
+      throw error;
+    }
+  },
+
+  /**
+   * Paginated ballots for Ballots in Tally tab (server-side search/sort).
+   */
+  async getElectionBallots(electionId, {
+    page = 0,
+    size = 30,
+    search = '',
+    sortBy = 'ballot_id',
+    sortOrder = 'asc',
+  } = {}) {
+    try {
+      const params = new URLSearchParams({
+        page: String(page),
+        size: String(size),
+        sortBy,
+        sortOrder,
+      });
+      if (search && search.trim()) {
+        params.set('search', search.trim());
+      }
+      return await apiRequest(`/election/${electionId}/cached-results/ballots?${params.toString()}`, {
+        method: 'GET',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      if (error.message && error.message.includes('Results not yet available')) {
+        return { success: false, ballots: [], total: 0 };
+      }
+      console.error('Error fetching election ballots:', error);
       throw error;
     }
   },

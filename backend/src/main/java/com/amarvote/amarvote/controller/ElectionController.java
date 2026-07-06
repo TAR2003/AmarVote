@@ -1367,10 +1367,12 @@ public class ElectionController {
      * Returns results from election_result field if already computed
      */
     @GetMapping("/election/{electionId}/cached-results")
-    public ResponseEntity<?> getCachedElectionResults(@PathVariable Long electionId) {
+    public ResponseEntity<?> getCachedElectionResults(
+            @PathVariable Long electionId,
+            @RequestParam(defaultValue = "false") boolean includeBallots) {
         try {
 
-            Object results = partialDecryptionService.getElectionResults(electionId);
+            Object results = partialDecryptionService.getElectionResults(electionId, includeBallots);
 
             if (results == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -1381,6 +1383,37 @@ public class ElectionController {
 
         } catch (Exception e) {
             System.err.println("Error fetching cached election results: " + e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Internal server error: " + e.getMessage()));
+        }
+    }
+
+    /**
+     * Paginated ballots for the Ballots in Tally tab (search/sort across full tally).
+     */
+    @GetMapping("/election/{electionId}/cached-results/ballots")
+    public ResponseEntity<?> getCachedElectionBallots(
+            @PathVariable Long electionId,
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "30") int size,
+            @RequestParam(required = false) String search,
+            @RequestParam(defaultValue = "ballot_id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortOrder) {
+        try {
+            Map<String, Object> response = partialDecryptionService.getElectionBallotsPaginated(
+                electionId, page, size, search, sortBy, sortOrder);
+
+            if (Boolean.FALSE.equals(response.get("success"))) {
+                String message = String.valueOf(response.getOrDefault("message", "Results not yet available"));
+                if (message.contains("not yet available")) {
+                    return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+                }
+                return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(response);
+            }
+
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            System.err.println("Error fetching paginated election ballots: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("success", false, "message", "Internal server error: " + e.getMessage()));
         }

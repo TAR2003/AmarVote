@@ -1920,6 +1920,10 @@ public class PartialDecryptionService {
      * Returns null if results haven't been computed yet
      */
     public Object getElectionResults(Long electionId) {
+        return getElectionResults(electionId, true);
+    }
+
+    public Object getElectionResults(Long electionId, boolean includeBallots) {
         try {
             List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
             
@@ -1936,13 +1940,158 @@ public class PartialDecryptionService {
             }
             
             // Build and return aggregated results
-            return buildAggregatedResultsFromChunks(electionCenters);
+            return buildAggregatedResultsFromChunks(electionCenters, includeBallots);
             
         } catch (Exception e) {
             System.err.println("Error getting election results: " + e.getMessage());
             // Stack trace available in exception: e
             return null;
         }
+    }
+
+    /**
+     * Paginated ballot list for the Ballots in Tally tab.
+     * Search runs across all ballots server-side; only one page is returned per request.
+     */
+    public Map<String, Object> getElectionBallotsPaginated(
+            Long electionId,
+            int page,
+            int size,
+            String search,
+            String sortBy,
+            String sortOrder) {
+        try {
+            List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
+            if (electionCenters == null || electionCenters.isEmpty()) {
+                return Map.of("success", false, "message", "Results not yet available");
+            }
+
+            List<Map<String, Object>> allBallots = extractAllBallotsFromCenters(electionCenters);
+            if (allBallots.isEmpty()) {
+                return Map.of(
+                    "success", true,
+                    "ballots", List.of(),
+                    "total", 0,
+                    "page", Math.max(page, 0),
+                    "size", normalizeBallotPageSize(size),
+                    "statusCounts", Map.of()
+                );
+            }
+
+            String normalizedSearch = search != null ? search.trim().toLowerCase() : "";
+            List<Map<String, Object>> filtered = allBallots;
+            if (!normalizedSearch.isEmpty()) {
+                filtered = allBallots.stream()
+                    .filter(ballot -> ballotMatchesSearch(ballot, normalizedSearch))
+                    .toList();
+            }
+
+            String resolvedSortBy = sortBy != null && !sortBy.isBlank() ? sortBy : "ballot_id";
+            boolean ascending = sortOrder == null || !sortOrder.equalsIgnoreCase("desc");
+            filtered = new ArrayList<>(filtered);
+            filtered.sort((a, b) -> compareBallots(a, b, resolvedSortBy, ascending));
+
+            int safePage = Math.max(page, 0);
+            int safeSize = normalizeBallotPageSize(size);
+            int total = filtered.size();
+            int fromIndex = Math.min(safePage * safeSize, total);
+            int toIndex = Math.min(fromIndex + safeSize, total);
+            List<Map<String, Object>> pageBallots = filtered.subList(fromIndex, toIndex);
+
+            return Map.of(
+                "success", true,
+                "ballots", pageBallots,
+                "total", total,
+                "page", safePage,
+                "size", safeSize,
+                "statusCounts", computeBallotStatusCounts(allBallots)
+            );
+        } catch (Exception e) {
+            System.err.println("Error getting paginated election ballots: " + e.getMessage());
+            return Map.of("success", false, "message", "Internal server error: " + e.getMessage());
+        }
+    }
+
+    private int normalizeBallotPageSize(int size) {
+        if (size <= 0) {
+            return 30;
+        }
+        return Math.min(size, 200);
+    }
+
+    private List<Map<String, Object>> extractAllBallotsFromCenters(List<ElectionCenter> electionCenters) {
+        List<Map<String, Object>> allBallots = new ArrayList<>();
+        for (int i = 0; i < electionCenters.size(); i++) {
+            ElectionCenter chunk = electionCenters.get(i);
+            if (chunk.getElectionResult() == null || chunk.getElectionResult().trim().isEmpty()) {
+                continue;
+            }
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> chunkData = objectMapper.readValue(chunk.getElectionResult(), Map.class);
+                @SuppressWarnings("unchecked")
+                Map<String, Object> verification = (Map<String, Object>) chunkData.get("verification");
+                if (verification == null) {
+                    continue;
+                }
+                @SuppressWarnings("unchecked")
+                List<Map<String, Object>> ballots = (List<Map<String, Object>>) verification.get("ballots");
+                if (ballots == null) {
+                    continue;
+                }
+                for (Map<String, Object> ballot : ballots) {
+                    ballot.put("chunkIndex", i + 1);
+                    allBallots.add(ballot);
+                }
+            } catch (Exception e) {
+                System.err.println("Error extracting ballots from chunk " + (i + 1) + ": " + e.getMessage());
+            }
+        }
+        return allBallots;
+    }
+
+    private boolean ballotMatchesSearch(Map<String, Object> ballot, String normalizedSearch) {
+        String ballotId = stringValue(ballot.get("ballot_id")).toLowerCase();
+        String initialHash = stringValue(ballot.get("initial_hash")).toLowerCase();
+        String decryptedHash = stringValue(ballot.get("decrypted_hash")).toLowerCase();
+        String verification = stringValue(ballot.get("verification")).toLowerCase();
+        String status = stringValue(ballot.get("status")).toLowerCase();
+        return ballotId.contains(normalizedSearch)
+            || initialHash.contains(normalizedSearch)
+            || decryptedHash.contains(normalizedSearch)
+            || verification.contains(normalizedSearch)
+            || status.contains(normalizedSearch);
+    }
+
+    private String stringValue(Object value) {
+        return value == null ? "" : String.valueOf(value);
+    }
+
+    private int compareBallots(
+            Map<String, Object> a,
+            Map<String, Object> b,
+            String sortBy,
+            boolean ascending) {
+        String aValue = stringValue(a.get(sortBy)).toLowerCase();
+        String bValue = stringValue(b.get(sortBy)).toLowerCase();
+        int cmp = aValue.compareTo(bValue);
+        return ascending ? cmp : -cmp;
+    }
+
+    private Map<String, Integer> computeBallotStatusCounts(List<Map<String, Object>> ballots) {
+        Map<String, Integer> counts = new HashMap<>();
+        for (Map<String, Object> ballot : ballots) {
+            incrementCount(counts, stringValue(ballot.get("verification")));
+            incrementCount(counts, stringValue(ballot.get("status")));
+        }
+        return counts;
+    }
+
+    private void incrementCount(Map<String, Integer> counts, String key) {
+        if (key == null || key.isBlank()) {
+            return;
+        }
+        counts.put(key, counts.getOrDefault(key, 0) + 1);
     }
 
     /**
@@ -1954,11 +2103,16 @@ public class PartialDecryptionService {
      * Combines per-chunk results into a single comprehensive result object
      */
     private Object buildAggregatedResultsFromChunks(List<ElectionCenter> electionCenters) {
+        return buildAggregatedResultsFromChunks(electionCenters, true);
+    }
+
+    private Object buildAggregatedResultsFromChunks(List<ElectionCenter> electionCenters, boolean includeBallots) {
         try {
             Map<String, Object> aggregatedResult = new HashMap<>();
             List<Map<String, Object>> chunkResults = new ArrayList<>();
             Map<String, Integer> finalTallies = new HashMap<>();
             List<Map<String, Object>> allBallots = new ArrayList<>();
+            int totalBallotCount = 0;
             
             // Process each chunk
             for (int i = 0; i < electionCenters.size(); i++) {
@@ -2019,10 +2173,12 @@ public class PartialDecryptionService {
                             List<Map<String, Object>> ballots = (List<Map<String, Object>>) verification.get("ballots");
                             if (ballots != null) {
                                 chunkResult.put("ballotCount", ballots.size());
-                                // Add chunk index to each ballot
-                                for (Map<String, Object> ballot : ballots) {
-                                    ballot.put("chunkIndex", i + 1);
-                                    allBallots.add(ballot);
+                                totalBallotCount += ballots.size();
+                                if (includeBallots) {
+                                    for (Map<String, Object> ballot : ballots) {
+                                        ballot.put("chunkIndex", i + 1);
+                                        allBallots.add(ballot);
+                                    }
                                 }
                             }
                         }
@@ -2066,9 +2222,10 @@ public class PartialDecryptionService {
             aggregatedResult.put("chunks", chunkResults);
             aggregatedResult.put("finalTallies", finalTallies);
             aggregatedResult.put("totalChunks", electionCenters.size());
-            aggregatedResult.put("allBallots", allBallots);
-            aggregatedResult.put("total_ballots_cast", allBallots.size());
-            aggregatedResult.put("total_valid_ballots", allBallots.size());
+            int ballotTotal = includeBallots ? allBallots.size() : totalBallotCount;
+            aggregatedResult.put("allBallots", includeBallots ? allBallots : List.of());
+            aggregatedResult.put("total_ballots_cast", ballotTotal);
+            aggregatedResult.put("total_valid_ballots", ballotTotal);
             
             return aggregatedResult;
             
