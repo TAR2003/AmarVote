@@ -4742,28 +4742,28 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <textarea
-                                className="border rounded-lg px-3 py-2 min-h-28"
-                                placeholder="Private key"
+                                readOnly
+                                className="border rounded-lg px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                                placeholder="Private key (generate credentials to fill)"
                                 value={guardianCeremonyForm.privateKey}
-                                onChange={(e) => setGuardianCeremonyForm((prev) => ({ ...prev, privateKey: e.target.value }))}
                               />
                               <textarea
-                                className="border rounded-lg px-3 py-2 min-h-28"
-                                placeholder="Public key"
+                                readOnly
+                                className="border rounded-lg px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                                placeholder="Public key (generate credentials to fill)"
                                 value={guardianCeremonyForm.publicKey}
-                                onChange={(e) => setGuardianCeremonyForm((prev) => ({ ...prev, publicKey: e.target.value }))}
                               />
                               <textarea
-                                className="border rounded-lg px-3 py-2 min-h-28"
-                                placeholder="Polynomial"
+                                readOnly
+                                className="border rounded-lg px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                                placeholder="Polynomial (generate credentials to fill)"
                                 value={guardianCeremonyForm.polynomial}
-                                onChange={(e) => setGuardianCeremonyForm((prev) => ({ ...prev, polynomial: e.target.value }))}
                               />
                               <textarea
-                                className="border rounded-lg px-3 py-2 min-h-28"
-                                placeholder="Guardian backup payload (optional)"
+                                readOnly
+                                className="border rounded-lg px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                                placeholder="Guardian backup payload (generate credentials to fill)"
                                 value={guardianCeremonyForm.keyBackup}
-                                onChange={(e) => setGuardianCeremonyForm((prev) => ({ ...prev, keyBackup: e.target.value }))}
                               />
                             </div>
 

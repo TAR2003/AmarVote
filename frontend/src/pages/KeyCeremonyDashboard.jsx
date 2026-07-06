@@ -295,48 +295,24 @@ export default function KeyCeremonyDashboard() {
 
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <textarea
-                        className="border rounded px-3 py-2 min-h-28"
-                        placeholder="Private key (kept locally, do not submit)"
+                        readOnly
+                        className="border rounded px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                        placeholder="Private key (generate credentials to fill)"
                         value={guardianForm[item.electionId]?.privateKey || ''}
-                        onChange={(e) =>
-                          setGuardianForm((prev) => ({
-                            ...prev,
-                            [item.electionId]: {
-                              ...(prev[item.electionId] || {}),
-                              privateKey: e.target.value,
-                            },
-                          }))
-                        }
                       />
 
                       <textarea
-                        className="border rounded px-3 py-2 min-h-28"
-                        placeholder="Public key JSON (ElectionGuard-compatible)"
+                        readOnly
+                        className="border rounded px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                        placeholder="Public key JSON (generate credentials to fill)"
                         value={guardianForm[item.electionId]?.publicKey || ''}
-                        onChange={(e) =>
-                          setGuardianForm((prev) => ({
-                            ...prev,
-                            [item.electionId]: {
-                              ...(prev[item.electionId] || {}),
-                              publicKey: e.target.value,
-                            },
-                          }))
-                        }
                       />
 
                       <textarea
-                        className="border rounded px-3 py-2 min-h-28"
-                        placeholder="Polynomial (kept locally, do not submit)"
+                        readOnly
+                        className="border rounded px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                        placeholder="Polynomial (generate credentials to fill)"
                         value={guardianForm[item.electionId]?.polynomial || ''}
-                        onChange={(e) =>
-                          setGuardianForm((prev) => ({
-                            ...prev,
-                            [item.electionId]: {
-                              ...(prev[item.electionId] || {}),
-                              polynomial: e.target.value,
-                            },
-                          }))
-                        }
                       />
 
                     </div>
