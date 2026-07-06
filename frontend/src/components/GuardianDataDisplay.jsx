@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiDownload, FiUser, FiShield, FiInfo, FiLoader } from 'react-icons/fi';
-import { saveAs } from 'file-saver';
+import { downloadJsonArtifact } from '../utils/artifactDownload';
 import { electionApi } from '../utils/electionApi';
 
 const GuardianDataDisplay = ({ electionId }) => {
@@ -72,8 +72,11 @@ const GuardianDataDisplay = ({ electionId }) => {
       timestamp: new Date().toISOString(),
     };
 
-    const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
-    saveAs(blob, filename);
+    try {
+      await downloadJsonArtifact(filename, dataToSave);
+    } catch {
+      alert('Failed to prepare guardian artifact download');
+    }
   };
 
   const downloadAllGuardiansData = async () => {
@@ -88,8 +91,11 @@ const GuardianDataDisplay = ({ electionId }) => {
       timestamp: new Date().toISOString(),
     };
 
-    const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
-    saveAs(blob, filename);
+    try {
+      await downloadJsonArtifact(filename, dataToSave);
+    } catch {
+      alert('Failed to prepare guardian artifacts download');
+    }
   };
 
   if (loading) {

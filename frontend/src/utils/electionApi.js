@@ -765,6 +765,21 @@ export const electionApi = {
     }
   },
 
+  /**
+   * Decode binary-transport artifacts to human-readable JSON (for downloads only).
+   */
+  async decodeArtifactToJson(payload) {
+    try {
+      return await apiRequest('/artifacts/decode-to-json', {
+        method: 'POST',
+        body: JSON.stringify({ payload }),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error decoding artifact to JSON:', error);
+      throw error;
+    }
+  },
+
   async getElectionVoters(electionId) {
     try {
       return await apiRequest(`/election/${electionId}/voters`, {

@@ -375,6 +375,26 @@ def deserialize_list_of_strings_to_list_of_dicts(data, label="list"):
     else:
         raise ValueError(f"Expected list or string, got {type(data)}")
 
+
+def decode_artifact_to_json_recursive(obj):
+    """Recursively decode base64-msgpack transport strings into JSON-friendly dicts/lists."""
+    if isinstance(obj, dict):
+        return {k: decode_artifact_to_json_recursive(v) for k, v in obj.items()}
+    if isinstance(obj, list):
+        return [decode_artifact_to_json_recursive(item) for item in obj]
+    if isinstance(obj, str):
+        try:
+            return decode_artifact_to_json_recursive(deserialize_string_to_dict(obj, label="artifact"))
+        except (ValueError, TypeError):
+            pass
+        try:
+            parsed = json.loads(obj)
+            return decode_artifact_to_json_recursive(parsed)
+        except (json.JSONDecodeError, TypeError):
+            return obj
+    return obj
+
+
 def _bytes_to_str_deep(obj):
     """Recursively decode bytes → UTF-8 str for dicts/lists coming from msgpack raw=True mode."""
     if isinstance(obj, bytes):
@@ -1946,6 +1966,31 @@ def decrypt_it():
         for k, v in cors_headers.items():
             response.headers[k] = v
         return response, 400
+
+@app.route('/decode_artifact_to_json', methods=['POST'])
+def decode_artifact_to_json():
+    """Decode binary-transport artifacts (base64 msgpack) into human-readable JSON structures."""
+    is_msgpack_client = 'msgpack' in (request.content_type or '')
+
+    try:
+        data = get_request_data() or {}
+        if 'payload' not in data:
+            message = "Missing required field: payload"
+            if is_msgpack_client:
+                return make_binary_response({'status': 'error', 'message': message}, 400)
+            return jsonify({'status': 'error', 'message': message}), 400
+
+        decoded = decode_artifact_to_json_recursive(data['payload'])
+        response = {'status': 'success', 'decoded': decoded}
+        if is_msgpack_client:
+            return make_binary_response(response)
+        return jsonify(response), 200
+    except Exception as exc:
+        message = f"Failed to decode artifact: {exc}"
+        if is_msgpack_client:
+            return make_binary_response({'status': 'error', 'message': message}, 400)
+        return jsonify({'status': 'error', 'message': message}), 400
+
 
 @app.route('/api/health', methods=['GET'])
 def health_check():

@@ -57,6 +57,7 @@ import com.amarvote.amarvote.service.AuthorizedUserService;
 import com.amarvote.amarvote.service.BallotService;
 import com.amarvote.amarvote.util.SiteUrlResolver;
 import com.amarvote.amarvote.service.CloudinaryService;
+import com.amarvote.amarvote.service.ElectionGuardService;
 import com.amarvote.amarvote.service.ElectionService;
 import com.amarvote.amarvote.service.PartialDecryptionService;
 import com.amarvote.amarvote.service.ScheduledElectionEmailService;
@@ -81,6 +82,7 @@ public class ElectionController {
     private final ScheduledElectionEmailService scheduledElectionEmailService;
     private final ObjectMapper objectMapper;
     private final SiteUrlResolver siteUrlResolver;
+    private final ElectionGuardService electionGuardService;
 
     @PostMapping("/create-election")
     public ResponseEntity<?> createElection(
@@ -1706,6 +1708,41 @@ public class ElectionController {
     /**
      * Get election results with chunk information
      */
+    @PostMapping("/artifacts/decode-to-json")
+    public ResponseEntity<?> decodeArtifactToJson(@RequestBody Map<String, Object> body) {
+        Object payload = body.get("payload");
+        if (payload == null) {
+            return ResponseEntity.badRequest().body(Map.of(
+                "success", false,
+                "error", "Missing required field: payload"
+            ));
+        }
+
+        try {
+            String response = electionGuardService.postRequest(
+                "/decode_artifact_to_json",
+                Map.of("payload", payload)
+            );
+            @SuppressWarnings("unchecked")
+            Map<String, Object> parsed = objectMapper.readValue(response, Map.class);
+            if (!"success".equals(parsed.get("status"))) {
+                return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", String.valueOf(parsed.getOrDefault("message", "Failed to decode artifact"))
+                ));
+            }
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "decoded", parsed.get("decoded")
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "error", "Failed to decode artifact: " + e.getMessage()
+            ));
+        }
+    }
+
     @GetMapping("/election/{id}/results")
     public ResponseEntity<ElectionResultsResponse> getElectionResults(@PathVariable Long id) {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();

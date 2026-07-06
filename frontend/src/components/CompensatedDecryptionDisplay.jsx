@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import { FiDownload, FiUsers, FiRefreshCw, FiInfo, FiLoader } from 'react-icons/fi';
-import { saveAs } from 'file-saver';
+import { downloadJsonArtifact } from '../utils/artifactDownload';
 import { electionApi } from '../utils/electionApi';
 
 const CompensatedDecryptionDisplay = ({ electionId }) => {
@@ -79,8 +79,11 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
       timestamp: new Date().toISOString(),
     };
 
-    const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
-    saveAs(blob, filename);
+    try {
+      await downloadJsonArtifact(filename, dataToSave);
+    } catch {
+      alert('Failed to prepare compensated decryption artifact download');
+    }
   };
 
   const downloadAllCompensatedDecryptionsData = async () => {
@@ -99,8 +102,11 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
       timestamp: new Date().toISOString(),
     };
 
-    const blob = new Blob([JSON.stringify(dataToSave, null, 2)], { type: 'application/json' });
-    saveAs(blob, filename);
+    try {
+      await downloadJsonArtifact(filename, dataToSave);
+    } catch {
+      alert('Failed to prepare compensated decryption artifacts download');
+    }
   };
 
   if (loading) {

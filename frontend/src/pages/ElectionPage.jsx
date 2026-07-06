@@ -58,6 +58,7 @@ import {
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { saveAs } from 'file-saver';
+import { downloadJsonArtifact, decodeArtifactForDownload } from '../utils/artifactDownload';
 import { generateElectionResultsPdf, truncateChartLabel } from '../utils/electionResultsPdf';
 import { prepareElectionResultsCsvContent, escapeCsvField } from '../utils/electionResultsCsv';
 import ErrorBoundary from '../components/ErrorBoundary';
@@ -255,21 +256,25 @@ const ElectionTimer = ({ startTime, endTime }) => {
 
 // Download-only row for verification artifacts (no inline preview)
 const ArtifactDownloadRow = ({ title, data, downloadFilename }) => {
-  const content = data == null
-    ? null
-    : (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+  const [downloading, setDownloading] = useState(false);
   const isAvailable = Boolean(
-    content &&
-    content !== 'Not available' &&
-    content !== 'Error loading encrypted tally' &&
-    content.trim() !== ''
+    data != null &&
+    data !== 'Not available' &&
+    data !== 'Error loading encrypted tally' &&
+    (typeof data !== 'string' || data.trim() !== '')
   );
 
-  const handleDownload = () => {
-    if (!isAvailable) return;
-    const blob = new Blob([content], { type: 'application/json' });
+  const handleDownload = async () => {
+    if (!isAvailable || downloading) return;
     const filename = downloadFilename || `${title.toLowerCase().replace(/\s+/g, '_')}.json`;
-    saveAs(blob, filename);
+    setDownloading(true);
+    try {
+      await downloadJsonArtifact(filename, data);
+    } catch {
+      toast.error('Failed to prepare artifact download');
+    } finally {
+      setDownloading(false);
+    }
   };
 
   return (
@@ -283,11 +288,15 @@ const ArtifactDownloadRow = ({ title, data, downloadFilename }) => {
       <button
         type="button"
         onClick={handleDownload}
-        disabled={!isAvailable}
+        disabled={!isAvailable || downloading}
         className="flex items-center gap-2 shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
-        <FiDownload className="h-4 w-4" />
-        Download
+        {downloading ? (
+          <FiLoader className="h-4 w-4 animate-spin" />
+        ) : (
+          <FiDownload className="h-4 w-4" />
+        )}
+        {downloading ? 'Preparing...' : 'Download'}
       </button>
     </div>
   );
@@ -637,11 +646,10 @@ const ChunksTabContent = ({ electionId }) => {
         return;
       }
 
-      const content = typeof encryptedTally === 'string'
-        ? encryptedTally
-        : JSON.stringify(encryptedTally, null, 2);
-      const blob = new Blob([content], { type: 'application/json' });
-      saveAs(blob, `chunk_${chunk.chunkIndex}_encrypted_tally_election_${electionId}.json`);
+      await downloadJsonArtifact(
+        `chunk_${chunk.chunkIndex}_encrypted_tally_election_${electionId}.json`,
+        encryptedTally
+      );
     } catch {
       toast.error('Failed to download encrypted tally');
     } finally {
@@ -904,7 +912,12 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
         console.warn('Could not fetch cipher text for ballot:', ballot.ballot_id);
       }
 
-      const blob = new Blob([JSON.stringify(ballotData, null, 2)], { type: 'application/json' });
+      const decodedCipherText = ballotData.cipher_text && ballotData.cipher_text !== 'Not available'
+        ? await decodeArtifactForDownload(ballotData.cipher_text)
+        : ballotData.cipher_text;
+      const downloadPayload = { ...ballotData, cipher_text: decodedCipherText };
+
+      const blob = new Blob([JSON.stringify(downloadPayload, null, 2)], { type: 'application/json' });
       saveAs(blob, `ballot_${ballot.ballot_id}_verification.json`);
     } catch (error) {
       console.error('Error downloading ballot info:', error);
