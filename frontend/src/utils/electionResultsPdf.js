@@ -201,14 +201,6 @@ function drawCandidateImage(doc, dataUrl, x, y, size = CANDIDATE_IMG_MM) {
   }
 }
 
-function verificationId(electionData, electionId) {
-  const hash = electionData?.manifestHash;
-  if (hash && hash !== 'Not available') {
-    return String(hash).length > 28 ? `${String(hash).slice(0, 24)}…` : hash;
-  }
-  return `eg-manifest-${electionId}`;
-}
-
 /* ------------------------------------------------------------------ *
  * Rasterized backgrounds (smooth gradients for a premium finish)
  * ------------------------------------------------------------------ */
@@ -560,7 +552,7 @@ function drawSectionHeader(doc, x, y, title, subtitle) {
 function drawCoverPage(doc, pageWidth, contentWidth, opts) {
   const {
     electionData, electionId, processedResults, ranked,
-    winnerCount, formatGeneratedAt, verifyId,
+    winnerCount, formatGeneratedAt,
   } = opts;
 
   const heroH = 96;
@@ -1108,7 +1100,7 @@ function drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked
  * Footer (applied to every page at the end)
  * ------------------------------------------------------------------ */
 
-function addCertifiedFooter(doc, pageWidth, pageHeight, verifyId) {
+function addCertifiedFooter(doc, pageWidth, pageHeight) {
   const pages = doc.internal.getNumberOfPages();
   for (let i = 1; i <= pages; i += 1) {
     doc.setPage(i);
@@ -1120,7 +1112,6 @@ function addCertifiedFooter(doc, pageWidth, pageHeight, verifyId) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
     doc.text('AmarVote · Certified Ledger', MARGIN, pageHeight - 7);
-    doc.text(`Verification ID: ${verifyId}`, pageWidth / 2, pageHeight - 7, { align: 'center' });
     doc.text(`Page ${i} of ${pages}`, pageWidth - MARGIN, pageHeight - 7, { align: 'right' });
   }
 }
@@ -1141,7 +1132,6 @@ export async function generateElectionResultsPdf({
   statusLabel = null,
 }) {
   const enrichedRanked = await attachCandidateImageData(enrichRankedWithMeta(ranked, electionData));
-  const verifyId = verificationId(electionData, electionId);
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -1156,7 +1146,7 @@ export async function generateElectionResultsPdf({
   const opts = {
     electionData, electionId, processedResults, ranked: enrichedRanked,
     winnerCount, formatGeneratedAt, formatStartTime, formatEndTime,
-    statusLabel, verifyId,
+    statusLabel,
   };
 
   // Page 1 — Cover
@@ -1174,7 +1164,7 @@ export async function generateElectionResultsPdf({
   doc.addPage();
   drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked, winnerCount);
 
-  addCertifiedFooter(doc, pageWidth, pageHeight, verifyId);
+  addCertifiedFooter(doc, pageWidth, pageHeight);
 
   const safeTitle = (electionData?.electionTitle || 'election')
     .replace(/[^a-z0-9]+/gi, '_')

@@ -1695,6 +1695,8 @@ export default function ElectionPage() {
   const [editingVotingRules, setEditingVotingRules] = useState(false);
   const [maxChoicesDraft, setMaxChoicesDraft] = useState('1');
   const [winnerNoDraft, setWinnerNoDraft] = useState('1');
+  const [editingSchedule, setEditingSchedule] = useState(false);
+  const [scheduleDraft, setScheduleDraft] = useState({ startingTime: '', endingTime: '' });
   const [settingsSaving, setSettingsSaving] = useState(false);
   const [keyCeremonyUiMessage, setKeyCeremonyUiMessage] = useState('');
   const [keyCeremonyUiError, setKeyCeremonyUiError] = useState('');
@@ -3380,6 +3382,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
   const canEditVotingRules = () => canEditElectionDescription();
 
+  const canEditElectionSchedule = () =>
+    canEditElectionDescription() &&
+    electionData?.startingTime &&
+    electionData?.endingTime;
+
   const candidateCountForElection = () =>
     electionData?.electionChoices?.length || electionData?.noOfCandidates || 0;
 
@@ -3436,6 +3443,45 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
       toast.success('Election description updated');
     } catch (err) {
       toast.error(err.message || 'Failed to update description');
+    } finally {
+      setSettingsSaving(false);
+    }
+  };
+
+  const handleSaveSchedule = async () => {
+    if (!scheduleDraft.startingTime || !scheduleDraft.endingTime) {
+      toast.error('Start and end time are both required');
+      return;
+    }
+
+    const startingTime = timezoneUtils.fromLocalInputValue(scheduleDraft.startingTime);
+    const endingTime = timezoneUtils.fromLocalInputValue(scheduleDraft.endingTime);
+    if (!startingTime || !endingTime) {
+      toast.error('Invalid start or end time');
+      return;
+    }
+    if (new Date(endingTime) <= new Date(startingTime)) {
+      toast.error('End time must be after start time');
+      return;
+    }
+    if (new Date(startingTime) <= new Date()) {
+      toast.error('Start time must be in the future');
+      return;
+    }
+
+    try {
+      setSettingsSaving(true);
+      const response = await electionApi.updateElectionSettings(id, {
+        startingTime,
+        endingTime,
+      });
+      if (response?.election) {
+        setElectionData(response.election);
+      }
+      setEditingSchedule(false);
+      toast.success('Election schedule updated');
+    } catch (err) {
+      toast.error(err.message || 'Failed to update election schedule');
     } finally {
       setSettingsSaving(false);
     }
@@ -3874,8 +3920,70 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 <div>
                   <h4 className="font-medium text-gray-900 mb-2">Timeline</h4>
                   <div className="space-y-2 text-sm">
-                    <p className="flex items-center flex-wrap gap-1"><FiCalendar className="h-4 w-4 mr-1" /><span className="font-medium">Starts:</span> {formatDate(electionData.startingTime)}</p>
-                    <p className="flex items-center flex-wrap gap-1"><FiCalendar className="h-4 w-4 mr-1" /><span className="font-medium">Ends:</span> {formatDate(electionData.endingTime)}</p>
+                    {canEditElectionSchedule() && editingSchedule ? (
+                      <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                          <label className="space-y-1">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Election Start</span>
+                            <input
+                              type="datetime-local"
+                              value={scheduleDraft.startingTime}
+                              onChange={(e) => setScheduleDraft((prev) => ({ ...prev, startingTime: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 outline-none bg-white"
+                            />
+                          </label>
+                          <label className="space-y-1">
+                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Election End</span>
+                            <input
+                              type="datetime-local"
+                              value={scheduleDraft.endingTime}
+                              onChange={(e) => setScheduleDraft((prev) => ({ ...prev, endingTime: e.target.value }))}
+                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 outline-none bg-white"
+                            />
+                          </label>
+                        </div>
+                        <div className="flex gap-2">
+                          <button
+                            type="button"
+                            disabled={settingsSaving}
+                            onClick={handleSaveSchedule}
+                            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                          >
+                            Save
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => setEditingSchedule(false)}
+                            className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                          >
+                            Cancel
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <>
+                        <p className="flex items-center flex-wrap gap-1">
+                          <FiCalendar className="h-4 w-4 mr-1" />
+                          <span className="font-medium">Starts:</span> {formatDate(electionData.startingTime)}
+                          {canEditElectionSchedule() && (
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setScheduleDraft({
+                                  startingTime: timezoneUtils.toLocalInputValue(electionData.startingTime),
+                                  endingTime: timezoneUtils.toLocalInputValue(electionData.endingTime),
+                                });
+                                setEditingSchedule(true);
+                              }}
+                              className="ml-2 text-xs font-medium text-blue-600 hover:underline"
+                            >
+                              Edit
+                            </button>
+                          )}
+                        </p>
+                        <p className="flex items-center flex-wrap gap-1"><FiCalendar className="h-4 w-4 mr-1" /><span className="font-medium">Ends:</span> {formatDate(electionData.endingTime)}</p>
+                      </>
+                    )}
                     <p className="flex items-center flex-wrap gap-1"><FiClock className="h-4 w-4 mr-1" /><span className="font-medium">Created:</span> {formatDate(electionData.createdAt)}</p>
                     <p className="text-xs text-gray-500">Times shown in your timezone: {timezoneUtils.getTimezoneLabel()}</p>
                   </div>

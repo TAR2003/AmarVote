@@ -479,6 +479,32 @@ public class ElectionService {
             }
         }
 
+        if (request.startingTime() != null || request.endingTime() != null) {
+            requireElectionAdmin(election, userEmail, "Only election admins and co-admins can edit the election schedule");
+            if (!isBeforeElectionStart(election)) {
+                throw new IllegalArgumentException("Election start and end times can only be edited before the election starts");
+            }
+            if (request.startingTime() == null || request.endingTime() == null) {
+                throw new IllegalArgumentException("Both starting time and ending time are required");
+            }
+            if (!request.endingTime().isAfter(request.startingTime())) {
+                throw new IllegalArgumentException("Ending time must be after starting time");
+            }
+            if (!Instant.now().isBefore(request.startingTime())) {
+                throw new IllegalArgumentException("Starting time must be in the future");
+            }
+            if (!Instant.now().isBefore(request.endingTime())) {
+                throw new IllegalArgumentException("Ending time must be in the future");
+            }
+
+            election.setStartingTime(request.startingTime());
+            election.setEndingTime(request.endingTime());
+            if (!"decrypted".equals(election.getStatus())) {
+                election.setStatus(resolveElectionStatus(election.getStatus(), request.startingTime(), request.endingTime()));
+            }
+            updated = true;
+        }
+
         if (!updated) {
             throw new IllegalArgumentException("No settings provided to update");
         }
