@@ -1212,6 +1212,79 @@ public class ElectionService {
                 "message", "Password retrieval is not available. Use your downloaded credentials.txt file for decryption.");
     }
 
+    /**
+     * Privately verify that the guardian's credential file matches their stored public key.
+     * Nothing is persisted; only the requesting guardian receives the result.
+     */
+    public Map<String, Object> verifyGuardianCredentials(Long electionId, String userEmail, String encryptedCredential) {
+        List<Guardian> matched = guardianRepository.findByElectionIdAndUserEmail(electionId, userEmail);
+        if (matched.isEmpty()) {
+            throw new IllegalArgumentException("You are not assigned as a guardian for this election");
+        }
+
+        Guardian guardian = matched.get(0);
+
+        if (!Boolean.TRUE.equals(guardian.getGuardianKeySubmitted())) {
+            throw new IllegalArgumentException(
+                    "Your guardian key has not been registered yet. Complete the key ceremony first.");
+        }
+
+        String storedPublicKey = guardian.getGuardianPublicKey();
+        if (storedPublicKey == null || storedPublicKey.isBlank()) {
+            throw new IllegalArgumentException("No public key is on record for your guardian role yet.");
+        }
+
+        String credentialMetadata = guardian.getCredentials();
+        if (credentialMetadata == null || credentialMetadata.isBlank()) {
+            throw new IllegalArgumentException(
+                    "Credential metadata is not available. Contact the election administrator.");
+        }
+
+        if (encryptedCredential == null || encryptedCredential.isBlank()) {
+            throw new IllegalArgumentException("Credential file content is required");
+        }
+
+        ElectionGuardCryptoService.GuardianDecryptionResult decrypted;
+        try {
+            decrypted = cryptoService.decryptGuardianData(encryptedCredential.trim(), credentialMetadata);
+        } catch (RuntimeException e) {
+            return Map.of(
+                    "success", true,
+                    "verified", false,
+                    "message", "Could not decrypt the credential file. Possibly, you have submitted the wrong credential file. Ensure you uploaded the correct credentials.txt file.");
+        }
+
+        String microserviceResponse = electionGuardService.postRequest("/verify_guardian_key", Map.of(
+                "private_key", decrypted.getPrivateKey(),
+                "stored_public_key", storedPublicKey));
+
+        try {
+            @SuppressWarnings("unchecked")
+            Map<String, Object> parsed = objectMapper.readValue(microserviceResponse, Map.class);
+
+            if (!"success".equals(String.valueOf(parsed.get("status")))) {
+                throw new IllegalArgumentException(String.valueOf(parsed.get("message")));
+            }
+
+            boolean verified = Boolean.TRUE.equals(parsed.get("verified"));
+            String message;
+            if (verified) {
+                message = "Your credential file matches the public key on record for this election. You have the correct credential file. No need to worry.";
+            } else {
+                message = "Caution!!!! Your credential file does not match the public key stored for this election. This can indicate a possible corruption of credentials.txt file during or after key ceremony. Please immediately contact the election administrator.";
+            }
+
+            return Map.of(
+                    "success", true,
+                    "verified", verified,
+                    "message", message);
+        } catch (IllegalArgumentException e) {
+            throw e;
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to verify guardian credentials", e);
+        }
+    }
+
     private String extractPublicKeyValue(String guardianPublicKey) {
         if (guardianPublicKey == null || guardianPublicKey.isBlank()) {
             return null;

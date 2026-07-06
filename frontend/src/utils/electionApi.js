@@ -185,6 +185,22 @@ export const electionApi = {
   },
 
   /**
+   * Privately verify guardian credential file against stored public key.
+   * Result is visible only to the requesting guardian; nothing is persisted.
+   */
+  async verifyGuardianKey(electionId, encryptedCredential) {
+    try {
+      return await apiRequest(`/guardian/key-verification/${electionId}`, {
+        method: 'POST',
+        body: JSON.stringify({ encryptedCredential }),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error verifying guardian key:', error);
+      throw error;
+    }
+  },
+
+  /**
    * Fetch detailed election information by ID
    * Returns null if user is not authorized to view the election
    */

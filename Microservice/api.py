@@ -132,6 +132,7 @@ from services.create_partial_decryption_shares import compute_ballot_shares, com
 from services.create_encrypted_ballot import create_election_manifest, create_plaintext_ballot
 from services.create_encrypted_tally import ciphertext_tally_to_raw, raw_to_ciphertext_tally
 from services.benaloh_challenge import benaloh_challenge_service
+from services.verify_guardian_key import verify_guardian_key_service
 
 # Re-apply WARNING level after all ElectionGuard imports (ElectionGuardLog singleton now
 # defaults to WARNING, but this ensures nothing else reset it during service imports).
@@ -1046,6 +1047,27 @@ def api_generate_guardian_backup_shares():
         return make_binary_response({'status': 'error', 'message': str(e)}, status=400)
     except Exception as e:
         return make_binary_response({'status': 'error', 'message': str(e)}, status=500)
+
+@app.route('/verify_guardian_key', methods=['POST'])
+def api_verify_guardian_key():
+    """Verify a guardian credential private key matches the stored public key. Nothing is persisted."""
+    try:
+        data = get_request_data()
+        validation_error = validate_input(data, ['private_key', 'stored_public_key'])
+        if validation_error:
+            return make_binary_response({'status': 'error', 'message': validation_error}, status=400)
+
+        result = verify_guardian_key_service(
+            str(data['private_key']),
+            str(data['stored_public_key']),
+        )
+        status_code = 200 if result.get('status') == 'success' else 500
+        return make_binary_response(result, status=status_code)
+    except ValueError as e:
+        return make_binary_response({'status': 'error', 'message': str(e)}, status=400)
+    except Exception as e:
+        return make_binary_response({'status': 'error', 'message': str(e)}, status=500)
+
 
 @app.route('/benaloh_challenge', methods=['POST'])
 @track_request('/benaloh_challenge')

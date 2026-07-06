@@ -77,13 +77,20 @@ export function getApiErrorMessage(error) {
   if (error.userMessage) return error.userMessage;
 
   const kind = classifyFetchError(error, error.status);
-  if (error.message && kind === HTTP_ERROR_KIND.UNKNOWN) {
+  const genericMessage = getHttpErrorMessage(kind, error.status);
+
+  if (error.message) {
     if (isHtmlOrJsonParseErrorMessage(error.message)) {
       return getHttpErrorMessage(HTTP_ERROR_KIND.SERVER_UNAVAILABLE, error.status);
     }
-    return error.message;
+    // Prefer explicit messages from the server or caller over generic status text
+    // (e.g. wrong password on login should not show "session ended").
+    if (kind === HTTP_ERROR_KIND.UNKNOWN || error.message !== genericMessage) {
+      return error.message;
+    }
   }
-  return getHttpErrorMessage(kind, error.status);
+
+  return genericMessage;
 }
 
 export function isHtmlBody(text) {
@@ -124,12 +131,16 @@ export async function parseJsonResponse(response) {
 }
 
 export function resolveHttpErrorMessage({ status, data, fallback } = {}) {
+  if (data && typeof data === 'object') {
+    const serverMessage = data.message || data.error;
+    if (typeof serverMessage === 'string' && serverMessage.trim()) {
+      return serverMessage;
+    }
+  }
+
   const kind = classifyHttpStatus(status ?? 0);
   if (kind !== HTTP_ERROR_KIND.UNKNOWN) {
     return getHttpErrorMessage(kind, status);
-  }
-  if (data && typeof data === 'object') {
-    return data.message || data.error || fallback;
   }
   return fallback;
 }

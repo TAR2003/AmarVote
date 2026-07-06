@@ -47,6 +47,7 @@ import com.amarvote.amarvote.dto.EligibilityCheckResponse;
 import com.amarvote.amarvote.dto.GenerateGuardianBackupRequest;
 import com.amarvote.amarvote.dto.GuardianBackupSubmitRequest;
 import com.amarvote.amarvote.dto.GuardianKeyCeremonySubmitRequest;
+import com.amarvote.amarvote.dto.GuardianKeyVerificationRequest;
 import com.amarvote.amarvote.dto.KeyCeremonyPendingElectionResponse;
 import com.amarvote.amarvote.dto.KeyCeremonyStatusResponse;
 import com.amarvote.amarvote.dto.ScheduledElectionEmailRequest;
@@ -434,6 +435,36 @@ public class ElectionController {
         } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("success", false, "message", e.getMessage()));
+        }
+    }
+
+    @PostMapping(value = "/guardian/key-verification/{electionId}", consumes = "application/json", produces = "application/json")
+    public ResponseEntity<?> verifyGuardianKey(
+            @PathVariable Long electionId,
+            @Valid @RequestBody GuardianKeyVerificationRequest request,
+            HttpServletRequest httpRequest) {
+        try {
+            String userEmail = (String) httpRequest.getAttribute("userEmail");
+            if (userEmail == null) {
+                Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
+                if (authentication != null && authentication.isAuthenticated()) {
+                    userEmail = authentication.getName();
+                }
+            }
+
+            if (userEmail == null) {
+                return ResponseEntity.status(HttpStatus.UNAUTHORIZED)
+                        .body(Map.of("success", false, "message", "User authentication required"));
+            }
+
+            Map<String, Object> result = electionService.verifyGuardianCredentials(
+                    electionId, userEmail, request.encryptedCredential());
+            return ResponseEntity.ok(result);
+        } catch (IllegalArgumentException e) {
+            return ResponseEntity.badRequest().body(Map.of("success", false, "message", e.getMessage()));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(Map.of("success", false, "message", "Verification could not be completed. Please try again."));
         }
     }
 

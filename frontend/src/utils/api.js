@@ -47,14 +47,15 @@ function handleAuthError(response) {
 
 function createApiError(response, errorData = {}) {
   const kind = classifyHttpStatus(response.status);
-  const apiError = new Error(
+  const serverMessage =
     errorData.message ||
-    (errorData.error && errorData.error.message) ||
-    getHttpErrorMessage(kind, response.status)
-  );
+    (errorData.error && typeof errorData.error === 'string' ? errorData.error : errorData.error?.message);
+  const fallbackMessage = getHttpErrorMessage(kind, response.status);
+  const resolvedMessage = serverMessage || fallbackMessage;
+  const apiError = new Error(resolvedMessage);
   apiError.status = response.status;
   apiError.kind = kind;
-  apiError.userMessage = getHttpErrorMessage(kind, response.status);
+  apiError.userMessage = resolvedMessage;
   return apiError;
 }
 

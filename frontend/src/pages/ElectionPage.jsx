@@ -85,6 +85,7 @@ import GuardianProgressPanel from '../components/GuardianProgressPanel';
 import ProcessProgressPanel from '../components/ProcessProgressPanel';
 import ProcessControlPanel from '../components/ProcessControlPanel';
 import ScheduledEmailTab from '../components/ScheduledEmailTab';
+import KeyVerificationTab from '../components/KeyVerificationTab';
 import useElectionProgressStream from '../hooks/useElectionProgressStream';
 import {
   getSnapshotFromEvent,
@@ -134,6 +135,7 @@ const subMenus = [
   { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
   { name: 'Voting Booth', key: 'voting', path: 'voting-booth', icon: FiCheckCircle },
   { name: 'Guardian', key: 'guardian', path: 'guardian', icon: FiShield },
+  { name: 'Key Verification', key: 'key-verification', path: 'key-verification', icon: FiKey, guardianOnly: true },
   { name: 'Results', key: 'results', path: 'results', icon: FiTrendingUp },
   { name: 'Ballots in Tally', key: 'ballots', path: 'ballots-in-tally', icon: FiDatabase },
   { name: 'Verify Your Vote', key: 'verify', path: 'verify-vote', icon: FiHash },
@@ -3698,6 +3700,9 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   if (menu.adminOnly && !electionData?.userRoles?.includes('admin')) {
                     return false;
                   }
+                  if (menu.guardianOnly && !canUserManageGuardian()) {
+                    return false;
+                  }
                   if (menu.key === 'results' && !isCombineComplete) {
                     return false;
                   }
@@ -5934,6 +5939,27 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 </>
               );
             })()}
+          </div>
+        )}
+
+        {/* Key Verification Tab (guardians only) */}
+        {activeTab === 'key-verification' && (
+          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
+            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
+              <FiKey className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+              Key Verification
+            </h3>
+            {canUserManageGuardian() ? (
+              <KeyVerificationTab electionId={id} electionData={electionData} />
+            ) : (
+              <div className="text-center py-8 sm:py-12 px-4">
+                <FiShield className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Guardians Only</h3>
+                <p className="text-sm sm:text-base text-gray-600">
+                  Key verification is available only to guardians assigned to this election.
+                </p>
+              </div>
+            )}
           </div>
         )}
 
