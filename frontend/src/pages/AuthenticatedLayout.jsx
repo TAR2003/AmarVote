@@ -58,6 +58,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail }) => {
   };
 
   // Load create-election permissions when user is known
+  useEffect(() => {
     const loadCreatePermission = async () => {
       if (!userEmail) {
         setCanCreateElections(false);
