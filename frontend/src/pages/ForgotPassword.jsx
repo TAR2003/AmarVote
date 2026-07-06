@@ -6,7 +6,8 @@ import PasswordInput from "../components/PasswordInput";
 import TurnstileWidget from "../components/TurnstileWidget";
 import useCaptchaConfig from "../hooks/useCaptchaConfig";
 import { formatPasswordErrors, getPasswordValidationErrors } from "../utils/passwordUtils";
-import { buildEmailCodePayload, getAuthErrorMessage } from "../utils/authApi";
+import { buildEmailCodePayload, getAuthErrorMessage, readAuthResponse, resolveAuthErrorMessage } from "../utils/authApi";
+import { getApiErrorMessage } from "../utils/httpErrors";
 
 export default function ForgotPassword() {
   const navigate = useNavigate();
@@ -50,14 +51,17 @@ export default function ForgotPassword() {
         body: JSON.stringify(buildEmailCodePayload(email, captchaToken)),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const { data, ok, status } = await readAuthResponse(res);
 
-      if (res.status === 429) {
+      if (status === 429) {
         throw new Error(getAuthErrorMessage(data, "Please wait before requesting another verification code."));
       }
 
-      if (!res.ok) {
-        throw new Error(getAuthErrorMessage(data, "Failed to send verification code"));
+      if (!ok) {
+        throw Object.assign(
+          new Error(resolveAuthErrorMessage(res, data, "Failed to send verification code")),
+          { status }
+        );
       }
 
       setStep(2);
@@ -65,7 +69,7 @@ export default function ForgotPassword() {
       resetCaptcha();
       return true;
     } catch (err) {
-      setError(err.message || "Failed to send verification code");
+      setError(getApiErrorMessage(err));
       resetCaptcha();
       return false;
     } finally {
@@ -88,9 +92,12 @@ export default function ForgotPassword() {
         body: JSON.stringify({ email, code: codeToSubmit }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Invalid verification code");
+      const { data, ok } = await readAuthResponse(res);
+      if (!ok) {
+        throw Object.assign(
+          new Error(resolveAuthErrorMessage(res, data, "Invalid verification code")),
+          { status: res.status }
+        );
       }
 
       if (data.status !== "PASSWORD_RESET_CODE_VERIFIED") {
@@ -99,7 +106,7 @@ export default function ForgotPassword() {
 
       setStep(3);
     } catch (err) {
-      setError(err.message || "Verification failed");
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -131,15 +138,18 @@ export default function ForgotPassword() {
         body: JSON.stringify({ newPassword }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Failed to reset password");
+      const { data, ok } = await readAuthResponse(res);
+      if (!ok) {
+        throw Object.assign(
+          new Error(resolveAuthErrorMessage(res, data, "Failed to reset password")),
+          { status: res.status }
+        );
       }
 
       setSuccess("Password reset successful. Two-factor authentication has been turned off — log in and re-enable it from Profile if you want. Redirecting to login...");
       setTimeout(() => navigate("/login"), 1000);
     } catch (err) {
-      setError(err.message || "Failed to reset password");
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }

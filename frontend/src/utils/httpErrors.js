@@ -78,7 +78,58 @@ export function getApiErrorMessage(error) {
 
   const kind = classifyFetchError(error, error.status);
   if (error.message && kind === HTTP_ERROR_KIND.UNKNOWN) {
+    if (isHtmlOrJsonParseErrorMessage(error.message)) {
+      return getHttpErrorMessage(HTTP_ERROR_KIND.SERVER_UNAVAILABLE, error.status);
+    }
     return error.message;
   }
   return getHttpErrorMessage(kind, error.status);
+}
+
+export function isHtmlBody(text) {
+  if (typeof text !== 'string') return false;
+  const trimmed = text.trimStart();
+  return /^<!DOCTYPE/i.test(trimmed) || /^<html/i.test(trimmed);
+}
+
+export function isHtmlOrJsonParseErrorMessage(message) {
+  if (typeof message !== 'string') return false;
+  return isHtmlBody(message) || /unexpected token.*</i.test(message) || /is not valid json/i.test(message);
+}
+
+/**
+ * Safely parse a fetch Response body as JSON.
+ * Returns {} for HTML error pages (e.g. nginx 502) and other non-JSON bodies.
+ */
+export async function parseJsonResponse(response) {
+  const contentType = response.headers.get('content-type') || '';
+  if (contentType.includes('application/json')) {
+    try {
+      return await response.json();
+    } catch {
+      return {};
+    }
+  }
+
+  const text = await response.text().catch(() => '');
+  if (!text || isHtmlBody(text)) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(text);
+  } catch {
+    return {};
+  }
+}
+
+export function resolveHttpErrorMessage({ status, data, fallback } = {}) {
+  const kind = classifyHttpStatus(status ?? 0);
+  if (kind !== HTTP_ERROR_KIND.UNKNOWN) {
+    return getHttpErrorMessage(kind, status);
+  }
+  if (data && typeof data === 'object') {
+    return data.message || data.error || fallback;
+  }
+  return fallback;
 }

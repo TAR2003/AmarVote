@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "./Layout";
+import { readAuthResponse, resolveAuthErrorMessage } from "../utils/authApi";
+import { getApiErrorMessage } from "../utils/httpErrors";
 
 export default function AdminLogin({ setUserEmail }) {
   const [username, setUsername] = useState("");
@@ -22,17 +24,20 @@ export default function AdminLogin({ setUserEmail }) {
         body: JSON.stringify({ username, password }),
       });
 
-      const data = await res.json();
+      const { data, ok } = await readAuthResponse(res);
 
-      if (!res.ok || !data.success) {
-        throw new Error(data.message || "Invalid admin credentials");
+      if (!ok || !data.success) {
+        throw Object.assign(
+          new Error(resolveAuthErrorMessage(res, data, "Invalid admin credentials")),
+          { status: res.status }
+        );
       }
 
       // Success - set user email as "admin" and navigate to logs
       if (setUserEmail) setUserEmail("admin");
       navigate("/api-logs");
     } catch (err) {
-      setError(err.message);
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }

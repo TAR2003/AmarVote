@@ -3,7 +3,8 @@ import { useNavigate } from "react-router-dom";
 import Layout from "./Layout";
 import TurnstileWidget from "../components/TurnstileWidget";
 import useCaptchaConfig from "../hooks/useCaptchaConfig";
-import { buildEmailCodePayload, getAuthErrorMessage } from "../utils/authApi";
+import { buildEmailCodePayload, getAuthErrorMessage, readAuthResponse, resolveAuthErrorMessage } from "../utils/authApi";
+import { getApiErrorMessage } from "../utils/httpErrors";
 
 export default function OtpLogin({ setUserEmail }) {
   const [step, setStep] = useState(1);
@@ -56,14 +57,17 @@ export default function OtpLogin({ setUserEmail }) {
         body: JSON.stringify(buildEmailCodePayload(email, captchaToken)),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const { data, ok, status } = await readAuthResponse(res);
 
-      if (res.status === 429) {
+      if (status === 429) {
         throw new Error(getAuthErrorMessage(data, "Please wait before requesting another verification code."));
       }
 
-      if (!res.ok || !data.success) {
-        throw new Error(getAuthErrorMessage(data, "Failed to send verification code"));
+      if (!ok || !data.success) {
+        throw Object.assign(
+          new Error(resolveAuthErrorMessage(res, data, "Failed to send verification code")),
+          { status }
+        );
       }
 
       setStep(2);
@@ -72,7 +76,7 @@ export default function OtpLogin({ setUserEmail }) {
       resetCaptcha();
       return true;
     } catch (err) {
-      setError(err.message);
+      setError(getApiErrorMessage(err));
       resetCaptcha();
       return false;
     } finally {
@@ -99,16 +103,19 @@ export default function OtpLogin({ setUserEmail }) {
         body: JSON.stringify({ email, otpCode }),
       });
 
-      const data = await res.json();
+      const { data, ok } = await readAuthResponse(res);
 
-      if (!res.ok || !data.success) {
-        throw new Error(getAuthErrorMessage(data, "Invalid verification code"));
+      if (!ok || !data.success) {
+        throw Object.assign(
+          new Error(resolveAuthErrorMessage(res, data, "Invalid verification code")),
+          { status: res.status }
+        );
       }
 
       if (setUserEmail) setUserEmail(email);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.message);
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }

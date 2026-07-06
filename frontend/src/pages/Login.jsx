@@ -4,6 +4,8 @@ import Layout from "./Layout";
 import OtpInput from "../components/OtpInput";
 import PasswordInput from "../components/PasswordInput";
 import { getCsrfToken } from "../utils/api";
+import { readAuthResponse, resolveAuthErrorMessage } from "../utils/authApi";
+import { getApiErrorMessage } from "../utils/httpErrors";
 
 const STAGES = {
   IDLE: "IDLE",
@@ -37,23 +39,26 @@ export default function Login({ setUserEmail }) {
         body: JSON.stringify({ email, password }),
       });
 
-      const data = await res.json();
+      const { data, ok, status } = await readAuthResponse(res);
 
-      if (res.ok && data.status === "LOGIN_SUCCESS") {
+      if (ok && data.status === "LOGIN_SUCCESS") {
         setStage(STAGES.SUCCESS);
         if (setUserEmail) setUserEmail(email);
         navigate("/dashboard");
         return;
       }
 
-      if (res.status === 202 && data.status === "MFA_REQUIRED") {
+      if (status === 202 && data.status === "MFA_REQUIRED") {
         setStage(STAGES.AWAITING_MFA);
         return;
       }
 
-      throw new Error(data.message || "Login failed");
+      throw Object.assign(
+        new Error(resolveAuthErrorMessage(res, data, "Login failed")),
+        { status }
+      );
     } catch (err) {
-      setError(err.message || "Login failed");
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -77,16 +82,19 @@ export default function Login({ setUserEmail }) {
         body: JSON.stringify({ totpCode: codeToSubmit }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "MFA verification failed");
+      const { data, ok } = await readAuthResponse(res);
+      if (!ok) {
+        throw Object.assign(
+          new Error(resolveAuthErrorMessage(res, data, "MFA verification failed")),
+          { status: res.status }
+        );
       }
 
       setStage(STAGES.SUCCESS);
       if (setUserEmail) setUserEmail(email);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.message || "MFA verification failed");
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }

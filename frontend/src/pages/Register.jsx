@@ -6,7 +6,8 @@ import PasswordInput from "../components/PasswordInput";
 import TurnstileWidget from "../components/TurnstileWidget";
 import useCaptchaConfig from "../hooks/useCaptchaConfig";
 import { formatPasswordErrors, getPasswordValidationErrors } from "../utils/passwordUtils";
-import { buildEmailCodePayload, getAuthErrorMessage } from "../utils/authApi";
+import { buildEmailCodePayload, getAuthErrorMessage, readAuthResponse, resolveAuthErrorMessage } from "../utils/authApi";
+import { getApiErrorMessage } from "../utils/httpErrors";
 
 export default function Register({ setUserEmail }) {
   const navigate = useNavigate();
@@ -52,14 +53,17 @@ export default function Register({ setUserEmail }) {
         body: JSON.stringify(buildEmailCodePayload(email, captchaToken)),
       });
 
-      const data = await res.json().catch(() => ({}));
+      const { data, ok, status } = await readAuthResponse(res);
 
-      if (res.status === 429) {
+      if (status === 429) {
         throw new Error(getAuthErrorMessage(data, "Please wait before requesting another verification code."));
       }
 
-      if (!res.ok) {
-        throw new Error(getAuthErrorMessage(data, "Failed to send verification code"));
+      if (!ok) {
+        throw Object.assign(
+          new Error(resolveAuthErrorMessage(res, data, "Failed to send verification code")),
+          { status }
+        );
       }
 
       if (data.status !== "EMAIL_CODE_SENT") {
@@ -71,7 +75,7 @@ export default function Register({ setUserEmail }) {
       resetCaptcha();
       return true;
     } catch (err) {
-      setError(err.message || "Failed to send verification code");
+      setError(getApiErrorMessage(err));
       resetCaptcha();
       return false;
     } finally {
@@ -93,9 +97,12 @@ export default function Register({ setUserEmail }) {
         body: JSON.stringify({ email, code: codeToSubmit }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Invalid verification code");
+      const { data, ok } = await readAuthResponse(res);
+      if (!ok) {
+        throw Object.assign(
+          new Error(resolveAuthErrorMessage(res, data, "Invalid verification code")),
+          { status: res.status }
+        );
       }
 
       if (data.status !== "EMAIL_VERIFIED") {
@@ -104,7 +111,7 @@ export default function Register({ setUserEmail }) {
 
       setStep(3);
     } catch (err) {
-      setError(err.message || "Email verification failed");
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -140,9 +147,12 @@ export default function Register({ setUserEmail }) {
         body: JSON.stringify({ email, password, enableMfa: false }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Registration failed");
+      const { data, ok } = await readAuthResponse(res);
+      if (!ok) {
+        throw Object.assign(
+          new Error(resolveAuthErrorMessage(res, data, "Registration failed")),
+          { status: res.status }
+        );
       }
 
       if (data.status === "REGISTERED_NO_MFA") {
@@ -159,7 +169,7 @@ export default function Register({ setUserEmail }) {
       setQrCodeDataUri(data.qrCodeDataUri || "");
       setStep(4);
     } catch (err) {
-      setError(err.message || "Registration failed");
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
@@ -180,15 +190,18 @@ export default function Register({ setUserEmail }) {
         body: JSON.stringify({ email, totpCode: codeToSubmit }),
       });
 
-      const data = await res.json();
-      if (!res.ok) {
-        throw new Error(data.message || "Invalid MFA code");
+      const { data, ok } = await readAuthResponse(res);
+      if (!ok) {
+        throw Object.assign(
+          new Error(resolveAuthErrorMessage(res, data, "Invalid MFA code")),
+          { status: res.status }
+        );
       }
 
       if (setUserEmail) setUserEmail(email);
       navigate("/dashboard");
     } catch (err) {
-      setError(err.message || "MFA setup failed");
+      setError(getApiErrorMessage(err));
     } finally {
       setLoading(false);
     }
