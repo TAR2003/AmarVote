@@ -1,4 +1,11 @@
 // API utilities for making requests to the backend
+import {
+  buildHttpError,
+  classifyHttpStatus,
+  getHttpErrorMessage,
+  HTTP_ERROR_KIND,
+} from './httpErrors.js';
+
 const API_BASE_URL = '/api';
 
 // Default timeout for API requests (5 minutes)
@@ -36,6 +43,19 @@ function handleAuthError(response) {
     return true;
   }
   return false;
+}
+
+function createApiError(response, errorData = {}) {
+  const kind = classifyHttpStatus(response.status);
+  const apiError = new Error(
+    errorData.message ||
+    (errorData.error && errorData.error.message) ||
+    getHttpErrorMessage(kind, response.status)
+  );
+  apiError.status = response.status;
+  apiError.kind = kind;
+  apiError.userMessage = getHttpErrorMessage(kind, response.status);
+  return apiError;
 }
 
 /**
@@ -89,13 +109,7 @@ export async function apiRequest(endpoint, options = {}, timeout = DEFAULT_TIMEO
       }
       
       console.error(`API Error (${response.status}):`, errorData);
-      const apiError = new Error(
-        errorData.message || 
-        (errorData.error && errorData.error.message) || 
-        `Request failed with status ${response.status}: ${response.statusText}`
-      );
-      apiError.status = response.status;
-      throw apiError;
+      throw createApiError(response, errorData);
     }
     
     return response.json();
@@ -157,13 +171,7 @@ export async function apiBinaryRequest(endpoint, binaryData, contentType = 'appl
       }
       
       console.error(`API Error (${response.status}):`, errorData);
-      const apiError = new Error(
-        errorData.message || 
-        (errorData.error && errorData.error.message) || 
-        `Request failed with status ${response.status}: ${response.statusText}`
-      );
-      apiError.status = response.status;
-      throw apiError;
+      throw createApiError(response, errorData);
     }
     
     return response.json();

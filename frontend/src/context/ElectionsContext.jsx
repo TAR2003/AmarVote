@@ -1,5 +1,6 @@
 import React, { createContext, useCallback, useContext, useEffect, useState } from "react";
 import { fetchAllElections, invalidateElectionsCache } from "../utils/api";
+import { getApiErrorMessage } from "../utils/httpErrors";
 
 const ElectionsContext = createContext(null);
 
@@ -26,7 +27,7 @@ export function ElectionsProvider({ userEmail, children }) {
       setElections(data);
       return data;
     } catch (err) {
-      setError(err.message || "Failed to load elections");
+      setError(getApiErrorMessage(err));
       throw err;
     } finally {
       setLoading(false);

@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useCallback, memo, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteElection, invalidateElectionsCache } from "../utils/api";
+import { getApiErrorMessage } from "../utils/httpErrors";
 import { useElections } from "../context/ElectionsContext";
 import { timezoneUtils } from "../utils/timezoneUtils";
 import { FiCalendar, FiClock, FiUsers, FiInfo, FiLoader, FiTrash2 } from "react-icons/fi";
@@ -178,7 +179,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
 
 const AllElections = () => {
   const navigate = useNavigate();
-  const { elections, setElections, loading, error: electionsError } = useElections();
+  const { elections, setElections, loading, error: electionsError, refreshElections } = useElections();
   const [error, setError] = useState(null);
   const [successMessage, setSuccessMessage] = useState("");
   const [filter, setFilter] = useState("all");
@@ -384,18 +385,28 @@ const AllElections = () => {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
           <div className="flex">
             <div className="flex-shrink-0">
-              <FiInfo className="h-5 w-5 text-red-400" />
+              <FiInfo className="h-5 w-5 text-amber-500" />
             </div>
             <div className="ml-3">
-              <h3 role="alert" className="text-sm font-medium text-red-800">
-                Error loading elections
+              <h3 role="alert" className="text-sm font-medium text-amber-900">
+                Could not load elections
               </h3>
-              <div className="mt-2 text-sm text-red-700">
+              <div className="mt-2 text-sm text-amber-800">
                 <p>{error}</p>
               </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setError(null);
+                  refreshElections(true).catch((err) => setError(getApiErrorMessage(err)));
+                }}
+                className="mt-4 inline-flex items-center px-4 py-2 rounded-lg border border-amber-300 text-sm font-medium text-amber-900 bg-white hover:bg-amber-50"
+              >
+                Try again
+              </button>
             </div>
           </div>
         </div>

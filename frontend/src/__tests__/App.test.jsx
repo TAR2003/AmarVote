@@ -81,15 +81,20 @@ describe("App Component", () => {
   });
 
   it("handles session check error gracefully", async () => {
-    fetch.mockRejectedValueOnce(new Error("Network error"));
+    fetch
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockRejectedValueOnce(new Error("Network error"))
+      .mockRejectedValueOnce(new Error("Network error"));
 
     render(<App />);
 
-    await waitFor(() => {
-      expect(screen.queryByTestId("loading-screen")).not.toBeInTheDocument();
-    });
+    await waitFor(
+      () => {
+        expect(screen.queryByTestId("loading-screen")).not.toBeInTheDocument();
+      },
+      { timeout: 10000 }
+    );
 
-    // Should handle error and show non-authenticated state
     expect(fetch).toHaveBeenCalledWith("/api/auth/session", {
       method: "GET",
       credentials: "include",

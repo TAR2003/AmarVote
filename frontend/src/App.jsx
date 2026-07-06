@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   BrowserRouter as Router,
   Routes,
@@ -27,33 +27,90 @@ import Profile from "./pages/Profile";
 import AuthenticatedUsers from "./pages/AuthenticatedUsers";
 import Documentation from "./pages/Documentation";
 import ReceiptDownload from "./pages/ReceiptDownload";
+import {
+  buildHttpError,
+  classifyHttpStatus,
+  HTTP_ERROR_KIND,
+} from "./utils/httpErrors";
 
-function App() {
-  const [userEmail, setUserEmail] = useState(null);
-  const [loading, setLoading] = useState(true);
+const SESSION_CHECK_MAX_ATTEMPTS = 3;
+const SESSION_CHECK_RETRY_MS = 1200;
 
-  useEffect(() => {
-    async function checkSession() {
-      try {
-        const res = await fetch("/api/auth/session", {
-          method: "GET",
-          credentials: "include",
-        });
-        if (res.ok) {
-          const data = await res.json();
-          setUserEmail(data.email || null);
-        } else {
-          setUserEmail(null);
-        }
-      } catch (err) {
-        setUserEmail(null);
-      } finally {
-        setLoading(false);
+function delay(ms) {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+async function fetchSessionState() {
+  const res = await fetch("/api/auth/session", {
+    method: "GET",
+    credentials: "include",
+  });
+
+  if (res.ok) {
+    const data = await res.json();
+    return { email: data.email || null, error: null };
+  }
+
+  const kind = classifyHttpStatus(res.status);
+  if (kind === HTTP_ERROR_KIND.SESSION_EXPIRED) {
+    return {
+      email: null,
+      error: buildHttpError({ status: res.status, kind }),
+    };
+  }
+
+  return {
+    email: null,
+    error: buildHttpError({ status: res.status, kind }),
+    retryable: kind === HTTP_ERROR_KIND.RATE_LIMITED || kind === HTTP_ERROR_KIND.SERVER_UNAVAILABLE,
+  };
+}
+
+async function checkSessionWithRetry() {
+  let lastResult = null;
+
+  for (let attempt = 0; attempt < SESSION_CHECK_MAX_ATTEMPTS; attempt += 1) {
+    try {
+      lastResult = await fetchSessionState();
+      if (lastResult.email || !lastResult.retryable || attempt === SESSION_CHECK_MAX_ATTEMPTS - 1) {
+        return lastResult;
+      }
+    } catch {
+      lastResult = {
+        email: null,
+        error: buildHttpError({ kind: HTTP_ERROR_KIND.NETWORK_ERROR }),
+        retryable: true,
+      };
+      if (attempt === SESSION_CHECK_MAX_ATTEMPTS - 1) {
+        return lastResult;
       }
     }
 
-    checkSession();
+    await delay(SESSION_CHECK_RETRY_MS * (attempt + 1));
+  }
+
+  return lastResult || { email: null, error: buildHttpError({ kind: HTTP_ERROR_KIND.UNKNOWN }) };
+}
+
+function App() {
+  const [userEmail, setUserEmail] = useState(null);
+  const [sessionError, setSessionError] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  const runSessionCheck = useCallback(async () => {
+    setLoading(true);
+    setSessionError(null);
+
+    const result = await checkSessionWithRetry();
+    setUserEmail(result.email);
+    setSessionError(result.error);
+    setLoading(false);
+    return result;
   }, []);
+
+  useEffect(() => {
+    runSessionCheck();
+  }, [runSessionCheck]);
 
   useEffect(() => {
     function syncLogout(event) {
@@ -125,6 +182,8 @@ function App() {
             <AuthenticatedLayout
               userEmail={userEmail}
               setUserEmail={setUserEmail}
+              sessionError={sessionError}
+              onRetrySession={runSessionCheck}
             />
           }
         >

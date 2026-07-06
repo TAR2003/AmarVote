@@ -17,14 +17,20 @@ import {
 import { electionApi } from "../utils/electionApi";
 import { ElectionsProvider, useElections } from "../context/ElectionsContext";
 import { timezoneUtils } from "../utils/timezoneUtils";
+import { HTTP_ERROR_KIND } from "../utils/httpErrors";
 
-const AuthenticatedLayout = ({ userEmail, setUserEmail }) => (
+const AuthenticatedLayout = ({ userEmail, setUserEmail, sessionError, onRetrySession }) => (
   <ElectionsProvider userEmail={userEmail}>
-    <AuthenticatedLayoutContent userEmail={userEmail} setUserEmail={setUserEmail} />
+    <AuthenticatedLayoutContent
+      userEmail={userEmail}
+      setUserEmail={setUserEmail}
+      sessionError={sessionError}
+      onRetrySession={onRetrySession}
+    />
   </ElectionsProvider>
 );
 
-const AuthenticatedLayoutContent = ({ userEmail, setUserEmail }) => {
+const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onRetrySession }) => {
   const [searchQuery, setSearchQuery] = useState("");
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -342,22 +348,42 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail }) => {
   };
 
   if (!userEmail) {
+    const isSessionExpired = !sessionError || sessionError?.kind === HTTP_ERROR_KIND.SESSION_EXPIRED;
+    const title = sessionError?.title || "Session expired";
+    const message = sessionError?.message || "Please sign in again to continue.";
+    const showRetry = sessionError && !isSessionExpired && typeof onRetrySession === "function";
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
         <div className="text-center p-8 bg-white rounded-xl shadow-lg max-w-md w-full mx-4">
-          <div className="w-16 h-16 bg-blue-100 rounded-full flex items-center justify-center mx-auto mb-4">
-            <FiLogOut className="text-blue-600 text-2xl" />
+          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
+            isSessionExpired ? "bg-blue-100" : "bg-amber-100"
+          }`}>
+            <FiLogOut className={`text-2xl ${isSessionExpired ? "text-blue-600" : "text-amber-600"}`} />
           </div>
           <h2 className="text-2xl font-bold text-gray-800 mb-2">
-            Session Expired
+            {title}
           </h2>
-          <p className="text-gray-600 mb-6">Please sign in again to continue</p>
-          <Link
-            to="/otp-login"
-            className="inline-flex items-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200"
-          >
-            Go to Login
-          </Link>
+          <p className="text-gray-600 mb-6">{message}</p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            {showRetry && (
+              <button
+                type="button"
+                onClick={() => onRetrySession()}
+                className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-full shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200"
+              >
+                Try again
+              </button>
+            )}
+            {isSessionExpired && (
+              <Link
+                to="/otp-login"
+                className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200"
+              >
+                Go to Login
+              </Link>
+            )}
+          </div>
         </div>
       </div>
     );
