@@ -1757,7 +1757,7 @@ public class ElectionService {
         }
 
         Election election = electionOpt.get();
-        if (!isUserAuthorizedToViewElection(election, userEmail)) {
+        if (!userHasAdminRole(election, userEmail)) {
             return null;
         }
 

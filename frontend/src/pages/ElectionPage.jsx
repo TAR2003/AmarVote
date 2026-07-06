@@ -3032,6 +3032,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
     return currentUserIsGuardian;
   };
 
+  const canViewVoterList = () => electionData?.userRoles?.includes('admin');
+
   const canEditVoterList = () => {
     if (!electionData || electionData.eligibility !== 'listed') return false;
 
@@ -4156,7 +4158,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         {showVoterEditor ? 'Hide Editor' : 'Edit Voter List'}
                       </button>
                     )}
-                    {!canEditVoterList() && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
+                    {canViewVoterList() && !canEditVoterList() && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
                       <button
                         type="button"
                         onClick={handleToggleVoterList}
@@ -4227,7 +4229,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   </div>
                 )}
 
-                {!canEditVoterList() && !showVoterList && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
+                {canViewVoterList() && !canEditVoterList() && !showVoterList && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
                   <p className="text-sm text-gray-600">
                     {getTotalVoters(electionData) > 0
                       ? `This election has ${getTotalVoters(electionData).toLocaleString()} registered voter${getTotalVoters(electionData) === 1 ? '' : 's'}. Click "Show Voters" to load the full list.`
@@ -4235,7 +4237,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   </p>
                 )}
 
-                {showVoterList && (electionData.voters || []).length > 0 && (
+                {canViewVoterList() && showVoterList && (electionData.voters || []).length > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-y-auto pr-1">
                     {sortVotersVotedFirst(
                       electionData.eligibility === 'listed'
