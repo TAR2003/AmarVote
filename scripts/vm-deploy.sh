@@ -1,10 +1,11 @@
 #!/usr/bin/env bash
-# Production deploy: use pre-built images (built in GitHub Actions), then swap containers.
-# Images are streamed to the VM over SSH during CI (SKIP_PULL=1). Set SKIP_PULL=0 to pull
-# from the registry on the VM instead (e.g. manual deploy with stable registry access).
+# Rolling production deploy: keep postgres/redis/rabbitmq/nginx serving while new
+# images are loaded on the VM, then recreate only application containers.
 #
-# Named data volumes (postgres_data, redis_data, rabbitmq_data, credentials_data) are never
-# removed — compose down/up and volume prune only drop unused anonymous volumes.
+# Images are streamed during CI (SKIP_PULL=1). Old containers keep running until
+# each service is recreated in place. Cleanup runs only after the new stack is up.
+#
+# Named data volumes are never removed.
 set -euo pipefail
 
 cd ~/app
@@ -15,23 +16,41 @@ export COMPOSE_PARALLEL_LIMIT="${COMPOSE_PARALLEL_LIMIT:-1}"
 
 COMPOSE=(docker compose --env-file .env -f docker-compose.prod.yml)
 
+INFRA_SERVICES=(postgres redis rabbitmq)
+APP_SERVICES=(electionguard-api electionguard-worker backend frontend)
+SKIP_PULL="${SKIP_PULL:-1}"
+
+wait_container_healthy() {
+  local name="$1"
+  local max_attempts="${2:-60}"
+  local status="missing"
+  for _ in $(seq 1 "${max_attempts}"); do
+    status="$(docker inspect --format='{{.State.Health.Status}}' "$name" 2>/dev/null || echo missing)"
+    if [ "$status" = "healthy" ]; then
+      return 0
+    fi
+    sleep 1
+  done
+  echo "Error: ${name} is not healthy (status=${status})" >&2
+  return 1
+}
+
+wait_backend_ready() {
+  local max_attempts="${1:-90}"
+  for _ in $(seq 1 "${max_attempts}"); do
+    if docker exec amarvote_backend wget -q -O /dev/null http://127.0.0.1:8080/actuator/health 2>/dev/null; then
+      return 0
+    fi
+    sleep 2
+  done
+  echo "Error: backend did not become ready in time" >&2
+  return 1
+}
+
 # Redis warns (and can fail BGSAVE) when overcommit is off — set on the VM host.
 if [ "$(sysctl -n vm.overcommit_memory 2>/dev/null || echo 0)" != "1" ]; then
   sysctl -w vm.overcommit_memory=1 >/dev/null 2>&1 || \
     echo "Warning: could not set vm.overcommit_memory=1 (run as root or add to /etc/sysctl.conf)"
-fi
-
-APP_SERVICES=(backend frontend electionguard-api electionguard-worker)
-
-SKIP_PULL="${SKIP_PULL:-1}"
-
-echo "Deploying image tag: ${IMAGE_TAG}"
-
-# Stop every running container (brief downtime; data volumes stay on disk).
-running="$(docker ps -q)"
-if [ -n "${running}" ]; then
-  echo "Stopping all running containers..."
-  docker stop ${running}
 fi
 
 # Remove legacy monitoring containers no longer defined in docker-compose.prod.yml.
@@ -39,45 +58,53 @@ for legacy in amarvote_grafana amarvote_prometheus prometheus grafana; do
   docker rm -f "${legacy}" 2>/dev/null || true
 done
 
-# Tear down the compose project without -v (keeps postgres_data and all named volumes).
-"${COMPOSE[@]}" down --remove-orphans
+echo "Rolling deploy for image tag: ${IMAGE_TAG}"
 
 if [ "${SKIP_PULL}" = "1" ]; then
-  echo "Skipping registry pull (images pre-loaded on VM)"
+  echo "Using images pre-loaded on VM (SKIP_PULL=1)"
 else
+  echo "Pulling application images from registry..."
   "${COMPOSE[@]}" pull --quiet "${APP_SERVICES[@]}"
 fi
 
-# Apply schema migrations while postgres is up (prod uses ddl-auto=validate).
+# Keep infrastructure running — do NOT docker stop / compose down the whole stack.
+echo "Ensuring infrastructure services are up..."
+"${COMPOSE[@]}" up -d --no-build "${INFRA_SERVICES[@]}"
+
+wait_container_healthy amarvote_postgres 30
+wait_container_healthy amarvote_redis 30
+wait_container_healthy amarvote_rabbitmq 150
+
+# Apply schema migrations against the running postgres instance.
 chmod +x scripts/run-db-migrations.sh
 COMPOSE_FILE=docker-compose.prod.yml scripts/run-db-migrations.sh
 
-# Recreate only services defined in docker-compose.prod.yml (no on-VM build).
-"${COMPOSE[@]}" up -d --remove-orphans --no-build
+# Recreate application containers one tier at a time (old version serves until each swap).
+echo "Recreating ElectionGuard services..."
+export COMPOSE_PARALLEL_LIMIT=2
+"${COMPOSE[@]}" up -d --no-build --force-recreate --no-deps electionguard-api electionguard-worker
+export COMPOSE_PARALLEL_LIMIT=1
 
-# Redis must be healthy before backend (depends_on). Fail fast if still broken.
-redis_health="$(docker inspect --format='{{.State.Health.Status}}' amarvote_redis 2>/dev/null || echo missing)"
-if [ "${redis_health}" != "healthy" ]; then
-  for _ in $(seq 1 30); do
-    redis_health="$(docker inspect --format='{{.State.Health.Status}}' amarvote_redis 2>/dev/null || echo missing)"
-    [ "${redis_health}" = "healthy" ] && break
-    sleep 1
-  done
-fi
-if [ "${redis_health}" != "healthy" ]; then
-  echo "Error: redis is not healthy (status=${redis_health})"
-  "${COMPOSE[@]}" logs --tail 30 redis || true
-  exit 1
-fi
+echo "Recreating backend..."
+"${COMPOSE[@]}" up -d --no-build --force-recreate --no-deps backend
+wait_backend_ready 90
 
-# 1. Safely delete all tagged images that are NOT tied to a running container
-docker image prune -a -f
+echo "Recreating frontend..."
+"${COMPOSE[@]}" up -d --no-build --force-recreate --no-deps frontend
 
-# 2. Wipe the temporary layer build caches
-docker builder prune -f
+# Ensure nginx is up; recreate only if compose detects config/image changes.
+echo "Ensuring nginx is up..."
+"${COMPOSE[@]}" up -d --no-build nginx
 
-# 3. Clean up empty, anonymous volume footprints (named data volumes are in use — kept)
-docker volume prune -f
+"${COMPOSE[@]}" up -d --no-build --remove-orphans
 
 echo "Deploy complete. Active services:"
 "${COMPOSE[@]}" ps
+
+# Cleanup only after the new stack is running.
+echo "Pruning unused images and build cache..."
+docker image prune -a -f
+docker builder prune -f
+docker volume prune -f
+
+echo "Rolling deploy finished."

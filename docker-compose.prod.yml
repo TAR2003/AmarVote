@@ -115,7 +115,8 @@ services:
       test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
       interval: 10s
       timeout: 10s
-      retries: 5
+      retries: 12
+      start_period: 120s
     # Lazy queues + paging configured in rabbitmq.conf so RAM stays flat under deep queues.
     # Run once after boot: rabbitmqctl set_policy lazy-queues "^(email|chunk).*" '{"queue-mode":"lazy"}' --apply-to queues
     deploy:
@@ -193,6 +194,12 @@ services:
         condition: service_healthy
       redis:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:8080/actuator/health || exit 1"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+      start_period: 90s
     deploy:
       resources:
         limits:

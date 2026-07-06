@@ -123,7 +123,7 @@ jobs:
           chmod +x scripts/gha-sync-images-to-vm.sh
           scripts/gha-sync-images-to-vm.sh
 
-      - name: Deploy pre-built images
+      - name: Deploy pre-built images (rolling)
         run: |
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
           -o StrictHostKeyChecking=no \
@@ -137,4 +137,6 @@ jobs:
           sshpass -p "${{ secrets.VM_SECRET }}" ssh \
           -o StrictHostKeyChecking=no \
           ${{ secrets.VM_USERNAME }}@${{ secrets.VM_HOST }} \
-          "cd ~/app && docker compose --env-file .env -f docker-compose.prod.yml ps"
+          "cd ~/app && docker compose --env-file .env -f docker-compose.prod.yml ps && \
+           docker exec amarvote_backend wget -q -O /dev/null http://127.0.0.1:8080/actuator/health && \
+           echo 'Backend health check passed'"
