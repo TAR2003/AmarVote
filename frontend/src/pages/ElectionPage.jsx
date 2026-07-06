@@ -17,7 +17,6 @@ import {
   FiTrendingUp,
   FiX,
   FiLoader,
-  FiCopy,
   FiSave,
   FiEye,
   FiDownload,
@@ -58,8 +57,6 @@ import {
 } from 'recharts';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { atomDark } from 'react-syntax-highlighter/dist/esm/styles/prism';
 import { saveAs } from 'file-saver';
 import { generateElectionResultsPdf, truncateChartLabel } from '../utils/electionResultsPdf';
 import { prepareElectionResultsCsvContent, escapeCsvField } from '../utils/electionResultsCsv';
@@ -256,70 +253,42 @@ const ElectionTimer = ({ startTime, endTime }) => {
   );
 };
 
-// Data Display Component for large strings
-const DataDisplay = ({ title, data, type = 'json' }) => {
-  const [isExpanded, setIsExpanded] = useState(false);
-  const [copied, setCopied] = useState(false);
-
-  const handleCopy = () => {
-    navigator.clipboard.writeText(typeof data === 'string' ? data : JSON.stringify(data, null, 2));
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
-  };
+// Download-only row for verification artifacts (no inline preview)
+const ArtifactDownloadRow = ({ title, data, downloadFilename }) => {
+  const content = data == null
+    ? null
+    : (typeof data === 'string' ? data : JSON.stringify(data, null, 2));
+  const isAvailable = Boolean(
+    content &&
+    content !== 'Not available' &&
+    content !== 'Error loading encrypted tally' &&
+    content.trim() !== ''
+  );
 
   const handleDownload = () => {
-    const content = typeof data === 'string' ? data : JSON.stringify(data, null, 2);
+    if (!isAvailable) return;
     const blob = new Blob([content], { type: 'application/json' });
-    saveAs(blob, `${title.toLowerCase().replace(/\s+/g, '_')}.json`);
+    const filename = downloadFilename || `${title.toLowerCase().replace(/\s+/g, '_')}.json`;
+    saveAs(blob, filename);
   };
 
-  const truncatedData = typeof data === 'string'
-    ? data.substring(0, 200) + (data.length > 200 ? '...' : '')
-    : JSON.stringify(data, null, 2).substring(0, 200) + '...';
-
   return (
-    <div className="border rounded-lg p-4">
-      <div className="flex items-center justify-between mb-2">
+    <div className="flex items-center justify-between gap-4 border border-gray-200 rounded-lg p-4 bg-white">
+      <div className="min-w-0">
         <h4 className="font-medium text-gray-900">{title}</h4>
-        <div className="flex space-x-2">
-          <button
-            onClick={() => setIsExpanded(!isExpanded)}
-            className="text-blue-600 hover:text-blue-800 text-sm"
-          >
-            {isExpanded ? 'Collapse' : 'Expand'}
-          </button>
-          <button
-            onClick={handleCopy}
-            className="text-green-600 hover:text-green-800 text-sm flex items-center"
-          >
-            <FiCopy className="h-3 w-3 mr-1" />
-            {copied ? 'Copied!' : 'Copy'}
-          </button>
-          <button
-            onClick={handleDownload}
-            className="text-purple-600 hover:text-purple-800 text-sm flex items-center"
-          >
-            <FiDownload className="h-3 w-3 mr-1" />
-            Download
-          </button>
-        </div>
+        <p className="text-sm text-gray-500 mt-1">
+          {isAvailable ? 'Download to inspect this artifact locally' : 'Not available'}
+        </p>
       </div>
-      <div className="bg-gray-50 rounded border">
-        <SyntaxHighlighter
-          language={type}
-          style={atomDark}
-          customStyle={{
-            margin: 0,
-            maxHeight: isExpanded ? 'none' : '150px',
-            overflow: isExpanded ? 'visible' : 'hidden'
-          }}
-        >
-          {isExpanded
-            ? (typeof data === 'string' ? data : JSON.stringify(data, null, 2))
-            : truncatedData
-          }
-        </SyntaxHighlighter>
-      </div>
+      <button
+        type="button"
+        onClick={handleDownload}
+        disabled={!isAvailable}
+        className="flex items-center gap-2 shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+      >
+        <FiDownload className="h-4 w-4" />
+        Download
+      </button>
     </div>
   );
 };
@@ -508,8 +477,8 @@ const OverviewTabContent = ({ electionData, id }) => {
           <div>
             <h4 className="font-semibold text-blue-900 mb-1">Cryptographic Verification</h4>
             <p className="text-sm text-blue-800">
-              This section displays cryptographic artifacts and proofs that can be used to verify the integrity of the election.
-              All data shown below can be independently verified using ElectionGuard verification tools.
+              Download cryptographic artifacts below to independently verify the integrity of this election
+              using ElectionGuard verification tools.
             </p>
           </div>
         </div>
@@ -524,34 +493,37 @@ const OverviewTabContent = ({ electionData, id }) => {
           </h4>
         </div>
         <div className="p-4 space-y-4">
-          <DataDisplay
+          <ArtifactDownloadRow
             title="Joint Public Key"
             data={electionData.jointPublicKey || "Not available"}
-            type="text"
+            downloadFilename={`joint_public_key_election_${id}.json`}
           />
 
-          <DataDisplay
+          <ArtifactDownloadRow
             title="Commitment Hash"
             data={electionData.baseHash || "Not available"}
-            type="text"
+            downloadFilename={`commitment_hash_election_${id}.json`}
           />
 
-          <DataDisplay
+          <ArtifactDownloadRow
             title="Election Manifest"
             data={electionData.manifestHash || "Not available"}
+            downloadFilename={`election_manifest_election_${id}.json`}
           />
 
           {electionData.sampleEncryptedBallots && (
-            <DataDisplay
+            <ArtifactDownloadRow
               title="Sample Encrypted Ballots"
               data={electionData.sampleEncryptedBallots}
+              downloadFilename={`sample_encrypted_ballots_election_${id}.json`}
             />
           )}
 
           {electionData.cryptographicProofs && (
-            <DataDisplay
+            <ArtifactDownloadRow
               title="Cryptographic Proofs"
               data={electionData.cryptographicProofs}
+              downloadFilename={`cryptographic_proofs_election_${id}.json`}
             />
           )}
         </div>
@@ -627,12 +599,10 @@ const OverviewTabContent = ({ electionData, id }) => {
 // Chunks Tab Content
 const ChunksTabContent = ({ electionId }) => {
   const [searchTerm, setSearchTerm] = useState('');
-  const [expandedChunks, setExpandedChunks] = useState({});
   const [chunks, setChunks] = useState([]);
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState(null);
-  const [encryptedTallies, setEncryptedTallies] = useState({});
-  const [loadingTallies, setLoadingTallies] = useState({});
+  const [downloadingTallies, setDownloadingTallies] = useState({});
 
   useEffect(() => {
     if (!electionId) return;
@@ -654,30 +624,28 @@ const ChunksTabContent = ({ electionId }) => {
       .finally(() => setLoading(false));
   }, [electionId]);
 
-  const toggleChunk = async (chunk) => {
+  const downloadEncryptedTally = async (chunk) => {
     const chunkId = chunk.electionCenterId;
-    const willExpand = !expandedChunks[chunkId];
-    setExpandedChunks((prev) => ({
-      ...prev,
-      [chunkId]: willExpand,
-    }));
+    if (downloadingTallies[chunkId]) return;
 
-    if (!willExpand || encryptedTallies[chunkId] || loadingTallies[chunkId]) {
-      return;
-    }
-
-    setLoadingTallies((prev) => ({ ...prev, [chunkId]: true }));
+    setDownloadingTallies((prev) => ({ ...prev, [chunkId]: true }));
     try {
       const response = await electionApi.getChunkEncryptedTally(electionId, chunkId);
-      if (response?.success && response.encryptedTally) {
-        setEncryptedTallies((prev) => ({ ...prev, [chunkId]: response.encryptedTally }));
-      } else {
-        setEncryptedTallies((prev) => ({ ...prev, [chunkId]: 'Not available' }));
+      const encryptedTally = response?.encryptedTally;
+      if (!response?.success || !encryptedTally) {
+        toast.error('Encrypted tally is not available for this chunk');
+        return;
       }
+
+      const content = typeof encryptedTally === 'string'
+        ? encryptedTally
+        : JSON.stringify(encryptedTally, null, 2);
+      const blob = new Blob([content], { type: 'application/json' });
+      saveAs(blob, `chunk_${chunk.chunkIndex}_encrypted_tally_election_${electionId}.json`);
     } catch {
-      setEncryptedTallies((prev) => ({ ...prev, [chunkId]: 'Error loading encrypted tally' }));
+      toast.error('Failed to download encrypted tally');
     } finally {
-      setLoadingTallies((prev) => ({ ...prev, [chunkId]: false }));
+      setDownloadingTallies((prev) => ({ ...prev, [chunkId]: false }));
     }
   };
 
@@ -723,7 +691,7 @@ const ChunksTabContent = ({ electionId }) => {
         <div>
           <h4 className="font-semibold text-gray-900 text-lg">Per-Chunk Tallies and Decryptions</h4>
           <p className="text-sm text-gray-600 mt-1">
-            Vote counts load immediately; encrypted tally ciphertext loads when you expand a chunk.
+            Per-chunk vote counts are shown below. Download encrypted tally ciphertext when needed for verification.
           </p>
         </div>
         <div className="flex items-center space-x-3">
@@ -745,15 +713,11 @@ const ChunksTabContent = ({ electionId }) => {
 
       {/* Chunks List */}
       <div className="space-y-3">
-        {filteredChunks.map((chunk, index) => {
-          const isExpanded = expandedChunks[chunk.electionCenterId];
+        {filteredChunks.map((chunk) => {
+          const isDownloading = downloadingTallies[chunk.electionCenterId];
           return (
-            <div key={chunk.electionCenterId} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-              {/* Chunk Header */}
-              <div 
-                className="flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50"
-                onClick={() => toggleChunk(chunk)}
-              >
+            <div key={chunk.electionCenterId} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white">
                 <div className="flex items-center space-x-4">
                   <div className="flex-shrink-0">
                     <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
@@ -773,62 +737,49 @@ const ChunksTabContent = ({ electionId }) => {
                   <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
                     Processed
                   </span>
-                  {isExpanded ? (
-                    <FiChevronUp className="h-5 w-5 text-gray-400" />
-                  ) : (
-                    <FiChevronDown className="h-5 w-5 text-gray-400" />
-                  )}
+                  <button
+                    type="button"
+                    onClick={() => downloadEncryptedTally(chunk)}
+                    disabled={isDownloading}
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  >
+                    {isDownloading ? (
+                      <FiLoader className="h-4 w-4 animate-spin" />
+                    ) : (
+                      <FiDownload className="h-4 w-4" />
+                    )}
+                    <span>{isDownloading ? 'Preparing...' : 'Download Encrypted Tally'}</span>
+                  </button>
                 </div>
               </div>
 
-              {/* Expanded Content */}
-              {isExpanded && (
-                <div className="p-4 bg-gray-50 border-t border-gray-200">
-                  {/* Tally Results */}
-                  <div className="mb-4">
-                    <h6 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                      <FiBarChart className="h-4 w-4 mr-2 text-blue-600" />
-                      Tally Results for this Chunk
-                    </h6>
-                    <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
-                      {Object.entries(chunk.candidateVotes || {}).map(([candidate, votes]) => (
-                        <div key={candidate} className="bg-white rounded-lg px-4 py-3 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-                          <p className="text-xs text-gray-500 mb-1">Candidate</p>
-                          <p className="font-semibold text-gray-900 truncate">{candidate}</p>
-                          <p className="text-2xl font-bold text-blue-600 mt-1">{votes}</p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Encrypted Tally */}
-                  <div className="mb-4">
-                    {loadingTallies[chunk.electionCenterId] ? (
-                      <div className="flex items-center text-sm text-gray-600 py-4">
-                        <FiLoader className="h-4 w-4 mr-2 animate-spin" />
-                        Loading encrypted tally...
+              <div className="p-4 bg-gray-50 border-t border-gray-200">
+                <div className="mb-4">
+                  <h6 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                    <FiBarChart className="h-4 w-4 mr-2 text-blue-600" />
+                    Tally Results for this Chunk
+                  </h6>
+                  <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
+                    {Object.entries(chunk.candidateVotes || {}).map(([candidate, votes]) => (
+                      <div key={candidate} className="bg-white rounded-lg px-4 py-3 border border-gray-200 shadow-sm">
+                        <p className="text-xs text-gray-500 mb-1">Candidate</p>
+                        <p className="font-semibold text-gray-900 truncate">{candidate}</p>
+                        <p className="text-2xl font-bold text-blue-600 mt-1">{votes}</p>
                       </div>
-                    ) : (
-                      <DataDisplay
-                        title="Encrypted Tally"
-                        data={encryptedTallies[chunk.electionCenterId] || "Expand this chunk to load encrypted tally ciphertext"}
-                        type="text"
-                      />
-                    )}
-                  </div>
-
-                  {/* Information Note */}
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
-                    <div className="flex items-start">
-                      <FiInfo className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                      <p className="text-sm text-blue-800">
-                        <strong>Threshold Cryptography:</strong> Each guardian submitted a partial decryption for this chunk. 
-                        The partial decryptions were combined using threshold cryptography to compute the tally shown above.
-                      </p>
-                    </div>
+                    ))}
                   </div>
                 </div>
-              )}
+
+                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                  <div className="flex items-start">
+                    <FiInfo className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-blue-800">
+                      <strong>Threshold Cryptography:</strong> Each guardian submitted a partial decryption for this chunk.
+                      The partial decryptions were combined using threshold cryptography to compute the tally shown above.
+                    </p>
+                  </div>
+                </div>
+              </div>
             </div>
           );
         })}
