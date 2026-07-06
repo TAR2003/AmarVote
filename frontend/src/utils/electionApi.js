@@ -498,9 +498,10 @@ export const electionApi = {
    */
   async getElectionResults(electionId, options = {}) {
     const includeBallots = options.includeBallots === true;
+    const includeChunkCiphertext = options.includeChunkCiphertext === true;
     try {
       const response = await apiRequest(
-        `/election/${electionId}/cached-results?includeBallots=${includeBallots}`,
+        `/election/${electionId}/cached-results?includeBallots=${includeBallots}&includeChunkCiphertext=${includeChunkCiphertext}`,
         { method: 'GET' },
         EXTENDED_TIMEOUT
       );
@@ -617,12 +618,24 @@ export const electionApi = {
     }
   },
 
+  async getChunkEncryptedTally(electionId, electionCenterId) {
+    try {
+      return await apiRequest(`/election/${electionId}/chunk/${electionCenterId}/encrypted-tally`, {
+        method: 'GET',
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error fetching chunk encrypted tally:', error);
+      throw error;
+    }
+  },
+
   /**
    * Get guardian information for verification tab
+   * @param {boolean} [summary=true] - When true, returns lightweight list without heavy crypto payloads
    */
-  async getElectionGuardians(electionId) {
+  async getElectionGuardians(electionId, { summary = true } = {}) {
     try {
-      const response = await fetch(`/api/election/${electionId}/guardians`, {
+      const response = await fetch(`/api/election/${electionId}/guardians?summary=${summary}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -642,12 +655,34 @@ export const electionApi = {
     }
   },
 
+  async getElectionGuardianDetail(electionId, guardianId) {
+    try {
+      const response = await fetch(`/api/election/${electionId}/guardians/${guardianId}`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching guardian detail:', error);
+      throw error;
+    }
+  },
+
   /**
    * Get compensated decryption information for verification tab
+   * @param {boolean} [summary=true] - When true, omits heavy share payloads
    */
-  async getElectionCompensatedDecryptions(electionId) {
+  async getElectionCompensatedDecryptions(electionId, { summary = true } = {}) {
     try {
-      const response = await fetch(`/api/election/${electionId}/compensated-decryptions`, {
+      const response = await fetch(`/api/election/${electionId}/compensated-decryptions?summary=${summary}`, {
         method: 'GET',
         credentials: 'include',
         headers: {
@@ -663,6 +698,30 @@ export const electionApi = {
       return data;
     } catch (error) {
       console.error('Error fetching compensated decryptions:', error);
+      throw error;
+    }
+  },
+
+  async getElectionCompensatedDecryptionDetail(electionId, compensatedDecryptionId) {
+    try {
+      const response = await fetch(
+        `/api/election/${electionId}/compensated-decryptions/${compensatedDecryptionId}`,
+        {
+          method: 'GET',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
+
+      return await response.json();
+    } catch (error) {
+      console.error('Error fetching compensated decryption detail:', error);
       throw error;
     }
   },

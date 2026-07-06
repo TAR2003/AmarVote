@@ -2090,6 +2090,86 @@ public class ElectionService {
     }
 
     /**
+     * Lightweight guardian list for verification tab (no heavy cryptographic payloads).
+     */
+    public List<Map<String, Object>> getGuardiansForVerificationSummary(Long electionId) {
+        try {
+            List<Guardian> guardians = guardianRepository.findByElectionId(electionId);
+            List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
+
+            return guardians.stream().map(guardian -> {
+                Map<String, Object> guardianData = new HashMap<>();
+                guardianData.put("id", guardian.getGuardianId());
+                guardianData.put("electionId", guardian.getElectionId());
+                guardianData.put("userEmail", guardian.getUserEmail());
+                guardianData.put("userName", guardian.getUserEmail());
+                guardianData.put("sequenceOrder", guardian.getSequenceOrder());
+                guardianData.put("decryptedOrNot", guardian.getDecryptedOrNot());
+
+                int chunkDecryptionCount = 0;
+                for (ElectionCenter center : electionCenters) {
+                    List<Decryption> decryptions = decryptionRepository.findByElectionCenterIdAndGuardianId(
+                        center.getElectionCenterId(),
+                        guardian.getGuardianId()
+                    );
+                    if (!decryptions.isEmpty()) {
+                        chunkDecryptionCount++;
+                    }
+                }
+                guardianData.put("chunkDecryptionCount", chunkDecryptionCount);
+                return guardianData;
+            }).collect(Collectors.toList());
+        } catch (Exception e) {
+            System.err.println("Error retrieving guardian summary for verification: " + e.getMessage());
+            throw new RuntimeException("Failed to retrieve guardian information", e);
+        }
+    }
+
+    /**
+     * Full guardian verification payload (loaded on demand).
+     */
+    public Map<String, Object> getGuardianVerificationDetail(Long electionId, Long guardianId) {
+        Optional<Guardian> guardianOpt = guardianRepository.findById(guardianId);
+        if (guardianOpt.isEmpty() || !electionId.equals(guardianOpt.get().getElectionId())) {
+            return null;
+        }
+        Guardian guardian = guardianOpt.get();
+        List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
+
+        Map<String, Object> guardianData = new HashMap<>();
+        guardianData.put("id", guardian.getGuardianId());
+        guardianData.put("electionId", guardian.getElectionId());
+        guardianData.put("userEmail", guardian.getUserEmail());
+        guardianData.put("userName", guardian.getUserEmail());
+        guardianData.put("sequenceOrder", guardian.getSequenceOrder());
+        guardianData.put("guardianPublicKey", guardian.getGuardianPublicKey());
+        guardianData.put("decryptedOrNot", guardian.getDecryptedOrNot());
+        guardianData.put("keyBackup", guardian.getKeyBackup());
+
+        List<Map<String, Object>> chunkDecryptions = new ArrayList<>();
+        for (ElectionCenter center : electionCenters) {
+            List<Decryption> decryptions = decryptionRepository.findByElectionCenterIdAndGuardianId(
+                center.getElectionCenterId(),
+                guardian.getGuardianId()
+            );
+
+            if (!decryptions.isEmpty()) {
+                Decryption decryption = decryptions.get(0);
+                Map<String, Object> chunkData = new HashMap<>();
+                chunkData.put("electionCenterId", center.getElectionCenterId());
+                chunkData.put("chunkIndex", center.getElectionCenterId());
+                chunkData.put("partialDecryptedTally", decryption.getPartialDecryptedTally());
+                chunkData.put("guardianDecryptionKey", decryption.getGuardianDecryptionKey());
+                chunkData.put("tallyShare", decryption.getTallyShare());
+                chunkData.put("datePerformed", decryption.getDatePerformed());
+                chunkDecryptions.add(chunkData);
+            }
+        }
+        guardianData.put("chunkDecryptions", chunkDecryptions);
+        return guardianData;
+    }
+
+    /**
      * Get guardian information for verification tab, excluding sensitive credentials
      * Includes decryption data from ALL chunks
      */
@@ -2144,9 +2224,36 @@ public class ElectionService {
     }
 
     /**
+     * Lightweight compensated-decryption list (no share payloads).
+     */
+    public List<Map<String, Object>> getCompensatedDecryptionsSummary(Long electionId) {
+        return getCompensatedDecryptionsForVerification(electionId, false);
+    }
+
+    /**
+     * Full compensated-decryption payload for a single record.
+     */
+    public Map<String, Object> getCompensatedDecryptionDetail(Long electionId, Long compensatedDecryptionId) {
+        Optional<CompensatedDecryption> cdOpt = compensatedDecryptionRepository.findById(compensatedDecryptionId);
+        if (cdOpt.isEmpty()) {
+            return null;
+        }
+        CompensatedDecryption cd = cdOpt.get();
+        Optional<ElectionCenter> centerOpt = electionCenterRepository.findById(cd.getElectionCenterId());
+        if (centerOpt.isEmpty() || !electionId.equals(centerOpt.get().getElectionId())) {
+            return null;
+        }
+        return buildCompensatedDecryptionData(cd, true);
+    }
+
+    /**
      * Get compensated decryption information for verification tab
      */
     public List<Map<String, Object>> getCompensatedDecryptionsForVerification(Long electionId) {
+        return getCompensatedDecryptionsForVerification(electionId, true);
+    }
+
+    private List<Map<String, Object>> getCompensatedDecryptionsForVerification(Long electionId, boolean includeShares) {
         try {
             
             // Get all election centers (chunks) for this election
@@ -2166,31 +2273,8 @@ public class ElectionService {
                     
                     // If this guardian pair hasn't been seen yet, add it
                     if (!uniqueCompensations.containsKey(pairKey)) {
-                        Map<String, Object> cdData = new HashMap<>();
-                        cdData.put("compensatedDecryptionId", cd.getCompensatedDecryptionId());
-                        cdData.put("electionCenterId", cd.getElectionCenterId());
-                        cdData.put("compensatingGuardianId", cd.getCompensatingGuardianId());
-                        cdData.put("missingGuardianId", cd.getMissingGuardianId());
-                        cdData.put("compensatedTallyShare", cd.getCompensatedTallyShare());
-                        cdData.put("compensatedBallotShare", cd.getCompensatedBallotShare());
-                        cdData.put("chunkCount", 1); // Track how many chunks this pair appears in
-                        
-                        // Look up guardian info
-                        Optional<Guardian> compensatingGuardian = guardianRepository.findById(cd.getCompensatingGuardianId());
-                        Optional<Guardian> missingGuardian = guardianRepository.findById(cd.getMissingGuardianId());
-                        
-                        if (compensatingGuardian.isPresent()) {
-                            cdData.put("compensatingGuardianEmail", compensatingGuardian.get().getUserEmail());
-                            cdData.put("compensatingGuardianSequence", compensatingGuardian.get().getSequenceOrder());
-                            cdData.put("compensatingGuardianName", "Guardian " + compensatingGuardian.get().getSequenceOrder());
-                        }
-                        
-                        if (missingGuardian.isPresent()) {
-                            cdData.put("missingGuardianEmail", missingGuardian.get().getUserEmail());
-                            cdData.put("missingGuardianSequence", missingGuardian.get().getSequenceOrder());
-                            cdData.put("missingGuardianName", "Guardian " + missingGuardian.get().getSequenceOrder());
-                        }
-                        
+                        Map<String, Object> cdData = buildCompensatedDecryptionData(cd, includeShares);
+                        cdData.put("chunkCount", 1);
                         uniqueCompensations.put(pairKey, cdData);
                     } else {
                         // Guardian pair already exists, just increment chunk count
@@ -2208,6 +2292,35 @@ public class ElectionService {
             e.printStackTrace();
             throw new RuntimeException("Failed to retrieve compensated decryption information", e);
         }
+    }
+
+    private Map<String, Object> buildCompensatedDecryptionData(CompensatedDecryption cd, boolean includeShares) {
+        Map<String, Object> cdData = new HashMap<>();
+        cdData.put("compensatedDecryptionId", cd.getCompensatedDecryptionId());
+        cdData.put("electionCenterId", cd.getElectionCenterId());
+        cdData.put("compensatingGuardianId", cd.getCompensatingGuardianId());
+        cdData.put("missingGuardianId", cd.getMissingGuardianId());
+        if (includeShares) {
+            cdData.put("compensatedTallyShare", cd.getCompensatedTallyShare());
+            cdData.put("compensatedBallotShare", cd.getCompensatedBallotShare());
+        }
+
+        Optional<Guardian> compensatingGuardian = guardianRepository.findById(cd.getCompensatingGuardianId());
+        Optional<Guardian> missingGuardian = guardianRepository.findById(cd.getMissingGuardianId());
+
+        if (compensatingGuardian.isPresent()) {
+            cdData.put("compensatingGuardianEmail", compensatingGuardian.get().getUserEmail());
+            cdData.put("compensatingGuardianSequence", compensatingGuardian.get().getSequenceOrder());
+            cdData.put("compensatingGuardianName", "Guardian " + compensatingGuardian.get().getSequenceOrder());
+        }
+
+        if (missingGuardian.isPresent()) {
+            cdData.put("missingGuardianEmail", missingGuardian.get().getUserEmail());
+            cdData.put("missingGuardianSequence", missingGuardian.get().getSequenceOrder());
+            cdData.put("missingGuardianName", "Guardian " + missingGuardian.get().getSequenceOrder());
+        }
+
+        return cdData;
     }
 
     /**

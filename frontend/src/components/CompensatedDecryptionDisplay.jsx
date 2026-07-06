@@ -1,9 +1,12 @@
-import React, { useState, useEffect } from 'react';
-import { FiDownload, FiChevronDown, FiChevronUp, FiUsers, FiKey, FiRefreshCw, FiDatabase, FiInfo } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FiDownload, FiChevronDown, FiChevronUp, FiUsers, FiKey, FiRefreshCw, FiDatabase, FiInfo, FiLoader } from 'react-icons/fi';
 import { saveAs } from 'file-saver';
+import { electionApi } from '../utils/electionApi';
 
 const CompensatedDecryptionDisplay = ({ electionId }) => {
   const [compensatedDecryptions, setCompensatedDecryptions] = useState([]);
+  const [decryptionDetails, setDecryptionDetails] = useState({});
+  const [loadingDetails, setLoadingDetails] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
@@ -15,15 +18,7 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
       
       try {
         setLoading(true);
-        const response = await fetch(`/api/election/${electionId}/compensated-decryptions`, {
-          credentials: 'include',
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch compensated decryption data');
-        }
-        
-        const data = await response.json();
+        const data = await electionApi.getElectionCompensatedDecryptions(electionId, { summary: true });
         if (data.success) {
           setCompensatedDecryptions(data.compensatedDecryptions || []);
         } else {
@@ -39,6 +34,41 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
 
     fetchCompensatedDecryptions();
   }, [electionId]);
+
+  const loadDecryptionDetail = useCallback(async (compensatedDecryptionId) => {
+    if (decryptionDetails[compensatedDecryptionId] || loadingDetails[compensatedDecryptionId]) {
+      return decryptionDetails[compensatedDecryptionId];
+    }
+
+    setLoadingDetails((prev) => ({ ...prev, [compensatedDecryptionId]: true }));
+    try {
+      const data = await electionApi.getElectionCompensatedDecryptionDetail(
+        electionId,
+        compensatedDecryptionId
+      );
+      if (data.success && data.compensatedDecryption) {
+        setDecryptionDetails((prev) => ({
+          ...prev,
+          [compensatedDecryptionId]: data.compensatedDecryption,
+        }));
+        return data.compensatedDecryption;
+      }
+      throw new Error(data.error || 'Failed to load compensated decryption detail');
+    } catch (err) {
+      console.error('Error fetching compensated decryption detail:', err);
+      return null;
+    } finally {
+      setLoadingDetails((prev) => ({ ...prev, [compensatedDecryptionId]: false }));
+    }
+  }, [electionId, decryptionDetails, loadingDetails]);
+
+  const handleToggleGroup = async (missingGuardianSeq, shares) => {
+    const willExpand = !expandedGroups[missingGuardianSeq];
+    setExpandedGroups((prev) => ({ ...prev, [missingGuardianSeq]: willExpand }));
+    if (willExpand) {
+      await Promise.all(shares.map((cd) => loadDecryptionDetail(cd.compensatedDecryptionId)));
+    }
+  };
 
   const toggleExpand = (cdId, field) => {
     const key = `${cdId}-${field}`;
@@ -70,10 +100,13 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
     saveAs(blob, filename);
   };
 
-  const downloadAllCompensatedDecryptionData = (cd) => {
-    const filename = `compensated_decryption_${cd.compensatingGuardianSequence}_to_${cd.missingGuardianSequence}_complete_election_${electionId}.json`;
+  const downloadAllCompensatedDecryptionData = async (cd) => {
+    const detail = decryptionDetails[cd.compensatedDecryptionId]
+      || await loadDecryptionDetail(cd.compensatedDecryptionId);
+    const payload = detail || cd;
+    const filename = `compensated_decryption_${payload.compensatingGuardianSequence}_to_${payload.missingGuardianSequence}_complete_election_${electionId}.json`;
     const dataToSave = {
-      ...cd,
+      ...payload,
       timestamp: new Date().toISOString()
     };
     
@@ -81,12 +114,19 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
     saveAs(blob, filename);
   };
 
-  const downloadAllCompensatedDecryptionsData = () => {
+  const downloadAllCompensatedDecryptionsData = async () => {
+    const detailed = await Promise.all(
+      compensatedDecryptions.map(async (cd) =>
+        decryptionDetails[cd.compensatedDecryptionId]
+          || await loadDecryptionDetail(cd.compensatedDecryptionId)
+          || cd
+      )
+    );
     const filename = `all_compensated_decryptions_election_${electionId}.json`;
     const dataToSave = {
       electionId,
-      compensatedDecryptions,
-      totalCompensatedDecryptions: compensatedDecryptions.length,
+      compensatedDecryptions: detailed,
+      totalCompensatedDecryptions: detailed.length,
       timestamp: new Date().toISOString()
     };
     
@@ -242,7 +282,7 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
               {/* Group Header (Clickable) */}
               <div
                 className="flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r from-purple-50 to-white hover:from-purple-100 hover:to-purple-50"
-                onClick={() => setExpandedGroups(prev => ({ ...prev, [missingGuardianSeq]: !prev[missingGuardianSeq] }))}
+                onClick={() => handleToggleGroup(missingGuardianSeq, shares)}
               >
                 <div className="flex items-center space-x-4 flex-1">
                   <div className="flex-shrink-0">
@@ -276,7 +316,15 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
               {/* Expanded Compensating Guardians */}
               {isExpanded && (
                 <div className="p-4 bg-gray-50 border-t border-gray-200 space-y-3">
-                  {shares.map((cd) => (
+                  {shares.some((cd) => loadingDetails[cd.compensatedDecryptionId]) && (
+                    <div className="flex items-center justify-center py-4 text-gray-600 text-sm">
+                      <FiLoader className="h-4 w-4 mr-2 animate-spin" />
+                      Loading compensated share payloads...
+                    </div>
+                  )}
+                  {shares.map((cd) => {
+                    const detail = decryptionDetails[cd.compensatedDecryptionId] || cd;
+                    return (
                     <div key={cd.compensatedDecryptionId} 
                          className="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-sm transition-shadow">
                       <div className="flex items-center justify-between mb-3">
@@ -312,11 +360,12 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
                       </div>
 
                       <div className="grid grid-cols-1 gap-3">
-                        {renderField(cd, 'Compensated Tally Share', cd.compensatedTallyShare, <FiDatabase className="h-4 w-4 text-orange-600" />)}
-                        {renderField(cd, 'Compensated Ballot Share', cd.compensatedBallotShare, <FiKey className="h-4 w-4 text-green-600" />)}
+                        {renderField(detail, 'Compensated Tally Share', detail.compensatedTallyShare, <FiDatabase className="h-4 w-4 text-orange-600" />)}
+                        {renderField(detail, 'Compensated Ballot Share', detail.compensatedBallotShare, <FiKey className="h-4 w-4 text-green-600" />)}
                       </div>
                     </div>
-                  ))}
+                    );
+                  })}
                 </div>
               )}
             </div>

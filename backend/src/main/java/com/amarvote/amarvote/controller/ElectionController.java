@@ -1369,10 +1369,12 @@ public class ElectionController {
     @GetMapping("/election/{electionId}/cached-results")
     public ResponseEntity<?> getCachedElectionResults(
             @PathVariable Long electionId,
-            @RequestParam(defaultValue = "false") boolean includeBallots) {
+            @RequestParam(defaultValue = "false") boolean includeBallots,
+            @RequestParam(defaultValue = "false") boolean includeChunkCiphertext) {
         try {
 
-            Object results = partialDecryptionService.getElectionResults(electionId, includeBallots);
+            Object results = partialDecryptionService.getElectionResults(
+                electionId, includeBallots, includeChunkCiphertext);
 
             if (results == null) {
                 return ResponseEntity.status(HttpStatus.NOT_FOUND)
@@ -1385,6 +1387,23 @@ public class ElectionController {
             System.err.println("Error fetching cached election results: " + e.getMessage());
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
                     .body(Map.of("success", false, "message", "Internal server error: " + e.getMessage()));
+        }
+    }
+
+    @GetMapping("/election/{electionId}/chunk/{electionCenterId}/encrypted-tally")
+    public ResponseEntity<?> getChunkEncryptedTally(
+            @PathVariable Long electionId,
+            @PathVariable Long electionCenterId) {
+        try {
+            Map<String, Object> response = partialDecryptionService.getChunkEncryptedTally(
+                electionId, electionCenterId);
+            if (Boolean.FALSE.equals(response.get("success"))) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(response);
+            }
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                .body(Map.of("success", false, "message", "Internal server error: " + e.getMessage()));
         }
     }
 
@@ -1540,10 +1559,13 @@ public class ElectionController {
      * Excludes sensitive credentials field
      */
     @GetMapping("/election/{id}/guardians")
-    public ResponseEntity<?> getElectionGuardians(@PathVariable Long id) {
+    public ResponseEntity<?> getElectionGuardians(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "true") boolean summary) {
         try {
-            // Get guardians for this election excluding sensitive credentials
-            List<Map<String, Object>> guardians = electionService.getGuardiansForVerification(id);
+            List<Map<String, Object>> guardians = summary
+                ? electionService.getGuardiansForVerificationSummary(id)
+                : electionService.getGuardiansForVerification(id);
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -1557,14 +1579,38 @@ public class ElectionController {
         }
     }
 
+    @GetMapping("/election/{electionId}/guardians/{guardianId}")
+    public ResponseEntity<?> getElectionGuardianDetail(
+            @PathVariable Long electionId,
+            @PathVariable Long guardianId) {
+        try {
+            Map<String, Object> guardian = electionService.getGuardianVerificationDetail(electionId, guardianId);
+            if (guardian == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "success", false,
+                    "error", "Guardian not found"
+                ));
+            }
+            return ResponseEntity.ok(Map.of("success", true, "guardian", guardian));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "error", "Failed to retrieve guardian detail: " + e.getMessage()
+            ));
+        }
+    }
+
     /**
      * Get compensated decryptions information for verification tab
      */
     @GetMapping("/election/{id}/compensated-decryptions")
-    public ResponseEntity<?> getElectionCompensatedDecryptions(@PathVariable Long id) {
+    public ResponseEntity<?> getElectionCompensatedDecryptions(
+            @PathVariable Long id,
+            @RequestParam(defaultValue = "true") boolean summary) {
         try {
-            // Get compensated decryptions for this election
-            List<Map<String, Object>> compensatedDecryptions = electionService.getCompensatedDecryptionsForVerification(id);
+            List<Map<String, Object>> compensatedDecryptions = summary
+                ? electionService.getCompensatedDecryptionsSummary(id)
+                : electionService.getCompensatedDecryptionsForVerification(id);
             
             return ResponseEntity.ok(Map.of(
                 "success", true,
@@ -1574,6 +1620,31 @@ public class ElectionController {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
                 "success", false,
                 "error", "Failed to retrieve compensated decryption information: " + e.getMessage()
+            ));
+        }
+    }
+
+    @GetMapping("/election/{electionId}/compensated-decryptions/{compensatedDecryptionId}")
+    public ResponseEntity<?> getElectionCompensatedDecryptionDetail(
+            @PathVariable Long electionId,
+            @PathVariable Long compensatedDecryptionId) {
+        try {
+            Map<String, Object> detail = electionService.getCompensatedDecryptionDetail(
+                electionId, compensatedDecryptionId);
+            if (detail == null) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND).body(Map.of(
+                    "success", false,
+                    "error", "Compensated decryption not found"
+                ));
+            }
+            return ResponseEntity.ok(Map.of(
+                "success", true,
+                "compensatedDecryption", detail
+            ));
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).body(Map.of(
+                "success", false,
+                "error", "Failed to retrieve compensated decryption detail: " + e.getMessage()
             ));
         }
     }

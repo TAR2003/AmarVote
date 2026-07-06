@@ -1,10 +1,13 @@
-import React, { useState, useEffect } from 'react';
-import { FiDownload, FiChevronDown, FiChevronUp, FiUser, FiKey, FiShield, FiDatabase, FiInfo } from 'react-icons/fi';
+import React, { useState, useEffect, useCallback } from 'react';
+import { FiDownload, FiChevronDown, FiChevronUp, FiUser, FiKey, FiShield, FiDatabase, FiInfo, FiLoader } from 'react-icons/fi';
 import { saveAs } from 'file-saver';
 import { timezoneUtils } from '../utils/timezoneUtils';
+import { electionApi } from '../utils/electionApi';
 
 const GuardianDataDisplay = ({ electionId }) => {
   const [guardians, setGuardians] = useState([]);
+  const [guardianDetails, setGuardianDetails] = useState({});
+  const [loadingDetails, setLoadingDetails] = useState({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [expandedItems, setExpandedItems] = useState({});
@@ -16,15 +19,7 @@ const GuardianDataDisplay = ({ electionId }) => {
       
       try {
         setLoading(true);
-        const response = await fetch(`/api/election/${electionId}/guardians`, {
-          credentials: 'include',
-        });
-        
-        if (!response.ok) {
-          throw new Error('Failed to fetch guardian data');
-        }
-        
-        const data = await response.json();
+        const data = await electionApi.getElectionGuardians(electionId, { summary: true });
         if (data.success) {
           setGuardians(data.guardians || []);
         } else {
@@ -40,6 +35,35 @@ const GuardianDataDisplay = ({ electionId }) => {
 
     fetchGuardians();
   }, [electionId]);
+
+  const loadGuardianDetail = useCallback(async (guardianId) => {
+    if (guardianDetails[guardianId] || loadingDetails[guardianId]) {
+      return guardianDetails[guardianId];
+    }
+
+    setLoadingDetails((prev) => ({ ...prev, [guardianId]: true }));
+    try {
+      const data = await electionApi.getElectionGuardianDetail(electionId, guardianId);
+      if (data.success && data.guardian) {
+        setGuardianDetails((prev) => ({ ...prev, [guardianId]: data.guardian }));
+        return data.guardian;
+      }
+      throw new Error(data.error || 'Failed to load guardian detail');
+    } catch (err) {
+      console.error('Error fetching guardian detail:', err);
+      return null;
+    } finally {
+      setLoadingDetails((prev) => ({ ...prev, [guardianId]: false }));
+    }
+  }, [electionId, guardianDetails, loadingDetails]);
+
+  const handleToggleGuardian = async (guardianId) => {
+    const willExpand = !expandedGuardians[guardianId];
+    setExpandedGuardians((prev) => ({ ...prev, [guardianId]: willExpand }));
+    if (willExpand) {
+      await loadGuardianDetail(guardianId);
+    }
+  };
 
   const toggleExpand = (guardianId, field) => {
     const key = `${guardianId}-${field}`;
@@ -70,10 +94,12 @@ const GuardianDataDisplay = ({ electionId }) => {
     saveAs(blob, filename);
   };
 
-  const downloadAllGuardianData = (guardian) => {
+  const downloadAllGuardianData = async (guardian) => {
+    const detail = guardianDetails[guardian.id] || await loadGuardianDetail(guardian.id);
+    const payload = detail || guardian;
     const filename = `guardian_${guardian.sequenceOrder}_complete_data_election_${electionId}.json`;
     const dataToSave = {
-      ...guardian,
+      ...payload,
       timestamp: new Date().toISOString()
     };
     
@@ -81,12 +107,15 @@ const GuardianDataDisplay = ({ electionId }) => {
     saveAs(blob, filename);
   };
 
-  const downloadAllGuardiansData = () => {
+  const downloadAllGuardiansData = async () => {
+    const detailedGuardians = await Promise.all(
+      guardians.map(async (guardian) => guardianDetails[guardian.id] || await loadGuardianDetail(guardian.id) || guardian)
+    );
     const filename = `all_guardians_election_${electionId}.json`;
     const dataToSave = {
       electionId,
-      guardians,
-      totalGuardians: guardians.length,
+      guardians: detailedGuardians,
+      totalGuardians: detailedGuardians.length,
       timestamp: new Date().toISOString()
     };
     
@@ -281,12 +310,15 @@ const GuardianDataDisplay = ({ electionId }) => {
       <div className="space-y-3">
         {guardians.map((guardian) => {
           const isExpanded = expandedGuardians[guardian.id];
+          const detail = guardianDetails[guardian.id];
+          const isLoadingDetail = loadingDetails[guardian.id];
+          const displayGuardian = detail || guardian;
           return (
             <div key={guardian.id} className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-all">
               {/* Guardian Header (Clickable) */}
               <div
                 className="flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50"
-                onClick={() => setExpandedGuardians(prev => ({ ...prev, [guardian.id]: !prev[guardian.id] }))}
+                onClick={() => handleToggleGuardian(guardian.id)}
               >
                 <div className="flex items-center space-x-4 flex-1">
                   <div className="flex-shrink-0">
@@ -299,7 +331,8 @@ const GuardianDataDisplay = ({ electionId }) => {
                       Guardian {guardian.sequenceOrder}
                     </h4>
                     <p className="text-sm text-gray-600">
-                      {guardian.userName} • {guardian.userEmail}
+                      {guardian.userEmail}
+                      {guardian.chunkDecryptionCount != null ? ` • ${guardian.chunkDecryptionCount} chunk decryption(s)` : ''}
                     </p>
                   </div>
                 </div>
@@ -332,6 +365,12 @@ const GuardianDataDisplay = ({ electionId }) => {
               {/* Expanded Guardian Details */}
               {isExpanded && (
                 <div className="p-4 bg-gray-50 border-t border-gray-200">
+                  {isLoadingDetail ? (
+                    <div className="flex items-center justify-center py-8 text-gray-600">
+                      <FiLoader className="h-5 w-5 mr-2 animate-spin" />
+                      Loading guardian cryptographic data...
+                    </div>
+                  ) : (
                   <div className="space-y-4">
                     {/* Guardian Keys Section */}
                     <div className="bg-white rounded-lg p-4 border border-gray-200">
@@ -340,8 +379,8 @@ const GuardianDataDisplay = ({ electionId }) => {
                         Cryptographic Keys
                       </h5>
                       <div className="grid grid-cols-1 gap-3">
-                        {renderField(guardian, 'Guardian Public Key', guardian.guardianPublicKey, <FiKey className="h-4 w-4 text-blue-600" />)}
-                        {renderField(guardian, 'Key Backup', guardian.keyBackup, <FiShield className="h-4 w-4 text-gray-600" />)}
+                        {renderField(displayGuardian, 'Guardian Public Key', displayGuardian.guardianPublicKey, <FiKey className="h-4 w-4 text-blue-600" />)}
+                        {renderField(displayGuardian, 'Key Backup', displayGuardian.keyBackup, <FiShield className="h-4 w-4 text-gray-600" />)}
                       </div>
                     </div>
 
@@ -351,9 +390,10 @@ const GuardianDataDisplay = ({ electionId }) => {
                         <FiDatabase className="h-4 w-4 mr-2 text-purple-600" />
                         Chunk Decryption Data
                       </h5>
-                      {renderChunkDecryptions(guardian)}
+                      {renderChunkDecryptions(displayGuardian)}
                     </div>
                   </div>
+                  )}
                 </div>
               )}
             </div>

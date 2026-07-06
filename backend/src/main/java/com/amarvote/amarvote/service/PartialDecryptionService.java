@@ -1924,6 +1924,10 @@ public class PartialDecryptionService {
     }
 
     public Object getElectionResults(Long electionId, boolean includeBallots) {
+        return getElectionResults(electionId, includeBallots, false);
+    }
+
+    public Object getElectionResults(Long electionId, boolean includeBallots, boolean includeChunkCiphertext) {
         try {
             List<ElectionCenter> electionCenters = electionCenterRepository.findByElectionId(electionId);
             
@@ -1940,13 +1944,33 @@ public class PartialDecryptionService {
             }
             
             // Build and return aggregated results
-            return buildAggregatedResultsFromChunks(electionCenters, includeBallots);
+            return buildAggregatedResultsFromChunks(electionCenters, includeBallots, includeChunkCiphertext);
             
         } catch (Exception e) {
             System.err.println("Error getting election results: " + e.getMessage());
             // Stack trace available in exception: e
             return null;
         }
+    }
+
+    public Map<String, Object> getChunkEncryptedTally(Long electionId, Long electionCenterId) {
+        Optional<ElectionCenter> centerOpt = electionCenterRepository.findById(electionCenterId);
+        if (centerOpt.isEmpty()) {
+            return Map.of("success", false, "message", "Chunk not found");
+        }
+        ElectionCenter center = centerOpt.get();
+        if (!electionId.equals(center.getElectionId())) {
+            return Map.of("success", false, "message", "Chunk does not belong to this election");
+        }
+        String encryptedTally = center.getEncryptedTally();
+        if (encryptedTally == null || encryptedTally.isBlank()) {
+            return Map.of("success", false, "message", "Encrypted tally not available for this chunk");
+        }
+        return Map.of(
+            "success", true,
+            "electionCenterId", electionCenterId,
+            "encryptedTally", encryptedTally
+        );
     }
 
     /**
@@ -1996,7 +2020,9 @@ public class PartialDecryptionService {
             int total = filtered.size();
             int fromIndex = Math.min(safePage * safeSize, total);
             int toIndex = Math.min(fromIndex + safeSize, total);
-            List<Map<String, Object>> pageBallots = filtered.subList(fromIndex, toIndex);
+            List<Map<String, Object>> pageBallots = filtered.subList(fromIndex, toIndex).stream()
+                .map(this::toBallotSummary)
+                .toList();
 
             return Map.of(
                 "success", true,
@@ -2040,8 +2066,9 @@ public class PartialDecryptionService {
                     continue;
                 }
                 for (Map<String, Object> ballot : ballots) {
-                    ballot.put("chunkIndex", i + 1);
-                    allBallots.add(ballot);
+                    Map<String, Object> summary = toBallotSummary(ballot);
+                    summary.put("chunkIndex", i + 1);
+                    allBallots.add(summary);
                 }
             } catch (Exception e) {
                 System.err.println("Error extracting ballots from chunk " + (i + 1) + ": " + e.getMessage());
@@ -2094,6 +2121,19 @@ public class PartialDecryptionService {
         counts.put(key, counts.getOrDefault(key, 0) + 1);
     }
 
+    private Map<String, Object> toBallotSummary(Map<String, Object> ballot) {
+        Map<String, Object> summary = new HashMap<>();
+        summary.put("ballot_id", ballot.get("ballot_id"));
+        summary.put("initial_hash", ballot.get("initial_hash"));
+        summary.put("decrypted_hash", ballot.get("decrypted_hash"));
+        summary.put("status", ballot.get("status"));
+        summary.put("verification", ballot.get("verification"));
+        if (ballot.containsKey("chunkIndex")) {
+            summary.put("chunkIndex", ballot.get("chunkIndex"));
+        }
+        return summary;
+    }
+
     /**
      * Parses the results string from the microservice response
      */
@@ -2103,10 +2143,13 @@ public class PartialDecryptionService {
      * Combines per-chunk results into a single comprehensive result object
      */
     private Object buildAggregatedResultsFromChunks(List<ElectionCenter> electionCenters) {
-        return buildAggregatedResultsFromChunks(electionCenters, true);
+        return buildAggregatedResultsFromChunks(electionCenters, true, false);
     }
 
-    private Object buildAggregatedResultsFromChunks(List<ElectionCenter> electionCenters, boolean includeBallots) {
+    private Object buildAggregatedResultsFromChunks(
+            List<ElectionCenter> electionCenters,
+            boolean includeBallots,
+            boolean includeChunkCiphertext) {
         try {
             Map<String, Object> aggregatedResult = new HashMap<>();
             List<Map<String, Object>> chunkResults = new ArrayList<>();
@@ -2161,8 +2204,9 @@ public class PartialDecryptionService {
                         Map<String, Object> chunkResult = new HashMap<>();
                         chunkResult.put("chunkIndex", i + 1);
                         chunkResult.put("electionCenterId", chunk.getElectionCenterId());
-                        // Include the stored encrypted tally ciphertext for this chunk so frontend can display it
-                        chunkResult.put("encryptedTally", chunk.getEncryptedTally());
+                        if (includeChunkCiphertext) {
+                            chunkResult.put("encryptedTally", chunk.getEncryptedTally());
+                        }
                         chunkResult.put("candidateVotes", candidateVoteCounts);
                         
                         // Extract ballot information
@@ -2176,8 +2220,9 @@ public class PartialDecryptionService {
                                 totalBallotCount += ballots.size();
                                 if (includeBallots) {
                                     for (Map<String, Object> ballot : ballots) {
-                                        ballot.put("chunkIndex", i + 1);
-                                        allBallots.add(ballot);
+                                        Map<String, Object> summary = toBallotSummary(ballot);
+                                        summary.put("chunkIndex", i + 1);
+                                        allBallots.add(summary);
                                     }
                                 }
                             }

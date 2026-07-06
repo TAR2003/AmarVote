@@ -328,8 +328,21 @@ const DataDisplay = ({ title, data, type = 'json' }) => {
 const COLORS = ['#0088FE', '#00C49F', '#FFBB28', '#FF8042', '#8884D8', '#82CA9D'];
 
 // Modern Verification Tab Content Component
-const VerificationTabContent = ({ canUserViewVerification, id, electionData, animatedResults }) => {
+const VerificationTabContent = ({ canUserViewVerification, id, electionData }) => {
   const [verificationSubTab, setVerificationSubTab] = useState('overview');
+  const [chunkCount, setChunkCount] = useState(0);
+
+  useEffect(() => {
+    if (!id || !canUserViewVerification()) return;
+
+    electionApi.getElectionResults(id, { includeBallots: false, includeChunkCiphertext: false })
+      .then((data) => {
+        if (data?.success && data.results) {
+          setChunkCount(data.results.totalChunks || data.results.chunks?.length || 0);
+        }
+      })
+      .catch(() => {});
+  }, [id, canUserViewVerification]);
   
   if (!canUserViewVerification()) {
     return (
@@ -390,7 +403,7 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData, ani
               <div>
                 <p className="text-xs text-gray-500 uppercase tracking-wide">Chunks</p>
                 <p className="text-2xl font-bold text-green-600">
-                  {animatedResults?.results?.chunks?.length || 0}
+                  {chunkCount}
                 </p>
               </div>
               <FiLayers className="h-8 w-8 text-green-400" />
@@ -456,7 +469,7 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData, ani
       <div className="p-6">
         {/* Overview Tab */}
         {verificationSubTab === 'overview' && (
-          <OverviewTabContent electionData={electionData} id={id} animatedResults={animatedResults} />
+          <OverviewTabContent electionData={electionData} id={id} />
         )}
 
         {/* Timeline Tab */}
@@ -471,7 +484,7 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData, ani
 
         {/* Chunks Tab */}
         {verificationSubTab === 'chunks' && (
-          <ChunksTabContent animatedResults={animatedResults} />
+          <ChunksTabContent electionId={id} />
         )}
 
         {/* Compensated Decryptions Tab */}
@@ -485,7 +498,7 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData, ani
 };
 
 // Overview Tab Content
-const OverviewTabContent = ({ electionData, id, animatedResults }) => {
+const OverviewTabContent = ({ electionData, id }) => {
   return (
     <div className="space-y-6">
       {/* Info Banner */}
@@ -612,11 +625,81 @@ const OverviewTabContent = ({ electionData, id, animatedResults }) => {
 };
 
 // Chunks Tab Content
-const ChunksTabContent = ({ animatedResults }) => {
+const ChunksTabContent = ({ electionId }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const [expandedChunks, setExpandedChunks] = useState({});
+  const [chunks, setChunks] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(null);
+  const [encryptedTallies, setEncryptedTallies] = useState({});
+  const [loadingTallies, setLoadingTallies] = useState({});
 
-  if (!animatedResults || !animatedResults.results || !animatedResults.results.chunks) {
+  useEffect(() => {
+    if (!electionId) return;
+
+    setLoading(true);
+    setLoadError(null);
+    electionApi.getElectionResults(electionId, { includeBallots: false, includeChunkCiphertext: false })
+      .then((data) => {
+        if (data?.success && data.results?.chunks) {
+          setChunks(data.results.chunks);
+        } else {
+          setChunks([]);
+        }
+      })
+      .catch((err) => {
+        setLoadError(err.message || 'Failed to load chunk data');
+        setChunks([]);
+      })
+      .finally(() => setLoading(false));
+  }, [electionId]);
+
+  const toggleChunk = async (chunk) => {
+    const chunkId = chunk.electionCenterId;
+    const willExpand = !expandedChunks[chunkId];
+    setExpandedChunks((prev) => ({
+      ...prev,
+      [chunkId]: willExpand,
+    }));
+
+    if (!willExpand || encryptedTallies[chunkId] || loadingTallies[chunkId]) {
+      return;
+    }
+
+    setLoadingTallies((prev) => ({ ...prev, [chunkId]: true }));
+    try {
+      const response = await electionApi.getChunkEncryptedTally(electionId, chunkId);
+      if (response?.success && response.encryptedTally) {
+        setEncryptedTallies((prev) => ({ ...prev, [chunkId]: response.encryptedTally }));
+      } else {
+        setEncryptedTallies((prev) => ({ ...prev, [chunkId]: 'Not available' }));
+      }
+    } catch {
+      setEncryptedTallies((prev) => ({ ...prev, [chunkId]: 'Error loading encrypted tally' }));
+    } finally {
+      setLoadingTallies((prev) => ({ ...prev, [chunkId]: false }));
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="text-center py-12">
+        <FiLoader className="h-12 w-12 text-blue-500 mx-auto mb-4 animate-spin" />
+        <p className="text-gray-600">Loading chunk summaries...</p>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="text-center py-12">
+        <FiAlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
+        <p className="text-gray-700">{loadError}</p>
+      </div>
+    );
+  }
+
+  if (!chunks.length) {
     return (
       <div className="text-center py-12">
         <FiLayers className="h-16 w-16 text-gray-300 mx-auto mb-4" />
@@ -628,18 +711,10 @@ const ChunksTabContent = ({ animatedResults }) => {
     );
   }
 
-  const chunks = animatedResults.results.chunks;
-  const filteredChunks = chunks.filter(chunk => 
+  const filteredChunks = chunks.filter(chunk =>
     chunk.electionCenterId?.toString().includes(searchTerm) ||
     chunk.chunkIndex?.toString().includes(searchTerm)
   );
-
-  const toggleChunk = (chunkId) => {
-    setExpandedChunks(prev => ({
-      ...prev,
-      [chunkId]: !prev[chunkId]
-    }));
-  };
 
   return (
     <div className="space-y-4">
@@ -648,7 +723,7 @@ const ChunksTabContent = ({ animatedResults }) => {
         <div>
           <h4 className="font-semibold text-gray-900 text-lg">Per-Chunk Tallies and Decryptions</h4>
           <p className="text-sm text-gray-600 mt-1">
-            View detailed tally results and encrypted data for each chunk
+            Vote counts load immediately; encrypted tally ciphertext loads when you expand a chunk.
           </p>
         </div>
         <div className="flex items-center space-x-3">
@@ -677,7 +752,7 @@ const ChunksTabContent = ({ animatedResults }) => {
               {/* Chunk Header */}
               <div 
                 className="flex items-center justify-between p-4 cursor-pointer bg-gradient-to-r from-gray-50 to-white hover:from-gray-100 hover:to-gray-50"
-                onClick={() => toggleChunk(chunk.electionCenterId)}
+                onClick={() => toggleChunk(chunk)}
               >
                 <div className="flex items-center space-x-4">
                   <div className="flex-shrink-0">
@@ -728,11 +803,18 @@ const ChunksTabContent = ({ animatedResults }) => {
 
                   {/* Encrypted Tally */}
                   <div className="mb-4">
-                    <DataDisplay
-                      title="Encrypted Tally"
-                      data={chunk.encryptedTally || "Not available"}
-                      type="text"
-                    />
+                    {loadingTallies[chunk.electionCenterId] ? (
+                      <div className="flex items-center text-sm text-gray-600 py-4">
+                        <FiLoader className="h-4 w-4 mr-2 animate-spin" />
+                        Loading encrypted tally...
+                      </div>
+                    ) : (
+                      <DataDisplay
+                        title="Encrypted Tally"
+                        data={encryptedTallies[chunk.electionCenterId] || "Expand this chunk to load encrypted tally ciphertext"}
+                        type="text"
+                      />
+                    )}
                   </div>
 
                   {/* Information Note */}
@@ -850,12 +932,11 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
           tracking_code: ballot.ballot_id,
           hash_code: ballot.initial_hash,
           decrypted_hash: ballot.decrypted_hash,
-          cipher_text: ballotDetailsResponse.ballot.cipher_text, // Added cipher text
+          cipher_text: ballotDetailsResponse.ballot.cipher_text,
           status: ballot.status,
           verification: ballot.verification,
           timestamp: new Date().toISOString(),
           election_id: electionId || 'unknown',
-          ballot_selections: ballot.selections || []
         };
       } else {
         // Fallback to original data without cipher text
@@ -863,12 +944,11 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
           tracking_code: ballot.ballot_id,
           hash_code: ballot.initial_hash,
           decrypted_hash: ballot.decrypted_hash,
-          cipher_text: "Not available", // Indicate cipher text is not available
+          cipher_text: "Not available",
           status: ballot.status,
           verification: ballot.verification,
           timestamp: new Date().toISOString(),
           election_id: electionId || 'unknown',
-          ballot_selections: ballot.selections || []
         };
         console.warn('Could not fetch cipher text for ballot:', ballot.ballot_id);
       }
@@ -887,7 +967,6 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
         verification: ballot.verification,
         timestamp: new Date().toISOString(),
         election_id: electionId || 'unknown',
-        ballot_selections: ballot.selections || []
       };
 
       const blob = new Blob([JSON.stringify(ballotData, null, 2)], { type: 'application/json' });
@@ -992,7 +1071,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
         </div>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
+      <div className="flex flex-col md:flex-row gap-4 mb-2">
         <div className="relative flex-1">
           <input
             type="text"
@@ -1025,9 +1104,18 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
         </div>
       </div>
 
-      {searchTerm && (
+      <p className="text-xs text-gray-500 mb-4">
+        Showing {ballots.length} of {totalBallots} ballots.
+        {debouncedSearch
+          ? ' Search scans the entire tally on the server — not just the rows currently visible.'
+          : ' Only tracking codes and hashes are loaded initially; encrypted ballot ciphertext is fetched when you download a card.'}
+      </p>
+
+      {debouncedSearch && (
         <div className="mb-4 text-sm text-gray-600">
-          Showing {ballots.length} of {totalBallots} ballots
+          {totalBallots === 0
+            ? 'No ballots match your search.'
+            : `Found ${totalBallots} matching ballot${totalBallots === 1 ? '' : 's'}.`}
         </div>
       )}
 
@@ -1064,7 +1152,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
                 <button
                   onClick={() => downloadBallotInfo(ballot)}
                   className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50"
-                  title="Download ballot verification details"
+                  title="Download encrypted ballot and verification details"
                 >
                   <FiDownload className="h-4 w-4" />
                 </button>
@@ -5923,7 +6011,6 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             canUserViewVerification={canUserViewVerification}
             id={id}
             electionData={electionData}
-            animatedResults={animatedResults}
           />
         )}
 
