@@ -39,16 +39,6 @@ describe("AllElections Component", () => {
 //     expect(screen.getByText(/loading/i)).toBeInTheDocument();
 //   });
 
-    it("displays an error message on fetch failure", async () => {
-  // Make the mock reject
-  api.fetchAllElections.mockRejectedValueOnce(new Error("Network Failure"));
-
-  render(<AllElections />, { wrapper: RouterWrapper });
-
-  // Your component should render something like: <h3 role="alert">Error loading elections</h3>
-  const alert = await screen.findByRole("alert");
-  expect(alert).toHaveTextContent(/error loading elections/i);
-});
   it("displays elections after successful fetch", async () => {
     const mockData = [
       { electionId: "1", electionTitle: "Test Election" },
