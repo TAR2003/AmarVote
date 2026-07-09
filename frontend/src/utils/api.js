@@ -703,19 +703,27 @@ export async function uploadAuthorizedUsersCsv(file) {
   const formData = new FormData();
   formData.append('file', file);
 
+  const csrfToken = getCsrfToken();
+  const headers = {};
+  if (csrfToken) {
+    headers['X-XSRF-TOKEN'] = csrfToken;
+  }
+
   const response = await fetch('/api/authorized-users/bulk-upload', {
     method: 'POST',
     credentials: 'include',
+    headers,
     body: formData,
   });
 
-  if (handleAuthError(response)) {
+  if (response.status === 401) {
+    handleAuthError(response);
     throw new Error('Session expired. Please login again.');
   }
 
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
-    throw new Error(data.message || 'CSV upload failed');
+    throw createApiError(response, data);
   }
 
   return data;
