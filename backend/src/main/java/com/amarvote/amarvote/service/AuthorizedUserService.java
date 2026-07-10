@@ -2,6 +2,7 @@ package com.amarvote.amarvote.service;
 
 import java.time.Instant;
 import java.util.Arrays;
+import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -93,6 +94,40 @@ public class AuthorizedUserService {
                         .build());
         record.setRegisteredOrNot(true);
         authorizedUserRepository.save(record);
+    }
+
+    /**
+     * Ensure each email exists in authorized_users as role "user".
+     * Existing records (any role) are left unchanged.
+     */
+    @Transactional
+    public int ensureAuthorizedAsUsers(Collection<String> emails) {
+        if (emails == null || emails.isEmpty()) {
+            return 0;
+        }
+
+        int created = 0;
+        for (String rawEmail : emails) {
+            String email = normalizeEmail(rawEmail);
+            if (email.isBlank() || !email.contains("@")) {
+                continue;
+            }
+            if (authorizedUserRepository.existsByEmail(email)) {
+                continue;
+            }
+
+            boolean registered = appUserRepository.existsByEmail(email);
+            authorizedUserRepository.save(AuthorizedUser.builder()
+                    .email(email)
+                    .isAllowed(true)
+                    .registeredOrNot(registered)
+                    .userType(USER_TYPE_USER)
+                    .canCreateElections(false)
+                    .apiLogViewerAllowed(false)
+                    .build());
+            created++;
+        }
+        return created;
     }
 
     @Transactional

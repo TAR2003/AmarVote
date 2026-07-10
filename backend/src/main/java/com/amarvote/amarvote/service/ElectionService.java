@@ -247,7 +247,8 @@ public class ElectionService {
         // Only save voters for "listed" eligibility elections
         List<String> voterEmails = request.voterEmails();
         if ("listed".equals(request.electionEligibility()) && voterEmails != null && !voterEmails.isEmpty()) {
-            for (String email : voterEmails) {
+            Set<String> normalizedVoterEmails = normalizeAndValidateVoterEmails(voterEmails);
+            for (String email : normalizedVoterEmails) {
                 AllowedVoter allowedVoter = AllowedVoter.builder()
                         .electionId(election.getElectionId())
                         .userEmail(email)
@@ -256,6 +257,7 @@ public class ElectionService {
 
                 allowedVoterRepository.save(allowedVoter);
             }
+            authorizedUserService.ensureAuthorizedAsUsers(normalizedVoterEmails);
         } else {
         }
 
@@ -385,6 +387,8 @@ public class ElectionService {
                         .build());
             }
         }
+
+        authorizedUserService.ensureAuthorizedAsUsers(normalizedIncoming);
 
         return getVoterInfoForElection(electionId, userEmail);
     }

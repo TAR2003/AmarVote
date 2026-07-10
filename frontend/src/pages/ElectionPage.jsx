@@ -4158,8 +4158,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               </div>
             </div>
 
-            {/* Voter summary — full list loaded on demand */}
-            {(canViewVoterList() || canEditVoterList()) && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0 || canEditVoterList()) && (
+            {/* Voter summary — counts visible to all; full email list only for authorized roles */}
+            {(canEditVoterList() || getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
               <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <h3 className="text-base sm:text-lg font-semibold flex items-center">
