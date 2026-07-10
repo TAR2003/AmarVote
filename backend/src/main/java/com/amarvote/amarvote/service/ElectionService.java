@@ -369,7 +369,7 @@ public class ElectionService {
 
     @Transactional
     public List<ElectionDetailResponse.VoterInfo> addVotersToElection(Long electionId, String userEmail, List<String> voterEmails) {
-        Election election = requireElectionWithEditableVoterList(electionId, userEmail);
+        Election election = requireElectionWithManageableVoterList(electionId, userEmail);
 
         Set<String> normalizedIncoming = normalizeAndValidateVoterEmails(voterEmails);
         if (normalizedIncoming.isEmpty()) {
@@ -391,7 +391,8 @@ public class ElectionService {
 
     @Transactional
     public List<ElectionDetailResponse.VoterInfo> removeVoterFromElection(Long electionId, String userEmail, String voterEmail) {
-        requireElectionWithEditableVoterList(electionId, userEmail);
+        Election election = requireElectionWithManageableVoterList(electionId, userEmail);
+        requireVoterListRemovable(election);
 
         String normalizedVoterEmail = authorizedUserService.normalizeEmail(voterEmail);
         if (normalizedVoterEmail.isBlank()) {
@@ -525,40 +526,48 @@ public class ElectionService {
 
     @Transactional
     public List<ElectionDetailResponse.VoterInfo> removeAllVotersFromElection(Long electionId, String userEmail) {
-        requireElectionWithEditableVoterList(electionId, userEmail);
+        Election election = requireElectionWithManageableVoterList(electionId, userEmail);
+        requireVoterListRemovable(election);
 
         allowedVoterRepository.deleteByElectionId(electionId);
 
         return getVoterInfoForElection(electionId, userEmail);
     }
 
-    private Election requireElectionWithEditableVoterList(Long electionId, String userEmail) {
+    private Election requireElectionWithManageableVoterList(Long electionId, String userEmail) {
         Election election = electionRepository.findById(electionId)
                 .orElseThrow(() -> new IllegalArgumentException("Election not found"));
 
         if (!canUserManageVoterList(election, userEmail)) {
-            throw new IllegalArgumentException("Only the election creator, co-admins, or assigned guardians can manage voters");
+            throw new IllegalArgumentException("Only the election admin and co-admins can manage voters");
         }
 
         if (!"listed".equals(election.getEligibility())) {
             throw new IllegalArgumentException("Voter list can only be managed for listed elections");
         }
 
-        if (!isBeforeElectionStart(election)) {
-            throw new IllegalArgumentException("Voter list can only be edited before the election starts");
-        }
-
         return election;
+    }
+
+    private void requireVoterListRemovable(Election election) {
+        if (!isBeforeElectionStart(election)) {
+            throw new IllegalArgumentException("Voters cannot be removed after the election has started");
+        }
     }
 
     private boolean canUserManageVoterList(Election election, String userEmail) {
         if (userEmail == null || userEmail.isBlank()) {
             return false;
         }
+        return userHasAdminRole(election, userEmail);
+    }
 
-        boolean isAdmin = userHasAdminRole(election, userEmail);
-        boolean isGuardian = !guardianRepository.findByElectionIdAndUserEmail(election.getElectionId(), userEmail).isEmpty();
-        return isAdmin || isGuardian;
+    private boolean canUserViewVoterList(Election election, String userEmail) {
+        if (userEmail == null || userEmail.isBlank()) {
+            return false;
+        }
+        return userHasAdminRole(election, userEmail)
+                || authorizedUserService.isAdminOrOwner(userEmail);
     }
 
     private boolean isBeforeElectionStart(Election election) {
@@ -1757,7 +1766,7 @@ public class ElectionService {
         }
 
         Election election = electionOpt.get();
-        if (!userHasAdminRole(election, userEmail)) {
+        if (!canUserViewVoterList(election, userEmail)) {
             return null;
         }
 

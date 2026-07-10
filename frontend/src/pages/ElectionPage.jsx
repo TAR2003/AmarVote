@@ -74,6 +74,7 @@ import {
   isWinnerByRank,
 } from '../utils/electionRankings';
 import { getVoterFriendlyError, getGuardianKeyFriendlyError } from '../utils/voterMessages';
+import { getAuthorizedUsersAccess } from '../utils/api';
 import TallyCreationModal from '../components/TallyCreationModal';
 import DecryptionProgressModal from '../components/DecryptionProgressModal';
 import CombineProgressModal from '../components/CombineProgressModal';
@@ -1758,6 +1759,7 @@ export default function ElectionPage() {
   const [showVoterEditor, setShowVoterEditor] = useState(false);
   const [showVoterList, setShowVoterList] = useState(false);
   const [votersLoading, setVotersLoading] = useState(false);
+  const [isAppAdminOrOwner, setIsAppAdminOrOwner] = useState(false);
 
   // Results state
   const [resultsData, setResultsData] = useState(null);
@@ -1873,6 +1875,26 @@ export default function ElectionPage() {
       fetchElectionData();
     }
   }, [id, fetchElectionData]);
+
+  useEffect(() => {
+    let isMounted = true;
+    const loadAppAccess = async () => {
+      try {
+        const access = await getAuthorizedUsersAccess();
+        if (!isMounted) return;
+        const userType = access?.userType;
+        setIsAppAdminOrOwner(userType === 'admin' || userType === 'owner' || !!access?.canDeleteAnyElection);
+      } catch {
+        if (isMounted) {
+          setIsAppAdminOrOwner(false);
+        }
+      }
+    };
+    loadAppAccess();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   // Guardian tab decryption status — initial + live updates via SSE snapshots (no polling)
   useElectionProgressStream(id, {
@@ -3032,15 +3054,16 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
     return currentUserIsGuardian;
   };
 
-  const canViewVoterList = () => electionData?.userRoles?.includes('admin');
+  const canViewVoterList = () =>
+    electionData?.userRoles?.includes('admin') || isAppAdminOrOwner;
 
   const canEditVoterList = () => {
     if (!electionData || electionData.eligibility !== 'listed') return false;
+    return !!electionData.userRoles?.includes('admin');
+  };
 
-    const isAdminOrGuardian =
-      electionData.userRoles?.includes('admin') || electionData.userRoles?.includes('guardian');
-    if (!isAdminOrGuardian) return false;
-
+  const canRemoveVoters = () => {
+    if (!canEditVoterList()) return false;
     if (!electionData.startingTime) return true;
     return new Date(electionData.startingTime) > new Date();
   };
@@ -3121,6 +3144,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
   };
 
   const handleRemoveVoter = async (email) => {
+    if (!canRemoveVoters()) {
+      toast.error('Voters cannot be removed after the election has started');
+      return;
+    }
+
     try {
       setVoterListSaving(true);
       const response = await electionApi.removeVoterFromElection(id, email);
@@ -3134,6 +3162,10 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
   };
 
   const handleRemoveAllVoters = async () => {
+    if (!canRemoveVoters()) {
+      toast.error('Voters cannot be removed after the election has started');
+      return;
+    }
     if (!voterEmails.length) return;
     if (!window.confirm('Remove all voters from this election?')) return;
 
@@ -4127,7 +4159,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             </div>
 
             {/* Voter summary — full list loaded on demand */}
-            {(canEditVoterList() || getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
+            {(canViewVoterList() || canEditVoterList()) && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0 || canEditVoterList()) && (
               <div className="bg-white rounded-lg shadow p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <h3 className="text-base sm:text-lg font-semibold flex items-center">
@@ -4158,7 +4190,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         {showVoterEditor ? 'Hide Editor' : 'Edit Voter List'}
                       </button>
                     )}
-                    {canViewVoterList() && !canEditVoterList() && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
+                    {canViewVoterList() && !showVoterEditor && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
                       <button
                         type="button"
                         onClick={handleToggleVoterList}
@@ -4190,9 +4222,15 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     ) : (
                       <>
                         <div className="mb-4">
-                          <h4 className="text-sm font-semibold text-indigo-900">Manage voters before election starts</h4>
+                          <h4 className="text-sm font-semibold text-indigo-900">
+                            {canRemoveVoters()
+                              ? 'Manage eligible voters'
+                              : 'Add voters to this election'}
+                          </h4>
                           <p className="text-xs text-indigo-800 mt-1">
-                            Add voters individually or import CSV/TXT files. Imports append to the existing list without removing current voters.
+                            {canRemoveVoters()
+                              ? 'Add voters individually or import CSV/TXT files. Imports append to the existing list without removing current voters.'
+                              : 'The election has started, so voters can only be added — existing emails cannot be removed.'}
                           </p>
                         </div>
                         <VoterListEditor
@@ -4200,6 +4238,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           onChange={handleVoterListChange}
                           onRemove={handleRemoveVoter}
                           onRemoveAll={handleRemoveAllVoters}
+                          allowRemove={canRemoveVoters()}
                           disabled={voterListSaving}
                           maxHeightClass="max-h-96"
                           emptyMessage="No voters added yet. Start building your voter list."
@@ -4229,7 +4268,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   </div>
                 )}
 
-                {canViewVoterList() && !canEditVoterList() && !showVoterList && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
+                {canViewVoterList() && !showVoterEditor && !showVoterList && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
                   <p className="text-sm text-gray-600">
                     {getTotalVoters(electionData) > 0
                       ? `This election has ${getTotalVoters(electionData).toLocaleString()} registered voter${getTotalVoters(electionData) === 1 ? '' : 's'}. Click "Show Voters" to load the full list.`
@@ -4237,7 +4276,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   </p>
                 )}
 
-                {canViewVoterList() && showVoterList && (electionData.voters || []).length > 0 && (
+                {canViewVoterList() && !showVoterEditor && showVoterList && (electionData.voters || []).length > 0 && (
                   <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-2 max-h-80 overflow-y-auto pr-1">
                     {sortVotersVotedFirst(
                       electionData.eligibility === 'listed'

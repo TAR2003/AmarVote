@@ -32,7 +32,7 @@ function entityLabelTitle(entityLabel) {
 }
 
 /**
- * Reusable voter list editor for election creation and pre-start voter management.
+ * Reusable voter list editor for election creation and voter management.
  */
 export default function VoterListEditor({
   emails,
@@ -40,6 +40,7 @@ export default function VoterListEditor({
   onRemove,
   onRemoveAll,
   disabled = false,
+  allowRemove = true,
   showManualAdd = true,
   maxHeightClass = "max-h-72",
   emptyMessage = "No voter emails added yet",
@@ -136,7 +137,7 @@ export default function VoterListEditor({
   };
 
   const handleRemoveAll = () => {
-    if (!emails.length || disabled) return;
+    if (!allowRemove || !emails.length || disabled) return;
     onRemoveAll?.();
   };
 
@@ -206,7 +207,7 @@ export default function VoterListEditor({
             <FiUpload className="h-4 w-4" />
             Import CSV / TXT
           </button>
-          {emails.length > 0 && (
+          {allowRemove && emails.length > 0 && (
             <button
               type="button"
               disabled={disabled}
@@ -324,15 +325,17 @@ export default function VoterListEditor({
                   </div>
                   <span className="text-sm text-gray-800 truncate font-medium">{email}</span>
                 </div>
-                <button
-                  type="button"
-                  disabled={disabled}
-                  onClick={() => onRemove(email)}
-                  className="flex-shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-                  aria-label={`Remove ${email}`}
-                >
-                  <FiX className="h-4 w-4" />
-                </button>
+                {allowRemove && (
+                  <button
+                    type="button"
+                    disabled={disabled}
+                    onClick={() => onRemove(email)}
+                    className="flex-shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    aria-label={`Remove ${email}`}
+                  >
+                    <FiX className="h-4 w-4" />
+                  </button>
+                )}
               </li>
             ))}
           </ul>
