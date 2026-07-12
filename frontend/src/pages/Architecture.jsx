@@ -1,5 +1,6 @@
 import React, { useState } from "react";
 import Layout from "./Layout";
+import MarketingHero, { MarketingTabs } from "../components/MarketingHero";
 
 const SvcBox = ({ icon, name, tech, ip, port, color }) => (
   <div className={`rounded-xl border-2 ${color} p-4 text-center bg-white shadow-md`}>
@@ -24,48 +25,26 @@ const Architecture = () => {
 
   return (
     <Layout>
-      {/* ── Hero ─────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-deep py-16 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-flex items-center px-4 py-2 bg-brand/10 border border-brand/30 rounded-full text-brand-light text-sm font-medium mb-6">
-            <span className="mr-2">🏗️</span>System Architecture
-          </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">
-            AmarVote Infrastructure
-          </h1>
-          <p className="text-brand-soft/80 text-lg max-w-2xl mx-auto">
-            Six microservices orchestrated via Docker Compose with a private 172.20.0.0/24 overlay network, plus optional AI and observability layers.
-          </p>
-        </div>
-      </div>
+      <MarketingHero
+        kicker="Infrastructure"
+        title="AmarVote architecture"
+        subtitle="Microservices on a private overlay network—ElectionGuard workers, queues, and caches orchestrated for large, verifiable elections."
+      />
 
-      {/* ── Tab bar ───────────────────────────────────── */}
-      <div className="border-b border-gray-200 bg-white sticky top-16 z-20">
-        <div className="max-w-6xl mx-auto px-4 flex overflow-x-auto">
-          {[
-            ["overview", "🗺️ Overview"],
-            ["services", "📦 Services"],
-            ["network", "🌐 Network"],
-            ["dataflow", "🔄 Data Flow"],
-            ["rabbitmq", "🐰 RabbitMQ"],
-            ["redis", "🔴 Redis"],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`px-4 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                activeTab === id
-                  ? "border-brand text-brand"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <MarketingTabs
+        tabs={[
+          { id: "overview", label: "Overview" },
+          { id: "services", label: "Services" },
+          { id: "network", label: "Network" },
+          { id: "dataflow", label: "Data Flow" },
+          { id: "rabbitmq", label: "RabbitMQ" },
+          { id: "redis", label: "Redis" },
+        ]}
+        active={activeTab}
+        onChange={setActiveTab}
+      />
 
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-4 py-12 page-enter">
 
         {/* ═══════════════════════ OVERVIEW ═══════════════════════ */}
         {activeTab === "overview" && (

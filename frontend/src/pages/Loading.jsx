@@ -45,11 +45,10 @@ const LoadingScreen = () => {
         <div className="brand-section">
           <div className="brand-logo">
             <div className="vote-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="m9 12 2 2 4-4" />
-                <path d="M21 12c.552 0 1-.448 1-1V8c0-.552-.448-1-1-1s-1 .448-1 1v3c0 .552.448 1 1 1z" />
-                <path d="M3 12c-.552 0-1-.448-1-1V8c0-.552.448-1 1-1s1 .448 1 1v3c0 .552-.448 1-1 1z" />
-                <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z" />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 8V7a4 4 0 0 1 8 0v1" />
+                <rect x="4" y="8" width="16" height="12" rx="2" />
+                <path d="m9 14 2 2 4-4" />
               </svg>
             </div>
           </div>

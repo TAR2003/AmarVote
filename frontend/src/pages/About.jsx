@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "./Layout";
+import MarketingHero, { MarketingTabs } from "../components/MarketingHero";
 
 const TRow = ({ label, value, sub }) => (
   <tr className="border-b border-gray-100 even:bg-gray-50">
@@ -52,54 +53,38 @@ function About() {
 
   return (
     <Layout>
-      {/* Hero */}
-      <div className="bg-gradient-to-br from-gray-900 to-deep py-16 px-4 text-center">
-        <div className="inline-flex items-center px-4 py-2 bg-brand/10 border border-brand/30 rounded-full text-brand-light text-sm font-medium mb-6">
-          <span className="mr-2">🗳️</span>End-to-End Verifiable E-Voting Platform
-        </div>
-        <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">About AmarVote</h1>
-        <p className="text-brand-soft/80 text-lg max-w-3xl mx-auto mb-8">
-          AmarVote is a production-grade open-source electronic voting system built on ElectionGuard 2.x threshold cryptography, post-quantum ML-KEM-1024 key protection, and a microservices 
-          architecture delivering privacy, verifiability, and resiliency at scale.
-        </p>
-        <div className="flex flex-wrap justify-center gap-3">
-          <a href="https://youtu.be/ixsvvl_7qVo" target="_blank" rel="noreferrer">
-            <button className="px-5 py-2.5 bg-brand text-white font-semibold rounded-xl hover:bg-brand-dark transition text-sm">▶ Demo Video 1</button>
+      <MarketingHero
+        kicker="About"
+        title="About AmarVote"
+        subtitle="Production-grade open-source e-voting on ElectionGuard cryptography, post-quantum key protection, and a resilient microservices core."
+      >
+        <div className="mt-8 flex flex-wrap justify-center gap-3">
+          <a href="https://youtu.be/ixsvvl_7qVo" target="_blank" rel="noreferrer" className="btn-brand text-sm">
+            Platform demo
           </a>
-          <a href="https://youtu.be/t8VOLdYIV40" target="_blank" rel="noreferrer">
-            <button className="px-5 py-2.5 bg-brand-dark text-white font-semibold rounded-xl hover:bg-ink transition text-sm">▶ Demo Video 2</button>
+          <a href="https://youtu.be/t8VOLdYIV40" target="_blank" rel="noreferrer" className="btn-ghost-light text-sm">
+            Infrastructure demo
           </a>
-          <Link to="/architecture">
-            <button className="px-5 py-2.5 border border-blue-300/40 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">Architecture →</button>
+          <Link to="/architecture" className="btn-ghost-light text-sm">
+            Architecture
           </Link>
-          <Link to="/security">
-            <button className="px-5 py-2.5 border border-blue-300/40 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">Security →</button>
+          <Link to="/security" className="btn-ghost-light text-sm">
+            Security
           </Link>
         </div>
-      </div>
+      </MarketingHero>
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 bg-white sticky top-16 z-20">
-        <div className="max-w-6xl mx-auto px-4 flex overflow-x-auto">
-          {[
-            ["overview", "📖 Overview"],
-            ["stack", "🛠 Tech Stack"],
-            ["services", "🔧 Services"],
-            ["crypto", "🔐 Cryptography"],
-            ["team", "👥 Project"],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setTab(id)}
-              className={`px-4 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                tab === id ? "border-brand text-brand" : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <MarketingTabs
+        tabs={[
+          { id: "overview", label: "Overview" },
+          { id: "stack", label: "Tech Stack" },
+          { id: "services", label: "Services" },
+          { id: "crypto", label: "Cryptography" },
+          { id: "team", label: "Project" },
+        ]}
+        active={tab}
+        onChange={setTab}
+      />
 
       <div className="max-w-6xl mx-auto px-4 py-12">
 

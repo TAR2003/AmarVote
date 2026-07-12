@@ -1,54 +1,31 @@
 import React, { useState } from "react";
 import Layout from "./Layout";
+import MarketingHero, { MarketingTabs } from "../components/MarketingHero";
 
 const Security = () => {
   const [activeTab, setActiveTab] = useState("overview");
 
+  const tabs = [
+    { id: "overview", label: "Overview" },
+    { id: "elgamal", label: "ElGamal E2E" },
+    { id: "postquantum", label: "Post-Quantum" },
+    { id: "zkproofs", label: "ZK Proofs" },
+    { id: "benaloh", label: "Benaloh Challenge" },
+    { id: "auth", label: "Auth & Access" },
+    { id: "transport", label: "Transport" },
+  ];
+
   return (
     <Layout>
-      {/* ── Hero ─────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-deep via-ink to-deep py-16 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-flex items-center px-4 py-2 bg-glacier0/10 border border-purple-500/30 rounded-full text-purple-300 text-sm font-medium mb-6">
-            <span className="mr-2">🔐</span>Security Deep Dive
-          </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">
-            Cryptographic Security Architecture
-          </h1>
-          <p className="text-purple-200/80 text-lg max-w-3xl mx-auto">
-            AmarVote implements defense-in-depth across every layer — from post-quantum key encapsulation to zero-knowledge proofs to bot detection — ensuring privacy, integrity, and end-to-end verifiability.
-          </p>
-        </div>
-      </div>
+      <MarketingHero
+        kicker="Security"
+        title="Cryptographic security architecture"
+        subtitle="Defense in depth—from post-quantum key wrapping to zero-knowledge proofs—so privacy, integrity, and verifiability hold together."
+      />
 
-      {/* ── Tab bar ───────────────────────────────────── */}
-      <div className="border-b border-gray-200 bg-white sticky top-16 z-20">
-        <div className="max-w-6xl mx-auto px-4 flex overflow-x-auto">
-          {[
-            ["overview", "📋 Overview"],
-            ["elgamal", "🔒 ElGamal E2E"],
-            ["postquantum", "🛡️ Post-Quantum"],
-            ["zkproofs", "✅ ZK Proofs"],
-            ["benaloh", "🔍 Benaloh Challenge"],
-            ["auth", "🪪 Auth & Access"],
-            ["transport", "📦 Transport"],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`px-4 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                activeTab === id
-                  ? "border-purple-600 text-brand-dark"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <MarketingTabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-4 py-12 page-enter">
 
         {/* ═══════════════════════ OVERVIEW ═══════════════════════ */}
         {activeTab === "overview" && (
@@ -99,14 +76,14 @@ const Security = () => {
             {/* Defense in depth */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { icon: "🔐", title: "Encryption at Rest", items: ["AWS/Neon TLS for cloud DB", "Ballot blobs stored as msgpack binary", "No plaintext votes ever in DB"], color: "purple" },
+                { icon: "🔐", title: "Encryption at Rest", items: ["AWS/Neon TLS for cloud DB", "Ballot blobs stored as msgpack binary", "No plaintext votes ever in DB"], color: "blue" },
                 { icon: "🔒", title: "Encryption in Transit", items: ["HTTPS via Nginx TLS termination", "Internal service communication: plaintext on private 172.20.0.0/24", "Redis and RabbitMQ on private network only"], color: "blue" },
                 { icon: "👁️‍🗨️", title: "Vote Privacy", items: ["ElGamal encrypts per-selection", "Homomorphic tally: votes counted encrypted", "No voter↔ballot linkage in DB schema"], color: "green" },
                 { icon: "✅", title: "Integrity Proofs", items: ["Chaum-Pedersen proofs per decryption share", "Schnorr proofs per ballot selection", "All proofs downloadable for independent verification"], color: "teal" },
                 { icon: "🤖", title: "Anti-Fraud", items: ["FingerprintJS BotD 1.9.1 browser-side", "5-minute timestamp freshness check server-side", "OTP rate limiting + 5-min expiry"], color: "red" },
                 { icon: "🏗️", title: "Threshold Security", items: ["k-of-n Shamir-style guardian quorum", "No single guardian can decrypt alone", "Lagrange compensation for absent guardians"], color: "orange" },
               ].map(({ icon, title, items, color }) => (
-                <div key={title} className={`bg-white rounded-2xl border p-5 ${color === "purple" ? "border-purple-200" : color === "blue" ? "border-brand/20" : color === "green" ? "border-green-200" : color === "teal" ? "border-teal-200" : color === "red" ? "border-red-200" : "border-orange-200"}`}>
+                <div key={title} className={`bg-white rounded-2xl border p-5 ${color === "purple" ? "border-brand/25" : color === "blue" ? "border-brand/20" : color === "green" ? "border-green-200" : color === "teal" ? "border-teal-200" : color === "red" ? "border-red-200" : "border-orange-200"}`}>
                   <div className="text-2xl mb-2">{icon}</div>
                   <h3 className="font-bold text-gray-900 mb-3">{title}</h3>
                   <ul className="space-y-1.5">
@@ -140,7 +117,7 @@ const Security = () => {
                     <div>K = ∏ K_i mod p          <span className="text-gray-500">// combined public key</span></div>
                     <br />
                     <div className="text-gray-500">// Ballot encryption per selection m ∈ {"{0, 1}"}:</div>
-                    <div><span className="text-purple-300">ξ</span> ← random nonce ∈ [2, q-2]</div>
+                    <div><span className="text-brand-light">ξ</span> ← random nonce ∈ [2, q-2]</div>
                     <div>α = g^ξ mod p</div>
                     <div>β = g^m · K^ξ mod p</div>
                     <div>ciphertext = (α, β)      <span className="text-gray-500">// transmitted + stored</span></div>
@@ -159,10 +136,10 @@ const Security = () => {
                 </div>
               </div>
               <div className="space-y-4">
-                <div className="bg-glacier border border-purple-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-purple-900 mb-3">Why 4096-bit?</h3>
+                <div className="bg-glacier border border-brand/25 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-3">Why 4096-bit?</h3>
                   <p className="text-ink text-sm mb-3">4096-bit discrete log provides ~200 bits of classical security (comparable to AES-200, far beyond AES-128). NIST recommends ≥2048-bit for elections through 2030+. AmarVote uses 4096-bit for long-term security of encrypted ballots.</p>
-                  <div className="bg-white rounded-lg p-3 font-mono text-xs text-gray-600 border border-purple-100">
+                  <div className="bg-white rounded-lg p-3 font-mono text-xs text-gray-600 border border-brand/15">
                     <div>Classical security: ~200 bits</div>
                     <div>Best attack: Number Field Sieve</div>
                     <div>Key size: 4096 bits (prime modulus)</div>
@@ -402,10 +379,10 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
 // Only available BEFORE cast decision
 // Challenge = automatic spoil; voter must re-encrypt`}</pre>
                 </div>
-                <div className="bg-glacier border border-purple-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-purple-900 mb-3">Auditability of Spoiled Ballots</h3>
+                <div className="bg-glacier border border-brand/25 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-3">Auditability of Spoiled Ballots</h3>
                   <p className="text-ink text-sm mb-3">All spoiled (challenged) ballots are recorded on the public bulletin board with their nonces. This creates a public audit trail proving the system encrypted honestly during the election period.</p>
-                  <div className="space-y-2 text-sm text-purple-700">
+                  <div className="space-y-2 text-sm text-brand-dark">
                     <div>• Spoiled ballot: (α, β, ξ, m_actual) all public</div>
                     <div>• Verify: α == g^ξ mod p ✓</div>
                     <div>• Verify: β == g^m_actual · K^ξ mod p ✓</div>
@@ -521,7 +498,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       ["Why both?", "Bot flag catches automation; timestamp prevents replay attacks"],
                     ].map(([k, v]) => (
                       <div key={k} className="flex items-start">
-                        <span className="font-semibold text-purple-700 min-w-36 flex-shrink-0">{k}:</span>
+                        <span className="font-semibold text-brand-dark min-w-36 flex-shrink-0">{k}:</span>
                         <span>{v}</span>
                       </div>
                     ))}

@@ -1,11 +1,12 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "./Layout";
+import MarketingHero, { MarketingTabs } from "../components/MarketingHero";
 
 const Step = ({ n, title, actor, color, children }) => {
   const bg = { blue: "bg-brand", green: "bg-green-600", purple: "bg-ink", orange: "bg-orange-600", indigo: "bg-brand-dark", red: "bg-red-600", teal: "bg-teal-600" };
-  const border = { blue: "border-brand/20 bg-glacier", green: "border-green-200 bg-sage-soft", purple: "border-purple-200 bg-glacier", orange: "border-orange-200 bg-orange-50", indigo: "border-brand/25 bg-glacier", red: "border-red-200 bg-red-50", teal: "border-teal-200 bg-teal-50" };
-  const actorColor = { blue: "text-brand-dark bg-glacier", green: "text-sage bg-sage-soft", purple: "text-purple-700 bg-glacier", orange: "text-orange-700 bg-orange-100", indigo: "text-ink bg-glacier", red: "text-red-700 bg-red-100", teal: "text-teal-700 bg-teal-100" };
+  const border = { blue: "border-brand/20 bg-glacier", green: "border-green-200 bg-sage-soft", purple: "border-brand/20 bg-glacier", orange: "border-orange-200 bg-orange-50", indigo: "border-brand/25 bg-glacier", red: "border-red-200 bg-red-50", teal: "border-teal-200 bg-teal-50" };
+  const actorColor = { blue: "text-brand-dark bg-glacier", green: "text-sage bg-sage-soft", purple: "text-ink bg-glacier", orange: "text-orange-700 bg-orange-100", indigo: "text-ink bg-glacier", red: "text-red-700 bg-red-100", teal: "text-teal-700 bg-teal-100" };
   return (
     <div className="flex items-start gap-4">
       <div className="flex flex-col items-center flex-shrink-0">
@@ -39,46 +40,26 @@ const CodeSnip = ({ label, code }) => (
 const HowItWorks = () => {
   const [activePhase, setActivePhase] = useState("auth");
 
+  const tabs = [
+    { id: "auth", label: "Authentication" },
+    { id: "setup", label: "Election Setup" },
+    { id: "voting", label: "Ballot Casting" },
+    { id: "tally", label: "Tallying" },
+    { id: "decrypt", label: "Decryption" },
+    { id: "verify", label: "Verification" },
+  ];
+
   return (
     <Layout>
-      {/* Hero */}
-      <div className="bg-gradient-to-br from-gray-900 to-deep py-16 px-4 text-center">
-        <div className="inline-flex items-center px-4 py-2 bg-brand/10 border border-brand/30 rounded-full text-brand-light text-sm font-medium mb-6">
-          <span className="mr-2">🔄</span>Complete Technical Workflow
-        </div>
-        <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">How AmarVote Works</h1>
-        <p className="text-brand-soft/80 text-lg max-w-2xl mx-auto">
-          A deep-dive walkthrough of every phase — from OTP authentication through cryptographic ballot casting, RabbitMQ processing, guardian threshold decryption, and end-to-end verification.
-        </p>
-      </div>
+      <MarketingHero
+        kicker="Workflow"
+        title="How AmarVote works"
+        subtitle="From sign-in through encrypted casting, threshold decryption, and end-to-end verification—one clear path."
+      />
 
-      {/* Phase tabs */}
-      <div className="border-b border-gray-200 bg-white sticky top-16 z-20">
-        <div className="max-w-6xl mx-auto px-4 flex overflow-x-auto">
-          {[
-            ["auth", "🪪 Authentication"],
-            ["setup", "🔧 Election Setup"],
-            ["voting", "🗳️ Ballot Casting"],
-            ["tally", "🔢 Tallying"],
-            ["decrypt", "🔓 Decryption"],
-            ["verify", "✅ Verification"],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setActivePhase(id)}
-              className={`px-4 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                activePhase === id
-                  ? "border-brand text-brand"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <MarketingTabs tabs={tabs} active={activePhase} onChange={setActivePhase} />
 
-      <div className="max-w-4xl mx-auto px-4 py-12">
+      <div className="max-w-4xl mx-auto px-4 py-12 page-enter">
 
         {/* ═══ AUTH ═══ */}
         {activePhase === "auth" && (

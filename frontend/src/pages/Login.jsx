@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import Layout from "./Layout";
+import BrandMark from "../components/BrandMark";
 import OtpInput from "../components/OtpInput";
 import PasswordInput from "../components/PasswordInput";
 import { getCsrfToken } from "../utils/api";
@@ -107,17 +108,23 @@ export default function Login({ setUserEmail }) {
 
   return (
     <Layout>
-      <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-frost-mesh px-4 py-10 sm:py-14">
-        <div className="glass-panel mx-auto w-full max-w-md p-6 sm:p-8 animate-fade-up">
-          <div className="mb-6 text-center sm:text-left">
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-dark">Secure access</p>
+      <div className="relative flex min-h-[calc(100dvh-4rem)] items-center justify-center overflow-hidden bg-frost-mesh px-4 py-10 sm:py-14">
+        <div className="pointer-events-none absolute -left-24 top-20 h-64 w-64 rounded-full bg-brand/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-16 bottom-16 h-72 w-72 rounded-full bg-brand-light/15 blur-3xl" />
+
+        <div className="glass-panel relative z-10 mx-auto w-full max-w-md p-6 sm:p-8 animate-fade-up">
+          <div className="mb-7 text-center">
+            <div className="mb-4 flex justify-center">
+              <BrandMark size="lg" className="shadow-brand" />
+            </div>
+            <p className="section-kicker">Secure access</p>
             <h1 className="mt-2 font-display text-2xl font-bold text-deep sm:text-3xl">
-              {stage === STAGES.IDLE ? "Sign in to AmarVote" : "Verify your 2FA code"}
+              {stage === STAGES.IDLE ? "Sign in to AmarVote" : "Verify your identity"}
             </h1>
             <p className="mt-2 text-sm text-slate-600">
               {stage === STAGES.IDLE
-                ? "Enter your email and password to continue"
-                : "Open your authenticator app and enter the current 6-digit code"}
+                ? "Encrypted sessions. MFA when your account requires it."
+                : "Open your authenticator and enter the current 6-digit code."}
             </p>
           </div>
 
@@ -129,25 +136,37 @@ export default function Login({ setUserEmail }) {
 
           {stage === STAGES.IDLE ? (
             <form className="space-y-4" onSubmit={handleLogin}>
-              <input
-                type="email"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Email"
-                className="input-field"
-                autoComplete="email"
-              />
-              <PasswordInput
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
-                required
-                autoComplete="current-password"
-                showValidation={false}
-              />
+              <div>
+                <label htmlFor="login-email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Email
+                </label>
+                <input
+                  id="login-email"
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@organization.com"
+                  className="input-field"
+                  autoComplete="email"
+                />
+              </div>
+              <div>
+                <label htmlFor="login-password" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Password
+                </label>
+                <PasswordInput
+                  id="login-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  placeholder="Your password"
+                  required
+                  autoComplete="current-password"
+                  showValidation={false}
+                />
+              </div>
 
-              <button type="submit" disabled={loading} className="btn-brand w-full py-3">
+              <button type="submit" disabled={loading} className="btn-brand w-full py-3 shadow-brand">
                 {loading ? "Checking credentials..." : "Continue"}
               </button>
 
@@ -158,9 +177,9 @@ export default function Login({ setUserEmail }) {
               </div>
 
               <p className="text-center text-sm text-slate-600">
-                New user?{" "}
+                New here?{" "}
                 <Link className="link-brand font-semibold" to="/register">
-                  Create account
+                  Create an account
                 </Link>
               </p>
             </form>
@@ -176,7 +195,7 @@ export default function Login({ setUserEmail }) {
               <button
                 type="submit"
                 disabled={loading || otpCode.replace(/\D/g, "").length !== 6}
-                className="btn-brand w-full py-3"
+                className="btn-brand w-full py-3 shadow-brand"
               >
                 {loading ? "Verifying..." : "Sign in"}
               </button>

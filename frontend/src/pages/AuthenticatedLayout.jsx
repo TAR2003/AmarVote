@@ -14,6 +14,7 @@ import {
   FiBell,
   FiUsers,
 } from "react-icons/fi";
+import BrandMark, { BrandWordmark } from "../components/BrandMark";
 import { electionApi } from "../utils/electionApi";
 import { ElectionsProvider, useElections } from "../context/ElectionsContext";
 import { timezoneUtils } from "../utils/timezoneUtils";
@@ -354,32 +355,32 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
     const showRetry = sessionError && !isSessionExpired && typeof onRetrySession === "function";
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-glacier to-frost">
-        <div className="text-center p-8 bg-white rounded-xl shadow-lg max-w-md w-full mx-4">
-          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-            isSessionExpired ? "bg-glacier" : "bg-amber-100"
-          }`}>
-            <FiLogOut className={`text-2xl ${isSessionExpired ? "text-brand" : "text-amber-600"}`} />
+      <div className="flex min-h-screen items-center justify-center bg-frost-mesh px-4">
+        <div className="glass-panel w-full max-w-md p-8 text-center animate-fade-up">
+          <div className="mb-5 flex justify-center">
+            <BrandMark size="lg" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          <div className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${
+            isSessionExpired ? "bg-glacier" : "bg-amber-soft"
+          }`}>
+            <FiLogOut className={`text-xl ${isSessionExpired ? "text-brand" : "text-amber-warn"}`} />
+          </div>
+          <h2 className="font-display text-2xl font-bold text-deep">
             {title}
           </h2>
-          <p className="text-gray-600 mb-6">{message}</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <p className="mt-2 text-slate-600">{message}</p>
+          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             {showRetry && (
               <button
                 type="button"
                 onClick={() => onRetrySession()}
-                className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-full shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200"
+                className="btn-ghost"
               >
                 Try again
               </button>
             )}
             {isSessionExpired && (
-              <Link
-                to="/otp-login"
-                className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-brand hover:bg-brand-dark transition-all duration-200"
-              >
+              <Link to="/login" className="btn-brand">
                 Go to Login
               </Link>
             )}
@@ -417,16 +418,12 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               </button>
             </div>
 
-            <Link to="/dashboard" className="flex-shrink-0 flex items-center group">
-              <div className="brand-mark h-7 w-7 sm:h-8 sm:w-8 rounded-xl sm:rounded-2xl group-hover:scale-105 transition-transform">
-                <svg viewBox="0 0 24 24" className="h-3.5 w-3.5 sm:h-4 sm:w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                  <path d="m9 12 2 2 4-4" />
-                  <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z" />
-                </svg>
-              </div>
-              <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm font-display font-bold text-white">
-                AmarVote
-              </span>
+            <Link to="/dashboard" className="group flex flex-shrink-0 items-center gap-1.5 sm:gap-2">
+              <BrandMark
+                size="sm"
+                className="transition duration-300 group-hover:scale-105 group-hover:shadow-brand sm:h-8 sm:w-8"
+              />
+              <BrandWordmark light className="hidden text-sm xs:inline sm:text-base" />
             </Link>
 
             {/* Search Bar */}
@@ -557,14 +554,9 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
           <div className="h-full flex flex-col">
             <div className="px-4 sm:px-5 py-4 border-b border-white/10 flex items-center justify-between">
               <Link to="/dashboard" onClick={closeMobileMenu} className="flex items-center gap-3 group">
-                <div className="brand-mark h-9 w-9 group-hover:scale-105 transition-transform">
-                  <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2">
-                    <path d="m9 12 2 2 4-4" />
-                    <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z" />
-                  </svg>
-                </div>
+                <BrandMark className="transition duration-300 group-hover:scale-105" />
                 <div>
-                  <p className="text-sm font-semibold text-white">AmarVote</p>
+                  <p className="font-display text-sm font-semibold text-white">AmarVote</p>
                   <p className="text-xs text-slate-400">Secure navigation</p>
                 </div>
               </Link>

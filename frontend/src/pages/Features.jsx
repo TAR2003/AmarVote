@@ -1,12 +1,13 @@
 import React, { useState } from "react";
 import { Link } from "react-router-dom";
 import Layout from "./Layout";
+import MarketingHero, { MarketingTabs } from "../components/MarketingHero";
 
 const FeatureCard = ({ icon, title, items, color }) => {
   const colors = {
     blue: "bg-glacier border-brand/20",
     green: "bg-sage-soft border-green-200",
-    purple: "bg-glacier border-purple-200",
+    purple: "bg-glacier border-brand/20",
     orange: "bg-orange-50 border-orange-200",
     red: "bg-red-50 border-red-200",
     indigo: "bg-glacier border-brand/25",
@@ -36,46 +37,26 @@ const FeatureCard = ({ icon, title, items, color }) => {
 function Features() {
   const [activeTab, setActiveTab] = useState("crypto");
 
+  const tabs = [
+    { id: "crypto", label: "Cryptography" },
+    { id: "arch", label: "Architecture" },
+    { id: "security", label: "Security" },
+    { id: "election", label: "Elections" },
+    { id: "monitoring", label: "Monitoring" },
+    { id: "optional", label: "Optional" },
+  ];
+
   return (
     <Layout>
-      {/* Hero */}
-      <div className="bg-gradient-to-br from-deep to-deep py-16 px-4 text-center">
-        <div className="inline-flex items-center px-4 py-2 bg-brand/10 border border-brand/30 rounded-full text-brand-light text-sm font-medium mb-6">
-          <span className="mr-2">⚡</span>All Platform Features
-        </div>
-        <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">Every Feature, Every Detail</h1>
-        <p className="text-brand-soft/80 text-lg max-w-2xl mx-auto">
-          A complete breakdown of AmarVote's cryptographic, architectural, security, and UX capabilities.
-        </p>
-      </div>
+      <MarketingHero
+        kicker="Capabilities"
+        title="Every feature, clearly laid out"
+        subtitle="Cryptography, architecture, security, and election operations—organized so you can find what matters."
+      />
 
-      {/* Tabs */}
-      <div className="border-b border-gray-200 bg-white sticky top-16 z-20">
-        <div className="max-w-6xl mx-auto px-4 flex overflow-x-auto">
-          {[
-            ["crypto", "🔐 Cryptography"],
-            ["arch", "🏗️ Architecture"],
-            ["security", "🛡️ Security Layers"],
-            ["election", "🗳️ Election Management"],
-            ["monitoring", "📊 Monitoring"],
-            ["optional", "⚡ Optional Services"],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`px-4 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                activeTab === id
-                  ? "border-brand text-brand"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <MarketingTabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="max-w-7xl mx-auto px-4 py-12 page-enter">
 
         {/* Cryptography tab */}
         {activeTab === "crypto" && (

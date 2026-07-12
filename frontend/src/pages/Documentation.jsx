@@ -1,5 +1,6 @@
 import React from "react";
 import Layout from "./Layout";
+import MarketingHero from "../components/MarketingHero";
 
 const SectionCard = ({ title, children }) => (
   <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
@@ -15,19 +16,13 @@ const Code = ({ children }) => (
 function Documentation() {
   return (
     <Layout>
-      <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-deep text-white py-16 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-brand/10 border border-blue-300/30 text-brand-soft text-sm font-medium mb-6">
-            <span className="mr-2">📘</span>AmarVote Documentation (Partial, Full Documentation will be available soon)
-          </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold mb-4">Platform Documentation</h1>
-          <p className="text-glacier/90 text-lg max-w-4xl leading-relaxed">
-            The routes and permissions outlined on this page are based on the current implementation of AmarVote as of March 2026. They are subject to change as the platform evolves, but this serves as a snapshot of the core structure and access rules in place at this time.   
-          </p>
-        </div>
-      </div>
+      <MarketingHero
+        kicker="Docs"
+        title="Platform documentation"
+        subtitle="Routes and permissions as implemented today—a living snapshot of AmarVote’s access rules and structure."
+      />
 
-      <div className="max-w-6xl mx-auto px-4 py-10 space-y-6">
+      <div className="max-w-6xl mx-auto px-4 py-10 space-y-6 page-enter">
         <SectionCard title="Authentication and Login Rules">
           <ul className="space-y-3 text-gray-700 leading-relaxed list-disc pl-5">
             <li>Login is restricted to authorized users when registration is not open to all.</li>

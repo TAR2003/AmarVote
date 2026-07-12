@@ -412,22 +412,25 @@ const Dashboard = ({ userEmail }) => {
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <div className="bg-deep-sheen rounded-2xl shadow-lift overflow-hidden">
-        <div className="px-4 py-5 sm:px-6 sm:py-8 sm:p-10">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+      <div className="relative overflow-hidden rounded-2xl bg-deep-aurora shadow-lift">
+        <div className="pointer-events-none absolute inset-0 bg-hero-grid opacity-30" style={{ backgroundSize: "40px 40px" }} />
+        <div className="relative px-4 py-6 sm:px-8 sm:py-10">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-light">Secure dashboard</p>
-              <h1 className="mt-1 font-display text-xl sm:text-3xl font-bold text-white break-words leading-tight">
-                Welcome, {userEmail.split("@")[0]}
+              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-light">
+                Your command center
+              </p>
+              <h1 className="mt-1.5 font-display text-2xl font-bold leading-tight tracking-tight text-white break-words sm:text-3xl">
+                Welcome back, {userEmail.split("@")[0]}
               </h1>
-              <p className="mt-2 text-xs sm:text-base text-slate-300 max-w-lg">
-                You have {ongoing.length} active election{ongoing.length === 1 ? '' : 's'} right now.
+              <p className="mt-2 max-w-lg text-sm text-slate-300 sm:text-base">
+                {ongoing.length === 0
+                  ? "No active elections right now — browse upcoming ones or create when you’re ready."
+                  : `You have ${ongoing.length} active election${ongoing.length === 1 ? "" : "s"} in progress.`}
               </p>
             </div>
-            <div className="hidden sm:block self-start sm:self-auto">
-              <div className="w-16 h-16 bg-brand/20 border border-brand/30 rounded-2xl flex items-center justify-center">
-                <FiAward className="w-8 h-8 text-brand-light" />
-              </div>
+            <div className="hidden sm:flex h-16 w-16 items-center justify-center rounded-2xl border border-brand/30 bg-brand/15 shadow-brand">
+              <FiAward className="h-8 w-8 text-brand-light" />
             </div>
           </div>
         </div>
