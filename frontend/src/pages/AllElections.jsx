@@ -31,7 +31,7 @@ import { FiCalendar, FiClock, FiUsers, FiInfo, FiLoader, FiTrash2 } from "react-
 
 // Skeleton component for loading states
 const ElectionCardSkeleton = () => (
-  <div className="surface-card animate-pulse p-6">
+  <div className="surface-card animate-pulse border border-glacier/70 p-5 sm:p-6">
     <div className="flex items-start justify-between">
       <div className="flex-1">
         <div className="mb-2 h-6 w-2/3 rounded-lg bg-glacier"></div>
@@ -345,31 +345,28 @@ const AllElections = () => {
   if (loading) {
     return (
       <div className="space-y-6 page-enter">
-        <div className="surface-card overflow-hidden">
-          <div className="border-b border-glacier px-6 py-5">
+        <div className="overflow-hidden rounded-3xl bg-deep shadow-lift">
+          <div className="border-b border-white/10 px-5 py-7 sm:px-8 sm:py-9">
             <div className="animate-pulse">
-              <div className="h-8 bg-gray-300 rounded w-1/4 mb-2"></div>
-              <div className="h-4 bg-gray-200 rounded w-1/2"></div>
+              <div className="mb-3 h-3 w-28 rounded-full bg-white/15"></div>
+              <div className="mb-3 h-9 w-1/2 rounded-xl bg-white/20"></div>
+              <div className="h-4 w-2/3 rounded-lg bg-white/10"></div>
             </div>
           </div>
-          
-          {/* Filter tabs skeleton */}
-          <div className="px-6 py-4">
-            <div className="flex flex-wrap gap-2">
+
+          <div className="bg-white/5 px-5 py-4 sm:px-8">
+            <div className="flex gap-2 overflow-hidden">
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="h-8 bg-gray-200 rounded-md w-20 animate-pulse"></div>
+                <div key={i} className="h-9 w-20 shrink-0 rounded-xl bg-white/10"></div>
               ))}
             </div>
           </div>
         </div>
 
-        {/* Elections List Skeleton */}
-        <div className="surface-card overflow-hidden">
-          <div className="space-y-3 p-3">
-            {[...Array(5)].map((_, i) => (
-              <ElectionCardSkeleton key={i} />
-            ))}
-          </div>
+        <div className="space-y-3">
+          {[...Array(5)].map((_, i) => (
+            <ElectionCardSkeleton key={i} />
+          ))}
         </div>
       </div>
     );
@@ -377,26 +374,26 @@ const AllElections = () => {
 
   if (error) {
     return (
-      <div className="space-y-6">
-        <div className="bg-amber-50 border border-amber-200 rounded-lg p-4">
-          <div className="flex">
-            <div className="flex-shrink-0">
-              <FiInfo className="h-5 w-5 text-amber-500" />
+      <div className="page-enter">
+        <div className="overflow-hidden rounded-3xl border border-amber-200 bg-amber-50/70 shadow-soft">
+          <div className="h-1 bg-amber-400" />
+          <div className="flex gap-4 p-5 sm:p-7">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100">
+              <FiInfo className="h-5 w-5 text-amber-700" />
             </div>
-            <div className="ml-3">
-              <h3 role="alert" className="text-sm font-medium text-amber-900">
+            <div>
+              <p className="section-kicker text-amber-700">Election directory</p>
+              <h3 role="alert" className="mt-1 font-display text-xl font-semibold text-deep">
                 Could not load elections
               </h3>
-              <div className="mt-2 text-sm text-amber-800">
-                <p>{error}</p>
-              </div>
+              <p className="mt-2 text-sm leading-6 text-amber-900/80">{error}</p>
               <button
                 type="button"
                 onClick={() => {
                   setError(null);
                   refreshElections(true).catch((err) => setError(getApiErrorMessage(err)));
                 }}
-                className="mt-4 inline-flex items-center px-4 py-2 rounded-lg border border-amber-300 text-sm font-medium text-amber-900 bg-white hover:bg-amber-50"
+                className="mt-5 inline-flex items-center rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-semibold text-amber-900 shadow-soft transition-colors hover:bg-amber-100"
               >
                 Try again
               </button>
@@ -409,19 +406,21 @@ const AllElections = () => {
 
   return (
     <div className="space-y-6 page-enter">
-      {/* Header */}
-      <div className="surface-card overflow-hidden">
-        <div className="border-b border-glacier px-4 py-5 sm:px-6 sm:py-6">
-          <p className="section-kicker">Election directory</p>
-          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-deep sm:text-3xl">All Elections</h1>
-          <p className="mt-2 text-sm text-slate-600">
+      <div className="overflow-hidden rounded-3xl bg-deep shadow-lift">
+        <div className="relative overflow-hidden px-5 py-8 sm:px-8 sm:py-10">
+          <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-brand/15 blur-3xl" />
+          <div className="absolute bottom-0 left-1/3 h-24 w-80 rounded-full bg-sage/10 blur-3xl" />
+          <div className="relative">
+            <p className="section-kicker text-brand-light">Election directory</p>
+            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">All Elections</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-glacier sm:text-base">
             View and participate in all elections you have access to
-          </p>
+            </p>
+          </div>
         </div>
-        
-        {/* Filter tabs */}
-        <div className="bg-frost/50 px-4 py-4 sm:px-6">
-          <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
+
+        <div className="border-t border-white/10 bg-white/5 px-3 py-3 sm:px-5 sm:py-4">
+          <div className="flex gap-1.5 overflow-x-auto rounded-2xl bg-black/15 p-1.5 scrollbar-hide">
             {[
               { key: "all", label: "All Elections", count: tabCounts.all },
               { key: "upcoming", label: "Upcoming", count: tabCounts.upcoming },
@@ -436,14 +435,14 @@ const AllElections = () => {
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`whitespace-nowrap rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${
+                className={`whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-all sm:px-4 sm:text-sm ${
                   filter === tab.key
-                    ? "bg-deep text-white shadow-soft"
-                    : "bg-white text-slate-700 ring-1 ring-glacier hover:bg-glacier/50"
+                    ? "bg-white text-deep shadow-soft"
+                    : "text-glacier hover:bg-white/10 hover:text-white"
                 }`}
               >
                 {tab.label}
-                <span className="ml-2 rounded-lg bg-white/20 px-2 py-0.5 text-xs text-current">
+                <span className={`ml-2 rounded-lg px-2 py-0.5 text-xs ${filter === tab.key ? "bg-glacier text-deep" : "bg-white/10 text-glacier"}`}>
                   {tab.count}
                 </span>
               </button>
@@ -453,12 +452,11 @@ const AllElections = () => {
       </div>
 
       {successMessage && (
-        <div className="rounded-xl border border-sage/30 bg-sage-soft p-4 text-sm font-medium text-sage shadow-soft">
+        <div className="rounded-2xl border border-sage/25 bg-sage-soft p-4 text-sm font-medium text-sage shadow-soft">
           {successMessage}
         </div>
       )}
 
-      {/* Elections List */}
       <div className="space-y-3">
           {filteredElections.length > 0 ? (
             filteredElections.map((election) => {
@@ -466,13 +464,13 @@ const AllElections = () => {
               return (
                 <div
                   key={election.electionId}
-                  className="surface-card-interactive cursor-pointer p-5 sm:p-6"
+                  className="surface-card-interactive group cursor-pointer border border-transparent p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/20 hover:shadow-lift sm:p-6"
                   onClick={() => handleElectionClick(election.electionId)}
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-display text-lg font-semibold text-deep break-words sm:text-xl">
+                        <h3 className="font-display text-lg font-semibold text-deep break-words transition-colors group-hover:text-brand-dark sm:text-xl">
                           {election.electionTitle}
                         </h3>
                         <span
@@ -494,7 +492,7 @@ const AllElections = () => {
                         </span>
                       </div>
                       
-                      <p className="mt-2 text-sm leading-relaxed text-slate-600">
+                      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
                         {election.electionDescription}
                       </p>
 
@@ -520,7 +518,7 @@ const AllElections = () => {
                         )}
                       </div>
                       
-                      <div className="mt-5 flex flex-col gap-2 border-t border-glacier pt-4 text-sm text-slate-600 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
+                      <div className="mt-5 grid gap-2 border-t border-glacier pt-4 text-sm text-slate-600 sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
                         <div className="flex items-center">
                           <FiCalendar className="h-4 w-4 mr-1" />
                           <span>
@@ -544,7 +542,7 @@ const AllElections = () => {
                       </div>
                     </div>
                     
-                    <div className="w-full sm:w-auto sm:flex-shrink-0 sm:ml-4 flex flex-col gap-2">
+                    <div className="flex w-full flex-col gap-2 sm:ml-4 sm:w-auto sm:flex-shrink-0">
                       {canDeleteElection(election) && (
                         <button
                           className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 shadow-soft transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
@@ -604,9 +602,12 @@ const AllElections = () => {
               );
             })
           ) : (
-            <div className="surface-card p-12 text-center">
-              <FiCalendar className="mx-auto h-12 w-12 text-brand" />
-              <h3 className="mt-3 font-display text-lg font-semibold text-deep">
+            <div className="surface-card border border-dashed border-brand/25 p-10 text-center sm:p-14">
+              <div className="mx-auto flex h-14 w-14 items-center justify-center rounded-2xl bg-glacier text-brand">
+                <FiCalendar className="h-6 w-6" />
+              </div>
+              <p className="section-kicker mt-5">Election directory</p>
+              <h3 className="mt-2 font-display text-xl font-semibold text-deep">
                 No elections found
               </h3>
               <p className="mt-1 text-sm text-slate-600">
@@ -619,7 +620,7 @@ const AllElections = () => {
         
         {/* Load More Button */}
         {hasMore && filteredElections.length > 0 && (
-          <div className="surface-card px-6 py-4">
+          <div className="surface-card border border-glacier/70 px-5 py-4 sm:px-6">
             <button
               onClick={loadMoreElections}
               className="btn-ghost flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold"

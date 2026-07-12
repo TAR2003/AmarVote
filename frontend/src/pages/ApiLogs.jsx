@@ -33,12 +33,12 @@ function formatDate(ds) {
 }
 
 function methodColor(m) {
-  return m === "GET"    ? "bg-sky-100 text-sky-700 ring-sky-200"
-       : m === "POST"   ? "bg-emerald-100 text-emerald-700 ring-emerald-200"
+  return m === "GET"    ? "bg-glacier text-brand-dark ring-brand/20"
+       : m === "POST"   ? "bg-sage-soft text-sage ring-sage/20"
        : m === "PUT"    ? "bg-amber-100 text-amber-700 ring-amber-200"
        : m === "DELETE" ? "bg-rose-100 text-rose-700 ring-rose-200"
-       : m === "PATCH"  ? "bg-violet-100 text-violet-700 ring-violet-200"
-       : "bg-gray-100 text-gray-700 ring-gray-200";
+       : m === "PATCH"  ? "bg-slate-100 text-ink ring-slate-200"
+       : "bg-slate-100 text-slate-600 ring-slate-200";
 }
 
 function statusColor(s) {
@@ -201,7 +201,9 @@ export default function ApiLogs() {
     try {
       const res = await fetch("/api/admin/logs/stats", { credentials: "include" });
       if (res.ok) setStats(await res.json());
-    } catch (e) { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }
 
   const authenticatedLogs = useMemo(
@@ -367,7 +369,7 @@ export default function ApiLogs() {
     { id: "invalid",       label: "Invalid / Expired",icon: ICONS.ban,     color: "rose",    desc: "401/403 — token invalid or expired" },
     { id: "unique-email",  label: "Unique Email",     icon: ICONS.mail,    color: "indigo",  desc: "Latest request per email, paginated across all logs" },
     { id: "unique-ip",     label: "Unique IP",        icon: ICONS.globe,   color: "cyan",    desc: "Latest request per IP, paginated across all logs" },
-    { id: "clusters",      label: "Clusters",         icon: ICONS.shield,  color: "violet",  desc: "Visit sessions grouped by IP + email" },
+    { id: "clusters",      label: "Clusters",         icon: ICONS.shield,  color: "slate",  desc: "Visit sessions grouped by IP + email" },
   ];
 
   const TAB_COLOR_MAP = {
@@ -377,7 +379,7 @@ export default function ApiLogs() {
     rose:    { active: "bg-rose-600 text-white shadow-rose-200",     inactive: "text-rose-600 hover:bg-rose-50",     badge: "bg-rose-100 text-rose-700" },
     indigo:  { active: "bg-brand-dark text-white shadow-indigo-200", inactive: "text-ink hover:bg-glacier", badge: "bg-glacier text-ink" },
     cyan:    { active: "bg-cyan-600 text-white shadow-cyan-200",     inactive: "text-cyan-700 hover:bg-cyan-50",     badge: "bg-cyan-100 text-cyan-700" },
-    violet:  { active: "bg-violet-600 text-white shadow-violet-200", inactive: "text-violet-700 hover:bg-violet-50", badge: "bg-violet-100 text-violet-700" },
+    slate:   { active: "bg-ink text-white shadow-soft", inactive: "text-ink hover:bg-slate-100", badge: "bg-slate-100 text-ink" },
   };
 
   const statCards = [
@@ -393,19 +395,23 @@ export default function ApiLogs() {
 
   if (!accessChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 text-gray-600">Checking API logs access...</div>
+      <div className="min-h-screen bg-frost-mesh flex items-center justify-center p-6 text-ink">Checking API logs access...</div>
     );
   }
 
   if (!accessAllowed) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="max-w-md rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
-          <h2 className="text-lg font-bold text-red-700">Access denied</h2>
-          <p className="mt-2 text-sm text-red-600">{error || "You are not allowed to view API logs."}</p>
+      <div className="min-h-screen bg-frost-mesh flex items-center justify-center p-6">
+        <div className="glass-panel max-w-md p-7 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+            <Icon d={ICONS.lock} className="h-6 w-6" />
+          </div>
+          <p className="section-kicker">Restricted workspace</p>
+          <h2 className="mt-1 font-display text-2xl font-bold text-ink">Access denied</h2>
+          <p className="mt-2 text-sm text-slate-600">{error || "You are not allowed to view API logs."}</p>
           <button
             onClick={() => navigate("/dashboard")}
-            className="mt-4 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+            className="btn-ghost mt-5"
           >
             Back to dashboard
           </button>
@@ -416,25 +422,29 @@ export default function ApiLogs() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-glacier/40 py-4 sm:py-6">
-        <div className="w-full mx-auto space-y-6">
+      <div className="min-h-screen bg-frost-mesh py-4 sm:py-6">
+        <div className="page-enter w-full mx-auto space-y-6">
 
           {/* Header */}
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="relative overflow-hidden rounded-3xl bg-deep p-5 shadow-lift sm:p-7">
+            <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-brand/20 blur-3xl" />
+            <div className="absolute bottom-0 left-1/3 h-24 w-80 rounded-full bg-glacier/10 blur-3xl" />
+            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl flex items-center justify-center shadow-lg">
+                <div className="w-11 h-11 bg-brand rounded-2xl flex items-center justify-center shadow-brand">
                   <Icon d={ICONS.lock} className="w-5 h-5 text-white" />
                 </div>
-                <h1 className="text-3xl font-extrabold bg-gradient-to-r from-slate-800 via-brand-dark to-brand-dark bg-clip-text text-transparent">
-                  API Logs Analytics
-                </h1>
+                <div>
+                  <p className="section-kicker text-brand-light">Security observability</p>
+                  <h1 className="font-display text-3xl font-bold text-white">API Logs</h1>
+                </div>
               </div>
-              <p className="text-sm text-slate-500 ml-1">Metadata-only access logs · No tokens or request bodies · 90-day retention</p>
+              <p className="ml-14 mt-1 text-sm text-frost/75">Metadata-only access logs · No tokens or request bodies · 90-day retention</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-200 cursor-pointer select-none text-sm font-medium text-gray-700">
+              <label className="flex items-center gap-2 border border-white/15 bg-white/10 px-3 py-2 rounded-xl cursor-pointer select-none text-sm font-medium text-frost backdrop-blur">
                 <input
                   type="checkbox"
                   checked={autoRefresh}
@@ -446,7 +456,7 @@ export default function ApiLogs() {
                   <select
                     value={refreshInterval}
                     onChange={e => setRefreshInterval(Number(e.target.value))}
-                    className="ml-1 text-xs border border-gray-300 rounded-lg px-1 py-0.5 focus:ring-2 focus:ring-brand"
+                    className="ml-1 rounded-lg border border-white/20 bg-deep px-1 py-0.5 text-xs text-white focus:ring-2 focus:ring-brand"
                   >
                     <option value={5}>5s</option>
                     <option value={10}>10s</option>
@@ -459,7 +469,7 @@ export default function ApiLogs() {
               <button
                 onClick={exportToCSV}
                 disabled={exporting || loading}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn-ghost flex items-center gap-2 border-white/20 bg-white/10 text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Icon d={ICONS.download} className={`w-4 h-4 ${exporting ? "animate-pulse" : ""}`} />
                 {exporting ? "Exporting all…" : "Export CSV"}
@@ -467,31 +477,32 @@ export default function ApiLogs() {
 
               <button
                 onClick={() => { fetchLogs(); fetchStats(); }}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand to-brand-dark text-white rounded-xl shadow-md hover:from-blue-700 hover:to-brand-dark text-sm font-semibold transition"
+                className="btn-brand flex items-center gap-2 shadow-brand"
               >
                 <Icon d={ICONS.refresh} className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </button>
+            </div>
             </div>
           </div>
 
           {/* Stat Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             {statCards.map(({ label, value, icon, border, bg, iconColor }) => (
-              <div key={label} className={`bg-white rounded-2xl shadow-sm border-l-4 ${border} p-4 hover:shadow-md transition-shadow`}>
+              <div key={label} className={`surface-card border-l-4 ${border} p-4 hover:shadow-lift transition-shadow`}>
                 <div className="flex items-center justify-between mb-2">
                   <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide leading-tight">{label}</p>
                   <div className={`${bg} rounded-xl p-1.5`}>
                     <Icon d={icon} className={`w-4 h-4 ${iconColor}`} />
                   </div>
                 </div>
-                <p className="text-2xl font-extrabold text-slate-800">{typeof value === "number" ? value.toLocaleString() : value}</p>
+                <p className="font-display text-2xl font-bold text-ink">{typeof value === "number" ? value.toLocaleString() : value}</p>
               </div>
             ))}
           </div>
 
           {/* Tabs */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-1.5 flex flex-wrap gap-1">
+          <div className="glass-panel p-1.5 flex flex-wrap gap-1">
             {TABS.map(tab => {
               const colors = TAB_COLOR_MAP[tab.color];
               const isActive = activeTab === tab.id;
@@ -504,7 +515,7 @@ export default function ApiLogs() {
                 >
                   <Icon d={tab.icon} className="w-4 h-4 flex-shrink-0" />
                   <span className="whitespace-nowrap">{tab.label}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ml-1 ${isActive ? "bg-white/25 text-white" : colors.badge}`}>
+                  <span className={`px-2 py-0.5 rounded-xl text-xs font-bold ml-1 ${isActive ? "bg-white/25 text-white" : colors.badge}`}>
                     {typeof getTabCount(tab.id) === "number" ? getTabCount(tab.id).toLocaleString() : getTabCount(tab.id)}
                   </span>
                 </button>
@@ -582,13 +593,13 @@ export default function ApiLogs() {
             </div>
           )}
           {activeTab === "clusters" && (
-            <div className="flex items-start gap-3 bg-violet-50 border border-violet-200 rounded-2xl px-5 py-4">
-              <div className="w-8 h-8 bg-violet-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Icon d={ICONS.shield} className="w-4 h-4 text-violet-600" />
+            <div className="flex items-start gap-3 bg-glacier border border-brand/25 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon d={ICONS.shield} className="w-4 h-4 text-brand-dark" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-violet-800">Visit Clusters</p>
-                <p className="text-xs text-violet-600 mt-0.5">
+                <p className="text-sm font-semibold text-ink">Visit Clusters</p>
+                <p className="text-xs text-brand-dark mt-0.5">
                   Groups requests from the same <strong>IP + email</strong> into visit sessions across the full log database.
                   A new cluster starts after 30 minutes of inactivity. Each page contains up to {pageSize} clusters.
                 </p>
@@ -597,13 +608,13 @@ export default function ApiLogs() {
           )}
 
           {/* Filters */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-slate-700 to-slate-800">
+          <div className="surface-card overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 bg-deep">
               <div className="flex items-center gap-2">
                 <Icon d={ICONS.filter} className="w-4 h-4 text-slate-300" />
                 <span className="text-sm font-semibold text-white">Filters &amp; Search</span>
                 {activeFiltersCount > 0 && (
-                  <span className="px-2 py-0.5 bg-brand text-white text-xs font-bold rounded-full">
+                  <span className="px-2 py-0.5 bg-brand text-white text-xs font-bold rounded-xl">
                     {activeFiltersCount} active
                   </span>
                 )}
@@ -621,7 +632,7 @@ export default function ApiLogs() {
                 <select
                   value={searchType}
                   onChange={(e) => setSearchType(e.target.value)}
-                  className="px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand bg-white"
+                  className="input-field py-2.5 text-sm"
                 >
                   <option value="email">Search by Email</option>
                   <option value="ip">Search by IP Address</option>
@@ -638,12 +649,12 @@ export default function ApiLogs() {
                         : searchType === "ip" ? "192.168.x.x"
                           : "/api/auth/login"
                     }
-                    className="w-full pl-10 pr-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand transition"
+                    className="input-field w-full py-2.5 pl-10 pr-4 text-sm"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand to-brand-dark text-white rounded-xl text-sm font-semibold shadow hover:from-blue-700 hover:to-brand-dark transition"
+                  className="btn-brand flex items-center justify-center gap-2 px-5 py-2.5"
                 >
                   <Icon d={ICONS.search} className="w-4 h-4" /> Search
                 </button>
@@ -656,7 +667,7 @@ export default function ApiLogs() {
                     <select
                       value={filters.method}
                       onChange={e => handleFilterChange("method", e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-gray-50"
+                      className="input-field w-full py-2 text-sm"
                     >
                       <option value="">All Methods</option>
                       {["GET","POST","PUT","DELETE","PATCH"].map(m => <option key={m} value={m}>{m}</option>)}
@@ -668,7 +679,7 @@ export default function ApiLogs() {
                     <select
                       value={filters.statusCode}
                       onChange={e => handleFilterChange("statusCode", e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-gray-50"
+                      className="input-field w-full py-2 text-sm"
                     >
                       <option value="">All Statuses</option>
                       {[["200","200 – OK"],["201","201 – Created"],["400","400 – Bad Request"],
@@ -683,13 +694,13 @@ export default function ApiLogs() {
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button
                   onClick={() => { setPage(0); fetchLogs(); }}
-                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-brand to-brand-dark text-white rounded-xl text-sm font-semibold shadow hover:from-blue-700 hover:to-brand-dark transition"
+                  className="btn-brand flex items-center gap-2 px-5 py-2"
                 >
                   Apply client filters
                 </button>
                 <button
                   onClick={handleClearSearch}
-                  className="flex items-center gap-2 px-5 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition"
+                  className="btn-ghost flex items-center gap-2 px-5 py-2"
                 >
                   <Icon d={ICONS.close} className="w-4 h-4" /> Clear search
                 </button>
@@ -750,7 +761,7 @@ export default function ApiLogs() {
           </div>
 
           {/* Logs */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="surface-card overflow-hidden">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
                 <svg className="animate-spin w-12 h-12 text-brand" fill="none" viewBox="0 0 24 24">
@@ -842,7 +853,7 @@ export default function ApiLogs() {
 function ClusterBadge({ log }) {
   if (!log?.clusterCount || log.clusterCount <= 1) return null;
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-xl text-[10px] font-bold bg-glacier text-brand-dark">
       {log.clusterCount} requests
     </span>
   );
@@ -964,8 +975,8 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
   return (
     <div
       onClick={() => onSelect(log)}
-      className={`rounded-2xl border-2 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5
-        ${invalid ? "border-rose-200 bg-rose-50/40 hover:border-rose-400" : "border-gray-100 bg-white hover:border-blue-300"}`}
+      className={`surface-card border-2 p-5 cursor-pointer transition-all hover:shadow-lift hover:-translate-y-0.5
+        ${invalid ? "border-rose-200 bg-rose-50/40 hover:border-rose-400" : "border-slate-100 hover:border-brand/40"}`}
     >
       <div className="flex items-center justify-between mb-3 gap-2">
         <span className={`px-2.5 py-1 text-xs font-bold rounded-full ring-1 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
@@ -974,7 +985,7 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
           <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
         </div>
       </div>
-      <div className="bg-gray-50 rounded-lg px-3 py-2 mb-3">
+      <div className="bg-frost rounded-lg px-3 py-2 mb-3">
         <p className="text-xs font-mono text-slate-700 truncate">{log.requestPath}</p>
       </div>
       <div className="space-y-2 text-xs">
@@ -1044,7 +1055,7 @@ function LogDetailModal({ log, onClose }) {
   const invalid = isInvalidToken(log);
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+      <div className="glass-panel rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
         <div className={`px-6 py-5 flex items-center justify-between flex-shrink-0 ${invalid ? "bg-gradient-to-r from-rose-600 to-red-600" : "bg-gradient-to-r from-brand to-brand-dark"}`}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
@@ -1155,15 +1166,15 @@ function LogDetailModal({ log, onClose }) {
           {log.clusterCount > 1 && (
             <div>
               <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Visit Cluster</p>
-              <div className="bg-violet-50 border border-violet-200 rounded-2xl p-4 space-y-2">
-                <p className="text-sm font-bold text-violet-800">{log.clusterCount} requests in this visit</p>
-                <p className="text-xs text-violet-700">
+            <div className="bg-glacier border border-brand/20 rounded-2xl p-4 space-y-2">
+                <p className="text-sm font-bold text-ink">{log.clusterCount} requests in this visit</p>
+                <p className="text-xs text-brand-dark">
                   Started: {formatDate(log.clusterStart)}
                 </p>
-                <p className="text-xs text-violet-700">
+                <p className="text-xs text-brand-dark">
                   Latest: {formatDate(log.clusterEnd || log.requestTime)}
                 </p>
-                <p className="text-xs text-violet-600">
+                <p className="text-xs text-brand">
                   Grouped by matching IP and email with up to 30 minutes between requests.
                 </p>
               </div>

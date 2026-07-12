@@ -198,6 +198,10 @@
   .status-chip-warn {
     @apply status-chip bg-amber-soft text-amber-warn;
   }
+
+  .wizard-rail {
+    @apply sticky bottom-0 z-10 -mx-1 mt-2 border-t border-slate-200/80 bg-white/90 px-3 py-3 backdrop-blur-md sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none;
+  }
 }
 
 @layer utilities {

@@ -173,15 +173,18 @@ const Profile = () => {
   };
 
   return (
-    <div className="mx-auto max-w-5xl space-y-5 px-4 py-5 sm:space-y-6 sm:px-6 sm:py-8 lg:px-8">
+    <div className="mx-auto max-w-5xl space-y-5 px-4 py-5 page-enter sm:space-y-6 sm:px-6 sm:py-8 lg:px-8">
       {loading ? (
-        <div className="flex justify-center items-center py-14">
-          <div className="h-12 w-12 animate-spin rounded-full border-2 border-glacier border-t-brand" />
+        <div className="glass-panel flex min-h-40 items-center justify-center rounded-3xl">
+          <div className="flex items-center gap-3 text-sm font-medium text-slate-600">
+            <div className="h-7 w-7 animate-spin rounded-full border-2 border-glacier border-t-brand" />
+            Loading security settings
+          </div>
         </div>
       ) : null}
 
       {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50/90 p-4 shadow-soft">
+        <div className="rounded-2xl border border-red-200 bg-red-50/90 p-4 shadow-soft" role="alert">
           <div className="flex items-center gap-3 text-sm text-red-700">
             <FiAlertCircle className="h-5 w-5" />
             <span>{error}</span>
@@ -198,26 +201,30 @@ const Profile = () => {
         </div>
       ) : null}
 
-      <section className="glass-panel overflow-hidden">
-        <div className="bg-deep px-5 py-7 text-white sm:px-8 sm:py-9">
-          <p className="section-kicker text-brand-light">Account settings</p>
-          <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Account security</h1>
-          <p className="mt-3 max-w-xl text-sm leading-6 text-glacier sm:text-base">
+      <section className="overflow-hidden rounded-3xl bg-deep shadow-lift">
+        <div className="relative overflow-hidden px-5 py-8 text-white sm:px-8 sm:py-10">
+          <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand/15 blur-3xl" />
+          <div className="absolute -bottom-24 left-1/4 h-48 w-72 rounded-full bg-sage/10 blur-3xl" />
+          <div className="relative">
+            <p className="section-kicker text-brand-light">Account vault</p>
+            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Account security</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-glacier sm:text-base">
             Keep your AmarVote account protected with a strong password and two-step verification.
-          </p>
+            </p>
+          </div>
         </div>
-        <div className="bg-frost/70 p-4 sm:p-6">
-          <div className="surface-card grid gap-4 p-5 sm:grid-cols-[1fr_auto] sm:items-center sm:p-6">
+        <div className="border-t border-white/10 bg-white/5 p-4 sm:p-6">
+          <div className="glass-panel grid gap-4 border border-white/10 p-5 sm:grid-cols-[1fr_auto] sm:items-center sm:p-6">
             <div className="flex min-w-0 items-center gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-glacier text-brand">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-brand-light ring-1 ring-white/10">
                 <FiMail className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="section-kicker">Signed-in account</p>
-                <p className="mt-1 truncate font-display text-lg font-semibold text-deep">{profile.email || "-"}</p>
+                <p className="section-kicker text-glacier">Signed-in account</p>
+                <p className="mt-1 truncate font-display text-lg font-semibold text-white">{profile.email || "-"}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 rounded-xl border border-slate-200 bg-frost px-3 py-2 text-sm font-medium text-deep">
+            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm font-medium text-white">
               <span className={`h-2 w-2 rounded-full ${profile.mfaEnabled ? "bg-sage" : "bg-brand"}`} />
               2FA {profile.mfaEnabled ? "enabled" : "not enabled"}
             </div>
@@ -225,21 +232,26 @@ const Profile = () => {
         </div>
       </section>
 
-      <section className="surface-card p-5 sm:p-6">
-        <div className="flex flex-col gap-1">
-          <p className="section-kicker">Two-step verification</p>
-          <h2 className="font-display text-xl font-semibold text-deep sm:text-2xl">Add a second layer of security</h2>
-          <p className="max-w-2xl text-sm leading-6 text-slate-600">
+      <section className="surface-card overflow-hidden border border-glacier/70">
+        <div className="border-b border-glacier/80 bg-frost/55 px-5 py-5 sm:px-6 sm:py-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-glacier text-brand">
+              <FiShield className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="section-kicker">Two-step verification</p>
+              <h2 className="mt-1 font-display text-xl font-semibold text-deep sm:text-2xl">Secure sign-in</h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
             Use an authenticator app to help keep your account secure, even if your password is compromised.
-          </p>
+              </p>
+            </div>
+          </div>
         </div>
 
-        <div className="mt-5 border-t border-slate-200/80 pt-5 sm:mt-6 sm:pt-6">
+        <div className="p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div className="flex items-start gap-3">
-              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-glacier text-brand">
-                <FiShield className="h-5 w-5" />
-              </div>
+              <div className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${profile.mfaEnabled ? "bg-sage" : "bg-brand"}`} />
               <div>
                 <p className="font-display text-base font-semibold text-deep">Verification status</p>
                 <p className="mt-1 text-sm text-slate-600">
@@ -309,8 +321,9 @@ const Profile = () => {
           </div>
 
           {!profile.mfaEnabled && mfaSetup.qrCodeDataUri ? (
-            <div className="mt-6 rounded-2xl border border-brand/15 bg-glacier/60 p-4 sm:p-5">
-              <p className="font-medium text-deep">
+            <div className="mt-6 rounded-2xl border border-brand/20 bg-glacier/45 p-4 sm:p-5">
+              <p className="section-kicker">Authenticator setup</p>
+              <p className="mt-1 font-display text-lg font-semibold text-deep">
                 Scan this QR code with Google Authenticator, then confirm with a 6-digit code.
               </p>
 
@@ -340,7 +353,8 @@ const Profile = () => {
         </div>
       </section>
 
-      <section className="surface-card p-5 sm:p-6">
+      <section className="surface-card overflow-hidden border border-glacier/70">
+        <div className="border-b border-glacier/80 bg-frost/55 px-5 py-5 sm:px-6 sm:py-6">
         <div className="flex items-start gap-3">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-glacier text-brand">
             <FiLock className="h-5 w-5" />
@@ -351,8 +365,9 @@ const Profile = () => {
             <p className="mt-1 text-sm leading-6 text-slate-600">Choose a unique password that you do not use elsewhere.</p>
           </div>
         </div>
+        </div>
 
-        <form className="mt-6 max-w-lg space-y-4" onSubmit={handlePasswordChange}>
+        <form className="max-w-lg space-y-4 p-5 sm:p-6" onSubmit={handlePasswordChange}>
             <PasswordInput
               value={passwordForm.currentPassword}
               onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}

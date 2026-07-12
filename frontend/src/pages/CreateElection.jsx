@@ -1,11 +1,19 @@
 import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router-dom";
-import { FiUpload, FiUser } from "react-icons/fi";
+import { FiUpload, FiUser, FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi";
 import { electionApi } from "../utils/electionApi";
 import { uploadCandidateImage } from "../utils/api";
 import { userApi } from "../utils/userApi";
 import ImageUpload from "../components/ImageUpload";
 import VoterListEditor from "../components/VoterListEditor";
+
+const WIZARD_STEPS = [
+    { id: "basics", label: "Basics", hint: "Title, description, co-admins" },
+    { id: "privacy", label: "Privacy", hint: "Visibility and voter list" },
+    { id: "guardians", label: "Guardians", hint: "Key holders and quorum" },
+    { id: "candidates", label: "Candidates", hint: "Choices and winners" },
+    { id: "review", label: "Review", hint: "Confirm and create" },
+];
 
 const CreateElection = () => {
     const navigate = useNavigate();
@@ -17,8 +25,10 @@ const CreateElection = () => {
     const [canCreateElections, setCanCreateElections] = useState(false);
     const [checkingPermission, setCheckingPermission] = useState(true);
     const [showConfirmModal, setShowConfirmModal] = useState(false);
+    const [wizardStep, setWizardStep] = useState(0);
     const suggestionsRef = useRef(null);
     const candidateFileInputRef = useRef(null);
+    const wizardTopRef = useRef(null);
 
     const [form, setForm] = useState({
         electionTitle: "",
@@ -533,6 +543,117 @@ const CreateElection = () => {
             && !hasDuplicateNames();
     };
 
+    const validateWizardStep = (stepIndex = wizardStep) => {
+        const stepId = WIZARD_STEPS[stepIndex]?.id;
+
+        if (stepId === "basics") {
+            if (!form.electionTitle.trim()) {
+                setError("Election title is required.");
+                return false;
+            }
+            return true;
+        }
+
+        if (stepId === "privacy") {
+            if (form.electionPrivacy === "private" && form.voterEmails.length === 0) {
+                setError("Add at least one voter email for private elections.");
+                return false;
+            }
+            if (form.electionEligibility === "listed" && form.voterEmails.length === 0) {
+                setError("Add the voter list for listed-eligibility elections.");
+                return false;
+            }
+            return true;
+        }
+
+        if (stepId === "guardians") {
+            const guardianCount = parseInt(form.guardianNumber, 10) || 0;
+            const quorumCount = parseInt(form.quorumNumber, 10) || 0;
+            if (guardianCount <= 0) {
+                setError("Number of guardians must be at least 1.");
+                return false;
+            }
+            if (guardianCount > 20) {
+                setError("Number of guardians cannot exceed 20.");
+                return false;
+            }
+            if (quorumCount <= 0) {
+                setError("Quorum must be at least 1.");
+                return false;
+            }
+            if (quorumCount > guardianCount) {
+                setError(`Quorum (${quorumCount}) cannot exceed guardians (${guardianCount}).`);
+                return false;
+            }
+            if (form.guardianEmails.length < guardianCount) {
+                setError(`Add ${guardianCount} guardian email${guardianCount === 1 ? "" : "s"}.`);
+                return false;
+            }
+            return true;
+        }
+
+        if (stepId === "candidates") {
+            if (isTotalCandidatesInvalid(form.totalCandidates)) {
+                setError("Total candidates must be at least 2.");
+                return false;
+            }
+            if (form.candidateNames.some((name) => !name || !name.trim())) {
+                setError("Every candidate needs a name.");
+                return false;
+            }
+            if (form.candidateNames.filter((name) => name.trim()).length < 2) {
+                setError("At least 2 candidates are required.");
+                return false;
+            }
+            if (hasDuplicateNames()) {
+                setError("Candidate names must be unique.");
+                return false;
+            }
+            if (isMaxChoicesInvalid(form.maxChoices, form.totalCandidates)) {
+                setError("Max choices must be at least 1 and cannot exceed total candidates.");
+                return false;
+            }
+            if (isMaxChoicesInvalid(form.winnerNo, form.totalCandidates)) {
+                setError("Number of winners must be at least 1 and cannot exceed total candidates.");
+                return false;
+            }
+            return true;
+        }
+
+        return true;
+    };
+
+    const goToStep = (nextIndex) => {
+        setError("");
+        setWizardStep(nextIndex);
+        requestAnimationFrame(() => {
+            wizardTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        });
+    };
+
+    const handleWizardBack = () => {
+        if (wizardStep === 0) {
+            navigate(-1);
+            return;
+        }
+        goToStep(wizardStep - 1);
+    };
+
+    const handleWizardNext = () => {
+        if (!canCreateElections) {
+            setError("You are not allowed to create elections.");
+            return;
+        }
+        if (!validateWizardStep(wizardStep)) return;
+        if (wizardStep >= WIZARD_STEPS.length - 1) {
+            if (!validateForm()) return;
+            setError("");
+            setShowConfirmModal(true);
+            return;
+        }
+        goToStep(wizardStep + 1);
+    };
+
     const validateForm = () => {
         if (isTotalCandidatesInvalid(form.totalCandidates)) {
             setError("Total number of candidates must be at least 2");
@@ -614,22 +735,6 @@ const CreateElection = () => {
         }
 
         return true;
-    };
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-
-        if (!canCreateElections) {
-            setError("You are not allowed to create elections.");
-            return;
-        }
-
-        if (!validateForm()) {
-            return;
-        }
-
-        setError("");
-        setShowConfirmModal(true);
     };
 
     const confirmCreateElection = async () => {
@@ -718,20 +823,48 @@ const CreateElection = () => {
     );
 
     return (
-        <div className="mx-auto max-w-5xl px-1 py-2 sm:px-2 sm:py-4">
-            <header className="mb-6 px-2 sm:mb-8 sm:px-0">
-                <p className="section-kicker">Election workspace</p>
-                <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-deep sm:text-4xl">Create an election</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
-                    Set the election rules, appoint guardians, and review the configuration before key ceremony begins.
+        <div ref={wizardTopRef} className="mx-auto max-w-4xl px-1 py-2 sm:px-2 sm:py-4 page-enter">
+            <header className="mb-6 overflow-hidden rounded-3xl bg-deep-aurora px-5 py-6 text-white shadow-lift sm:mb-8 sm:px-8 sm:py-8">
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-light">Create election</p>
+                <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Build in clear steps</h1>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-glacier sm:text-base">
+                    Complete one section at a time. Your progress is kept until you submit.
                 </p>
-                <ol className="mt-5 grid grid-cols-2 gap-2 text-xs font-semibold text-ink sm:grid-cols-5 sm:text-sm">
-                    {["Basics", "Privacy & eligibility", "Guardians", "Candidates", "Review"].map((step, index) => (
-                        <li key={step} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white/75 px-3 py-2">
-                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-glacier text-xs text-brand-dark">{index + 1}</span>
-                            <span>{step}</span>
-                        </li>
-                    ))}
+                <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/15">
+                    <div
+                        className="h-full rounded-full bg-brand transition-all duration-500"
+                        style={{ width: `${((wizardStep + 1) / WIZARD_STEPS.length) * 100}%` }}
+                    />
+                </div>
+                <ol className="mt-5 grid grid-cols-2 gap-2 sm:grid-cols-5">
+                    {WIZARD_STEPS.map((step, index) => {
+                        const done = index < wizardStep;
+                        const active = index === wizardStep;
+                        return (
+                            <li key={step.id}>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        if (index <= wizardStep) goToStep(index);
+                                    }}
+                                    disabled={index > wizardStep}
+                                    className={`flex w-full min-h-14 flex-col items-start gap-0.5 rounded-2xl border px-3 py-2 text-left transition ${
+                                        active
+                                            ? "border-brand/50 bg-white/15"
+                                            : done
+                                              ? "border-white/20 bg-white/10 hover:bg-white/15"
+                                              : "border-white/10 bg-white/5 opacity-60"
+                                    }`}
+                                >
+                                    <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-brand-light">
+                                        {done ? <FiCheck className="h-3 w-3" /> : null}
+                                        Step {index + 1}
+                                    </span>
+                                    <span className="font-display text-sm font-semibold">{step.label}</span>
+                                </button>
+                            </li>
+                        );
+                    })}
                 </ol>
             </header>
 
@@ -742,7 +875,7 @@ const CreateElection = () => {
             )}
 
             {error && (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
                     {error}
                 </div>
             )}
@@ -753,12 +886,21 @@ const CreateElection = () => {
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
+            <form
+                onSubmit={(e) => {
+                    e.preventDefault();
+                    handleWizardNext();
+                }}
+                className="space-y-5 sm:space-y-6"
+            >
                 {/* Basic Election Information */}
-                <section className="surface-card p-4 sm:p-6">
+                {wizardStep === 0 && (
+                <>
+                <section className="surface-card p-4 sm:p-6 animate-fade-up">
                     <div className="mb-5">
-                        <p className="section-kicker">Step 1</p>
+                        <p className="section-kicker">Step 1 of {WIZARD_STEPS.length}</p>
                         <h2 className="mt-1 font-display text-2xl font-bold text-deep">Basics</h2>
+                        <p className="mt-1 text-sm text-slate-600">{WIZARD_STEPS[0].hint}</p>
                     </div>
 
                     <div className="mb-4">
@@ -809,12 +951,16 @@ const CreateElection = () => {
                         entityLabel="co-admin"
                     />
                 </section>
+                </>
+                )}
 
                 {/* Election Privacy Settings */}
-                <section className="surface-card p-4 sm:p-6">
+                {wizardStep === 1 && (
+                <section className="surface-card p-4 sm:p-6 animate-fade-up">
                     <div className="mb-5">
-                        <p className="section-kicker">Step 2</p>
+                        <p className="section-kicker">Step 2 of {WIZARD_STEPS.length}</p>
                         <h2 className="mt-1 font-display text-2xl font-bold text-deep">Privacy & eligibility</h2>
+                        <p className="mt-1 text-sm text-slate-600">{WIZARD_STEPS[1].hint}</p>
                     </div>
 
                     <div className="mb-4">
@@ -908,11 +1054,13 @@ const CreateElection = () => {
                         </div>
                     )}
                 </section>
+                )}
 
                 {/* Guardian Settings */}
-                <section className="surface-card p-4 sm:p-6">
+                {wizardStep === 2 && (
+                <section className="surface-card p-4 sm:p-6 animate-fade-up">
                     <div className="mb-5">
-                        <p className="section-kicker">Step 3</p>
+                        <p className="section-kicker">Step 3 of {WIZARD_STEPS.length}</p>
                         <h2 className="mt-1 font-display text-2xl font-bold text-deep">Guardians</h2>
                         <p className="mt-2 text-sm text-slate-600">Set the key holders and the threshold required to decrypt election results.</p>
                     </div>
@@ -1063,11 +1211,13 @@ const CreateElection = () => {
                         </div>
                     </div>
                 </section>
+                )}
 
                 {/* Candidate Information */}
-                <section className="surface-card p-4 sm:p-6">
+                {wizardStep === 3 && (
+                <section className="surface-card p-4 sm:p-6 animate-fade-up">
                     <div className="mb-5">
-                        <p className="section-kicker">Step 4</p>
+                        <p className="section-kicker">Step 4 of {WIZARD_STEPS.length}</p>
                         <h2 className="mt-1 font-display text-2xl font-bold text-deep">Candidates</h2>
                         <p className="mt-2 text-sm text-slate-600">
                             Set how many candidates voters can choose from, then enter each name below. Photos are optional.
@@ -1257,31 +1407,79 @@ const CreateElection = () => {
                         </div>
                     )}
                 </section>
+                )}
 
-                <section className="surface-card p-4 sm:p-6">
-                    <div className="mb-4">
-                        <p className="section-kicker">Step 5</p>
-                        <h2 className="mt-1 font-display text-2xl font-bold text-deep">Review & submit</h2>
-                        <p className="mt-2 text-sm text-slate-600">Confirm the election details in the next step before creating it.</p>
+                {wizardStep === 4 && (
+                <section className="surface-card p-4 sm:p-6 animate-fade-up">
+                    <div className="mb-5">
+                        <p className="section-kicker">Step 5 of {WIZARD_STEPS.length}</p>
+                        <h2 className="mt-1 font-display text-2xl font-bold text-deep">Review</h2>
+                        <p className="mt-2 text-sm text-slate-600">Confirm everything looks right, then create the election.</p>
                     </div>
-                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
+                    <div className="space-y-3 text-sm">
+                        <div className="rounded-2xl border border-slate-200 bg-frost/70 p-4">
+                            <p className="section-kicker">Basics</p>
+                            <p className="mt-1 font-display text-lg font-semibold text-deep">{form.electionTitle || "—"}</p>
+                            <p className="mt-1 text-slate-600">{form.electionDescription || "No description"}</p>
+                            <p className="mt-2 text-slate-600">Co-admins: {form.coAdminEmails.length ? form.coAdminEmails.join(", ") : "None"}</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-frost/70 p-4">
+                            <p className="section-kicker">Privacy</p>
+                            <p className="mt-1 text-ink"><span className="font-semibold">Visibility:</span> {form.electionPrivacy}</p>
+                            <p className="text-ink"><span className="font-semibold">Eligibility:</span> {form.electionEligibility}</p>
+                            <p className="text-ink"><span className="font-semibold">Voters:</span> {form.voterEmails.length || (form.electionEligibility === "unlisted" ? "Open" : "None")}</p>
+                            <p className="text-ink"><span className="font-semibold">Receipts:</span> {form.sendBallotReceipt ? "Enabled" : "Disabled"}</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-frost/70 p-4">
+                            <p className="section-kicker">Guardians</p>
+                            <p className="mt-1 text-ink">{form.guardianNumber} guardians · quorum {form.quorumNumber}</p>
+                            <p className="mt-1 break-words text-slate-600">{form.guardianEmails.join(", ") || "—"}</p>
+                        </div>
+                        <div className="rounded-2xl border border-slate-200 bg-frost/70 p-4">
+                            <p className="section-kicker">Candidates</p>
+                            <p className="mt-1 text-ink">Max choices {form.maxChoices} · winners {form.winnerNo}</p>
+                            <ol className="mt-2 list-inside list-decimal space-y-1 text-slate-700">
+                                {form.candidateNames.filter((n) => n.trim()).map((name) => (
+                                    <li key={name}>{name}</li>
+                                ))}
+                            </ol>
+                        </div>
+                    </div>
+                </section>
+                )}
+
+                <div className="wizard-rail">
+                <div className="surface-card flex flex-col-reverse gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5">
                     <button
                         type="button"
-                        onClick={() => navigate(-1)}
+                        onClick={handleWizardBack}
                         className="btn-ghost w-full sm:w-auto"
                     >
-                        Cancel
+                        <FiArrowLeft className="h-4 w-4" />
+                        {wizardStep === 0 ? "Cancel" : "Back"}
                     </button>
 
-                    <button
-                        type="submit"
-                        disabled={!isFormReadyForSubmit()}
-                        className="btn-brand w-full sm:w-auto"
-                    >
-                        {isSubmitting ? 'Creating...' : 'Create Election'}
-                    </button>
+                    <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                        <p className="text-center text-xs text-slate-500 sm:mr-2 sm:text-left">
+                            {wizardStep + 1} / {WIZARD_STEPS.length}
+                        </p>
+                        <button
+                            type="submit"
+                            disabled={checkingPermission || !canCreateElections || (wizardStep === 4 && !isFormReadyForSubmit())}
+                            className="btn-brand w-full sm:w-auto"
+                        >
+                            {wizardStep === 4 ? (
+                                isSubmitting ? "Creating..." : "Create election"
+                            ) : (
+                                <>
+                                    Continue
+                                    <FiArrowRight className="h-4 w-4" />
+                                </>
+                            )}
+                        </button>
+                    </div>
                 </div>
-                </section>
+                </div>
             </form>
 
             {showConfirmModal && (
