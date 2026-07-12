@@ -3059,6 +3059,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
   const canEditVoterList = () => {
     if (!electionData || electionData.eligibility !== 'listed') return false;
+    if (isElectionFinished()) return false;
     return !!electionData.userRoles?.includes('admin');
   };
 

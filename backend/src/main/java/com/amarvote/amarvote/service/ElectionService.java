@@ -550,7 +550,15 @@ public class ElectionService {
             throw new IllegalArgumentException("Voter list can only be managed for listed elections");
         }
 
+        requireVoterListEditable(election);
+
         return election;
+    }
+
+    private void requireVoterListEditable(Election election) {
+        if (isElectionEnded(election)) {
+            throw new IllegalArgumentException("Voters cannot be changed after the election has ended");
+        }
     }
 
     private void requireVoterListRemovable(Election election) {
@@ -577,6 +585,11 @@ public class ElectionService {
     private boolean isBeforeElectionStart(Election election) {
         Instant startingTime = election.getStartingTime();
         return startingTime == null || Instant.now().isBefore(startingTime);
+    }
+
+    private boolean isElectionEnded(Election election) {
+        Instant endingTime = election.getEndingTime();
+        return endingTime != null && Instant.now().isAfter(endingTime);
     }
 
     /**
