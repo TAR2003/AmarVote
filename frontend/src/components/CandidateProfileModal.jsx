@@ -3,6 +3,10 @@ import { FiUser } from 'react-icons/fi';
 import AppModal from './AppModal';
 import TruncatedCandidateName from './TruncatedCandidateName';
 
+/**
+ * Full candidate profile — large photo, display typography.
+ * Description is optional; modal still opens when none is provided.
+ */
 const CandidateProfileModal = ({
   isOpen,
   onClose,
@@ -12,17 +16,20 @@ const CandidateProfileModal = ({
   partyName,
 }) => {
   const initial = (name || '?').trim().charAt(0).toUpperCase();
+  const hasDescription = Boolean(description?.trim());
+  const showParty = Boolean(partyName?.trim() && !/^\d+$/.test(partyName.trim()));
 
   return (
     <AppModal
       isOpen={isOpen}
       onClose={onClose}
       title="Candidate Profile"
-      size="lg"
+      size="xl"
     >
-      <div className="flex flex-col gap-5 sm:flex-row sm:items-start">
-        <div className="mx-auto w-40 shrink-0 sm:mx-0 sm:w-48">
-          <div className="aspect-square overflow-hidden rounded-2xl border border-ink/10 bg-glacier shadow-soft">
+      <div className="flex flex-col gap-6 sm:flex-row sm:items-stretch sm:gap-8">
+        {/* Large portrait — primary visual for voters */}
+        <div className="mx-auto w-full max-w-[220px] shrink-0 sm:mx-0 sm:w-[240px] sm:max-w-none">
+          <div className="relative aspect-[4/5] overflow-hidden rounded-3xl border border-ink/10 bg-glacier shadow-soft">
             {image ? (
               <img
                 src={image}
@@ -30,29 +37,46 @@ const CandidateProfileModal = ({
                 className="h-full w-full object-cover"
               />
             ) : (
-              <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-brand-dark">
-                <FiUser className="h-12 w-12" aria-hidden />
-                <span className="font-display text-3xl font-semibold">{initial}</span>
+              <div className="flex h-full w-full flex-col items-center justify-center gap-3 bg-gradient-to-br from-brand-soft via-glacier to-frost text-brand-dark">
+                <FiUser className="h-14 w-14 opacity-80" aria-hidden />
+                <span className="font-display text-5xl font-semibold tracking-tight">{initial}</span>
               </div>
             )}
+            <div
+              className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-deep/25 to-transparent"
+              aria-hidden
+            />
           </div>
         </div>
 
-        <div className="min-w-0 flex-1 space-y-3">
-          <div>
-            <h3 className="font-display text-xl font-semibold text-deep sm:text-2xl">
-              <TruncatedCandidateName name={name} lines={2} />
+        <div className="flex min-w-0 flex-1 flex-col justify-center space-y-5 py-1">
+          <header className="space-y-2 border-b border-ink/10 pb-4">
+            <p className="section-kicker !mb-0">On the ballot</p>
+            <h3 className="font-display text-2xl font-semibold leading-tight tracking-tight text-deep sm:text-3xl lg:text-[2rem]">
+              <TruncatedCandidateName name={name} lines={3} />
             </h3>
-            {partyName && partyName.trim() && !/^\d+$/.test(partyName.trim()) && (
-              <p className="mt-1 text-sm font-medium text-brand-dark">{partyName}</p>
+            {showParty && (
+              <p className="text-sm font-medium uppercase tracking-[0.12em] text-brand-dark">
+                {partyName.trim()}
+              </p>
             )}
-          </div>
+          </header>
 
-          {description?.trim() ? (
-            <div className="rounded-xl border border-ink/10 bg-frost/70 p-3 sm:p-4">
-              <p className="section-kicker mb-2">Description / Manifesto</p>
-              <div className="max-h-[40dvh] overflow-y-auto whitespace-pre-wrap text-sm leading-relaxed text-ink">
-                {description.trim()}
+          {hasDescription ? (
+            <div className="relative">
+              <div
+                className="absolute left-0 top-1 bottom-1 w-0.5 rounded-full bg-brand/50"
+                aria-hidden
+              />
+              <div className="pl-4 sm:pl-5">
+                <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.14em] text-dusk">
+                  Description / Manifesto
+                </p>
+                <div className="max-h-[min(42dvh,320px)] overflow-y-auto overscroll-contain">
+                  <p className="whitespace-pre-wrap font-display text-[15px] font-normal leading-[1.75] text-ink/90 sm:text-base sm:leading-[1.85]">
+                    {description.trim()}
+                  </p>
+                </div>
               </div>
             </div>
           ) : null}

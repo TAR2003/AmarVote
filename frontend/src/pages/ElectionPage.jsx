@@ -3679,7 +3679,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       image={choice.candidatePic}
                       description={choice.optionDescription}
                       partyName={choice.partyName}
-                      size="lg"
+                      size="xl"
                       enableProfile
                       showInlineDescription
                       nameClassName="font-display text-sm sm:text-base font-semibold text-deep"

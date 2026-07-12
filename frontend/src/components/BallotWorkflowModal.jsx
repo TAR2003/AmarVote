@@ -585,7 +585,7 @@ const BallotWorkflowModal = ({
                         image={choice.candidatePic}
                         description={choice.optionDescription}
                         partyName={choice.partyName}
-                        size="sm"
+                        size="md"
                         enableProfile
                         nameClassName="font-display text-sm font-medium text-ink"
                       />

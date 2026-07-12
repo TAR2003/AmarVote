@@ -64,6 +64,11 @@ export function ModalPanel({
             ? 'max-w-4xl'
             : 'max-w-lg';
 
+  const maxHeight =
+    size === 'xl' || size === 'full'
+      ? 'max-h-[min(92dvh,760px)]'
+      : 'max-h-[min(88dvh,680px)]';
+
   const surfaceClass =
     surface === 'deep'
       ? 'modal-surface'
@@ -73,7 +78,7 @@ export function ModalPanel({
     <div
       role="dialog"
       aria-modal="true"
-      className={`${surfaceClass} relative flex w-full ${maxWidth} max-h-[min(88dvh,680px)] min-h-[min(28dvh,200px)] flex-col overflow-hidden rounded-t-3xl shadow-lift sm:min-h-0 sm:rounded-2xl ${className}`}
+      className={`${surfaceClass} relative flex w-full ${maxWidth} ${maxHeight} min-h-[min(28dvh,200px)] flex-col overflow-hidden rounded-t-3xl shadow-lift sm:min-h-0 sm:rounded-2xl ${className}`}
       onClick={(e) => {
         e.stopPropagation();
         onClick?.(e);

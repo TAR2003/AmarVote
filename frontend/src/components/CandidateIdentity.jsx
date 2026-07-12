@@ -5,8 +5,8 @@ import CandidateThumbnail from './CandidateThumbnail';
 import TruncatedCandidateName from './TruncatedCandidateName';
 import CandidateProfileModal from './CandidateProfileModal';
 
-const HOVER_DELAY_MS = 160;
-const PREVIEW_LINES = 3;
+const HOVER_DELAY_MS = 140;
+const HOVER_CARD_W = 320;
 
 function previewText(text, maxChars = 160) {
   if (!text?.trim()) return '';
@@ -17,7 +17,7 @@ function previewText(text, maxChars = 160) {
 
 /**
  * Candidate name + photo with hover preview and profile modal.
- * Reuses app tokens; works with keyboard (Enter/Space) and mobile tap.
+ * Hover + click are always available when interactive — description is optional.
  */
 const CandidateIdentity = ({
   name,
@@ -40,8 +40,8 @@ const CandidateIdentity = ({
   const hoverTimer = useRef(null);
   const cardId = useId();
 
-  const hasProfileContent = Boolean(image || description?.trim());
   const canInteract = interactive && enableProfile;
+  const hasDescription = Boolean(description?.trim());
 
   const clearHoverTimer = () => {
     if (hoverTimer.current) {
@@ -54,21 +54,21 @@ const CandidateIdentity = ({
     const el = triggerRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    const cardWidth = 280;
-    const gap = 8;
+    const gap = 10;
     let left = rect.left;
-    if (left + cardWidth > window.innerWidth - 12) {
-      left = Math.max(12, window.innerWidth - cardWidth - 12);
+    if (left + HOVER_CARD_W > window.innerWidth - 12) {
+      left = Math.max(12, window.innerWidth - HOVER_CARD_W - 12);
     }
+    const approxH = hasDescription ? 220 : 160;
     let top = rect.bottom + gap;
-    if (top + 200 > window.innerHeight) {
-      top = Math.max(12, rect.top - 200 - gap);
+    if (top + approxH > window.innerHeight) {
+      top = Math.max(12, rect.top - approxH - gap);
     }
     setCoords({ top, left });
-  }, []);
+  }, [hasDescription]);
 
   const openHover = () => {
-    if (!canInteract || !hasProfileContent) return;
+    if (!canInteract) return;
     if (window.matchMedia('(hover: none)').matches) return;
     clearHoverTimer();
     hoverTimer.current = window.setTimeout(() => {
@@ -119,7 +119,7 @@ const CandidateIdentity = ({
         {showImage && (
           <button
             type="button"
-            className={`shrink-0 rounded-full focus-visible:outline-none ${canInteract ? 'cursor-pointer' : 'cursor-default'}`}
+            className={`shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${canInteract ? 'cursor-pointer transition hover:brightness-105' : 'cursor-default'}`}
             onClick={canInteract ? openModal : undefined}
             aria-label={canInteract ? `View profile for ${name}` : name}
             tabIndex={canInteract ? 0 : -1}
@@ -129,7 +129,7 @@ const CandidateIdentity = ({
             ) : (
               <span
                 className={`inline-flex items-center justify-center rounded-full bg-glacier font-semibold text-brand-dark ${
-                  size === 'sm' ? 'h-8 w-8 text-xs' : size === 'lg' ? 'h-12 w-12 text-lg' : 'h-10 w-10 text-sm'
+                  size === 'sm' ? 'h-8 w-8 text-xs' : size === 'xl' ? 'h-16 w-16 text-lg' : size === 'lg' ? 'h-12 w-12 text-lg' : 'h-10 w-10 text-sm'
                 }`}
                 aria-hidden
               >
@@ -158,7 +158,7 @@ const CandidateIdentity = ({
               <TruncatedCandidateName name={name} lines={1} className="font-medium text-ink" />
             </div>
           )}
-          {description?.trim() && enableProfile && showInlineDescription && (
+          {hasDescription && enableProfile && showInlineDescription && (
             <p className={`mt-0.5 text-xs text-dusk line-clamp-2 whitespace-pre-line ${isStack ? 'text-center' : ''}`}>
               {previewText(description, 90)}
             </p>
@@ -167,35 +167,43 @@ const CandidateIdentity = ({
       </div>
 
       {hoverOpen &&
-        hasProfileContent &&
+        canInteract &&
         createPortal(
           <div
             id={cardId}
             role="tooltip"
-            className="pointer-events-none fixed z-[55] w-[280px] origin-top animate-fade-in rounded-2xl border border-ink/10 bg-paper p-3 shadow-lift transition-transform duration-200"
-            style={{ top: coords.top, left: coords.left }}
+            className="pointer-events-none fixed z-[55] origin-top animate-fade-in overflow-hidden rounded-2xl border border-ink/10 bg-paper shadow-lift"
+            style={{ top: coords.top, left: coords.left, width: HOVER_CARD_W }}
           >
-            <div className="flex gap-3">
+            <div className="flex gap-3.5 p-3.5">
               {image ? (
-                <img src={image} alt="" className="h-14 w-14 shrink-0 rounded-xl object-cover" />
+                <img
+                  src={image}
+                  alt=""
+                  className="h-20 w-20 shrink-0 rounded-2xl object-cover shadow-soft ring-1 ring-ink/5"
+                />
               ) : (
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-xl bg-glacier text-lg font-semibold text-brand-dark">
+                <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-brand-soft to-glacier font-display text-2xl font-semibold text-brand-dark ring-1 ring-ink/5">
                   {initial}
                 </div>
               )}
-              <div className="min-w-0 flex-1">
-                <p className="truncate font-display text-sm font-semibold text-deep">{name}</p>
+              <div className="min-w-0 flex-1 pt-0.5">
+                <p className="font-display text-[15px] font-semibold leading-snug tracking-tight text-deep line-clamp-2">
+                  {name}
+                </p>
                 {partyName && partyName.trim() && !/^\d+$/.test(partyName.trim()) && (
-                  <p className="truncate text-xs text-brand-dark">{partyName}</p>
-                )}
-                {description?.trim() ? (
-                  <p className="mt-1 line-clamp-3 text-xs leading-snug text-dusk">
-                    {previewText(description, 180)}
+                  <p className="mt-0.5 truncate text-[11px] font-medium uppercase tracking-[0.08em] text-brand-dark">
+                    {partyName}
                   </p>
-                ) : (
-                  <p className="mt-1 text-xs text-dusk">View full profile</p>
                 )}
-                <p className="mt-1.5 text-[11px] font-medium text-brand-dark">View Profile →</p>
+                {hasDescription ? (
+                  <p className="mt-2 line-clamp-3 font-display text-[12px] font-normal leading-relaxed text-dusk">
+                    {previewText(description, 160)}
+                  </p>
+                ) : null}
+                <p className="mt-2.5 text-[11px] font-semibold tracking-wide text-brand-dark">
+                  Click to view profile →
+                </p>
               </div>
             </div>
           </div>,
