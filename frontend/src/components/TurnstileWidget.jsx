@@ -99,7 +99,7 @@ export default function TurnstileWidget({
     <div className={className}>
       <div ref={containerRef} />
       {loadError && (
-        <p className="mt-2 text-sm text-red-600 text-center" role="alert">{loadError}</p>
+        <p className="mt-2 text-sm text-ember text-center" role="alert">{loadError}</p>
       )}
     </div>
   );

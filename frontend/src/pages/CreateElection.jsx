@@ -24,7 +24,6 @@ const CreateElection = () => {
     const [searchQuery, setSearchQuery] = useState("");
     const [canCreateElections, setCanCreateElections] = useState(false);
     const [checkingPermission, setCheckingPermission] = useState(true);
-    const [showConfirmModal, setShowConfirmModal] = useState(false);
     const [wizardStep, setWizardStep] = useState(0);
     const suggestionsRef = useRef(null);
     const candidateFileInputRef = useRef(null);
@@ -648,7 +647,7 @@ const CreateElection = () => {
         if (wizardStep >= WIZARD_STEPS.length - 1) {
             if (!validateForm()) return;
             setError("");
-            setShowConfirmModal(true);
+            createElection();
             return;
         }
         goToStep(wizardStep + 1);
@@ -737,7 +736,7 @@ const CreateElection = () => {
         return true;
     };
 
-    const confirmCreateElection = async () => {
+    const createElection = async () => {
         const validCandidateNames = form.candidateNames.filter(name => name.trim() !== '');
 
         setError("");
@@ -753,7 +752,6 @@ const CreateElection = () => {
             };
 
             const response = await electionApi.createElection(electionData);
-            setShowConfirmModal(false);
             setSuccess("Election created successfully!");
 
             setTimeout(() => {
@@ -762,7 +760,6 @@ const CreateElection = () => {
         } catch (err) {
             console.error("Error creating election:", err);
             setError(err.message || "Failed to create election. Please try again.");
-            setShowConfirmModal(false);
         } finally {
             setIsSubmitting(false);
         }
@@ -778,7 +775,7 @@ const CreateElection = () => {
             <button
                 type="button"
                 onClick={() => onRemove(email)}
-                className="ml-1 rounded p-0.5 text-brand-dark hover:bg-white/70 hover:text-deep"
+                className="ml-1 rounded p-0.5 text-brand-dark hover:bg-paper/70 hover:text-deep"
             >
                 ×
             </button>
@@ -798,12 +795,12 @@ const CreateElection = () => {
                     onClick={() => addGuardianEmail(suggestion.email)}
                 >
                     <div className="flex items-center flex-1">
-                        <div className="mr-3 flex h-8 w-8 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
+                        <div className="mr-3 flex h-8 w-8 items-center justify-center rounded-full bg-brand-dark text-sm font-semibold text-paper">
                             @
                         </div>
                         <div className="flex-1">
                             <div className="font-medium text-ink">{suggestion.email}</div>
-                            <div className="text-xs text-slate-500 capitalize">
+                            <div className="text-xs text-dusk capitalize">
                                 {suggestion.source ? `${suggestion.source} account` : "Registered user"}
                             </div>
                         </div>
@@ -814,7 +811,7 @@ const CreateElection = () => {
                 </div>
             ))}
             {emailSuggestions.length === 0 && searchQuery.length > 0 && (
-                <div className="px-4 py-3 text-center text-slate-500">
+                <div className="px-4 py-3 text-center text-dusk">
                     <div className="mb-1">Enter an email address</div>
                     <div className="text-xs">Suggestions will appear as you type</div>
                 </div>
@@ -824,13 +821,13 @@ const CreateElection = () => {
 
     return (
         <div ref={wizardTopRef} className="mx-auto max-w-4xl px-1 py-2 sm:px-2 sm:py-4 page-enter">
-            <header className="mb-6 overflow-hidden rounded-3xl bg-deep-aurora px-5 py-6 text-white shadow-lift sm:mb-8 sm:px-8 sm:py-8">
+            <header className="mb-6 overflow-hidden rounded-3xl bg-deep-aurora px-5 py-6 text-paper shadow-lift sm:mb-8 sm:px-8 sm:py-8">
                 <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Create election</p>
                 <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Build in clear steps</h1>
-                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-glacier sm:text-base">
+                <p className="mt-2 max-w-2xl text-base leading-relaxed text-dusk-soft">
                     Complete one section at a time. Your progress is kept until you submit.
                 </p>
-                <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-white/15">
+                <div className="mt-5 h-1.5 overflow-hidden rounded-full bg-paper/15">
                     <div
                         className="h-full rounded-full bg-brand transition-all duration-500"
                         style={{ width: `${((wizardStep + 1) / WIZARD_STEPS.length) * 100}%` }}
@@ -850,10 +847,10 @@ const CreateElection = () => {
                                     disabled={index > wizardStep}
                                     className={`flex w-full min-h-14 flex-col items-start gap-0.5 rounded-2xl border px-3 py-2 text-left transition ${
                                         active
-                                            ? "border-brand/50 bg-white/15"
+                                            ? "border-brand/50 bg-paper/15"
                                             : done
-                                              ? "border-white/20 bg-white/10 hover:bg-white/15"
-                                              : "border-white/10 bg-white/5 opacity-60"
+                                              ? "border-white/20 bg-paper/10 hover:bg-paper/15"
+                                              : "border-white/10 bg-paper/5 opacity-60"
                                     }`}
                                 >
                                     <span className="flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-brand-light">
@@ -875,7 +872,7 @@ const CreateElection = () => {
             )}
 
             {error && (
-                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+                <div className="mb-4 rounded-xl border border-ember/30 bg-ember-soft px-4 py-3 text-sm text-ember" role="alert">
                     {error}
                 </div>
             )}
@@ -900,12 +897,12 @@ const CreateElection = () => {
                     <div className="mb-5">
                         <p className="section-kicker">Step 1 of {WIZARD_STEPS.length}</p>
                         <h2 className="mt-1 font-display text-2xl font-bold text-deep">Basics</h2>
-                        <p className="mt-1 text-sm text-slate-600">{WIZARD_STEPS[0].hint}</p>
+                        <p className="mt-1 text-sm text-dusk">{WIZARD_STEPS[0].hint}</p>
                     </div>
 
                     <div className="mb-4">
                         <label className="mb-2 block text-sm font-semibold text-ink">
-                            Election Title <span className="text-red-500">*</span>
+                            Election Title <span className="text-ember">*</span>
                         </label>
                         <input
                             type="text"
@@ -938,7 +935,7 @@ const CreateElection = () => {
                 <section className="surface-card p-4 sm:p-6">
                     <p className="section-kicker">Administration</p>
                     <h2 className="mt-1 font-display text-2xl font-bold text-deep">Co-administrators</h2>
-                    <p className="mb-4 mt-2 text-sm text-slate-600">
+                    <p className="mb-4 mt-2 text-sm text-dusk">
                         Optionally add co-admins who can manage this election with the same permissions as you.
                         Co-admin assignments are permanent once the election is created.
                     </p>
@@ -960,13 +957,13 @@ const CreateElection = () => {
                     <div className="mb-5">
                         <p className="section-kicker">Step 2 of {WIZARD_STEPS.length}</p>
                         <h2 className="mt-1 font-display text-2xl font-bold text-deep">Privacy & eligibility</h2>
-                        <p className="mt-1 text-sm text-slate-600">{WIZARD_STEPS[1].hint}</p>
+                        <p className="mt-1 text-sm text-dusk">{WIZARD_STEPS[1].hint}</p>
                     </div>
 
                     <div className="mb-4">
                         <label className="mb-3 block text-sm font-semibold text-ink">Election privacy</label>
                         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                            <label className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-frost px-3 text-sm font-medium text-ink">
+                            <label className="flex min-h-11 items-center rounded-xl border border-ink/10 bg-frost px-3 text-sm font-medium text-ink">
                                 <input
                                     type="radio"
                                     name="electionPrivacy"
@@ -978,7 +975,7 @@ const CreateElection = () => {
                                 <span className="ml-2">Public</span>
                             </label>
 
-                            <label className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-frost px-3 text-sm font-medium text-ink">
+                            <label className="flex min-h-11 items-center rounded-xl border border-ink/10 bg-frost px-3 text-sm font-medium text-ink">
                                 <input
                                     type="radio"
                                     name="electionPrivacy"
@@ -995,7 +992,7 @@ const CreateElection = () => {
                     <div className="mb-4">
                         <label className="mb-3 block text-sm font-semibold text-ink">Voter eligibility</label>
                         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                            <label className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-frost px-3 text-sm font-medium text-ink">
+                            <label className="flex min-h-11 items-center rounded-xl border border-ink/10 bg-frost px-3 text-sm font-medium text-ink">
                                 <input
                                     type="radio"
                                     name="electionEligibility"
@@ -1007,7 +1004,7 @@ const CreateElection = () => {
                                 <span className="ml-2">Listed voters only</span>
                             </label>
 
-                            <label className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-frost px-3 text-sm font-medium text-ink">
+                            <label className="flex min-h-11 items-center rounded-xl border border-ink/10 bg-frost px-3 text-sm font-medium text-ink">
                                 <input
                                     type="radio"
                                     name="electionEligibility"
@@ -1022,7 +1019,7 @@ const CreateElection = () => {
                     </div>
 
                     <div className="mb-4">
-                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-frost p-3">
+                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-ink/10 bg-frost p-3">
                             <input
                                 type="checkbox"
                                 name="sendBallotReceipt"
@@ -1032,7 +1029,7 @@ const CreateElection = () => {
                             />
                             <span>
                                 <span className="block text-sm font-semibold text-ink">Send ballot receipts by email</span>
-                                <span className="mt-1 block text-sm text-slate-600">
+                                <span className="mt-1 block text-sm text-dusk">
                                     When enabled, voters receive an email receipt after casting their ballot. Admins and co-admins can change this later on the election page.
                                 </span>
                             </span>
@@ -1043,7 +1040,7 @@ const CreateElection = () => {
                         <div className="mb-4">
                             <label className="mb-3 block text-sm font-semibold text-ink">
                                 Voter Emails
-                                {form.electionPrivacy === "private" && <span className="text-red-500">*</span>}
+                                {form.electionPrivacy === "private" && <span className="text-ember">*</span>}
                             </label>
                             <VoterListEditor
                                 emails={form.voterEmails}
@@ -1062,12 +1059,12 @@ const CreateElection = () => {
                     <div className="mb-5">
                         <p className="section-kicker">Step 3 of {WIZARD_STEPS.length}</p>
                         <h2 className="mt-1 font-display text-2xl font-bold text-deep">Guardians</h2>
-                        <p className="mt-2 text-sm text-slate-600">Set the key holders and the threshold required to decrypt election results.</p>
+                        <p className="mt-2 text-sm text-dusk">Set the key holders and the threshold required to decrypt election results.</p>
                     </div>
 
                     <div className="mb-4">
                         <label className="mb-2 block text-sm font-semibold text-ink">
-                            Number of Guardians <span className="text-red-500">*</span>
+                            Number of Guardians <span className="text-ember">*</span>
                         </label>
                         <input
                             type="number"
@@ -1079,14 +1076,14 @@ const CreateElection = () => {
                             className="input-field"
                             placeholder="Enter number of guardians (1-20)"
                         />
-                        <p className="mt-1 text-sm text-slate-600">
+                        <p className="mt-1 text-sm text-dusk">
                             Choose any number of guardians between 1 and 20. More guardians provide better security through distributed key management.
                         </p>
                     </div>
 
                     <div className="mb-4">
                         <label className="mb-2 block text-sm font-semibold text-ink">
-                            Quorum Threshold <span className="text-red-500">*</span>
+                            Quorum Threshold <span className="text-ember">*</span>
                         </label>
                         <input
                             type="number"
@@ -1098,7 +1095,7 @@ const CreateElection = () => {
                             className="input-field"
                             placeholder={form.guardianNumber ? `Enter quorum (1-${form.guardianNumber})` : 'Set guardian count first'}
                         />
-                        <p className="mt-1 text-sm text-slate-600">
+                        <p className="mt-1 text-sm text-dusk">
                             Minimum number of guardians needed to decrypt the election results (must be ≤ {form.guardianNumber || 0}).
                             Default is set to more than half ({form.guardianNumber ? Math.floor(parseInt(form.guardianNumber) / 2) + 1 : 0}). 
                             This enables fault tolerance - if some guardians are unavailable, the election can still be decrypted.
@@ -1110,7 +1107,7 @@ const CreateElection = () => {
 
                             if (quorumCount > guardianCount && guardianCount > 0) {
                                 return (
-                                    <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                                    <div className="mt-2 rounded-xl border border-ember/30 bg-ember-soft p-3 text-sm text-ember">
                                         Quorum cannot be greater than the number of guardians ({guardianCount})
                                     </div>
                                 );
@@ -1118,7 +1115,7 @@ const CreateElection = () => {
 
                             if (quorumCount <= 0 && guardianCount > 0) {
                                 return (
-                                    <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                                    <div className="mt-2 rounded-xl border border-ceremonial/40 bg-ceremonial-soft p-3 text-sm text-ink">
                                         Quorum must be at least 1
                                     </div>
                                 );
@@ -1140,7 +1137,7 @@ const CreateElection = () => {
 
                     <div className="mb-4">
                         <label className="mb-2 block text-sm font-semibold text-ink">
-                            Guardian Emails <span className="text-red-500">*</span>
+                            Guardian Emails <span className="text-ember">*</span>
                         </label>
 
                         {/* File Upload for Guardian Emails */}
@@ -1148,7 +1145,7 @@ const CreateElection = () => {
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
                                 <div>
                                     <p className="text-sm font-semibold text-ink">Upload guardian emails (CSV/TXT)</p>
-                                    <p className="mt-1 text-xs text-slate-600">
+                                    <p className="mt-1 text-xs text-dusk">
                                         Upload a file with one email per line or comma-separated. This will automatically set the guardian count and quorum.
                                     </p>
                                 </div>
@@ -1162,7 +1159,7 @@ const CreateElection = () => {
                                     />
                                 </label>
                             </div>
-                            <div className="mt-2 text-xs text-slate-500">
+                            <div className="mt-2 text-xs text-dusk">
                                 Supported formats: .txt, .csv (max 20 guardians)
                             </div>
                         </div>
@@ -1195,17 +1192,17 @@ const CreateElection = () => {
                             </div>
                         </div>
 
-                        <div className="min-h-[100px] rounded-xl border border-slate-200 bg-frost/60 p-3">
+                        <div className="min-h-[100px] rounded-xl border border-ink/10 bg-frost/60 p-3">
                             <div className="flex flex-wrap">
                                 {form.guardianEmails.length > 0 ? (
                                     form.guardianEmails.map(email => renderEmailTag(email, removeGuardianEmail))
                                 ) : (
-                                    <span className="text-sm text-slate-500">No guardian emails added yet</span>
+                                    <span className="text-sm text-dusk">No guardian emails added yet</span>
                                 )}
                             </div>
                         </div>
 
-                        <div className="mt-2 text-sm text-slate-600">
+                        <div className="mt-2 text-sm text-dusk">
                             <div>{form.guardianEmails.length} of {form.guardianNumber || 0} guardians added</div>
                             <div className="mt-1 text-xs">Upload a file for bulk import or press Enter to add an email manually.</div>
                         </div>
@@ -1219,7 +1216,7 @@ const CreateElection = () => {
                     <div className="mb-5">
                         <p className="section-kicker">Step 4 of {WIZARD_STEPS.length}</p>
                         <h2 className="mt-1 font-display text-2xl font-bold text-deep">Candidates</h2>
-                        <p className="mt-2 text-sm text-slate-600">
+                        <p className="mt-2 text-sm text-dusk">
                             Set how many candidates voters can choose from, then enter each name below. Photos are optional.
                         </p>
                     </div>
@@ -1227,7 +1224,7 @@ const CreateElection = () => {
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                         <div>
                             <label className="mb-2 block text-sm font-semibold text-ink">
-                                Total Candidates <span className="text-red-500">*</span>
+                                Total Candidates <span className="text-ember">*</span>
                             </label>
                             <input
                                 type="number"
@@ -1235,19 +1232,19 @@ const CreateElection = () => {
                                 onChange={handleTotalCandidatesChange}
                                 className={`input-field ${
                                     isTotalCandidatesInvalid(form.totalCandidates)
-                                        ? "border-red-500 bg-red-50 focus:ring-red-500"
+                                        ? "border-red-500 bg-ember-soft focus:ring-red-500"
                                         : ""
                                 }`}
                             />
                             {isTotalCandidatesInvalid(form.totalCandidates) && (
-                                <p className="mt-1 text-xs text-red-600">
+                                <p className="mt-1 text-xs text-ember">
                                     Total number of candidates must be at least 2
                                 </p>
                             )}
                         </div>
                         <div>
                             <label className="mb-2 block text-sm font-semibold text-ink">
-                                Max Choices <span className="text-red-500">*</span>
+                                Max Choices <span className="text-ember">*</span>
                             </label>
                             <input
                                 type="number"
@@ -1256,12 +1253,12 @@ const CreateElection = () => {
                                 onChange={handleChange}
                                 className={`input-field ${
                                     isMaxChoicesInvalid(form.maxChoices, form.totalCandidates)
-                                        ? "border-red-500 bg-red-50 focus:ring-red-500"
+                                        ? "border-red-500 bg-ember-soft focus:ring-red-500"
                                         : ""
                                 }`}
                             />
                             {isMaxChoicesInvalid(form.maxChoices, form.totalCandidates) && (
-                                <p className="mt-1 text-xs text-red-600">
+                                <p className="mt-1 text-xs text-ember">
                                     Max choices must be at least 1 and cannot exceed the total number of candidates
                                 </p>
                             )}
@@ -1273,7 +1270,7 @@ const CreateElection = () => {
                         </div>
                         <div>
                             <label className="mb-2 block text-sm font-semibold text-ink">
-                                Number of Winners <span className="text-red-500">*</span>
+                                Number of Winners <span className="text-ember">*</span>
                             </label>
                             <input
                                 type="number"
@@ -1282,17 +1279,17 @@ const CreateElection = () => {
                                 onChange={handleChange}
                                 className={`input-field ${
                                     isMaxChoicesInvalid(form.winnerNo, form.totalCandidates)
-                                        ? "border-red-500 bg-red-50 focus:ring-red-500"
+                                        ? "border-red-500 bg-ember-soft focus:ring-red-500"
                                         : ""
                                 }`}
                             />
                             {isMaxChoicesInvalid(form.winnerNo, form.totalCandidates) && (
-                                <p className="mt-1 text-xs text-red-600">
+                                <p className="mt-1 text-xs text-ember">
                                     Number of winners must be at least 1 and cannot exceed the total number of candidates
                                 </p>
                             )}
                             {!isMaxChoicesInvalid(form.winnerNo, form.totalCandidates) && (
-                                <p className="text-xs text-amber-700 mt-1">
+                                <p className="text-xs text-ink mt-1">
                                     Top {getMaxChoicesNumber(form.winnerNo)} candidate{getMaxChoicesNumber(form.winnerNo) === 1 ? '' : 's'} will be declared winner{getMaxChoicesNumber(form.winnerNo) === 1 ? '' : 's'}.
                                 </p>
                             )}
@@ -1315,7 +1312,7 @@ const CreateElection = () => {
                             onChange={handleCandidateFileUpload}
                             className="hidden"
                         />
-                        <span className="text-xs text-slate-500">One candidate name per line or comma-separated</span>
+                        <span className="text-xs text-dusk">One candidate name per line or comma-separated</span>
                     </div>
 
                     <div className="space-y-3 mb-5">
@@ -1323,8 +1320,8 @@ const CreateElection = () => {
                             const candidateValidation = getCandidateNameValidation(index, name);
                             const isNameBlank = !name || !name.trim();
                             return (
-                                <div key={index} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-frost/60 p-3">
-                                    <span className="mt-3 w-6 text-xs font-semibold text-slate-500">{index + 1}.</span>
+                                <div key={index} className="flex items-start gap-3 rounded-xl border border-ink/10 bg-frost/60 p-3">
+                                    <span className="mt-3 w-6 text-xs font-semibold text-dusk">{index + 1}.</span>
                                     <div className="flex-1 min-w-0">
                                         <input
                                             type="text"
@@ -1333,17 +1330,17 @@ const CreateElection = () => {
                                             onChange={(e) => handleCandidateChange(index, 'candidateNames', e.target.value)}
                                             className={`input-field ${
                                                 !candidateValidation.isValid
-                                                    ? 'border-red-500 bg-red-50 focus:ring-red-500'
+                                                    ? 'border-red-500 bg-ember-soft focus:ring-red-500'
                                                     : isNameBlank
-                                                    ? 'border-red-500 bg-red-50 focus:ring-red-500'
-                                                    : 'bg-white'
+                                                    ? 'border-red-500 bg-ember-soft focus:ring-red-500'
+                                                    : 'bg-paper'
                                             }`}
                                         />
                                         {!candidateValidation.isValid && (
-                                            <p className="mt-1 text-xs text-red-600">{candidateValidation.message}</p>
+                                            <p className="mt-1 text-xs text-ember">{candidateValidation.message}</p>
                                         )}
                                         {candidateValidation.isValid && isNameBlank && (
-                                            <p className="mt-1 text-xs text-red-600">Candidate name is required</p>
+                                            <p className="mt-1 text-xs text-ember">Candidate name is required</p>
                                         )}
                                     </div>
                                     <div className="flex-shrink-0 w-12">
@@ -1360,7 +1357,7 @@ const CreateElection = () => {
                                         <button
                                             type="button"
                                             onClick={() => removeCandidate(index)}
-                                            className="mt-1 min-h-9 rounded-lg px-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700"
+                                            className="mt-1 min-h-9 rounded-lg px-2 text-xs font-semibold text-ember hover:bg-ember-soft hover:text-ember"
                                         >
                                             Remove
                                         </button>
@@ -1371,14 +1368,14 @@ const CreateElection = () => {
                     </div>
 
                     {form.candidateNames.some((name) => name.trim()) && (
-                        <div className="rounded-xl border border-slate-200 bg-frost/70 p-4">
+                        <div className="rounded-xl border border-ink/10 bg-frost/70 p-4">
                             <h3 className="mb-3 text-sm font-semibold text-ink">Added candidates</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {form.candidateNames
                                     .map((name, index) => ({ name, index, image: candidateImages[index] }))
                                     .filter((item) => item.name.trim())
                                     .map((item) => (
-                                        <div key={item.index} className="flex items-center gap-3 rounded-lg border border-white bg-white px-3 py-2 shadow-sm">
+                                        <div key={item.index} className="flex items-center gap-3 rounded-lg border border-white bg-paper px-3 py-2 shadow-sm">
                                             {item.image ? (
                                                 <img src={item.image} alt={item.name} className="h-10 w-10 rounded-full object-cover" />
                                             ) : (
@@ -1387,8 +1384,8 @@ const CreateElection = () => {
                                                 </div>
                                             )}
                                             <div className="min-w-0">
-                                                <p className="text-sm font-medium text-gray-900 truncate">{item.name}</p>
-                                                <p className="text-xs text-gray-500">Candidate {item.index + 1}</p>
+                                                <p className="text-sm font-medium text-ink truncate">{item.name}</p>
+                                                <p className="text-xs text-dusk">Candidate {item.index + 1}</p>
                                             </div>
                                         </div>
                                     ))}
@@ -1397,7 +1394,7 @@ const CreateElection = () => {
                     )}
 
                     {(form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()) && (
-                        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-md text-sm text-yellow-800">
+                        <div className="mt-4 p-3 bg-ceremonial-soft border border-yellow-200 rounded-md text-sm text-ink">
                             {form.candidateNames.filter(name => name.trim() !== '').length < 2 && (
                                 <p>• At least 2 candidates are required</p>
                             )}
@@ -1414,31 +1411,31 @@ const CreateElection = () => {
                     <div className="mb-5">
                         <p className="section-kicker">Step 5 of {WIZARD_STEPS.length}</p>
                         <h2 className="mt-1 font-display text-2xl font-bold text-deep">Review</h2>
-                        <p className="mt-2 text-sm text-slate-600">Confirm everything looks right, then create the election.</p>
+                        <p className="mt-2 text-sm text-dusk">Confirm everything looks right, then create the election.</p>
                     </div>
                     <div className="space-y-3 text-sm">
-                        <div className="rounded-2xl border border-slate-200 bg-frost/70 p-4">
+                        <div className="rounded-2xl border border-ink/10 bg-frost/70 p-4">
                             <p className="section-kicker">Basics</p>
                             <p className="mt-1 font-display text-lg font-semibold text-deep">{form.electionTitle || "—"}</p>
-                            <p className="mt-1 text-slate-600">{form.electionDescription || "No description"}</p>
-                            <p className="mt-2 text-slate-600">Co-admins: {form.coAdminEmails.length ? form.coAdminEmails.join(", ") : "None"}</p>
+                            <p className="mt-1 text-dusk">{form.electionDescription || "No description"}</p>
+                            <p className="mt-2 text-dusk">Co-admins: {form.coAdminEmails.length ? form.coAdminEmails.join(", ") : "None"}</p>
                         </div>
-                        <div className="rounded-2xl border border-slate-200 bg-frost/70 p-4">
+                        <div className="rounded-2xl border border-ink/10 bg-frost/70 p-4">
                             <p className="section-kicker">Privacy</p>
                             <p className="mt-1 text-ink"><span className="font-semibold">Visibility:</span> {form.electionPrivacy}</p>
                             <p className="text-ink"><span className="font-semibold">Eligibility:</span> {form.electionEligibility}</p>
                             <p className="text-ink"><span className="font-semibold">Voters:</span> {form.voterEmails.length || (form.electionEligibility === "unlisted" ? "Open" : "None")}</p>
                             <p className="text-ink"><span className="font-semibold">Receipts:</span> {form.sendBallotReceipt ? "Enabled" : "Disabled"}</p>
                         </div>
-                        <div className="rounded-2xl border border-slate-200 bg-frost/70 p-4">
+                        <div className="rounded-2xl border border-ink/10 bg-frost/70 p-4">
                             <p className="section-kicker">Guardians</p>
                             <p className="mt-1 text-ink">{form.guardianNumber} guardians · quorum {form.quorumNumber}</p>
-                            <p className="mt-1 break-words text-slate-600">{form.guardianEmails.join(", ") || "—"}</p>
+                            <p className="mt-1 break-words text-dusk">{form.guardianEmails.join(", ") || "—"}</p>
                         </div>
-                        <div className="rounded-2xl border border-slate-200 bg-frost/70 p-4">
+                        <div className="rounded-2xl border border-ink/10 bg-frost/70 p-4">
                             <p className="section-kicker">Candidates</p>
                             <p className="mt-1 text-ink">Max choices {form.maxChoices} · winners {form.winnerNo}</p>
-                            <ol className="mt-2 list-inside list-decimal space-y-1 text-slate-700">
+                            <ol className="mt-2 list-inside list-decimal space-y-1 text-ink">
                                 {form.candidateNames.filter((n) => n.trim()).map((name) => (
                                     <li key={name}>{name}</li>
                                 ))}
@@ -1460,7 +1457,7 @@ const CreateElection = () => {
                     </button>
 
                     <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                        <p className="text-center text-xs text-slate-500 sm:mr-2 sm:text-left">
+                        <p className="text-center text-xs text-dusk sm:mr-2 sm:text-left">
                             {wizardStep + 1} / {WIZARD_STEPS.length}
                         </p>
                         <button
@@ -1481,104 +1478,6 @@ const CreateElection = () => {
                 </div>
                 </div>
             </form>
-
-            {showConfirmModal && (
-                <div className="fixed inset-0 z-50 flex items-end justify-center bg-deep/60 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-                    <div
-                        role="dialog"
-                        aria-modal="true"
-                        aria-labelledby="create-election-confirm-title"
-                        className="flex max-h-[min(92dvh,720px)] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-lift sm:rounded-3xl"
-                    >
-                        <div className="shrink-0 border-b border-slate-200/80 bg-deep-aurora px-5 py-5 text-white sm:px-6">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-dusk-soft">Final step</p>
-                            <h2 id="create-election-confirm-title" className="mt-1 font-display text-2xl font-bold">
-                                Create this election?
-                            </h2>
-                            <p className="mt-1 text-sm text-glacier">One confirm creates it and opens the election page.</p>
-                        </div>
-
-                        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-sm sm:px-6">
-                            <div className="rounded-2xl border border-brand/20 bg-glacier/50 p-4">
-                                <p className="section-kicker">Title</p>
-                                <p className="mt-1 font-display text-lg font-semibold text-deep">{form.electionTitle}</p>
-                                {form.electionDescription ? (
-                                    <p className="mt-1 line-clamp-3 text-slate-600">{form.electionDescription}</p>
-                                ) : null}
-                            </div>
-
-                            <div className="mt-3 grid grid-cols-2 gap-2">
-                                <div className="rounded-xl border border-slate-200 bg-frost/80 p-3">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Privacy</p>
-                                    <p className="mt-1 font-semibold capitalize text-ink">{form.electionPrivacy}</p>
-                                </div>
-                                <div className="rounded-xl border border-slate-200 bg-frost/80 p-3">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Eligibility</p>
-                                    <p className="mt-1 font-semibold capitalize text-ink">{form.electionEligibility}</p>
-                                </div>
-                                <div className="rounded-xl border border-slate-200 bg-frost/80 p-3">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Guardians</p>
-                                    <p className="mt-1 font-semibold text-ink">{form.guardianNumber} · quorum {form.quorumNumber}</p>
-                                </div>
-                                <div className="rounded-xl border border-slate-200 bg-frost/80 p-3">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ballot</p>
-                                    <p className="mt-1 font-semibold text-ink">
-                                        {form.candidateNames.filter((n) => n.trim()).length} candidates · max {form.maxChoices} · top {form.winnerNo}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="mt-3 space-y-2">
-                                <div className="rounded-xl border border-slate-200 bg-white p-3">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Candidates</p>
-                                    <p className="mt-1 text-ink">
-                                        {form.candidateNames.filter((n) => n.trim()).join(" · ") || "—"}
-                                    </p>
-                                </div>
-                                <div className="rounded-xl border border-slate-200 bg-white p-3">
-                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
-                                        Guardians ({form.guardianEmails.length})
-                                    </p>
-                                    <p className="mt-1 line-clamp-2 break-all text-slate-700">
-                                        {form.guardianEmails.join(", ") || "—"}
-                                    </p>
-                                </div>
-                                {(form.voterEmails.length > 0 || form.coAdminEmails.length > 0) && (
-                                    <div className="rounded-xl border border-slate-200 bg-white p-3">
-                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">People</p>
-                                        <p className="mt-1 text-slate-700">
-                                            {form.voterEmails.length} voter{form.voterEmails.length === 1 ? "" : "s"}
-                                            {form.coAdminEmails.length
-                                                ? ` · ${form.coAdminEmails.length} co-admin${form.coAdminEmails.length === 1 ? "" : "s"}`
-                                                : ""}
-                                            {form.sendBallotReceipt ? " · receipts on" : ""}
-                                        </p>
-                                    </div>
-                                )}
-                            </div>
-                        </div>
-
-                        <div className="shrink-0 flex flex-col-reverse gap-2 border-t border-slate-200/80 bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
-                            <button
-                                type="button"
-                                onClick={() => setShowConfirmModal(false)}
-                                disabled={isSubmitting}
-                                className="btn-ghost w-full sm:w-auto"
-                            >
-                                Go back
-                            </button>
-                            <button
-                                type="button"
-                                onClick={confirmCreateElection}
-                                disabled={isSubmitting}
-                                className="btn-brand w-full sm:w-auto"
-                            >
-                                {isSubmitting ? "Creating..." : "Confirm & create"}
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
         </div>
     );
 };

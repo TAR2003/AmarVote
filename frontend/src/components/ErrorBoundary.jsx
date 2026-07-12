@@ -31,20 +31,20 @@ class ErrorBoundary extends React.Component {
       }
 
       return (
-        <div className="flex flex-col items-center justify-center p-8 bg-red-50 border border-red-200 rounded-lg">
-          <MdWarningAmber className="w-12 h-12 text-red-500 mb-4" />
-          <h3 className="text-lg font-semibold text-red-800 mb-2">
+        <div className="flex flex-col items-center justify-center p-8 bg-ember-soft border border-ember/30 rounded-lg">
+          <MdWarningAmber className="w-12 h-12 text-ember mb-4" />
+          <h3 className="text-lg font-semibold text-ember mb-2">
             {this.props.title || 'Something went wrong'}
           </h3>
-          <p className="text-red-600 text-center mb-4">
+          <p className="text-ember text-center mb-4">
             {this.props.message || 'An error occurred while loading this component. Please try refreshing the page.'}
           </p>
           {this.props.showDetails && this.state.error && (
             <details className="w-full max-w-md">
-              <summary className="cursor-pointer text-sm text-red-700 hover:text-red-800">
+              <summary className="cursor-pointer text-sm text-ember hover:text-ember">
                 Show error details
               </summary>
-              <pre className="mt-2 p-2 bg-red-100 text-xs text-red-800 rounded border overflow-auto max-h-32">
+              <pre className="mt-2 p-2 bg-ember-soft text-xs text-ember rounded border overflow-auto max-h-32">
                 {this.state.error.toString()}
                 {this.state.errorInfo.componentStack}
               </pre>
@@ -56,7 +56,7 @@ class ErrorBoundary extends React.Component {
                 this.setState({ hasError: false, error: null, errorInfo: null });
                 this.props.onRetry();
               }}
-              className="mt-4 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
+              className="mt-4 px-4 py-2 bg-ember text-paper rounded hover:bg-ember transition-colors"
             >
               Try Again
             </button>

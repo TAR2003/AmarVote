@@ -6,25 +6,25 @@ import MarketingHero, { MarketingTabs } from "../components/MarketingHero";
 const FeatureCard = ({ icon, title, items, color }) => {
   const colors = {
     blue: "bg-glacier border-brand/20",
-    green: "bg-sage-soft border-green-200",
-    orange: "bg-orange-50 border-orange-200",
-    red: "bg-red-50 border-red-200",
+    green: "bg-sage-soft border-aurora/30",
+    orange: "bg-ceremonial-soft border-ceremonial/40",
+    red: "bg-ember-soft border-ember/30",
     indigo: "bg-glacier border-brand/25",
     teal: "bg-teal-50 border-teal-200",
-    amber: "bg-amber-50 border-amber-200",
+    amber: "bg-ceremonial-soft border-ceremonial/40",
   };
   const headColors = {
-    blue: "text-ink", green: "text-emerald-800",
-    orange: "text-orange-800", red: "text-red-800", indigo: "text-ink",
-    teal: "text-teal-800", amber: "text-amber-800",
+    blue: "text-ink", green: "text-aurora-muted",
+    orange: "text-ink", red: "text-ember", indigo: "text-ink",
+    teal: "text-teal-800", amber: "text-ink",
   };
   return (
     <div className={`rounded-2xl border p-5 ${colors[color]}`}>
       <h3 className={`font-display font-bold text-lg mb-3 ${headColors[color]}`}>{title}</h3>
       <ul className="space-y-1.5">
         {items.map((item) => (
-          <li key={item} className="flex items-start text-sm text-gray-700">
-            <span className="mr-2 text-gray-400 flex-shrink-0">•</span>{item}
+          <li key={item} className="flex items-start text-sm text-dusk">
+            <span className="mr-2 text-dusk flex-shrink-0">•</span>{item}
           </li>
         ))}
       </ul>
@@ -60,7 +60,7 @@ function Features() {
         {activeTab === "crypto" && (
           <div>
             <h2 className="section-title text-center mb-3">Cryptographic Features</h2>
-            <p className="text-gray-500 text-center mb-8">Every layer is cryptographically sound and independently verifiable</p>
+            <p className="text-dusk text-center mb-8">Every layer is cryptographically sound and independently verifiable</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
               <FeatureCard icon="🔒" color="blue" title="ElGamal 4096-bit End-to-End Encryption (ElectionGuard)"
                 items={[
@@ -117,11 +117,11 @@ function Features() {
                   "Public spoiled ballot audit trail proves honest encryption during election",
                 ]} />
             </div>
-            <div className="bg-gray-900 rounded-2xl p-6 overflow-x-auto">
-              <h3 className="text-green-400 font-bold font-mono mb-4">// Full Cryptographic Specification</h3>
-              <table className="w-full font-mono text-xs text-gray-300">
+            <div className="bg-deep rounded-2xl p-6 overflow-x-auto">
+              <h3 className="text-aurora font-bold font-mono mb-4">// Full Cryptographic Specification</h3>
+              <table className="w-full font-mono text-xs text-dusk-soft">
                 <thead>
-                  <tr className="text-gray-400 border-b border-gray-700">
+                  <tr className="text-dusk border-b border-gray-700">
                     <th className="text-left pb-2">Algorithm</th>
                     <th className="text-left pb-2">Key Size / Params</th>
                     <th className="text-left pb-2">Standard</th>
@@ -145,9 +145,9 @@ function Features() {
                   ].map(([algo, key, std, purpose]) => (
                     <tr key={algo} className="border-b border-gray-800">
                       <td className="py-1.5 pr-4 text-brand-light font-bold">{algo}</td>
-                      <td className="py-1.5 pr-4 text-yellow-300">{key}</td>
-                      <td className="py-1.5 pr-4 text-gray-400">{std}</td>
-                      <td className="py-1.5 text-gray-300">{purpose}</td>
+                      <td className="py-1.5 pr-4 text-ceremonial">{key}</td>
+                      <td className="py-1.5 pr-4 text-dusk">{std}</td>
+                      <td className="py-1.5 text-dusk-soft">{purpose}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -160,7 +160,7 @@ function Features() {
         {activeTab === "arch" && (
           <div>
             <h2 className="section-title text-center mb-3">Platform Architecture</h2>
-            <p className="text-gray-500 text-center mb-8">Six microservices on a private Docker overlay network, purpose-built for a voting workload</p>
+            <p className="text-dusk text-center mb-8">Six microservices on a private Docker overlay network, purpose-built for a voting workload</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <FeatureCard icon="⚛️" color="blue" title="React 19.1 Frontend (172.20.0.40)"
                 items={[
@@ -228,7 +228,7 @@ function Features() {
         {activeTab === "security" && (
           <div>
             <h2 className="section-title text-center mb-3">Security Layers</h2>
-            <p className="text-gray-500 text-center mb-8">Defense-in-depth from the browser to the database</p>
+            <p className="text-dusk text-center mb-8">Defense-in-depth from the browser to the database</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <FeatureCard icon="🪪" color="blue" title="Authentication (Passwordless OTP)"
                 items={[
@@ -290,7 +290,7 @@ function Features() {
         {activeTab === "election" && (
           <div>
             <h2 className="section-title text-center mb-3">Election Management Features</h2>
-            <p className="text-gray-500 text-center mb-8">Complete lifecycle from creation to verified results</p>
+            <p className="text-dusk text-center mb-8">Complete lifecycle from creation to verified results</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <FeatureCard icon="📋" color="blue" title="Election Creation"
                 items={[
@@ -357,7 +357,7 @@ function Features() {
         {activeTab === "monitoring" && (
           <div>
             <h2 className="section-title text-center mb-3">Observability & Monitoring</h2>
-            <p className="text-gray-500 text-center mb-8">Production-grade Prometheus metrics, pre-configured Grafana dashboards</p>
+            <p className="text-dusk text-center mb-8">Production-grade Prometheus metrics, pre-configured Grafana dashboards</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
               <FeatureCard icon="📈" color="blue" title="Prometheus Metrics (Spring Boot Actuator)"
                 items={[
@@ -379,14 +379,14 @@ function Features() {
                   "Auto-provisioned data source pointing to Prometheus at :9090",
                 ]} />
             </div>
-            <div className="bg-gray-900 rounded-2xl p-6 font-mono text-xs text-gray-300">
-              <div className="text-green-400 font-bold mb-3">// Key Metrics Example (PromQL)</div>
+            <div className="bg-deep rounded-2xl p-6 font-mono text-xs text-dusk-soft">
+              <div className="text-aurora font-bold mb-3">// Key Metrics Example (PromQL)</div>
               <div className="space-y-2">
-                <div><span className="text-yellow-300">rate(http_server_requests_seconds_count[5m])</span><span className="text-gray-500"> # HTTP request rate</span></div>
-                <div><span className="text-yellow-300">histogram_quantile(0.99, http_server_requests_seconds_bucket)</span><span className="text-gray-500"> # P99 latency</span></div>
-                <div><span className="text-yellow-300">hikaricp_connections_active</span><span className="text-gray-500"> # Active DB connections</span></div>
-                <div><span className="text-yellow-300">jvm_memory_used_bytes{"{area='heap'}"}</span><span className="text-gray-500"> # Heap usage</span></div>
-                <div><span className="text-yellow-300">rabbitmq_queue_messages{"{queue='tally.creation.queue'}"}</span><span className="text-gray-500"> # Queue depth</span></div>
+                <div><span className="text-ceremonial">rate(http_server_requests_seconds_count[5m])</span><span className="text-dusk"> # HTTP request rate</span></div>
+                <div><span className="text-ceremonial">histogram_quantile(0.99, http_server_requests_seconds_bucket)</span><span className="text-dusk"> # P99 latency</span></div>
+                <div><span className="text-ceremonial">hikaricp_connections_active</span><span className="text-dusk"> # Active DB connections</span></div>
+                <div><span className="text-ceremonial">jvm_memory_used_bytes{"{area='heap'}"}</span><span className="text-dusk"> # Heap usage</span></div>
+                <div><span className="text-ceremonial">rabbitmq_queue_messages{"{queue='tally.creation.queue'}"}</span><span className="text-dusk"> # Queue depth</span></div>
               </div>
             </div>
           </div>
@@ -396,7 +396,7 @@ function Features() {
         {activeTab === "optional" && (
           <div>
             <h2 className="section-title text-center mb-3">Optional Platform Extensions</h2>
-            <p className="text-gray-500 text-center mb-8">Infrastructure ready — enable by uncommenting in Docker Compose</p>
+            <p className="text-dusk text-center mb-8">Infrastructure ready — enable by uncommenting in Docker Compose</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <FeatureCard icon="🧾" color="amber" title="Extended Public Audit Metadata"
                 items={[
@@ -417,9 +417,9 @@ function Features() {
                   "/rag/reindex: trigger re-embedding of documentation",
                 ]} />
             </div>
-            <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-5">
-              <h3 className="font-display font-bold text-amber-800 mb-2">Enabling Optional Services</h3>
-              <p className="text-amber-700 text-sm">Uncomment the respective service blocks in <code className="bg-white px-1 rounded text-xs border">docker-compose.yml</code>. The core 6-service platform (frontend, backend, EG API, EG Worker, RabbitMQ, Redis, PostgreSQL) runs without optional services with full E2E verifiability. Optional services add complementary capabilities.</p>
+            <div className="mt-6 bg-ceremonial-soft border border-ceremonial/40 rounded-2xl p-5">
+              <h3 className="font-display font-bold text-ink mb-2">Enabling Optional Services</h3>
+              <p className="text-ink text-sm">Uncomment the respective service blocks in <code className="bg-paper px-1 rounded text-xs border">docker-compose.yml</code>. The core 6-service platform (frontend, backend, EG API, EG Worker, RabbitMQ, Redis, PostgreSQL) runs without optional services with full E2E verifiability. Optional services add complementary capabilities.</p>
             </div>
           </div>
         )}

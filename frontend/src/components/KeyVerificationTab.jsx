@@ -75,7 +75,7 @@ export default function KeyVerificationTab({ electionId, electionData }) {
       </div>
 
       {!keyRegistered ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+        <div className="rounded-xl border border-ceremonial/40 bg-ceremonial-soft p-4 text-sm text-ink">
           Your guardian key has not been registered yet. Complete the key ceremony first, then return here to verify your credentials.
         </div>
       ) : (
@@ -88,16 +88,16 @@ export default function KeyVerificationTab({ electionId, electionData }) {
               type="file"
               accept=".txt,text/plain"
               onChange={(e) => handleFileLoad(e.target.files?.[0])}
-              className="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-glacier file:text-ink hover:file:bg-glacier"
+              className="block w-full text-sm text-dusk file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-glacier file:text-ink hover:file:bg-glacier"
             />
             {credentialFileName && (
               <p className="mt-2 text-xs text-sage">Loaded file: {credentialFileName}</p>
             )}
           </div>
 
-          <div className="rounded-lg border border-slate-200/80 bg-frost/80 p-4 text-sm text-slate-600 space-y-2">
+          <div className="rounded-lg border border-ink/10 bg-frost/80 p-4 text-sm text-dusk space-y-2">
             <p className="flex items-center gap-2">
-              <FiLock className="h-4 w-4 text-gray-500" />
+              <FiLock className="h-4 w-4 text-dusk" />
               Your file is used only for this one-time check and is not stored.
             </p>
             <p>
@@ -128,9 +128,9 @@ export default function KeyVerificationTab({ electionId, electionData }) {
       )}
 
       {error && (
-        <div className="rounded-xl border border-red-200 bg-red-50 p-4 flex items-start gap-3">
-          <FiAlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
-          <p className="text-sm text-red-800">{error}</p>
+        <div className="rounded-xl border border-ember/30 bg-ember-soft p-4 flex items-start gap-3">
+          <FiAlertCircle className="h-5 w-5 text-ember flex-shrink-0 mt-0.5" />
+          <p className="text-sm text-ember">{error}</p>
         </div>
       )}
 
@@ -138,20 +138,20 @@ export default function KeyVerificationTab({ electionId, electionData }) {
         <div
           className={`rounded-xl border p-4 flex items-start gap-3 ${
             result.verified
-              ? 'border-emerald-200 bg-emerald-50'
-              : 'border-red-300 bg-red-50'
+              ? 'border-aurora/30 bg-sage-soft'
+              : 'border-ember/40 bg-ember-soft'
           }`}
         >
           {result.verified ? (
-            <FiCheckCircle className="h-5 w-5 text-emerald-600 flex-shrink-0 mt-0.5" />
+            <FiCheckCircle className="h-5 w-5 text-aurora-muted flex-shrink-0 mt-0.5" />
           ) : (
-            <FiAlertCircle className="h-5 w-5 text-red-600 flex-shrink-0 mt-0.5" />
+            <FiAlertCircle className="h-5 w-5 text-ember flex-shrink-0 mt-0.5" />
           )}
           <div>
             <p className={`text-sm font-semibold ${result.verified ? 'text-emerald-900' : 'text-red-900'}`}>
               {result.verified ? 'Verification passed' : 'Verification failed'}
             </p>
-            <p className={`text-sm mt-1 whitespace-pre-wrap ${result.verified ? 'text-emerald-800' : 'text-red-800'}`}>
+            <p className={`text-sm mt-1 whitespace-pre-wrap ${result.verified ? 'text-aurora-muted' : 'text-ember'}`}>
               {result.message}
             </p>
           </div>

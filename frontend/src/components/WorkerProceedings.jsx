@@ -277,7 +277,7 @@ const WorkerProceedings = ({ electionId }) => {
           <div>
             <p className="section-kicker">Operations analytics</p>
             <h1 className="font-display mt-1 text-2xl font-semibold text-deep sm:text-3xl">Worker proceedings</h1>
-            <p className="mt-1 text-sm text-slate-600">Monitor each processing stage, throughput, and worker outcomes.</p>
+            <p className="mt-1 text-sm text-dusk">Monitor each processing stage, throughput, and worker outcomes.</p>
           </div>
           <button
             onClick={() => fetchWorkerLogs()}
@@ -298,7 +298,7 @@ const WorkerProceedings = ({ electionId }) => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
-                  isActive ? 'bg-deep text-white shadow-sm' : 'text-slate-600 hover:bg-frost hover:text-deep'
+                  isActive ? 'bg-deep text-paper shadow-sm' : 'text-dusk hover:bg-frost hover:text-deep'
                 }`}
               >
                 <Icon className="text-xl" />
@@ -311,7 +311,7 @@ const WorkerProceedings = ({ electionId }) => {
 
       {loading ? (
         <div className="glass-panel flex min-h-64 items-center justify-center p-8">
-          <div className="flex items-center gap-3 text-slate-600">
+          <div className="flex items-center gap-3 text-dusk">
             <FiRefreshCw className="animate-spin text-xl text-brand" />
             <div><p className="font-semibold text-deep">Loading proceedings</p><p className="text-sm">Fetching processing analytics.</p></div>
           </div>
@@ -319,12 +319,12 @@ const WorkerProceedings = ({ electionId }) => {
       ) : error ? (
         <section className="surface-card mx-auto max-w-3xl p-6 sm:p-8">
           <div className="flex items-start gap-3">
-            <div className="rounded-lg bg-red-50 p-3 text-red-600"><FiAlertTriangle className="text-xl" /></div>
-            <div className="flex-1"><p className="font-display text-xl font-semibold text-deep">Unable to load worker logs</p><p className="mt-1 text-slate-600">{error.message}</p></div>
+            <div className="rounded-lg bg-ember-soft p-3 text-ember"><FiAlertTriangle className="text-xl" /></div>
+            <div className="flex-1"><p className="font-display text-xl font-semibold text-deep">Unable to load worker logs</p><p className="mt-1 text-dusk">{error.message}</p></div>
           </div>
             {error.details && (
               <details className="mt-5">
-                <summary className="cursor-pointer rounded-lg bg-frost px-4 py-3 text-sm font-medium text-slate-600">
+                <summary className="cursor-pointer rounded-lg bg-frost px-4 py-3 text-sm font-medium text-dusk">
                   Show technical details
                 </summary>
                 <pre className="mt-3 max-h-60 overflow-auto rounded-lg bg-deep p-4 text-xs text-frost">
@@ -338,23 +338,23 @@ const WorkerProceedings = ({ electionId }) => {
             >
               <FiRefreshCw /> Retry
             </button>
-            <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/70 p-5">
-              <h4 className="mb-3 font-semibold text-amber-900">Troubleshooting</h4>
-              <ul className="space-y-2 text-sm text-slate-700">
+            <div className="mt-6 rounded-xl border border-ceremonial/40 bg-ceremonial-soft/70 p-5">
+              <h4 className="mb-3 font-semibold text-ink">Troubleshooting</h4>
+              <ul className="space-y-2 text-sm text-ink">
                 <li className="flex items-start gap-2">
-                  <span className="font-bold text-amber-600">•</span>
+                  <span className="font-bold text-ink">•</span>
                   <span>Make sure the worker log tables exist in the database</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="font-bold text-amber-600">•</span>
+                  <span className="font-bold text-ink">•</span>
                   <span>Run the table creation SQL script if tables are missing</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="font-bold text-amber-600">•</span>
+                  <span className="font-bold text-ink">•</span>
                   <span>Check backend logs for detailed error messages</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="font-bold text-amber-600">•</span>
+                  <span className="font-bold text-ink">•</span>
                   <span>Verify the election ID is correct</span>
                 </li>
               </ul>
@@ -368,7 +368,7 @@ const WorkerProceedings = ({ electionId }) => {
         <section className="surface-card mx-auto max-w-3xl p-8 text-center">
             <div className="mx-auto mb-4 w-fit rounded-xl bg-glacier p-3 text-brand"><FiActivity className="text-2xl" /></div>
             <h3 className="font-display text-2xl font-semibold text-deep">No processing logs yet</h3>
-              <p className="mt-2 text-slate-600">
+              <p className="mt-2 text-dusk">
                 This election hasn't gone through {activeTab === 'tally' ? 'tally processing' 
                   : activeTab === 'partialDecryption' ? 'partial decryption' 
                   : activeTab === 'compensatedDecryption' ? 'compensated decryption' 
@@ -376,7 +376,7 @@ const WorkerProceedings = ({ electionId }) => {
               </p>
             <div className="mt-6 rounded-xl bg-frost p-5 text-left">
               <h4 className="mb-3 font-semibold text-deep">What to expect</h4>
-              <ul className="space-y-2 text-sm text-slate-600">
+              <ul className="space-y-2 text-sm text-dusk">
                 <li className="flex items-start gap-2">
                   <span className="font-bold text-brand">•</span>
                   <span>Worker logs are created during election processing</span>
@@ -401,7 +401,7 @@ const WorkerProceedings = ({ electionId }) => {
                 <FiActivity className="text-lg" />
               </div>
               <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
+                <span className="text-xs font-bold uppercase tracking-widest text-dusk">
                   {activeTab === 'tally' ? 'Tally Creation' : 'Combine Decryption'} Initiated By
                 </span>
                 <p className="text-base font-semibold text-deep">
@@ -417,51 +417,51 @@ const WorkerProceedings = ({ electionId }) => {
             <div className="surface-card border-t-4 border-brand p-5">
                 <div className="flex items-center justify-between">
                   <div className="rounded-lg bg-glacier p-3 text-brand"><FiClock className="text-xl" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-dusk">Total</span>
                 </div>
                 <p className="mt-5 text-2xl font-semibold tracking-tight text-deep">
                   {formatDuration(statistics.totalProcessingTime)}
                 </p>
-                <p className="mt-1 text-sm text-slate-500">Total processing time</p>
+                <p className="mt-1 text-sm text-dusk">Total processing time</p>
             </div>
 
             {/* Average Time */}
             <div className="surface-card border-t-4 border-deep p-5">
                 <div className="flex items-center justify-between">
                   <div className="rounded-lg bg-frost p-3 text-deep"><FiTrendingUp className="text-xl" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Average</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-dusk">Average</span>
                 </div>
                 <p className="mt-5 text-2xl font-semibold tracking-tight text-deep">
                   {formatDuration(statistics.averageProcessingTime)}
                 </p>
-                <p className="mt-1 text-sm text-slate-500">Average per chunk</p>
+                <p className="mt-1 text-sm text-dusk">Average per chunk</p>
             </div>
 
             {/* Total Elapsed Time */}
             <div className="surface-card border-t-4 border-sage p-5">
                 <div className="flex items-center justify-between">
                   <div className="rounded-lg bg-sage/15 p-3 text-sage"><FiZap className="text-xl" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Elapsed</span>
+                  <span className="text-xs font-bold uppercase tracking-wider text-dusk">Elapsed</span>
                 </div>
                 <p className="mt-5 text-2xl font-semibold tracking-tight text-deep">
                   {formatDuration(statistics.totalElapsedTime)}
                 </p>
-                <p className="mt-1 text-sm text-slate-500">Total elapsed time</p>
+                <p className="mt-1 text-sm text-dusk">Total elapsed time</p>
             </div>
 
             {/* Completion Status */}
             <div className="surface-card border-t-4 border-amber-400 p-5">
                 <div className="flex items-center justify-between">
-                  <div className="rounded-lg bg-amber-50 p-3 text-amber-600"><FiCheckCircle className="text-xl" /></div>
-                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Status</span>
+                  <div className="rounded-lg bg-ceremonial-soft p-3 text-ink"><FiCheckCircle className="text-xl" /></div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-dusk">Status</span>
                 </div>
                 <p className="mt-5 text-2xl font-semibold tracking-tight text-deep">
                   {statistics.completedCount || 0} / {logs.length}
                 </p>
-                <p className="mt-1 text-sm text-slate-500">
+                <p className="mt-1 text-sm text-dusk">
                   Completed chunks
                   {statistics.failedCount > 0 && (
-                    <span className="ml-2 rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">
+                    <span className="ml-2 rounded-full bg-ember-soft px-2 py-1 text-xs font-semibold text-ember">
                       {statistics.failedCount} Failed
                     </span>
                   )}
@@ -480,15 +480,15 @@ const WorkerProceedings = ({ electionId }) => {
                     </div>
                     Completion Progress Over Time
                   </h3>
-                  <p className="mt-1 text-sm text-slate-600">Cumulative chunks completed as processing progresses</p>
+                  <p className="mt-1 text-sm text-dusk">Cumulative chunks completed as processing progresses</p>
                 </div>
               </div>
               <ResponsiveContainer width="100%" height={450}>
                 <AreaChart data={cumulativeData}>
                   <defs>
                     <linearGradient id="colorCumulative" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#00B4D8" stopOpacity={0.45}/>
-                      <stop offset="95%" stopColor="#00B4D8" stopOpacity={0.03}/>
+                      <stop offset="5%" stopColor="#8B7FE8" stopOpacity={0.45}/>
+                      <stop offset="95%" stopColor="#8B7FE8" stopOpacity={0.03}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.3} />
@@ -506,7 +506,7 @@ const WorkerProceedings = ({ electionId }) => {
                   <Tooltip 
                     contentStyle={{ 
                       backgroundColor: '#073B4C',
-                      border: '1px solid #00B4D8',
+                      border: '1px solid #8B7FE8',
                       borderRadius: '10px',
                       padding: '12px'
                     }}
@@ -516,7 +516,7 @@ const WorkerProceedings = ({ electionId }) => {
                   <Area 
                     type="monotone" 
                     dataKey="completedChunks" 
-                    stroke="#00B4D8" 
+                    stroke="#8B7FE8" 
                     strokeWidth={3}
                     fillOpacity={1} 
                     fill="url(#colorCumulative)"
@@ -550,18 +550,18 @@ const WorkerProceedings = ({ electionId }) => {
                       </div>
                       Processing Schedule Timeline
                     </h3>
-                    <p className="mt-1 text-sm text-slate-600">
+                    <p className="mt-1 text-sm text-dusk">
                       Each bar shows the time-span (start → end) of a chunk — chunk on X-axis, time on Y-axis
                     </p>
                   </div>
                   <div className="flex items-center gap-6 text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-sage-soft0"></div>
-                      <span className="font-medium text-slate-600">Completed</span>
+                      <div className="w-4 h-4 rounded bg-aurora"></div>
+                      <span className="font-medium text-dusk">Completed</span>
                     </div>
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-red-500"></div>
-                      <span className="font-medium text-slate-600">Failed</span>
+                      <div className="w-4 h-4 rounded bg-ember"></div>
+                      <span className="font-medium text-dusk">Failed</span>
                     </div>
                   </div>
                 </div>
@@ -625,13 +625,13 @@ const WorkerProceedings = ({ electionId }) => {
                             const entry = payload[0]?.payload;
                             if (!entry) return null;
                             return (
-                              <div className="bg-gray-900/98 text-white p-4 rounded-2xl shadow-2xl border border-gray-700 min-w-[180px]">
+                              <div className="bg-deep/98 text-paper p-4 rounded-2xl shadow-2xl border border-gray-700 min-w-[180px]">
                                 <p className="font-bold text-lg mb-2 text-brand">Chunk #{entry.chunkNumber}</p>
-                                <p className="text-sm mb-1"><span className="text-gray-400">Starts at:</span> <span className="text-white font-semibold">{entry.spacer.toFixed(3)}s</span></p>
-                                <p className="text-sm mb-1"><span className="text-gray-400">Duration:</span> <span className="text-white font-semibold">{entry.duration.toFixed(3)}s</span></p>
-                                <p className="text-sm mb-1"><span className="text-gray-400">Ends at:</span> <span className="text-white font-semibold">{(entry.spacer + entry.duration).toFixed(3)}s</span></p>
-                                <p className="text-sm"><span className="text-gray-400">Status:</span>
-                                  <span className={`ml-2 font-bold ${entry.status === 'COMPLETED' ? 'text-green-400' : 'text-red-400'}`}>
+                                <p className="text-sm mb-1"><span className="text-dusk">Starts at:</span> <span className="text-paper font-semibold">{entry.spacer.toFixed(3)}s</span></p>
+                                <p className="text-sm mb-1"><span className="text-dusk">Duration:</span> <span className="text-paper font-semibold">{entry.duration.toFixed(3)}s</span></p>
+                                <p className="text-sm mb-1"><span className="text-dusk">Ends at:</span> <span className="text-paper font-semibold">{(entry.spacer + entry.duration).toFixed(3)}s</span></p>
+                                <p className="text-sm"><span className="text-dusk">Status:</span>
+                                  <span className={`ml-2 font-bold ${entry.status === 'COMPLETED' ? 'text-aurora' : 'text-ember'}`}>
                                     {entry.status}
                                   </span>
                                 </p>
@@ -657,7 +657,7 @@ const WorkerProceedings = ({ electionId }) => {
                 </div>
 
                 <div className="mt-6 rounded-xl border border-brand/20 bg-glacier p-4">
-                  <p className="text-sm text-slate-700">
+                  <p className="text-sm text-ink">
                     <span className="font-bold text-brand">Tip:</span> Each bar spans from its
                     <strong> start time</strong> to its <strong>end time</strong> on the Y-axis.
                     Chunks are sorted by start time left-to-right. Hover for details.
@@ -690,7 +690,7 @@ const WorkerProceedings = ({ electionId }) => {
                       style={{ width: '100%' }}
                     />
                   </div>
-                  <p className="mt-3 text-center text-sm font-semibold text-slate-600">
+                  <p className="mt-3 text-center text-sm font-semibold text-dusk">
                     Total Duration: <span className="font-bold text-deep">{formatDuration(statistics.totalElapsedTime)}</span>
                   </p>
                 </div>
@@ -713,7 +713,7 @@ const WorkerProceedings = ({ electionId }) => {
                 </div>
                 Processing Time Distribution
               </h3>
-              <p className="mb-5 text-sm text-slate-600">
+              <p className="mb-5 text-sm text-dusk">
                 Bars sorted by <strong>completion order</strong>. The top label is the chunk number; the bottom label shows when it finished (1st, 2nd, 3rd…).
               </p>
               <div className="overflow-x-auto">
@@ -725,7 +725,7 @@ const WorkerProceedings = ({ electionId }) => {
                     >
                       <defs>
                         <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#00B4D8" stopOpacity={1}/>
+                          <stop offset="0%" stopColor="#8B7FE8" stopOpacity={1}/>
                           <stop offset="100%" stopColor="#0077B6" stopOpacity={0.8}/>
                         </linearGradient>
                       </defs>
@@ -778,10 +778,10 @@ const WorkerProceedings = ({ electionId }) => {
                           const entry = payload[0]?.payload;
                           if (!entry) return null;
                           return (
-                            <div className="bg-gray-900/98 text-white p-4 rounded-2xl shadow-2xl border border-gray-700">
+                            <div className="bg-deep/98 text-paper p-4 rounded-2xl shadow-2xl border border-gray-700">
                               <p className="mb-1 text-base font-bold text-brand">Chunk #{entry.chunkNumber}</p>
-                              <p className="text-sm mb-1"><span className="text-gray-400">Completion order:</span> <span className="text-white font-semibold">{getOrdinal(entry.completionRank)} to finish</span></p>
-                              <p className="text-sm"><span className="text-gray-400">Duration:</span> <span className="text-white font-semibold">{formatDuration(entry.duration)}</span></p>
+                              <p className="text-sm mb-1"><span className="text-dusk">Completion order:</span> <span className="text-paper font-semibold">{getOrdinal(entry.completionRank)} to finish</span></p>
+                              <p className="text-sm"><span className="text-dusk">Duration:</span> <span className="text-paper font-semibold">{formatDuration(entry.duration)}</span></p>
                             </div>
                           );
                         }}
@@ -806,30 +806,30 @@ const WorkerProceedings = ({ electionId }) => {
                 <FiLayers className="text-brand" />
                 Detailed Chunk Logs
               </h3>
-              <p className="mt-1 text-sm text-slate-600">Complete processing details for every chunk</p>
+              <p className="mt-1 text-sm text-dusk">Complete processing details for every chunk</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px]">
                 <thead className="bg-frost">
                   <tr>
-                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-dusk uppercase tracking-wider">
                       Chunk
                     </th>
-                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-dusk uppercase tracking-wider">
                       Start Time
                     </th>
-                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-dusk uppercase tracking-wider">
                       End Time
                     </th>
-                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-dusk uppercase tracking-wider">
                       Duration
                     </th>
-                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
+                    <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-dusk uppercase tracking-wider">
                       Status
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-slate-100">
+                <tbody className="divide-y divide-ink/5">
                   {logs.map((log, index) => (
                     <tr 
                       key={log.id}
@@ -837,15 +837,15 @@ const WorkerProceedings = ({ electionId }) => {
                     >
                       <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-deep text-sm font-semibold text-white transition-transform group-hover:scale-105 sm:h-12 sm:w-12">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-deep text-sm font-semibold text-paper transition-transform group-hover:scale-105 sm:h-12 sm:w-12">
                             {log.chunkNumber}
                           </div>
                         </div>
                       </td>
-                      <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap text-sm font-semibold text-dusk">
                         {formatTime(log.startTime)}
                       </td>
-                      <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap text-sm font-semibold text-gray-700 dark:text-gray-300">
+                      <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap text-sm font-semibold text-dusk">
                         {formatTime(log.endTime)}
                       </td>
                       <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap">
@@ -856,17 +856,17 @@ const WorkerProceedings = ({ electionId }) => {
                       </td>
                       <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap">
                         {log.status === 'COMPLETED' ? (
-                          <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900 dark:to-emerald-900 text-emerald-800 dark:text-green-200 shadow-md">
+                          <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-sage-soft to-sage-soft text-aurora-muted shadow-md">
                             <FiCheckCircle className="mr-2" />
                             Completed
                           </span>
                         ) : log.status === 'FAILED' ? (
-                          <span className="inline-flex items-center rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                          <span className="inline-flex items-center rounded-lg bg-ember-soft px-3 py-2 text-sm font-semibold text-ember">
                             <FiXCircle className="mr-2" />
                             Failed
                           </span>
                         ) : (
-                          <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-yellow-100 to-orange-100 dark:from-yellow-900 dark:to-orange-900 text-yellow-800 dark:text-yellow-200 shadow-md">
+                          <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-ceremonial-soft to-ceremonial-soft text-ink shadow-md">
                             <FiActivity className="mr-2 animate-pulse" />
                             In Progress
                           </span>
@@ -883,23 +883,23 @@ const WorkerProceedings = ({ electionId }) => {
           {logs.some(log => log.errorMessage) && (
             <div className="surface-card mt-6 border-l-4 border-l-red-500 p-5 sm:p-6">
               <h3 className="font-display mb-5 flex items-center gap-2 text-xl font-semibold text-deep">
-                <div className="rounded-lg bg-red-50 p-2 text-red-600">
+                <div className="rounded-lg bg-ember-soft p-2 text-ember">
                   <FiAlertTriangle className="text-lg" />
                 </div>
                 Error Details
               </h3>
               <div className="space-y-4">
                 {logs.filter(log => log.errorMessage).map(log => (
-                  <div key={log.id} className="rounded-xl border border-red-100 bg-red-50/30 p-5">
+                  <div key={log.id} className="rounded-xl border border-red-100 bg-ember-soft/30 p-5">
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white">
+                      <span className="rounded-lg bg-ember px-3 py-2 text-sm font-semibold text-paper">
                         Chunk {log.chunkNumber}
                       </span>
-                      <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">
+                      <span className="text-sm font-semibold text-dusk">
                         at {formatTime(log.endTime)}
                       </span>
                     </div>
-                    <p className="text-sm font-medium text-gray-700 dark:text-gray-300 bg-gray-50 dark:bg-gray-700/50 p-4 rounded-xl">
+                    <p className="text-sm font-medium text-dusk bg-frost p-4 rounded-xl">
                       {log.errorMessage}
                     </p>
                   </div>

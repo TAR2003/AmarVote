@@ -4,14 +4,14 @@ import Layout from "./Layout";
 import MarketingHero, { MarketingTabs } from "../components/MarketingHero";
 
 const Step = ({ n, title, actor, color, children }) => {
-  const bg = { blue: "bg-brand", green: "bg-sage", teal: "bg-brand", orange: "bg-amber-warn", indigo: "bg-brand-dark", red: "bg-red-600" };
-  const border = { blue: "border-brand/20 bg-glacier/50", green: "border-sage/30 bg-sage-soft/60", teal: "border-brand/20 bg-frost", orange: "border-amber-soft bg-amber-soft/50", indigo: "border-brand/25 bg-glacier/40", red: "border-red-200 bg-red-50" };
-  const actorColor = { blue: "text-brand-dark bg-glacier", green: "text-emerald-800 bg-sage-soft", teal: "text-brand-dark bg-glacier", orange: "text-amber-warn bg-amber-soft", indigo: "text-ink bg-glacier", red: "text-red-700 bg-red-100" };
+  const bg = { blue: "bg-brand-dark", green: "bg-aurora", teal: "bg-brand", orange: "bg-ceremonial", indigo: "bg-brand-dark", red: "bg-ember" };
+  const border = { blue: "border-brand/20 bg-glacier/50", green: "border-aurora/30 bg-sage-soft/60", teal: "border-brand/20 bg-frost", orange: "border-ceremonial/40 bg-ceremonial-soft/50", indigo: "border-brand/25 bg-glacier/40", red: "border-ember/30 bg-ember-soft" };
+  const actorColor = { blue: "text-brand-dark bg-glacier", green: "text-aurora-muted bg-sage-soft", teal: "text-brand-dark bg-glacier", orange: "text-ink bg-ceremonial-soft", indigo: "text-ink bg-glacier", red: "text-ember bg-ember-soft" };
   return (
     <div className="flex items-start gap-4">
       <div className="flex flex-col items-center flex-shrink-0">
-        <div className={`w-10 h-10 rounded-xl ${bg[color]} text-white font-display font-bold text-lg flex items-center justify-center shadow-soft`}>{n}</div>
-        <div className="w-px flex-1 bg-slate-200 mt-2" />
+        <div className={`w-10 h-10 rounded-xl ${bg[color]} text-paper font-display font-bold text-lg flex items-center justify-center shadow-soft`}>{n}</div>
+        <div className="w-px flex-1 bg-ink/10 mt-2" />
       </div>
       <div className={`flex-1 rounded-2xl border p-5 mb-4 shadow-soft ${border[color]}`}>
         <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
@@ -25,13 +25,13 @@ const Step = ({ n, title, actor, color, children }) => {
 };
 
 const SubPoint = ({ children }) => (
-  <li className="flex items-start text-sm text-slate-700 mt-1">
+  <li className="flex items-start text-sm text-ink mt-1">
     <span className="mr-2 text-brand flex-shrink-0">→</span>{children}
   </li>
 );
 
 const CodeSnip = ({ label, code }) => (
-  <div className="bg-deep rounded-2xl border border-brand/20 p-4 mt-3 font-mono text-xs text-slate-200 shadow-soft">
+  <div className="bg-deep rounded-2xl border border-brand/20 p-4 mt-3 font-mono text-xs text-dusk-soft shadow-soft">
     {label && <div className="text-brand-light mb-2">// {label}</div>}
     <pre className="whitespace-pre-wrap leading-relaxed overflow-x-auto">{code}</pre>
   </div>
@@ -70,7 +70,7 @@ const HowItWorks = () => {
             </p>
             <div>
               <Step n="1" title="Sign in or register" actor="Voter / Guardian / Admin" color="blue">
-                <p className="text-sm text-slate-700 mb-2">
+                <p className="text-sm text-ink mb-2">
                   Open an election link or go to Sign in. If you are not signed in yet, AmarVote remembers the election URL and returns you there after registration or login.
                 </p>
                 <ul className="space-y-0.5">
@@ -79,7 +79,7 @@ const HowItWorks = () => {
                 </ul>
               </Step>
               <Step n="2" title="Credential check" actor="Spring Boot" color="green">
-                <p className="text-sm text-slate-700 mb-2">
+                <p className="text-sm text-ink mb-2">
                   Credentials are verified server-side. When MFA is enabled, a second factor is required before the session is established.
                 </p>
                 <ul className="space-y-0.5">
@@ -88,7 +88,7 @@ const HowItWorks = () => {
                 </ul>
               </Step>
               <Step n="3" title="Session established" actor="Browser + API" color="indigo">
-                <p className="text-sm text-slate-700 mb-2">
+                <p className="text-sm text-ink mb-2">
                   A secure HTTP-only session cookie is set. Role-based access then unlocks dashboard, voting, guardian, and admin surfaces.
                 </p>
                 <ul className="space-y-0.5">
@@ -107,7 +107,7 @@ const HowItWorks = () => {
             <p className="section-sub text-center mb-8 max-w-2xl mx-auto">Admin creates the election, guardians complete the key ceremony, then the election is activated.</p>
             <div>
               <Step n="1" title="Election Creation" actor="Admin" color="blue">
-                <p className="text-sm text-slate-700 mb-2">Admin fills the election creation form in the React dashboard.</p>
+                <p className="text-sm text-ink mb-2">Admin fills the election creation form in the React dashboard.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>Fields: name, description, start date, end date, candidate names + parties</SubPoint>
                   <SubPoint>Guardian count n (e.g. 5) and quorum threshold k (e.g. 3)</SubPoint>
@@ -117,7 +117,7 @@ const HowItWorks = () => {
                 </ul>
               </Step>
               <Step n="2" title="Guardian Round 1 + Round 2 Ceremony" actor="Guardian + Spring Boot + EG Fast API" color="green">
-                <p className="text-sm text-slate-700 mb-2">Each guardian participates directly: generate own credentials, submit keypair payload, then generate and submit encrypted backup shares.</p>
+                <p className="text-sm text-ink mb-2">Each guardian participates directly: generate own credentials, submit keypair payload, then generate and submit encrypted backup shares.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>Guardian UI calls /api/guardian/key-ceremony/generate/{"{electionId}"} for Round 1 credential generation</SubPoint>
                   <SubPoint>Round 1 submission: /api/guardian/key-ceremony/submit (public key + encrypted credential metadata path)</SubPoint>
@@ -133,7 +133,7 @@ const HowItWorks = () => {
 }`} />
               </Step>
               <Step n="3" title="Admin Activation after Ceremony" actor="Admin + Spring Boot" color="indigo">
-                <p className="text-sm text-slate-700 mb-2">Admin activates the election only after all guardians have submitted required Round 1 and Round 2 data.</p>
+                <p className="text-sm text-ink mb-2">Admin activates the election only after all guardians have submitted required Round 1 and Round 2 data.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>Admin checks /api/admin/key-ceremony/status/{"{electionId}"}</SubPoint>
                   <SubPoint>Activation endpoint: /api/admin/key-ceremony/activate</SubPoint>
@@ -152,7 +152,7 @@ const HowItWorks = () => {
             <p className="section-sub text-center mb-8 max-w-2xl mx-auto">Bot detection → ballot encryption → optional Benaloh challenge → cast with traffic padding</p>
             <div>
               <Step n="1" title="Bot Detection" actor="React Frontend" color="red">
-                <p className="text-sm text-slate-700 mb-2">Before showing the ballot, the frontend runs FingerprintJS Bot Detection.</p>
+                <p className="text-sm text-ink mb-2">Before showing the ballot, the frontend runs FingerprintJS Bot Detection.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>FingerprintJS BotD 1.9.1 library: analyzes browser signals, automation artifacts</SubPoint>
                   <SubPoint>Returns: {"{isBot: false, botKind: null}"} for legitimate users</SubPoint>
@@ -161,7 +161,7 @@ const HowItWorks = () => {
                 </ul>
               </Step>
               <Step n="2" title="Candidate Selection & Encryption" actor="React + EG Fast API" color="blue">
-                <p className="text-sm text-slate-700 mb-2">Voter selects a candidate → AmarVote submits the selection to ElectionGuard for encryption under the election public key.</p>
+                <p className="text-sm text-ink mb-2">Voter selects a candidate → AmarVote submits the selection to ElectionGuard for encryption under the election public key.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>POST to EG Fast API /ballot/encrypt with selection index + election_id</SubPoint>
                   <SubPoint>EG encrypts each selection: (α_i, β_i) = (g^ξ_i, g^m_i · K^ξ_i) mod p</SubPoint>
@@ -171,7 +171,7 @@ const HowItWorks = () => {
                 </ul>
               </Step>
               <Step n="3" title="Optional: Benaloh Challenge" actor="Voter (optional)" color="orange">
-                <p className="text-sm text-slate-700 mb-2">Voter can optionally challenge the encryption before deciding to cast.</p>
+                <p className="text-sm text-ink mb-2">Voter can optionally challenge the encryption before deciding to cast.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>Voter clicks "Challenge" → POST /ballot/challenge with ballot_id</SubPoint>
                   <SubPoint>EG Fast API returns all nonces ξ_i in plaintext</SubPoint>
@@ -182,7 +182,7 @@ const HowItWorks = () => {
                 </ul>
               </Step>
               <Step n="4" title="Ballot Submission (PKCS#7 padded)" actor="React → Spring Boot" color="indigo">
-                <p className="text-sm text-slate-700 mb-2">Encrypted ballot submitted with traffic padding and server-side anti-fraud checks.</p>
+                <p className="text-sm text-ink mb-2">Encrypted ballot submitted with traffic padding and server-side anti-fraud checks.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>React pads the ballot request body to a fixed size using PKCS#7 (RFC 5652)</SubPoint>
                   <SubPoint>POST /api/ballot/cast with: {"{encrypted_ballot, tracking_code, isBot, timestamp, schnorr_proofs}"}</SubPoint>
@@ -203,7 +203,7 @@ const HowItWorks = () => {
             <p className="section-sub text-center mb-8 max-w-2xl mx-auto">Admin initiates tally → ballots chunked → RabbitMQ round-robin → workers homomorphically multiply</p>
             <div>
               <Step n="1" title="Admin Initiates Tally" actor="Admin" color="orange">
-                <p className="text-sm text-slate-700 mb-2">After election closes, admin clicks "Initiate Tally" in the admin dashboard.</p>
+                <p className="text-sm text-ink mb-2">After election closes, admin clicks "Initiate Tally" in the admin dashboard.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>POST /api/elections/{"{id}"}/initiate-tally</SubPoint>
                   <SubPoint>Spring Boot fetches all cast ballot ciphertexts from DB (msgpack blobs)</SubPoint>
@@ -211,7 +211,7 @@ const HowItWorks = () => {
                 </ul>
               </Step>
               <Step n="2" title="Ballot Shuffle & Chunking" actor="Spring Boot" color="blue">
-                <p className="text-sm text-slate-700 mb-2">Ballots randomized to prevent linking position to voter, then split into manageable chunks.</p>
+                <p className="text-sm text-ink mb-2">Ballots randomized to prevent linking position to voter, then split into manageable chunks.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>Java Collections.shuffle(ballots, SecureRandom) — cryptographically random ordering</SubPoint>
                   <SubPoint>Split into chunks of 200 ballots each (configurable)</SubPoint>
@@ -220,7 +220,7 @@ const HowItWorks = () => {
                 </ul>
               </Step>
               <Step n="3" title="RabbitMQ Round-Robin Publication" actor="RoundRobinTaskScheduler" color="green">
-                <p className="text-sm text-slate-700 mb-2">Chunks published to RabbitMQ with fair scheduling across concurrent elections.</p>
+                <p className="text-sm text-ink mb-2">Chunks published to RabbitMQ with fair scheduling across concurrent elections.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>@Scheduled 100ms tick — dequeues PENDING chunks round-robin across ALL active elections</SubPoint>
                   <SubPoint>targetChunksPerCycle=8, maxQueuedChunks=1 per election per tick</SubPoint>
@@ -233,7 +233,7 @@ Tick 2:  E_A chunk_1 → QUEUED, E_B chunk_1 → QUEUED
 (not: E_A 0..499, then E_B 0..49)`} />
               </Step>
               <Step n="4" title="Worker: Homomorphic Tally" actor="EG Worker (4 concurrent consumers)" color="indigo">
-                <p className="text-sm text-slate-700 mb-2">Each worker takes one chunk and multiplies all encrypted ballots homomorphically.</p>
+                <p className="text-sm text-ink mb-2">Each worker takes one chunk and multiplies all encrypted ballots homomorphically.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>prefetch=1: each consumer gets 1 message at a time → no backlog on a single worker</SubPoint>
                   <SubPoint>Worker deserializes 200 ballot ciphertexts via msgpack</SubPoint>
@@ -255,7 +255,7 @@ Tick 2:  E_A chunk_1 → QUEUED, E_B chunk_1 → QUEUED
             <p className="section-sub text-center mb-8 max-w-2xl mx-auto">Guardians submit credentials → workers compute partial shares → Lagrange combine → final result</p>
             <div>
               <Step n="1" title="Guardian Credential Submission" actor="Guardian" color="indigo">
-                <p className="text-sm text-slate-700 mb-2">Guardian uploads their credential.json file via the React dashboard.</p>
+                <p className="text-sm text-ink mb-2">Guardian uploads their credential.json file via the React dashboard.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>Guardian logs in via OTP → navigates to Guardian Dashboard</SubPoint>
                   <SubPoint>Uploads credential.json received during election setup</SubPoint>
@@ -267,7 +267,7 @@ Tick 2:  E_A chunk_1 → QUEUED, E_B chunk_1 → QUEUED
                 </ul>
               </Step>
               <Step n="2" title="Partial Decryption (per guardian × chunk)" actor="EG Worker" color="blue">
-                <p className="text-sm text-slate-700 mb-2">Workers apply each guardian's private key to each tally chunk independently.</p>
+                <p className="text-sm text-ink mb-2">Workers apply each guardian's private key to each tally chunk independently.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>Spring Boot publishes (guardians × total_chunks) messages to partial.decryption.queue</SubPoint>
                   <SubPoint>Worker reads: SET NX lock:chunk:{"{chunkId}"}:{"{guardianId}"} (prevents duplicate processing)</SubPoint>
@@ -283,7 +283,7 @@ Tick 2:  E_A chunk_1 → QUEUED, E_B chunk_1 → QUEUED
 // M_ic = partial decryption share for guardian i, chunk c`} />
               </Step>
               <Step n="3" title="Compensated Decryption (absent guardians)" actor="EG Worker" color="orange">
-                <p className="text-sm text-slate-700 mb-2">If fewer than k guardians submit, present guardians cover absent ones via Lagrange interpolation.</p>
+                <p className="text-sm text-ink mb-2">If fewer than k guardians submit, present guardians cover absent ones via Lagrange interpolation.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>Backend detects missing guardian shares after partial.decryption.queue drains</SubPoint>
                   <SubPoint>For each absent guardian i: each present guardian j generates a compensated share</SubPoint>
@@ -294,7 +294,7 @@ Tick 2:  E_A chunk_1 → QUEUED, E_B chunk_1 → QUEUED
                 </ul>
               </Step>
               <Step n="4" title="Combine: Final Tally Reconstruction" actor="EG Worker" color="green">
-                <p className="text-sm text-slate-700 mb-2">All partial + compensated shares assembled to extract plaintext vote counts.</p>
+                <p className="text-sm text-ink mb-2">All partial + compensated shares assembled to extract plaintext vote counts.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>Spring Boot publishes to combine.decryption.queue after all share phases complete</SubPoint>
                   <SubPoint>Worker assembles per-chunk shares from DB: M_c = ∏M_ic^(λ_i) mod p</SubPoint>
@@ -321,7 +321,7 @@ total_votes[candidate] = Σ t_c  // sum across all chunks`} />
             <p className="section-sub text-center mb-8 max-w-2xl mx-auto">Animated results display and independent proof verification</p>
             <div>
               <Step n="1" title="Animated Results Display" actor="React Frontend" color="blue">
-                <p className="text-sm text-slate-700 mb-2">Once DECRYPTED status is returned from the API, results are revealed with animations.</p>
+                <p className="text-sm text-ink mb-2">Once DECRYPTED status is returned from the API, results are revealed with animations.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>Frontend polls /api/elections/{"{id}"}/status every 5s during decryption</SubPoint>
                   <SubPoint>Progress bar shows % of chunks completed (Redis counter / total_chunks × 100)</SubPoint>
@@ -331,7 +331,7 @@ total_votes[candidate] = Σ t_c  // sum across all chunks`} />
                 </ul>
               </Step>
               <Step n="2" title="Ballot Inclusion Verification" actor="Voter" color="green">
-                <p className="text-sm text-slate-700 mb-2">Voter verifies their specific ballot was included in the tally using their tracking code.</p>
+                <p className="text-sm text-ink mb-2">Voter verifies their specific ballot was included in the tally using their tracking code.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>Voter enters tracking code at /verify → GET /api/ballot/verify/{"{trackingCode}"}</SubPoint>
                   <SubPoint>Backend confirms: ballot with this SHA-256 code is in the ballot table with status=CAST</SubPoint>
@@ -340,7 +340,7 @@ total_votes[candidate] = Σ t_c  // sum across all chunks`} />
                 </ul>
               </Step>
               <Step n="3" title="Cryptographic Proof Download & Verification" actor="Auditor / Voter" color="indigo">
-                <p className="text-sm text-slate-700 mb-2">Any party can download and independently verify all cryptographic proofs.</p>
+                <p className="text-sm text-ink mb-2">Any party can download and independently verify all cryptographic proofs.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>Download election_result JSON: contains vote counts + Chaum-Pedersen proofs per guardian per chunk</SubPoint>
                   <SubPoint>Verify: g^v · K_i^c == a AND A^v · M_ic^c == b (Chaum-Pedersen check for each share)</SubPoint>
@@ -373,8 +373,8 @@ A^v · M_ic^challenge == commitment_b // ✓?
               <button key={id} onClick={() => setActivePhase(id)}
                 className={`px-4 py-2 text-sm font-medium rounded-xl border transition-colors ${
                   color === "blue" ? "border-brand/20 text-brand-dark hover:bg-glacier" :
-                  color === "green" ? "border-green-200 text-sage hover:bg-sage-soft" :
-                  color === "orange" ? "border-orange-200 text-orange-700 hover:bg-orange-50" :
+                  color === "green" ? "border-aurora/30 text-sage hover:bg-sage-soft" :
+                  color === "orange" ? "border-ceremonial/40 text-ink hover:bg-ceremonial-soft" :
                   color === "indigo" ? "border-brand/25 text-ink hover:bg-glacier" :
                   "border-teal-200 text-teal-700 hover:bg-teal-50"
                 }`}>

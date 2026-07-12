@@ -148,7 +148,7 @@ const Dashboard = ({ userEmail }) => {
       name: "Total Elections",
       value: electionCounts.totalCount.toString(),
       icon: FiBarChart2,
-      gradient: "from-blue-500 to-brand-dark",
+      gradient: "from-brand-dark to-brand-dark",
       iconBg: "bg-glacier",
       iconColor: "text-brand",
       ring: "ring-blue-100",
@@ -157,9 +157,9 @@ const Dashboard = ({ userEmail }) => {
       name: "Completed Elections",
       value: electionCounts.completedCount.toString(),
       icon: FiCheckCircle,
-      gradient: "from-emerald-500 to-teal-600",
-      iconBg: "bg-emerald-100",
-      iconColor: "text-emerald-600",
+      gradient: "from-aurora to-teal-600",
+      iconBg: "bg-sage-soft",
+      iconColor: "text-aurora-muted",
       ring: "ring-emerald-100",
     },
     {
@@ -177,8 +177,8 @@ const Dashboard = ({ userEmail }) => {
       subtitle: "30m",
       icon: FiUserCheck,
       gradient: "from-amber-500 to-orange-600",
-      iconBg: "bg-amber-100",
-      iconColor: "text-amber-600",
+      iconBg: "bg-ceremonial-soft",
+      iconColor: "text-ink",
       ring: "ring-amber-100",
       pulse: userStats.activeUsers > 0,
     },
@@ -231,7 +231,7 @@ const Dashboard = ({ userEmail }) => {
     
     // Default values
     let buttonText = "View Election";
-    let buttonStyle = "text-slate-700 bg-slate-100 hover:bg-slate-200 focus:ring-slate-400";
+    let buttonStyle = "text-ink bg-frost hover:bg-ink/10 focus:ring-slate-400";
     let isDisabled = false;
     
     // Check if election is active
@@ -245,7 +245,7 @@ const Dashboard = ({ userEmail }) => {
         isDisabled = true;
       } else {
         buttonText = "View Results";
-        buttonStyle = "text-sage bg-sage-soft hover:bg-green-100 focus:ring-sage";
+        buttonStyle = "text-sage bg-sage-soft hover:bg-sage-soft focus:ring-sage";
       }
       return { buttonText, buttonStyle, isDisabled };
     }
@@ -253,7 +253,7 @@ const Dashboard = ({ userEmail }) => {
     // Election is active - check if user has already voted
     if (election.hasVoted) {
       buttonText = "Already Voted";
-      buttonStyle = "text-slate-600 bg-slate-100 cursor-not-allowed";
+      buttonStyle = "text-dusk bg-frost cursor-not-allowed";
       isDisabled = true;
       return { buttonText, buttonStyle, isDisabled };
     }
@@ -266,7 +266,7 @@ const Dashboard = ({ userEmail }) => {
       buttonStyle = "text-paper bg-brand-dark hover:bg-brand focus:ring-brand";
     } else {
       buttonText = "Not Allowed";
-      buttonStyle = "text-red-700 bg-red-100 cursor-not-allowed";
+      buttonStyle = "text-ember bg-ember-soft cursor-not-allowed";
       isDisabled = true;
     }
     
@@ -281,8 +281,8 @@ const Dashboard = ({ userEmail }) => {
         <div className="bg-gradient-to-r from-brand to-brand-dark rounded-2xl shadow-lg overflow-hidden">
           <div className="px-6 py-8 sm:p-10">
             <div className="animate-pulse">
-              <div className="h-8 bg-white bg-opacity-20 rounded w-1/3 mb-3"></div>
-              <div className="h-4 bg-white bg-opacity-10 rounded w-1/2"></div>
+              <div className="h-8 bg-paper bg-opacity-20 rounded w-1/3 mb-3"></div>
+              <div className="h-4 bg-paper bg-opacity-10 rounded w-1/2"></div>
             </div>
           </div>
         </div>
@@ -292,8 +292,8 @@ const Dashboard = ({ userEmail }) => {
           {[...Array(4)].map((_, i) => (
             <div key={i} className="surface-card p-4 sm:p-6">
               <div className="animate-pulse">
-                <div className="h-6 bg-gray-300 rounded w-1/3 mb-4"></div>
-                <div className="h-8 bg-gray-200 rounded w-1/4"></div>
+                <div className="h-6 bg-ink/20 rounded w-1/3 mb-4"></div>
+                <div className="h-8 bg-ink/10 rounded w-1/4"></div>
               </div>
             </div>
           ))}
@@ -304,7 +304,7 @@ const Dashboard = ({ userEmail }) => {
           {[...Array(3)].map((_, i) => (
             <div key={i} className="surface-card p-6">
               <div className="animate-pulse">
-                <div className="h-6 bg-gray-300 rounded w-1/3 mb-4"></div>
+                <div className="h-6 bg-ink/20 rounded w-1/3 mb-4"></div>
                 <div className="space-y-3">
                   {[...Array(3)].map((_, j) => (
                     <ElectionCardSkeleton key={j} />
@@ -321,16 +321,16 @@ const Dashboard = ({ userEmail }) => {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+        <div className="bg-ember-soft border border-ember/30 rounded-lg p-4">
           <div className="flex">
             <div className="flex-shrink-0">
-              <FiBarChart2 className="h-5 w-5 text-red-400" />
+              <FiBarChart2 className="h-5 w-5 text-ember" />
             </div>
             <div className="ml-3">
-              <h3 className="text-sm font-medium text-red-800">
+              <h3 className="text-sm font-medium text-ember">
                 Error loading elections
               </h3>
-              <div className="mt-2 text-sm text-red-700">
+              <div className="mt-2 text-sm text-ember">
                 <p>{error}</p>
               </div>
             </div>
@@ -378,10 +378,10 @@ const Dashboard = ({ userEmail }) => {
             <div className="p-3 sm:p-5">
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0 flex-1">
-                  <p className="text-[10px] sm:text-xs font-medium text-gray-500 leading-tight truncate">
+                  <p className="text-[10px] sm:text-xs font-medium text-dusk leading-tight truncate">
                     {stat.name}
                     {stat.subtitle && (
-                      <span className="text-gray-400"> · {stat.subtitle}</span>
+                      <span className="text-dusk"> · {stat.subtitle}</span>
                     )}
                   </p>
                   <div className="mt-1 flex items-center gap-1.5">
@@ -390,8 +390,8 @@ const Dashboard = ({ userEmail }) => {
                     </p>
                     {stat.pulse && (
                       <span className="relative flex h-2 w-2">
-                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75" />
-                        <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500" />
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-ceremonial opacity-75" />
+                        <span className="relative inline-flex rounded-full h-2 w-2 bg-ceremonial" />
                       </span>
                     )}
                   </div>
@@ -414,7 +414,7 @@ const Dashboard = ({ userEmail }) => {
             <h2 className="mt-1 font-display text-xl font-semibold text-deep">
               Available Elections
             </h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-dusk">
               Elections you can currently participate in
             </p>
           </div>
@@ -427,7 +427,7 @@ const Dashboard = ({ userEmail }) => {
                     key={election.electionId}
                     election={election}
                     status="ongoing"
-                    statusClass="bg-sage-soft text-emerald-800"
+                    statusClass="bg-sage-soft text-aurora-muted"
                     onOpen={handleElectionClick}
                     onAction={handleElectionClick}
                     actionLabel={buttonText}
@@ -438,7 +438,7 @@ const Dashboard = ({ userEmail }) => {
               })
             ) : (
               <div className="p-6 text-center">
-                <p className="text-gray-500">
+                <p className="text-dusk">
                   No available elections at this time
                 </p>
               </div>
@@ -463,7 +463,7 @@ const Dashboard = ({ userEmail }) => {
             <h2 className="mt-1 font-display text-xl font-semibold text-deep">
               Recent Activity
             </h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="mt-1 text-sm text-dusk">
               Your recent voting participation
             </p>
           </div>
@@ -474,7 +474,7 @@ const Dashboard = ({ userEmail }) => {
                   key={election.electionId}
                   election={election}
                   status="completed"
-                  statusClass="bg-slate-100 text-slate-600"
+                  statusClass="bg-frost text-dusk"
                   onOpen={handleElectionClick}
                   onAction={handleElectionClick}
                   actionLabel="View Results"
@@ -483,7 +483,7 @@ const Dashboard = ({ userEmail }) => {
               ))
             ) : (
               <div className="p-6 text-center">
-                <p className="text-gray-500">No recent activity to display</p>
+                <p className="text-dusk">No recent activity to display</p>
               </div>
             )}
             {completedCount > MAX_DISPLAY_COUNT && (
@@ -507,7 +507,7 @@ const Dashboard = ({ userEmail }) => {
           <h2 className="mt-1 font-display text-xl font-semibold text-deep">
             Upcoming Elections
           </h2>
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1 text-sm text-dusk">
             Mark your calendar for these important dates
           </p>
         </div>
@@ -527,7 +527,7 @@ const Dashboard = ({ userEmail }) => {
             ))
           ) : (
             <div className="p-6 text-center">
-              <p className="text-gray-500">No upcoming elections scheduled</p>
+              <p className="text-dusk">No upcoming elections scheduled</p>
             </div>
           )}
           {upcomingCount > MAX_DISPLAY_COUNT && (

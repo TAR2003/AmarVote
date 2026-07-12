@@ -205,19 +205,19 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+      <div className="bg-paper rounded-lg shadow p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold mb-2 flex items-center">
           <FiMail className="h-5 w-5 mr-2" />
           {editingId ? 'Edit Scheduled Email' : 'Schedule Email'}
         </h3>
-        <p className="text-sm text-gray-600 mb-4">
+        <p className="text-sm text-dusk mb-4">
           Choose an audience group and schedule a message. Recipients are resolved from the current
           list when the scheduled time arrives (not when you create the schedule).
         </p>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">Send to</label>
+            <label className="block text-sm font-medium text-dusk mb-2">Send to</label>
             <div className="flex flex-wrap gap-3">
               {RECIPIENT_GROUPS.map((group) => (
                 <label key={group.value} className="inline-flex items-center gap-2">
@@ -229,7 +229,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
                     onChange={() => handleGroupChange(group.value)}
                     className="form-radio text-brand"
                   />
-                  <span className="text-sm text-gray-700">{group.label}</span>
+                  <span className="text-sm text-dusk">{group.label}</span>
                 </label>
               ))}
             </div>
@@ -237,7 +237,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
 
           {form.recipientGroup === 'voters' && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">Voter audience</label>
+              <label className="block text-sm font-medium text-dusk mb-2">Voter audience</label>
               <div className="space-y-2">
                 {VOTER_FILTERS.map((filter) => (
                   <label key={filter.value} className="flex items-start gap-2">
@@ -251,7 +251,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
                       }
                       className="form-radio text-brand mt-1"
                     />
-                    <span className="text-sm text-gray-700">{filter.label}</span>
+                    <span className="text-sm text-dusk">{filter.label}</span>
                   </label>
                 ))}
               </div>
@@ -259,22 +259,22 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Message</label>
+            <label className="block text-sm font-medium text-dusk mb-1">Message</label>
             <textarea
               value={form.emailBody}
               onChange={(e) => setForm((prev) => ({ ...prev, emailBody: e.target.value }))}
-              className="w-full px-3 py-2 border border-gray-300 rounded-md min-h-40"
+              className="w-full px-3 py-2 border border-ink/15 rounded-md min-h-40"
               required
             />
           </div>
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Send at</label>
+            <label className="block text-sm font-medium text-dusk mb-1">Send at</label>
             <input
               type="datetime-local"
               value={form.scheduledTime}
               onChange={(e) => setForm((prev) => ({ ...prev, scheduledTime: e.target.value }))}
-              className="w-full sm:w-auto px-3 py-2 border border-gray-300 rounded-md"
+              className="w-full sm:w-auto px-3 py-2 border border-ink/15 rounded-md"
               required
             />
           </div>
@@ -291,7 +291,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
               <button
                 type="button"
                 onClick={resetForm}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 hover:bg-gray-50"
+                className="px-4 py-2 border border-ink/15 rounded-lg text-dusk hover:bg-frost"
               >
                 Cancel Edit
               </button>
@@ -300,20 +300,20 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
         </form>
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+      <div className="bg-paper rounded-lg shadow p-4 sm:p-6">
         <h3 className="text-base sm:text-lg font-semibold mb-4">Scheduled & Sent Emails</h3>
 
         {loading ? (
-          <p className="text-sm text-gray-600">Loading...</p>
+          <p className="text-sm text-dusk">Loading...</p>
         ) : scheduledEmails.length === 0 ? (
-          <p className="text-sm text-gray-600">No scheduled emails yet.</p>
+          <p className="text-sm text-dusk">No scheduled emails yet.</p>
         ) : (
           <div className="space-y-3">
             {scheduledEmails.map((email) => (
               <div
                 key={email.emailId}
                 className={`rounded-lg border p-4 ${
-                  email.sent ? 'border-green-200 bg-sage-soft' : 'border-gray-200 bg-gray-50'
+                  email.sent ? 'border-aurora/30 bg-sage-soft' : 'border-ink/10 bg-frost'
                 }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -322,12 +322,12 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
                       {email.sent ? (
                         <FiCheckCircle className="h-4 w-4 text-sage" />
                       ) : (
-                        <FiClock className="h-4 w-4 text-amber-600" />
+                        <FiClock className="h-4 w-4 text-ink" />
                       )}
-                      <span className="font-medium text-gray-900">
+                      <span className="font-medium text-ink">
                         {groupLabel(email.recipientGroup)}
                         {email.recipientGroup === 'voters' && email.voterFilter && email.voterFilter !== 'both' && (
-                          <span className="text-gray-500 font-normal">
+                          <span className="text-dusk font-normal">
                             {' '}
                             · {voterFilterLabel(email.voterFilter)}
                           </span>
@@ -336,14 +336,14 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full ${
                           email.sent
-                            ? 'bg-sage-soft text-emerald-800'
-                            : 'bg-amber-100 text-amber-800'
+                            ? 'bg-sage-soft text-aurora-muted'
+                            : 'bg-ceremonial-soft text-ink'
                         }`}
                       >
                         {email.sent ? 'Sent' : 'Pending'}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-dusk">
                       Scheduled: {formatDateTime(email.scheduledTime)}
                       {email.sentAt && ` · Sent: ${formatDateTime(email.sentAt)}`}
                     </p>
@@ -363,7 +363,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
                     <button
                       type="button"
                       onClick={() => handleDelete(email.emailId)}
-                      className="p-2 text-red-600 hover:bg-red-50 rounded-md"
+                      className="p-2 text-ember hover:bg-ember-soft rounded-md"
                       title="Delete"
                     >
                       <FiTrash2 className="h-4 w-4" />
@@ -371,7 +371,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
                   </div>
                 </div>
 
-                <pre className="mt-3 text-xs whitespace-pre-wrap text-gray-700 bg-white border border-gray-100 rounded p-3 max-h-32 overflow-y-auto">
+                <pre className="mt-3 text-xs whitespace-pre-wrap text-dusk bg-paper border border-ink/10 rounded p-3 max-h-32 overflow-y-auto">
                   {email.emailBody}
                 </pre>
               </div>

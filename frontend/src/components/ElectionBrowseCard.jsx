@@ -30,7 +30,7 @@ const ElectionBrowseCard = memo(function ElectionBrowseCard({
           onOpen?.(election.electionId);
         }
       }}
-      className={`group relative overflow-hidden rounded-2xl border border-slate-200/80 bg-white shadow-soft transition duration-300 hover:-translate-y-0.5 hover:border-brand/25 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+      className={`group relative overflow-hidden rounded-2xl border border-ink/10 bg-paper shadow-soft transition duration-300 hover:-translate-y-0.5 hover:border-brand/25 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
         isCompact ? "p-4" : "p-5 sm:p-6"
       }`}
     >
@@ -40,7 +40,7 @@ const ElectionBrowseCard = memo(function ElectionBrowseCard({
             ? "bg-sage"
             : status === "upcoming"
               ? "bg-brand"
-              : "bg-slate-300"
+              : "bg-ink/20"
         }`}
       />
 
@@ -54,7 +54,7 @@ const ElectionBrowseCard = memo(function ElectionBrowseCard({
             ) : null}
             <span
               className={`inline-flex items-center rounded-lg px-2.5 py-1 text-[11px] font-semibold ${
-                election.isPublic ? "bg-sage-soft text-emerald-800" : "bg-amber-soft text-amber-warn"
+                election.isPublic ? "bg-sage-soft text-aurora-muted" : "bg-ceremonial-soft text-ink"
               }`}
             >
               {election.isPublic ? "Public" : "Private"}
@@ -70,7 +70,7 @@ const ElectionBrowseCard = memo(function ElectionBrowseCard({
           </h3>
 
           {election.electionDescription ? (
-            <p className={`mt-1.5 text-sm leading-relaxed text-slate-600 ${isCompact ? "line-clamp-2" : "line-clamp-3"}`}>
+            <p className={`mt-1.5 text-sm leading-relaxed text-dusk ${isCompact ? "line-clamp-2" : "line-clamp-3"}`}>
               {election.electionDescription}
             </p>
           ) : null}
@@ -89,7 +89,7 @@ const ElectionBrowseCard = memo(function ElectionBrowseCard({
             </div>
           )}
 
-          <div className={`mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-slate-500 ${isCompact ? "" : "sm:text-sm"}`}>
+          <div className={`mt-4 flex flex-wrap gap-x-4 gap-y-2 text-xs text-dusk ${isCompact ? "" : "sm:text-sm"}`}>
             {election.startingTime || election.endingTime ? (
               <>
                 <span className="inline-flex items-center gap-1.5">

@@ -38,12 +38,12 @@ export default function PasswordInput({
           required={required}
           disabled={disabled}
           autoComplete={autoComplete}
-          className={`w-full rounded-lg border border-gray-300 px-3 py-2 pr-10 outline-none focus:border-brand focus:ring-2 focus:ring-brand/25 disabled:bg-gray-50 ${className}`}
+          className={`w-full rounded-lg border border-ink/15 px-3 py-2 pr-10 outline-none focus:border-brand focus:ring-2 focus:ring-brand/25 disabled:bg-frost ${className}`}
         />
         <button
           type="button"
           onClick={() => setVisible((v) => !v)}
-          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-gray-500 hover:text-gray-700"
+          className="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1 text-dusk hover:text-dusk"
           aria-label={visible ? 'Hide password' : 'Show password'}
           tabIndex={-1}
         >
@@ -51,10 +51,10 @@ export default function PasswordInput({
         </button>
       </div>
       {showRequirements && (
-        <p className="text-xs text-gray-600">{PASSWORD_REQUIREMENTS_TEXT}</p>
+        <p className="text-xs text-dusk">{PASSWORD_REQUIREMENTS_TEXT}</p>
       )}
       {showValidation && value && errors.length > 0 && (
-        <p className="text-xs text-red-600">{formatPasswordErrors(errors)}</p>
+        <p className="text-xs text-ember">{formatPasswordErrors(errors)}</p>
       )}
     </div>
   );

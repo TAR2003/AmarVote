@@ -239,7 +239,7 @@ export default function Register({ setUserEmail }) {
               {step === 3 && "Set your password"}
               {step === 4 && "Secure with authenticator"}
             </h1>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-dusk">
               {returnPath
                 ? "Complete registration and we’ll bring you back to the election."
                 : null}
@@ -257,7 +257,7 @@ export default function Register({ setUserEmail }) {
                 <span
                   key={n}
                   className={`h-1.5 rounded-full transition-all ${
-                    n === step ? "w-6 bg-brand" : n < step ? "w-4 bg-brand/50" : "w-3 bg-slate-200"
+                    n === step ? "w-6 bg-brand" : n < step ? "w-4 bg-brand/50" : "w-3 bg-ink/10"
                   }`}
                 />
               ))}
@@ -265,7 +265,7 @@ export default function Register({ setUserEmail }) {
           </div>
 
           {error && (
-            <div className="mt-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mt-4 rounded-xl border border-ember/30 bg-ember-soft px-4 py-3 text-sm text-ember">
               {error}
             </div>
           )}
@@ -302,7 +302,7 @@ export default function Register({ setUserEmail }) {
                 {loading ? "Sending code..." : "Send verification code"}
               </button>
 
-              <p className="text-center text-sm text-slate-600">
+              <p className="text-center text-sm text-dusk">
                 Already registered?{" "}
                 <Link className="link-brand font-semibold" to={loginHref}>
                   Sign in
@@ -364,7 +364,7 @@ export default function Register({ setUserEmail }) {
                 showValidation={confirmPassword.length > 0 && password !== confirmPassword}
               />
               {confirmPassword && password !== confirmPassword && (
-                <p className="text-xs text-red-600">Password and confirm password do not match.</p>
+                <p className="text-xs text-ember">Password and confirm password do not match.</p>
               )}
 
               <div className="rounded-lg border border-brand/20 bg-glacier px-3 py-3 text-sm text-deep">
@@ -385,17 +385,17 @@ export default function Register({ setUserEmail }) {
           {step === 4 && (
             <form className="mt-6 space-y-6" onSubmit={handleConfirmSetup}>
               {qrCodeDataUri ? (
-                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="rounded-xl border border-ink/10 bg-frost p-4">
                   <img src={qrCodeDataUri} alt="AmarVote MFA QR" className="mx-auto h-56 w-56" />
                 </div>
               ) : null}
 
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <div className="rounded-lg border border-ceremonial/40 bg-ceremonial-soft px-4 py-3 text-sm text-ink">
                 Scan this QR code with your Google Authenticator app, then enter the 6-digit code below.
               </div>
 
               {secret ? (
-                <div className="rounded-xl border border-slate-200 bg-frost px-4 py-3 text-xs text-slate-700">
+                <div className="rounded-xl border border-ink/10 bg-frost px-4 py-3 text-xs text-ink">
                   Manual secret: <span className="font-mono font-semibold">{secret}</span>
                 </div>
               ) : null}

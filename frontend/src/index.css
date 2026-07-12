@@ -27,7 +27,7 @@
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
   --nav-height: 4rem;
-  --bottom-nav-height: calc(4.25rem + var(--safe-bottom));
+  --bottom-nav-height: calc(4.5rem + var(--safe-bottom));
   --ease-out-expo: cubic-bezier(0.22, 1, 0.36, 1);
   --measure: 65ch;
 }
@@ -165,7 +165,7 @@
   .btn-ghost-light {
     @apply inline-flex items-center justify-center gap-2 rounded-xl border border-white/25
       px-5 py-2.5 text-base font-semibold text-paper transition duration-200
-      hover:border-brand-light/50 hover:bg-white/5 active:scale-[0.98];
+      hover:border-brand-light/50 hover:bg-paper/5 active:scale-[0.98];
   }
 
   .input-field {
@@ -183,7 +183,7 @@
   }
 
   .brand-mark-light {
-    @apply bg-white/15 text-paper ring-1 ring-white/20;
+    @apply bg-paper/15 text-paper ring-1 ring-white/20;
   }
 
   .brand-wordmark {
@@ -283,29 +283,25 @@
     color: var(--color-dusk);
   }
 
-  .marketing-page .bg-white,
-  .marketing-page .bg-gray-50 {
+  .marketing-page .bg-paper,
+  .marketing-page .bg-frost {
     background-color: rgba(247, 244, 236, 0.92);
   }
 
-  .marketing-page .border-gray-200,
-  .marketing-page .border-gray-100 {
+  .marketing-page .border-ink\/10,
+  .marketing-page .border-ink\/15 {
     border-color: rgba(91, 93, 116, 0.2);
   }
 
-  .marketing-page .text-gray-900,
-  .marketing-page .text-gray-800 {
+  .marketing-page .text-ink {
     color: var(--color-ink);
   }
 
-  .marketing-page .text-gray-700,
-  .marketing-page .text-gray-600,
-  .marketing-page .text-gray-500 {
+  .marketing-page .text-dusk {
     color: var(--color-dusk);
   }
 
-  .marketing-page .bg-gray-900,
-  .marketing-page .bg-black {
+  .marketing-page .bg-deep {
     background-color: var(--color-deep);
     box-shadow: 0 16px 32px rgba(18, 20, 43, 0.12);
   }

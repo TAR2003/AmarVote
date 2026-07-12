@@ -176,7 +176,7 @@ const Profile = () => {
     <div className="mx-auto max-w-5xl space-y-5 px-4 py-5 page-enter sm:space-y-6 sm:px-6 sm:py-8 lg:px-8">
       {loading ? (
         <div className="glass-panel flex min-h-40 items-center justify-center rounded-3xl">
-          <div className="flex items-center gap-3 text-sm font-medium text-slate-600">
+          <div className="flex items-center gap-3 text-sm font-medium text-dusk">
             <div className="h-7 w-7 animate-spin rounded-full border-2 border-glacier border-t-brand" />
             Loading security settings
           </div>
@@ -184,8 +184,8 @@ const Profile = () => {
       ) : null}
 
       {error ? (
-        <div className="rounded-2xl border border-red-200 bg-red-50/90 p-4 shadow-soft" role="alert">
-          <div className="flex items-center gap-3 text-sm text-red-700">
+        <div className="rounded-2xl border border-ember/30 bg-ember-soft/90 p-4 shadow-soft" role="alert">
+          <div className="flex items-center gap-3 text-sm text-ember">
             <FiAlertCircle className="h-5 w-5" />
             <span>{error}</span>
           </div>
@@ -202,29 +202,29 @@ const Profile = () => {
       ) : null}
 
       <section className="overflow-hidden rounded-3xl bg-deep shadow-lift">
-        <div className="relative overflow-hidden px-5 py-8 text-white sm:px-8 sm:py-10">
+        <div className="relative overflow-hidden px-5 py-8 text-paper sm:px-8 sm:py-10">
           <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand/15 blur-3xl" />
           <div className="absolute -bottom-24 left-1/4 h-48 w-72 rounded-full bg-sage/10 blur-3xl" />
           <div className="relative">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Account vault</p>
             <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Account security</h1>
-            <p className="mt-3 max-w-xl text-sm leading-6 text-glacier sm:text-base">
+            <p className="mt-3 max-w-xl text-sm leading-6 text-dusk-soft sm:text-base">
             Keep your AmarVote account protected with a strong password and two-step verification.
             </p>
           </div>
         </div>
-        <div className="border-t border-white/10 bg-white/5 p-4 sm:p-6">
+        <div className="border-t border-white/10 bg-paper/5 p-4 sm:p-6">
           <div className="glass-panel grid gap-4 border border-white/10 p-5 sm:grid-cols-[1fr_auto] sm:items-center sm:p-6">
             <div className="flex min-w-0 items-center gap-4">
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-white/10 text-brand-light ring-1 ring-white/10">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-paper/10 text-brand-light ring-1 ring-white/10">
                 <FiMail className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="section-kicker text-glacier">Signed-in account</p>
-                <p className="mt-1 truncate font-display text-lg font-semibold text-white">{profile.email || "-"}</p>
+                <p className="section-kicker text-dusk-soft">Signed-in account</p>
+                <p className="mt-1 truncate font-display text-lg font-semibold text-paper">{profile.email || "-"}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-black/15 px-3 py-2 text-sm font-medium text-white">
+            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-deep/20 px-3 py-2 text-sm font-medium text-paper">
               <span className={`h-2 w-2 rounded-full ${profile.mfaEnabled ? "bg-sage" : "bg-brand"}`} />
               2FA {profile.mfaEnabled ? "enabled" : "not enabled"}
             </div>
@@ -241,7 +241,7 @@ const Profile = () => {
             <div>
               <p className="section-kicker">Two-step verification</p>
               <h2 className="mt-1 font-display text-xl font-semibold text-deep sm:text-2xl">Secure sign-in</h2>
-              <p className="mt-1 max-w-2xl text-sm leading-6 text-slate-600">
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-dusk">
             Use an authenticator app to help keep your account secure, even if your password is compromised.
               </p>
             </div>
@@ -254,7 +254,7 @@ const Profile = () => {
               <div className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${profile.mfaEnabled ? "bg-sage" : "bg-brand"}`} />
               <div>
                 <p className="font-display text-base font-semibold text-deep">Verification status</p>
-                <p className="mt-1 text-sm text-slate-600">
+                <p className="mt-1 text-sm text-dusk">
                   {profile.mfaEnabled ? "Two-step verification is active." : "Two-step verification is currently off."}
                 </p>
               </div>
@@ -280,7 +280,7 @@ const Profile = () => {
                     <button
                       type="submit"
                       disabled={mfaBusy || disableMfaCode.replace(/\D/g, "").length !== 6}
-                      className="btn-brand w-full bg-red-600 hover:bg-red-700 sm:w-auto"
+                      className="btn-brand w-full bg-ember hover:bg-ember sm:w-auto"
                     >
                       {mfaBusy ? "Disabling..." : "Confirm Disable"}
                     </button>
@@ -303,7 +303,7 @@ const Profile = () => {
                   type="button"
                   onClick={() => setShowDisableMfaForm(true)}
                   disabled={mfaBusy}
-                  className="btn-ghost w-full border-red-200 text-red-700 hover:border-red-300 hover:bg-red-50 sm:w-auto"
+                  className="btn-ghost w-full border-ember/30 text-ember hover:border-ember/40 hover:bg-ember-soft sm:w-auto"
                 >
                   Turn Off
                 </button>
@@ -327,7 +327,7 @@ const Profile = () => {
                 Scan this QR code with Google Authenticator, then confirm with a 6-digit code.
               </p>
 
-              <div className="mt-4 inline-block max-w-full rounded-2xl bg-white p-4 shadow-soft">
+              <div className="mt-4 inline-block max-w-full rounded-2xl bg-paper p-4 shadow-soft">
                 <img src={mfaSetup.qrCodeDataUri} alt="MFA QR" className="h-44 w-44 sm:h-52 sm:w-52" />
               </div>
 
@@ -362,7 +362,7 @@ const Profile = () => {
           <div>
             <p className="section-kicker">Password</p>
             <h2 className="mt-1 font-display text-xl font-semibold text-deep sm:text-2xl">Change your password</h2>
-            <p className="mt-1 text-sm leading-6 text-slate-600">Choose a unique password that you do not use elsewhere.</p>
+            <p className="mt-1 text-sm leading-6 text-dusk">Choose a unique password that you do not use elsewhere.</p>
           </div>
         </div>
         </div>
@@ -398,7 +398,7 @@ const Profile = () => {
               className="input-field"
             />
             {passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword && (
-              <p className="text-xs text-red-600">New password and confirm password do not match.</p>
+              <p className="text-xs text-ember">New password and confirm password do not match.</p>
             )}
 
             <button

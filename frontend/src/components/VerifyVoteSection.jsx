@@ -221,7 +221,7 @@ export default function VerifyVoteSection({ electionId }) {
             className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition sm:flex-none sm:px-4 sm:text-sm ${
               inputMethod === 'file'
                 ? 'bg-brand text-deep shadow-brand'
-                : 'bg-frost text-slate-600 hover:bg-glacier'
+                : 'bg-frost text-dusk hover:bg-glacier'
             }`}
           >
             Upload receipt
@@ -232,7 +232,7 @@ export default function VerifyVoteSection({ electionId }) {
             className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition sm:flex-none sm:px-4 sm:text-sm ${
               inputMethod === 'manual'
                 ? 'bg-brand text-deep shadow-brand'
-                : 'bg-frost text-slate-600 hover:bg-glacier'
+                : 'bg-frost text-dusk hover:bg-glacier'
             }`}
           >
             Paste codes
@@ -256,7 +256,7 @@ export default function VerifyVoteSection({ electionId }) {
           className={`rounded-2xl border-2 border-dashed p-6 text-center transition sm:p-8 ${
             dragOver
               ? 'border-aurora bg-aurora/5'
-              : 'border-slate-200 hover:border-aurora/40'
+              : 'border-ink/10 hover:border-aurora/40'
           }`}
           onDragOver={(e) => {
             e.preventDefault();
@@ -273,22 +273,22 @@ export default function VerifyVoteSection({ electionId }) {
             id="verification-file"
           />
           <label htmlFor="verification-file" className="cursor-pointer">
-            <FiFileText className="mx-auto mb-3 h-10 w-10 text-slate-400 sm:h-12 sm:w-12" aria-hidden />
+            <FiFileText className="mx-auto mb-3 h-10 w-10 text-dusk sm:h-12 sm:w-12" aria-hidden />
             <p className="font-display text-base font-semibold text-deep sm:text-lg">
               Upload your vote receipt
             </p>
-            <p className="mt-1 text-xs text-slate-500 sm:text-sm">
+            <p className="mt-1 text-xs text-dusk sm:text-sm">
               .txt or .json — drag and drop, or browse
             </p>
             <span className="btn-brand mt-4 inline-flex">Choose file</span>
           </label>
         </div>
       ) : (
-        <div className="rounded-2xl border border-slate-200 bg-white p-4 sm:p-6">
+        <div className="rounded-2xl border border-ink/10 bg-paper p-4 sm:p-6">
           <h4 className="mb-4 font-display text-sm font-semibold text-deep">Enter verification details</h4>
           <div className="space-y-4">
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-dusk">
                 Tracking code
               </label>
               <input
@@ -304,7 +304,7 @@ export default function VerifyVoteSection({ electionId }) {
               />
             </div>
             <div>
-              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+              <label className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-dusk">
                 Vote hash
               </label>
               <input
@@ -362,18 +362,18 @@ export default function VerifyVoteSection({ electionId }) {
               <p className="mt-1 text-sm leading-relaxed text-ink">{statusDisplay.description}</p>
 
               {verificationFile && (
-                <div className="mt-4 space-y-2 rounded-xl border border-slate-200/80 bg-white/90 p-4 text-sm">
+                <div className="mt-4 space-y-2 rounded-xl border border-ink/10 bg-paper/90 p-4 text-sm">
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-dusk">
                       Tracking code
                     </p>
                     <p className="crypto-mono mt-1 break-all text-sm">{verificationFile.tracking_code}</p>
                   </div>
                   <div>
-                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-dusk">
                       Vote hash
                     </p>
-                    <p className="mt-1 break-all font-mono text-xs text-slate-600">
+                    <p className="mt-1 break-all font-mono text-xs text-dusk">
                       {verificationFile.hash_code}
                     </p>
                   </div>
@@ -381,7 +381,7 @@ export default function VerifyVoteSection({ electionId }) {
                     <p className="text-sm font-medium text-aurora">Found in tally: yes</p>
                   )}
                   {verificationResult.expected_hash && verificationResult.provided_hash && (
-                    <div className="border-t border-slate-200 pt-2 font-mono text-xs text-ember">
+                    <div className="border-t border-ink/10 pt-2 font-mono text-xs text-ember">
                       <div>Expected: {verificationResult.expected_hash}</div>
                       <div>Provided: {verificationResult.provided_hash}</div>
                     </div>
@@ -393,7 +393,7 @@ export default function VerifyVoteSection({ electionId }) {
         </div>
       )}
 
-      <div className="rounded-xl border border-slate-200 bg-frost/80 p-4 text-sm text-slate-600">
+      <div className="rounded-xl border border-ink/10 bg-frost/80 p-4 text-sm text-dusk">
         <p className="font-display font-semibold text-deep">Result meanings</p>
         <ul className="mt-2 space-y-2">
           <li className="flex gap-2">

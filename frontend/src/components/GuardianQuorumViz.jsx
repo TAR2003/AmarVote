@@ -86,7 +86,7 @@ export default function GuardianQuorumViz({
             className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${
               quorumMet
                 ? 'border-aurora/35 bg-aurora/10 text-aurora'
-                : 'border-white/15 bg-white/5 text-paper-muted'
+                : 'border-white/15 bg-paper/5 text-paper-muted'
             }`}
           >
             <span

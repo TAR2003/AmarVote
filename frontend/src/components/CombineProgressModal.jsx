@@ -124,7 +124,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
   };
 
   const getStatusColor = () => {
-    if (!status) return '#00B4D8';
+    if (!status) return '#8B7FE8';
     
     switch (status.status) {
       case 'completed':
@@ -134,7 +134,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
       case 'failed':
         return '#ef4444';
       case 'in_progress':
-        return '#00B4D8';
+        return '#8B7FE8';
       default:
         return '#94a3b8';
     }
@@ -194,7 +194,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
         {/* Content */}
         <div className="bg-frost/95 p-5 text-ink sm:p-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+            <div className="bg-ember-soft border border-ember/30 text-ember px-4 py-3 rounded-lg mb-4">
               <p className="font-semibold">Error</p>
               <p className="text-sm">{error}</p>
             </div>
@@ -203,7 +203,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
           {!status && !error && (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto"></div>
-              <p className="text-slate-600 mt-4">Connecting to live progress…</p>
+              <p className="text-dusk mt-4">Connecting to live progress…</p>
             </div>
           )}
 
@@ -211,29 +211,29 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
             <>
               {/* Lock Metadata Display */}
               {status.isLocked && status.lockHeldBy && (
-                <div className="bg-amber-50 border-l-4 border-amber-500 rounded-2xl p-4 mb-4 shadow-sm">
+                <div className="bg-ceremonial-soft border-l-4 border-amber-500 rounded-2xl p-4 mb-4 shadow-sm">
                   <div className="flex items-start gap-3">
                     <div className="text-2xl"></div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-amber-900 mb-2">
+                      <h4 className="font-semibold text-ink mb-2">
                         Task In Progress
                       </h4>
                       <div className="space-y-1.5 text-sm">
                         <div className="flex items-center gap-2">
-                          <span className="text-amber-700 font-medium">Initiated by:</span>
-                          <span className="text-amber-900 font-semibold bg-amber-100 px-2 py-0.5 rounded">
+                          <span className="text-ink font-medium">Initiated by:</span>
+                          <span className="text-ink font-semibold bg-ceremonial-soft px-2 py-0.5 rounded">
                             {status.lockHeldBy}
                           </span>
                         </div>
                         {status.lockStartTime && (
                           <div className="flex items-center gap-2">
-                            <span className="text-amber-700 font-medium">Started at:</span>
-                            <span className="text-amber-900 font-semibold">
+                            <span className="text-ink font-medium">Started at:</span>
+                            <span className="text-ink font-semibold">
                               {timezoneUtils.formatDateTime(status.lockStartTime)}
                             </span>
                           </div>
                         )}
-                        <p className="text-amber-700 text-xs mt-2 italic">
+                        <p className="text-ink text-xs mt-2 italic">
                           This task is currently being processed. Multiple simultaneous requests are prevented to avoid duplicate operations.
                         </p>
                       </div>
@@ -249,9 +249,9 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                     {getStatusIcon()} {getStatusDisplay()}
                   </h3>
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    status.status === 'completed' ? 'bg-sage-soft text-emerald-800' :
-                    status.status === 'stopped' ? 'bg-amber-100 text-amber-800' :
-                    status.status === 'failed' ? 'bg-red-100 text-red-800' :
+                    status.status === 'completed' ? 'bg-sage-soft text-aurora-muted' :
+                    status.status === 'stopped' ? 'bg-ceremonial-soft text-ink' :
+                    status.status === 'failed' ? 'bg-ember-soft text-ember' :
                     status.status === 'in_progress' ? 'bg-glacier text-ink' :
                     'bg-frost text-ink'
                   }`}>
@@ -278,7 +278,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                     <div className="space-y-2">
                       {status.totalChunks > 0 && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-600">Chunks Processed:</span>
+                          <span className="text-dusk">Chunks Processed:</span>
                           <span className="font-semibold text-ink">
                             {status.processedChunks} / {status.totalChunks}
                           </span>
@@ -286,7 +286,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                       )}
                       {calculateEstimatedTime(status) && status.status === 'in_progress' && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-600">Est. Time Remaining:</span>
+                          <span className="text-dusk">Est. Time Remaining:</span>
                           <span className="font-semibold text-brand-dark">
                              {calculateEstimatedTime(status)}
                           </span>
@@ -294,14 +294,14 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                       )}
                       {/* Task Metadata */}
                       {(status.createdBy || status.lockHeldBy) && (
-                        <div className="flex justify-between text-sm pt-2 border-t border-slate-200">
-                          <span className="text-slate-600">Initiated By:</span>
+                        <div className="flex justify-between text-sm pt-2 border-t border-ink/10">
+                          <span className="text-dusk">Initiated By:</span>
                           <span className="font-semibold text-ink">{status.createdBy || status.lockHeldBy}</span>
                         </div>
                       )}
                       {(status.startedAt || status.lockStartTime) && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-600">Started:</span>
+                          <span className="text-dusk">Started:</span>
                           <span className="font-semibold text-ink">
                             {timezoneUtils.formatTimeOnly(status.startedAt || status.lockStartTime)}
                           </span>
@@ -309,7 +309,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                       )}
                       {status.completedAt && (
                         <div className="flex justify-between text-sm">
-                          <span className="text-slate-600">Completed:</span>
+                          <span className="text-dusk">Completed:</span>
                           <span className="font-semibold text-ink">
                             {timezoneUtils.formatTimeOnly(status.completedAt)}
                           </span>
@@ -322,9 +322,9 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
 
               {/* Error Message */}
               {status.errorMessage && (
-                <div className="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
-                  <h4 className="font-semibold text-red-800 mb-2">Error Details</h4>
-                  <p className="text-sm text-red-700">{status.errorMessage}</p>
+                <div className="bg-ember-soft border border-ember/30 rounded-2xl p-4 mb-6">
+                  <h4 className="font-semibold text-ember mb-2">Error Details</h4>
+                  <p className="text-sm text-ember">{status.errorMessage}</p>
                 </div>
               )}
 
@@ -351,13 +351,13 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                       ['pending', 'in_progress', 'completed'].includes(status.status)
                         ? 'bg-glacier text-brand'
-                        : 'bg-frost text-gray-400'
+                        : 'bg-frost text-dusk'
                     }`}>
                       ✓
                     </div>
                     <div>
                       <p className="font-medium text-ink">Initiated</p>
-                      <p className="text-sm text-gray-500">Combine process started</p>
+                      <p className="text-sm text-dusk">Combine process started</p>
                     </div>
                   </div>
 
@@ -366,13 +366,13 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                       ['in_progress', 'completed'].includes(status.status)
                         ? 'bg-glacier text-brand'
-                        : 'bg-frost text-gray-400'
+                        : 'bg-frost text-dusk'
                     }`}>
                       {status.status === 'in_progress' ? '⟳' : '✓'}
                     </div>
                     <div>
                       <p className="font-medium text-ink">Processing Chunks</p>
-                      <p className="text-sm text-gray-500">
+                      <p className="text-sm text-dusk">
                         Combining decryption shares from guardians
                       </p>
                     </div>
@@ -383,13 +383,13 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                       status.status === 'completed'
                         ? 'bg-sage-soft text-sage'
-                        : 'bg-frost text-gray-400'
+                        : 'bg-frost text-dusk'
                     }`}>
                       ✓
                     </div>
                     <div>
                       <p className="font-medium text-ink">Complete</p>
-                      <p className="text-sm text-gray-500">Election results available</p>
+                      <p className="text-sm text-dusk">Election results available</p>
                     </div>
                   </div>
                 </div>
@@ -403,13 +403,13 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
           {status?.status === 'completed' && (
             <button
               onClick={onClose}
-              className="px-4 py-2 btn-brand bg-sage hover:bg-emerald-600"
+              className="px-4 py-2 btn-brand bg-sage hover:bg-aurora-muted"
             >
               View Results
             </button>
           )}
           {status?.status === 'stopped' && (
-            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4 text-sm text-amber-900">
+            <div className="mt-4 rounded-lg border border-ceremonial/40 bg-ceremonial-soft p-4 text-sm text-ink">
               Combine was stopped before all chunks finished. Start combine again to resume remaining chunks.
             </div>
           )}
@@ -417,7 +417,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
           {status?.status !== 'completed' && status?.status !== 'stopped' && (
             <button
               onClick={onClose}
-              className="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-slate-300 transition-colors font-medium"
+              className="px-4 py-2 bg-ink/10 text-dusk rounded-lg hover:bg-ink/20 transition-colors font-medium"
             >
               Close
             </button>

@@ -190,10 +190,10 @@ export default function VoterListEditor({
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <div className="flex items-center gap-2 text-sm text-gray-600">
+        <div className="flex items-center gap-2 text-sm text-dusk">
           <FiUsers className="h-4 w-4 text-brand" />
           <span>
-            <span className="font-semibold text-gray-900">{emails.length}</span> {entityLabel}
+            <span className="font-semibold text-ink">{emails.length}</span> {entityLabel}
             {emails.length === 1 ? "" : "s"} in list
           </span>
         </div>
@@ -212,7 +212,7 @@ export default function VoterListEditor({
               type="button"
               disabled={disabled}
               onClick={handleRemoveAll}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-red-200 text-red-700 text-sm font-medium hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-ember/30 text-ember text-sm font-medium hover:bg-ember-soft disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
               <FiTrash2 className="h-4 w-4" />
               Remove All
@@ -233,7 +233,7 @@ export default function VoterListEditor({
       {showManualAdd && (
         <div className="flex flex-col sm:flex-row gap-2">
           <div className="relative flex-1" ref={suggestionsRef}>
-            <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <FiMail className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-dusk" />
             <input
               type="email"
               value={manualEmail}
@@ -250,12 +250,12 @@ export default function VoterListEditor({
                 }
               }}
               placeholder={`Add ${entityLabel} email manually`}
-              className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand disabled:bg-gray-50"
+              className="w-full pl-10 pr-3 py-2.5 border border-ink/15 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand disabled:bg-frost"
             />
             {enableUserSuggestions && (suggestions.length > 0 || searching) && manualEmail.trim().length >= 2 && (
-              <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-52 overflow-y-auto">
+              <div className="absolute z-20 mt-1 w-full rounded-lg border border-ink/10 bg-paper shadow-lg max-h-52 overflow-y-auto">
                 {searching && suggestions.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-gray-500">Searching users…</div>
+                  <div className="px-3 py-2 text-xs text-dusk">Searching users…</div>
                 )}
                 {suggestions.map((user) => (
                   <button
@@ -268,8 +268,8 @@ export default function VoterListEditor({
                       <FiUser className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
-                      <p className="truncate text-sm font-medium text-gray-900">{user.email}</p>
-                      <p className="text-xs text-gray-500 capitalize">{user.source || 'user'} account</p>
+                      <p className="truncate text-sm font-medium text-ink">{user.email}</p>
+                      <p className="text-xs text-dusk capitalize">{user.source || 'user'} account</p>
                     </div>
                   </button>
                 ))}
@@ -280,7 +280,7 @@ export default function VoterListEditor({
             type="button"
             disabled={disabled || !manualEmail.trim()}
             onClick={() => handleManualAdd()}
-            className="px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-800 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="px-4 py-2.5 rounded-lg bg-deep text-paper text-sm font-medium hover:bg-ink disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             Add {labelTitle}
           </button>
@@ -291,9 +291,9 @@ export default function VoterListEditor({
         <div
           className={`rounded-lg px-3 py-2 text-sm border ${
             feedback.type === "success"
-              ? "bg-sage-soft border-green-200 text-emerald-800"
+              ? "bg-sage-soft border-aurora/30 text-aurora-muted"
               : feedback.type === "error"
-              ? "bg-red-50 border-red-200 text-red-800"
+              ? "bg-ember-soft border-ember/30 text-ember"
               : "bg-glacier border-brand/20 text-ink"
           }`}
         >
@@ -302,35 +302,35 @@ export default function VoterListEditor({
       )}
 
       <div
-        className={`rounded-xl border border-gray-200 bg-gray-50/80 overflow-y-auto ${maxHeightClass} min-h-[140px]`}
+        className={`rounded-xl border border-ink/10 bg-frost/80 overflow-y-auto ${maxHeightClass} min-h-[140px]`}
       >
         {emails.length === 0 ? (
-          <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center px-6 py-8 text-gray-500">
-            <FiUsers className="h-8 w-8 mb-2 text-gray-300" />
+          <div className="h-full min-h-[140px] flex flex-col items-center justify-center text-center px-6 py-8 text-dusk">
+            <FiUsers className="h-8 w-8 mb-2 text-dusk-soft" />
             <p className="text-sm">{emptyMessage}</p>
-            <p className="text-xs mt-1 text-gray-400">
+            <p className="text-xs mt-1 text-dusk">
               Import a CSV/TXT file or add emails one at a time. Start typing to see suggestions.
             </p>
           </div>
         ) : (
-          <ul className="divide-y divide-gray-200">
+          <ul className="divide-y divide-ink/10">
             {emails.map((email) => (
               <li
                 key={email}
-                className="flex items-center justify-between gap-3 px-4 py-3 bg-white hover:bg-glacier/40 transition-colors"
+                className="flex items-center justify-between gap-3 px-4 py-3 bg-paper hover:bg-glacier/40 transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-brand-dark text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-brand-dark to-brand-dark text-paper flex items-center justify-center text-xs font-semibold flex-shrink-0">
                     {email.charAt(0).toUpperCase()}
                   </div>
-                  <span className="text-sm text-gray-800 truncate font-medium">{email}</span>
+                  <span className="text-sm text-ink truncate font-medium">{email}</span>
                 </div>
                 {allowRemove && (
                   <button
                     type="button"
                     disabled={disabled}
                     onClick={() => onRemove(email)}
-                    className="flex-shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-full text-gray-400 hover:text-red-600 hover:bg-red-50 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    className="flex-shrink-0 h-8 w-8 inline-flex items-center justify-center rounded-full text-dusk hover:text-ember hover:bg-ember-soft disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                     aria-label={`Remove ${email}`}
                   >
                     <FiX className="h-4 w-4" />
@@ -342,7 +342,7 @@ export default function VoterListEditor({
         )}
       </div>
 
-      <p className="text-xs text-gray-500">
+      <p className="text-xs text-dusk">
         CSV and TXT imports add to the current list. Type at least 2 characters to search registered and authorized users.
       </p>
     </div>

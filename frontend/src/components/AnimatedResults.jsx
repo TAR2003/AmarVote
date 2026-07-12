@@ -66,8 +66,8 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
 
   if (!electionResults || !electionResults.success) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-        <p className="text-red-700">{electionResults?.message || 'Failed to load results'}</p>
+      <div className="bg-ember-soft border border-ember/30 rounded-lg p-6 text-center">
+        <p className="text-ember">{electionResults?.message || 'Failed to load results'}</p>
       </div>
     );
   }
@@ -91,13 +91,13 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
 
   return (
     <div className="space-y-8">
-      <div className="rounded-2xl bg-deep p-5 text-white shadow-glass sm:p-6">
+      <div className="rounded-2xl bg-deep p-5 text-paper shadow-glass sm:p-6">
         <h2 className="font-display text-3xl font-bold mb-2">Election Results</h2>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-          <p className="text-glacier text-lg">
-            Voters Who Voted: <span className="font-bold text-white">{votersWhoVotedCount}</span>
+          <p className="text-dusk-soft text-lg">
+            Voters Who Voted: <span className="font-bold text-paper">{votersWhoVotedCount}</span>
           </p>
-          <p className="text-glacier text-sm">
+          <p className="text-dusk-soft text-sm">
             Ranked by votes received (highest first). Tied candidates share the same position.
           </p>
         </div>
@@ -119,7 +119,7 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
               className={`surface-card rounded-2xl p-5 sm:p-6 border-2 ${
                 isWinner && !isAnimating
                   ? 'border-amber-400 ring-4 ring-amber-100 bg-gradient-to-br from-amber-50 to-white'
-                  : 'border-slate-200'
+                  : 'border-ink/10'
               }`}
             >
               <div className="flex items-start justify-between gap-2 mb-4">
@@ -131,12 +131,12 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
                   />
                   <div className="min-w-0 flex-1">
                     <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${
-                      isWinner && !isAnimating ? 'text-amber-600' : 'text-slate-500'
+                      isWinner && !isAnimating ? 'text-ink' : 'text-dusk'
                     }`}>
                       {positionLabel}
                     </p>
                     <h3 className={`text-lg font-bold leading-snug ${
-                      isWinner && !isAnimating ? 'text-amber-800' : 'text-ink'
+                      isWinner && !isAnimating ? 'text-ink' : 'text-ink'
                     }`}>
                       <TruncatedCandidateName name={candidate.name} />
                     </h3>
@@ -145,7 +145,7 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
                 {isWinner && !isAnimating && (
                   <span className="flex flex-col items-center flex-shrink-0" title={`${positionLabel} place`}>
                     <span className="text-2xl leading-none"></span>
-                    <span className="text-[10px] font-bold text-amber-700 mt-0.5">{positionLabel}</span>
+                    <span className="text-[10px] font-bold text-ink mt-0.5">{positionLabel}</span>
                   </span>
                 )}
               </div>

@@ -422,7 +422,7 @@ const BallotWorkflowModal = ({
             <button
               type="button"
               onClick={handleCloseClick}
-              className="shrink-0 rounded-xl p-1.5 text-paper-muted transition hover:bg-white/5 hover:text-paper"
+              className="shrink-0 rounded-xl p-1.5 text-paper-muted transition hover:bg-paper/5 hover:text-paper"
               aria-label="Close"
             >
               <FiX className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -506,7 +506,7 @@ const BallotWorkflowModal = ({
                       'Encrypted Ballot with Nonce'
                     )
                   }
-                  className="flex items-center justify-center rounded-lg border border-white/10 bg-white/5 p-2 text-xs font-medium text-paper hover:bg-white/10"
+                  className="flex items-center justify-center rounded-lg border border-white/10 bg-paper/5 p-2 text-xs font-medium text-paper hover:bg-paper/10"
                 >
                   <FiKey className="mr-1.5 h-4 w-4" aria-hidden />
                   With nonce
@@ -514,7 +514,7 @@ const BallotWorkflowModal = ({
                 <button
                   type="button"
                   onClick={onDownloadBallotInfo}
-                  className="flex items-center justify-center rounded-lg border border-white/10 bg-white/5 p-2 text-xs font-medium text-paper-muted hover:bg-white/10"
+                  className="flex items-center justify-center rounded-lg border border-white/10 bg-paper/5 p-2 text-xs font-medium text-paper-muted hover:bg-paper/10"
                 >
                   <FiInfo className="mr-1.5 h-4 w-4" aria-hidden />
                   Info
@@ -616,7 +616,7 @@ const BallotWorkflowModal = ({
                 className={`flex-1 rounded-xl py-2.5 text-sm font-semibold ${
                   challengeCandidateChoices.length
                     ? 'bg-aurora text-ink hover:brightness-105'
-                    : 'cursor-not-allowed bg-white/10 text-paper-muted'
+                    : 'cursor-not-allowed bg-paper/10 text-paper-muted'
                 }`}
               >
                 Challenge ballot
@@ -686,7 +686,7 @@ const BallotWorkflowModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-xl border border-white/15 py-2.5 text-sm font-medium text-paper hover:bg-white/5"
+              className="w-full rounded-xl border border-white/15 py-2.5 text-sm font-medium text-paper hover:bg-paper/5"
             >
               Return to voting booth
             </button>
@@ -769,7 +769,7 @@ const BallotWorkflowModal = ({
               <button
                 type="button"
                 onClick={() => onSaveVoteDetails('json')}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-white/5 px-4 py-2.5 text-sm font-semibold text-paper hover:bg-white/10"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-paper/5 px-4 py-2.5 text-sm font-semibold text-paper hover:bg-paper/10"
               >
                 <FiFileText className="h-4 w-4" aria-hidden />
                 Save JSON

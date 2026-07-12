@@ -37,7 +37,7 @@ export default function ProcessProgressPanel({
         : 'Not started';
 
   return (
-    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft sm:p-5">
+    <div className="rounded-2xl border border-ink/10 bg-paper p-4 shadow-soft sm:p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h4 className="font-display text-sm font-semibold text-deep">{title}</h4>
         {onRefresh && (
@@ -69,12 +69,12 @@ export default function ProcessProgressPanel({
         <div className="mt-3 text-center sm:mt-0 sm:text-left">
           <p className="text-sm font-medium text-deep">{statusLabel}</p>
           {totalChunks > 0 && (
-            <p className="mt-1 font-mono text-xs text-slate-600">
+            <p className="mt-1 font-mono text-xs text-dusk">
               Chunks: {processedChunks} / {totalChunks}
             </p>
           )}
           {status?.message && (
-            <p className="mt-1 text-xs text-slate-500">{status.message}</p>
+            <p className="mt-1 text-xs text-dusk">{status.message}</p>
           )}
         </div>
       </div>

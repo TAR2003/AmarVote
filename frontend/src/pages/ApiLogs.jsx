@@ -35,25 +35,25 @@ function formatDate(ds) {
 function methodColor(m) {
   return m === "GET"    ? "bg-glacier text-brand-dark ring-brand/20"
        : m === "POST"   ? "bg-sage-soft text-sage ring-sage/20"
-       : m === "PUT"    ? "bg-amber-100 text-amber-700 ring-amber-200"
-       : m === "DELETE" ? "bg-rose-100 text-rose-700 ring-rose-200"
-       : m === "PATCH"  ? "bg-slate-100 text-ink ring-slate-200"
-       : "bg-slate-100 text-slate-600 ring-slate-200";
+       : m === "PUT"    ? "bg-ceremonial-soft text-ink ring-amber-200"
+       : m === "DELETE" ? "bg-rose-100 text-ember ring-rose-200"
+       : m === "PATCH"  ? "bg-frost text-ink ring-ink/10"
+       : "bg-frost text-dusk ring-ink/10";
 }
 
 function statusColor(s) {
-  if (!s) return "bg-gray-100 text-gray-500";
-  if (s >= 200 && s < 300) return "bg-emerald-100 text-emerald-700";
-  if (s >= 300 && s < 400) return "bg-amber-100 text-amber-700";
-  if (s >= 400 && s < 500) return "bg-rose-100 text-rose-700";
-  return "bg-red-200 text-red-800";
+  if (!s) return "bg-frost text-dusk";
+  if (s >= 200 && s < 300) return "bg-sage-soft text-aurora-muted";
+  if (s >= 300 && s < 400) return "bg-ceremonial-soft text-ink";
+  if (s >= 400 && s < 500) return "bg-rose-100 text-ember";
+  return "bg-red-200 text-ember";
 }
 
 function responseTimeColor(ms) {
-  if (!ms) return "text-gray-400";
-  if (ms < 100) return "text-emerald-600";
-  if (ms < 500) return "text-amber-600";
-  return "text-rose-600";
+  if (!ms) return "text-dusk";
+  if (ms < 100) return "text-aurora-muted";
+  if (ms < 500) return "text-ink";
+  return "text-ember";
 }
 
 function isInvalidToken(log) {
@@ -374,20 +374,20 @@ export default function ApiLogs() {
 
   const TAB_COLOR_MAP = {
     blue:    { active: "bg-brand-dark text-paper shadow-brand-200",     inactive: "text-brand hover:bg-glacier",     badge: "bg-glacier text-brand-dark" },
-    emerald: { active: "bg-emerald-600 text-white shadow-emerald-200",inactive: "text-emerald-700 hover:bg-emerald-50",badge: "bg-emerald-100 text-emerald-700" },
-    amber:   { active: "bg-amber-500 text-white shadow-amber-200",   inactive: "text-amber-700 hover:bg-amber-50",   badge: "bg-amber-100 text-amber-700" },
-    rose:    { active: "bg-rose-600 text-white shadow-rose-200",     inactive: "text-rose-600 hover:bg-rose-50",     badge: "bg-rose-100 text-rose-700" },
-    indigo:  { active: "bg-brand-dark text-white shadow-indigo-200", inactive: "text-ink hover:bg-glacier", badge: "bg-glacier text-ink" },
-    cyan:    { active: "bg-cyan-600 text-white shadow-cyan-200",     inactive: "text-cyan-700 hover:bg-cyan-50",     badge: "bg-cyan-100 text-cyan-700" },
-    slate:   { active: "bg-ink text-white shadow-soft", inactive: "text-ink hover:bg-slate-100", badge: "bg-slate-100 text-ink" },
+    emerald: { active: "bg-aurora-muted text-paper shadow-emerald-200",inactive: "text-aurora-muted hover:bg-sage-soft",badge: "bg-sage-soft text-aurora-muted" },
+    amber:   { active: "bg-ceremonial text-ink shadow-amber-200",   inactive: "text-ink hover:bg-ceremonial-soft",   badge: "bg-ceremonial-soft text-ink" },
+    rose:    { active: "bg-ember text-paper shadow-rose-200",     inactive: "text-ember hover:bg-ember-soft",     badge: "bg-rose-100 text-ember" },
+    indigo:  { active: "bg-brand-dark text-paper shadow-indigo-200", inactive: "text-ink hover:bg-glacier", badge: "bg-glacier text-ink" },
+    cyan:    { active: "bg-cyan-600 text-paper shadow-cyan-200",     inactive: "text-aurora-muted hover:bg-sage-soft",     badge: "bg-cyan-100 text-aurora-muted" },
+    slate:   { active: "bg-ink text-paper shadow-soft", inactive: "text-ink hover:bg-frost", badge: "bg-frost text-ink" },
   };
 
   const statCards = [
     { label: "Total Requests",    value: stats.totalLogs,              icon: ICONS.chart,   border: "border-brand",    bg: "bg-glacier",    iconColor: "text-brand" },
-    { label: "Error Requests",    value: stats.errorLogs,              icon: ICONS.warning, border: "border-rose-400",    bg: "bg-rose-50",    iconColor: "text-rose-500" },
-    { label: "With Email",        value: authenticatedLogs.length,     icon: ICONS.mail,    border: "border-emerald-400", bg: "bg-emerald-50", iconColor: "text-emerald-500" },
-    { label: "Anonymous",         value: anonymousLogs.length,         icon: ICONS.user,    border: "border-amber-400",   bg: "bg-amber-50",   iconColor: "text-amber-500" },
-    { label: "Invalid / Expired", value: invalidLogs.length,           icon: ICONS.ban,     border: "border-rose-500",    bg: "bg-rose-50",    iconColor: "text-rose-600" },
+    { label: "Error Requests",    value: stats.errorLogs,              icon: ICONS.warning, border: "border-rose-400",    bg: "bg-ember-soft",    iconColor: "text-rose-500" },
+    { label: "With Email",        value: authenticatedLogs.length,     icon: ICONS.mail,    border: "border-emerald-400", bg: "bg-sage-soft", iconColor: "text-emerald-500" },
+    { label: "Anonymous",         value: anonymousLogs.length,         icon: ICONS.user,    border: "border-amber-400",   bg: "bg-ceremonial-soft",   iconColor: "text-amber-500" },
+    { label: "Invalid / Expired", value: invalidLogs.length,           icon: ICONS.ban,     border: "border-rose-500",    bg: "bg-ember-soft",    iconColor: "text-ember" },
     { label: "Success Rate",
       value: stats.totalLogs > 0 ? `${((stats.totalLogs - stats.errorLogs) / stats.totalLogs * 100).toFixed(1)}%` : "�",
       icon: ICONS.shield, border: "border-teal-400", bg: "bg-teal-50", iconColor: "text-teal-500" },
@@ -403,12 +403,12 @@ export default function ApiLogs() {
     return (
       <div className="min-h-screen bg-frost-mesh flex items-center justify-center p-6">
         <div className="glass-panel max-w-md p-7 text-center">
-          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-rose-50 text-rose-600">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-ember-soft text-ember">
             <Icon d={ICONS.lock} className="h-6 w-6" />
           </div>
           <p className="section-kicker">Restricted workspace</p>
           <h2 className="mt-1 font-display text-2xl font-bold text-ink">Access denied</h2>
-          <p className="mt-2 text-sm text-slate-600">{error || "You are not allowed to view API logs."}</p>
+          <p className="mt-2 text-sm text-dusk">{error || "You are not allowed to view API logs."}</p>
           <button
             onClick={() => navigate("/dashboard")}
             className="btn-ghost mt-5"
@@ -433,18 +433,18 @@ export default function ApiLogs() {
             <div>
               <div className="flex items-center gap-3 mb-1">
                 <div className="w-11 h-11 bg-brand rounded-2xl flex items-center justify-center shadow-brand">
-                  <Icon d={ICONS.lock} className="w-5 h-5 text-white" />
+                  <Icon d={ICONS.lock} className="w-5 h-5 text-paper" />
                 </div>
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Security observability</p>
-                  <h1 className="font-display text-3xl font-bold text-white">API Logs</h1>
+                  <h1 className="font-display text-3xl font-bold text-paper">API Logs</h1>
                 </div>
               </div>
               <p className="ml-14 mt-1 text-sm text-frost/75">Metadata-only access logs � No tokens or request bodies � 90-day retention</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 border border-white/15 bg-white/10 px-3 py-2 rounded-xl cursor-pointer select-none text-sm font-medium text-frost backdrop-blur">
+              <label className="flex items-center gap-2 border border-white/15 bg-paper/10 px-3 py-2 rounded-xl cursor-pointer select-none text-sm font-medium text-frost backdrop-blur">
                 <input
                   type="checkbox"
                   checked={autoRefresh}
@@ -456,7 +456,7 @@ export default function ApiLogs() {
                   <select
                     value={refreshInterval}
                     onChange={e => setRefreshInterval(Number(e.target.value))}
-                    className="ml-1 rounded-lg border border-white/20 bg-deep px-1 py-0.5 text-xs text-white focus:ring-2 focus:ring-brand"
+                    className="ml-1 rounded-lg border border-white/20 bg-deep px-1 py-0.5 text-xs text-paper focus:ring-2 focus:ring-brand"
                   >
                     <option value={5}>5s</option>
                     <option value={10}>10s</option>
@@ -469,7 +469,7 @@ export default function ApiLogs() {
               <button
                 onClick={exportToCSV}
                 disabled={exporting || loading}
-                className="btn-ghost flex items-center gap-2 border-white/20 bg-white/10 text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn-ghost flex items-center gap-2 border-white/20 bg-paper/10 text-paper hover:bg-paper/20 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Icon d={ICONS.download} className={`w-4 h-4 ${exporting ? "animate-pulse" : ""}`} />
                 {exporting ? "Exporting all�" : "Export CSV"}
@@ -491,7 +491,7 @@ export default function ApiLogs() {
             {statCards.map(({ label, value, icon, border, bg, iconColor }) => (
               <div key={label} className={`surface-card border-l-4 ${border} p-4 hover:shadow-lift transition-shadow`}>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide leading-tight">{label}</p>
+                  <p className="text-xs font-semibold text-dusk uppercase tracking-wide leading-tight">{label}</p>
                   <div className={`${bg} rounded-xl p-1.5`}>
                     <Icon d={icon} className={`w-4 h-4 ${iconColor}`} />
                   </div>
@@ -511,11 +511,11 @@ export default function ApiLogs() {
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex-1 min-w-[130px] justify-center
-                    ${isActive ? `${colors.active} shadow-md` : `text-gray-500 ${colors.inactive}`}`}
+                    ${isActive ? `${colors.active} shadow-md` : `text-dusk ${colors.inactive}`}`}
                 >
                   <Icon d={tab.icon} className="w-4 h-4 flex-shrink-0" />
                   <span className="whitespace-nowrap">{tab.label}</span>
-                  <span className={`px-2 py-0.5 rounded-xl text-xs font-bold ml-1 ${isActive ? "bg-white/25 text-white" : colors.badge}`}>
+                  <span className={`px-2 py-0.5 rounded-xl text-xs font-bold ml-1 ${isActive ? "bg-paper/25 text-paper" : colors.badge}`}>
                     {typeof getTabCount(tab.id) === "number" ? getTabCount(tab.id).toLocaleString() : getTabCount(tab.id)}
                   </span>
                 </button>
@@ -525,13 +525,13 @@ export default function ApiLogs() {
 
           {/* Tab contextual banner */}
           {activeTab === "invalid" && (
-            <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4">
+            <div className="flex items-start gap-3 bg-ember-soft border border-rose-200 rounded-2xl px-5 py-4">
               <div className="w-8 h-8 bg-rose-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Icon d={ICONS.warning} className="w-4 h-4 text-rose-600" />
+                <Icon d={ICONS.warning} className="w-4 h-4 text-ember" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-rose-800">Invalid / Expired Token Requests</p>
-                <p className="text-xs text-rose-600 mt-0.5">
+                <p className="text-xs text-ember mt-0.5">
                   These requests returned <strong>401 Unauthorized</strong> or <strong>403 Forbidden</strong>.
                   When an email is visible, it means that user&apos;s session token was no longer valid at the time of the request.
                 </p>
@@ -539,26 +539,26 @@ export default function ApiLogs() {
             </div>
           )}
           {activeTab === "authenticated" && (
-            <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4">
-              <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Icon d={ICONS.mail} className="w-4 h-4 text-emerald-600" />
+            <div className="flex items-start gap-3 bg-sage-soft border border-aurora/30 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-sage-soft rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon d={ICONS.mail} className="w-4 h-4 text-aurora-muted" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-emerald-800">Authenticated Requests</p>
-                <p className="text-xs text-emerald-600 mt-0.5">
+                <p className="text-sm font-semibold text-aurora-muted">Authenticated Requests</p>
+                <p className="text-xs text-aurora-muted mt-0.5">
                   Requests where a user email was successfully extracted from the session or JWT token.
                 </p>
               </div>
             </div>
           )}
           {activeTab === "anonymous" && (
-            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
-              <div className="w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Icon d={ICONS.user} className="w-4 h-4 text-amber-600" />
+            <div className="flex items-start gap-3 bg-ceremonial-soft border border-ceremonial/40 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-ceremonial-soft rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon d={ICONS.user} className="w-4 h-4 text-ink" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-amber-800">Anonymous Requests</p>
-                <p className="text-xs text-amber-600 mt-0.5">
+                <p className="text-sm font-semibold text-ink">Anonymous Requests</p>
+                <p className="text-xs text-ink mt-0.5">
                   Requests with no user identity � unauthenticated calls, public endpoints, or requests with missing tokens.
                 </p>
               </div>
@@ -579,7 +579,7 @@ export default function ApiLogs() {
             </div>
           )}
           {activeTab === "unique-ip" && (
-            <div className="flex items-start gap-3 bg-cyan-50 border border-cyan-200 rounded-2xl px-5 py-4">
+            <div className="flex items-start gap-3 bg-sage-soft border border-cyan-200 rounded-2xl px-5 py-4">
               <div className="w-8 h-8 bg-cyan-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
                 <Icon d={ICONS.globe} className="w-4 h-4 text-cyan-600" />
               </div>
@@ -594,7 +594,7 @@ export default function ApiLogs() {
           )}
           {activeTab === "clusters" && (
             <div className="flex items-start gap-3 bg-glacier border border-brand/25 rounded-2xl px-5 py-4">
-              <div className="w-8 h-8 bg-white rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+              <div className="w-8 h-8 bg-paper rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
                 <Icon d={ICONS.shield} className="w-4 h-4 text-brand-dark" />
               </div>
               <div>
@@ -611,8 +611,8 @@ export default function ApiLogs() {
           <div className="surface-card overflow-hidden">
             <div className="flex items-center justify-between px-5 py-3.5 bg-deep">
               <div className="flex items-center gap-2">
-                <Icon d={ICONS.filter} className="w-4 h-4 text-slate-300" />
-                <span className="text-sm font-semibold text-white">Filters &amp; Search</span>
+                <Icon d={ICONS.filter} className="w-4 h-4 text-dusk-soft" />
+                <span className="text-sm font-semibold text-paper">Filters &amp; Search</span>
                 {activeFiltersCount > 0 && (
                   <span className="px-2 py-0.5 bg-brand-dark text-paper text-xs font-bold rounded-xl">
                     {activeFiltersCount} active
@@ -621,7 +621,7 @@ export default function ApiLogs() {
               </div>
               <button
                 onClick={() => setShowAdvancedFilters(p => !p)}
-                className="text-slate-300 hover:text-white text-xs font-medium transition"
+                className="text-dusk-soft hover:text-paper text-xs font-medium transition"
               >
                 {showAdvancedFilters ? "Hide advanced ?" : "Show advanced ?"}
               </button>
@@ -639,7 +639,7 @@ export default function ApiLogs() {
                   <option value="path">Search by API Call / Path</option>
                 </select>
                 <div className="relative flex-1">
-                  <Icon d={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Icon d={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dusk" />
                   <input
                     type="text"
                     value={searchValue}
@@ -663,7 +663,7 @@ export default function ApiLogs() {
               {showAdvancedFilters && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">HTTP Method</label>
+                    <label className="block text-xs font-semibold text-dusk mb-1.5 uppercase tracking-wide">HTTP Method</label>
                     <select
                       value={filters.method}
                       onChange={e => handleFilterChange("method", e.target.value)}
@@ -675,7 +675,7 @@ export default function ApiLogs() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Status Code</label>
+                    <label className="block text-xs font-semibold text-dusk mb-1.5 uppercase tracking-wide">Status Code</label>
                     <select
                       value={filters.statusCode}
                       onChange={e => handleFilterChange("statusCode", e.target.value)}
@@ -704,13 +704,13 @@ export default function ApiLogs() {
                 >
                   <Icon d={ICONS.close} className="w-4 h-4" /> Clear search
                 </button>
-                <label className="inline-flex items-center gap-2 text-sm text-gray-700 ml-auto">
+                <label className="inline-flex items-center gap-2 text-sm text-dusk ml-auto">
                   <input
                     type="checkbox"
                     checked={allDisplayedSelected}
                     onChange={toggleSelectAllLogs}
                     disabled={displayedLogs.length === 0 || deleting}
-                    className="rounded border-gray-300"
+                    className="rounded border-ink/15"
                   />
                   Select all on page
                 </label>
@@ -718,7 +718,7 @@ export default function ApiLogs() {
                   type="button"
                   onClick={handleBulkDeleteLogs}
                   disabled={selectedLogIds.size === 0 || deleting}
-                  className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-semibold hover:bg-rose-700 disabled:opacity-40"
+                  className="flex items-center gap-2 px-4 py-2 bg-ember text-paper rounded-xl text-sm font-semibold hover:bg-rose-700 disabled:opacity-40"
                 >
                   Delete selected ({selectedLogIds.size})
                 </button>
@@ -728,35 +728,35 @@ export default function ApiLogs() {
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-3 bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4">
+            <div className="flex items-center gap-3 bg-ember-soft border border-rose-200 rounded-2xl px-5 py-4">
               <Icon d={ICONS.warning} className="w-5 h-5 text-rose-500 flex-shrink-0" />
-              <p className="text-sm font-medium text-rose-700">{error}</p>
+              <p className="text-sm font-medium text-ember">{error}</p>
             </div>
           )}
 
           {/* View mode + count */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 shadow-sm p-1">
+            <div className="flex items-center gap-2 bg-paper rounded-xl border border-ink/10 shadow-sm p-1">
               {[["table","Table"],["cards","Cards"],["compact","Compact"]].map(([mode, label]) => (
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
                   className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${
-                    viewMode === mode ? "bg-brand-dark text-paper shadow" : "text-gray-600 hover:bg-gray-100"
+                    viewMode === mode ? "bg-brand-dark text-paper shadow" : "text-dusk hover:bg-frost"
                   }`}
                 >
                   {label}
                 </button>
               ))}
             </div>
-            <p className="text-sm text-gray-500">
-              Showing <span className="font-bold text-slate-800">{displayedLogs.length}</span>
+            <p className="text-sm text-dusk">
+              Showing <span className="font-bold text-ink">{displayedLogs.length}</span>
               {activeTab !== "all" && (
-                <span className="text-xs text-gray-400 ml-1">
+                <span className="text-xs text-dusk ml-1">
                   ({TABS.find(t => t.id === activeTab)?.label})
                 </span>
               )}
-              <span className="text-xs text-gray-400 ml-2">� {pageSize} per page</span>
+              <span className="text-xs text-dusk ml-2">� {pageSize} per page</span>
             </p>
           </div>
 
@@ -768,15 +768,15 @@ export default function ApiLogs() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                <p className="text-gray-500 font-medium">Loading logs�</p>
+                <p className="text-dusk font-medium">Loading logs�</p>
               </div>
             ) : displayedLogs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center">
-                  <Icon d={ICONS.info} className="w-8 h-8 text-gray-400" />
+                <div className="w-16 h-16 bg-frost rounded-2xl flex items-center justify-center">
+                  <Icon d={ICONS.info} className="w-8 h-8 text-dusk" />
                 </div>
-                <p className="text-gray-600 font-semibold text-lg">No logs found</p>
-                <p className="text-gray-400 text-sm">Try adjusting your filters or switching tabs</p>
+                <p className="text-dusk font-semibold text-lg">No logs found</p>
+                <p className="text-dusk text-sm">Try adjusting your filters or switching tabs</p>
               </div>
             ) : viewMode === "table" ? (
               <TableView
@@ -804,17 +804,17 @@ export default function ApiLogs() {
             )}
 
             {!loading && displayedLogs.length > 0 && (
-              <div className="border-t border-gray-100 px-5 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-gray-50/60">
+              <div className="border-t border-ink/10 px-5 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-frost/60">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-dusk">
                     Showing {rangeStart}�{rangeEnd} of {totalElements.toLocaleString()}
                   </p>
-                  <label className="flex items-center gap-2 text-sm text-gray-700">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Per page</span>
+                  <label className="flex items-center gap-2 text-sm text-dusk">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-dusk">Per page</span>
                     <select
                       value={pageSize}
                       onChange={(e) => handlePageSizeChange(e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand"
+                      className="px-3 py-1.5 text-sm border border-ink/10 rounded-lg bg-paper focus:outline-none focus:ring-2 focus:ring-brand"
                     >
                       {PAGE_SIZE_OPTIONS.map((size) => (
                         <option key={size} value={size}>{size}</option>
@@ -826,7 +826,7 @@ export default function ApiLogs() {
                   <button
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                     disabled={page === 0 || loading}
-                    className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    className="px-4 py-2 text-sm font-semibold text-dusk bg-paper border border-ink/10 rounded-xl hover:bg-frost disabled:opacity-40 disabled:cursor-not-allowed transition"
                   >
                     ? Previous {pageSize}
                   </button>
@@ -867,8 +867,8 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
   const Th = ({ field, children }) => (
     <th
       onClick={() => field && onSort(field)}
-      className={`px-4 py-3.5 text-left text-xs font-bold text-gray-600 uppercase tracking-wide whitespace-nowrap
-        ${field ? "cursor-pointer hover:bg-gray-100 select-none" : ""}`}
+      className={`px-4 py-3.5 text-left text-xs font-bold text-dusk uppercase tracking-wide whitespace-nowrap
+        ${field ? "cursor-pointer hover:bg-frost select-none" : ""}`}
     >
       {children}{field && <SortIcon field={field} />}
     </th>
@@ -877,15 +877,15 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
   return (
     <div className="overflow-x-auto">
       <table className="min-w-[1280px] w-full">
-        <thead className="bg-gradient-to-r from-gray-50 to-slate-50 border-b-2 border-gray-200">
+        <thead className="bg-gradient-to-r from-gray-50 to-slate-50 border-b-2 border-ink/10">
           <tr>
-            <th className="px-4 py-3.5 text-left text-xs font-bold text-gray-600 uppercase tracking-wide w-10">
+            <th className="px-4 py-3.5 text-left text-xs font-bold text-dusk uppercase tracking-wide w-10">
               <input
                 type="checkbox"
                 checked={allSelected}
                 onChange={onToggleSelectAll}
                 disabled={logs.length === 0 || deleting}
-                className="rounded border-gray-300"
+                className="rounded border-ink/15"
               />
             </th>
             <Th field="requestTime">Time</Th>
@@ -902,53 +902,53 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
         </thead>
         <tbody className="divide-y divide-gray-100">
           {logs.map(log => (
-            <tr key={log.logId} className={`hover:bg-glacier/50 transition-colors ${isInvalidToken(log) ? "bg-rose-50/20" : ""}`}>
+            <tr key={log.logId} className={`hover:bg-glacier/50 transition-colors ${isInvalidToken(log) ? "bg-ember-soft/20" : ""}`}>
               <td className="px-4 py-3">
                 <input
                   type="checkbox"
                   checked={selectedLogIds.has(log.logId)}
                   onChange={() => onToggleSelect(log.logId)}
                   disabled={deleting}
-                  className="rounded border-gray-300"
+                  className="rounded border-ink/15"
                 />
               </td>
-              <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap font-medium">{formatDate(log.requestTime)}</td>
+              <td className="px-4 py-3 text-xs text-dusk whitespace-nowrap font-medium">{formatDate(log.requestTime)}</td>
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className={`px-2.5 py-1 text-xs font-bold rounded-full ring-1 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
               </td>
               <td className="px-4 py-3 min-w-[320px] max-w-lg">
-                <span className="text-xs font-mono bg-slate-100 text-slate-700 px-2 py-1 rounded break-all">{log.requestPath}</span>
+                <span className="text-xs font-mono bg-frost text-ink px-2 py-1 rounded break-all">{log.requestPath}</span>
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-gray-700">{log.requestIp || "�"}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-dusk">{log.requestIp || "�"}</td>
               <td className="px-4 py-3 whitespace-nowrap">
                 {log.extractedEmail ? (
                   <div className="flex items-center gap-1.5">
                     <div className="w-6 h-6 bg-glacier rounded-full flex items-center justify-center flex-shrink-0">
                       <Icon d={ICONS.user} className="w-3 h-3 text-brand" />
                     </div>
-                    <span className="text-xs text-slate-800 font-medium max-w-[280px] truncate">{log.extractedEmail}</span>
+                    <span className="text-xs text-ink font-medium max-w-[280px] truncate">{log.extractedEmail}</span>
                   </div>
                 ) : (
-                  <span className="text-xs text-gray-400 italic">Anonymous</span>
+                  <span className="text-xs text-dusk italic">Anonymous</span>
                 )}
               </td>
               {showClusterInfo && (
                 <td className="px-4 py-3 whitespace-nowrap">
                   <ClusterBadge log={log} />
-                  {!log.isCluster && <span className="text-xs text-gray-400">Single</span>}
+                  {!log.isCluster && <span className="text-xs text-dusk">Single</span>}
                 </td>
               )}
               {activeTab === "invalid" && (
                 <td className="px-4 py-3 whitespace-nowrap">
                   {isInvalidToken(log) ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-100 text-rose-700 text-xs font-bold rounded-full">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-100 text-ember text-xs font-bold rounded-full">
                       <Icon d={ICONS.ban} className="w-3 h-3" />
                       {log.responseStatus === 401 ? "Expired/Invalid" : "Forbidden"}
                     </span>
-                  ) : <span className="text-xs text-gray-400">�</span>}
+                  ) : <span className="text-xs text-dusk">�</span>}
                 </td>
               )}
               <td className="px-4 py-3 whitespace-nowrap">
@@ -976,7 +976,7 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
     <div
       onClick={() => onSelect(log)}
       className={`surface-card border-2 p-5 cursor-pointer transition-all hover:shadow-lift hover:-translate-y-0.5
-        ${invalid ? "border-rose-200 bg-rose-50/40 hover:border-rose-400" : "border-slate-100 hover:border-brand/40"}`}
+        ${invalid ? "border-rose-200 bg-ember-soft/40 hover:border-rose-400" : "border-ink/10 hover:border-brand/40"}`}
     >
       <div className="flex items-center justify-between mb-3 gap-2">
         <span className={`px-2.5 py-1 text-xs font-bold rounded-full ring-1 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
@@ -986,38 +986,38 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
         </div>
       </div>
       <div className="bg-frost rounded-lg px-3 py-2 mb-3">
-        <p className="text-xs font-mono text-slate-700 truncate">{log.requestPath}</p>
+        <p className="text-xs font-mono text-ink truncate">{log.requestPath}</p>
       </div>
       <div className="space-y-2 text-xs">
         <div className="flex items-center gap-2">
-          <Icon d={ICONS.globe} className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-          <span className="font-mono text-gray-600">{log.requestIp || "�"}</span>
+          <Icon d={ICONS.globe} className="w-3.5 h-3.5 text-dusk flex-shrink-0" />
+          <span className="font-mono text-dusk">{log.requestIp || "�"}</span>
         </div>
         {log.extractedEmail ? (
           <div className="flex items-center gap-2">
             <div className="w-5 h-5 bg-glacier rounded-full flex items-center justify-center flex-shrink-0">
               <Icon d={ICONS.user} className="w-3 h-3 text-brand" />
             </div>
-            <span className="text-slate-700 font-medium truncate">{log.extractedEmail}</span>
+            <span className="text-ink font-medium truncate">{log.extractedEmail}</span>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <Icon d={ICONS.user} className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
-            <span className="text-gray-400 italic">Anonymous</span>
+            <Icon d={ICONS.user} className="w-3.5 h-3.5 text-dusk-soft flex-shrink-0" />
+            <span className="text-dusk italic">Anonymous</span>
           </div>
         )}
         {invalid && (
           <div className="flex items-center gap-2 mt-2 pt-2 border-t border-rose-200">
             <Icon d={ICONS.ban} className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
-            <span className="text-rose-600 font-semibold">
+            <span className="text-ember font-semibold">
               {log.responseStatus === 401 ? "Token expired / invalid" : "Access forbidden"}
               {log.extractedEmail && ` � ${log.extractedEmail}`}
             </span>
           </div>
         )}
       </div>
-      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-        <span className="text-gray-400 text-xs">{formatDate(log.requestTime)}</span>
+      <div className="mt-3 pt-3 border-t border-ink/10 flex items-center justify-between">
+        <span className="text-dusk text-xs">{formatDate(log.requestTime)}</span>
         <span className={`text-xs font-bold ${responseTimeColor(log.responseTime)}`}>
           {log.responseTime ? `${log.responseTime}ms` : "�"}
         </span>
@@ -1032,21 +1032,21 @@ function CompactRow({ log, onSelect, showClusterInfo = false }) {
     <div
       onClick={() => onSelect(log)}
       className={`flex items-center gap-3 px-5 py-3 cursor-pointer transition-colors
-        ${invalid ? "hover:bg-rose-50 bg-rose-50/30" : "hover:bg-glacier/50"}`}
+        ${invalid ? "hover:bg-ember-soft bg-ember-soft/30" : "hover:bg-glacier/50"}`}
     >
       <span className={`px-2 py-0.5 text-xs font-bold rounded ring-1 flex-shrink-0 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
-      <span className="text-xs font-mono text-slate-700 flex-1 truncate">{log.requestPath}</span>
+      <span className="text-xs font-mono text-ink flex-1 truncate">{log.requestPath}</span>
       {showClusterInfo && <ClusterBadge log={log} />}
       {log.extractedEmail && (
         <span className="text-xs text-brand-dark bg-glacier px-2 py-0.5 rounded-full hidden sm:block max-w-[180px] truncate">{log.extractedEmail}</span>
       )}
       {invalid && (
-        <span className="text-xs font-bold text-rose-600 bg-rose-100 px-2 py-0.5 rounded-full flex-shrink-0">
+        <span className="text-xs font-bold text-ember bg-rose-100 px-2 py-0.5 rounded-full flex-shrink-0">
           {log.responseStatus === 401 ? "EXPIRED" : "FORBIDDEN"}
         </span>
       )}
       <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full flex-shrink-0 ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
-      <span className="text-gray-400 text-xs flex-shrink-0 hidden md:block">{formatDate(log.requestTime)}</span>
+      <span className="text-dusk text-xs flex-shrink-0 hidden md:block">{formatDate(log.requestTime)}</span>
     </div>
   );
 }
@@ -1054,26 +1054,26 @@ function CompactRow({ log, onSelect, showClusterInfo = false }) {
 function LogDetailModal({ log, onClose }) {
   const invalid = isInvalidToken(log);
   return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-deep/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="glass-panel rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className={`px-6 py-5 flex items-center justify-between flex-shrink-0 ${invalid ? "bg-gradient-to-r from-rose-600 to-red-600" : "bg-gradient-to-r from-brand to-brand-dark"}`}>
+        <div className={`px-6 py-5 flex items-center justify-between flex-shrink-0 ${invalid ? "bg-gradient-to-r from-ember to-ember" : "bg-gradient-to-r from-brand to-brand-dark"}`}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-              <Icon d={invalid ? ICONS.warning : ICONS.info} className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 bg-paper/20 rounded-xl flex items-center justify-center">
+              <Icon d={invalid ? ICONS.warning : ICONS.info} className="w-5 h-5 text-paper" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Request Details</h3>
-              {invalid && <p className="text-xs text-white/80 mt-0.5">{log.responseStatus === 401 ? "Token expired or invalid" : "Access was forbidden"}</p>}
+              <h3 className="text-lg font-bold text-paper">Request Details</h3>
+              {invalid && <p className="text-xs text-paper/80 mt-0.5">{log.responseStatus === 401 ? "Token expired or invalid" : "Access was forbidden"}</p>}
             </div>
           </div>
-          <button onClick={onClose} className="text-white/70 hover:text-white transition">
+          <button onClick={onClose} className="text-paper/70 hover:text-paper transition">
             <Icon d={ICONS.close} className="w-6 h-6" />
           </button>
         </div>
 
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
           {invalid && (
-            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4">
+            <div className="bg-ember-soft border border-rose-200 rounded-2xl p-4">
               <div className="flex items-start gap-3">
                 <Icon d={ICONS.ban} className="w-5 h-5 text-rose-500 flex-shrink-0 mt-0.5" />
                 <div>
@@ -1081,11 +1081,11 @@ function LogDetailModal({ log, onClose }) {
                     {log.responseStatus === 401 ? "Authentication Failed � Invalid or Expired Token" : "Authorization Failed � Access Forbidden"}
                   </p>
                   {log.extractedEmail ? (
-                    <p className="text-xs text-rose-600 mt-1">
+                    <p className="text-xs text-ember mt-1">
                       Email: <span className="font-bold">{log.extractedEmail}</span> � session token was no longer valid.
                     </p>
                   ) : (
-                    <p className="text-xs text-rose-600 mt-1">No user identity was extracted from this request.</p>
+                    <p className="text-xs text-ember mt-1">No user identity was extracted from this request.</p>
                   )}
                 </div>
               </div>
@@ -1093,44 +1093,44 @@ function LogDetailModal({ log, onClose }) {
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-slate-50 rounded-2xl p-4">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">HTTP Method</p>
+            <div className="bg-frost rounded-2xl p-4">
+              <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">HTTP Method</p>
               <span className={`px-3 py-1.5 text-sm font-bold rounded-full ring-1 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
             </div>
-            <div className="bg-slate-50 rounded-2xl p-4">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Status Code</p>
+            <div className="bg-frost rounded-2xl p-4">
+              <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Status Code</p>
               <span className={`px-3 py-1.5 text-sm font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
             </div>
           </div>
 
           <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Request Path</p>
-            <div className="bg-slate-900 rounded-xl px-4 py-3">
-              <p className="font-mono text-sm text-green-400 break-all">{log.requestPath}</p>
+            <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Request Path</p>
+            <div className="bg-deep rounded-xl px-4 py-3">
+              <p className="font-mono text-sm text-aurora break-all">{log.requestPath}</p>
             </div>
           </div>
 
           <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">User Identity</p>
-            <div className="bg-slate-50 rounded-2xl p-4">
+            <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">User Identity</p>
+            <div className="bg-frost rounded-2xl p-4">
               {log.extractedEmail ? (
                 <div className="flex items-center gap-3">
                   <div className="w-10 h-10 bg-glacier rounded-full flex items-center justify-center">
                     <Icon d={ICONS.user} className="w-5 h-5 text-brand" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-800">{log.extractedEmail}</p>
+                    <p className="text-sm font-bold text-ink">{log.extractedEmail}</p>
                     {invalid && <p className="text-xs text-rose-500 mt-0.5 font-semibold">Token was invalid/expired at request time</p>}
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                    <Icon d={ICONS.user} className="w-5 h-5 text-gray-400" />
+                  <div className="w-10 h-10 bg-frost rounded-full flex items-center justify-center">
+                    <Icon d={ICONS.user} className="w-5 h-5 text-dusk" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-500">Anonymous</p>
-                    <p className="text-xs text-gray-400 mt-0.5">No user identity extracted</p>
+                    <p className="text-sm font-semibold text-dusk">Anonymous</p>
+                    <p className="text-xs text-dusk mt-0.5">No user identity extracted</p>
                   </div>
                 </div>
               )}
@@ -1139,33 +1139,33 @@ function LogDetailModal({ log, onClose }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">IP Address</p>
-              <div className="bg-slate-50 rounded-2xl p-4 flex items-center gap-2">
-                <Icon d={ICONS.globe} className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <p className="font-mono text-sm text-slate-800">{log.requestIp || "�"}</p>
+              <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">IP Address</p>
+              <div className="bg-frost rounded-2xl p-4 flex items-center gap-2">
+                <Icon d={ICONS.globe} className="w-4 h-4 text-dusk flex-shrink-0" />
+                <p className="font-mono text-sm text-ink">{log.requestIp || "�"}</p>
               </div>
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Response Time</p>
-              <div className="bg-slate-50 rounded-2xl p-4">
+              <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Response Time</p>
+              <div className="bg-frost rounded-2xl p-4">
                 <p className={`text-2xl font-extrabold ${responseTimeColor(log.responseTime)}`}>
                   {log.responseTime ? `${log.responseTime}ms` : "�"}
                 </p>
-                {log.responseTime && <p className="text-xs text-gray-400 mt-1">{log.responseTime < 100 ? "Excellent" : log.responseTime < 500 ? "Acceptable" : "Slow"}</p>}
+                {log.responseTime && <p className="text-xs text-dusk mt-1">{log.responseTime < 100 ? "Excellent" : log.responseTime < 500 ? "Acceptable" : "Slow"}</p>}
               </div>
             </div>
           </div>
 
           <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Timestamp</p>
-            <div className="bg-slate-50 rounded-2xl p-4">
-              <p className="text-sm text-slate-700 font-medium">{formatDate(log.requestTime)}</p>
+            <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Timestamp</p>
+            <div className="bg-frost rounded-2xl p-4">
+              <p className="text-sm text-ink font-medium">{formatDate(log.requestTime)}</p>
             </div>
           </div>
 
           {log.clusterCount > 1 && (
             <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Visit Cluster</p>
+              <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Visit Cluster</p>
             <div className="bg-glacier border border-brand/20 rounded-2xl p-4 space-y-2">
                 <p className="text-sm font-bold text-ink">{log.clusterCount} requests in this visit</p>
                 <p className="text-xs text-brand-dark">
@@ -1182,15 +1182,15 @@ function LogDetailModal({ log, onClose }) {
           )}
 
           <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Log ID</p>
-            <div className="bg-slate-50 rounded-2xl p-4">
-              <p className="font-mono text-xs text-gray-500 break-all">{log.logId}</p>
+            <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Log ID</p>
+            <div className="bg-frost rounded-2xl p-4">
+              <p className="font-mono text-xs text-dusk break-all">{log.logId}</p>
             </div>
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-end flex-shrink-0">
-          <button onClick={onClose} className="px-6 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 transition">
+        <div className="px-6 py-4 border-t border-ink/10 flex justify-end flex-shrink-0">
+          <button onClick={onClose} className="px-6 py-2.5 bg-deep text-paper rounded-xl text-sm font-semibold hover:bg-ink transition">
             Close
           </button>
         </div>

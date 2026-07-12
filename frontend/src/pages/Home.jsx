@@ -186,7 +186,7 @@ const Home = () => {
             {ROLES.map((role) => (
               <div
                 key={role.title}
-                className="rounded-2xl border border-white/10 bg-white/5 p-7 backdrop-blur-sm transition duration-200 hover:border-brand/40 hover:bg-white/[0.08]"
+                className="rounded-2xl border border-white/10 bg-paper/5 p-7 backdrop-blur-sm transition duration-200 hover:border-brand/40 hover:bg-paper/[0.08]"
               >
                 <h3 className="font-display text-xl font-bold text-paper">{role.title}</h3>
                 <p className="mt-3 text-base leading-relaxed text-dusk-soft">{role.body}</p>

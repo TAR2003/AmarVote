@@ -176,7 +176,7 @@ const Chatbot = () => {
       {message.type === 'bot' && (
         <div className="flex-shrink-0">
           <div className="w-8 h-8 bg-brand rounded-full flex items-center justify-center">
-            <FiMessageSquare className="w-4 h-4 text-white" />
+            <FiMessageSquare className="w-4 h-4 text-paper" />
           </div>
         </div>
       )}
@@ -185,7 +185,7 @@ const Chatbot = () => {
         <div className={`p-3 rounded-lg ${
           message.type === 'user' 
             ? 'bg-brand-dark text-paper rounded-br-sm' 
-            : 'bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100'
+            : 'bg-paper text-ink rounded-bl-sm shadow-sm border border-ink/10'
         }`}>
           {message.type === 'bot' ? (
             <div className="prose prose-sm prose-blue max-w-none">
@@ -196,19 +196,19 @@ const Chatbot = () => {
                   h2: ({node, ...props}) => <h2 className="text-lg font-bold mt-4 mb-3 text-brand-dark" {...props} />,
                   h3: ({node, ...props}) => <h3 className="text-base font-semibold mt-3 mb-2 text-brand" {...props} />,
                   h4: ({node, ...props}) => <h4 className="text-sm font-semibold mt-2 mb-1 text-brand" {...props} />,
-                  p: ({node, ...props}) => <p className="mb-3 leading-relaxed text-gray-800" {...props} />,
+                  p: ({node, ...props}) => <p className="mb-3 leading-relaxed text-ink" {...props} />,
                   ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-3 space-y-1" {...props} />,
                   ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-3 space-y-1" {...props} />,
-                  li: ({node, ...props}) => <li className="mb-1 text-gray-800" {...props} />,
+                  li: ({node, ...props}) => <li className="mb-1 text-ink" {...props} />,
                   strong: ({node, ...props}) => <strong className="font-semibold text-brand-dark" {...props} />,
-                  em: ({node, ...props}) => <em className="italic text-gray-700" {...props} />,
+                  em: ({node, ...props}) => <em className="italic text-dusk" {...props} />,
                   a: ({node, ...props}) => <a className="text-brand hover:underline font-medium" target="_blank" rel="noopener" {...props} />,
-                  hr: ({node, ...props}) => <hr className="my-4 border-gray-300" {...props} />,
-                  blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-brand/20 pl-4 py-2 my-3 bg-glacier text-gray-700 italic" {...props} />,
+                  hr: ({node, ...props}) => <hr className="my-4 border-ink/15" {...props} />,
+                  blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-brand/20 pl-4 py-2 my-3 bg-glacier text-dusk italic" {...props} />,
                   code: ({node, inline, ...props}) => 
                     inline ? 
                       <code className="bg-glacier text-ink px-1 py-0.5 rounded text-sm font-mono" {...props} /> : 
-                      <pre className="bg-gray-100 p-3 rounded-md text-sm font-mono my-2 overflow-x-auto border border-gray-200" {...props} />,
+                      <pre className="bg-frost p-3 rounded-md text-sm font-mono my-2 overflow-x-auto border border-ink/10" {...props} />,
                   // Add support for subscript and superscript
                   sub: ({node, ...props}) => <sub className="text-xs" {...props} />,
                   sup: ({node, ...props}) => <sup className="text-xs" {...props} />,
@@ -244,7 +244,7 @@ const Chatbot = () => {
             <p className="text-sm whitespace-pre-wrap leading-relaxed">{message.content}</p>
           )}
         </div>
-        <p className={`text-xs text-gray-500 mt-1 ${
+        <p className={`text-xs text-dusk mt-1 ${
           message.type === 'user' ? 'text-right' : 'text-left'
         }`}>
           {formatTimestamp(message.timestamp)}
@@ -253,8 +253,8 @@ const Chatbot = () => {
 
       {message.type === 'user' && (
         <div className="flex-shrink-0 order-2">
-          <div className="w-8 h-8 bg-gray-400 rounded-full flex items-center justify-center">
-            <FiUser className="w-4 h-4 text-white" />
+          <div className="w-8 h-8 bg-ink/30 rounded-full flex items-center justify-center">
+            <FiUser className="w-4 h-4 text-paper" />
           </div>
         </div>
       )}
@@ -266,17 +266,17 @@ const Chatbot = () => {
       <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50">
         <button
           onClick={() => setIsOpen(true)}
-          className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-brand hover:to-blue-700 text-white rounded-full shadow-xl transition-all duration-300 hover:scale-110 relative group"
+          className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-r from-brand-dark to-brand hover:from-brand hover:to-blue-700 text-paper rounded-full shadow-xl transition-all duration-300 hover:scale-110 relative group"
           aria-label="Open chatbot"
           style={{ position: 'fixed', bottom: '24px', right: '16px', zIndex: 9999 }}
         >
           <FiMessageCircle className="w-7 h-7 mx-auto" />
           {hasNewMessage && (
-            <div className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 rounded-full flex items-center justify-center animate-pulse">
-              <div className="w-2.5 h-2.5 bg-white rounded-full"></div>
+            <div className="absolute -top-1 -right-1 w-5 h-5 bg-ember rounded-full flex items-center justify-center animate-pulse">
+              <div className="w-2.5 h-2.5 bg-paper rounded-full"></div>
             </div>
           )}
-          <div className="absolute -top-12 right-0 bg-gray-800 text-white text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap shadow-lg">
+          <div className="absolute -top-12 right-0 bg-ink text-paper text-xs px-3 py-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity duration-200 whitespace-nowrap shadow-lg">
             AI Assistant
           </div>
         </button>
@@ -293,16 +293,16 @@ const Chatbot = () => {
       }`}
       style={{ zIndex: 9999 }}
     >
-      <div className="bg-white rounded-lg shadow-2xl border border-gray-200 h-full flex flex-col overflow-hidden">
+      <div className="bg-paper rounded-lg shadow-2xl border border-ink/10 h-full flex flex-col overflow-hidden">
         {/* Header */}
-        <div className="bg-gradient-to-r from-blue-500 to-blue-600 text-white p-4 flex items-center justify-between">
+        <div className="bg-gradient-to-r from-brand-dark to-brand text-paper p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-white/20 rounded-full flex items-center justify-center">
+            <div className="w-8 h-8 bg-paper/20 rounded-full flex items-center justify-center">
               <FiMessageSquare className="w-4 h-4" />
             </div>
             <div>
               <h3 className="font-semibold">AmarVote AI Assistant</h3>
-              <p className="text-glacier text-xs">
+              <p className="text-dusk-soft text-xs">
                 {messages.length > 1 ? 'Conversation Active' : 'Online'}
                 {sessionId && messages.length > 1 && (
                   <span className="ml-1 opacity-70">• Session Active</span>
@@ -314,7 +314,7 @@ const Chatbot = () => {
           <div className="flex items-center gap-2">
             <button
               onClick={() => setIsMaximized(!isMaximized)}
-              className="p-1 hover:bg-white/20 rounded transition-colors"
+              className="p-1 hover:bg-paper/20 rounded transition-colors"
               aria-label={isMaximized ? "Minimize" : "Maximize"}
             >
               {isMaximized ? <FiMinimize2 className="w-4 h-4" /> : <FiMaximize2 className="w-4 h-4" />}
@@ -323,17 +323,17 @@ const Chatbot = () => {
             <div className="relative" ref={menuRef}>
               <button
                 onClick={() => setShowMenu(!showMenu)}
-                className="p-1 hover:bg-white/20 rounded transition-colors"
+                className="p-1 hover:bg-paper/20 rounded transition-colors"
                 aria-label="More options"
               >
                 <FiMoreVertical className="w-4 h-4" />
               </button>
               
               {showMenu && (
-                <div className="absolute top-full right-0 mt-1 bg-white rounded-lg shadow-lg border border-gray-200 py-1 z-10 min-w-[120px]">
+                <div className="absolute top-full right-0 mt-1 bg-paper rounded-lg shadow-lg border border-ink/10 py-1 z-10 min-w-[120px]">
                   <button
                     onClick={clearChat}
-                    className="w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-gray-100 flex items-center gap-2"
+                    className="w-full px-3 py-2 text-left text-sm text-dusk hover:bg-frost flex items-center gap-2"
                     title="Start a new conversation session"
                   >
                     <FiRefreshCw className="w-3 h-3" />
@@ -345,7 +345,7 @@ const Chatbot = () => {
             
             <button
               onClick={() => setIsOpen(false)}
-              className="p-1 hover:bg-white/20 rounded transition-colors"
+              className="p-1 hover:bg-paper/20 rounded transition-colors"
               aria-label="Close chatbot"
             >
               <FiX className="w-4 h-4" />
@@ -354,7 +354,7 @@ const Chatbot = () => {
         </div>
 
         {/* Messages */}
-        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-gray-50">
+        <div className="flex-1 overflow-y-auto p-4 space-y-4 bg-frost">
           {messages.map((message) => (
             <ChatMessage key={message.id} message={message} />
           ))}
@@ -362,13 +362,13 @@ const Chatbot = () => {
           {/* Suggested Questions */}
           {showSuggestions && messages.length === 1 && (
             <div className="space-y-2">
-              <p className="text-sm text-gray-600 font-medium">Suggested questions:</p>
+              <p className="text-sm text-dusk font-medium">Suggested questions:</p>
               <div className="grid gap-2">
                 {suggestedQuestions.map((question, index) => (
                   <button
                     key={index}
                     onClick={() => handleSendMessage(question)}
-                    className="text-left p-2 text-sm bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-glacier transition-colors"
+                    className="text-left p-2 text-sm bg-paper border border-ink/10 rounded-lg hover:border-brand/30 hover:bg-glacier transition-colors"
                     disabled={isLoading}
                   >
                     {question}
@@ -382,11 +382,11 @@ const Chatbot = () => {
             <div className="flex gap-3 mb-4 justify-start">
               <div className="flex-shrink-0">
                 <div className="w-8 h-8 bg-brand rounded-full flex items-center justify-center">
-                  <FiMessageSquare className="w-4 h-4 text-white" />
+                  <FiMessageSquare className="w-4 h-4 text-paper" />
                 </div>
               </div>
               <div className="max-w-xs lg:max-w-md">
-                <div className="p-3 rounded-lg bg-gray-100 text-gray-800 rounded-bl-sm">
+                <div className="p-3 rounded-lg bg-frost text-ink rounded-bl-sm">
                   <div className="flex items-center gap-2">
                     <FiLoader className="w-4 h-4 animate-spin" />
                     <span className="text-sm">Thinking...</span>
@@ -400,7 +400,7 @@ const Chatbot = () => {
         </div>
 
         {/* Input */}
-        <div className="p-4 border-t border-gray-200 bg-white">
+        <div className="p-4 border-t border-ink/10 bg-paper">
           <div className="flex gap-2">
             <textarea
               ref={inputRef}
@@ -408,7 +408,7 @@ const Chatbot = () => {
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={sessionId ? "Continue the conversation..." : "Type your message..."}
-              className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm max-h-20 min-h-[40px]"
+              className="flex-1 resize-none border border-ink/15 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm max-h-20 min-h-[40px]"
               rows="1"
               disabled={isLoading || !sessionId}
             />
@@ -422,7 +422,7 @@ const Chatbot = () => {
             </button>
           </div>
           
-          <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+          <div className="flex items-center justify-between mt-2 text-xs text-dusk">
             <span>Press Enter to send</span>
             <span className="flex items-center gap-1">
               {sessionId && (

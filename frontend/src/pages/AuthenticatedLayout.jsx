@@ -56,6 +56,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
   };
 
   const isWidePage = location.pathname === "/api-logs" || location.pathname === "/authenticated-users";
+  const isElectionPage = location.pathname.includes("/election-page");
 
   const closeMobileMenu = () => {
     setMobileMenuOpen(false);
@@ -173,7 +174,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
     const endTime = new Date(election.endingTime);
 
     if (now < startTime) return { text: 'Upcoming', color: 'text-brand' };
-    if (now > endTime) return { text: 'Ended', color: 'text-gray-600' };
+    if (now > endTime) return { text: 'Ended', color: 'text-dusk' };
     return { text: 'Active', color: 'text-sage' };
   };
 
@@ -366,14 +367,14 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
             <BrandMark size="lg" />
           </div>
           <div className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${
-            isSessionExpired ? "bg-glacier" : "bg-amber-soft"
+            isSessionExpired ? "bg-glacier" : "bg-ceremonial-soft"
           }`}>
-            <FiLogOut className={`text-xl ${isSessionExpired ? "text-brand" : "text-amber-warn"}`} />
+            <FiLogOut className={`text-xl ${isSessionExpired ? "text-brand" : "text-ink"}`} />
           </div>
           <h2 className="font-display text-2xl font-bold text-deep">
             {title}
           </h2>
-          <p className="mt-2 text-slate-600">{message}</p>
+          <p className="mt-2 text-dusk">{message}</p>
           {returnPath?.includes("/election-page/") && (
             <p className="mt-3 rounded-xl bg-glacier/70 px-3 py-2 text-sm text-brand-dark">
               After you sign in or register, we’ll bring you back to this election.
@@ -422,7 +423,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
 
                   setMobileMenuOpen(true);
                 }}
-                className="inline-flex items-center justify-center p-2 rounded-xl text-slate-300 hover:text-white hover:bg-white/10 focus:outline-none focus:ring-2 focus:ring-brand transition-all duration-200"
+                className="inline-flex items-center justify-center p-2 rounded-xl text-dusk-soft hover:text-paper hover:bg-paper/10 focus:outline-none focus:ring-2 focus:ring-brand transition-all duration-200"
                 aria-label="Toggle menu"
               >
                 {mobileMenuOpen ? (
@@ -446,14 +447,14 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               <div className="w-full max-w-3xl relative mx-auto" ref={searchRef}>
                 <form onSubmit={handleSearchSubmit} className="relative">
                   <div className="absolute inset-y-0 left-0 pl-2.5 sm:pl-3 flex items-center pointer-events-none">
-                    <FiSearch className="h-4 w-4 sm:h-5 sm:w-5 text-slate-400" />
+                    <FiSearch className="h-4 w-4 sm:h-5 sm:w-5 text-dusk" />
                   </div>
                   <input
                     type="text"
                     placeholder="Search elections..."
                     value={searchQuery}
                     onChange={handleSearchInputChange}
-                    className="block w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2.5 border border-white/15 rounded-xl sm:rounded-2xl leading-5 bg-white/10 text-white placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand/60 focus:bg-white/15 text-xs sm:text-sm transition-all duration-300"
+                    className="block w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2.5 border border-white/15 rounded-xl sm:rounded-2xl leading-5 bg-paper/10 text-paper placeholder:text-dusk-soft focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand/60 focus:bg-paper/15 text-xs sm:text-sm transition-all duration-300"
                   />
                 </form>
 
@@ -461,7 +462,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                 {showSuggestions && searchSuggestions.length > 0 && (
                   <div
                     ref={suggestionsRef}
-                    className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl max-h-80 overflow-y-auto"
+                    className="absolute z-50 w-full mt-2 bg-paper/95 backdrop-blur-lg border border-ink/10/50 rounded-2xl shadow-2xl max-h-80 overflow-y-auto"
                   >
                     {searchSuggestions.map((election) => {
                       const status = getElectionStatus(election);
@@ -469,21 +470,21 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                         <div
                           key={election.electionId}
                           onClick={() => handleElectionSelect(election.electionId)}
-                          className="p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
+                          className="p-4 hover:bg-frost cursor-pointer border-b border-ink/10 last:border-b-0 transition-colors duration-150"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
-                              <h4 className="text-sm font-medium text-gray-900 truncate">
+                              <h4 className="text-sm font-medium text-ink truncate">
                                 {election.electionTitle}
                               </h4>
-                              <p className="text-xs text-gray-500 mt-1 overflow-hidden" style={{
+                              <p className="text-xs text-dusk mt-1 overflow-hidden" style={{
                                 display: '-webkit-box',
                                 WebkitLineClamp: 2,
                                 WebkitBoxOrient: 'vertical'
                               }}>
                                 {election.electionDescription}
                               </p>
-                              <div className="flex items-center mt-2 space-x-3 text-xs text-gray-400">
+                              <div className="flex items-center mt-2 space-x-3 text-xs text-dusk">
                                 <div className="flex items-center">
                                   <FiCalendar className="h-3 w-3 mr-1" />
                                   <span>{formatDate(election.startingTime)}</span>
@@ -500,7 +501,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                               </span>
                               <span className={`text-xs px-2 py-1 rounded-full mt-1 ${election.isPublic
                                 ? 'bg-sage-soft text-sage'
-                                : 'bg-orange-100 text-orange-700'
+                                : 'bg-ceremonial-soft text-ink'
                                 }`}>
                                 {election.isPublic ? 'Public' : 'Private'}
                               </span>
@@ -514,8 +515,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
 
                 {/* No Results Message */}
                 {showSuggestions && searchQuery.trim() && searchSuggestions.length === 0 && !isLoadingElections && (
-                  <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl">
-                    <div className="p-4 text-center text-gray-500 text-sm">
+                  <div className="absolute z-50 w-full mt-2 bg-paper/95 backdrop-blur-lg border border-ink/10/50 rounded-2xl shadow-2xl">
+                    <div className="p-4 text-center text-dusk text-sm">
                       No elections found matching "{searchQuery}"
                     </div>
                   </div>
@@ -523,8 +524,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
 
                 {/* Loading Message */}
                 {isLoadingElections && searchQuery.trim() && (
-                  <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl">
-                    <div className="p-4 text-center text-gray-500 text-sm">
+                  <div className="absolute z-50 w-full mt-2 bg-paper/95 backdrop-blur-lg border border-ink/10/50 rounded-2xl shadow-2xl">
+                    <div className="p-4 text-center text-dusk text-sm">
                       <FiSearch className="h-4 w-4 animate-spin mx-auto mb-1" />
                       Searching elections...
                     </div>
@@ -538,13 +539,13 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               <button
                 type="button"
                 onClick={() => navigate('/profile')}
-                className="flex flex-col items-center p-1 sm:p-1.5 rounded-xl sm:rounded-2xl hover:bg-white/10 transition-all"
+                className="flex flex-col items-center p-1 sm:p-1.5 rounded-xl sm:rounded-2xl hover:bg-paper/10 transition-all"
                 title="Open profile"
               >
-                <div className="w-7 h-7 sm:w-9 sm:h-9 bg-white/10 border border-white/15 rounded-xl sm:rounded-2xl flex items-center justify-center">
+                <div className="w-7 h-7 sm:w-9 sm:h-9 bg-paper/10 border border-white/15 rounded-xl sm:rounded-2xl flex items-center justify-center">
                   <FiUser className="text-brand-light h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
                 </div>
-                <span className="hidden md:block text-xs font-medium text-slate-300 mt-1 max-w-[100px] truncate">
+                <span className="hidden md:block text-xs font-medium text-dusk-soft mt-1 max-w-[100px] truncate">
                   {userEmail || 'User'}
                 </span>
               </button>
@@ -559,11 +560,11 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
         className="fixed inset-0 z-50 transition-all duration-300 pointer-events-auto"
       >
         <div
-          className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px] transition-opacity duration-300 opacity-100"
+          className="absolute inset-0 bg-deep/45 backdrop-blur-[2px] transition-opacity duration-300 opacity-100"
           onClick={closeMobileMenu}
         />
         <aside
-          className="absolute left-0 top-0 h-full w-[88vw] max-w-sm sm:max-w-md bg-deep text-white shadow-2xl transition-transform duration-300 ease-out translate-x-0"
+          className="absolute left-0 top-0 h-full w-[88vw] max-w-sm sm:max-w-md bg-deep text-paper shadow-2xl transition-transform duration-300 ease-out translate-x-0"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="h-full flex flex-col">
@@ -571,14 +572,14 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               <Link to="/dashboard" onClick={closeMobileMenu} className="flex items-center gap-3 group">
                 <BrandMark className="transition duration-300 group-hover:scale-105" />
                 <div>
-                  <p className="font-display text-sm font-semibold text-white">AmarVote</p>
-                  <p className="text-xs text-slate-400">Secure navigation</p>
+                  <p className="font-display text-sm font-semibold text-paper">AmarVote</p>
+                  <p className="text-xs text-dusk">Secure navigation</p>
                 </div>
               </Link>
               <button
                 type="button"
                 onClick={closeMobileMenu}
-                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/10"
+                className="p-2 rounded-xl text-dusk hover:text-paper hover:bg-paper/10"
                 aria-label="Close menu"
               >
                 <FiX className="h-5 w-5" />
@@ -591,7 +592,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               onClick={closeMobileMenu}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/dashboard')
                   ? 'text-paper bg-brand/15'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5 transition-all duration-300'
+                  : 'text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300'
                 }`}
             >
               <FiHome className="h-5 w-5" />
@@ -603,7 +604,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               onClick={closeMobileMenu}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/all-elections')
                   ? 'text-paper bg-brand/15'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5 transition-all duration-300'
+                  : 'text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300'
                 }`}
             >
               <FiBarChart2 className="h-5 w-5" />
@@ -633,7 +634,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                   }}
                   className={`flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/api-logs')
                       ? 'text-paper bg-brand/15'
-                      : 'text-slate-300 hover:text-white hover:bg-white/5 transition-all duration-300'
+                      : 'text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300'
                     }`}
                 >
                   <FiBarChart2 className="h-5 w-5" />
@@ -645,7 +646,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                   onClick={closeMobileMenu}
                   className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/authenticated-users')
                       ? 'text-paper bg-brand/15'
-                      : 'text-slate-300 hover:text-white hover:bg-white/5 transition-all duration-300'
+                      : 'text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300'
                     }`}
                 >
                   <FiUsers className="h-5 w-5" />
@@ -659,7 +660,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               onClick={closeMobileMenu}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/profile')
                   ? 'text-paper bg-brand/15'
-                  : 'text-slate-300 hover:text-white hover:bg-white/5 transition-all duration-300'
+                  : 'text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300'
                 }`}
             >
               <FiUser className="h-5 w-5" />
@@ -670,32 +671,32 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               <button
                 type="button"
                 onClick={() => setShowGuardianAttention((prev) => !prev)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm sm:text-base font-medium text-slate-300 hover:text-white hover:bg-white/5 transition-all duration-300"
+                className="w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm sm:text-base font-medium text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300"
               >
                 <span className="flex items-center space-x-3">
                   <FiBell className="h-5 w-5" />
                   <span>Guardian Notifications</span>
                 </span>
                 {guardianAttentionItems.length > 0 ? (
-                  <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[22px] text-center">
+                  <span className="bg-ember text-paper text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[22px] text-center">
                     {guardianAttentionItems.length}
                   </span>
                 ) : null}
               </button>
 
               {showGuardianAttention && (
-                <div className="mt-2 mx-1 bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-200">
-                    <h4 className="text-sm font-semibold text-gray-800">Guardian Notifications</h4>
-                    <p className="text-xs text-gray-500 mt-1">
+                <div className="mt-2 mx-1 bg-frost border border-ink/10 rounded-2xl overflow-hidden">
+                  <div className="px-4 py-3 border-b border-ink/10">
+                    <h4 className="text-sm font-semibold text-ink">Guardian Notifications</h4>
+                    <p className="text-xs text-dusk mt-1">
                       Guardian in {allElections.filter((e) => e.userRoles?.includes('guardian')).length} election(s) · {guardianAttentionItems.length} need attention
                     </p>
                   </div>
                   <div className="max-h-72 overflow-y-auto">
                     {loadingGuardianAttention ? (
-                      <div className="p-4 text-sm text-gray-500">Loading...</div>
+                      <div className="p-4 text-sm text-dusk">Loading...</div>
                     ) : guardianAttentionItems.length === 0 ? (
-                      <div className="p-4 text-sm text-gray-500">No pending guardian actions.</div>
+                      <div className="p-4 text-sm text-dusk">No pending guardian actions.</div>
                     ) : (
                       guardianAttentionItems.map((item, index) => (
                         <button
@@ -705,10 +706,10 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                             closeMobileMenu();
                             navigate(`/election-page/${item.electionId}/guardian`);
                           }}
-                          className="w-full text-left px-4 py-3 hover:bg-white border-b border-slate-200 last:border-b-0"
+                          className="w-full text-left px-4 py-3 hover:bg-paper border-b border-ink/10 last:border-b-0"
                         >
-                          <div className="text-sm font-medium text-gray-900 truncate">{item.electionTitle}</div>
-                          <div className="text-xs text-gray-600 mt-1">{item.detail}</div>
+                          <div className="text-sm font-medium text-ink truncate">{item.electionTitle}</div>
+                          <div className="text-xs text-dusk mt-1">{item.detail}</div>
                         </button>
                       ))
                     )}
@@ -720,15 +721,15 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
 
             <div className="p-3 border-t border-white/10 bg-deep-soft">
               <div className="px-3 pb-3">
-                <p className="text-xs text-slate-400">Signed in as</p>
-                <p className="text-sm font-medium text-slate-200 truncate">{userEmail || 'User'}</p>
+                <p className="text-xs text-dusk">Signed in as</p>
+                <p className="text-sm font-medium text-dusk-soft truncate">{userEmail || 'User'}</p>
               </div>
               <button
                 onClick={() => {
                   handleLogout();
                   closeMobileMenu();
                 }}
-                className="flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium text-red-300 hover:text-red-200 hover:bg-red-500/10 transition-all duration-300"
+                className="flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium text-ember-soft hover:text-ember-soft hover:bg-ember/10 transition-all duration-300"
               >
                 <FiLogOut className="h-5 w-5" />
                 <span>Logout</span>
@@ -746,6 +747,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
         </div>
       </main>
 
+      {!isElectionPage && (
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-deep/95 backdrop-blur-lg shadow-nav safe-pb">
         <div className="grid grid-cols-4 gap-1 px-2 py-2">
           {mobileNavItems.slice(0, 4).map((item) => {
@@ -759,7 +761,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                 className={`flex flex-col items-center justify-center rounded-xl py-2 text-[11px] font-medium transition-colors ${
                   isActive
                     ? 'bg-brand/20 text-paper'
-                    : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                    : 'text-dusk hover:bg-paper/5 hover:text-paper'
                 }`}
               >
                 <Icon className="h-4 w-4 mb-1" />
@@ -769,6 +771,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
           })}
         </div>
       </nav>
+      )}
     </div>
   );
 };

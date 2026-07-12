@@ -17,10 +17,10 @@ const VARIANT_STYLES = {
     Icon: FiLoader,
   },
   error: {
-    container: 'border-red-200 bg-red-50',
-    icon: 'text-red-500',
+    container: 'border-ember/30 bg-ember-soft',
+    icon: 'text-ember',
     title: 'text-red-900',
-    message: 'text-red-800',
+    message: 'text-ember',
     Icon: FiAlertCircle,
   },
 };

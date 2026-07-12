@@ -221,7 +221,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
   };
 
   const getStatusColor = () => {
-    if (!status) return '#00B4D8';
+    if (!status) return '#8B7FE8';
     
     switch (status.status) {
       case 'completed':
@@ -229,7 +229,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
       case 'failed':
         return '#ef4444';
       case 'in_progress':
-        return '#00B4D8';
+        return '#8B7FE8';
       default:
         return '#94a3b8';
     }
@@ -289,7 +289,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
         {/* Content */}
         <div className="bg-frost/95 p-5 text-ink sm:p-6">
           {error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
+            <div className="bg-ember-soft border border-ember/30 text-ember px-4 py-3 rounded-lg mb-4">
               <p className="font-semibold">Error</p>
               <p className="text-sm">{error}</p>
             </div>
@@ -298,7 +298,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
           {!status && !error && (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto"></div>
-              <p className="text-slate-600 mt-4">Connecting to live progress…</p>
+              <p className="text-dusk mt-4">Connecting to live progress…</p>
             </div>
           )}
 
@@ -306,29 +306,29 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
             <>
               {/* Lock Metadata Display */}
               {status.isLocked && status.lockHeldBy && (
-                <div className="bg-amber-50 border-l-4 border-amber-500 rounded-2xl p-4 mb-4 shadow-sm">
+                <div className="bg-ceremonial-soft border-l-4 border-amber-500 rounded-2xl p-4 mb-4 shadow-sm">
                   <div className="flex items-start gap-3">
                     <div className="text-2xl"></div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-amber-900 mb-2">
+                      <h4 className="font-semibold text-ink mb-2">
                         Task In Progress
                       </h4>
                       <div className="space-y-1.5 text-sm">
                         <div className="flex items-center gap-2">
-                          <span className="text-amber-700 font-medium">Initiated by:</span>
-                          <span className="text-amber-900 font-semibold bg-amber-100 px-2 py-0.5 rounded">
+                          <span className="text-ink font-medium">Initiated by:</span>
+                          <span className="text-ink font-semibold bg-ceremonial-soft px-2 py-0.5 rounded">
                             {status.lockHeldBy}
                           </span>
                         </div>
                         {status.lockStartTime && (
                           <div className="flex items-center gap-2">
-                            <span className="text-amber-700 font-medium">Started at:</span>
-                            <span className="text-amber-900 font-semibold">
+                            <span className="text-ink font-medium">Started at:</span>
+                            <span className="text-ink font-semibold">
                               {timezoneUtils.formatDateTime(status.lockStartTime)}
                             </span>
                           </div>
                         )}
-                        <p className="text-amber-700 text-xs mt-2 italic">
+                        <p className="text-ink text-xs mt-2 italic">
                           This task is currently being processed. Multiple simultaneous requests are prevented to avoid duplicate operations.
                         </p>
                       </div>
@@ -344,9 +344,9 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                     {getPhaseIcon()} {getPhaseDisplay()}
                   </h3>
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${
-                    status.status === 'completed' ? 'bg-sage-soft text-emerald-800' :
-                    status.status === 'stopped' ? 'bg-amber-100 text-amber-800' :
-                    status.status === 'failed' ? 'bg-red-100 text-red-800' :
+                    status.status === 'completed' ? 'bg-sage-soft text-aurora-muted' :
+                    status.status === 'stopped' ? 'bg-ceremonial-soft text-ink' :
+                    status.status === 'failed' ? 'bg-ember-soft text-ember' :
                     status.status === 'in_progress' ? 'bg-glacier text-ink' :
                     'bg-frost text-ink'
                   }`}>
@@ -379,14 +379,14 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                     <div className="bg-frost rounded-2xl p-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-sm text-slate-600">Total Progress (All Operations)</p>
+                          <p className="text-sm text-dusk">Total Progress (All Operations)</p>
                           <p className="font-display text-xl font-bold sm:text-2xl text-deep">
                             {(() => {
                               const { total, completed } = calculateTotalOperations(status);
                               return `${completed} / ${total}`;
                             })()}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-dusk mt-1">
                             {(() => {
                               const { numChunks, totalGuardians } = calculateTotalOperations(status);
                               // Show appropriate message based on guardian count
@@ -398,7 +398,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-slate-600">Current Operation</p>
+                          <p className="text-sm text-dusk">Current Operation</p>
                           <p className="text-lg font-bold text-brand-dark">
                             {status.currentPhase === 'partial_decryption' 
                               ? 'Partial Decryption'
@@ -406,7 +406,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                               ? 'Compensated Shares'
                               : 'Processing'}
                           </p>
-                          <p className="text-xs text-gray-500 mt-1">
+                          <p className="text-xs text-dusk mt-1">
                             Chunk #{status.currentChunkNumber || 0}
                             {status.currentPhase === 'compensated_shares_generation' && status.compensatingForGuardianName && (
                               <span className="block">for {status.compensatingForGuardianName}</span>
@@ -416,8 +416,8 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                       </div>
                       
                       {calculateEstimatedTime(status) && (
-                        <div className="mt-3 pt-3 border-t border-slate-200">
-                          <p className="text-sm text-slate-600 font-medium">
+                        <div className="mt-3 pt-3 border-t border-ink/10">
+                          <p className="text-sm text-dusk font-medium">
                              Estimated time remaining (entire process): <span className="text-brand-dark font-bold">{calculateEstimatedTime(status)}</span>
                           </p>
                         </div>
@@ -425,14 +425,14 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                       
                       {/* Task Metadata */}
                       {(status.startedAt || status.lockStartTime) && (
-                        <div className="mt-3 pt-3 border-t border-slate-200 space-y-1">
+                        <div className="mt-3 pt-3 border-t border-ink/10 space-y-1">
                           {status.guardianEmail && (
-                            <p className="text-sm text-slate-600">
+                            <p className="text-sm text-dusk">
                               <span className="font-medium">Guardian:</span>{' '}
                               <span className="text-deep font-semibold">{status.guardianEmail}</span>
                             </p>
                           )}
-                          <p className="text-sm text-slate-600">
+                          <p className="text-sm text-dusk">
                             <span className="font-medium">Started:</span>{' '}
                             <span className="text-deep">{timezoneUtils.formatDateTime(status.startedAt || status.lockStartTime)}</span>
                           </p>
@@ -458,7 +458,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                         partial decryption shares.
                       </p>
                       
-                      <div className="bg-white rounded-lg p-3 mb-3 border border-brand/20">
+                      <div className="bg-paper rounded-lg p-3 mb-3 border border-brand/20">
                         <div className="grid grid-cols-2 gap-3 text-sm">
                           <div>
                             <p className="text-brand">Current Chunk:</p>
@@ -510,8 +510,8 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                       </p>
                       
                       {status.compensatingForGuardianName && (
-                        <div className="bg-white rounded-lg p-3 mb-3 border border-brand/20">
-                          <p className="text-sm text-slate-600 mb-1">Current Process:</p>
+                        <div className="bg-paper rounded-lg p-3 mb-3 border border-brand/20">
+                          <p className="text-sm text-dusk mb-1">Current Process:</p>
                           <p className="text-lg font-semibold text-deep">
                              Compensating for {status.compensatingForGuardianName}
                           </p>
@@ -523,7 +523,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                         </div>
                       )}
                       
-                      <div className="bg-white rounded-lg p-3 mb-3 border border-brand/20">
+                      <div className="bg-paper rounded-lg p-3 mb-3 border border-brand/20">
                         <div className="grid grid-cols-3 gap-3">
                           <div>
                             <p className="text-xs text-brand-dark mb-1">Guardians Progress</p>
@@ -575,8 +575,8 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                       <h4 className="font-bold text-green-900 mb-2 text-xl flex items-center gap-2">
                          Decryption Successfully Completed!
                       </h4>
-                      <div className="bg-white rounded-2xl p-4 mb-3 border-l-4 border-green-500 shadow-sm">
-                        <p className="text-sm text-emerald-800 font-medium mb-2">
+                      <div className="bg-paper rounded-2xl p-4 mb-3 border-l-4 border-green-500 shadow-sm">
+                        <p className="text-sm text-aurora-muted font-medium mb-2">
                           Your guardian credentials have been verified and processed successfully.
                         </p>
                         <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
@@ -629,21 +629,21 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
               )}
 
               {status.status === 'failed' && (
-                <div className="bg-red-50 border border-red-300 rounded-2xl p-5 mb-4">
+                <div className="bg-ember-soft border border-ember/40 rounded-2xl p-5 mb-4">
                   <div className="flex items-start gap-4">
                     <div className="text-4xl"></div>
                     <div className="flex-1">
                       <h4 className="font-bold text-red-900 mb-2 text-lg">
                          Decryption Failed
                       </h4>
-                      <div className="bg-white rounded p-3 mb-3 border-l-4 border-red-500">
-                        <p className="text-sm text-red-800 font-medium mb-2">
+                      <div className="bg-paper rounded p-3 mb-3 border-l-4 border-red-500">
+                        <p className="text-sm text-ember font-medium mb-2">
                           {status.errorMessage || 'An error occurred during the decryption process.'}
                         </p>
                       </div>
-                      <div className="bg-red-100 rounded p-3 mb-3">
+                      <div className="bg-ember-soft rounded p-3 mb-3">
                         <p className="text-xs font-semibold text-red-900 mb-1">What to do next:</p>
-                        <ul className="text-xs text-red-800 list-disc list-inside space-y-1">
+                        <ul className="text-xs text-ember list-disc list-inside space-y-1">
                           <li>Verify you uploaded the correct <strong>credentials.txt</strong> file</li>
                           <li>The file should be the one provided after guardian assignment</li>
                           <li>If you lost the file, contact the election administrator</li>
@@ -651,10 +651,10 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                         </ul>
                       </div>
                       <div className="flex items-center gap-2 mt-3">
-                        <svg className="w-4 h-4 text-red-600" fill="currentColor" viewBox="0 0 20 20">
+                        <svg className="w-4 h-4 text-ember" fill="currentColor" viewBox="0 0 20 20">
                           <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
                         </svg>
-                        <p className="text-xs text-red-700 font-medium">
+                        <p className="text-xs text-ember font-medium">
                           You can retry submission after closing this modal
                         </p>
                       </div>
@@ -669,14 +669,14 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      status.startedAt ? 'bg-sage text-white' : 'bg-slate-300 text-slate-600'
+                      status.startedAt ? 'bg-sage text-paper' : 'bg-ink/20 text-dusk'
                     }`}>
                       ✓
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-deep">Decryption Initiated</p>
                       {status.startedAt && (
-                        <p className="text-xs text-slate-600">
+                        <p className="text-xs text-dusk">
                           {timezoneUtils.formatDateTime(status.startedAt)}
                         </p>
                       )}
@@ -687,13 +687,13 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                       status.status === 'in_progress' || status.status === 'completed' 
                         ? 'bg-brand-dark text-paper animate-pulse' 
-                        : 'bg-slate-300 text-slate-600'
+                        : 'bg-ink/20 text-dusk'
                     }`}>
                       {status.status === 'in_progress' || status.status === 'completed' ? '⟳' : '○'}
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-deep">Processing Operations</p>
-                      <p className="text-xs text-slate-600">
+                      <p className="text-xs text-dusk">
                         {(() => {
                           const { total, completed } = calculateTotalOperations(status);
                           return `${completed} of ${total} operations completed`;
@@ -705,15 +705,15 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                       status.status === 'completed' 
-                        ? 'bg-sage text-white' 
-                        : 'bg-slate-300 text-slate-600'
+                        ? 'bg-sage text-paper' 
+                        : 'bg-ink/20 text-dusk'
                     }`}>
                       {status.status === 'completed' ? '✓' : '○'}
                     </div>
                     <div className="flex-1">
                       <p className="text-sm font-medium text-deep">Decryption Complete</p>
                       {status.completedAt && (
-                        <p className="text-xs text-slate-600">
+                        <p className="text-xs text-dusk">
                           {timezoneUtils.formatDateTime(status.completedAt)}
                         </p>
                       )}
@@ -729,12 +729,12 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
         <div className="border-t border-white/10 bg-ink/60 px-5 py-4 sm:px-6 flex justify-between items-center gap-3">
           <div className="flex-1">
             {status && status.status === 'failed' && (
-              <p className="text-sm text-red-600 font-medium">
+              <p className="text-sm text-ember font-medium">
                  Close this modal and submit the correct credentials file
               </p>
             )}
             {status && status.status === 'stopped' && (
-              <p className="text-sm text-amber-700 font-medium">
+              <p className="text-sm text-ink font-medium">
                  Decryption stopped. Submit credentials again to resume remaining chunks.
               </p>
             )}
@@ -748,7 +748,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
             {status && status.status === 'completed' && (
               <button
                 onClick={onClose}
-                className="px-6 py-2 bg-gradient-to-r from-green-600 to-emerald-600 text-white rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-md"
+                className="px-6 py-2 bg-gradient-to-r from-green-600 to-aurora-muted text-paper rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-md"
               >
                 ✓ Done
               </button>
@@ -756,7 +756,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
             {status && status.status === 'failed' && (
               <button
                 onClick={onClose}
-                className="px-6 py-2 bg-red-600 text-white rounded-lg font-semibold hover:bg-red-700 transition-colors shadow-md"
+                className="px-6 py-2 bg-ember text-paper rounded-lg font-semibold hover:bg-ember transition-colors shadow-md"
               >
                 Close & Retry
               </button>
@@ -764,7 +764,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
             {status && status.status === 'stopped' && (
               <button
                 onClick={onClose}
-                className="px-6 py-2 bg-amber-600 text-white rounded-lg font-semibold hover:bg-amber-700 transition-colors shadow-md"
+                className="px-6 py-2 bg-ceremonial text-ink rounded-lg font-semibold hover:bg-ceremonial transition-colors shadow-md"
               >
                 Close
               </button>
@@ -772,7 +772,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
             {status && status.status === 'in_progress' && (
               <button
                 onClick={onClose}
-                className="px-6 py-2 bg-gray-500 text-white rounded-lg font-semibold hover:bg-gray-600 transition-colors"
+                className="px-6 py-2 bg-ink text-paper rounded-lg font-semibold hover:bg-deep transition-colors"
               >
                 Close (Running in Background)
               </button>

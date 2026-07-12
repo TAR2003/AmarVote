@@ -140,7 +140,7 @@ const LoadingScreen = () => {
           left: 0;
           width: 100%;
           height: 100%;
-          background: linear-gradient(-45deg, #0B132B, #1C2541, #0B132B, #0096B4);
+          background: linear-gradient(-45deg, #12142B, #1A1C38, #12142B, #5C52C4);
           background-size: 400% 400%;
           animation: gradient 12s ease infinite;
         }
@@ -185,12 +185,12 @@ const LoadingScreen = () => {
           width: 60px;
           height: 60px;
           margin: 0 auto;
-          background: linear-gradient(135deg, #00B4D8, #0096B4);
+          background: linear-gradient(135deg, #8B7FE8, #5C52C4);
           border-radius: 16px;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
+          color: #F7F4EC;
           animation: bounce 2s infinite;
         }
 
@@ -200,9 +200,10 @@ const LoadingScreen = () => {
         }
 
         .brand-name {
+          font-family: "Fraunces", Georgia, serif;
           font-size: 2rem;
           font-weight: 700;
-          color: #0B132B;
+          color: #1B1D2E;
           margin: 0.5rem 0;
         }
 
@@ -392,8 +393,8 @@ const LoadingScreen = () => {
       <svg width="0" height="0">
         <defs>
           <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#00B4D8" />
-            <stop offset="100%" stopColor="#0096B4" />
+            <stop offset="0%" stopColor="#8B7FE8" />
+            <stop offset="100%" stopColor="#5C52C4" />
           </linearGradient>
         </defs>
       </svg>

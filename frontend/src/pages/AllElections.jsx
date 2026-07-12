@@ -84,14 +84,14 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
               className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                 election.isPublic 
                   ? 'bg-sage-soft text-sage' 
-                  : 'bg-amber-100 text-amber-800'
+                  : 'bg-ceremonial-soft text-ink'
               }`}
             >
               {election.isPublic ? 'Public' : 'Private'}
             </span>
           </div>
           
-          <p className="mt-1.5 text-sm text-slate-600">
+          <p className="mt-1.5 text-sm text-dusk">
             {election.electionDescription}
           </p>
 
@@ -101,7 +101,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
               <span
                 key={role}
                 className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                  role === 'admin' ? 'bg-red-100 text-red-800' :
+                  role === 'admin' ? 'bg-ember-soft text-ember' :
                   role === 'guardian' ? 'bg-glacier text-ink' :
                   'bg-glacier text-ink'
                 }`}
@@ -116,7 +116,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
             )}
           </div>
           
-          <div className="mt-4 flex flex-col gap-2 text-sm text-slate-600 sm:flex-row sm:flex-wrap sm:gap-x-6">
+          <div className="mt-4 flex flex-col gap-2 text-sm text-dusk sm:flex-row sm:flex-wrap sm:gap-x-6">
             <div className="flex items-center">
               <FiCalendar className="h-4 w-4 mr-1" />
               <span>
@@ -135,7 +135,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
             </div>
           </div>
           
-          <div className="mt-2 text-xs text-gray-400">
+          <div className="mt-2 text-xs text-dusk">
             Admin: {election.adminName ? `${election.adminName} (${election.adminEmail})` : election.adminEmail}
           </div>
         </div>
@@ -144,10 +144,10 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
           {status === "ongoing" && (
             <button                          className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold shadow-soft transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 sm:w-auto ${
                             election.hasVoted 
-                              ? 'cursor-not-allowed bg-slate-100 text-slate-600'
+                              ? 'cursor-not-allowed bg-frost text-dusk'
                               : (canUserVoteInElection(election) 
                                   ? 'text-paper bg-brand-dark hover:bg-brand focus:ring-brand' 
-                                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-400')
+                                  : 'bg-frost text-ink hover:bg-ink/10 focus:ring-slate-400')
                           }`}
                           onClick={handleActionClick}
                           disabled={election.hasVoted && canUserVoteInElection(election)}
@@ -219,9 +219,9 @@ const AllElections = () => {
       case "ongoing":
         return "bg-sage-soft text-sage";
       case "completed":
-        return "bg-slate-100 text-slate-700";
+        return "bg-frost text-ink";
       default:
-        return "bg-slate-100 text-slate-700";
+        return "bg-frost text-ink";
     }
   }, []);
 
@@ -349,16 +349,16 @@ const AllElections = () => {
         <div className="overflow-hidden rounded-3xl bg-deep shadow-lift">
           <div className="border-b border-white/10 px-5 py-7 sm:px-8 sm:py-9">
             <div className="animate-pulse">
-              <div className="mb-3 h-3 w-28 rounded-full bg-white/15"></div>
-              <div className="mb-3 h-9 w-1/2 rounded-xl bg-white/20"></div>
-              <div className="h-4 w-2/3 rounded-lg bg-white/10"></div>
+              <div className="mb-3 h-3 w-28 rounded-full bg-paper/15"></div>
+              <div className="mb-3 h-9 w-1/2 rounded-xl bg-paper/20"></div>
+              <div className="h-4 w-2/3 rounded-lg bg-paper/10"></div>
             </div>
           </div>
 
-          <div className="bg-white/5 px-5 py-4 sm:px-8">
+          <div className="bg-paper/5 px-5 py-4 sm:px-8">
             <div className="flex gap-2 overflow-hidden">
               {[...Array(8)].map((_, i) => (
-                <div key={i} className="h-9 w-20 shrink-0 rounded-xl bg-white/10"></div>
+                <div key={i} className="h-9 w-20 shrink-0 rounded-xl bg-paper/10"></div>
               ))}
             </div>
           </div>
@@ -376,25 +376,25 @@ const AllElections = () => {
   if (error) {
     return (
       <div className="page-enter">
-        <div className="overflow-hidden rounded-3xl border border-amber-200 bg-amber-50/70 shadow-soft">
-          <div className="h-1 bg-amber-400" />
+        <div className="overflow-hidden rounded-3xl border border-ceremonial/40 bg-ceremonial-soft/70 shadow-soft">
+          <div className="h-1 bg-ceremonial" />
           <div className="flex gap-4 p-5 sm:p-7">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-100">
-              <FiInfo className="h-5 w-5 text-amber-700" />
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-ceremonial-soft">
+              <FiInfo className="h-5 w-5 text-ink" />
             </div>
             <div>
-              <p className="section-kicker text-amber-700">Election directory</p>
+              <p className="section-kicker text-ink">Election directory</p>
               <h3 role="alert" className="mt-1 font-display text-xl font-semibold text-deep">
                 Could not load elections
               </h3>
-              <p className="mt-2 text-sm leading-6 text-amber-900/80">{error}</p>
+              <p className="mt-2 text-sm leading-6 text-ink/80">{error}</p>
               <button
                 type="button"
                 onClick={() => {
                   setError(null);
                   refreshElections(true).catch((err) => setError(getApiErrorMessage(err)));
                 }}
-                className="mt-5 inline-flex items-center rounded-xl border border-amber-300 bg-white px-4 py-2.5 text-sm font-semibold text-amber-900 shadow-soft transition-colors hover:bg-amber-100"
+                className="mt-5 inline-flex items-center rounded-xl border border-amber-300 bg-paper px-4 py-2.5 text-sm font-semibold text-ink shadow-soft transition-colors hover:bg-ceremonial-soft"
               >
                 Try again
               </button>
@@ -413,15 +413,15 @@ const AllElections = () => {
           <div className="absolute bottom-0 left-1/3 h-24 w-80 rounded-full bg-sage/10 blur-3xl" />
           <div className="relative">
             <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Election directory</p>
-            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">All Elections</h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-glacier sm:text-base">
+            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-paper sm:text-4xl">All Elections</h1>
+            <p className="mt-3 max-w-2xl text-sm leading-6 text-dusk-soft sm:text-base">
             View and participate in all elections you have access to
             </p>
           </div>
         </div>
 
-        <div className="border-t border-white/10 bg-white/5 px-3 py-3 sm:px-5 sm:py-4">
-          <div className="flex gap-1.5 overflow-x-auto rounded-2xl bg-black/15 p-1.5 scrollbar-hide">
+        <div className="border-t border-white/10 bg-paper/5 px-3 py-3 sm:px-5 sm:py-4">
+          <div className="flex gap-1.5 overflow-x-auto rounded-2xl bg-deep/20 p-1.5 scrollbar-hide">
             {[
               { key: "all", label: "All Elections", count: tabCounts.all },
               { key: "upcoming", label: "Upcoming", count: tabCounts.upcoming },
@@ -438,12 +438,12 @@ const AllElections = () => {
                 onClick={() => setFilter(tab.key)}
                 className={`whitespace-nowrap rounded-xl px-3 py-2 text-xs font-semibold transition-all sm:px-4 sm:text-sm ${
                   filter === tab.key
-                    ? "bg-white text-deep shadow-soft"
-                    : "text-glacier hover:bg-white/10 hover:text-white"
+                    ? "bg-paper text-deep shadow-soft"
+                    : "text-dusk-soft hover:bg-paper/10 hover:text-paper"
                 }`}
               >
                 {tab.label}
-                <span className={`ml-2 rounded-lg px-2 py-0.5 text-xs ${filter === tab.key ? "bg-glacier text-deep" : "bg-white/10 text-glacier"}`}>
+                <span className={`ml-2 rounded-lg px-2 py-0.5 text-xs ${filter === tab.key ? "bg-glacier text-deep" : "bg-paper/10 text-dusk-soft"}`}>
                   {tab.count}
                 </span>
               </button>
@@ -480,7 +480,7 @@ const AllElections = () => {
                   actionDisabled={status === "ongoing" && election.hasVoted && canVote}
                   secondaryAction={canDeleteElection(election) ? (
                         <button
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 shadow-soft transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-ember/30 bg-paper px-4 py-2.5 text-sm font-semibold text-ember shadow-soft transition-colors hover:bg-ember-soft focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                           onClick={(e) => handleRequestDelete(election, e)}
                           disabled={deletingElectionId === election.electionId}
                         >
@@ -500,7 +500,7 @@ const AllElections = () => {
               <h3 className="mt-2 font-display text-xl font-semibold text-deep">
                 No elections found
               </h3>
-              <p className="mt-1 text-sm text-slate-600">
+              <p className="mt-1 text-sm text-dusk">
                 {filter === "all"
                   ? "You don't have access to any elections at the moment."
                   : `No ${filter} elections found.`}
@@ -523,11 +523,11 @@ const AllElections = () => {
       </div>
 
       {electionToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-deep/50 px-4">
           <div className="glass-panel w-full max-w-md rounded-2xl p-5 shadow-lift sm:p-6">
-            <p className="section-kicker text-red-600">Permanent action</p>
+            <p className="section-kicker text-ember">Permanent action</p>
             <h3 className="mt-1 font-display text-xl font-semibold text-deep">Delete Election</h3>
-            <p className="mt-3 text-sm leading-relaxed text-slate-600">
+            <p className="mt-3 text-sm leading-relaxed text-dusk">
               Are you sure you want to permanently delete "{electionToDelete.electionTitle}"?
               This action cannot be undone.
             </p>
@@ -541,7 +541,7 @@ const AllElections = () => {
               </button>
               <button
                 onClick={handleConfirmDelete}
-                className="w-full rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-red-700 disabled:opacity-60 sm:w-auto"
+                className="w-full rounded-xl bg-ember px-4 py-2.5 text-sm font-semibold text-paper shadow-soft transition-colors hover:bg-ember disabled:opacity-60 sm:w-auto"
                 disabled={!!deletingElectionId}
               >
                 {deletingElectionId ? "Deleting..." : "Confirm Delete"}

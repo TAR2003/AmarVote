@@ -49,6 +49,6 @@ describe.skip("Home Component", () => {
     
     const nav = screen.getByRole("navigation");
     expect(nav).toBeInTheDocument();
-    expect(nav).toHaveClass("fixed", "w-full", "bg-white", "shadow-sm", "z-50");
+    expect(nav).toHaveClass("fixed", "w-full", "bg-paper", "shadow-sm", "z-50");
   });
 });

@@ -1,15 +1,13 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { FiChevronDown, FiCheck, FiGrid } from "react-icons/fi";
 
 /**
- * Election section navigation.
- * Mobile: all tabs as scrollable chips + full section sheet.
- * Desktop: horizontal tabs with scroll fades.
+ * Election section navigation — Ink & Indigo.
+ * Mobile: compact fixed bottom bar (stays visible while scrolling).
+ * Desktop: horizontal top tabs with scroll fades when needed.
  */
 export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
-  const [sheetOpen, setSheetOpen] = useState(false);
   const listRef = useRef(null);
-  const mobileChipsRef = useRef(null);
+  const mobileBottomRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
 
@@ -38,20 +36,6 @@ export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
   }, [tabs]);
 
   useEffect(() => {
-    if (!sheetOpen) return undefined;
-    const onKey = (e) => {
-      if (e.key === "Escape") setSheetOpen(false);
-    };
-    document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
-    document.body.style.overflow = "hidden";
-    return () => {
-      document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-    };
-  }, [sheetOpen]);
-
-  useEffect(() => {
     const el = listRef.current;
     if (el && activeKey) {
       el.querySelector(`[data-tab-key="${activeKey}"]`)?.scrollIntoView({
@@ -60,7 +44,7 @@ export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
         behavior: "smooth",
       });
     }
-    const mobileEl = mobileChipsRef.current;
+    const mobileEl = mobileBottomRef.current;
     if (mobileEl && activeKey) {
       mobileEl.querySelector(`[data-mobile-tab="${activeKey}"]`)?.scrollIntoView({
         inline: "center",
@@ -72,86 +56,36 @@ export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
 
   const select = (key) => {
     onSelect?.(key);
-    setSheetOpen(false);
   };
 
   if (!tabs.length) return null;
 
-  const ActiveIcon = activeTab?.icon;
-
   return (
     <>
-      {/* Mobile: current section + ALL tabs as chips */}
-      <div className="sticky top-0 z-20 border-b border-slate-200/80 bg-white/95 backdrop-blur-md md:hidden">
-        <div className="mx-auto max-w-7xl px-3 py-2.5">
-          <div className="flex gap-2">
-            <button
-              type="button"
-              onClick={() => setSheetOpen(true)}
-              className="flex min-w-0 flex-1 items-center gap-3 rounded-2xl border border-slate-200/90 bg-frost px-3 py-2.5 text-left shadow-soft transition active:scale-[0.99]"
-              aria-haspopup="dialog"
-              aria-expanded={sheetOpen}
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-glow text-paper shadow-soft">
-                {ActiveIcon ? <ActiveIcon className="h-4 w-4" /> : null}
-              </span>
-              <span className="min-w-0 flex-1">
-                <span className="block text-[10px] font-semibold uppercase tracking-[0.16em] text-brand-dark">
-                  Section · {tabs.length} available
-                </span>
-                <span className="block truncate font-display text-[15px] font-semibold text-deep">
-                  {activeTab?.name || "Navigate"}
-                </span>
-              </span>
-              <FiChevronDown className="h-5 w-5 shrink-0 text-slate-400" />
-            </button>
-            <button
-              type="button"
-              onClick={() => setSheetOpen(true)}
-              className="flex h-[3.25rem] w-12 shrink-0 items-center justify-center rounded-2xl border border-slate-200 bg-white text-ink shadow-soft"
-              aria-label="Show all election sections"
-            >
-              <FiGrid className="h-5 w-5" />
-            </button>
-          </div>
-
-          <div
-            ref={mobileChipsRef}
-            className="mt-2.5 -mx-0.5 flex gap-1.5 overflow-x-auto px-0.5 pb-0.5 scrollbar-hide"
-            aria-label="All election sections"
-          >
-            {tabs.map((tab) => {
-              const Icon = tab.icon;
-              const isActive = tab.key === activeKey;
-              return (
-                <button
-                  key={tab.key}
-                  type="button"
-                  data-mobile-tab={tab.key}
-                  onClick={() => select(tab.key)}
-                  className={`inline-flex shrink-0 items-center gap-1.5 rounded-xl px-3 py-2 text-xs font-semibold transition ${
-                    isActive
-                      ? "bg-deep text-white shadow-soft"
-                      : "bg-white text-slate-600 ring-1 ring-slate-200"
-                  }`}
-                >
-                  {Icon ? <Icon className="h-3.5 w-3.5" /> : null}
-                  <span>{tab.shortName || tab.name}</span>
-                </button>
-              );
-            })}
-          </div>
+      {/* Mobile — current section label only (compact, does not steal the viewport) */}
+      <div className="sticky top-0 z-20 border-b border-ink/10 bg-paper/95 backdrop-blur-md md:hidden">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2.5">
+          <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-dark">
+            Section
+          </p>
+          <p className="min-w-0 truncate text-sm font-medium text-ink">
+            <span className="text-dusk">
+              {tabs.findIndex((t) => t.key === activeKey) + 1}/{tabs.length}
+            </span>
+            <span className="mx-1.5 text-ink/20">·</span>
+            {activeTab?.name}
+          </p>
         </div>
       </div>
 
       {/* Desktop tabs */}
-      <div className="relative hidden border-b border-slate-200/80 bg-white/90 backdrop-blur-sm md:block">
+      <div className="relative hidden border-b border-ink/10 bg-paper/90 backdrop-blur-sm md:block">
         <div className="relative mx-auto max-w-7xl px-4 lg:px-8">
           {canScrollLeft && (
-            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-white to-transparent" />
+            <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-10 bg-gradient-to-r from-paper to-transparent" />
           )}
           {canScrollRight && (
-            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-white to-transparent" />
+            <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-10 bg-gradient-to-l from-paper to-transparent" />
           )}
           <div
             ref={listRef}
@@ -168,10 +102,11 @@ export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
                     type="button"
                     data-tab-key={menu.key}
                     onClick={() => select(menu.key)}
-                    className={`flex items-center gap-2 whitespace-nowrap rounded-t-xl px-3.5 py-3.5 text-sm font-medium transition-colors ${
+                    aria-current={isActive ? "page" : undefined}
+                    className={`flex items-center gap-2 whitespace-nowrap rounded-t-xl px-3.5 py-3.5 text-base font-medium transition-colors ${
                       isActive
-                        ? "border-b-2 border-brand bg-glacier/50 text-brand-dark"
-                        : "border-b-2 border-transparent text-slate-500 hover:bg-frost hover:text-ink"
+                        ? "border-b-2 border-brand bg-brand-soft/50 text-brand-dark"
+                        : "border-b-2 border-transparent text-dusk hover:bg-frost hover:text-ink"
                     }`}
                   >
                     {Icon ? <Icon className="h-4 w-4 shrink-0" /> : null}
@@ -184,69 +119,43 @@ export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
         </div>
       </div>
 
-      {/* Mobile full section sheet */}
-      {sheetOpen && (
-        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true" aria-label="Election sections">
-          <button
-            type="button"
-            className="absolute inset-0 bg-deep/45 backdrop-blur-[2px]"
-            aria-label="Close sections"
-            onClick={() => setSheetOpen(false)}
-          />
-          <div className="absolute inset-x-0 bottom-0 max-h-[82dvh] animate-fade-up overflow-hidden rounded-t-3xl bg-white shadow-glass">
-            <div className="flex justify-center pt-3">
-              <span className="h-1 w-10 rounded-full bg-slate-200" />
-            </div>
-            <div className="border-b border-slate-100 px-5 pb-3 pt-2">
-              <p className="section-kicker">All sections</p>
-              <h2 className="mt-1 font-display text-xl font-bold text-deep">
-                {tabs.length} places in this election
-              </h2>
-            </div>
-            <div className="overflow-y-auto px-3 pb-[max(1.25rem,env(safe-area-inset-bottom))] pt-2">
-              <ul className="space-y-1">
-                {tabs.map((tab, index) => {
-                  const Icon = tab.icon;
-                  const isActive = tab.key === activeKey;
-                  return (
-                    <li key={tab.key}>
-                      <button
-                        type="button"
-                        onClick={() => select(tab.key)}
-                        className={`flex w-full items-center gap-3 rounded-2xl px-3.5 py-3.5 text-left transition ${
-                          isActive
-                            ? "bg-glacier text-brand-dark ring-1 ring-brand/25"
-                            : "text-ink hover:bg-frost"
-                        }`}
-                      >
-                        <span className="w-5 shrink-0 text-center text-xs font-semibold text-slate-400">
-                          {index + 1}
-                        </span>
-                        <span
-                          className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                            isActive ? "bg-brand-glow text-paper" : "bg-frost text-slate-500"
-                          }`}
-                        >
-                          {Icon ? <Icon className="h-5 w-5" /> : null}
-                        </span>
-                        <span className="min-w-0 flex-1">
-                          <span className="block font-display text-[15px] font-semibold">
-                            {tab.name}
-                          </span>
-                          {tab.hint ? (
-                            <span className="mt-0.5 block text-xs text-slate-500">{tab.hint}</span>
-                          ) : null}
-                        </span>
-                        {isActive ? <FiCheck className="h-5 w-5 shrink-0 text-brand" /> : null}
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            </div>
-          </div>
+      {/* Mobile — fixed bottom section bar (replaces app Home/Elections nav on this page) */}
+      <nav
+        className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-deep/95 backdrop-blur-lg shadow-nav safe-pb"
+        aria-label="Election sections"
+      >
+        <div
+          ref={mobileBottomRef}
+          className="flex gap-1 overflow-x-auto px-2 py-1.5 scrollbar-hide"
+        >
+          {tabs.map((tab) => {
+            const Icon = tab.icon;
+            const isActive = tab.key === activeKey;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                data-mobile-tab={tab.key}
+                onClick={() => select(tab.key)}
+                aria-current={isActive ? "page" : undefined}
+                className={`flex min-w-[4.25rem] shrink-0 flex-col items-center justify-center rounded-xl px-2 py-2 text-[10px] font-semibold transition-colors ${
+                  isActive
+                    ? "bg-brand/25 text-paper"
+                    : "text-dusk-soft hover:bg-paper/5 hover:text-paper"
+                }`}
+              >
+                {Icon ? (
+                  <Icon
+                    className={`mb-0.5 h-4 w-4 ${isActive ? "text-brand-light" : ""}`}
+                    aria-hidden="true"
+                  />
+                ) : null}
+                <span className="max-w-[4.5rem] truncate">{tab.shortName || tab.name}</span>
+              </button>
+            );
+          })}
         </div>
-      )}
+      </nav>
     </>
   );
 }

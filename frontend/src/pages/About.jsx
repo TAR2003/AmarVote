@@ -4,38 +4,38 @@ import Layout from "./Layout";
 import MarketingHero, { MarketingTabs } from "../components/MarketingHero";
 
 const TRow = ({ label, value, sub }) => (
-  <tr className="border-b border-gray-100 even:bg-gray-50">
-    <td className="py-2.5 px-4 text-sm font-medium text-gray-700 whitespace-nowrap">{label}</td>
-    <td className="py-2.5 px-4 text-sm text-gray-900 font-semibold">{value}</td>
-    {sub && <td className="py-2.5 px-4 text-xs text-gray-500">{sub}</td>}
+  <tr className="border-b border-ink/10 even:bg-frost">
+    <td className="py-2.5 px-4 text-sm font-medium text-dusk whitespace-nowrap">{label}</td>
+    <td className="py-2.5 px-4 text-sm text-ink font-semibold">{value}</td>
+    {sub && <td className="py-2.5 px-4 text-xs text-dusk">{sub}</td>}
   </tr>
 );
 
 const ServiceCard = ({ icon, name, color, tags, description }) => {
   const colors = {
     blue: "border-brand/20 bg-glacier",
-    green: "border-green-200 bg-sage-soft",
-    orange: "border-orange-200 bg-orange-50",
+    green: "border-aurora/30 bg-sage-soft",
+    orange: "border-ceremonial/40 bg-ceremonial-soft",
     teal: "border-teal-200 bg-teal-50",
     indigo: "border-brand/25 bg-glacier",
-    red: "border-red-200 bg-red-50",
-    gray: "border-gray-200 bg-gray-50",
+    red: "border-ember/30 bg-ember-soft",
+    gray: "border-ink/10 bg-frost",
   };
   const tagColor = {
     blue: "bg-glacier text-brand-dark",
     green: "bg-sage-soft text-sage",
-    orange: "bg-orange-100 text-orange-700",
+    orange: "bg-ceremonial-soft text-ink",
     teal: "bg-teal-100 text-teal-700",
     indigo: "bg-glacier text-ink",
-    red: "bg-red-100 text-red-700",
-    gray: "bg-gray-100 text-gray-700",
+    red: "bg-ember-soft text-ember",
+    gray: "bg-frost text-dusk",
   };
   return (
     <div className={`rounded-2xl border p-5 ${colors[color]}`}>
       <div className="flex items-center gap-3 mb-2">
         <span className="font-display font-bold text-deep">{name}</span>
       </div>
-      <p className="text-sm text-gray-600 mb-3">{description}</p>
+      <p className="text-sm text-dusk mb-3">{description}</p>
       <div className="flex flex-wrap gap-1">
         {tags.map((t) => (
           <span key={t} className={`text-xs px-2 py-0.5 rounded-full font-semibold ${tagColor[color]}`}>{t}</span>
@@ -89,8 +89,8 @@ function About() {
         {tab === "overview" && (
           <div className="space-y-10">
             <div className="text-center max-w-3xl mx-auto">
-              <h2 className="text-2xl font-bold text-gray-900 mb-3">What is AmarVote?</h2>
-              <p className="text-gray-600 leading-relaxed">
+              <h2 className="text-2xl font-bold text-ink mb-3">What is AmarVote?</h2>
+              <p className="text-dusk leading-relaxed">
                 AmarVote is a fully self-hosted, end-to-end verifiable e-voting platform. Every ballot is encrypted by
                 ElectionGuard&apos;s ElGamal scheme under the election&apos;s joint public key before it is recorded as a cast
                 ballot. Homomorphic tallying accumulates encrypted votes without decrypting individual ballots, and a threshold
@@ -116,11 +116,11 @@ function About() {
 
             {/* Roles */}
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Three Participant Roles</h2>
+              <h2 className="text-xl font-bold text-ink mb-4">Three Participant Roles</h2>
               <div className="grid md:grid-cols-3 gap-5">
                 <div className="rounded-2xl border border-brand/20 bg-glacier p-5">
                   <div className="font-display font-bold text-ink mb-2 text-lg">Voter</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
+                  <ul className="text-sm text-dusk space-y-1">
                     <li>→ OTP login (email, no password)</li>
                     <li>→ Browse eligible elections</li>
                     <li>→ Cast encrypted ballot or challenge (Benaloh)</li>
@@ -130,7 +130,7 @@ function About() {
                 </div>
                 <div className="rounded-2xl border border-brand/25 bg-glacier p-5">
                   <div className="font-display font-bold text-ink mb-2 text-lg">Guardian</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
+                  <ul className="text-sm text-dusk space-y-1">
                     <li>→ Receives ML-KEM-1024 encrypted credential.json</li>
                     <li>→ Holds ElGamal private key share s_i</li>
                     <li>→ Submits credentials for decryption phase</li>
@@ -138,9 +138,9 @@ function About() {
                     <li>→ Absent guardians covered by Lagrange compensation</li>
                   </ul>
                 </div>
-                <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5">
-                  <div className="font-display font-bold text-orange-800 mb-2 text-lg">Admin</div>
-                  <ul className="text-sm text-gray-700 space-y-1">
+                <div className="rounded-2xl border border-ceremonial/40 bg-ceremonial-soft p-5">
+                  <div className="font-display font-bold text-ink mb-2 text-lg">Admin</div>
+                  <ul className="text-sm text-dusk space-y-1">
                     <li>→ Create elections with guardian parameters</li>
                     <li>→ Manage voter eligibility lists</li>
                     <li>→ Monitor RabbitMQ + Redis via dashboard</li>
@@ -152,8 +152,8 @@ function About() {
             </div>
 
             {/* Public pages */}
-            <div className="bg-gray-50 rounded-2xl border border-gray-200 p-6">
-              <h2 className="text-lg font-bold text-gray-900 mb-3">Public Pages (no login required)</h2>
+            <div className="bg-frost rounded-2xl border border-ink/10 p-6">
+              <h2 className="text-lg font-bold text-ink mb-3">Public Pages (no login required)</h2>
               <div className="grid sm:grid-cols-3 gap-3">
                 {[
                   ["/", "Home", "Platform overview, architecture, RabbitMQ, roles, video demos"],
@@ -163,10 +163,10 @@ function About() {
                   ["/security", "Security", "7-tab: ElGamal, ML-KEM, ZK Proofs, Benaloh, Auth, Transport"],
                   ["/about", "About", "This page"],
                 ].map(([path, name, desc]) => (
-                  <Link key={path} to={path} className="block rounded-xl border border-gray-200 bg-white p-4 hover:border-blue-300 transition">
-                    <div className="font-bold text-gray-900 text-sm">{name}</div>
+                  <Link key={path} to={path} className="block rounded-xl border border-ink/10 bg-paper p-4 hover:border-brand/30 transition">
+                    <div className="font-bold text-ink text-sm">{name}</div>
                     <div className="text-xs text-brand font-mono mb-1">{path}</div>
-                    <div className="text-xs text-gray-500">{desc}</div>
+                    <div className="text-xs text-dusk">{desc}</div>
                   </Link>
                 ))}
               </div>
@@ -178,10 +178,10 @@ function About() {
         {tab === "stack" && (
           <div className="space-y-8">
             <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-4">Complete Technology Stack</h2>
-              <div className="overflow-x-auto rounded-2xl border border-gray-200">
+              <h2 className="text-xl font-bold text-ink mb-4">Complete Technology Stack</h2>
+              <div className="overflow-x-auto rounded-2xl border border-ink/10">
                 <table className="w-full">
-                  <thead className="bg-gray-900 text-white text-sm">
+                  <thead className="bg-deep text-paper text-sm">
                     <tr>
                       <th className="text-left py-3 px-4">Library / Tool</th>
                       <th className="text-left py-3 px-4">Version</th>
@@ -220,7 +220,7 @@ function About() {
                     <TRow label="pika" value="1.3.x" sub="RabbitMQ AMQP 0.9 client for Python workers" />
                     <TRow label="msgpack-python" value="1.1" sub="Ballot blob deserialization in workers" />
 
-                    <tr className="bg-orange-50"><td colSpan={3} className="px-4 py-2 text-xs font-bold text-orange-700 uppercase tracking-wider">Infrastructure</td></tr>
+                    <tr className="bg-ceremonial-soft"><td colSpan={3} className="px-4 py-2 text-xs font-bold text-ink uppercase tracking-wider">Infrastructure</td></tr>
                     <TRow label="PostgreSQL" value="15" sub="Primary relational DB — 14-table schema" />
                     <TRow label="Redis" value="7 Alpine" sub="Guardian key cache (6h TTL), atomic counters, SET NX locks" />
                     <TRow label="RabbitMQ" value="3.13" sub="4 durable queues, prefetch=1, management UI on :15672" />
@@ -243,8 +243,8 @@ function About() {
         {/* SERVICES */}
         {tab === "services" && (
           <div className="space-y-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Microservices Architecture</h2>
-            <p className="text-gray-600 text-sm mb-6">All services run as isolated Docker containers on a 172.20.0.0/24 overlay network with static IPs.</p>
+            <h2 className="text-xl font-bold text-ink mb-2">Microservices Architecture</h2>
+            <p className="text-dusk text-sm mb-6">All services run as isolated Docker containers on a 172.20.0.0/24 overlay network with static IPs.</p>
 
             <div className="grid md:grid-cols-2 gap-5">
               <ServiceCard icon="🌐" name="React Frontend" color="blue"
@@ -275,10 +275,10 @@ function About() {
 
             {/* Network table */}
             <div>
-              <h3 className="text-lg font-bold text-gray-900 mb-3">Static IP Assignment (172.20.0.0/24)</h3>
-              <div className="overflow-x-auto rounded-2xl border border-gray-200">
+              <h3 className="text-lg font-bold text-ink mb-3">Static IP Assignment (172.20.0.0/24)</h3>
+              <div className="overflow-x-auto rounded-2xl border border-ink/10">
                 <table className="w-full text-sm">
-                  <thead className="bg-gray-900 text-white">
+                  <thead className="bg-deep text-paper">
                     <tr>
                       <th className="text-left py-2 px-4">IP</th>
                       <th className="text-left py-2 px-4">Service</th>
@@ -300,10 +300,10 @@ function About() {
                       ["172.20.0.91", "Grafana", "3000"],
                       ["172.20.0.101", "RAG Service", "8000"],
                     ].map(([ip, name, port]) => (
-                      <tr key={ip} className="border-b border-gray-100 even:bg-gray-50">
+                      <tr key={ip} className="border-b border-ink/10 even:bg-frost">
                         <td className="py-2 px-4 font-mono text-xs text-brand-dark">{ip}</td>
                         <td className="py-2 px-4">{name}</td>
-                        <td className="py-2 px-4 font-mono text-gray-500">{port}</td>
+                        <td className="py-2 px-4 font-mono text-dusk">{port}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -316,11 +316,11 @@ function About() {
         {/* CRYPTO */}
         {tab === "crypto" && (
           <div className="space-y-8">
-            <h2 className="text-xl font-bold text-gray-900 mb-2">Cryptographic Design</h2>
+            <h2 className="text-xl font-bold text-ink mb-2">Cryptographic Design</h2>
 
-            <div className="overflow-x-auto rounded-2xl border border-gray-200">
+            <div className="overflow-x-auto rounded-2xl border border-ink/10">
               <table className="w-full">
-                <thead className="bg-gray-900 text-white text-sm">
+                <thead className="bg-deep text-paper text-sm">
                   <tr>
                     <th className="text-left py-3 px-4">Algorithm</th>
                     <th className="text-left py-3 px-4">Standard</th>
@@ -345,10 +345,10 @@ function About() {
                     ["SHA-256", "FIPS 180-4", "Ballot tracking code (hash of all ciphertext pairs)"],
                     ["PKCS#7 padding", "RFC 5652", "Ballot request body padding to prevent traffic analysis"],
                   ].map(([a, s, u]) => (
-                    <tr key={a} className="border-b border-gray-100 even:bg-gray-50 text-sm">
-                      <td className="py-2.5 px-4 font-semibold text-gray-900">{a}</td>
+                    <tr key={a} className="border-b border-ink/10 even:bg-frost text-sm">
+                      <td className="py-2.5 px-4 font-semibold text-ink">{a}</td>
                       <td className="py-2.5 px-4 text-brand-dark font-mono text-xs">{s}</td>
-                      <td className="py-2.5 px-4 text-gray-600">{u}</td>
+                      <td className="py-2.5 px-4 text-dusk">{u}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -360,13 +360,13 @@ function About() {
               <Link to="/security">
                 <div className="rounded-2xl border border-brand/25 bg-glacier p-5 hover:border-brand transition cursor-pointer">
                   <div className="font-display font-bold text-ink mb-1">Security Deep Dive →</div>
-                  <p className="text-sm text-gray-600">Full mathematical proofs, pseudocode for ML-KEM-1024 flow, ZK proof formulas, and Benaloh protocol steps</p>
+                  <p className="text-sm text-dusk">Full mathematical proofs, pseudocode for ML-KEM-1024 flow, ZK proof formulas, and Benaloh protocol steps</p>
                 </div>
               </Link>
               <Link to="/architecture">
                 <div className="rounded-2xl border border-brand/20 bg-glacier p-5 hover:border-brand transition cursor-pointer">
                   <div className="font-display font-bold text-ink mb-1">Architecture Details →</div>
-                  <p className="text-sm text-gray-600">Service map, Docker network topology, 4-phase data flow, RabbitMQ queue configs, Redis key patterns</p>
+                  <p className="text-sm text-dusk">Service map, Docker network topology, 4-phase data flow, RabbitMQ queue configs, Redis key patterns</p>
                 </div>
               </Link>
             </div>
@@ -377,42 +377,42 @@ function About() {
         {tab === "team" && (
           <div className="space-y-8">
             <div className="text-center max-w-2xl mx-auto">
-              <h2 className="text-2xl font-bold text-gray-900 mb-3">Project Context</h2>
-              <p className="text-gray-600">AmarVote was built as a comprehensive demonstration of end-to-end verifiable voting using open-source cryptographic standards. The implementation follows the ElectionGuard 2.x specification published by Microsoft Research.</p>
+              <h2 className="text-2xl font-bold text-ink mb-3">Project Context</h2>
+              <p className="text-dusk">AmarVote was built as a comprehensive demonstration of end-to-end verifiable voting using open-source cryptographic standards. The implementation follows the ElectionGuard 2.x specification published by Microsoft Research.</p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-6">
-              <div className="rounded-2xl border border-gray-200 p-6">
-                <h3 className="font-display font-bold text-gray-900 mb-3">Repository Structure</h3>
-                <div className="font-mono text-xs text-gray-700 space-y-1 bg-gray-50 rounded-xl p-4">
+              <div className="rounded-2xl border border-ink/10 p-6">
+                <h3 className="font-display font-bold text-ink mb-3">Repository Structure</h3>
+                <div className="font-mono text-xs text-dusk space-y-1 bg-frost rounded-xl p-4">
                   <div><span className="text-brand">frontend/</span> — React 19.1 + Vite SPA</div>
                   <div><span className="text-sage">backend/</span> — Spring Boot 3.5 + Java 21</div>
                   <div><span className="text-brand-dark">Microservice/</span> — EG Fast API + Worker</div>
-                  <div><span className="text-teal-600">rag-service/</span> — LangChain + ChromaDB</div>
-                  <div><span className="text-red-600">Database/</span> — SQL init, cleanup, diagnostics</div>
-                  <div><span className="text-gray-600">prometheus/</span> — Metrics scraping config</div>
-                  <div><span className="text-gray-500">docker-compose.yml</span> — Dev configuration</div>
-                  <div><span className="text-gray-500">docker-compose.prod.yml</span> — Production config</div>
+                  <div><span className="text-aurora-muted">rag-service/</span> — LangChain + ChromaDB</div>
+                  <div><span className="text-ember">Database/</span> — SQL init, cleanup, diagnostics</div>
+                  <div><span className="text-dusk">prometheus/</span> — Metrics scraping config</div>
+                  <div><span className="text-dusk">docker-compose.yml</span> — Dev configuration</div>
+                  <div><span className="text-dusk">docker-compose.prod.yml</span> — Production config</div>
                 </div>
               </div>
-              <div className="rounded-2xl border border-gray-200 p-6">
-                <h3 className="font-display font-bold text-gray-900 mb-3">License & Compliance</h3>
+              <div className="rounded-2xl border border-ink/10 p-6">
+                <h3 className="font-display font-bold text-ink mb-3">License & Compliance</h3>
                 <div className="space-y-3">
-                  <div className="rounded-xl bg-sage-soft border border-green-200 p-3">
-                    <div className="font-semibold text-emerald-800 text-sm">AmarVote</div>
-                    <div className="text-xs text-gray-600">MIT License — free to use, modify, and distribute</div>
+                  <div className="rounded-xl bg-sage-soft border border-aurora/30 p-3">
+                    <div className="font-semibold text-aurora-muted text-sm">AmarVote</div>
+                    <div className="text-xs text-dusk">MIT License — free to use, modify, and distribute</div>
                   </div>
                   <div className="rounded-xl bg-glacier border border-brand/20 p-3">
                     <div className="font-semibold text-ink text-sm">ElectionGuard SDK</div>
-                    <div className="text-xs text-gray-600">MIT License (Microsoft) — open-source cryptographic library</div>
+                    <div className="text-xs text-dusk">MIT License (Microsoft) — open-source cryptographic library</div>
                   </div>
                   <div className="rounded-xl bg-glacier border border-brand/25 p-3">
                     <div className="font-semibold text-ink text-sm">NIST FIPS 203 / ML-KEM-1024</div>
-                    <div className="text-xs text-gray-600">CRYSTALS-Kyber — standardized post-quantum KEM algorithm</div>
+                    <div className="text-xs text-dusk">CRYSTALS-Kyber — standardized post-quantum KEM algorithm</div>
                   </div>
-                  <div className="rounded-xl bg-orange-50 border border-orange-200 p-3">
-                    <div className="font-semibold text-orange-800 text-sm">Spring Boot / Java 21</div>
-                    <div className="text-xs text-gray-600">Apache 2.0 + Oracle JDK license</div>
+                  <div className="rounded-xl bg-ceremonial-soft border border-ceremonial/40 p-3">
+                    <div className="font-semibold text-ink text-sm">Spring Boot / Java 21</div>
+                    <div className="text-xs text-dusk">Apache 2.0 + Oracle JDK license</div>
                   </div>
                 </div>
               </div>
@@ -420,19 +420,19 @@ function About() {
 
             {/* Video demos */}
             <div>
-              <h3 className="font-display font-bold text-gray-900 mb-3 text-lg">Demo Videos</h3>
+              <h3 className="font-display font-bold text-ink mb-3 text-lg">Demo Videos</h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 <a href="https://youtu.be/ixsvvl_7qVo" target="_blank" rel="noreferrer"
-                  className="block rounded-2xl border border-gray-200 bg-gray-50 p-5 hover:border-blue-300 transition">
-                  <div className="font-bold text-gray-900">Demo 1 — Full Election Walkthrough</div>
+                  className="block rounded-2xl border border-ink/10 bg-frost p-5 hover:border-brand/30 transition">
+                  <div className="font-bold text-ink">Demo 1 — Full Election Walkthrough</div>
                   <div className="text-xs text-brand mt-1">youtu.be/ixsvvl_7qVo</div>
-                  <p className="text-sm text-gray-600 mt-2">Admin election creation, voter ballot casting, Benaloh challenge, decryption phase, and results animation.</p>
+                  <p className="text-sm text-dusk mt-2">Admin election creation, voter ballot casting, Benaloh challenge, decryption phase, and results animation.</p>
                 </a>
                 <a href="https://youtu.be/t8VOLdYIV40" target="_blank" rel="noreferrer"
-                  className="block rounded-2xl border border-gray-200 bg-gray-50 p-5 hover:border-blue-300 transition">
-                  <div className="font-bold text-gray-900">Demo 2 — Guardian Decryption</div>
+                  className="block rounded-2xl border border-ink/10 bg-frost p-5 hover:border-brand/30 transition">
+                  <div className="font-bold text-ink">Demo 2 — Guardian Decryption</div>
                   <div className="text-xs text-brand mt-1">youtu.be/t8VOLdYIV40</div>
-                  <p className="text-sm text-gray-600 mt-2">Guardian credential submission, ML-KEM-1024 decryption flow, RabbitMQ worker processing, Lagrange combination, and result reveal.</p>
+                  <p className="text-sm text-dusk mt-2">Guardian credential submission, ML-KEM-1024 decryption flow, RabbitMQ worker processing, Lagrange combination, and result reveal.</p>
                 </a>
               </div>
             </div>
@@ -443,18 +443,18 @@ function About() {
         <div className="mt-12 bg-gradient-to-r from-gray-900 to-deep rounded-2xl p-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
-              <h2 className="text-xl font-bold text-white mb-2">Explore the full platform</h2>
-              <p className="text-gray-400 text-sm">Every section of AmarVote is open and auditable — from source code to cryptographic proofs.</p>
+              <h2 className="text-xl font-bold text-paper mb-2">Explore the full platform</h2>
+              <p className="text-dusk text-sm">Every section of AmarVote is open and auditable — from source code to cryptographic proofs.</p>
             </div>
             <div className="flex flex-wrap gap-3">
               <Link to="/architecture">
                 <button className="px-5 py-2.5 bg-brand-dark text-paper font-semibold rounded-xl hover:bg-brand-dark transition text-sm">Architecture →</button>
               </Link>
               <Link to="/security">
-                <button className="px-5 py-2.5 bg-ink text-white font-semibold rounded-xl hover:bg-brand-dark transition text-sm">Security →</button>
+                <button className="px-5 py-2.5 bg-ink text-paper font-semibold rounded-xl hover:bg-brand-dark transition text-sm">Security →</button>
               </Link>
               <Link to="/how-it-works">
-                <button className="px-5 py-2.5 border border-white/30 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">How It Works →</button>
+                <button className="px-5 py-2.5 border border-white/30 text-paper font-semibold rounded-xl hover:bg-paper/10 transition text-sm">How It Works →</button>
               </Link>
             </div>
           </div>

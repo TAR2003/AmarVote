@@ -54,7 +54,7 @@ const Layout = ({ children }) => {
                 className={`relative rounded-lg px-3 py-2 text-base font-medium transition duration-200 ${
                   isActiveRoute(path)
                     ? "text-paper"
-                    : "text-dusk-soft hover:bg-white/5 hover:text-paper"
+                    : "text-dusk-soft hover:bg-paper/5 hover:text-paper"
                 }`}
               >
                 {label}
@@ -74,7 +74,7 @@ const Layout = ({ children }) => {
             </Link>
             <button
               type="button"
-              className="inline-flex rounded-xl p-2 text-slate-300 transition hover:bg-white/10 hover:text-white md:hidden"
+              className="inline-flex rounded-xl p-2 text-dusk-soft transition hover:bg-paper/10 hover:text-paper md:hidden"
               aria-label={mobileOpen ? "Close menu" : "Open menu"}
               aria-expanded={mobileOpen}
               onClick={() => setMobileOpen((v) => !v)}
@@ -98,7 +98,7 @@ const Layout = ({ children }) => {
                 className={`block rounded-xl px-3 py-3 text-base font-medium transition ${
                   isActiveRoute(path)
                     ? "bg-brand/15 text-paper"
-                    : "text-dusk-soft hover:bg-white/5 hover:text-paper"
+                    : "text-dusk-soft hover:bg-paper/5 hover:text-paper"
                 }`}
               >
                 {label}
@@ -108,7 +108,7 @@ const Layout = ({ children }) => {
               <Link
                 to="/login"
                 onClick={() => setMobileOpen(false)}
-                className="rounded-xl border border-white/20 py-2.5 text-center text-sm font-semibold text-white"
+                className="rounded-xl border border-white/20 py-2.5 text-center text-sm font-semibold text-paper"
               >
                 Log in
               </Link>

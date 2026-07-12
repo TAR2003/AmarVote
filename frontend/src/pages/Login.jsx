@@ -129,7 +129,7 @@ export default function Login({ setUserEmail }) {
             <h1 className="mt-2 font-display text-2xl font-bold text-deep sm:text-3xl">
               {stage === STAGES.IDLE ? "Sign in to AmarVote" : "Verify your identity"}
             </h1>
-            <p className="mt-2 text-sm text-slate-600">
+            <p className="mt-2 text-sm text-dusk">
               {stage === STAGES.IDLE
                 ? returnPath
                   ? "Sign in and we’ll return you to the election you were opening."
@@ -139,7 +139,7 @@ export default function Login({ setUserEmail }) {
           </div>
 
           {error && (
-            <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700" role="alert">
+            <div className="mb-4 rounded-xl border border-ember/30 bg-ember-soft px-4 py-3 text-sm text-ember" role="alert">
               {error}
             </div>
           )}
@@ -147,7 +147,7 @@ export default function Login({ setUserEmail }) {
           {stage === STAGES.IDLE ? (
             <form className="space-y-4" onSubmit={handleLogin}>
               <div>
-                <label htmlFor="login-email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <label htmlFor="login-email" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-dusk">
                   Email
                 </label>
                 <input
@@ -162,7 +162,7 @@ export default function Login({ setUserEmail }) {
                 />
               </div>
               <div>
-                <label htmlFor="login-password" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-slate-500">
+                <label htmlFor="login-password" className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-dusk">
                   Password
                 </label>
                 <PasswordInput
@@ -186,7 +186,7 @@ export default function Login({ setUserEmail }) {
                 </Link>
               </div>
 
-              <p className="text-center text-sm text-slate-600">
+              <p className="text-center text-sm text-dusk">
                 New here?{" "}
                 <Link className="link-brand font-semibold" to={registerHref}>
                   Create an account

@@ -130,14 +130,14 @@ export default function OtpLogin({ setUserEmail }) {
 
   return (
     <Layout>
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-blue-50 to-blue-100 py-12 px-4 sm:px-6 lg:px-8">
+      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-frost to-brand-soft py-12 px-4 sm:px-6 lg:px-8">
         <div className="w-full max-w-md space-y-8">
           <div className="text-center">
             <span className="text-5xl">🔐</span>
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            <h2 className="mt-6 text-3xl font-extrabold text-ink">
               {step === 1 ? "Sign in to AmarVote" : "Enter Verification Code"}
             </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-dusk">
               {step === 1
                 ? "We'll send a verification code to your email"
                 : `Code sent to ${email}`}
@@ -145,8 +145,8 @@ export default function OtpLogin({ setUserEmail }) {
           </div>
 
           {error && (
-            <div className="rounded-md bg-red-50 p-4 border-l-4 border-red-500">
-              <p className="text-sm text-red-700">{error}</p>
+            <div className="rounded-md bg-ember-soft p-4 border-l-4 border-red-500">
+              <p className="text-sm text-ember">{error}</p>
             </div>
           )}
 
@@ -156,11 +156,11 @@ export default function OtpLogin({ setUserEmail }) {
             </div>
           )}
 
-          <div className="bg-white py-8 px-6 shadow rounded-lg sm:px-10 border border-gray-200">
+          <div className="bg-paper py-8 px-6 shadow rounded-lg sm:px-10 border border-ink/10">
             {step === 1 ? (
               <form className="space-y-6" onSubmit={handleRequestOTP}>
                 <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="email" className="block text-sm font-medium text-dusk">
                     Email address
                   </label>
                   <div className="mt-1">
@@ -172,7 +172,7 @@ export default function OtpLogin({ setUserEmail }) {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand focus:border-brand sm:text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-ink/15 rounded-md shadow-sm placeholder:text-dusk focus:outline-none focus:ring-brand focus:border-brand sm:text-sm"
                       placeholder="you@example.com"
                     />
                   </div>
@@ -195,7 +195,7 @@ export default function OtpLogin({ setUserEmail }) {
             ) : (
               <form className="space-y-6" onSubmit={handleVerifyOTP}>
                 <div>
-                  <label htmlFor="otpCode" className="block text-sm font-medium text-gray-700">
+                  <label htmlFor="otpCode" className="block text-sm font-medium text-dusk">
                     Verification Code
                   </label>
                   <div className="mt-1">
@@ -208,19 +208,19 @@ export default function OtpLogin({ setUserEmail }) {
                       required
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand focus:border-brand text-center text-2xl tracking-widest font-mono"
+                      className="appearance-none block w-full px-3 py-2 border border-ink/15 rounded-md shadow-sm placeholder:text-dusk focus:outline-none focus:ring-brand focus:border-brand text-center text-2xl tracking-widest font-mono"
                       placeholder="000000"
                       autoComplete="off"
                     />
                   </div>
-                  <p className="mt-2 text-sm text-gray-500 text-center">
+                  <p className="mt-2 text-sm text-dusk text-center">
                     {timeLeft > 0 ? (
                       <>
                         Code expires in{" "}
                         <span className="font-semibold text-brand">{formatTime(timeLeft)}</span>
                       </>
                     ) : (
-                      <span className="text-red-600 font-semibold">Code expired</span>
+                      <span className="text-ember font-semibold">Code expired</span>
                     )}
                   </p>
                 </div>
@@ -244,7 +244,7 @@ export default function OtpLogin({ setUserEmail }) {
                     type="button"
                     onClick={handleResendOTP}
                     disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
-                    className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className="w-full py-2 px-4 border border-ink/15 rounded-md shadow-sm text-sm font-medium text-dusk bg-paper hover:bg-frost focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand disabled:bg-frost disabled:cursor-not-allowed"
                   >
                     Resend Code
                   </button>
@@ -267,7 +267,7 @@ export default function OtpLogin({ setUserEmail }) {
             )}
           </div>
 
-          <p className="text-center text-xs text-gray-600">
+          <p className="text-center text-xs text-dusk">
             By signing in, you agree to AmarVote's secure voting protocols
           </p>
         </div>

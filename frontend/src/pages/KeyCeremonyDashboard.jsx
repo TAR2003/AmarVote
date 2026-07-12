@@ -254,31 +254,31 @@ export default function KeyCeremonyDashboard() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-paper rounded-lg shadow p-4">
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <FiKey /> Key Ceremony Dashboard
         </h2>
-        <p className="text-sm text-gray-600 mt-1">
+        <p className="text-sm text-dusk mt-1">
           Keep private key and polynomial on-device. Submit public key and your local AES password to backend.
         </p>
       </div>
 
-      {message && <div className="bg-sage-soft border border-green-200 text-emerald-800 p-3 rounded">{message}</div>}
-      {error && <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded">{error}</div>}
+      {message && <div className="bg-sage-soft border border-aurora/30 text-aurora-muted p-3 rounded">{message}</div>}
+      {error && <div className="bg-ember-soft border border-ember/30 text-ember p-3 rounded">{error}</div>}
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-paper rounded-lg shadow p-4">
         <h3 className="font-semibold mb-3">Guardian Key Ceremony Tasks</h3>
         {pending.length === 0 ? (
-          <p className="text-gray-600 text-sm">No pending key ceremony tasks.</p>
+          <p className="text-dusk text-sm">No pending key ceremony tasks.</p>
         ) : (
           <div className="space-y-4">
             {pending.map((item) => (
               <div key={item.electionId} className="border rounded p-3">
                 <div className="font-medium">{item.electionTitle}</div>
-                <div className="text-sm text-gray-600 mb-2">
+                <div className="text-sm text-dusk mb-2">
                   Round 1 (keypairs): {item.submittedGuardians}/{item.numberOfGuardians}
                 </div>
-                <div className="text-sm text-gray-600 mb-2">
+                <div className="text-sm text-dusk mb-2">
                   Round 2 (backup sharing): {item.submittedBackupGuardians || 0}/{item.numberOfGuardians}
                 </div>
 
@@ -287,7 +287,7 @@ export default function KeyCeremonyDashboard() {
                     <div className="flex flex-wrap gap-2 mb-3">
                       <button
                         onClick={() => handleGenerateCredentials(item)}
-                        className="px-3 py-2 bg-brand-dark text-white rounded"
+                        className="px-3 py-2 bg-brand-dark text-paper rounded"
                       >
                         Generate Credentials
                       </button>
@@ -296,21 +296,21 @@ export default function KeyCeremonyDashboard() {
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <textarea
                         readOnly
-                        className="border rounded px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                        className="border rounded px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none"
                         placeholder="Private key (generate credentials to fill)"
                         value={guardianForm[item.electionId]?.privateKey || ''}
                       />
 
                       <textarea
                         readOnly
-                        className="border rounded px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                        className="border rounded px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none"
                         placeholder="Public key JSON (generate credentials to fill)"
                         value={guardianForm[item.electionId]?.publicKey || ''}
                       />
 
                       <textarea
                         readOnly
-                        className="border rounded px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                        className="border rounded px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none"
                         placeholder="Polynomial (generate credentials to fill)"
                         value={guardianForm[item.electionId]?.polynomial || ''}
                       />
@@ -335,7 +335,7 @@ export default function KeyCeremonyDashboard() {
                       />
                       <button
                         onClick={() => handleGenerateLocalPassword(item.electionId)}
-                        className="px-3 py-2 bg-slate-700 text-white rounded"
+                        className="px-3 py-2 bg-ink text-paper rounded"
                       >
                         Generate Random AES-256 Password
                       </button>
@@ -350,7 +350,7 @@ export default function KeyCeremonyDashboard() {
                 )}
 
                 {item.currentRound === 'waiting_for_all_keypairs' && (
-                  <div className="mt-2 text-amber-700 bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+                  <div className="mt-2 text-ink bg-ceremonial-soft border border-ceremonial/40 rounded p-3 text-sm">
                     Your keypair is submitted. Waiting for all guardians to complete Round 1 before backup sharing starts.
                   </div>
                 )}
@@ -366,12 +366,12 @@ export default function KeyCeremonyDashboard() {
                       onChange={(e) => handleCredentialFileLoad(item.electionId, e.target.files?.[0])}
                     />
 
-                    <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2">
+                    <div className="text-xs text-dusk bg-frost border border-ink/10 rounded p-2">
                       Frontend never calls ElectionGuard microservice directly. Uploaded credentials.txt is sent to backend only for Round 2 backup generation.
                     </div>
 
                     {backupForm[item.electionId]?.credentialFileName && (
-                      <div className="text-xs text-sage bg-sage-soft border border-green-200 rounded p-2">
+                      <div className="text-xs text-sage bg-sage-soft border border-aurora/30 rounded p-2">
                         Loaded: {backupForm[item.electionId]?.credentialFileName}
                       </div>
                     )}
@@ -379,13 +379,13 @@ export default function KeyCeremonyDashboard() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => handleGenerateBackupShares(item)}
-                        className="px-3 py-2 bg-orange-600 text-white rounded"
+                        className="px-3 py-2 bg-ceremonial text-ink rounded"
                       >
                         Generate Backup Key Shares
                       </button>
                       <button
                         onClick={() => handleSubmitBackupShares(item.electionId)}
-                        className="px-3 py-2 bg-emerald-600 text-white rounded"
+                        className="px-3 py-2 bg-aurora-muted text-paper rounded"
                       >
                         Submit Encrypted Backup Shares
                       </button>
@@ -419,12 +419,12 @@ export default function KeyCeremonyDashboard() {
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-paper rounded-lg shadow p-4">
         <h3 className="font-semibold mb-3 flex items-center gap-2">
           <FiClock /> Admin Waiting Room
         </h3>
         {adminPendingElections.length === 0 ? (
-          <p className="text-gray-600 text-sm">No elections waiting for activation.</p>
+          <p className="text-dusk text-sm">No elections waiting for activation.</p>
         ) : (
           <div className="space-y-4">
             {adminPendingElections.map((e) => {
@@ -432,7 +432,7 @@ export default function KeyCeremonyDashboard() {
               return (
                 <div key={e.electionId} className="border rounded-xl p-4 space-y-4 bg-gradient-to-br from-white to-slate-50">
                   <div className="font-medium">{e.electionTitle}</div>
-                  <div className="text-sm text-gray-600 mb-2">
+                  <div className="text-sm text-dusk mb-2">
                     {status ? `${status.submittedGuardians}/${status.totalGuardians} submitted` : 'Loading status...'}
                   </div>
                   {status?.readyForActivation && (
@@ -442,10 +442,10 @@ export default function KeyCeremonyDashboard() {
                   )}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     <label className="space-y-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Election Start</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-dusk">Election Start</span>
                       <input
                         type="datetime-local"
-                        className="w-full border-2 border-slate-200 focus:border-brand rounded-lg px-3 py-2.5 outline-none bg-white"
+                        className="w-full border-2 border-ink/10 focus:border-brand rounded-lg px-3 py-2.5 outline-none bg-paper"
                         value={activationForm[e.electionId]?.startingTime || ''}
                         onChange={(ev) =>
                           setActivationForm((prev) => ({
@@ -459,10 +459,10 @@ export default function KeyCeremonyDashboard() {
                       />
                     </label>
                     <label className="space-y-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Election End</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-dusk">Election End</span>
                       <input
                         type="datetime-local"
-                        className="w-full border-2 border-slate-200 focus:border-brand rounded-lg px-3 py-2.5 outline-none bg-white"
+                        className="w-full border-2 border-ink/10 focus:border-brand rounded-lg px-3 py-2.5 outline-none bg-paper"
                         value={activationForm[e.electionId]?.endingTime || ''}
                         onChange={(ev) =>
                           setActivationForm((prev) => ({
@@ -480,7 +480,7 @@ export default function KeyCeremonyDashboard() {
                   <button
                     onClick={() => handleActivate(e.electionId)}
                     disabled={!status?.readyForActivation}
-                    className="mt-1 px-4 py-2.5 bg-green-600 text-white rounded-lg disabled:bg-gray-400"
+                    className="mt-1 px-4 py-2.5 bg-aurora-muted text-paper rounded-lg disabled:bg-ink/30"
                   >
                     Activate Election
                   </button>
