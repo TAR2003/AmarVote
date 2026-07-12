@@ -161,7 +161,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
 
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-deep/75 p-0 backdrop-blur-[8px] sm:items-center sm:p-4">
-      <div className="observatory-panel w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-2xl">
+      <div className="modal-surface w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-2xl">
         {/* Header */}
         <div className="rounded-t-3xl border-b border-white/10 bg-ink/80 px-5 py-4 text-paper sm:rounded-t-2xl sm:px-6">
           <div className="flex justify-between items-center">

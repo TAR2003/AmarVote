@@ -573,7 +573,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                 <BrandMark className="transition duration-300 group-hover:scale-105" />
                 <div>
                   <p className="font-display text-sm font-semibold text-paper">AmarVote</p>
-                  <p className="text-xs text-dusk">Secure navigation</p>
+                  <p className="text-xs text-dusk">Menu</p>
                 </div>
               </Link>
               <button
@@ -685,18 +685,18 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               </button>
 
               {showGuardianAttention && (
-                <div className="mt-2 mx-1 bg-frost border border-ink/10 rounded-2xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-ink/10">
-                    <h4 className="text-sm font-semibold text-ink">Guardian Notifications</h4>
-                    <p className="text-xs text-dusk mt-1">
-                      Guardian in {allElections.filter((e) => e.userRoles?.includes('guardian')).length} election(s) · {guardianAttentionItems.length} need attention
+                <div className="mt-2 mx-1 overflow-hidden rounded-2xl border border-brand/30 bg-brand-dark shadow-brand">
+                  <div className="border-b border-white/10 px-4 py-3">
+                    <h4 className="text-sm font-semibold text-paper">Guardian Notifications</h4>
+                    <p className="mt-1 text-xs text-dusk-soft">
+                      {allElections.filter((e) => e.userRoles?.includes('guardian')).length} election(s) · {guardianAttentionItems.length} need attention
                     </p>
                   </div>
                   <div className="max-h-72 overflow-y-auto">
                     {loadingGuardianAttention ? (
-                      <div className="p-4 text-sm text-dusk">Loading...</div>
+                      <div className="p-4 text-sm text-dusk-soft">Loading...</div>
                     ) : guardianAttentionItems.length === 0 ? (
-                      <div className="p-4 text-sm text-dusk">No pending guardian actions.</div>
+                      <div className="p-4 text-sm text-dusk-soft">No pending guardian actions.</div>
                     ) : (
                       guardianAttentionItems.map((item, index) => (
                         <button
@@ -706,10 +706,10 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                             closeMobileMenu();
                             navigate(`/election-page/${item.electionId}/guardian`);
                           }}
-                          className="w-full text-left px-4 py-3 hover:bg-paper border-b border-ink/10 last:border-b-0"
+                          className="w-full border-b border-white/10 px-4 py-3 text-left last:border-b-0 hover:bg-brand/40"
                         >
-                          <div className="text-sm font-medium text-ink truncate">{item.electionTitle}</div>
-                          <div className="text-xs text-dusk mt-1">{item.detail}</div>
+                          <div className="truncate text-sm font-medium text-paper">{item.electionTitle}</div>
+                          <div className="mt-1 text-xs text-dusk-soft">{item.detail}</div>
                         </button>
                       ))
                     )}

@@ -31,7 +31,7 @@ const SubPoint = ({ children }) => (
 );
 
 const CodeSnip = ({ label, code }) => (
-  <div className="bg-deep rounded-2xl border border-brand/20 p-4 mt-3 font-mono text-xs text-dusk-soft shadow-soft">
+  <div className="code-panel rounded-2xl border border-brand/20 p-4 mt-3 font-mono text-xs text-dusk-soft shadow-soft">
     {label && <div className="text-brand-light mb-2">// {label}</div>}
     <pre className="whitespace-pre-wrap leading-relaxed overflow-x-auto">{code}</pre>
   </div>
@@ -385,10 +385,10 @@ A^v · M_ic^challenge == commitment_b // ✓?
         </div>
 
         {/* Bottom CTA */}
-        <div className="mt-12 rounded-2xl bg-deep px-8 py-10 text-center">
+        <div className="mt-12 rounded-2xl code-panel px-8 py-10 text-center">
           <div className="mx-auto mb-5 h-px w-12 bg-ceremonial" aria-hidden="true" />
-          <h2 className="font-display text-xl font-bold text-paper mb-3">Ready to experience it yourself?</h2>
-          <p className="text-dusk-soft text-base mb-5">Sign in with just your email address — no password needed.</p>
+          <h2 className="font-display text-xl font-bold text-paper mb-3">Try AmarVote</h2>
+          <p className="text-dusk-soft text-base mb-5">Sign in with your email — no password needed.</p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link to="/otp-login">
               <button type="button" className="btn-brand px-6 py-3">

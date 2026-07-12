@@ -20,7 +20,7 @@ const Security = () => {
       <MarketingHero
         kicker="Security"
         title="Cryptographic security architecture"
-        subtitle="Defense in depth—from post-quantum key wrapping to zero-knowledge proofs—so privacy, integrity, and verifiability hold together."
+        subtitle="Post-quantum key wrapping, zero-knowledge proofs, and end-to-end ballot privacy."
       />
 
       <MarketingTabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
@@ -33,7 +33,7 @@ const Security = () => {
             <h2 className="section-title text-center mb-8">Security Layer Overview</h2>
 
             {/* Quick reference table */}
-            <div className="bg-deep rounded-2xl p-6 mb-8 overflow-x-auto">
+            <div className="code-panel rounded-2xl p-6 mb-8 overflow-x-auto">
               <h3 className="text-aurora font-bold text-lg mb-4 font-mono">// Complete Cryptographic Specification</h3>
               <table className="w-full text-sm font-mono">
                 <thead>
@@ -102,7 +102,7 @@ const Security = () => {
             <h2 className="text-2xl font-bold text-ink mb-8 text-center">ElGamal End-to-End Verifiable Encryption</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div>
-                <div className="bg-deep rounded-2xl p-6 mb-6 font-mono text-sm">
+                <div className="code-panel rounded-2xl p-6 mb-6 font-mono text-sm">
                   <div className="text-aurora font-bold mb-4">// ElGamal Encryption (Twisted / ElectionGuard variant)</div>
                   <div className="text-dusk-soft space-y-2 text-xs leading-relaxed">
                     <div className="text-dusk">// Setup: 4096-bit safe prime p, generator g</div>
@@ -173,7 +173,7 @@ const Security = () => {
             <h2 className="text-2xl font-bold text-ink mb-8 text-center">Post-Quantum Cryptography — ML-KEM-1024</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               <div>
-                <div className="bg-deep rounded-2xl p-6 font-mono text-xs text-dusk-soft mb-4">
+                <div className="code-panel rounded-2xl p-6 font-mono text-xs text-dusk-soft mb-4">
                   <div className="text-aurora font-bold mb-4 text-sm">// Guardian Key Protection Stack</div>
                   <pre className="whitespace-pre-wrap leading-relaxed">{`// Layer 1: Generate ElGamal secret key
 s_i ← ElectionGuard.generate_guardian_keypair()
@@ -252,7 +252,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 <h3 className="text-xl font-bold text-ink mb-4">Schnorr Proof — Ballot Validity</h3>
                 <div className="bg-frost border border-ink/10 rounded-2xl p-5 mb-6 text-sm text-dusk">
                   <p className="mb-3">Every ballot selection carries a Schnorr σ-protocol proof that the encrypted value is either 0 or 1 — without revealing which. This ensures voters cannot encrypt values like 5 (stuffing) while preserving ballot secrecy.</p>
-                  <div className="bg-deep text-green-300 rounded-xl p-4 font-mono text-xs">
+                  <div className="code-panel text-green-300 rounded-xl p-4 font-mono text-xs">
                     <div className="text-dusk mb-2">// Disjunctive Schnorr proof (OR-composition)</div>
                     <div>Proves: m ∈ {"{0, 1}"} without revealing m</div>
                     <div className="mt-2">Prover knows: ξ (encryption nonce), m ∈ {"{0, 1}"}</div>
@@ -265,7 +265,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 <h3 className="text-xl font-bold text-ink mb-4">Chaum-Pedersen Proof — Decryption Correctness</h3>
                 <div className="bg-frost border border-ink/10 rounded-2xl p-5 text-sm text-dusk">
                   <p className="mb-3">Each guardian's partial decryption M_i = A^s_i comes with a Chaum-Pedersen proof proving they used the correct secret key — without revealing s_i. This is what makes decryption independently verifiable.</p>
-                  <div className="bg-deep text-green-300 rounded-xl p-4 font-mono text-xs">
+                  <div className="code-panel text-green-300 rounded-xl p-4 font-mono text-xs">
                     <div className="text-dusk mb-2">// Chaum-Pedersen discrete log equality proof</div>
                     <div>Proves: DL_g(K_i) == DL_A(M_i)</div>
                     <div>I.e.: log_g(K_i) == log_A(M_i) == s_i</div>
@@ -354,7 +354,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 </div>
               </div>
               <div>
-                <div className="bg-deep rounded-2xl p-6 font-mono text-xs text-dusk-soft mb-6">
+                <div className="code-panel rounded-2xl p-6 font-mono text-xs text-dusk-soft mb-6">
                   <div className="text-aurora font-bold mb-3">// Benaloh Soundness Guarantee</div>
                   <pre className="whitespace-pre-wrap leading-relaxed">{`// Any software that encrypts dishonestly faces a dilemma:
 
@@ -419,7 +419,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 </div>
                 <div className="bg-paper border border-ink/10 rounded-2xl p-5">
                   <h3 className="font-bold text-ink mb-4">JWT Session Architecture</h3>
-                  <div className="bg-deep rounded-xl p-4 font-mono text-xs text-dusk-soft mb-3">
+                  <div className="code-panel rounded-xl p-4 font-mono text-xs text-dusk-soft mb-3">
                     <div className="text-ceremonial">// JWT Payload</div>
                     <div>{`{`}</div>
                     <div>  <span className="text-brand-light">"sub"</span>: <span className="text-green-300">"user@example.com"</span>,</div>
@@ -474,7 +474,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 <div className="bg-paper border border-ink/10 rounded-2xl p-5">
                   <h3 className="font-bold text-ink mb-4">PKCS#7 Ballot Padding</h3>
                   <p className="text-dusk text-sm mb-3">All ballot submission HTTP requests are padded to a fixed size using PKCS#7 padding. This prevents traffic-analysis attacks where an adversary monitors request sizes to infer vote distribution.</p>
-                  <div className="bg-deep rounded-xl p-4 font-mono text-xs text-dusk-soft">
+                  <div className="code-panel rounded-xl p-4 font-mono text-xs text-dusk-soft">
                     <div className="text-aurora mb-2">// Without padding (VULNERABLE):</div>
                     <div className="text-ember">POST /ballot &#123; size: 1024 &#125;  → "Candidate A" (small)</div>
                     <div className="text-ember">POST /ballot &#123; size: 2048 &#125;  → "Candidate B" (large)</div>
@@ -508,7 +508,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 <div className="bg-paper border border-ink/10 rounded-2xl p-5">
                   <h3 className="font-bold text-ink mb-4">msgpack Binary Serialization</h3>
                   <p className="text-dusk text-sm mb-3">4096-bit integers (ElGamal ciphertexts) have extremely large JSON string representations. msgpack stores them as compact binary sequences, providing 10–50× size reduction and faster (de)serialization.</p>
-                  <div className="bg-deep rounded-xl p-4 font-mono text-xs text-dusk-soft mb-3">
+                  <div className="code-panel rounded-xl p-4 font-mono text-xs text-dusk-soft mb-3">
                     <div className="text-ember">JSON: "alpha": "123456...1024_digit_number"</div>
                     <div className="text-ember">Size: ~1234 bytes per ciphertext pair</div>
                     <div className="mt-2 text-aurora">msgpack: \x08\x10\xf9...\x12</div>

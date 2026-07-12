@@ -14,13 +14,13 @@ const TRUST = [
 const JOURNEY = [
   {
     step: "01",
-    title: "Create with confidence",
-    body: "Set guardians, candidates, and eligibility. AmarVote runs a cryptographic key ceremony before a single vote is cast.",
+    title: "Create an election",
+    body: "Set guardians, candidates, and eligibility. AmarVote runs a cryptographic key ceremony before voting begins.",
   },
   {
     step: "02",
-    title: "Vote in private",
-    body: "Ballots are encrypted under the election public key with ElectionGuard. Challenge the encryption before casting—then verify your ballot made the tally.",
+    title: "Vote privately",
+    body: "Ballots are encrypted under the election public key with ElectionGuard. Challenge the encryption before casting, then confirm your ballot is in the tally.",
   },
   {
     step: "03",
@@ -32,13 +32,13 @@ const JOURNEY = [
 const PILLARS = [
   {
     icon: FiLock,
-    title: "Encrypted by design",
-    body: "Homomorphic tallies mean votes are counted without ever exposing individual choices.",
+    title: "Encrypted ballots",
+    body: "Homomorphic tallies mean votes are counted without exposing individual choices.",
   },
   {
     icon: FiShield,
-    title: "Quantum-ready keys",
-    body: "Guardian secrets are wrapped with ML-KEM-1024 so tomorrow’s attacks don’t break today’s elections.",
+    title: "Post-quantum keys",
+    body: "Guardian secrets are wrapped with ML-KEM-1024 for long-term election integrity.",
   },
   {
     icon: FiEye,
@@ -58,7 +58,7 @@ const ROLES = [
   },
   {
     title: "Admins",
-    body: "Orchestrate ceremonies, tallies, and transparent results with calm operational control.",
+    body: "Run key ceremonies, tallies, and transparent results.",
   },
 ];
 
@@ -82,12 +82,11 @@ const Home = () => {
           </p>
 
           <h1 className="mt-5 max-w-2xl font-display text-xl font-semibold text-paper text-balance animate-fade-up [animation-delay:100ms] sm:text-3xl">
-            Elections you can trust at a glance
+            End-to-end verifiable elections
           </h1>
 
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-dusk-soft text-balance animate-fade-up [animation-delay:180ms] sm:text-lg">
-            ElectionGuard end-to-end verification — guardian key ceremonies, encrypted ballots,
-            and Benaloh challenges — made legible, not intimidating.
+            ElectionGuard cryptography — guardian key ceremonies, encrypted ballots, and Benaloh challenges.
           </p>
 
           <div className="mt-10 flex w-full max-w-md flex-col gap-3 animate-fade-up [animation-delay:260ms] sm:max-w-none sm:flex-row sm:justify-center">
@@ -144,9 +143,9 @@ const Home = () => {
         <div className="mx-auto max-w-6xl">
           <div className="mx-auto max-w-2xl text-center">
             <p className="section-kicker">Cryptographic trust</p>
-            <h2 className="section-title mt-3">Integrity you can feel</h2>
+            <h2 className="section-title mt-3">Cryptographic integrity</h2>
             <p className="section-sub">
-              Strong primitives, clear language—security that builds confidence instead of anxiety.
+              ElectionGuard primitives with published proofs anyone can check.
             </p>
           </div>
 
@@ -176,9 +175,9 @@ const Home = () => {
         <div className="pointer-events-none absolute inset-0 bg-hero-grid opacity-30" style={{ backgroundSize: "48px 48px" }} />
         <div className="relative mx-auto max-w-6xl">
           <div className="mx-auto max-w-2xl text-center">
-            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Built for every role</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Roles</p>
             <h2 className="mt-3 font-display text-2xl font-bold tracking-tight text-paper sm:text-4xl">
-              One platform. Three clear paths.
+              Voters, guardians, and admins
             </h2>
           </div>
 
@@ -200,10 +199,10 @@ const Home = () => {
       <section className="bg-frost-mesh px-4 py-20 sm:py-28">
         <div className="mx-auto grid max-w-6xl items-center gap-12 lg:grid-cols-2">
           <div>
-            <p className="section-kicker">See it live</p>
-            <h2 className="section-title mt-3">Watch AmarVote in motion</h2>
+            <p className="section-kicker">Demo</p>
+            <h2 className="section-title mt-3">Platform walkthrough</h2>
             <p className="section-sub !mx-0">
-              From election setup to guardian decryption—see the full flow without reading a whitepaper first.
+              From election setup through guardian decryption to published results.
             </p>
             <ul className="mt-8 space-y-3">
               {[
@@ -266,10 +265,10 @@ const Home = () => {
         <div className="relative mx-auto max-w-3xl text-center">
           <div className="mx-auto mb-6 h-px w-16 bg-ceremonial" aria-hidden="true" />
           <h2 className="font-display text-3xl font-extrabold tracking-tight text-paper text-balance sm:text-4xl">
-            Run an election people can trust
+            Start with AmarVote
           </h2>
           <p className="mx-auto mt-4 max-w-xl text-base text-dusk-soft sm:text-lg">
-            Register, secure your account with MFA, and open your first ceremony in minutes.
+            Register, enable MFA, and create your first election.
           </p>
           <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:flex-row sm:items-center">
             <Link to="/register" className="btn-brand px-8 py-3.5 text-base shadow-brand">

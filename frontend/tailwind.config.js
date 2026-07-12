@@ -112,7 +112,7 @@ export default {
         "brand-glow":
           "linear-gradient(135deg, #5C52C4 0%, #8B7FE8 100%)",
         observatory:
-          "radial-gradient(ellipse 60% 50% at 50% 0%, rgba(63, 199, 184, 0.06), transparent 55%), radial-gradient(ellipse 40% 35% at 80% 80%, rgba(139, 127, 232, 0.1), transparent 50%), linear-gradient(180deg, #12142B 0%, #1A1C38 100%)",
+          "radial-gradient(ellipse 70% 55% at 20% 0%, rgba(139, 127, 232, 0.14), transparent 55%), radial-gradient(ellipse 50% 40% at 90% 80%, rgba(92, 82, 196, 0.08), transparent 50%), linear-gradient(180deg, #EFEBF8 0%, #F7F4EC 100%)",
         "hero-grid":
           "linear-gradient(rgba(255,255,255,0.03) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.03) 1px, transparent 1px)",
       },
@@ -152,6 +152,14 @@ export default {
           "0%, 100%": { transform: "translate(0, 0) scale(1)" },
           "50%": { transform: "translate(3%, -2%) scale(1.04)" },
         },
+        tabSlideInRight: {
+          "0%": { opacity: "0", transform: "translateX(18px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
+        tabSlideInLeft: {
+          "0%": { opacity: "0", transform: "translateX(-18px)" },
+          "100%": { opacity: "1", transform: "translateX(0)" },
+        },
         cipherDissolve: {
           "0%": { opacity: "1", filter: "blur(0)", letterSpacing: "0em" },
           "45%": { opacity: "0.35", filter: "blur(3px)", letterSpacing: "0.08em" },
@@ -178,6 +186,8 @@ export default {
         shimmer: "shimmer 3.5s linear infinite",
         "draw-check": "drawCheck 0.8s ease-out 0.4s both",
         "aurora-drift": "auroraDrift 16s ease-in-out infinite",
+        "tab-slide-in-right": "tabSlideInRight 220ms cubic-bezier(0.22, 1, 0.36, 1) both",
+        "tab-slide-in-left": "tabSlideInLeft 220ms cubic-bezier(0.22, 1, 0.36, 1) both",
         "cipher-dissolve": "cipherDissolve 1.6s ease-in-out both",
         "cipher-reveal": "cipherReveal 0.7s cubic-bezier(0.22, 1, 0.36, 1) both",
         "shard-pulse": "shardPulse 2.8s ease-in-out infinite",

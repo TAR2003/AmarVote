@@ -133,7 +133,7 @@ const Architecture = () => {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-dusk text-sm mb-3">The nginx proxy terminates SSL and routes traffic to services based on path prefix:</p>
-                  <div className="bg-deep rounded-xl p-4 font-mono text-xs text-dusk-soft">
+                  <div className="code-panel rounded-xl p-4 font-mono text-xs text-dusk-soft">
                     <div className="text-aurora mb-2"># nginx-proxy.conf routing rules</div>
                     <div><span className="text-ceremonial">location /api/</span> → Spring Boot :8080</div>
                     <div><span className="text-ceremonial">location /electionguard/</span> → EG API :5000</div>
@@ -261,7 +261,7 @@ const Architecture = () => {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-paper rounded-2xl border border-ink/10 p-6">
                 <h3 className="font-bold text-ink text-lg mb-4">Private Overlay Network</h3>
-                <div className="bg-deep rounded-xl p-5 font-mono text-xs text-dusk-soft overflow-x-auto">
+                <div className="code-panel rounded-xl p-5 font-mono text-xs text-dusk-soft overflow-x-auto">
                   <div className="text-aurora mb-3"># Docker network: amarvote_default</div>
                   <div className="text-ceremonial mb-2">Subnet: 172.20.0.0/24</div>
                   <div className="text-brand-light mb-4">Driver: bridge</div>
@@ -430,7 +430,7 @@ const Architecture = () => {
                 </div>
               </div>
               <div>
-                <div className="bg-deep rounded-2xl p-5 text-xs font-mono text-dusk-soft mb-4">
+                <div className="code-panel rounded-2xl p-5 text-xs font-mono text-dusk-soft mb-4">
                   <div className="text-aurora font-bold mb-3 text-sm">RoundRobinTaskScheduler</div>
                   <pre className="whitespace-pre-wrap leading-relaxed overflow-x-auto">{`// Spring @Scheduled(fixedRate = 100ms)
 // targetChunksPerCycle = 8
@@ -529,12 +529,12 @@ For each 100ms tick:
                   <div className="text-2xl mb-2">{icon}</div>
                   <h3 className="font-bold text-ink mb-1">{title}</h3>
                   <div className="text-xs font-mono text-dusk mb-3">TTL: {ttl}</div>
-                  <div className="bg-deep rounded-lg p-3 mb-3">
+                  <div className="code-panel rounded-lg p-3 mb-3">
                     <div className="text-xs text-dusk mb-1">Patterns</div>
                     <div className="font-mono text-ceremonial text-xs">{pattern}</div>
                     <div className="font-mono text-dusk text-xs mt-1">Type: {type}</div>
                   </div>
-                  <div className="bg-deep rounded-lg p-2 mb-3 font-mono text-xs text-aurora">
+                  <div className="code-panel rounded-lg p-2 mb-3 font-mono text-xs text-aurora">
                     {commands.map((c) => <div key={c}>{c}</div>)}
                   </div>
                   <p className="text-dusk text-xs mb-2">{desc}</p>

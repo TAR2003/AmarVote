@@ -102,7 +102,7 @@ export default function ReceiptDownload() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-deep-aurora p-6">
-      <div className="observatory-panel w-full max-w-md p-8 text-center">
+      <div className="modal-surface w-full max-w-md p-8 text-center">
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-aurora">
           Vote receipt
         </p>

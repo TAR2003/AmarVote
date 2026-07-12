@@ -117,7 +117,7 @@ function Features() {
                   "Public spoiled ballot audit trail proves honest encryption during election",
                 ]} />
             </div>
-            <div className="bg-deep rounded-2xl p-6 overflow-x-auto">
+            <div className="code-panel rounded-2xl p-6 overflow-x-auto">
               <h3 className="text-aurora font-bold font-mono mb-4">// Full Cryptographic Specification</h3>
               <table className="w-full font-mono text-xs text-dusk-soft">
                 <thead>
@@ -379,7 +379,7 @@ function Features() {
                   "Auto-provisioned data source pointing to Prometheus at :9090",
                 ]} />
             </div>
-            <div className="bg-deep rounded-2xl p-6 font-mono text-xs text-dusk-soft">
+            <div className="code-panel rounded-2xl p-6 font-mono text-xs text-dusk-soft">
               <div className="text-aurora font-bold mb-3">// Key Metrics Example (PromQL)</div>
               <div className="space-y-2">
                 <div><span className="text-ceremonial">rate(http_server_requests_seconds_count[5m])</span><span className="text-dusk"> # HTTP request rate</span></div>
@@ -425,9 +425,9 @@ function Features() {
         )}
 
         {/* Navigation CTA */}
-        <div className="mt-12 rounded-2xl bg-deep px-8 py-10 text-center">
+        <div className="mt-12 rounded-2xl code-panel px-8 py-10 text-center">
           <div className="mx-auto mb-5 h-px w-12 bg-ceremonial" aria-hidden="true" />
-          <h2 className="font-display text-2xl font-bold text-paper mb-3">Dive deeper into the platform</h2>
+          <h2 className="font-display text-2xl font-bold text-paper mb-3">Explore the platform</h2>
           <div className="flex flex-wrap justify-center gap-4 mt-4">
             <Link to="/architecture"><button type="button" className="btn-brand px-5 py-2.5">Architecture →</button></Link>
             <Link to="/security"><button type="button" className="btn-ghost-light px-5 py-2.5">Security Details →</button></Link>

@@ -53,12 +53,12 @@ export default function GuardianQuorumViz({
           : 'Key ceremony');
 
   const centerTone = combined
-    ? 'border-aurora/50 bg-aurora/15 text-aurora shadow-aurora'
+    ? 'border-aurora/50 bg-aurora/15 text-aurora-muted shadow-aurora'
     : quorumMet
       ? mode === 'decryption' || mode === 'combine'
-        ? 'border-brand/50 bg-brand/15 text-brand shadow-brand'
-        : 'border-threshold/50 bg-threshold/15 text-threshold shadow-threshold'
-      : 'border-white/15 bg-ink/80 text-paper-muted';
+        ? 'border-brand/50 bg-brand/15 text-brand-dark shadow-brand'
+        : 'border-threshold/50 bg-threshold/15 text-brand-dark shadow-threshold'
+      : 'border-brand/20 bg-paper text-dusk';
 
   const preferReduced =
     typeof window !== 'undefined' &&
@@ -66,31 +66,31 @@ export default function GuardianQuorumViz({
 
   return (
     <div
-      className={`rounded-2xl border border-white/10 bg-observatory p-4 text-paper ${className}`}
+      className={`rounded-2xl border border-brand/20 bg-observatory p-4 text-ink ${className}`}
       role="img"
       aria-label={`${modeLabel}: ${filledCount} of ${n} guardians contributed. Threshold ${k} of ${n} required.${quorumMet ? ' Quorum met.' : ''} ${combined ? 'Combined.' : ''}`}
     >
       <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
         <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-threshold">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-brand-dark">
             Guardian quorum
           </p>
-          <p className="mt-0.5 font-display text-sm font-semibold text-paper">{modeLabel}</p>
+          <p className="mt-0.5 font-display text-sm font-semibold text-ink">{modeLabel}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <span className="inline-flex items-center gap-1.5 rounded-lg border border-threshold/35 bg-threshold/10 px-2.5 py-1 text-xs font-semibold text-threshold">
-            <span className="h-1.5 w-1.5 rounded-full bg-threshold" aria-hidden />
+          <span className="inline-flex items-center gap-1.5 rounded-lg border border-brand/30 bg-brand-soft px-2.5 py-1 text-xs font-semibold text-brand-dark">
+            <span className="h-1.5 w-1.5 rounded-full bg-brand" aria-hidden />
             {k} of {n} required
           </span>
           <span
             className={`inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-semibold ${
               quorumMet
-                ? 'border-aurora/35 bg-aurora/10 text-aurora'
-                : 'border-white/15 bg-paper/5 text-paper-muted'
+                ? 'border-aurora/35 bg-sage-soft text-aurora-muted'
+                : 'border-ink/10 bg-paper text-dusk'
             }`}
           >
             <span
-              className={`h-1.5 w-1.5 rounded-full ${quorumMet ? 'bg-aurora' : 'bg-paper-muted'}`}
+              className={`h-1.5 w-1.5 rounded-full ${quorumMet ? 'bg-aurora' : 'bg-dusk'}`}
               aria-hidden
             />
             {filledCount} of {n} responded
@@ -99,13 +99,11 @@ export default function GuardianQuorumViz({
       </div>
 
       <div className="relative mx-auto" style={{ width: size, height: size }}>
-        {/* Orbital ring */}
         <div
-          className="absolute inset-[18%] rounded-full border border-dashed border-white/10"
+          className="absolute inset-[18%] rounded-full border border-dashed border-brand/25"
           aria-hidden
         />
 
-        {/* Shard rays toward center */}
         <svg className="pointer-events-none absolute inset-0" viewBox={`0 0 ${size} ${size}`} aria-hidden>
           {nodes.map((node, i) => {
             if (!node.filled) return null;
@@ -128,7 +126,6 @@ export default function GuardianQuorumViz({
           })}
         </svg>
 
-        {/* Center joint key / combine point */}
         <div
           className={`absolute left-1/2 top-1/2 z-10 flex h-16 w-16 -translate-x-1/2 -translate-y-1/2 flex-col items-center justify-center rounded-full border text-center ${centerTone} ${
             combined && !preferReduced ? 'animate-cipher-reveal' : ''
@@ -142,7 +139,6 @@ export default function GuardianQuorumViz({
           </span>
         </div>
 
-        {/* Guardian nodes */}
         {nodes.map((node, i) => {
           const angle = (i / Math.max(nodes.length, 1)) * Math.PI * 2 - Math.PI / 2;
           const x = cx + Math.cos(angle) * radius * 2.05;
@@ -150,9 +146,9 @@ export default function GuardianQuorumViz({
           const isFilled = node.filled;
           const fillClass = isFilled
             ? mode === 'decryption' || mode === 'combine'
-              ? 'border-threshold bg-threshold-muted text-paper shadow-threshold'
+              ? 'border-brand bg-brand-dark text-paper shadow-brand'
               : 'border-brand-dark bg-brand-dark text-paper shadow-brand'
-            : 'border-white/20 bg-ink/70 text-paper-muted';
+            : 'border-brand/25 bg-paper text-dusk';
 
           return (
             <div
@@ -168,11 +164,11 @@ export default function GuardianQuorumViz({
               >
                 {i + 1}
               </div>
-              <span className="mt-1 max-w-[4.5rem] truncate text-center text-[9px] text-paper-muted">
+              <span className="mt-1 max-w-[4.5rem] truncate text-center text-[9px] text-dusk">
                 {node.label}
               </span>
               {node.secondaryFilled && (
-                <span className="mt-0.5 text-[8px] font-semibold uppercase tracking-wide text-aurora">
+                <span className="mt-0.5 text-[8px] font-semibold uppercase tracking-wide text-aurora-muted">
                   backup
                 </span>
               )}
@@ -181,7 +177,7 @@ export default function GuardianQuorumViz({
         })}
       </div>
 
-      <p className="mt-2 text-center text-xs text-paper-muted">
+      <p className="mt-2 text-center text-xs text-dusk">
         {combined
           ? mode === 'combine' || mode === 'decryption'
             ? 'Threshold shares combined into the election result.'

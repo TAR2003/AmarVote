@@ -1,20 +1,69 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
+import { FiChevronLeft, FiChevronRight } from "react-icons/fi";
 
 /**
  * Election section navigation — Ink & Indigo.
- * Mobile: compact fixed bottom bar (stays visible while scrolling).
+ * Mobile: fixed bottom bar with paging carousel (4 tabs + arrow controls).
  * Desktop: horizontal top tabs with scroll fades when needed.
  */
+
+const FIRST_PAGE_SIZE = 4;
+const MIDDLE_PAGE_SIZE = 3;
+
+function buildPages(tabs) {
+  if (!tabs.length) return [];
+  if (tabs.length <= 5) {
+    return [{ start: 0, count: tabs.length }];
+  }
+
+  const pages = [];
+  let idx = 0;
+  while (idx < tabs.length) {
+    const isFirst = pages.length === 0;
+    const remaining = tabs.length - idx;
+    let take;
+    if (isFirst) {
+      take = Math.min(FIRST_PAGE_SIZE, remaining);
+    } else if (remaining > FIRST_PAGE_SIZE) {
+      take = MIDDLE_PAGE_SIZE;
+    } else {
+      take = remaining;
+    }
+    pages.push({ start: idx, count: take });
+    idx += take;
+  }
+  return pages;
+}
+
 export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
   const listRef = useRef(null);
-  const mobileBottomRef = useRef(null);
   const [canScrollLeft, setCanScrollLeft] = useState(false);
   const [canScrollRight, setCanScrollRight] = useState(false);
+  const [pageIndex, setPageIndex] = useState(0);
+  const [slideDir, setSlideDir] = useState(0);
+
+  const pages = useMemo(() => buildPages(tabs), [tabs]);
+  const totalPages = pages.length;
 
   const activeTab = useMemo(
     () => tabs.find((t) => t.key === activeKey) || tabs[0],
     [tabs, activeKey]
   );
+
+  // Keep the active tab's page visible
+  useEffect(() => {
+    if (!tabs.length || !totalPages) return;
+    const activeIdx = tabs.findIndex((t) => t.key === activeKey);
+    if (activeIdx < 0) return;
+    const pageForActive = pages.findIndex(
+      (p) => activeIdx >= p.start && activeIdx < p.start + p.count
+    );
+    if (pageForActive >= 0 && pageForActive !== pageIndex) {
+      setSlideDir(pageForActive > pageIndex ? 1 : -1);
+      setPageIndex(pageForActive);
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-sync when active tab or tab list changes
+  }, [activeKey, tabs, pages, totalPages]);
 
   const updateScrollFades = () => {
     const el = listRef.current;
@@ -44,25 +93,33 @@ export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
         behavior: "smooth",
       });
     }
-    const mobileEl = mobileBottomRef.current;
-    if (mobileEl && activeKey) {
-      mobileEl.querySelector(`[data-mobile-tab="${activeKey}"]`)?.scrollIntoView({
-        inline: "center",
-        block: "nearest",
-        behavior: "smooth",
-      });
-    }
   }, [activeKey]);
 
   const select = (key) => {
     onSelect?.(key);
   };
 
+  const goPage = (next) => {
+    if (next < 0 || next >= totalPages) return;
+    setSlideDir(next > pageIndex ? 1 : -1);
+    setPageIndex(next);
+  };
+
   if (!tabs.length) return null;
+
+  const safePage = Math.min(pageIndex, Math.max(0, totalPages - 1));
+  const page = pages[safePage] || pages[0];
+  const pageTabs = tabs.slice(page.start, page.start + page.count);
+  const hasPrev = safePage > 0;
+  const hasNext = safePage < totalPages - 1;
+  const showPager = totalPages > 1;
+
+  const arrowBtnClass =
+    "flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-1 py-2 text-[10px] font-semibold text-brand-light transition-colors hover:bg-brand/20";
 
   return (
     <>
-      {/* Mobile — current section label only (compact, does not steal the viewport) */}
+      {/* Mobile — current section label only */}
       <div className="sticky top-0 z-20 border-b border-ink/10 bg-paper/95 backdrop-blur-md md:hidden">
         <div className="mx-auto flex max-w-7xl items-center justify-between gap-2 px-3 py-2.5">
           <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-dark">
@@ -119,16 +176,36 @@ export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
         </div>
       </div>
 
-      {/* Mobile — fixed bottom section bar (replaces app Home/Elections nav on this page) */}
+      {/* Mobile — paging carousel bottom bar */}
       <nav
         className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-deep/95 backdrop-blur-lg shadow-nav safe-pb"
         aria-label="Election sections"
       >
         <div
-          ref={mobileBottomRef}
-          className="flex gap-1 overflow-x-auto px-2 py-1.5 scrollbar-hide"
+          key={`${safePage}-${slideDir}`}
+          className={`flex items-stretch gap-0.5 px-1.5 py-1.5 ${
+            slideDir > 0
+              ? "animate-tab-slide-in-right"
+              : slideDir < 0
+                ? "animate-tab-slide-in-left"
+                : ""
+          }`}
         >
-          {tabs.map((tab) => {
+          {hasPrev && (
+            <button
+              type="button"
+              onClick={() => goPage(safePage - 1)}
+              className={arrowBtnClass}
+              aria-label="Previous sections"
+            >
+              <span className="mb-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-brand text-paper shadow-brand">
+                <FiChevronLeft className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <span className="text-dusk-soft">More</span>
+            </button>
+          )}
+
+          {pageTabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = tab.key === activeKey;
             return (
@@ -138,7 +215,7 @@ export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
                 data-mobile-tab={tab.key}
                 onClick={() => select(tab.key)}
                 aria-current={isActive ? "page" : undefined}
-                className={`flex min-w-[4.25rem] shrink-0 flex-col items-center justify-center rounded-xl px-2 py-2 text-[10px] font-semibold transition-colors ${
+                className={`flex min-w-0 flex-1 flex-col items-center justify-center rounded-xl px-1 py-2 text-[10px] font-semibold transition-colors ${
                   isActive
                     ? "bg-brand/25 text-paper"
                     : "text-dusk-soft hover:bg-paper/5 hover:text-paper"
@@ -150,11 +227,40 @@ export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
                     aria-hidden="true"
                   />
                 ) : null}
-                <span className="max-w-[4.5rem] truncate">{tab.shortName || tab.name}</span>
+                <span className="max-w-full truncate px-0.5">
+                  {tab.shortName || tab.name}
+                </span>
               </button>
             );
           })}
+
+          {hasNext && (
+            <button
+              type="button"
+              onClick={() => goPage(safePage + 1)}
+              className={arrowBtnClass}
+              aria-label="More sections"
+            >
+              <span className="mb-0.5 flex h-7 w-7 items-center justify-center rounded-full bg-brand text-paper shadow-brand">
+                <FiChevronRight className="h-4 w-4" aria-hidden="true" />
+              </span>
+              <span className="text-dusk-soft">More</span>
+            </button>
+          )}
         </div>
+
+        {showPager && (
+          <div className="flex items-center justify-center gap-1.5 pb-1" aria-hidden="true">
+            {pages.map((_, i) => (
+              <span
+                key={i}
+                className={`h-1 rounded-full transition-all ${
+                  i === safePage ? "w-3 bg-brand" : "w-1 bg-paper/25"
+                }`}
+              />
+            ))}
+          </div>
+        )}
       </nav>
     </>
   );

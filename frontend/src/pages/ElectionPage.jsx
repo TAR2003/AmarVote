@@ -143,7 +143,7 @@ const subMenus = [
   { name: 'Results', shortName: 'Results', key: 'results', path: 'results', icon: FiTrendingUp, hint: 'Tallied outcomes (available after combination)' },
   { name: 'Ballots in Tally', shortName: 'Ballots', key: 'ballots', path: 'ballots-in-tally', icon: FiDatabase, hint: 'Ballots included in the tally' },
   { name: 'Verify Your Vote', shortName: 'Verify', key: 'verify', path: 'verify-vote', icon: FiHash, hint: 'Confirm your ballot was recorded' },
-  { name: 'Verification', shortName: 'Audit', key: 'verification', path: 'verification', icon: FiEye, hint: 'Public audit trail and proofs' },
+  { name: 'Audit', shortName: 'Audit', key: 'verification', path: 'verification', icon: FiEye, hint: 'Public audit trail and proofs' },
   { name: 'Send Email', shortName: 'Email', key: 'send-email', path: 'send-email', icon: FiMail, adminOnly: true, hint: 'Notify voters and guardians' },
   { name: 'Worker Proceedings', shortName: 'Workers', key: 'worker-proceedings', path: 'worker-proceedings', icon: FiActivity, hint: 'Open processing telemetry for everyone' },
 ];
@@ -363,10 +363,10 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData }) =
           <div>
             <h3 className="text-2xl font-bold text-deep flex items-center">
               <FiEye className="h-7 w-7 mr-3 text-brand" />
-              Election Verification
+              Election Audit
             </h3>
             <p className="text-sm text-dusk mt-1">
-              Cryptographic verification data and audit trail
+              Cryptographic artifacts and public audit trail
             </p>
           </div>
         </div>
@@ -4210,7 +4210,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 Guardian Workflow
               </h3>
               <p className="mt-1 text-sm text-dusk">
-                Watch guardians assemble keys, contribute partial decryptions, and meet threshold — real ElectionGuard stages, rendered honestly.
+                Key ceremony, partial decryption, and threshold combination for this election.
               </p>
             </div>
             <div className="space-y-6">
@@ -4218,9 +4218,9 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   <div className="observatory-panel p-5 sm:p-6">
                     <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div>
-                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">Authority</p>
-                        <h4 className="mt-1 font-display text-lg font-semibold text-paper">Key ceremony</h4>
-                        <p className="mt-1 text-sm text-paper-muted">{getKeyCeremonyProgressMessage()}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-dark">Authority</p>
+                        <h4 className="mt-1 font-display text-lg font-semibold text-ink">Key ceremony</h4>
+                        <p className="mt-1 text-sm text-dusk">{getKeyCeremonyProgressMessage()}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
                         <span className="inline-flex items-center rounded-lg border border-brand/30 bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand">
@@ -4253,33 +4253,33 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           combined={!!(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation)}
                         />
                         <div className="space-y-3">
-                          <div className="rounded-xl border border-white/10 bg-ink/50 p-4">
+                          <div className="rounded-xl border border-brand/20 bg-paper p-4">
                             <div className="mb-2 flex items-center justify-between gap-2">
-                              <p className="font-display text-sm font-semibold text-paper">Step 1 — Key pairs</p>
-                              <span className="font-mono text-xs text-brand">{getRound1Progress()}%</span>
+                              <p className="font-display text-sm font-semibold text-ink">Step 1 — Key pairs</p>
+                              <span className="font-mono text-xs text-brand-dark">{getRound1Progress()}%</span>
                             </div>
-                            <div className="h-2 w-full overflow-hidden rounded-full bg-paper/10">
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-brand-soft">
                               <div className="h-2 rounded-full bg-brand" style={{ width: `${getRound1Progress()}%` }} />
                             </div>
-                            <p className="mt-2 text-xs text-paper-muted">
+                            <p className="mt-2 text-xs text-dusk">
                               {(adminKeyCeremonyStatus?.submittedGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians submitted credentials
                             </p>
                           </div>
-                          <div className="rounded-xl border border-white/10 bg-ink/50 p-4">
+                          <div className="rounded-xl border border-brand/20 bg-paper p-4">
                             <div className="mb-2 flex items-center justify-between gap-2">
-                              <p className="font-display text-sm font-semibold text-paper">Step 2 — Backup shares</p>
-                              <span className="font-mono text-xs text-threshold">{getRound2Progress()}%</span>
+                              <p className="font-display text-sm font-semibold text-ink">Step 2 — Backup shares</p>
+                              <span className="font-mono text-xs text-brand-dark">{getRound2Progress()}%</span>
                             </div>
-                            <div className="h-2 w-full overflow-hidden rounded-full bg-paper/10">
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-brand-soft">
                               <div className="h-2 rounded-full bg-threshold" style={{ width: `${getRound2Progress()}%` }} />
                             </div>
-                            <p className="mt-2 text-xs text-paper-muted">
+                            <p className="mt-2 text-xs text-dusk">
                               {(adminKeyCeremonyStatus?.submittedBackupGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians shared backups
                             </p>
                           </div>
-                          <div className={`rounded-xl border p-4 ${(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation) ? 'border-aurora/35 bg-aurora/10' : 'border-white/10 bg-ink/50'}`}>
-                            <p className="font-display text-sm font-semibold text-paper">Step 3 — Activation</p>
-                            <p className="mt-1 text-xs text-paper-muted">
+                          <div className={`rounded-xl border p-4 ${(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation) ? 'border-aurora/35 bg-sage-soft' : 'border-brand/20 bg-paper'}`}>
+                            <p className="font-display text-sm font-semibold text-ink">Step 3 — Activation</p>
+                            <p className="mt-1 text-xs text-dusk">
                               {(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation)
                                 ? 'Quorum formed. Admin can set the schedule and activate voting.'
                                 : 'Waiting for all guardians to finish steps 1–2.'}
@@ -4289,23 +4289,23 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       </div>
                     )}
 
-                    <div className="mb-5 rounded-xl border border-white/10 bg-ink/50 p-4">
-                      <h5 className="mb-3 text-sm font-semibold text-paper">Guardian ceremony progress</h5>
+                    <div className="mb-5 rounded-xl border border-brand/20 bg-paper p-4">
+                      <h5 className="mb-3 text-sm font-semibold text-ink">Guardian ceremony progress</h5>
                       <div className="space-y-2">
                         {electionData.guardians?.map((guardian) => (
-                          <div key={guardian.userEmail} className="flex flex-col gap-2 rounded-lg border border-white/10 bg-deep/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+                          <div key={guardian.userEmail} className="flex flex-col gap-2 rounded-lg border border-brand/15 bg-glacier/70 p-3 sm:flex-row sm:items-center sm:justify-between">
                             <div className="flex min-w-0 items-center gap-3">
-                              <FiUser className="h-5 w-5 flex-shrink-0 text-paper-muted" />
+                              <FiUser className="h-5 w-5 flex-shrink-0 text-dusk" />
                               <div className="min-w-0">
-                                <p className="truncate font-medium text-paper">{guardian.userName || guardian.userEmail}</p>
-                                <p className="text-xs text-paper-muted">Order {guardian.sequenceOrder}</p>
+                                <p className="truncate font-medium text-ink">{guardian.userName || guardian.userEmail}</p>
+                                <p className="text-xs text-dusk">Order {guardian.sequenceOrder}</p>
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              <span className={`rounded-full px-2 py-1 text-xs font-medium ${guardian.guardianKeySubmitted ? 'bg-brand/15 text-brand' : 'bg-paper/5 text-paper-muted'}`}>
+                              <span className={`rounded-full px-2 py-1 text-xs font-medium ${guardian.guardianKeySubmitted ? 'bg-brand/15 text-brand-dark' : 'bg-frost text-dusk'}`}>
                                 Step 1: {guardian.guardianKeySubmitted ? 'Keypair submitted' : 'Keypair pending'}
                               </span>
-                              <span className={`rounded-full px-2 py-1 text-xs font-medium ${guardian.backupSharesSubmitted ? 'bg-threshold/15 text-threshold' : 'bg-paper/5 text-paper-muted'}`}>
+                              <span className={`rounded-full px-2 py-1 text-xs font-medium ${guardian.backupSharesSubmitted ? 'bg-brand/15 text-brand-dark' : 'bg-frost text-dusk'}`}>
                                 Step 2: {guardian.backupSharesSubmitted ? 'Backup shared' : 'Backup pending'}
                               </span>
                             </div>
@@ -4595,8 +4595,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 }))}
                               />
                               <div className="text-center">
-                                <h4 className="font-display text-lg font-semibold text-paper mb-2">Combine decryption shares</h4>
-                                <p className="text-sm text-paper-muted mb-4">
+                                <h4 className="font-display text-lg font-semibold text-ink mb-2">Combine decryption shares</h4>
+                                <p className="text-sm text-dusk mb-4">
                                   Quorum met. Combine guardian partial decryptions to reveal the final result.
                                 </p>
                                 <div className="flex flex-wrap justify-center gap-3">
@@ -4610,7 +4610,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                   <button
                                     onClick={handleCheckCombineStatus}
                                     disabled={combiningDecryptions}
-                                    className="inline-flex items-center rounded-xl border border-white/15 px-6 py-2 text-sm font-medium text-paper-muted hover:text-paper disabled:opacity-50"
+                                    className="inline-flex items-center rounded-xl border border-brand/25 px-6 py-2 text-sm font-medium text-dusk hover:text-ink disabled:opacity-50"
                                   >
                                     <FiRefreshCw className="mr-2 inline h-4 w-4" />
                                     Check status

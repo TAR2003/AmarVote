@@ -399,7 +399,7 @@ const BallotWorkflowModal = ({
       aria-describedby="ballot-workflow-status"
     >
       <div
-        className="observatory-panel max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl p-4 sm:rounded-2xl sm:p-6"
+        className="modal-surface max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl p-4 sm:rounded-2xl sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <p id="ballot-workflow-status" className="sr-only" aria-live="polite">

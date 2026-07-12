@@ -181,7 +181,7 @@ function About() {
               <h2 className="text-xl font-bold text-ink mb-4">Complete Technology Stack</h2>
               <div className="overflow-x-auto rounded-2xl border border-ink/10">
                 <table className="w-full">
-                  <thead className="bg-deep text-paper text-sm">
+                  <thead className="bg-brand-dark text-paper text-sm">
                     <tr>
                       <th className="text-left py-3 px-4">Library / Tool</th>
                       <th className="text-left py-3 px-4">Version</th>
@@ -278,7 +278,7 @@ function About() {
               <h3 className="text-lg font-bold text-ink mb-3">Static IP Assignment (172.20.0.0/24)</h3>
               <div className="overflow-x-auto rounded-2xl border border-ink/10">
                 <table className="w-full text-sm">
-                  <thead className="bg-deep text-paper">
+                  <thead className="bg-brand-dark text-paper">
                     <tr>
                       <th className="text-left py-2 px-4">IP</th>
                       <th className="text-left py-2 px-4">Service</th>
@@ -320,7 +320,7 @@ function About() {
 
             <div className="overflow-x-auto rounded-2xl border border-ink/10">
               <table className="w-full">
-                <thead className="bg-deep text-paper text-sm">
+                <thead className="bg-brand-dark text-paper text-sm">
                   <tr>
                     <th className="text-left py-3 px-4">Algorithm</th>
                     <th className="text-left py-3 px-4">Standard</th>

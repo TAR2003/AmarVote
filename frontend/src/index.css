@@ -95,7 +95,17 @@
   }
 
   .observatory-panel {
-    @apply rounded-2xl border border-white/10 bg-observatory text-paper shadow-glass;
+    @apply rounded-2xl border border-brand/20 bg-observatory text-ink shadow-soft;
+  }
+
+  /* Dark sheet for overlays/modals only */
+  .modal-surface {
+    @apply rounded-2xl border border-white/10 bg-deep-soft text-paper shadow-glass;
+  }
+
+  /* Mono / spec blocks on marketing pages — brand violet, not black */
+  .code-panel {
+    @apply rounded-2xl border border-brand/30 bg-brand-dark text-paper shadow-soft overflow-x-auto;
   }
 
   /* Mono crypto output — light chip, not gold */
