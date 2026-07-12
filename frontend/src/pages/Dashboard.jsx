@@ -81,7 +81,7 @@ const ElectionCard = React.memo(({ election, getVoteButtonInfo, handleElectionCl
             <span
               className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                 election.isPublic 
-                  ? 'bg-green-100 text-green-800' 
+                  ? 'bg-sage-soft text-emerald-800' 
                   : 'bg-orange-100 text-orange-800'
               }`}
             >
@@ -99,15 +99,15 @@ const ElectionCard = React.memo(({ election, getVoteButtonInfo, handleElectionCl
                 key={role}
                 className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                   role === 'admin' ? 'bg-red-100 text-red-800' :
-                  role === 'guardian' ? 'bg-purple-100 text-purple-800' :
-                  'bg-blue-100 text-blue-800'
+                  role === 'guardian' ? 'bg-glacier text-ink' :
+                  'bg-glacier text-ink'
                 }`}
               >
                 {role.charAt(0).toUpperCase() + role.slice(1)}
               </span>
             ))}
             {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sage-soft text-emerald-800">
                 {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
               </span>
             )}
@@ -211,9 +211,9 @@ const Dashboard = ({ userEmail }) => {
       name: "Total Elections",
       value: electionCounts.totalCount.toString(),
       icon: FiBarChart2,
-      gradient: "from-blue-500 to-indigo-600",
-      iconBg: "bg-blue-100",
-      iconColor: "text-blue-600",
+      gradient: "from-blue-500 to-brand-dark",
+      iconBg: "bg-glacier",
+      iconColor: "text-brand",
       ring: "ring-blue-100",
     },
     {
@@ -289,7 +289,7 @@ const Dashboard = ({ userEmail }) => {
     if (!election.startingTime || !election.endingTime) {
       return {
         buttonText: "Key Ceremony",
-        buttonStyle: "text-purple-700 bg-purple-100 hover:bg-purple-200 focus:ring-purple-500",
+        buttonStyle: "text-purple-700 bg-glacier hover:bg-purple-200 focus:ring-purple-500",
         isDisabled: false,
       };
     }
@@ -310,11 +310,11 @@ const Dashboard = ({ userEmail }) => {
       // Election is not active (upcoming or ended)
       if (startTime > now) {
         buttonText = "Upcoming";
-        buttonStyle = "text-blue-700 bg-blue-100 cursor-not-allowed";
+        buttonStyle = "text-brand-dark bg-glacier cursor-not-allowed";
         isDisabled = true;
       } else {
         buttonText = "View Results";
-        buttonStyle = "text-green-700 bg-green-100 hover:bg-green-200 focus:ring-green-500";
+        buttonStyle = "text-sage bg-sage-soft hover:bg-green-200 focus:ring-green-500";
       }
       return { buttonText, buttonStyle, isDisabled };
     }
@@ -332,7 +332,7 @@ const Dashboard = ({ userEmail }) => {
     
     if (canVote) {
       buttonText = "Vote Now";
-      buttonStyle = "text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500";
+      buttonStyle = "text-white bg-brand hover:bg-brand-dark focus:ring-brand";
     } else {
       buttonText = "Not Allowed";
       buttonStyle = "text-red-700 bg-red-100 cursor-not-allowed";
@@ -347,7 +347,7 @@ const Dashboard = ({ userEmail }) => {
     return (
       <div className="space-y-6">
         {/* Welcome Banner Skeleton */}
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg overflow-hidden">
+        <div className="bg-gradient-to-r from-brand to-brand-dark rounded-2xl shadow-lg overflow-hidden">
           <div className="px-6 py-8 sm:p-10">
             <div className="animate-pulse">
               <div className="h-8 bg-white bg-opacity-20 rounded w-1/3 mb-3"></div>
@@ -412,20 +412,21 @@ const Dashboard = ({ userEmail }) => {
   return (
     <div className="space-y-6">
       {/* Welcome Banner */}
-      <div className="bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl shadow-lg overflow-hidden">
-        <div className="px-4 py-4 sm:px-6 sm:py-8 sm:p-10">
+      <div className="bg-deep-sheen rounded-2xl shadow-lift overflow-hidden">
+        <div className="px-4 py-5 sm:px-6 sm:py-8 sm:p-10">
           <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <div>
-              <h1 className="text-lg sm:text-2xl font-bold text-white break-words leading-tight">
-                Welcome, {userEmail.split("@")[0]}!
+              <p className="text-xs font-semibold uppercase tracking-[0.16em] text-brand-light">Secure dashboard</p>
+              <h1 className="mt-1 font-display text-xl sm:text-3xl font-bold text-white break-words leading-tight">
+                Welcome, {userEmail.split("@")[0]}
               </h1>
-              <p className="mt-1 text-xs sm:text-base text-blue-100 max-w-lg">
+              <p className="mt-2 text-xs sm:text-base text-slate-300 max-w-lg">
                 You have {ongoing.length} active election{ongoing.length === 1 ? '' : 's'} right now.
               </p>
             </div>
             <div className="hidden sm:block self-start sm:self-auto">
-              <div className="w-16 h-16 bg-white bg-opacity-20 rounded-full flex items-center justify-center">
-                <FiAward className="w-8 h-8 text-white" />
+              <div className="w-16 h-16 bg-brand/20 border border-brand/30 rounded-2xl flex items-center justify-center">
+                <FiAward className="w-8 h-8 text-brand-light" />
               </div>
             </div>
           </div>
@@ -433,7 +434,7 @@ const Dashboard = ({ userEmail }) => {
       </div>
 
       {/* Stats */}
-      <div className="grid grid-cols-4 gap-2 sm:gap-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-4 lg:grid-cols-4">
         {stats.map((stat) => (
           <div
             key={stat.name}
@@ -500,7 +501,7 @@ const Dashboard = ({ userEmail }) => {
                         <span
                           className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                             election.isPublic 
-                              ? 'bg-green-100 text-green-800' 
+                              ? 'bg-sage-soft text-emerald-800' 
                               : 'bg-orange-100 text-orange-800'
                           }`}
                         >
@@ -519,8 +520,8 @@ const Dashboard = ({ userEmail }) => {
                             key={role}
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                               role === 'admin' ? 'bg-red-100 text-red-800' :
-                              role === 'guardian' ? 'bg-purple-100 text-purple-800' :
-                              'bg-blue-100 text-blue-800'
+                              role === 'guardian' ? 'bg-glacier text-ink' :
+                              'bg-glacier text-ink'
                             }`}
                           >
                             {role.charAt(0).toUpperCase() + role.slice(1)}
@@ -528,7 +529,7 @@ const Dashboard = ({ userEmail }) => {
                         ))}
                         {/* Show eligible voter status */}
                         {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sage-soft text-emerald-800">
                             {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
                           </span>
                         )}
@@ -573,7 +574,7 @@ const Dashboard = ({ userEmail }) => {
               <div className="p-4 text-center">
                 <button 
                   onClick={() => navigate('/all-elections')} 
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  className="text-brand hover:text-ink text-sm font-medium"
                 >
                   View All Available Elections
                 </button>
@@ -609,7 +610,7 @@ const Dashboard = ({ userEmail }) => {
                         <span
                           className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             election.isPublic 
-                              ? 'bg-green-100 text-green-800' 
+                              ? 'bg-sage-soft text-emerald-800' 
                               : 'bg-orange-100 text-orange-800'
                           }`}
                         >
@@ -628,8 +629,8 @@ const Dashboard = ({ userEmail }) => {
                             key={role}
                             className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                               role === 'admin' ? 'bg-red-100 text-red-800' :
-                              role === 'guardian' ? 'bg-purple-100 text-purple-800' :
-                              'bg-blue-100 text-blue-800'
+                              role === 'guardian' ? 'bg-glacier text-ink' :
+                              'bg-glacier text-ink'
                             }`}
                           >
                             {role.charAt(0).toUpperCase() + role.slice(1)}
@@ -637,7 +638,7 @@ const Dashboard = ({ userEmail }) => {
                         ))}
                         {/* Show eligible voter status */}
                         {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sage-soft text-emerald-800">
                             {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
                           </span>
                         )}
@@ -663,7 +664,7 @@ const Dashboard = ({ userEmail }) => {
               <div className="p-4 text-center">
                 <button 
                   onClick={() => navigate('/all-elections?filter=completed')} 
-                  className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                  className="text-brand hover:text-ink text-sm font-medium"
                 >
                   View All Completed Elections
                 </button>
@@ -701,7 +702,7 @@ const Dashboard = ({ userEmail }) => {
                       <span
                         className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                           election.isPublic 
-                            ? 'bg-green-100 text-green-800' 
+                            ? 'bg-sage-soft text-emerald-800' 
                             : 'bg-orange-100 text-orange-800'
                         }`}
                       >
@@ -720,8 +721,8 @@ const Dashboard = ({ userEmail }) => {
                           key={role}
                           className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
                             role === 'admin' ? 'bg-red-100 text-red-800' :
-                            role === 'guardian' ? 'bg-purple-100 text-purple-800' :
-                            'bg-blue-100 text-blue-800'
+                            role === 'guardian' ? 'bg-glacier text-ink' :
+                            'bg-glacier text-ink'
                           }`}
                         >
                           {role.charAt(0).toUpperCase() + role.slice(1)}
@@ -729,7 +730,7 @@ const Dashboard = ({ userEmail }) => {
                       ))}
                       {/* Show eligible voter status */}
                       {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sage-soft text-emerald-800">
                           {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
                         </span>
                       )}
@@ -766,7 +767,7 @@ const Dashboard = ({ userEmail }) => {
             <div className="p-4 text-center">
               <button 
                 onClick={() => navigate('/all-elections?filter=upcoming')} 
-                className="text-blue-600 hover:text-blue-800 text-sm font-medium"
+                className="text-brand hover:text-ink text-sm font-medium"
               >
                 View All Upcoming Elections
               </button>

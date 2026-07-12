@@ -3,9 +3,9 @@ import { Link } from "react-router-dom";
 import Layout from "./Layout";
 
 const Step = ({ n, title, actor, color, children }) => {
-  const bg = { blue: "bg-blue-600", green: "bg-green-600", purple: "bg-purple-600", orange: "bg-orange-600", indigo: "bg-indigo-600", red: "bg-red-600", teal: "bg-teal-600" };
-  const border = { blue: "border-blue-200 bg-blue-50", green: "border-green-200 bg-green-50", purple: "border-purple-200 bg-purple-50", orange: "border-orange-200 bg-orange-50", indigo: "border-indigo-200 bg-indigo-50", red: "border-red-200 bg-red-50", teal: "border-teal-200 bg-teal-50" };
-  const actorColor = { blue: "text-blue-700 bg-blue-100", green: "text-green-700 bg-green-100", purple: "text-purple-700 bg-purple-100", orange: "text-orange-700 bg-orange-100", indigo: "text-indigo-700 bg-indigo-100", red: "text-red-700 bg-red-100", teal: "text-teal-700 bg-teal-100" };
+  const bg = { blue: "bg-brand", green: "bg-green-600", purple: "bg-ink", orange: "bg-orange-600", indigo: "bg-brand-dark", red: "bg-red-600", teal: "bg-teal-600" };
+  const border = { blue: "border-brand/20 bg-glacier", green: "border-green-200 bg-sage-soft", purple: "border-purple-200 bg-glacier", orange: "border-orange-200 bg-orange-50", indigo: "border-brand/25 bg-glacier", red: "border-red-200 bg-red-50", teal: "border-teal-200 bg-teal-50" };
+  const actorColor = { blue: "text-brand-dark bg-glacier", green: "text-sage bg-sage-soft", purple: "text-purple-700 bg-glacier", orange: "text-orange-700 bg-orange-100", indigo: "text-ink bg-glacier", red: "text-red-700 bg-red-100", teal: "text-teal-700 bg-teal-100" };
   return (
     <div className="flex items-start gap-4">
       <div className="flex flex-col items-center flex-shrink-0">
@@ -42,12 +42,12 @@ const HowItWorks = () => {
   return (
     <Layout>
       {/* Hero */}
-      <div className="bg-gradient-to-br from-gray-900 to-blue-950 py-16 px-4 text-center">
-        <div className="inline-flex items-center px-4 py-2 bg-blue-500/10 border border-blue-400/30 rounded-full text-blue-300 text-sm font-medium mb-6">
+      <div className="bg-gradient-to-br from-gray-900 to-deep py-16 px-4 text-center">
+        <div className="inline-flex items-center px-4 py-2 bg-brand/10 border border-brand/30 rounded-full text-brand-light text-sm font-medium mb-6">
           <span className="mr-2">🔄</span>Complete Technical Workflow
         </div>
         <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">How AmarVote Works</h1>
-        <p className="text-blue-200/80 text-lg max-w-2xl mx-auto">
+        <p className="text-brand-soft/80 text-lg max-w-2xl mx-auto">
           A deep-dive walkthrough of every phase — from OTP authentication through cryptographic ballot casting, RabbitMQ processing, guardian threshold decryption, and end-to-end verification.
         </p>
       </div>
@@ -68,7 +68,7 @@ const HowItWorks = () => {
               onClick={() => setActivePhase(id)}
               className={`px-4 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activePhase === id
-                  ? "border-blue-600 text-blue-600"
+                  ? "border-brand text-brand"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -408,11 +408,11 @@ A^v · M_ic^challenge == commitment_b // ✓?
             activePhase !== id && (
               <button key={id} onClick={() => setActivePhase(id)}
                 className={`px-4 py-2 text-sm font-medium rounded-xl border transition-colors ${
-                  color === "blue" ? "border-blue-200 text-blue-700 hover:bg-blue-50" :
-                  color === "green" ? "border-green-200 text-green-700 hover:bg-green-50" :
-                  color === "purple" ? "border-purple-200 text-purple-700 hover:bg-purple-50" :
+                  color === "blue" ? "border-brand/20 text-brand-dark hover:bg-glacier" :
+                  color === "green" ? "border-green-200 text-sage hover:bg-sage-soft" :
+                  color === "purple" ? "border-purple-200 text-purple-700 hover:bg-glacier" :
                   color === "orange" ? "border-orange-200 text-orange-700 hover:bg-orange-50" :
-                  color === "indigo" ? "border-indigo-200 text-indigo-700 hover:bg-indigo-50" :
+                  color === "indigo" ? "border-brand/25 text-ink hover:bg-glacier" :
                   "border-teal-200 text-teal-700 hover:bg-teal-50"
                 }`}>
                 {label}
@@ -422,12 +422,12 @@ A^v · M_ic^challenge == commitment_b // ✓?
         </div>
 
         {/* Bottom CTA */}
-        <div className="mt-12 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-8 text-center">
+        <div className="mt-12 bg-gradient-to-r from-brand to-brand-dark rounded-2xl p-8 text-center">
           <h2 className="text-xl font-bold text-white mb-3">Ready to experience it yourself?</h2>
-          <p className="text-blue-200 text-sm mb-5">Sign in with just your email address — no password needed.</p>
+          <p className="text-brand-soft text-sm mb-5">Sign in with just your email address — no password needed.</p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link to="/otp-login">
-              <button className="px-6 py-3 bg-white text-blue-700 font-bold rounded-xl hover:bg-blue-50 transition">
+              <button className="px-6 py-3 bg-white text-brand-dark font-bold rounded-xl hover:bg-glacier transition">
                 Get Started →
               </button>
             </Link>

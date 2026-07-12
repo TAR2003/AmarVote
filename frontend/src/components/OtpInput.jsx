@@ -92,7 +92,7 @@ export default function OtpInput({
           disabled={disabled}
           onChange={(e) => handleChange(index, e.target.value)}
           onKeyDown={(e) => handleKeyDown(index, e)}
-          className="h-12 w-12 rounded-lg border border-gray-300 text-center text-xl font-semibold text-gray-900 shadow-sm outline-none transition focus:border-blue-500 focus:ring-2 focus:ring-blue-200 disabled:bg-gray-100"
+          className="h-12 w-12 rounded-lg border border-gray-300 text-center text-xl font-semibold text-gray-900 shadow-sm outline-none transition focus:border-brand focus:ring-2 focus:ring-brand/25 disabled:bg-gray-100"
         />
       ))}
     </div>

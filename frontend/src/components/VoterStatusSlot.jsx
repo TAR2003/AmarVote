@@ -3,17 +3,17 @@ import { FiAlertCircle, FiInfo, FiLoader } from 'react-icons/fi';
 
 const VARIANT_STYLES = {
   info: {
-    container: 'border-blue-200 bg-blue-50',
-    icon: 'text-blue-500',
-    title: 'text-blue-900',
-    message: 'text-blue-800',
+    container: 'border-brand/20 bg-glacier',
+    icon: 'text-brand',
+    title: 'text-deep',
+    message: 'text-ink',
     Icon: FiInfo,
   },
   loading: {
-    container: 'border-blue-200 bg-blue-50',
-    icon: 'text-blue-500',
-    title: 'text-blue-900',
-    message: 'text-blue-800',
+    container: 'border-brand/20 bg-glacier',
+    icon: 'text-brand',
+    title: 'text-deep',
+    message: 'text-ink',
     Icon: FiLoader,
   },
   error: {

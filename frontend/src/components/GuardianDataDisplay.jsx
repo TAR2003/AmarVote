@@ -101,7 +101,7 @@ const GuardianDataDisplay = ({ electionId }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
         <span className="ml-2 text-gray-600">Loading guardian data...</span>
       </div>
     );
@@ -137,9 +137,9 @@ const GuardianDataDisplay = ({ electionId }) => {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <FiShield className="h-5 w-5 mr-2 text-blue-600" />
+            <FiShield className="h-5 w-5 mr-2 text-brand" />
             Guardian Information
-            <span className="ml-3 bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-1 rounded-full">
+            <span className="ml-3 bg-glacier text-ink text-sm font-medium px-2.5 py-1 rounded-full">
               {guardians.length} {guardians.length === 1 ? 'Guardian' : 'Guardians'}
             </span>
           </h3>
@@ -150,17 +150,17 @@ const GuardianDataDisplay = ({ electionId }) => {
         <button
           type="button"
           onClick={downloadAllGuardiansData}
-          className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
+          className="flex items-center space-x-2 bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-dark transition-all shadow-sm hover:shadow-md"
         >
           <FiDownload className="h-4 w-4" />
           <span>Download All</span>
         </button>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+      <div className="bg-glacier border border-brand/20 rounded-lg p-3">
         <div className="flex items-start">
-          <FiInfo className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-blue-800">
+          <FiInfo className="h-5 w-5 text-brand mr-2 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-ink">
             Cryptographic artifacts are not shown inline. Download a guardian package to inspect
             public keys, backup data, and partial decryption shares locally.
           </p>
@@ -196,7 +196,7 @@ const GuardianDataDisplay = ({ electionId }) => {
               <div className="flex items-center space-x-3 shrink-0">
                 <div className={`px-3 py-1 rounded-full text-sm font-medium ${
                   guardian.decryptedOrNot
-                    ? 'bg-green-100 text-green-800'
+                    ? 'bg-sage-soft text-emerald-800'
                     : 'bg-yellow-100 text-yellow-800'
                 }`}>
                   {guardian.decryptedOrNot ? 'Decrypted' : 'Pending'}
@@ -205,7 +205,7 @@ const GuardianDataDisplay = ({ electionId }) => {
                   type="button"
                   onClick={() => downloadAllGuardianData(guardian)}
                   disabled={isDownloading}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-brand hover:bg-brand-dark disabled:opacity-50 transition-colors"
                 >
                   {isDownloading ? (
                     <FiLoader className="h-4 w-4 animate-spin" />

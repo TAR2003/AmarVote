@@ -91,13 +91,13 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
 
   return (
     <div className="space-y-8">
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg p-6 shadow-lg">
+      <div className="bg-gradient-to-r from-brand to-blue-800 text-white rounded-lg p-6 shadow-lg">
         <h2 className="text-3xl font-bold mb-2">Election Results</h2>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-          <p className="text-blue-100 text-lg">
+          <p className="text-glacier text-lg">
             Voters Who Voted: <span className="font-bold text-white">{votersWhoVotedCount}</span>
           </p>
-          <p className="text-blue-100 text-sm">
+          <p className="text-glacier text-sm">
             Ranked by votes received (highest first). Tied candidates share the same position.
           </p>
         </div>
@@ -151,7 +151,7 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
               </div>
 
               <motion.div
-                className="text-4xl font-extrabold text-blue-600 mb-4"
+                className="text-4xl font-extrabold text-brand mb-4"
                 key={displayVotes}
                 initial={{ scale: 1.2 }}
                 animate={{ scale: 1 }}

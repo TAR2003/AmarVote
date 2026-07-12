@@ -31,7 +31,7 @@ const PROCESS_ACTIONS = {
     title: 'Stop Combine',
     message: 'Stop the in-progress combine decryption process? Any partial combine work will be interrupted.',
     confirmLabel: 'Stop Combine',
-    confirmClass: 'bg-purple-600 hover:bg-purple-700',
+    confirmClass: 'bg-ink hover:bg-purple-700',
   },
   deleteCombine: {
     title: 'Delete Combined Results',
@@ -171,7 +171,7 @@ const ProcessControlPanel = ({
               type="button"
               disabled={!!busy}
               onClick={() => requestAction('stopCombine', () => electionApi.stopCombineProcess(electionId), 'Combine stop requested')}
-              className="rounded bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+              className="rounded bg-ink px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700 disabled:opacity-50"
             >
               {busy === 'stopCombine' ? 'Stopping…' : 'Stop Combine'}
             </button>
@@ -179,7 +179,7 @@ const ProcessControlPanel = ({
               type="button"
               disabled={!!busy}
               onClick={() => requestAction('deleteCombine', () => electionApi.deleteCombineResults(electionId), 'Combined results removed')}
-              className="rounded border border-purple-600 px-3 py-1.5 text-xs font-medium text-purple-800 hover:bg-purple-50 disabled:opacity-50"
+              className="rounded border border-purple-600 px-3 py-1.5 text-xs font-medium text-ink hover:bg-glacier disabled:opacity-50"
             >
               {busy === 'deleteCombine' ? 'Deleting…' : 'Delete Combined Results'}
             </button>

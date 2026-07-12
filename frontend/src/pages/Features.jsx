@@ -4,18 +4,18 @@ import Layout from "./Layout";
 
 const FeatureCard = ({ icon, title, items, color }) => {
   const colors = {
-    blue: "bg-blue-50 border-blue-200",
-    green: "bg-green-50 border-green-200",
-    purple: "bg-purple-50 border-purple-200",
+    blue: "bg-glacier border-brand/20",
+    green: "bg-sage-soft border-green-200",
+    purple: "bg-glacier border-purple-200",
     orange: "bg-orange-50 border-orange-200",
     red: "bg-red-50 border-red-200",
-    indigo: "bg-indigo-50 border-indigo-200",
+    indigo: "bg-glacier border-brand/25",
     teal: "bg-teal-50 border-teal-200",
     amber: "bg-amber-50 border-amber-200",
   };
   const headColors = {
-    blue: "text-blue-800", green: "text-green-800", purple: "text-purple-800",
-    orange: "text-orange-800", red: "text-red-800", indigo: "text-indigo-800",
+    blue: "text-ink", green: "text-emerald-800", purple: "text-ink",
+    orange: "text-orange-800", red: "text-red-800", indigo: "text-ink",
     teal: "text-teal-800", amber: "text-amber-800",
   };
   return (
@@ -39,12 +39,12 @@ function Features() {
   return (
     <Layout>
       {/* Hero */}
-      <div className="bg-gradient-to-br from-blue-900 to-indigo-900 py-16 px-4 text-center">
-        <div className="inline-flex items-center px-4 py-2 bg-blue-500/10 border border-blue-400/30 rounded-full text-blue-300 text-sm font-medium mb-6">
+      <div className="bg-gradient-to-br from-deep to-deep py-16 px-4 text-center">
+        <div className="inline-flex items-center px-4 py-2 bg-brand/10 border border-brand/30 rounded-full text-brand-light text-sm font-medium mb-6">
           <span className="mr-2">⚡</span>All Platform Features
         </div>
         <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">Every Feature, Every Detail</h1>
-        <p className="text-blue-200/80 text-lg max-w-2xl mx-auto">
+        <p className="text-brand-soft/80 text-lg max-w-2xl mx-auto">
           A complete breakdown of AmarVote's cryptographic, architectural, security, and UX capabilities.
         </p>
       </div>
@@ -65,7 +65,7 @@ function Features() {
               onClick={() => setActiveTab(id)}
               className={`px-4 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === id
-                  ? "border-blue-600 text-blue-600"
+                  ? "border-brand text-brand"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -165,7 +165,7 @@ function Features() {
                     ["Audit metadata signatures", "SHA-256 + signed payload", "Internal verification profile", "Supplementary transparency records"],
                   ].map(([algo, key, std, purpose]) => (
                     <tr key={algo} className="border-b border-gray-800">
-                      <td className="py-1.5 pr-4 text-blue-300 font-bold">{algo}</td>
+                      <td className="py-1.5 pr-4 text-brand-light font-bold">{algo}</td>
                       <td className="py-1.5 pr-4 text-yellow-300">{key}</td>
                       <td className="py-1.5 pr-4 text-gray-400">{std}</td>
                       <td className="py-1.5 text-gray-300">{purpose}</td>
@@ -446,10 +446,10 @@ function Features() {
         )}
 
         {/* Navigation CTA */}
-        <div className="mt-12 bg-gradient-to-r from-blue-600 to-indigo-700 rounded-2xl p-8 text-center">
+        <div className="mt-12 bg-gradient-to-r from-brand to-brand-dark rounded-2xl p-8 text-center">
           <h2 className="text-2xl font-bold text-white mb-3">Dive deeper into the platform</h2>
           <div className="flex flex-wrap justify-center gap-4 mt-4">
-            <Link to="/architecture"><button className="px-5 py-2.5 bg-white text-blue-700 font-semibold rounded-xl hover:bg-blue-50 transition text-sm">Architecture →</button></Link>
+            <Link to="/architecture"><button className="px-5 py-2.5 bg-white text-brand-dark font-semibold rounded-xl hover:bg-glacier transition text-sm">Architecture →</button></Link>
             <Link to="/security"><button className="px-5 py-2.5 border border-white/40 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">Security Details →</button></Link>
             <Link to="/how-it-works"><button className="px-5 py-2.5 border border-white/40 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">How It Works →</button></Link>
           </div>

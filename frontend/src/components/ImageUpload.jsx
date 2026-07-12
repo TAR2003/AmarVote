@@ -138,14 +138,14 @@ const ImageUpload = ({
           title={placeholder || 'Upload photo'}
           className={`relative flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
             preview
-              ? 'border-blue-300 bg-blue-50 hover:bg-blue-100'
+              ? 'border-blue-300 bg-glacier hover:bg-glacier'
               : 'border-gray-300 bg-white hover:bg-gray-50'
           } disabled:opacity-50`}
         >
           {preview ? (
             <img src={preview} alt="" className="h-full w-full rounded-full object-cover" />
           ) : uploading ? (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand border-t-transparent" />
           ) : (
             <FiImage className="h-4 w-4 text-gray-500" />
           )}
@@ -208,7 +208,7 @@ const ImageUpload = ({
         className={`
           relative border-2 border-dashed rounded-xl transition-all duration-200 ${isCompact ? 'p-4' : 'p-6'}
           ${dragActive 
-            ? 'border-blue-400 bg-blue-50' 
+            ? 'border-brand bg-glacier' 
             : preview 
               ? 'border-gray-200 bg-gray-50' 
               : 'border-gray-300 hover:border-gray-400'
@@ -243,7 +243,7 @@ const ImageUpload = ({
 
             {/* Success overlay */}
             {!uploading && progress === 100 && (
-              <div className="absolute inset-0 bg-green-500 bg-opacity-80 rounded-lg flex items-center justify-center transition-opacity">
+              <div className="absolute inset-0 bg-sage-soft0 bg-opacity-80 rounded-lg flex items-center justify-center transition-opacity">
                 <div className="text-white text-center">
                   <FiCheck className="w-8 h-8 mx-auto mb-2" />
                   <div className="text-sm font-medium">Uploaded!</div>
@@ -292,7 +292,7 @@ const ImageUpload = ({
             
             {dragActive && (
               <div className={`${isCompact ? 'mt-2' : 'mt-4'}`}>
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-600 text-sm font-medium">
+                <div className="inline-flex items-center px-3 py-1 rounded-full bg-glacier text-brand text-sm font-medium">
                   <FiUpload className="w-4 h-4 mr-1" />
                   Drop to upload
                 </div>
@@ -305,7 +305,7 @@ const ImageUpload = ({
         {uploading && (
           <div className="absolute bottom-0 left-0 right-0 bg-gray-200 rounded-b-xl overflow-hidden">
             <div
-              className="bg-blue-500 h-1 transition-all duration-300"
+              className="bg-brand h-1 transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>

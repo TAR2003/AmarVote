@@ -6,7 +6,7 @@ const SvcBox = ({ icon, name, tech, ip, port, color }) => (
     <div className="text-2xl mb-1">{icon}</div>
     <div className="font-bold text-gray-900 text-sm">{name}</div>
     <div className="text-xs text-gray-500 mt-1 font-mono">{tech}</div>
-    {ip && <div className="mt-1 text-xs font-mono text-blue-600">{ip}</div>}
+    {ip && <div className="mt-1 text-xs font-mono text-brand">{ip}</div>}
     {port && <div className="text-xs font-mono text-gray-400">{port}</div>}
   </div>
 );
@@ -25,15 +25,15 @@ const Architecture = () => {
   return (
     <Layout>
       {/* ── Hero ─────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 py-16 px-4">
+      <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-deep py-16 px-4">
         <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-flex items-center px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-full text-blue-300 text-sm font-medium mb-6">
+          <div className="inline-flex items-center px-4 py-2 bg-brand/10 border border-brand/30 rounded-full text-brand-light text-sm font-medium mb-6">
             <span className="mr-2">🏗️</span>System Architecture
           </div>
           <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">
             AmarVote Infrastructure
           </h1>
-          <p className="text-blue-200/80 text-lg max-w-2xl mx-auto">
+          <p className="text-brand-soft/80 text-lg max-w-2xl mx-auto">
             Six microservices orchestrated via Docker Compose with a private 172.20.0.0/24 overlay network, plus optional AI and observability layers.
           </p>
         </div>
@@ -55,7 +55,7 @@ const Architecture = () => {
               onClick={() => setActiveTab(id)}
               className={`px-4 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === id
-                  ? "border-blue-600 text-blue-600"
+                  ? "border-brand text-brand"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -85,7 +85,7 @@ const Architecture = () => {
 
                 {/* Frontend */}
                 <div className="flex justify-center mb-2">
-                  <SvcBox icon="⚛️" name="React Frontend" tech="React 19.1 · Vite 6 · Tailwind" ip="172.20.0.40" port="5173 dev / 80 prod" color="border-blue-400" />
+                  <SvcBox icon="⚛️" name="React Frontend" tech="React 19.1 · Vite 6 · Tailwind" ip="172.20.0.40" port="5173 dev / 80 prod" color="border-brand" />
                 </div>
                 <ArrowLabel label="HTTP REST + JSON" />
 
@@ -164,8 +164,8 @@ const Architecture = () => {
                   </div>
                 </div>
                 <div>
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm">
-                    <h4 className="font-semibold text-blue-800 mb-2">Production vs Development</h4>
+                  <div className="bg-glacier border border-brand/20 rounded-xl p-4 text-sm">
+                    <h4 className="font-semibold text-ink mb-2">Production vs Development</h4>
                     <div className="space-y-2 text-gray-700">
                       <div><strong>Dev:</strong> <code className="bg-white px-1 rounded text-xs">docker-compose.yml</code> + Vite HMR on :5173</div>
                       <div><strong>Prod:</strong> <code className="bg-white px-1 rounded text-xs">docker-compose.prod.yml</code> + Nginx serving built React on :80, Prometheus + Grafana enabled</div>
@@ -261,7 +261,7 @@ const Architecture = () => {
                         <div className="font-mono text-xs text-gray-500 mt-0.5">{tech}</div>
                       </div>
                     </div>
-                    <div className="font-mono text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200 flex-shrink-0 ml-4">{ip}</div>
+                    <div className="font-mono text-xs text-brand bg-glacier px-3 py-1 rounded-lg border border-brand/20 flex-shrink-0 ml-4">{ip}</div>
                   </div>
                   <p className="text-gray-600 text-sm mb-4">{desc}</p>
                   <ul className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
@@ -287,7 +287,7 @@ const Architecture = () => {
                 <div className="bg-gray-900 rounded-xl p-5 font-mono text-xs text-gray-300 overflow-x-auto">
                   <div className="text-green-400 mb-3"># Docker network: amarvote_default</div>
                   <div className="text-yellow-300 mb-2">Subnet: 172.20.0.0/24</div>
-                  <div className="text-blue-300 mb-4">Driver: bridge</div>
+                  <div className="text-brand-light mb-4">Driver: bridge</div>
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="text-gray-500 border-b border-gray-700">
@@ -310,7 +310,7 @@ const Architecture = () => {
                         ["redis-replica", "172.20.0.75", "6379"],
                       ].map(([svc, ip, port]) => (
                         <tr key={svc} className="border-b border-gray-800">
-                          <td className="py-1.5 text-blue-300">{svc}</td>
+                          <td className="py-1.5 text-brand-light">{svc}</td>
                           <td className="py-1.5 text-yellow-300">{ip}</td>
                           <td className="py-1.5 text-gray-400">{port}</td>
                         </tr>
@@ -335,7 +335,7 @@ const Architecture = () => {
                       ["Prometheus → Backend", "HTTP scrape /actuator/prometheus every 15s"],
                     ].map(([from, proto]) => (
                       <div key={from} className="flex items-start">
-                        <span className="text-blue-500 mr-2 flex-shrink-0">→</span>
+                        <span className="text-brand mr-2 flex-shrink-0">→</span>
                         <div><strong className="text-gray-800">{from}:</strong> <span className="text-gray-600">{proto}</span></div>
                       </div>
                     ))}
@@ -409,16 +409,16 @@ const Architecture = () => {
                   ]
                 },
               ].map(({ phase, color, steps }) => (
-                <div key={phase} className={`bg-white rounded-2xl border-l-4 ${color === "blue" ? "border-blue-500" : color === "green" ? "border-green-500" : color === "orange" ? "border-orange-500" : "border-purple-500"} border-r border-t border-b border-gray-200 p-6 shadow-sm`}>
-                  <h3 className={`text-xl font-bold mb-5 ${color === "blue" ? "text-blue-800" : color === "green" ? "text-green-800" : color === "orange" ? "text-orange-800" : "text-purple-800"}`}>{phase}</h3>
+                <div key={phase} className={`bg-white rounded-2xl border-l-4 ${color === "blue" ? "border-brand" : color === "green" ? "border-green-500" : color === "orange" ? "border-orange-500" : "border-purple-500"} border-r border-t border-b border-gray-200 p-6 shadow-sm`}>
+                  <h3 className={`text-xl font-bold mb-5 ${color === "blue" ? "text-ink" : color === "green" ? "text-emerald-800" : color === "orange" ? "text-orange-800" : "text-ink"}`}>{phase}</h3>
                   <div className="space-y-3">
                     {steps.map(([actor, action], i) => (
                       <div key={i} className="flex items-start">
                         <div className="flex items-center flex-shrink-0 mr-3">
-                          <div className={`w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center ${color === "blue" ? "bg-blue-500" : color === "green" ? "bg-green-500" : color === "orange" ? "bg-orange-500" : "bg-purple-500"}`}>{i + 1}</div>
+                          <div className={`w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center ${color === "blue" ? "bg-brand" : color === "green" ? "bg-sage-soft0" : color === "orange" ? "bg-orange-500" : "bg-glacier0"}`}>{i + 1}</div>
                         </div>
                         <div>
-                          <span className={`font-semibold text-sm ${color === "blue" ? "text-blue-700" : color === "green" ? "text-green-700" : color === "orange" ? "text-orange-700" : "text-purple-700"}`}>[{actor}]</span>
+                          <span className={`font-semibold text-sm ${color === "blue" ? "text-brand-dark" : color === "green" ? "text-sage" : color === "orange" ? "text-orange-700" : "text-purple-700"}`}>[{actor}]</span>
                           <span className="text-gray-700 text-sm ml-2">{action}</span>
                         </div>
                       </div>
@@ -478,10 +478,10 @@ For each 100ms tick:
                 <div className="bg-white rounded-2xl border border-gray-200 p-5">
                   <h4 className="font-bold text-gray-900 mb-3">Task ID Format</h4>
                   <div className="space-y-2 font-mono text-xs text-gray-600 bg-gray-50 rounded-lg p-3">
-                    <div><span className="text-blue-600">TALLY_e42_1704067200000</span></div>
-                    <div><span className="text-purple-600">PARTIAL_DECRYPT_e42_g3_1704067200000</span></div>
+                    <div><span className="text-brand">TALLY_e42_1704067200000</span></div>
+                    <div><span className="text-brand-dark">PARTIAL_DECRYPT_e42_g3_1704067200000</span></div>
                     <div><span className="text-orange-600">COMPENSATED_DECRYPT_e42_g3_g1_1704067200000</span></div>
-                    <div><span className="text-green-600">COMBINE_e42_1704067200000</span></div>
+                    <div><span className="text-sage">COMBINE_e42_1704067200000</span></div>
                     <div className="text-gray-400 mt-2 font-sans">Format: PHASE_electionId_guardianId?_timestamp</div>
                   </div>
                 </div>
@@ -519,7 +519,7 @@ For each 100ms tick:
               {[
                 {
                   icon: "🔑", title: "Guardian Private Key Cache",
-                  color: "bg-purple-50 border-purple-200",
+                  color: "bg-glacier border-purple-200",
                   ttl: "6 hours",
                   pattern: "guardian:{guardianId}:key",
                   type: "STRING (binary, msgpack)",

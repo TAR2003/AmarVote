@@ -112,7 +112,7 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
         <span className="ml-2 text-gray-600">Loading compensated decryption data...</span>
       </div>
     );
@@ -158,9 +158,9 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
       <div className="flex items-center justify-between mb-4">
         <div>
           <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <FiRefreshCw className="h-5 w-5 mr-2 text-purple-600" />
+            <FiRefreshCw className="h-5 w-5 mr-2 text-brand-dark" />
             Compensated Decryption Shares
-            <span className="ml-3 bg-purple-100 text-purple-800 text-sm font-medium px-2.5 py-1 rounded-full">
+            <span className="ml-3 bg-glacier text-ink text-sm font-medium px-2.5 py-1 rounded-full">
               {compensatedDecryptions.length} {compensatedDecryptions.length === 1 ? 'Share' : 'Shares'}
             </span>
           </h3>
@@ -171,17 +171,17 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
         <button
           type="button"
           onClick={downloadAllCompensatedDecryptionsData}
-          className="flex items-center space-x-2 bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all shadow-sm hover:shadow-md"
+          className="flex items-center space-x-2 bg-ink text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all shadow-sm hover:shadow-md"
         >
           <FiDownload className="h-4 w-4" />
           <span>Download All</span>
         </button>
       </div>
 
-      <div className="bg-purple-50 border border-purple-200 rounded-lg p-3">
+      <div className="bg-glacier border border-purple-200 rounded-lg p-3">
         <div className="flex items-start">
-          <FiInfo className="h-5 w-5 text-purple-600 mr-2 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-purple-800">
+          <FiInfo className="h-5 w-5 text-brand-dark mr-2 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-ink">
             Compensated decryption artifacts are download-only. Use the buttons below to save share
             payloads for offline verification.
           </p>
@@ -207,7 +207,7 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
                   </p>
                 )}
               </div>
-              <span className="ml-auto px-3 py-1 bg-purple-100 text-purple-800 rounded-full text-sm font-medium">
+              <span className="ml-auto px-3 py-1 bg-glacier text-ink rounded-full text-sm font-medium">
                 {shares.length} Compensator{shares.length !== 1 ? 's' : ''}
               </span>
             </div>
@@ -230,7 +230,7 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
                         </p>
                       )}
                       {cd.chunkCount > 1 && (
-                        <p className="text-xs text-blue-600 mt-1">
+                        <p className="text-xs text-brand mt-1">
                           Applied across {cd.chunkCount} chunk{cd.chunkCount !== 1 ? 's' : ''}
                         </p>
                       )}
@@ -239,7 +239,7 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
                       type="button"
                       onClick={() => downloadAllCompensatedDecryptionData(cd)}
                       disabled={isDownloading}
-                      className="flex items-center gap-2 shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-white bg-purple-600 hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                      className="flex items-center gap-2 shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-white bg-ink hover:bg-purple-700 disabled:opacity-50 transition-colors"
                     >
                       {isDownloading ? (
                         <FiLoader className="h-4 w-4 animate-spin" />

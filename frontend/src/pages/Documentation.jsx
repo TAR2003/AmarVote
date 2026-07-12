@@ -15,13 +15,13 @@ const Code = ({ children }) => (
 function Documentation() {
   return (
     <Layout>
-      <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-white py-16 px-4">
+      <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-deep text-white py-16 px-4">
         <div className="max-w-6xl mx-auto">
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-500/10 border border-blue-300/30 text-blue-200 text-sm font-medium mb-6">
+          <div className="inline-flex items-center px-4 py-2 rounded-full bg-brand/10 border border-blue-300/30 text-brand-soft text-sm font-medium mb-6">
             <span className="mr-2">📘</span>AmarVote Documentation (Partial, Full Documentation will be available soon)
           </div>
           <h1 className="text-3xl md:text-5xl font-extrabold mb-4">Platform Documentation</h1>
-          <p className="text-blue-100/90 text-lg max-w-4xl leading-relaxed">
+          <p className="text-glacier/90 text-lg max-w-4xl leading-relaxed">
             The routes and permissions outlined on this page are based on the current implementation of AmarVote as of March 2026. They are subject to change as the platform evolves, but this serves as a snapshot of the core structure and access rules in place at this time.   
           </p>
         </div>
@@ -51,13 +51,13 @@ function Documentation() {
               <h3 className="font-bold text-gray-900 mb-2">User</h3>
               <p className="text-sm text-gray-700">Can log in if authorized. Cannot manage authorized-users settings by default.</p>
             </div>
-            <div className="rounded-xl border border-blue-200 p-4 bg-blue-50">
-              <h3 className="font-bold text-blue-900 mb-2">Admin</h3>
-              <p className="text-sm text-blue-900">Can add/remove/update authorized users (except owner records), and manage permission settings.</p>
+            <div className="rounded-xl border border-brand/20 p-4 bg-glacier">
+              <h3 className="font-bold text-deep mb-2">Admin</h3>
+              <p className="text-sm text-deep">Can add/remove/update authorized users (except owner records), and manage permission settings.</p>
             </div>
-            <div className="rounded-xl border border-indigo-200 p-4 bg-indigo-50">
-              <h3 className="font-bold text-indigo-900 mb-2">Owner</h3>
-              <p className="text-sm text-indigo-900">Full management role. Can promote users to admin and perform all admin operations.</p>
+            <div className="rounded-xl border border-brand/25 p-4 bg-glacier">
+              <h3 className="font-bold text-deep mb-2">Owner</h3>
+              <p className="text-sm text-deep">Full management role. Can promote users to admin and perform all admin operations.</p>
             </div>
           </div>
 

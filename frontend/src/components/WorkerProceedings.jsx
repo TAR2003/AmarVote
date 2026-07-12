@@ -283,12 +283,12 @@ const WorkerProceedings = ({ electionId }) => {
   });
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 dark:from-gray-900 dark:via-slate-900 dark:to-gray-800 p-4 md:p-8">
+    <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-glacier dark:from-gray-900 dark:via-slate-900 dark:to-gray-800 p-4 md:p-8">
       {/* Modern Header with Glassmorphism */}
       <div className="mb-10 backdrop-blur-xl bg-white/70 dark:bg-gray-800/70 rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50 p-8">
         <div className="flex items-center justify-between flex-wrap gap-4">
           <div>
-            <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-blue-600 via-purple-600 to-indigo-600 bg-clip-text text-transparent mb-3 flex items-center gap-4">
+            <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-brand via-purple-600 to-brand-dark bg-clip-text text-transparent mb-3 flex items-center gap-4">
               <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
                 <FiActivity className="text-3xl text-white" />
               </div>
@@ -300,7 +300,7 @@ const WorkerProceedings = ({ electionId }) => {
           </div>
           <button
             onClick={() => fetchWorkerLogs()}
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-xl font-semibold flex items-center gap-2 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-brand hover:to-purple-700 text-white rounded-xl font-semibold flex items-center gap-2 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
           >
             <FiRefreshCw className={loading ? 'animate-spin' : ''} />
             Refresh Data
@@ -343,11 +343,11 @@ const WorkerProceedings = ({ electionId }) => {
         <div className="flex items-center justify-center min-h-96">
           <div className="flex flex-col items-center gap-6 p-12 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50">
             <div className="relative">
-              <div className="w-24 h-24 border-8 border-blue-200 dark:border-blue-900 rounded-full"></div>
+              <div className="w-24 h-24 border-8 border-brand/20 dark:border-blue-900 rounded-full"></div>
               <div className="absolute top-0 left-0 w-24 h-24 border-8 border-transparent border-t-blue-600 rounded-full animate-spin"></div>
             </div>
             <div className="text-center">
-              <p className="text-2xl font-black bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2">
+              <p className="text-2xl font-black bg-gradient-to-r from-brand to-purple-600 bg-clip-text text-transparent mb-2">
                 Loading Worker Data
               </p>
               <p className="text-gray-500 dark:text-gray-400">Fetching processing analytics...</p>
@@ -378,7 +378,7 @@ const WorkerProceedings = ({ electionId }) => {
             )}
             <button
               onClick={() => fetchWorkerLogs()}
-              className="mt-4 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-blue-600 hover:to-purple-700 text-white rounded-2xl font-black flex items-center gap-3 transition-all transform hover:scale-105 shadow-xl"
+              className="mt-4 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-brand hover:to-purple-700 text-white rounded-2xl font-black flex items-center gap-3 transition-all transform hover:scale-105 shadow-xl"
             >
               <FiRefreshCw className="text-xl" /> Retry
             </button>
@@ -420,12 +420,12 @@ const WorkerProceedings = ({ electionId }) => {
         </div>
       ) : logs.length === 0 ? (
         <div className="flex items-center justify-center min-h-96">
-          <div className="flex flex-col items-center gap-6 max-w-3xl p-12 bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-blue-900/20 dark:to-indigo-900/20 backdrop-blur-xl rounded-3xl shadow-2xl border-2 border-blue-200 dark:border-blue-800">
-            <div className="p-6 bg-gradient-to-br from-blue-500 to-indigo-600 rounded-3xl shadow-xl">
+          <div className="flex flex-col items-center gap-6 max-w-3xl p-12 bg-gradient-to-br from-glacier to-frost dark:from-deep/20 dark:to-deep/20 backdrop-blur-xl rounded-3xl shadow-2xl border-2 border-brand/20 dark:border-blue-800">
+            <div className="p-6 bg-gradient-to-br from-blue-500 to-brand-dark rounded-3xl shadow-xl">
               <FiActivity className="text-6xl text-white" />
             </div>
             <div className="text-center">
-              <h3 className="text-3xl font-black bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent mb-3">
+              <h3 className="text-3xl font-black bg-gradient-to-r from-brand to-brand-dark bg-clip-text text-transparent mb-3">
                 No Processing Logs Yet
               </h3>
               <p className="text-gray-700 dark:text-gray-300 text-lg">
@@ -441,15 +441,15 @@ const WorkerProceedings = ({ electionId }) => {
               </h4>
               <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-2 list-none">
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-600 dark:text-blue-400 font-bold">•</span>
+                  <span className="text-brand dark:text-brand font-bold">•</span>
                   <span>Worker logs are created during election processing</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-600 dark:text-blue-400 font-bold">•</span>
+                  <span className="text-brand dark:text-brand font-bold">•</span>
                   <span>Only new elections (after worker log tables were created) will have logs</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-blue-600 dark:text-blue-400 font-bold">•</span>
+                  <span className="text-brand dark:text-brand font-bold">•</span>
                   <span>Logs appear after tally creation, guardian decryption, or result combining</span>
                 </li>
               </ul>
@@ -461,7 +461,7 @@ const WorkerProceedings = ({ electionId }) => {
           {/* Initiator Email Banner */}
           {statistics.initiatorEmail && (
             <div className="mb-6 flex items-center gap-3 px-6 py-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
-              <div className="p-2 bg-gradient-to-br from-indigo-500 to-purple-600 rounded-xl">
+              <div className="p-2 bg-gradient-to-br from-glacier0 to-purple-600 rounded-xl">
                 <FiActivity className="text-lg text-white" />
               </div>
               <div>
@@ -478,7 +478,7 @@ const WorkerProceedings = ({ electionId }) => {
           {/* Modern Statistics Cards with Glassmorphism */}
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
             {/* Total Processing Time */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-3xl p-8 text-white shadow-2xl transform hover:scale-105 transition-all duration-500 hover:shadow-blue-500/50">
+            <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-3xl p-8 text-white shadow-2xl transform hover:scale-105 transition-all duration-500 hover:shadow-brand-500/50">
               <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
               <div className="relative z-10">
                 <div className="flex items-center justify-between mb-6">
@@ -492,7 +492,7 @@ const WorkerProceedings = ({ electionId }) => {
                 <p className="text-4xl font-black mb-3 tracking-tight">
                   {formatDuration(statistics.totalProcessingTime)}
                 </p>
-                <p className="text-blue-100 text-sm font-medium uppercase tracking-wide">Total Processing Time</p>
+                <p className="text-glacier text-sm font-medium uppercase tracking-wide">Total Processing Time</p>
               </div>
             </div>
 
@@ -566,7 +566,7 @@ const WorkerProceedings = ({ electionId }) => {
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-10 border border-white/20 dark:border-gray-700/50">
               <div className="flex items-center justify-between mb-8">
                 <div>
-                  <h3 className="text-3xl font-black bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent mb-2 flex items-center gap-3">
+                  <h3 className="text-3xl font-black bg-gradient-to-r from-brand to-purple-600 bg-clip-text text-transparent mb-2 flex items-center gap-3">
                     <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
                       <FiTrendingUp className="text-2xl text-white" />
                     </div>
@@ -650,7 +650,7 @@ const WorkerProceedings = ({ electionId }) => {
                   </div>
                   <div className="flex items-center gap-6 text-sm">
                     <div className="flex items-center gap-2">
-                      <div className="w-4 h-4 rounded bg-green-500"></div>
+                      <div className="w-4 h-4 rounded bg-sage-soft0"></div>
                       <span className="text-gray-600 dark:text-gray-400 font-medium">Completed</span>
                     </div>
                     <div className="flex items-center gap-2">
@@ -720,7 +720,7 @@ const WorkerProceedings = ({ electionId }) => {
                             if (!entry) return null;
                             return (
                               <div className="bg-gray-900/98 text-white p-4 rounded-2xl shadow-2xl border border-gray-700 min-w-[180px]">
-                                <p className="font-bold text-lg mb-2 text-blue-400">Chunk #{entry.chunkNumber}</p>
+                                <p className="font-bold text-lg mb-2 text-brand">Chunk #{entry.chunkNumber}</p>
                                 <p className="text-sm mb-1"><span className="text-gray-400">Starts at:</span> <span className="text-white font-semibold">{entry.spacer.toFixed(3)}s</span></p>
                                 <p className="text-sm mb-1"><span className="text-gray-400">Duration:</span> <span className="text-white font-semibold">{entry.duration.toFixed(3)}s</span></p>
                                 <p className="text-sm mb-1"><span className="text-gray-400">Ends at:</span> <span className="text-white font-semibold">{(entry.spacer + entry.duration).toFixed(3)}s</span></p>
@@ -750,9 +750,9 @@ const WorkerProceedings = ({ electionId }) => {
                   </div>
                 </div>
 
-                <div className="mt-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl border border-blue-200 dark:border-blue-800">
+                <div className="mt-6 p-4 bg-glacier dark:bg-blue-900/20 rounded-xl border border-brand/20 dark:border-blue-800">
                   <p className="text-sm text-gray-700 dark:text-gray-300">
-                    <span className="font-bold text-blue-600 dark:text-blue-400">💡 Tip:</span> Each bar spans from its
+                    <span className="font-bold text-brand dark:text-brand">💡 Tip:</span> Each bar spans from its
                     <strong> start time</strong> to its <strong>end time</strong> on the Y-axis.
                     Chunks are sorted by start time left-to-right. Hover for details.
                   </p>
@@ -764,15 +764,15 @@ const WorkerProceedings = ({ electionId }) => {
           {/* Timeline View */}
           {statistics.firstStartTime && statistics.lastEndTime && (
             <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-10 border border-white/20 dark:border-gray-700/50">
-              <h3 className="text-3xl font-black bg-gradient-to-r from-indigo-600 to-blue-600 bg-clip-text text-transparent mb-6 flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-indigo-500 to-blue-600 rounded-xl">
+              <h3 className="text-3xl font-black bg-gradient-to-r from-brand to-blue-600 bg-clip-text text-transparent mb-6 flex items-center gap-3">
+                <div className="p-3 bg-gradient-to-br from-glacier0 to-blue-600 rounded-xl">
                   <FiClock className="text-2xl text-white" />
                 </div>
                 Processing Duration Overview
               </h3>
               <div className="flex items-center justify-between">
-                <div className="flex flex-col bg-gradient-to-br from-blue-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 p-6 rounded-2xl shadow-lg flex-1 mr-4">
-                  <span className="text-sm font-bold text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-2">Start Time</span>
+                <div className="flex flex-col bg-gradient-to-br from-glacier to-frost dark:from-gray-700 dark:to-gray-600 p-6 rounded-2xl shadow-lg flex-1 mr-4">
+                  <span className="text-sm font-bold text-brand dark:text-brand uppercase tracking-wide mb-2">Start Time</span>
                   <span className="text-2xl font-black text-gray-800 dark:text-white">
                     {formatTime(statistics.firstStartTime)}
                   </span>
@@ -780,16 +780,16 @@ const WorkerProceedings = ({ electionId }) => {
                 <div className="flex-1 mx-8">
                   <div className="relative h-4 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-full overflow-hidden shadow-inner">
                     <div 
-                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-purple-500 to-indigo-500 rounded-full shadow-lg animate-pulse"
+                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-purple-500 to-glacier0 rounded-full shadow-lg animate-pulse"
                       style={{ width: '100%' }}
                     />
                   </div>
                   <p className="text-center mt-3 text-sm font-semibold text-gray-600 dark:text-gray-400">
-                    Total Duration: <span className="text-purple-600 dark:text-purple-400 font-bold">{formatDuration(statistics.totalElapsedTime)}</span>
+                    Total Duration: <span className="text-brand-dark dark:text-purple-400 font-bold">{formatDuration(statistics.totalElapsedTime)}</span>
                   </p>
                 </div>
-                <div className="flex flex-col bg-gradient-to-br from-purple-50 to-indigo-50 dark:from-gray-700 dark:to-gray-600 p-6 rounded-2xl shadow-lg flex-1 ml-4 text-right">
-                  <span className="text-sm font-bold text-purple-600 dark:text-purple-400 uppercase tracking-wide mb-2">End Time</span>
+                <div className="flex flex-col bg-gradient-to-br from-purple-50 to-glacier dark:from-gray-700 dark:to-gray-600 p-6 rounded-2xl shadow-lg flex-1 ml-4 text-right">
+                  <span className="text-sm font-bold text-brand-dark dark:text-purple-400 uppercase tracking-wide mb-2">End Time</span>
                   <span className="text-2xl font-black text-gray-800 dark:text-white">
                     {formatTime(statistics.lastEndTime)}
                   </span>
@@ -931,7 +931,7 @@ const WorkerProceedings = ({ electionId }) => {
                     >
                       <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 sm:h-12 sm:w-12 bg-gradient-to-br from-blue-500 via-purple-500 to-indigo-500 rounded-xl flex items-center justify-center text-white font-black shadow-lg group-hover:scale-110 transition-transform">
+                          <div className="flex-shrink-0 h-10 w-10 sm:h-12 sm:w-12 bg-gradient-to-br from-blue-500 via-purple-500 to-glacier0 rounded-xl flex items-center justify-center text-white font-black shadow-lg group-hover:scale-110 transition-transform">
                             {log.chunkNumber}
                           </div>
                         </div>
@@ -943,14 +943,14 @@ const WorkerProceedings = ({ electionId }) => {
                         {formatTime(log.endTime)}
                       </td>
                       <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap">
-                        <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900 dark:to-blue-900 text-purple-800 dark:text-purple-200 shadow-md">
+                        <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900 dark:to-blue-900 text-ink dark:text-purple-200 shadow-md">
                           <FiClock className="mr-2" />
                           {formatDuration(log.duration)}
                         </span>
                       </td>
                       <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap">
                         {log.status === 'COMPLETED' ? (
-                          <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900 dark:to-emerald-900 text-green-800 dark:text-green-200 shadow-md">
+                          <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-green-100 to-emerald-100 dark:from-green-900 dark:to-emerald-900 text-emerald-800 dark:text-green-200 shadow-md">
                             <FiCheckCircle className="mr-2" />
                             Completed
                           </span>

@@ -667,13 +667,13 @@ const CreateElection = () => {
     const renderEmailTag = (email, onRemove) => (
         <div
             key={email}
-            className="bg-blue-100 text-blue-800 px-2 py-1 rounded-md inline-flex items-center mr-2 mb-2"
+            className="bg-glacier text-ink px-2 py-1 rounded-md inline-flex items-center mr-2 mb-2"
         >
             <span className="mr-1">{email}</span>
             <button
                 type="button"
                 onClick={() => onRemove(email)}
-                className="text-blue-500 hover:text-blue-700"
+                className="text-brand hover:text-brand-dark"
             >
                 ×
             </button>
@@ -689,7 +689,7 @@ const CreateElection = () => {
             {emailSuggestions.map((suggestion, index) => (
                 <div
                     key={index}
-                    className="px-4 py-2 hover:bg-blue-50 cursor-pointer flex items-center justify-between transition-colors"
+                    className="px-4 py-2 hover:bg-glacier cursor-pointer flex items-center justify-between transition-colors"
                     onClick={() => addGuardianEmail(suggestion.email)}
                 >
                     <div className="flex items-center flex-1">
@@ -703,7 +703,7 @@ const CreateElection = () => {
                             </div>
                         </div>
                     </div>
-                    <div className="text-blue-500 text-sm">
+                    <div className="text-brand text-sm">
                         Click to add
                     </div>
                 </div>
@@ -722,7 +722,7 @@ const CreateElection = () => {
             <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-800">Create New Election</h1>
 
             {checkingPermission && (
-                <div className="bg-blue-100 border border-blue-300 text-blue-800 px-4 py-3 rounded mb-4">
+                <div className="bg-glacier border border-blue-300 text-ink px-4 py-3 rounded mb-4">
                     Verifying your election creation permission...
                 </div>
             )}
@@ -734,7 +734,7 @@ const CreateElection = () => {
             )}
 
             {success && (
-                <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded mb-4">
+                <div className="bg-sage-soft border border-green-400 text-sage px-4 py-3 rounded mb-4">
                     {success}
                 </div>
             )}
@@ -753,7 +753,7 @@ const CreateElection = () => {
                             name="electionTitle"
                             value={form.electionTitle}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"
                             required
                         />
                     </div>
@@ -766,11 +766,11 @@ const CreateElection = () => {
                             name="electionDescription"
                             value={form.electionDescription}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500 h-24"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand h-24"
                         />
                     </div>
 
-                    <div className="rounded-md border border-blue-200 bg-blue-50 p-3 text-sm text-blue-800">
+                    <div className="rounded-md border border-brand/20 bg-glacier p-3 text-sm text-ink">
                         Election start and end time are set later, after key ceremony completion.
                     </div>
                 </div>
@@ -806,7 +806,7 @@ const CreateElection = () => {
                                     value="public"
                                     checked={form.electionPrivacy === "public"}
                                     onChange={handleChange}
-                                    className="form-radio h-5 w-5 text-blue-600"
+                                    className="form-radio h-5 w-5 text-brand"
                                 />
                                 <span className="ml-2 text-gray-700">Public</span>
                             </label>
@@ -818,7 +818,7 @@ const CreateElection = () => {
                                     value="private"
                                     checked={form.electionPrivacy === "private"}
                                     onChange={handleChange}
-                                    className="form-radio h-5 w-5 text-blue-600"
+                                    className="form-radio h-5 w-5 text-brand"
                                 />
                                 <span className="ml-2 text-gray-700">Private</span>
                             </label>
@@ -835,7 +835,7 @@ const CreateElection = () => {
                                     value="listed"
                                     checked={form.electionEligibility === "listed"}
                                     onChange={handleChange}
-                                    className="form-radio h-5 w-5 text-blue-600"
+                                    className="form-radio h-5 w-5 text-brand"
                                 />
                                 <span className="ml-2 text-gray-700">Listed Voters Only</span>
                             </label>
@@ -847,7 +847,7 @@ const CreateElection = () => {
                                     value="unlisted"
                                     checked={form.electionEligibility === "unlisted"}
                                     onChange={handleChange}
-                                    className="form-radio h-5 w-5 text-blue-600"
+                                    className="form-radio h-5 w-5 text-brand"
                                 />
                                 <span className="ml-2 text-gray-700">Anyone Can Vote</span>
                             </label>
@@ -861,7 +861,7 @@ const CreateElection = () => {
                                 name="sendBallotReceipt"
                                 checked={form.sendBallotReceipt}
                                 onChange={(e) => setForm((prev) => ({ ...prev, sendBallotReceipt: e.target.checked }))}
-                                className="form-checkbox h-5 w-5 text-blue-600 mt-0.5"
+                                className="form-checkbox h-5 w-5 text-brand mt-0.5"
                             />
                             <span>
                                 <span className="block text-gray-700 font-medium">Send ballot receipts by email</span>
@@ -903,7 +903,7 @@ const CreateElection = () => {
                             onChange={handleChange}
                             min="1"
                             max="20"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"
                             placeholder="Enter number of guardians (1-20)"
                         />
                         <p className="text-sm text-gray-600 mt-1">
@@ -922,7 +922,7 @@ const CreateElection = () => {
                             onChange={handleChange}
                             min="1"
                             max={form.guardianNumber}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"
                             placeholder={form.guardianNumber ? `Enter quorum (1-${form.guardianNumber})` : 'Set guardian count first'}
                         />
                         <p className="text-sm text-gray-600 mt-1">
@@ -954,7 +954,7 @@ const CreateElection = () => {
                             if (quorumCount > 0 && guardianCount > 0 && quorumCount <= guardianCount) {
                                 const isDefault = quorumCount === Math.floor(guardianCount / 2) + 1;
                                 return (
-                                    <div className="mt-2 p-2 bg-green-50 border border-green-200 rounded text-sm text-green-700">
+                                    <div className="mt-2 p-2 bg-sage-soft border border-green-200 rounded text-sm text-sage">
                                         ✓ Valid quorum: {quorumCount} out of {guardianCount} guardians required
                                         {isDefault && ' (default recommended value)'}
                                     </div>
@@ -971,7 +971,7 @@ const CreateElection = () => {
                         </label>
 
                         {/* File Upload for Guardian Emails */}
-                        <div className="mb-3 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                        <div className="mb-3 p-4 bg-glacier border border-brand/20 rounded-md">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
                                 <div>
                                     <p className="text-sm font-medium text-gray-700">Upload Guardian Emails (CSV/TXT)</p>
@@ -979,7 +979,7 @@ const CreateElection = () => {
                                         Upload a file with one email per line or comma-separated. This will automatically set the guardian count and quorum.
                                     </p>
                                 </div>
-                                <label className="cursor-pointer inline-flex items-center justify-center w-full sm:w-auto bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                <label className="cursor-pointer inline-flex items-center justify-center w-full sm:w-auto bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
                                     Choose File
                                     <input
                                         type="file"
@@ -1015,7 +1015,7 @@ const CreateElection = () => {
                                         }
                                     }}
                                     placeholder="Type email address (e.g., user@gmail.com)..."
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
+                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"
                                 />
 
                                 {emailSuggestions.length > 0 && renderEmailSuggestions()}
@@ -1060,7 +1060,7 @@ const CreateElection = () => {
                                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                                     isTotalCandidatesInvalid(form.totalCandidates)
                                         ? "border-red-500 bg-red-50 focus:ring-red-500"
-                                        : "border-gray-300 focus:ring-blue-500"
+                                        : "border-gray-300 focus:ring-brand"
                                 }`}
                             />
                             {isTotalCandidatesInvalid(form.totalCandidates) && (
@@ -1081,7 +1081,7 @@ const CreateElection = () => {
                                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                                     isMaxChoicesInvalid(form.maxChoices, form.totalCandidates)
                                         ? "border-red-500 bg-red-50 focus:ring-red-500"
-                                        : "border-gray-300 focus:ring-blue-500"
+                                        : "border-gray-300 focus:ring-brand"
                                 }`}
                             />
                             {isMaxChoicesInvalid(form.maxChoices, form.totalCandidates) && (
@@ -1090,7 +1090,7 @@ const CreateElection = () => {
                                 </p>
                             )}
                             {!isMaxChoicesInvalid(form.maxChoices, form.totalCandidates) && getMaxChoicesNumber(form.maxChoices) > 1 && (
-                                <p className="text-xs text-blue-600 mt-1">
+                                <p className="text-xs text-brand mt-1">
                                     Voters can select up to {getMaxChoicesNumber(form.maxChoices)} candidates.
                                 </p>
                             )}
@@ -1107,7 +1107,7 @@ const CreateElection = () => {
                                 className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
                                     isMaxChoicesInvalid(form.winnerNo, form.totalCandidates)
                                         ? "border-red-500 bg-red-50 focus:ring-red-500"
-                                        : "border-gray-300 focus:ring-blue-500"
+                                        : "border-gray-300 focus:ring-brand"
                                 }`}
                             />
                             {isMaxChoicesInvalid(form.winnerNo, form.totalCandidates) && (
@@ -1127,7 +1127,7 @@ const CreateElection = () => {
                         <button
                             type="button"
                             onClick={() => candidateFileInputRef.current?.click()}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-blue-200 bg-blue-50 text-blue-700 text-sm font-medium hover:bg-blue-100"
+                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-brand/20 bg-glacier text-brand-dark text-sm font-medium hover:bg-glacier"
                         >
                             <FiUpload className="h-4 w-4" />
                             Import Names (CSV/TXT)
@@ -1160,7 +1160,7 @@ const CreateElection = () => {
                                                     ? 'border-red-500 bg-red-50 focus:ring-red-500'
                                                     : isNameBlank
                                                     ? 'border-red-500 bg-red-50 focus:ring-red-500'
-                                                    : 'border-gray-300 bg-white focus:ring-blue-500'
+                                                    : 'border-gray-300 bg-white focus:ring-brand'
                                             }`}
                                         />
                                         {!candidateValidation.isValid && (
@@ -1206,7 +1206,7 @@ const CreateElection = () => {
                                             {item.image ? (
                                                 <img src={item.image} alt={item.name} className="h-10 w-10 rounded-full object-cover" />
                                             ) : (
-                                                <div className="h-10 w-10 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center">
+                                                <div className="h-10 w-10 rounded-full bg-glacier text-brand-dark flex items-center justify-center">
                                                     <FiUser className="h-4 w-4" />
                                                 </div>
                                             )}
@@ -1246,7 +1246,7 @@ const CreateElection = () => {
                         disabled={!isFormReadyForSubmit()}
                         className={`w-full sm:w-auto px-6 py-3 text-white rounded-md ${!isFormReadyForSubmit()
                                 ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-blue-500 hover:bg-blue-600'
+                                : 'bg-brand hover:bg-brand'
                             }`}
                     >
                         {isSubmitting ? 'Creating...' : 'Create Election'}
@@ -1310,7 +1310,7 @@ const CreateElection = () => {
                                 type="button"
                                 onClick={confirmCreateElection}
                                 disabled={isSubmitting}
-                                className="px-5 py-2.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50"
+                                className="px-5 py-2.5 rounded-lg bg-brand text-white hover:bg-brand-dark disabled:opacity-50"
                             >
                                 {isSubmitting ? 'Creating...' : 'Confirm & Create Election'}
                             </button>

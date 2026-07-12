@@ -356,14 +356,14 @@ const AuthenticatedUsers = () => {
                   {canAssignOwner ? <option value="owner">owner</option> : null}
                 </select>
               ) : (
-                <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.userType === "owner" ? "bg-purple-100 text-purple-700" : row.userType === "admin" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
+                <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.userType === "owner" ? "bg-glacier text-purple-700" : row.userType === "admin" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
                   {row.userType}
                 </span>
               )}
             </div>
             <div>
               <p className="text-xs text-gray-500 mb-1">Registered</p>
-              <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.registeredOrNot ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
+              <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.registeredOrNot ? "bg-glacier text-brand-dark" : "bg-gray-100 text-gray-700"}`}>
                 {row.registeredOrNot ? "Registered" : "Not Registered"}
               </span>
             </div>
@@ -382,7 +382,7 @@ const AuthenticatedUsers = () => {
                   <option value="no">No</option>
                 </select>
               ) : (
-                <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.apiLogViewerAllowed ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+                <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.apiLogViewerAllowed ? "bg-sage-soft text-sage" : "bg-gray-100 text-gray-700"}`}>
                   {row.apiLogViewerAllowed ? "Yes" : "No"}
                 </span>
               )}
@@ -440,13 +440,13 @@ const AuthenticatedUsers = () => {
               <option value="no">No</option>
             </select>
           ) : (
-            <span className={`text-xs px-2 py-1 rounded-full ${row.apiLogViewerAllowed ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+            <span className={`text-xs px-2 py-1 rounded-full ${row.apiLogViewerAllowed ? "bg-sage-soft text-sage" : "bg-gray-100 text-gray-700"}`}>
               {row.apiLogViewerAllowed ? "Yes" : "No"}
             </span>
           )}
         </td>
         <td className="px-4 py-3">
-          <span className={`text-xs px-2 py-1 rounded-full ${row.registeredOrNot ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
+          <span className={`text-xs px-2 py-1 rounded-full ${row.registeredOrNot ? "bg-glacier text-brand-dark" : "bg-gray-100 text-gray-700"}`}>
             {row.registeredOrNot ? "Registered" : "Not Registered"}
           </span>
         </td>
@@ -463,7 +463,7 @@ const AuthenticatedUsers = () => {
               {canAssignOwner ? <option value="owner">owner</option> : null}
             </select>
           ) : (
-            <span className={`text-xs px-2 py-1 rounded-full ${row.userType === "owner" ? "bg-purple-100 text-purple-700" : row.userType === "admin" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
+            <span className={`text-xs px-2 py-1 rounded-full ${row.userType === "owner" ? "bg-glacier text-purple-700" : row.userType === "admin" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
               {row.userType}
             </span>
           )}
@@ -502,14 +502,14 @@ const AuthenticatedUsers = () => {
         </div>
       ) : (
       <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-slate-800 via-blue-800 to-indigo-800 p-6 text-white">
+        <div className="bg-gradient-to-r from-slate-800 via-ink to-ink p-6 text-white">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
               <h1 className="text-2xl font-bold flex items-center gap-2">
                 <FiUsers className="h-6 w-6" />
                 Authenticated Users
               </h1>
-              <p className="text-sm text-blue-100 mt-1">
+              <p className="text-sm text-glacier mt-1">
                 Manage authorized users, roles, and registration settings. Admin and owner only.
               </p>
             </div>
@@ -522,7 +522,7 @@ const AuthenticatedUsers = () => {
               Refresh
             </button>
           </div>
-          <div className="mt-4 text-xs text-blue-100 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
+          <div className="mt-4 text-xs text-glacier flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
             <span>Current role: {currentUserType}</span>
             <span>Can manage: {canManage ? "Yes" : "No"}</span>
           </div>
@@ -556,14 +556,14 @@ const AuthenticatedUsers = () => {
                 </div>
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                  className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-3 py-2 bg-brand text-white rounded-lg text-sm font-medium hover:bg-brand-dark"
                 >
                   <FiUserPlus className="h-4 w-4" /> Add
                 </button>
               </form>
               <div>
                 <label className="block text-xs text-gray-600 mb-1">Bulk Add via CSV</label>
-                <label className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-3 py-2 border border-blue-300 text-blue-700 rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-50 bg-white">
+                <label className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-3 py-2 border border-blue-300 text-brand-dark rounded-lg text-sm font-medium cursor-pointer hover:bg-glacier bg-white">
                   <FiUpload className="h-4 w-4" />
                   {uploadingCsv ? "Uploading..." : "Upload CSV"}
                   <input type="file" accept=".csv,text/csv" onChange={handleCsvUpload} className="hidden" />
@@ -571,32 +571,32 @@ const AuthenticatedUsers = () => {
               </div>
             </div>
 
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3">
-              <h3 className="text-sm font-semibold text-indigo-800 mb-2">Permission Settings</h3>
+            <div className="rounded-xl border border-brand/25 bg-glacier p-3">
+              <h3 className="text-sm font-semibold text-ink mb-2">Permission Settings</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-indigo-700 mb-1">Permission to Register</label>
+                  <label className="block text-xs text-ink mb-1">Permission to Register</label>
                   <select
                     value={settings.registrationOpenToAll ? "all" : "authenticated"}
                     onChange={(e) => setSettings((prev) => ({
                       ...prev,
                       registrationOpenToAll: e.target.value === "all",
                     }))}
-                    className="w-full rounded-lg border border-indigo-300 px-2.5 py-2 text-sm bg-white"
+                    className="w-full rounded-lg border border-brand/40 px-2.5 py-2 text-sm bg-white"
                   >
                     <option value="all">Allow all emails</option>
                     <option value="authenticated">Allow only authenticated users</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-indigo-700 mb-1">Permission to Create Elections</label>
+                  <label className="block text-xs text-ink mb-1">Permission to Create Elections</label>
                   <select
                     value={settings.electionCreationPermissionScope || "all_admins_owners"}
                     onChange={(e) => setSettings((prev) => ({
                       ...prev,
                       electionCreationPermissionScope: e.target.value,
                     }))}
-                    className="w-full rounded-lg border border-indigo-300 px-2.5 py-2 text-sm bg-white"
+                    className="w-full rounded-lg border border-brand/40 px-2.5 py-2 text-sm bg-white"
                   >
                     <option value="all_users">All users</option>
                     <option value="all_authenticated_users">All authenticated users</option>
@@ -609,7 +609,7 @@ const AuthenticatedUsers = () => {
                 <button
                   type="button"
                   onClick={handlePermissionSettingsSave}
-                  className="w-full sm:w-auto px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+                  className="w-full sm:w-auto px-3 py-2 rounded-lg bg-brand-dark text-white text-sm font-medium hover:bg-ink"
                 >
                   Save Permission Settings
                 </button>
@@ -626,7 +626,7 @@ const AuthenticatedUsers = () => {
         ) : null}
 
         {success ? (
-          <div className="m-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-green-700 text-sm flex items-center gap-2">
+          <div className="m-4 bg-sage-soft border border-green-200 rounded-xl px-4 py-3 text-sage text-sm flex items-center gap-2">
             <FiCheckCircle className="h-4 w-4" />
             <span>{success}</span>
           </div>
@@ -639,7 +639,7 @@ const AuthenticatedUsers = () => {
               onClick={() => setActiveTab("users")}
               className={`px-4 py-2.5 text-sm font-semibold rounded-t-xl border-b-2 transition ${
                 activeTab === "users"
-                  ? "border-blue-600 text-blue-700 bg-blue-50"
+                  ? "border-brand text-brand-dark bg-glacier"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -652,7 +652,7 @@ const AuthenticatedUsers = () => {
               onClick={() => setActiveTab("logs")}
               className={`px-4 py-2.5 text-sm font-semibold rounded-t-xl border-b-2 transition ${
                 activeTab === "logs"
-                  ? "border-blue-600 text-blue-700 bg-blue-50"
+                  ? "border-brand text-brand-dark bg-glacier"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -678,7 +678,7 @@ const AuthenticatedUsers = () => {
               </div>
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700"
+                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand text-white rounded-xl text-sm font-medium hover:bg-brand-dark"
               >
                 <FiSearch className="h-4 w-4" /> Search
               </button>
@@ -793,7 +793,7 @@ const AuthenticatedUsers = () => {
                   type="button"
                   onClick={() => setUsersPage((p) => p + 1)}
                   disabled={!usersHasNext || loading}
-                  className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-brand text-white rounded-xl hover:bg-brand-dark disabled:opacity-50"
                 >
                   Next 50 <FiChevronRight className="h-4 w-4" />
                 </button>
@@ -821,7 +821,7 @@ const AuthenticatedUsers = () => {
                   </div>
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700"
+                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-brand text-white rounded-xl text-sm font-medium hover:bg-brand-dark"
                   >
                     <FiSearch className="h-4 w-4" /> Search
                   </button>
@@ -897,7 +897,7 @@ const AuthenticatedUsers = () => {
                       type="button"
                       onClick={() => setLogsPage((p) => p + 1)}
                       disabled={!logsHasNext || loading}
-                      className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50"
+                      className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-brand text-white rounded-xl hover:bg-brand-dark disabled:opacity-50"
                     >
                       Next 50 <FiChevronRight className="h-4 w-4" />
                     </button>

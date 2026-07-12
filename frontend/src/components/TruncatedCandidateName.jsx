@@ -12,7 +12,7 @@ const TruncatedCandidateName = ({ name, className = '', maxLen = 48 }) => {
           <button
             type="button"
             onClick={(e) => { e.stopPropagation(); setExpanded(false); }}
-            className="ml-1 text-xs text-blue-600 hover:underline font-medium"
+            className="ml-1 text-xs text-brand hover:underline font-medium"
           >
             show less
           </button>
@@ -27,7 +27,7 @@ const TruncatedCandidateName = ({ name, className = '', maxLen = 48 }) => {
       <button
         type="button"
         onClick={(e) => { e.stopPropagation(); setExpanded(true); }}
-        className="ml-1 text-xs text-blue-600 hover:underline font-medium"
+        className="ml-1 text-xs text-brand hover:underline font-medium"
       >
         show more
       </button>

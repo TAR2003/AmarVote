@@ -2,6 +2,131 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --color-deep: #0b132b;
+  --color-ink: #1c2541;
+  --color-brand: #00b4d8;
+  --color-brand-dark: #0096b4;
+  --color-glacier: #e0f2fe;
+  --color-frost: #f4f7fa;
+  --color-frost-muted: #e8eef4;
+  --color-sage: #10b981;
+  --color-border: #e2e8f0;
+  --color-muted: #64748b;
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
+  --safe-top: env(safe-area-inset-top, 0px);
+  --nav-height: 4rem;
+  --bottom-nav-height: calc(4.25rem + var(--safe-bottom));
+}
+
+@layer base {
+  html {
+    scroll-behavior: smooth;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  body {
+    @apply font-sans text-ink antialiased;
+    background-color: var(--color-frost);
+    min-height: 100dvh;
+  }
+
+  ::selection {
+    background: rgba(0, 180, 216, 0.22);
+    color: var(--color-deep);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .app-shell {
+    @apply min-h-screen bg-frost-mesh text-ink;
+  }
+
+  .nav-deep {
+    @apply bg-deep text-white shadow-nav;
+    padding-top: var(--safe-top);
+  }
+
+  .glass-panel {
+    background: rgba(255, 255, 255, 0.78);
+    backdrop-filter: blur(14px);
+    -webkit-backdrop-filter: blur(14px);
+    border: 1px solid rgba(28, 37, 65, 0.08);
+    @apply shadow-glass rounded-2xl;
+  }
+
+  .surface-card {
+    @apply rounded-2xl border border-slate-200/80 bg-white shadow-soft;
+  }
+
+  .btn-brand {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5
+      text-sm font-semibold text-white shadow-soft transition
+      hover:bg-brand-dark active:scale-[0.98]
+      disabled:cursor-not-allowed disabled:opacity-50;
+  }
+
+  .btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl border border-slate-200
+      bg-white/80 px-5 py-2.5 text-sm font-semibold text-ink transition
+      hover:border-brand/40 hover:bg-glacier/60 active:scale-[0.98];
+  }
+
+  .btn-deep {
+    @apply inline-flex items-center justify-center gap-2 rounded-xl bg-deep px-5 py-2.5
+      text-sm font-semibold text-white transition hover:bg-ink active:scale-[0.98];
+  }
+
+  .input-field {
+    @apply w-full rounded-xl border border-slate-200 bg-white px-3.5 py-2.5 text-sm text-ink
+      placeholder:text-slate-400 outline-none transition
+      focus:border-brand focus:ring-2 focus:ring-brand/25;
+  }
+
+  .link-brand {
+    @apply font-medium text-brand-dark transition hover:text-brand;
+  }
+
+  .brand-mark {
+    @apply flex h-9 w-9 items-center justify-center rounded-xl bg-brand-glow text-white shadow-soft;
+  }
+
+  .brand-wordmark {
+    @apply font-display text-lg font-bold tracking-tight text-deep;
+  }
+
+  .brand-wordmark-light {
+    @apply font-display text-lg font-bold tracking-tight text-white;
+  }
+
+  .section-title {
+    @apply font-display text-2xl font-bold tracking-tight text-deep sm:text-3xl;
+  }
+
+  .section-sub {
+    @apply mt-2 text-base text-slate-600 sm:text-lg;
+  }
+
+  .selected-ballot {
+    @apply border-brand bg-glacier shadow-soft ring-1 ring-brand/30;
+  }
+
+  .mobile-bottom-pad {
+    padding-bottom: calc(var(--bottom-nav-height) + 1rem);
+  }
+
+  @media (min-width: 768px) {
+    .mobile-bottom-pad {
+      padding-bottom: 2rem;
+    }
+  }
+}
+
 @layer utilities {
   .animate-fade-in {
     animation: fadeIn 0.5s ease-out both;
@@ -18,14 +143,17 @@
     }
   }
 
-  /* Hide scrollbar for better mobile UX while maintaining scroll functionality */
   .scrollbar-hide {
-    -ms-overflow-style: none;  /* IE and Edge */
-    scrollbar-width: none;  /* Firefox */
+    -ms-overflow-style: none;
+    scrollbar-width: none;
   }
 
   .scrollbar-hide::-webkit-scrollbar {
-    display: none;  /* Chrome, Safari and Opera */
+    display: none;
+  }
+
+  .safe-pb {
+    padding-bottom: var(--safe-bottom);
   }
 }
 
@@ -41,4 +169,3 @@ input::-webkit-credentials-auto-fill-button {
   position: absolute;
   right: 0;
 }
-

@@ -371,17 +371,17 @@ export default function ApiLogs() {
   ];
 
   const TAB_COLOR_MAP = {
-    blue:    { active: "bg-blue-600 text-white shadow-blue-200",     inactive: "text-blue-600 hover:bg-blue-50",     badge: "bg-blue-100 text-blue-700" },
+    blue:    { active: "bg-brand text-white shadow-brand-200",     inactive: "text-brand hover:bg-glacier",     badge: "bg-glacier text-brand-dark" },
     emerald: { active: "bg-emerald-600 text-white shadow-emerald-200",inactive: "text-emerald-700 hover:bg-emerald-50",badge: "bg-emerald-100 text-emerald-700" },
     amber:   { active: "bg-amber-500 text-white shadow-amber-200",   inactive: "text-amber-700 hover:bg-amber-50",   badge: "bg-amber-100 text-amber-700" },
     rose:    { active: "bg-rose-600 text-white shadow-rose-200",     inactive: "text-rose-600 hover:bg-rose-50",     badge: "bg-rose-100 text-rose-700" },
-    indigo:  { active: "bg-indigo-600 text-white shadow-indigo-200", inactive: "text-indigo-700 hover:bg-indigo-50", badge: "bg-indigo-100 text-indigo-700" },
+    indigo:  { active: "bg-brand-dark text-white shadow-indigo-200", inactive: "text-ink hover:bg-glacier", badge: "bg-glacier text-ink" },
     cyan:    { active: "bg-cyan-600 text-white shadow-cyan-200",     inactive: "text-cyan-700 hover:bg-cyan-50",     badge: "bg-cyan-100 text-cyan-700" },
     violet:  { active: "bg-violet-600 text-white shadow-violet-200", inactive: "text-violet-700 hover:bg-violet-50", badge: "bg-violet-100 text-violet-700" },
   };
 
   const statCards = [
-    { label: "Total Requests",    value: stats.totalLogs,              icon: ICONS.chart,   border: "border-blue-400",    bg: "bg-blue-50",    iconColor: "text-blue-500" },
+    { label: "Total Requests",    value: stats.totalLogs,              icon: ICONS.chart,   border: "border-brand",    bg: "bg-glacier",    iconColor: "text-brand" },
     { label: "Error Requests",    value: stats.errorLogs,              icon: ICONS.warning, border: "border-rose-400",    bg: "bg-rose-50",    iconColor: "text-rose-500" },
     { label: "With Email",        value: authenticatedLogs.length,     icon: ICONS.mail,    border: "border-emerald-400", bg: "bg-emerald-50", iconColor: "text-emerald-500" },
     { label: "Anonymous",         value: anonymousLogs.length,         icon: ICONS.user,    border: "border-amber-400",   bg: "bg-amber-50",   iconColor: "text-amber-500" },
@@ -416,7 +416,7 @@ export default function ApiLogs() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 py-4 sm:py-6">
+      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-glacier/40 py-4 sm:py-6">
         <div className="w-full mx-auto space-y-6">
 
           {/* Header */}
@@ -426,7 +426,7 @@ export default function ApiLogs() {
                 <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl flex items-center justify-center shadow-lg">
                   <Icon d={ICONS.lock} className="w-5 h-5 text-white" />
                 </div>
-                <h1 className="text-3xl font-extrabold bg-gradient-to-r from-slate-800 via-blue-700 to-indigo-700 bg-clip-text text-transparent">
+                <h1 className="text-3xl font-extrabold bg-gradient-to-r from-slate-800 via-brand-dark to-brand-dark bg-clip-text text-transparent">
                   API Logs Analytics
                 </h1>
               </div>
@@ -439,14 +439,14 @@ export default function ApiLogs() {
                   type="checkbox"
                   checked={autoRefresh}
                   onChange={e => setAutoRefresh(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded"
+                  className="w-4 h-4 text-brand rounded"
                 />
                 Auto-refresh
                 {autoRefresh && (
                   <select
                     value={refreshInterval}
                     onChange={e => setRefreshInterval(Number(e.target.value))}
-                    className="ml-1 text-xs border border-gray-300 rounded-lg px-1 py-0.5 focus:ring-2 focus:ring-blue-500"
+                    className="ml-1 text-xs border border-gray-300 rounded-lg px-1 py-0.5 focus:ring-2 focus:ring-brand"
                   >
                     <option value={5}>5s</option>
                     <option value={10}>10s</option>
@@ -467,7 +467,7 @@ export default function ApiLogs() {
 
               <button
                 onClick={() => { fetchLogs(); fetchStats(); }}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-md hover:from-blue-700 hover:to-indigo-700 text-sm font-semibold transition"
+                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-brand to-brand-dark text-white rounded-xl shadow-md hover:from-blue-700 hover:to-brand-dark text-sm font-semibold transition"
               >
                 <Icon d={ICONS.refresh} className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
                 Refresh
@@ -554,13 +554,13 @@ export default function ApiLogs() {
             </div>
           )}
           {activeTab === "unique-email" && (
-            <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4">
-              <div className="w-8 h-8 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Icon d={ICONS.mail} className="w-4 h-4 text-indigo-600" />
+            <div className="flex items-start gap-3 bg-glacier border border-brand/25 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-glacier rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon d={ICONS.mail} className="w-4 h-4 text-brand-dark" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-indigo-800">Unique Email View</p>
-                <p className="text-xs text-indigo-600 mt-0.5">
+                <p className="text-sm font-semibold text-ink">Unique Email View</p>
+                <p className="text-xs text-brand-dark mt-0.5">
                   Shows the <strong>latest request per email</strong> across the full log database.
                   Each page contains up to {pageSize} unique emails.
                 </p>
@@ -603,7 +603,7 @@ export default function ApiLogs() {
                 <Icon d={ICONS.filter} className="w-4 h-4 text-slate-300" />
                 <span className="text-sm font-semibold text-white">Filters &amp; Search</span>
                 {activeFiltersCount > 0 && (
-                  <span className="px-2 py-0.5 bg-blue-500 text-white text-xs font-bold rounded-full">
+                  <span className="px-2 py-0.5 bg-brand text-white text-xs font-bold rounded-full">
                     {activeFiltersCount} active
                   </span>
                 )}
@@ -621,7 +621,7 @@ export default function ApiLogs() {
                 <select
                   value={searchType}
                   onChange={(e) => setSearchType(e.target.value)}
-                  className="px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 bg-white"
+                  className="px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand bg-white"
                 >
                   <option value="email">Search by Email</option>
                   <option value="ip">Search by IP Address</option>
@@ -638,12 +638,12 @@ export default function ApiLogs() {
                         : searchType === "ip" ? "192.168.x.x"
                           : "/api/auth/login"
                     }
-                    className="w-full pl-10 pr-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition"
+                    className="w-full pl-10 pr-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-brand transition"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow hover:from-blue-700 hover:to-indigo-700 transition"
+                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-brand to-brand-dark text-white rounded-xl text-sm font-semibold shadow hover:from-blue-700 hover:to-brand-dark transition"
                 >
                   <Icon d={ICONS.search} className="w-4 h-4" /> Search
                 </button>
@@ -656,7 +656,7 @@ export default function ApiLogs() {
                     <select
                       value={filters.method}
                       onChange={e => handleFilterChange("method", e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-gray-50"
                     >
                       <option value="">All Methods</option>
                       {["GET","POST","PUT","DELETE","PATCH"].map(m => <option key={m} value={m}>{m}</option>)}
@@ -668,7 +668,7 @@ export default function ApiLogs() {
                     <select
                       value={filters.statusCode}
                       onChange={e => handleFilterChange("statusCode", e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-brand bg-gray-50"
                     >
                       <option value="">All Statuses</option>
                       {[["200","200 – OK"],["201","201 – Created"],["400","400 – Bad Request"],
@@ -683,7 +683,7 @@ export default function ApiLogs() {
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button
                   onClick={() => { setPage(0); fetchLogs(); }}
-                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow hover:from-blue-700 hover:to-indigo-700 transition"
+                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-brand to-brand-dark text-white rounded-xl text-sm font-semibold shadow hover:from-blue-700 hover:to-brand-dark transition"
                 >
                   Apply client filters
                 </button>
@@ -731,7 +731,7 @@ export default function ApiLogs() {
                   key={mode}
                   onClick={() => setViewMode(mode)}
                   className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${
-                    viewMode === mode ? "bg-blue-600 text-white shadow" : "text-gray-600 hover:bg-gray-100"
+                    viewMode === mode ? "bg-brand text-white shadow" : "text-gray-600 hover:bg-gray-100"
                   }`}
                 >
                   {label}
@@ -753,7 +753,7 @@ export default function ApiLogs() {
           <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <svg className="animate-spin w-12 h-12 text-blue-600" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin w-12 h-12 text-brand" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
@@ -803,7 +803,7 @@ export default function ApiLogs() {
                     <select
                       value={pageSize}
                       onChange={(e) => handlePageSizeChange(e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-brand"
                     >
                       {PAGE_SIZE_OPTIONS.map((size) => (
                         <option key={size} value={size}>{size}</option>
@@ -822,7 +822,7 @@ export default function ApiLogs() {
                   <button
                     onClick={() => setPage((p) => p + 1)}
                     disabled={!hasNext || loading}
-                    className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brand-dark disabled:opacity-40 disabled:cursor-not-allowed transition"
                   >
                     Next {pageSize} →
                   </button>
@@ -850,7 +850,7 @@ function ClusterBadge({ log }) {
 
 function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selectedLogIds, onToggleSelect, onToggleSelectAll, allSelected, deleting, showClusterInfo = false }) {
   const SortIcon = ({ field }) => sortBy === field ? (
-    <span className="text-blue-500 font-bold text-base"> {sortOrder === "asc" ? "↑" : "↓"}</span>
+    <span className="text-brand font-bold text-base"> {sortOrder === "asc" ? "↑" : "↓"}</span>
   ) : null;
 
   const Th = ({ field, children }) => (
@@ -891,7 +891,7 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
         </thead>
         <tbody className="divide-y divide-gray-100">
           {logs.map(log => (
-            <tr key={log.logId} className={`hover:bg-blue-50/50 transition-colors ${isInvalidToken(log) ? "bg-rose-50/20" : ""}`}>
+            <tr key={log.logId} className={`hover:bg-glacier/50 transition-colors ${isInvalidToken(log) ? "bg-rose-50/20" : ""}`}>
               <td className="px-4 py-3">
                 <input
                   type="checkbox"
@@ -915,8 +915,8 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
               <td className="px-4 py-3 whitespace-nowrap">
                 {log.extractedEmail ? (
                   <div className="flex items-center gap-1.5">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Icon d={ICONS.user} className="w-3 h-3 text-blue-600" />
+                    <div className="w-6 h-6 bg-glacier rounded-full flex items-center justify-center flex-shrink-0">
+                      <Icon d={ICONS.user} className="w-3 h-3 text-brand" />
                     </div>
                     <span className="text-xs text-slate-800 font-medium max-w-[280px] truncate">{log.extractedEmail}</span>
                   </div>
@@ -947,7 +947,7 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
                 <button onClick={() => onSelect(log)}
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition">
+                  className="text-xs font-semibold text-brand hover:text-ink bg-glacier hover:bg-glacier px-3 py-1.5 rounded-lg transition">
                   View
                 </button>
               </td>
@@ -984,8 +984,8 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
         </div>
         {log.extractedEmail ? (
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <Icon d={ICONS.user} className="w-3 h-3 text-blue-600" />
+            <div className="w-5 h-5 bg-glacier rounded-full flex items-center justify-center flex-shrink-0">
+              <Icon d={ICONS.user} className="w-3 h-3 text-brand" />
             </div>
             <span className="text-slate-700 font-medium truncate">{log.extractedEmail}</span>
           </div>
@@ -1021,13 +1021,13 @@ function CompactRow({ log, onSelect, showClusterInfo = false }) {
     <div
       onClick={() => onSelect(log)}
       className={`flex items-center gap-3 px-5 py-3 cursor-pointer transition-colors
-        ${invalid ? "hover:bg-rose-50 bg-rose-50/30" : "hover:bg-blue-50/50"}`}
+        ${invalid ? "hover:bg-rose-50 bg-rose-50/30" : "hover:bg-glacier/50"}`}
     >
       <span className={`px-2 py-0.5 text-xs font-bold rounded ring-1 flex-shrink-0 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
       <span className="text-xs font-mono text-slate-700 flex-1 truncate">{log.requestPath}</span>
       {showClusterInfo && <ClusterBadge log={log} />}
       {log.extractedEmail && (
-        <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full hidden sm:block max-w-[180px] truncate">{log.extractedEmail}</span>
+        <span className="text-xs text-brand-dark bg-glacier px-2 py-0.5 rounded-full hidden sm:block max-w-[180px] truncate">{log.extractedEmail}</span>
       )}
       {invalid && (
         <span className="text-xs font-bold text-rose-600 bg-rose-100 px-2 py-0.5 rounded-full flex-shrink-0">
@@ -1045,7 +1045,7 @@ function LogDetailModal({ log, onClose }) {
   return (
     <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
       <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className={`px-6 py-5 flex items-center justify-between flex-shrink-0 ${invalid ? "bg-gradient-to-r from-rose-600 to-red-600" : "bg-gradient-to-r from-blue-600 to-indigo-600"}`}>
+        <div className={`px-6 py-5 flex items-center justify-between flex-shrink-0 ${invalid ? "bg-gradient-to-r from-rose-600 to-red-600" : "bg-gradient-to-r from-brand to-brand-dark"}`}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
               <Icon d={invalid ? ICONS.warning : ICONS.info} className="w-5 h-5 text-white" />
@@ -1104,8 +1104,8 @@ function LogDetailModal({ log, onClose }) {
             <div className="bg-slate-50 rounded-2xl p-4">
               {log.extractedEmail ? (
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Icon d={ICONS.user} className="w-5 h-5 text-blue-600" />
+                  <div className="w-10 h-10 bg-glacier rounded-full flex items-center justify-center">
+                    <Icon d={ICONS.user} className="w-5 h-5 text-brand" />
                   </div>
                   <div>
                     <p className="text-sm font-bold text-slate-800">{log.extractedEmail}</p>

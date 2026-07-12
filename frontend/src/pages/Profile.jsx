@@ -176,7 +176,7 @@ const Profile = () => {
     <div className="max-w-4xl mx-auto py-4 sm:py-8 px-3 sm:px-6 lg:px-8 space-y-6">
       {loading ? (
         <div className="flex justify-center items-center py-14">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
+          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-brand" />
         </div>
       ) : null}
 
@@ -190,8 +190,8 @@ const Profile = () => {
       ) : null}
 
       {success ? (
-        <div className="bg-green-50 border-l-4 border-green-500 p-4">
-          <div className="flex items-center gap-3 text-green-700 text-sm">
+        <div className="bg-sage-soft border-l-4 border-green-500 p-4">
+          <div className="flex items-center gap-3 text-sage text-sm">
             <FiCheckCircle className="h-5 w-5" />
             <span>{success}</span>
           </div>
@@ -199,14 +199,14 @@ const Profile = () => {
       ) : null}
 
       <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white">
+        <div className="bg-gradient-to-r from-brand to-brand-dark p-6 text-white">
           <h1 className="text-2xl font-bold">Account Security</h1>
-          <p className="mt-1 text-sm text-blue-100">Manage password and two-step verification settings.</p>
+          <p className="mt-1 text-sm text-glacier">Manage password and two-step verification settings.</p>
         </div>
 
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-3 text-gray-700">
-            <FiMail className="h-5 w-5 text-blue-600" />
+            <FiMail className="h-5 w-5 text-brand" />
             <span className="text-sm font-medium">Email:</span>
             <span className="text-sm">{profile.email || "-"}</span>
           </div>
@@ -216,7 +216,7 @@ const Profile = () => {
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
             <div>
               <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <FiShield className="h-5 w-5 text-indigo-600" />
+                <FiShield className="h-5 w-5 text-brand-dark" />
                 Two-Step Verification
               </h2>
               <p className="text-sm text-gray-600 mt-1">
@@ -277,7 +277,7 @@ const Profile = () => {
                 type="button"
                 onClick={handleStartMfaSetup}
                 disabled={mfaBusy}
-                className="w-full sm:w-auto px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+                className="w-full sm:w-auto px-4 py-2 rounded-md bg-brand-dark text-white text-sm font-medium hover:bg-ink disabled:opacity-60"
               >
                 {mfaBusy ? "Preparing..." : "Turn On"}
               </button>
@@ -285,8 +285,8 @@ const Profile = () => {
           </div>
 
           {!profile.mfaEnabled && mfaSetup.qrCodeDataUri ? (
-            <div className="mt-6 rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-              <p className="text-sm text-indigo-900 mb-3">
+            <div className="mt-6 rounded-lg border border-glacier bg-glacier p-4">
+              <p className="text-sm text-deep mb-3">
                 Scan this QR code with Google Authenticator, then confirm with a 6-digit code.
               </p>
 
@@ -295,7 +295,7 @@ const Profile = () => {
               </div>
 
               {mfaSetup.secret ? (
-                <p className="mt-3 text-xs text-indigo-900">
+                <p className="mt-3 text-xs text-deep">
                   Manual secret: <span className="font-mono font-semibold">{mfaSetup.secret}</span>
                 </p>
               ) : null}
@@ -306,7 +306,7 @@ const Profile = () => {
                   type="button"
                   onClick={() => handleConfirmMfa()}
                   disabled={mfaBusy || mfaCode.replace(/\D/g, "").length !== 6}
-                  className="mt-3 w-full rounded-md bg-indigo-700 text-white py-2 text-sm font-medium hover:bg-indigo-800 disabled:opacity-60"
+                  className="mt-3 w-full rounded-md bg-ink text-white py-2 text-sm font-medium hover:bg-ink disabled:opacity-60"
                 >
                   {mfaBusy ? "Confirming..." : "Confirm and Enable"}
                 </button>
@@ -317,7 +317,7 @@ const Profile = () => {
 
         <div className="p-4 sm:p-6">
           <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <FiLock className="h-5 w-5 text-blue-600" />
+            <FiLock className="h-5 w-5 text-brand" />
             Change Password
           </h2>
 
@@ -355,7 +355,7 @@ const Profile = () => {
             <button
               type="submit"
               disabled={passwordBusy}
-              className="w-full sm:w-auto rounded-md bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+              className="w-full sm:w-auto rounded-md bg-brand text-white px-4 py-2 text-sm font-medium hover:bg-brand-dark disabled:opacity-60"
             >
               {passwordBusy ? "Updating..." : "Update Password"}
             </button>

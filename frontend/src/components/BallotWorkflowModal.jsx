@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   FiX,
   FiLoader,
@@ -15,6 +15,85 @@ import {
   FiTrash2,
 } from 'react-icons/fi';
 import { VOTER_STATUS_COPY } from '../utils/voterMessages';
+
+const HOLD_MS = 1800;
+
+function HoldToConfirm({ onConfirm, label = 'Hold to Cast Ballot', disabled = false }) {
+  const [progress, setProgress] = useState(0);
+  const [holding, setHolding] = useState(false);
+  const rafRef = useRef(null);
+  const startRef = useRef(0);
+  const doneRef = useRef(false);
+
+  const clear = useCallback(() => {
+    if (rafRef.current) cancelAnimationFrame(rafRef.current);
+    rafRef.current = null;
+    setHolding(false);
+    setProgress(0);
+    doneRef.current = false;
+  }, []);
+
+  const tick = useCallback(
+    (now) => {
+      const elapsed = now - startRef.current;
+      const next = Math.min(100, (elapsed / HOLD_MS) * 100);
+      setProgress(next);
+      if (next >= 100 && !doneRef.current) {
+        doneRef.current = true;
+        if (typeof navigator !== 'undefined' && navigator.vibrate) {
+          navigator.vibrate(24);
+        }
+        onConfirm?.();
+        clear();
+        return;
+      }
+      rafRef.current = requestAnimationFrame(tick);
+    },
+    [clear, onConfirm]
+  );
+
+  const startHold = useCallback(
+    (event) => {
+      if (disabled || doneRef.current) return;
+      event.preventDefault();
+      startRef.current = performance.now();
+      setHolding(true);
+      rafRef.current = requestAnimationFrame(tick);
+    },
+    [disabled, tick]
+  );
+
+  useEffect(() => () => clear(), [clear]);
+
+  return (
+    <button
+      type="button"
+      disabled={disabled}
+      onMouseDown={startHold}
+      onMouseUp={clear}
+      onMouseLeave={clear}
+      onTouchStart={startHold}
+      onTouchEnd={clear}
+      onTouchCancel={clear}
+      onKeyDown={(e) => {
+        if (e.key === ' ' || e.key === 'Enter') startHold(e);
+      }}
+      onKeyUp={clear}
+      aria-label={label}
+      className="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-brand px-4 py-3.5 text-sm font-semibold text-white shadow-soft transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50 select-none"
+    >
+      <span
+        className="absolute inset-y-0 left-0 bg-brand-dark/50"
+        style={{ width: `${progress}%` }}
+        aria-hidden
+      />
+      <span className="relative z-10 flex items-center gap-2">
+        <FiCheck className={`h-4 w-4 ${holding ? 'animate-soft-pulse' : ''}`} />
+        {holding ? `Hold… ${Math.round(progress)}%` : label}
+      </span>
+    </button>
+  );
+}
 
 /**
  * Single modal for the entire post-"Create Encrypted Ballot" workflow.
@@ -82,25 +161,25 @@ const BallotWorkflowModal = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-3 sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center sm:items-center bg-deep/55 backdrop-blur-[6px] p-0 sm:p-4"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
       aria-labelledby="ballot-workflow-title"
     >
       <div
-        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-4 shadow-xl sm:p-6"
+        className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/40 bg-white/92 p-4 shadow-glass backdrop-blur-xl sm:rounded-2xl sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
-          <h3 id="ballot-workflow-title" className="text-base font-semibold text-gray-900 sm:text-lg">
+          <h3 id="ballot-workflow-title" className="font-display text-base font-semibold text-deep sm:text-lg">
             {modalTitle}
           </h3>
           {canDismiss && (
             <button
               type="button"
               onClick={handleCloseClick}
-              className="shrink-0 text-gray-400 hover:text-gray-600"
+              className="shrink-0 rounded-xl p-1.5 text-slate-400 hover:bg-frost hover:text-ink"
               aria-label="Close"
             >
               <FiX className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -111,22 +190,22 @@ const BallotWorkflowModal = ({
         {/* Creating */}
         {phase === 'creating' && (
           <div className="py-8 text-center">
-            <FiLoader className="mx-auto mb-4 h-12 w-12 animate-spin text-blue-600" />
-            <p className="text-sm text-gray-600">{VOTER_STATUS_COPY.createBallotLoading}</p>
+            <FiLoader className="mx-auto mb-4 h-12 w-12 animate-spin text-brand" />
+            <p className="text-sm text-slate-600">{VOTER_STATUS_COPY.createBallotLoading}</p>
           </div>
         )}
 
         {/* Create error */}
         {phase === 'create-error' && (
           <div className="space-y-4">
-            <div className="rounded-lg border border-red-200 bg-red-50 p-4 text-center">
+            <div className="rounded-xl border border-red-200 bg-red-50 p-4 text-center">
               <FiAlertCircle className="mx-auto mb-3 h-10 w-10 text-red-500" />
               <p className="text-sm text-red-800">{createBallotError || VOTER_STATUS_COPY.unexpected}</p>
             </div>
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-lg bg-gray-200 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-300"
+              className="btn-ghost w-full"
             >
               Close
             </button>
@@ -137,22 +216,22 @@ const BallotWorkflowModal = ({
         {phase === 'actions' && encryptedBallotData && (
           <div className="space-y-5">
             <div className="text-center">
-              <FiCheckCircle className="mx-auto mb-3 h-12 w-12 text-green-500" />
-              <p className="text-sm text-gray-600">
+              <FiCheckCircle className="mx-auto mb-3 h-12 w-12 text-sage" />
+              <p className="text-sm text-slate-600">
                 Your vote has been encrypted. Cast your ballot, verify it with a challenge, or discard it and start over.
               </p>
             </div>
 
-            <div className="rounded-lg border bg-gray-50 p-3">
-              <h4 className="mb-2 flex items-center text-sm font-semibold text-gray-700">
-                <FiDownload className="mr-2 h-4 w-4" />
-                Download Ballot Files
+            <div className="rounded-xl border border-brand/20 bg-glacier/50 p-3">
+              <h4 className="mb-2 flex items-center text-sm font-semibold text-ink">
+                <FiDownload className="mr-2 h-4 w-4 text-brand" />
+                Security Registry
               </h4>
               <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                 <button
                   type="button"
                   onClick={() => onDownloadFile(encryptedBallotData.encrypted_ballot, 'encrypted_ballot.txt', 'Encrypted Ballot')}
-                  className="flex items-center justify-center rounded-lg border border-blue-200 bg-blue-50 p-2 text-xs font-medium text-blue-700 hover:bg-blue-100"
+                  className="flex items-center justify-center rounded-lg border border-brand/20 bg-white/80 p-2 text-xs font-medium text-brand-dark hover:bg-glacier"
                 >
                   <FiFileText className="mr-1.5 h-4 w-4" />
                   Ballot
@@ -160,7 +239,7 @@ const BallotWorkflowModal = ({
                 <button
                   type="button"
                   onClick={() => onDownloadFile(encryptedBallotData.encrypted_ballot_with_nonce, 'encrypted_ballot_with_nonce.txt', 'Encrypted Ballot with Nonce')}
-                  className="flex items-center justify-center rounded-lg border border-purple-200 bg-purple-50 p-2 text-xs font-medium text-purple-700 hover:bg-purple-100"
+                  className="flex items-center justify-center rounded-lg border border-slate-200 bg-white/80 p-2 text-xs font-medium text-ink hover:bg-frost"
                 >
                   <FiKey className="mr-1.5 h-4 w-4" />
                   With Nonce
@@ -168,7 +247,7 @@ const BallotWorkflowModal = ({
                 <button
                   type="button"
                   onClick={onDownloadBallotInfo}
-                  className="flex items-center justify-center rounded-lg border border-gray-200 bg-white p-2 text-xs font-medium text-gray-700 hover:bg-gray-100"
+                  className="flex items-center justify-center rounded-lg border border-slate-200 bg-white p-2 text-xs font-medium text-slate-700 hover:bg-frost"
                 >
                   <FiInfo className="mr-1.5 h-4 w-4" />
                   Info
@@ -183,18 +262,11 @@ const BallotWorkflowModal = ({
             )}
 
             <div className="flex flex-col gap-3">
-              <button
-                type="button"
-                onClick={onCastVote}
-                className="flex items-center justify-center rounded-lg bg-blue-600 px-4 py-3 text-sm font-medium text-white hover:bg-blue-700"
-              >
-                <FiCheck className="mr-2 h-4 w-4" />
-                Cast Vote
-              </button>
+              <HoldToConfirm onConfirm={onCastVote} />
               <button
                 type="button"
                 onClick={onStartChallenge}
-                className="flex items-center justify-center rounded-lg bg-orange-600 px-4 py-3 text-sm font-medium text-white hover:bg-orange-700"
+                className="flex items-center justify-center rounded-xl border border-amber-warn/30 bg-amber-soft px-4 py-3 text-sm font-medium text-amber-warn hover:bg-amber-100"
               >
                 <FiShield className="mr-2 h-4 w-4" />
                 Challenge Vote
@@ -202,14 +274,14 @@ const BallotWorkflowModal = ({
               <button
                 type="button"
                 onClick={onDiscard}
-                className="flex items-center justify-center rounded-lg border border-gray-300 bg-white px-4 py-3 text-sm font-medium text-gray-700 hover:bg-gray-50"
+                className="btn-ghost w-full"
               >
-                <FiTrash2 className="mr-2 h-4 w-4" />
+                <FiTrash2 className="h-4 w-4" />
                 Discard Ballot
               </button>
             </div>
 
-            <p className="text-center text-xs text-gray-500">{VOTER_STATUS_COPY.ballotActionsInfo}</p>
+            <p className="text-center text-xs text-slate-500">{VOTER_STATUS_COPY.ballotActionsInfo}</p>
           </div>
         )}
 
@@ -232,8 +304,8 @@ const BallotWorkflowModal = ({
                       isDisabled
                         ? 'cursor-not-allowed border-gray-100 opacity-50'
                         : isChecked
-                          ? 'border-blue-500 bg-blue-50'
-                          : 'border-gray-200 hover:border-gray-300'
+                          ? 'selected-ballot'
+                          : 'border-slate-200 hover:border-brand/40'
                     }`}
                     onClick={() => !isDisabled && onChallengeCandidateToggle(idStr)}
                   >
@@ -343,8 +415,8 @@ const BallotWorkflowModal = ({
         {phase === 'casting' && (
           <div className="space-y-4">
             <div className="py-6 text-center">
-              <FiLoader className="mx-auto mb-4 h-12 w-12 animate-spin text-blue-600" />
-              <p className="text-sm text-gray-600">{VOTER_STATUS_COPY.castBallotLoading}</p>
+            <FiLoader className="mx-auto mb-4 h-12 w-12 animate-spin text-brand" />
+            <p className="text-sm text-slate-600">{VOTER_STATUS_COPY.castBallotLoading}</p>
             </div>
             {castBallotError && (
               <div className="rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-800">
@@ -358,34 +430,34 @@ const BallotWorkflowModal = ({
         {phase === 'cast-success' && voteResult && (
           <div className="space-y-4">
             <div className="text-center">
-              <FiCheckCircle className="mx-auto mb-3 h-12 w-12 text-blue-500" />
-              <p className="text-sm text-blue-800">
+              <FiCheckCircle className="mx-auto mb-3 h-12 w-12 text-brand" />
+              <p className="text-sm text-ink">
                 Your vote has been securely recorded. Save your tracking code and hash below.
               </p>
             </div>
 
-            <div className="space-y-3 rounded-lg bg-gray-50 p-4 text-sm">
-              <div className="flex items-center justify-between gap-2 rounded bg-white p-2">
+            <div className="space-y-3 rounded-xl border border-brand/15 bg-glacier/40 p-4 text-sm">
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-white p-2">
                 <span className="shrink-0 font-medium">Vote Hash:</span>
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="truncate font-mono text-xs">{voteResult.hashCode}</span>
                   <button
                     type="button"
                     onClick={() => onCopyToClipboard(voteResult.hashCode)}
-                    className="shrink-0 text-blue-600 hover:text-blue-800"
+                    className="shrink-0 text-brand hover:text-brand-dark"
                   >
                     <FiCopy className="h-4 w-4" />
                   </button>
                 </div>
               </div>
-              <div className="flex items-center justify-between gap-2 rounded bg-white p-2">
+              <div className="flex items-center justify-between gap-2 rounded-lg bg-white p-2">
                 <span className="shrink-0 font-medium">Tracking Code:</span>
                 <div className="flex min-w-0 items-center gap-2">
                   <span className="truncate font-mono text-xs">{voteResult.trackingCode}</span>
                   <button
                     type="button"
                     onClick={() => onCopyToClipboard(voteResult.trackingCode)}
-                    className="shrink-0 text-blue-600 hover:text-blue-800"
+                    className="shrink-0 text-brand hover:text-brand-dark"
                   >
                     <FiCopy className="h-4 w-4" />
                   </button>
@@ -397,7 +469,7 @@ const BallotWorkflowModal = ({
               <button
                 type="button"
                 onClick={() => onSaveVoteDetails('txt')}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-blue-600 py-2.5 text-sm font-medium text-white hover:bg-blue-700"
+                className="btn-brand flex flex-1 items-center justify-center gap-2 py-2.5"
               >
                 <FiSave className="h-4 w-4" />
                 Save TXT
@@ -405,14 +477,14 @@ const BallotWorkflowModal = ({
               <button
                 type="button"
                 onClick={() => onSaveVoteDetails('json')}
-                className="flex flex-1 items-center justify-center gap-2 rounded-lg bg-gray-600 py-2.5 text-sm font-medium text-white hover:bg-gray-700"
+                className="btn-deep flex flex-1 items-center justify-center gap-2 py-2.5"
               >
                 <FiFileText className="h-4 w-4" />
                 Save JSON
               </button>
             </div>
 
-            <div className="rounded-lg bg-blue-100 p-3 text-xs text-blue-700">
+            <div className="rounded-xl bg-glacier p-3 text-xs text-ink">
               <p className="font-medium">Important:</p>
               <p>Keep your vote hash and tracking code to verify your vote when results are published.</p>
             </div>
@@ -420,7 +492,7 @@ const BallotWorkflowModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-lg bg-gray-200 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-300"
+              className="btn-ghost w-full"
             >
               Return to Voting Booth
             </button>

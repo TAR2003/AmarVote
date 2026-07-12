@@ -191,7 +191,7 @@ export default function VoterListEditor({
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <div className="flex items-center gap-2 text-sm text-gray-600">
-          <FiUsers className="h-4 w-4 text-blue-600" />
+          <FiUsers className="h-4 w-4 text-brand" />
           <span>
             <span className="font-semibold text-gray-900">{emails.length}</span> {entityLabel}
             {emails.length === 1 ? "" : "s"} in list
@@ -202,7 +202,7 @@ export default function VoterListEditor({
             type="button"
             disabled={disabled}
             onClick={() => fileInputRef.current?.click()}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-brand text-white text-sm font-medium hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             <FiUpload className="h-4 w-4" />
             Import CSV / TXT
@@ -250,7 +250,7 @@ export default function VoterListEditor({
                 }
               }}
               placeholder={`Add ${entityLabel} email manually`}
-              className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-50"
+              className="w-full pl-10 pr-3 py-2.5 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-brand focus:border-brand disabled:bg-gray-50"
             />
             {enableUserSuggestions && (suggestions.length > 0 || searching) && manualEmail.trim().length >= 2 && (
               <div className="absolute z-20 mt-1 w-full rounded-lg border border-gray-200 bg-white shadow-lg max-h-52 overflow-y-auto">
@@ -262,9 +262,9 @@ export default function VoterListEditor({
                     key={user.email}
                     type="button"
                     onClick={() => handleManualAdd(user.email)}
-                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-blue-50"
+                    className="flex w-full items-center gap-3 px-3 py-2 text-left hover:bg-glacier"
                   >
-                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+                    <div className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-full bg-glacier text-brand-dark">
                       <FiUser className="h-4 w-4" />
                     </div>
                     <div className="min-w-0">
@@ -291,10 +291,10 @@ export default function VoterListEditor({
         <div
           className={`rounded-lg px-3 py-2 text-sm border ${
             feedback.type === "success"
-              ? "bg-green-50 border-green-200 text-green-800"
+              ? "bg-sage-soft border-green-200 text-emerald-800"
               : feedback.type === "error"
               ? "bg-red-50 border-red-200 text-red-800"
-              : "bg-blue-50 border-blue-200 text-blue-800"
+              : "bg-glacier border-brand/20 text-ink"
           }`}
         >
           {feedback.message}
@@ -317,10 +317,10 @@ export default function VoterListEditor({
             {emails.map((email) => (
               <li
                 key={email}
-                className="flex items-center justify-between gap-3 px-4 py-3 bg-white hover:bg-blue-50/40 transition-colors"
+                className="flex items-center justify-between gap-3 px-4 py-3 bg-white hover:bg-glacier/40 transition-colors"
               >
                 <div className="flex items-center gap-3 min-w-0">
-                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-indigo-600 text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
+                  <div className="h-8 w-8 rounded-full bg-gradient-to-br from-blue-500 to-brand-dark text-white flex items-center justify-center text-xs font-semibold flex-shrink-0">
                     {email.charAt(0).toUpperCase()}
                   </div>
                   <span className="text-sm text-gray-800 truncate font-medium">{email}</span>

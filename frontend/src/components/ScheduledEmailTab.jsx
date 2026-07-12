@@ -227,7 +227,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
                     value={group.value}
                     checked={form.recipientGroup === group.value}
                     onChange={() => handleGroupChange(group.value)}
-                    className="form-radio text-blue-600"
+                    className="form-radio text-brand"
                   />
                   <span className="text-sm text-gray-700">{group.label}</span>
                 </label>
@@ -249,7 +249,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
                       onChange={() =>
                         setForm((prev) => ({ ...prev, voterFilter: filter.value }))
                       }
-                      className="form-radio text-blue-600 mt-1"
+                      className="form-radio text-brand mt-1"
                     />
                     <span className="text-sm text-gray-700">{filter.label}</span>
                   </label>
@@ -283,7 +283,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+              className="px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark disabled:opacity-60"
             >
               {saving ? 'Saving...' : editingId ? 'Update Schedule' : 'Schedule Email'}
             </button>
@@ -313,14 +313,14 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
               <div
                 key={email.emailId}
                 className={`rounded-lg border p-4 ${
-                  email.sent ? 'border-green-200 bg-green-50' : 'border-gray-200 bg-gray-50'
+                  email.sent ? 'border-green-200 bg-sage-soft' : 'border-gray-200 bg-gray-50'
                 }`}
               >
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <div className="flex items-center gap-2 mb-1">
                       {email.sent ? (
-                        <FiCheckCircle className="h-4 w-4 text-green-600" />
+                        <FiCheckCircle className="h-4 w-4 text-sage" />
                       ) : (
                         <FiClock className="h-4 w-4 text-amber-600" />
                       )}
@@ -336,7 +336,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
                       <span
                         className={`text-xs px-2 py-0.5 rounded-full ${
                           email.sent
-                            ? 'bg-green-100 text-green-800'
+                            ? 'bg-sage-soft text-emerald-800'
                             : 'bg-amber-100 text-amber-800'
                         }`}
                       >
@@ -354,7 +354,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
                       <button
                         type="button"
                         onClick={() => handleEdit(email)}
-                        className="p-2 text-blue-600 hover:bg-blue-50 rounded-md"
+                        className="p-2 text-brand hover:bg-glacier rounded-md"
                         title="Edit"
                       >
                         <FiEdit2 className="h-4 w-4" />

@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 
 const StatCard = ({ value, label, sub }) => (
   <div className="text-center px-6 py-4 bg-white/80 backdrop-blur-sm">
-    <div className="text-2xl md:text-3xl font-extrabold text-blue-600">{value}</div>
+    <div className="text-2xl md:text-3xl font-extrabold text-brand">{value}</div>
     <div className="text-gray-800 font-semibold mt-1 text-sm">{label}</div>
     {sub && <div className="text-gray-500 text-xs mt-0.5">{sub}</div>}
   </div>
@@ -15,14 +15,14 @@ const ServiceCard = ({ icon, title, tech, desc, color, ip, port }) => (
       {icon}
     </div>
     <h3 className="text-lg font-bold text-gray-900 mb-1">{title}</h3>
-    <div className="text-xs font-mono text-blue-600 bg-blue-50 px-2 py-1 rounded inline-block mb-2">{tech}</div>
+    <div className="text-xs font-mono text-brand bg-glacier px-2 py-1 rounded inline-block mb-2">{tech}</div>
     {ip && <div className="text-xs text-gray-400 font-mono mb-2">{ip}{port ? ` · Port ${port}` : ""}</div>}
     <p className="text-gray-600 text-sm leading-relaxed">{desc}</p>
   </div>
 );
 
 const FeatureRow = ({ icon, title, desc }) => (
-  <div className="flex items-start space-x-4 p-4 rounded-xl hover:bg-blue-50 transition-colors duration-200">
+  <div className="flex items-start space-x-4 p-4 rounded-xl hover:bg-glacier transition-colors duration-200">
     <span className="text-2xl flex-shrink-0">{icon}</span>
     <div>
       <h4 className="font-semibold text-gray-900">{title}</h4>
@@ -35,50 +35,21 @@ const Home = () => {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-frost">
 
       {/* ── Navigation ────────────────────────────────── */}
-      <nav className="fixed w-full bg-white/95 backdrop-blur-lg shadow-md z-50 border-b border-gray-100">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <Link to="/" className="flex items-center group">
-              <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                <span className="text-white text-lg">🗳️</span>
-              </div>
-              <span className="ml-2 text-xl font-extrabold bg-gradient-to-r from-gray-900 to-blue-700 bg-clip-text text-transparent">AmarVote</span>
-            </Link>
-            <div className="hidden md:flex items-center space-x-1">
-              {[
-                ["/features", "Features"],
-                ["/how-it-works", "How It Works"],
-                ["/architecture", "Architecture"],
-                ["/security", "Security"],
-                ["/about", "About"],
-              ].map(([path, label]) => (
-                <Link key={path} to={path} className="px-3 py-2 rounded-xl text-sm font-medium text-gray-700 hover:text-blue-600 hover:bg-blue-50 transition-all duration-200">
-                  {label}
-                </Link>
-              ))}
+      <nav className="nav-deep sticky top-0 z-50">
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link to="/" className="flex items-center gap-2.5 group">
+            <div className="brand-mark transition group-hover:scale-105">
+              <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2">
+                <path d="m9 12 2 2 4-4" />
+                <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z" />
+              </svg>
             </div>
-            <div className="flex items-center space-x-3">
-              <Link to="/login">
-                <button className="px-4 py-2 border border-blue-600 text-blue-600 rounded-xl hover:bg-blue-50 transition-all duration-200 shadow-sm font-medium text-sm">
-                  Log in
-                </button>
-              </Link>
-              <Link to="/register">
-                <button className="px-5 py-2 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all duration-200 shadow-sm font-medium text-sm">
-                  Register
-                </button>
-              </Link>
-              <button className="md:hidden p-2 rounded-lg" onClick={() => setMobileMenuOpen(!mobileMenuOpen)}>
-                <span className="text-gray-700 text-xl">☰</span>
-              </button>
-            </div>
-          </div>
-        </div>
-        {mobileMenuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-100 px-4 py-3 space-y-1">
+            <span className="brand-wordmark-light">AmarVote</span>
+          </Link>
+          <div className="hidden md:flex items-center gap-1">
             {[
               ["/features", "Features"],
               ["/how-it-works", "How It Works"],
@@ -86,68 +57,89 @@ const Home = () => {
               ["/security", "Security"],
               ["/about", "About"],
             ].map(([path, label]) => (
-              <Link key={path} to={path} className="block px-3 py-2 rounded-lg text-gray-700 hover:text-blue-600 hover:bg-blue-50 font-medium"
+              <Link key={path} to={path} className="rounded-lg px-3 py-2 text-sm font-medium text-slate-300 transition hover:bg-white/5 hover:text-white">
+                {label}
+              </Link>
+            ))}
+          </div>
+          <div className="flex items-center gap-2">
+            <Link to="/login" className="hidden rounded-xl border border-white/20 px-3.5 py-2 text-sm font-semibold text-white transition hover:bg-white/5 sm:inline-flex">
+              Log in
+            </Link>
+            <Link to="/register" className="btn-brand hidden px-4 py-2 sm:inline-flex">
+              Register
+            </Link>
+            <button
+              type="button"
+              className="inline-flex rounded-xl p-2 text-slate-300 transition hover:bg-white/10 hover:text-white md:hidden"
+              aria-label={mobileMenuOpen ? "Close menu" : "Open menu"}
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            >
+              <span className="text-xl leading-none">{mobileMenuOpen ? "✕" : "☰"}</span>
+            </button>
+          </div>
+        </div>
+        {mobileMenuOpen && (
+          <div className="border-t border-white/10 bg-deep-soft px-4 py-3 md:hidden">
+            {[
+              ["/features", "Features"],
+              ["/how-it-works", "How It Works"],
+              ["/architecture", "Architecture"],
+              ["/security", "Security"],
+              ["/about", "About"],
+            ].map(([path, label]) => (
+              <Link key={path} to={path} className="block rounded-xl px-3 py-3 text-sm font-medium text-slate-300 hover:bg-white/5 hover:text-white"
                 onClick={() => setMobileMenuOpen(false)}>
                 {label}
               </Link>
             ))}
-            <Link to="/login" className="block px-3 py-2 rounded-lg text-blue-700 hover:bg-blue-50 font-medium"
-              onClick={() => setMobileMenuOpen(false)}>
-              Log in
-            </Link>
-            <Link to="/register" className="block px-3 py-2 rounded-lg text-blue-700 hover:bg-blue-50 font-medium"
-              onClick={() => setMobileMenuOpen(false)}>
-              Register
-            </Link>
+            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-3">
+              <Link to="/login" className="rounded-xl border border-white/20 py-2.5 text-center text-sm font-semibold text-white"
+                onClick={() => setMobileMenuOpen(false)}>
+                Log in
+              </Link>
+              <Link to="/register" className="btn-brand py-2.5 text-center"
+                onClick={() => setMobileMenuOpen(false)}>
+                Register
+              </Link>
+            </div>
           </div>
         )}
       </nav>
 
       {/* ── Hero ─────────────────────────────────────── */}
-      <section className="relative pt-24 pb-20 px-4 overflow-hidden bg-gradient-to-br from-white via-blue-50 to-indigo-50">
-        <div className="absolute inset-0 overflow-hidden pointer-events-none">
-          <div className="absolute -top-40 -right-40 w-96 h-96 bg-blue-400/10 rounded-full blur-3xl" />
-          <div className="absolute -bottom-40 -left-40 w-96 h-96 bg-indigo-400/10 rounded-full blur-3xl" />
-          <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] bg-blue-100/20 rounded-full blur-3xl" />
+      <section className="relative overflow-hidden bg-deep-sheen px-4 pb-16 pt-14 sm:pb-24 sm:pt-20">
+        <div className="pointer-events-none absolute inset-0 overflow-hidden">
+          <div className="absolute -right-24 -top-24 h-72 w-72 rounded-full bg-brand/20 blur-3xl animate-soft-pulse" />
+          <div className="absolute -bottom-32 -left-16 h-80 w-80 rounded-full bg-brand-light/10 blur-3xl" />
         </div>
-        <div className="max-w-6xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center px-4 py-2 bg-blue-100 border border-blue-200 rounded-full text-blue-700 text-sm font-semibold mb-6 shadow-sm">
-            <span className="mr-2">🔐</span>Powered by Microsoft ElectionGuard 2.x + NIST FIPS 203 ML-KEM-1024
-          </div>
-          <h1 className="text-4xl md:text-6xl lg:text-7xl font-extrabold text-gray-900 leading-tight mb-6">
-            The Future of<br />
-            <span className="bg-gradient-to-r from-blue-600 to-indigo-600 bg-clip-text text-transparent">
-              Secure Voting
-            </span>
+        <div className="relative z-10 mx-auto max-w-4xl text-center animate-fade-up">
+          <p className="font-display text-4xl font-bold tracking-tight text-white sm:text-6xl lg:text-7xl">
+            AmarVote
+          </p>
+          <h1 className="mt-4 font-display text-xl font-semibold text-brand-light sm:text-3xl">
+            Secure, verifiable digital democracy
           </h1>
-          <p className="max-w-3xl mx-auto text-lg md:text-xl text-gray-600 mb-4 leading-relaxed">
-            AmarVote is a cryptographically secure, end-to-end verifiable digital voting platform combining
-            <strong className="text-blue-700"> ElectionGuard's 4096-bit ElGamal encryption</strong>,
-            <strong className="text-blue-700"> post-quantum cryptography (ML-KEM-1024)</strong>,
-            and a <strong className="text-blue-700">RabbitMQ worker architecture</strong> for large-scale processing.
+          <p className="mx-auto mt-5 max-w-2xl text-base leading-relaxed text-slate-300 sm:text-lg">
+            End-to-end encrypted ballots with ElectionGuard, post-quantum key protection, and transparent auditability—built to feel calm, clear, and trustworthy.
           </p>
-          <p className="max-w-2xl mx-auto text-gray-500 text-sm mb-10">
-            Zero-knowledge proofs · Homomorphic tallying · Threshold decryption · Benaloh challenge · Bot detection · Traffic padding
-          </p>
-          <div className="flex flex-col sm:flex-row justify-center gap-4 mb-16">
-            <Link to="/register">
-              <button className="px-8 py-4 bg-blue-600 hover:bg-blue-700 text-white text-lg font-semibold rounded-2xl shadow-xl shadow-blue-500/20 hover:shadow-blue-600/30 transition-all duration-300 hover:-translate-y-1">
-                Get Started Free
-              </button>
+          <div className="mt-8 flex flex-col items-stretch justify-center gap-3 sm:mt-10 sm:flex-row sm:items-center">
+            <Link to="/register" className="btn-brand px-8 py-3.5 text-base shadow-lift">
+              Get started
             </Link>
-            <Link to="/architecture">
-              <button className="px-8 py-4 border-2 border-indigo-200 text-indigo-700 text-lg font-semibold rounded-2xl hover:bg-indigo-50 hover:border-indigo-300 transition-all duration-300 hover:-translate-y-1 bg-white/80">
-                View Architecture
-              </button>
+            <Link to="/architecture" className="inline-flex items-center justify-center rounded-xl border border-white/25 px-8 py-3.5 text-base font-semibold text-white transition hover:border-brand/50 hover:bg-white/5">
+              View architecture
             </Link>
           </div>
-          {/* Stats Bar */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-px bg-blue-100 rounded-2xl overflow-hidden border border-blue-200 max-w-4xl mx-auto shadow-md shadow-blue-100">
-            <StatCard value="4096-bit" label="ElGamal Encryption" sub="ElectionGuard 2.x" />
-            <StatCard value="ML-KEM-1024" label="Post-Quantum Keys" sub="NIST FIPS 203" />
-            <StatCard value="200" label="Ballots/Chunk" sub="RabbitMQ chunked" />
-            <StatCard value="4" label="Concurrent Workers" sub="prefetch=1 each" />
-          </div>
+        </div>
+      </section>
+
+      <section className="border-b border-slate-200/80 bg-white px-4 py-10 sm:py-12">
+        <div className="mx-auto grid max-w-4xl grid-cols-2 gap-px overflow-hidden rounded-2xl border border-brand/15 bg-frost-muted shadow-soft md:grid-cols-4">
+          <StatCard value="4096-bit" label="ElGamal Encryption" sub="ElectionGuard 2.x" />
+          <StatCard value="ML-KEM-1024" label="Post-Quantum Keys" sub="NIST FIPS 203" />
+          <StatCard value="200" label="Ballots/Chunk" sub="RabbitMQ chunked" />
+          <StatCard value="4" label="Concurrent Workers" sub="prefetch=1 each" />
         </div>
       </section>
 
@@ -163,11 +155,11 @@ const Home = () => {
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            <ServiceCard icon="⚛️" title="React Frontend" tech="React 19.1 · Vite 6 · Tailwind CSS" ip="172.20.0.40" port="5173 dev / 80 prod" color="bg-blue-500"
+            <ServiceCard icon="⚛️" title="React Frontend" tech="React 19.1 · Vite 6 · Tailwind CSS" ip="172.20.0.40" port="5173 dev / 80 prod" color="bg-brand"
               desc="Responsive UI with animated results, real-time decryption progress, role-based dashboards for voters, guardians, and admins. FingerprintJS bot detection and PKCS#7 ballot padding built in." />
             <ServiceCard icon="☕" title="Spring Boot Backend" tech="Java 21 · Spring Boot 3.5 · Maven" ip="172.20.0.30" port="8080" color="bg-green-600"
               desc="Central orchestration hub. Handles authentication (OTP + JWT), election management, cryptographic delegation, Cloudinary image upload, Gmail SMTP, Prometheus metrics, and all REST API endpoints." />
-            <ServiceCard icon="🔐" title="ElectionGuard Microservice" tech="Python 3.12 · Flask · MS ElectionGuard SDK" ip="172.20.0.10/11" port="5000 fast / 5001 worker" color="bg-purple-600"
+            <ServiceCard icon="🔐" title="ElectionGuard Microservice" tech="Python 3.12 · Flask · MS ElectionGuard SDK" ip="172.20.0.10/11" port="5000 fast / 5001 worker" color="bg-ink"
               desc="Two-container split: fast API handles guardian key ceremony and ballot encryption; worker handles tally creation, partial/compensated decryption, and combine operations." />
             <ServiceCard icon="🐰" title="RabbitMQ" tech="RabbitMQ 3.13 · Spring AMQP" ip="172.20.0.60/25" port="5672 AMQP / 15672 UI" color="bg-orange-500"
               desc="Four durable queues with prefetch=1 consumers. Fair round-robin scheduler ensures no single election monopolizes all workers. Supports 10,000+ ballot elections by chunking into 200-ballot pieces." />
@@ -217,7 +209,7 @@ const Home = () => {
                 ["🕵️", "Ballot Traffic Protection (PKCS#7 Padding)", "All ballot submission requests are padded to a fixed size using PKCS#7. This prevents traffic analysis — an eavesdropper cannot infer election popularity by monitoring request sizes."],
                 ["🤖", "Bot Detection (FingerprintJS BotD 1.9.1)", "Frontend performs bot detection before ballot submission. Bot requests or stale timestamps (>5 minutes) are rejected with HTTP 403. Bot detection result plus timestamp is validated server-side."],
               ].map(([icon, title, desc]) => (
-                <div key={title} className="flex items-start space-x-4 p-4 rounded-xl hover:bg-blue-50 transition-colors duration-200">
+                <div key={title} className="flex items-start space-x-4 p-4 rounded-xl hover:bg-glacier transition-colors duration-200">
                   <span className="text-2xl flex-shrink-0">{icon}</span>
                   <div>
                     <h4 className="font-semibold text-gray-900">{title}</h4>
@@ -252,7 +244,7 @@ const Home = () => {
                       ["Serialization", "msgpack binary", "10–50× vs JSON"],
                     ].map(([layer, algo, std]) => (
                       <tr key={layer} className="border-b border-gray-800">
-                        <td className="py-1.5 text-blue-300">{layer}</td>
+                        <td className="py-1.5 text-brand-light">{layer}</td>
                         <td className="py-1.5 text-yellow-300">{algo}</td>
                         <td className="py-1.5 text-gray-400">{std}</td>
                       </tr>
@@ -260,8 +252,8 @@ const Home = () => {
                   </tbody>
                 </table>
               </div>
-              <div className="bg-green-50 border border-green-200 rounded-2xl p-6">
-                <h3 className="font-bold text-green-800 text-lg mb-4">🔎 End-to-End Verifiability</h3>
+              <div className="bg-sage-soft border border-green-200 rounded-2xl p-6">
+                <h3 className="font-bold text-emerald-800 text-lg mb-4">🔎 End-to-End Verifiability</h3>
                 {[
                   ["1", "Ballot Cast", "Tracking code on public bulletin board"],
                   ["2", "Ballot Integrity", "Ciphertext matches bulletin board entry"],
@@ -273,7 +265,7 @@ const Home = () => {
                     <div className="w-6 h-6 rounded-full bg-green-600 text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mr-3 mt-0.5">{n}</div>
                     <div>
                       <span className="font-semibold text-green-900">{title}</span>
-                      <span className="text-green-700 text-sm ml-2">— {desc}</span>
+                      <span className="text-sage text-sm ml-2">— {desc}</span>
                     </div>
                   </div>
                 ))}
@@ -284,11 +276,11 @@ const Home = () => {
       </section>
 
       {/* ── RabbitMQ Architecture ─────────────────────── */}
-      <section className="py-20 bg-gradient-to-br from-blue-900 via-blue-800 to-indigo-900">
+      <section className="py-20 bg-gradient-to-br from-deep via-ink to-deep">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="text-center mb-14">
             <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">RabbitMQ Worker Architecture</h2>
-            <p className="text-blue-200 max-w-3xl mx-auto">
+            <p className="text-brand-soft max-w-3xl mx-auto">
               Large elections with 10,000+ ballots require chunked, fault-tolerant async processing. A single HTTP request would cause OutOfMemoryError — RabbitMQ solves this.
             </p>
           </div>
@@ -306,7 +298,7 @@ const Home = () => {
                     <div className="flex items-start">
                       <span className="text-xl mr-3 mt-0.5">{icon}</span>
                       <div>
-                        <div className="font-mono text-blue-300 text-sm font-bold">{queue}</div>
+                        <div className="font-mono text-brand-light text-sm font-bold">{queue}</div>
                         <div className="font-mono text-gray-500 text-xs mb-1">routing: {routing}</div>
                         <p className="text-gray-300 text-sm">{desc}</p>
                       </div>
@@ -400,9 +392,9 @@ const Home = () => {
                 ]
               }
             ].map(({ icon, title, color, features }) => (
-              <div key={title} className={`rounded-2xl p-6 border ${color === "blue" ? "bg-blue-50 border-blue-100" : color === "purple" ? "bg-purple-50 border-purple-100" : "bg-green-50 border-green-100"}`}>
+              <div key={title} className={`rounded-2xl p-6 border ${color === "blue" ? "bg-glacier border-glacier" : color === "purple" ? "bg-glacier border-purple-100" : "bg-sage-soft border-green-100"}`}>
                 <div className="text-3xl mb-3">{icon}</div>
-                <h3 className={`text-xl font-bold mb-4 ${color === "blue" ? "text-blue-800" : color === "purple" ? "text-purple-800" : "text-green-800"}`}>{title}</h3>
+                <h3 className={`text-xl font-bold mb-4 ${color === "blue" ? "text-ink" : color === "purple" ? "text-ink" : "text-emerald-800"}`}>{title}</h3>
                 <ul className="space-y-2">
                   {features.map((f) => (
                     <li key={f} className="flex items-start text-sm text-gray-700">
@@ -417,24 +409,24 @@ const Home = () => {
       </section>
 
       {/* ── Video Demos ───────────────────────────────── */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 via-blue-700 to-indigo-700">
+      <section className="py-20 bg-gradient-to-r from-brand via-brand-dark to-brand-dark">
         <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">Video Demonstrations</h2>
-          <p className="text-indigo-200 mb-10">See AmarVote in action — platform walkthrough and infrastructure deep dive</p>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <p className="mb-10 text-glacier/90">See AmarVote in action — platform walkthrough and infrastructure deep dive</p>
+          <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
             <a href="https://youtu.be/ixsvvl_7qVo" target="_blank" rel="noopener noreferrer"
-              className="group block bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1">
-              <div className="w-16 h-16 bg-red-500 rounded-2xl flex items-center justify-center text-white text-2xl mx-auto mb-4 group-hover:scale-110 transition-transform">▶</div>
-              <h3 className="text-xl font-bold text-white mb-2">Platform Features Demo</h3>
-              <p className="text-indigo-200 text-sm">Full walkthrough of election creation, ballot casting, guardian decryption, results verification</p>
-              <div className="mt-4 text-indigo-300 font-mono text-xs">youtu.be/ixsvvl_7qVo</div>
+              className="group block rounded-2xl border border-white/10 bg-white/5 p-8 transition-all duration-300 hover:-translate-y-1 hover:bg-white/10">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-deep text-2xl text-white transition-transform group-hover:scale-110">▶</div>
+              <h3 className="mb-2 text-xl font-bold text-white">Platform Features Demo</h3>
+              <p className="text-sm text-glacier/80">Full walkthrough of election creation, ballot casting, guardian decryption, results verification</p>
+              <div className="mt-4 font-mono text-xs text-brand-soft">youtu.be/ixsvvl_7qVo</div>
             </a>
             <a href="https://youtu.be/t8VOLdYIV40" target="_blank" rel="noopener noreferrer"
-              className="group block bg-white/5 border border-white/10 rounded-2xl p-8 hover:bg-white/10 transition-all duration-300 hover:-translate-y-1">
-              <div className="w-16 h-16 bg-blue-500 rounded-2xl flex items-center justify-center text-white text-2xl mx-auto mb-4 group-hover:scale-110 transition-transform">🏗️</div>
-              <h3 className="text-xl font-bold text-white mb-2">Infrastructure Overview</h3>
-              <p className="text-indigo-200 text-sm">Docker services, RabbitMQ architecture, Redis coordination, ElectionGuard microservice split</p>
-              <div className="mt-4 text-indigo-300 font-mono text-xs">youtu.be/t8VOLdYIV40</div>
+              className="group block rounded-2xl border border-white/10 bg-white/5 p-8 transition-all duration-300 hover:-translate-y-1 hover:bg-white/10">
+              <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-deep text-2xl text-white transition-transform group-hover:scale-110">◇</div>
+              <h3 className="mb-2 text-xl font-bold text-white">Infrastructure Overview</h3>
+              <p className="text-sm text-glacier/80">Docker services, RabbitMQ architecture, Redis coordination, ElectionGuard microservice split</p>
+              <div className="mt-4 font-mono text-xs text-brand-soft">youtu.be/t8VOLdYIV40</div>
             </a>
           </div>
         </div>
@@ -450,7 +442,7 @@ const Home = () => {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {[
               {
-                label: "Frontend", icon: "⚛️", bg: "bg-blue-50 border-blue-200",
+                label: "Frontend", icon: "⚛️", bg: "bg-glacier border-brand/20",
                 items: [
                   ["React", "19.1.0", "UI Framework"],
                   ["Vite", "6.3.5", "Build Tool"],
@@ -464,7 +456,7 @@ const Home = () => {
                 ]
               },
               {
-                label: "Backend", icon: "☕", bg: "bg-green-50 border-green-200",
+                label: "Backend", icon: "☕", bg: "bg-sage-soft border-green-200",
                 items: [
                   ["Java / Spring Boot", "21 / 3.5.0", "Core runtime"],
                   ["Spring Security", "6.x", "Auth + CSRF"],
@@ -478,7 +470,7 @@ const Home = () => {
                 ]
               },
               {
-                label: "Crypto + Infra", icon: "🔐", bg: "bg-purple-50 border-purple-200",
+                label: "Crypto + Infra", icon: "🔐", bg: "bg-glacier border-purple-200",
                 items: [
                   ["ElectionGuard SDK", "2.x", "E2E-V crypto"],
                   ["pqcrypto ML-KEM-1024", "✓", "Post-quantum KEM"],
@@ -512,17 +504,17 @@ const Home = () => {
       </section>
 
       {/* ── CTA ───────────────────────────────────────── */}
-      <section className="py-20 bg-gradient-to-r from-blue-600 to-indigo-700">
+      <section className="py-20 bg-gradient-to-r from-brand to-brand-dark">
         <div className="max-w-4xl mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-extrabold text-white mb-4">
             Ready to run a cryptographically secure election?
           </h2>
-          <p className="text-blue-100 text-lg mb-8 max-w-2xl mx-auto">
+          <p className="text-glacier text-lg mb-8 max-w-2xl mx-auto">
             Register with verified email, set a password, then complete mandatory authenticator-based MFA.
           </p>
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Link to="/register">
-              <button className="px-8 py-4 bg-white text-blue-700 text-lg font-bold rounded-2xl hover:bg-blue-50 transition-all duration-300 shadow-xl hover:-translate-y-1">
+              <button className="px-8 py-4 bg-white text-brand-dark text-lg font-bold rounded-2xl hover:bg-glacier transition-all duration-300 shadow-xl hover:-translate-y-1">
                 Get Started Free →
               </button>
             </Link>
@@ -536,7 +528,7 @@ const Home = () => {
       </section>
 
       {/* ── Footer ────────────────────────────────────── */}
-      <footer className="bg-gradient-to-r from-blue-950 to-indigo-950 text-gray-400">
+      <footer className="bg-gradient-to-r from-deep to-ink text-gray-400">
         <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 md:grid-cols-5 gap-8 mb-8">
             <div className="col-span-2">

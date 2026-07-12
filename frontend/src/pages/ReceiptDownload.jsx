@@ -103,7 +103,7 @@ export default function ReceiptDownload() {
         <h1 className="text-xl font-semibold text-slate-900 mb-3">AmarVote Receipt</h1>
         <p
           className={`text-sm ${
-            status === 'error' ? 'text-red-600' : status === 'success' ? 'text-green-700' : 'text-slate-600'
+            status === 'error' ? 'text-red-600' : status === 'success' ? 'text-sage' : 'text-slate-600'
           }`}
         >
           {message}

@@ -141,7 +141,7 @@ const LoadingScreen = () => {
           left: 0;
           width: 100%;
           height: 100%;
-          background: linear-gradient(-45deg, #2563eb, #1d4ed8, #3b82f6, #2563eb);
+          background: linear-gradient(-45deg, #0B132B, #1C2541, #0B132B, #0096B4);
           background-size: 400% 400%;
           animation: gradient 12s ease infinite;
         }
@@ -186,7 +186,7 @@ const LoadingScreen = () => {
           width: 60px;
           height: 60px;
           margin: 0 auto;
-          background: linear-gradient(135deg, #2563eb, #1d4ed8);
+          background: linear-gradient(135deg, #00B4D8, #0096B4);
           border-radius: 16px;
           display: flex;
           align-items: center;
@@ -203,10 +203,7 @@ const LoadingScreen = () => {
         .brand-name {
           font-size: 2rem;
           font-weight: 700;
-          background: linear-gradient(135deg, #2563eb, #1d4ed8);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+          color: #0B132B;
           margin: 0.5rem 0;
         }
 
@@ -311,9 +308,9 @@ const LoadingScreen = () => {
           align-items: center;
           gap: 0.5rem;
           padding: 1rem 0.75rem;
-          background: rgba(37, 99, 235, 0.08);
+          background: rgba(0, 180, 216, 0.08);
           border-radius: 16px;
-          border: 1px solid rgba(37, 99, 235, 0.15);
+          border: 1px solid rgba(0, 180, 216, 0.18);
           min-width: 90px;
           transition: all 0.3s ease;
           animation: fadeIn 1s ease-out;
@@ -321,8 +318,8 @@ const LoadingScreen = () => {
 
         .feature-item:hover {
           transform: translateY(-2px);
-          background: rgba(37, 99, 235, 0.12);
-          box-shadow: 0 8px 25px rgba(37, 99, 235, 0.15);
+          background: rgba(0, 180, 216, 0.12);
+          box-shadow: 0 8px 25px rgba(0, 180, 216, 0.15);
         }
 
         .feature-icon {
@@ -396,8 +393,8 @@ const LoadingScreen = () => {
       <svg width="0" height="0">
         <defs>
           <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#2563eb" />
-            <stop offset="100%" stopColor="#1d4ed8" />
+            <stop offset="0%" stopColor="#00B4D8" />
+            <stop offset="100%" stopColor="#0096B4" />
           </linearGradient>
         </defs>
       </svg>

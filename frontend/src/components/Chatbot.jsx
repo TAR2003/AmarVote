@@ -175,7 +175,7 @@ const Chatbot = () => {
     <div className={`flex gap-3 mb-4 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
       {message.type === 'bot' && (
         <div className="flex-shrink-0">
-          <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+          <div className="w-8 h-8 bg-brand rounded-full flex items-center justify-center">
             <FiMessageSquare className="w-4 h-4 text-white" />
           </div>
         </div>
@@ -184,7 +184,7 @@ const Chatbot = () => {
       <div className={`max-w-[75%] ${message.type === 'user' ? 'order-1' : ''}`}>
         <div className={`p-3 rounded-lg ${
           message.type === 'user' 
-            ? 'bg-blue-500 text-white rounded-br-sm' 
+            ? 'bg-brand text-white rounded-br-sm' 
             : 'bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100'
         }`}>
           {message.type === 'bot' ? (
@@ -192,22 +192,22 @@ const Chatbot = () => {
               <ReactMarkdown
                 remarkPlugins={[remarkHtml]}
                 components={{
-                  h1: ({node, ...props}) => <h1 className="text-xl font-bold mt-4 mb-3 text-blue-800 border-b border-blue-200 pb-2" {...props} />,
-                  h2: ({node, ...props}) => <h2 className="text-lg font-bold mt-4 mb-3 text-blue-700" {...props} />,
-                  h3: ({node, ...props}) => <h3 className="text-base font-semibold mt-3 mb-2 text-blue-600" {...props} />,
-                  h4: ({node, ...props}) => <h4 className="text-sm font-semibold mt-2 mb-1 text-blue-600" {...props} />,
+                  h1: ({node, ...props}) => <h1 className="text-xl font-bold mt-4 mb-3 text-ink border-b border-brand/20 pb-2" {...props} />,
+                  h2: ({node, ...props}) => <h2 className="text-lg font-bold mt-4 mb-3 text-brand-dark" {...props} />,
+                  h3: ({node, ...props}) => <h3 className="text-base font-semibold mt-3 mb-2 text-brand" {...props} />,
+                  h4: ({node, ...props}) => <h4 className="text-sm font-semibold mt-2 mb-1 text-brand" {...props} />,
                   p: ({node, ...props}) => <p className="mb-3 leading-relaxed text-gray-800" {...props} />,
                   ul: ({node, ...props}) => <ul className="list-disc pl-6 mb-3 space-y-1" {...props} />,
                   ol: ({node, ...props}) => <ol className="list-decimal pl-6 mb-3 space-y-1" {...props} />,
                   li: ({node, ...props}) => <li className="mb-1 text-gray-800" {...props} />,
-                  strong: ({node, ...props}) => <strong className="font-semibold text-blue-700" {...props} />,
+                  strong: ({node, ...props}) => <strong className="font-semibold text-brand-dark" {...props} />,
                   em: ({node, ...props}) => <em className="italic text-gray-700" {...props} />,
-                  a: ({node, ...props}) => <a className="text-blue-600 hover:underline font-medium" target="_blank" rel="noopener" {...props} />,
+                  a: ({node, ...props}) => <a className="text-brand hover:underline font-medium" target="_blank" rel="noopener" {...props} />,
                   hr: ({node, ...props}) => <hr className="my-4 border-gray-300" {...props} />,
-                  blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-blue-200 pl-4 py-2 my-3 bg-blue-50 text-gray-700 italic" {...props} />,
+                  blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-brand/20 pl-4 py-2 my-3 bg-glacier text-gray-700 italic" {...props} />,
                   code: ({node, inline, ...props}) => 
                     inline ? 
-                      <code className="bg-blue-100 text-blue-800 px-1 py-0.5 rounded text-sm font-mono" {...props} /> : 
+                      <code className="bg-glacier text-ink px-1 py-0.5 rounded text-sm font-mono" {...props} /> : 
                       <pre className="bg-gray-100 p-3 rounded-md text-sm font-mono my-2 overflow-x-auto border border-gray-200" {...props} />,
                   // Add support for subscript and superscript
                   sub: ({node, ...props}) => <sub className="text-xs" {...props} />,
@@ -266,7 +266,7 @@ const Chatbot = () => {
       <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50">
         <button
           onClick={() => setIsOpen(true)}
-          className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-blue-600 hover:to-blue-700 text-white rounded-full shadow-xl transition-all duration-300 hover:scale-110 relative group"
+          className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-r from-blue-500 to-blue-600 hover:from-brand hover:to-blue-700 text-white rounded-full shadow-xl transition-all duration-300 hover:scale-110 relative group"
           aria-label="Open chatbot"
           style={{ position: 'fixed', bottom: '24px', right: '16px', zIndex: 9999 }}
         >
@@ -302,7 +302,7 @@ const Chatbot = () => {
             </div>
             <div>
               <h3 className="font-semibold">AmarVote AI Assistant</h3>
-              <p className="text-blue-100 text-xs">
+              <p className="text-glacier text-xs">
                 {messages.length > 1 ? 'Conversation Active' : 'Online'}
                 {sessionId && messages.length > 1 && (
                   <span className="ml-1 opacity-70">• Session Active</span>
@@ -368,7 +368,7 @@ const Chatbot = () => {
                   <button
                     key={index}
                     onClick={() => handleSendMessage(question)}
-                    className="text-left p-2 text-sm bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-colors"
+                    className="text-left p-2 text-sm bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-glacier transition-colors"
                     disabled={isLoading}
                   >
                     {question}
@@ -381,7 +381,7 @@ const Chatbot = () => {
           {isLoading && (
             <div className="flex gap-3 mb-4 justify-start">
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-blue-500 rounded-full flex items-center justify-center">
+                <div className="w-8 h-8 bg-brand rounded-full flex items-center justify-center">
                   <FiMessageSquare className="w-4 h-4 text-white" />
                 </div>
               </div>
@@ -408,14 +408,14 @@ const Chatbot = () => {
               onChange={(e) => setInputMessage(e.target.value)}
               onKeyPress={handleKeyPress}
               placeholder={sessionId ? "Continue the conversation..." : "Type your message..."}
-              className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent text-sm max-h-20 min-h-[40px]"
+              className="flex-1 resize-none border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-brand focus:border-transparent text-sm max-h-20 min-h-[40px]"
               rows="1"
               disabled={isLoading || !sessionId}
             />
             <button
               onClick={() => handleSendMessage()}
               disabled={!inputMessage.trim() || isLoading || !sessionId}
-              className="px-4 py-2 bg-blue-500 text-white rounded-lg hover:bg-blue-600 disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+              className="px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               aria-label="Send message"
             >
               <FiSend className="w-4 h-4" />
@@ -426,7 +426,7 @@ const Chatbot = () => {
             <span>Press Enter to send</span>
             <span className="flex items-center gap-1">
               {sessionId && (
-                <span className="text-green-600">
+                <span className="text-sage">
                   • Session Active
                 </span>
               )}

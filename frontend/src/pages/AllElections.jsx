@@ -82,7 +82,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
             <span
               className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                 election.isPublic 
-                  ? 'bg-green-100 text-green-800' 
+                  ? 'bg-sage-soft text-emerald-800' 
                   : 'bg-orange-100 text-orange-800'
               }`}
             >
@@ -101,15 +101,15 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
                 key={role}
                 className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                   role === 'admin' ? 'bg-red-100 text-red-800' :
-                  role === 'guardian' ? 'bg-purple-100 text-purple-800' :
-                  'bg-blue-100 text-blue-800'
+                  role === 'guardian' ? 'bg-glacier text-ink' :
+                  'bg-glacier text-ink'
                 }`}
               >
                 {role.charAt(0).toUpperCase() + role.slice(1)}
               </span>
             ))}
             {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sage-soft text-emerald-800">
                 {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
               </span>
             )}
@@ -145,7 +145,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
                             election.hasVoted 
                               ? 'text-gray-700 bg-gray-200 cursor-not-allowed'
                               : (canUserVoteInElection(election) 
-                                  ? 'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' 
+                                  ? 'text-white bg-brand hover:bg-brand-dark focus:ring-brand' 
                                   : 'text-gray-700 bg-gray-200 hover:bg-gray-300 focus:ring-gray-500')
                           }`}
                           onClick={handleActionClick}
@@ -157,7 +157,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
           )}
           {status === "upcoming" && (
             <button 
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand"
               onClick={handleActionClick}
             >
               Set Reminder
@@ -165,7 +165,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
           )}
           {status === "completed" && (
             <button 
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand"
               onClick={handleActionClick}
             >
               View Results
@@ -221,9 +221,9 @@ const AllElections = () => {
   const getStatusColor = useCallback((status) => {
     switch (status) {
       case "upcoming":
-        return "bg-blue-100 text-blue-800";
+        return "bg-glacier text-ink";
       case "ongoing":
-        return "bg-green-100 text-green-800";
+        return "bg-sage-soft text-emerald-800";
       case "completed":
         return "bg-gray-100 text-gray-800";
       default:
@@ -444,7 +444,7 @@ const AllElections = () => {
                 onClick={() => setFilter(tab.key)}
                 className={`whitespace-nowrap px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
                   filter === tab.key
-                    ? "bg-blue-600 text-white"
+                    ? "bg-brand text-white"
                     : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                 }`}
               >
@@ -459,7 +459,7 @@ const AllElections = () => {
       </div>
 
       {successMessage && (
-        <div className="bg-green-50 border border-green-200 rounded-lg p-4 text-sm text-green-700">
+        <div className="bg-sage-soft border border-green-200 rounded-lg p-4 text-sm text-sage">
           {successMessage}
         </div>
       )}
@@ -493,7 +493,7 @@ const AllElections = () => {
                         <span
                           className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                             election.isPublic 
-                              ? 'bg-green-100 text-green-800' 
+                              ? 'bg-sage-soft text-emerald-800' 
                               : 'bg-orange-100 text-orange-800'
                           }`}
                         >
@@ -512,8 +512,8 @@ const AllElections = () => {
                             key={role}
                             className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
                               role === 'admin' ? 'bg-red-100 text-red-800' :
-                              role === 'guardian' ? 'bg-purple-100 text-purple-800' :
-                              'bg-blue-100 text-blue-800'
+                              role === 'guardian' ? 'bg-glacier text-ink' :
+                              'bg-glacier text-ink'
                             }`}
                           >
                             {role.charAt(0).toUpperCase() + role.slice(1)}
@@ -521,7 +521,7 @@ const AllElections = () => {
                         ))}
                         {/* Show eligible voter status */}
                         {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-green-100 text-green-800">
+                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sage-soft text-emerald-800">
                             {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
                           </span>
                         )}
@@ -569,7 +569,7 @@ const AllElections = () => {
                             election.hasVoted 
                               ? 'text-gray-700 bg-gray-200 cursor-not-allowed'
                               : (canUserVoteInElection(election) 
-                                  ? 'text-white bg-blue-600 hover:bg-blue-700 focus:ring-blue-500' 
+                                  ? 'text-white bg-brand hover:bg-brand-dark focus:ring-brand' 
                                   : 'text-gray-700 bg-gray-200 hover:bg-gray-300 focus:ring-gray-500')
                           }`}
                           onClick={(e) => {
@@ -585,7 +585,7 @@ const AllElections = () => {
                       )}
                       {status === "upcoming" && (
                         <button 
-                          className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand"
                           onClick={(e) => {
                             e.stopPropagation();
                             // Set reminder functionality can be added here
@@ -596,7 +596,7 @@ const AllElections = () => {
                       )}
                       {status === "completed" && (
                         <button 
-                          className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500"
+                          className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleElectionClick(election.electionId);
@@ -630,7 +630,7 @@ const AllElections = () => {
           <div className="px-6 py-4 border-t border-gray-200">
             <button
               onClick={loadMoreElections}
-              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 transition-colors"
+              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand transition-colors"
             >
               <FiLoader className="h-4 w-4 mr-2" />
               Load More Elections

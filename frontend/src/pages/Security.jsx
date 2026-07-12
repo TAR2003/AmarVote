@@ -7,9 +7,9 @@ const Security = () => {
   return (
     <Layout>
       {/* ── Hero ─────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-slate-900 via-purple-950 to-indigo-950 py-16 px-4">
+      <div className="bg-gradient-to-br from-deep via-ink to-deep py-16 px-4">
         <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-flex items-center px-4 py-2 bg-purple-500/10 border border-purple-500/30 rounded-full text-purple-300 text-sm font-medium mb-6">
+          <div className="inline-flex items-center px-4 py-2 bg-glacier0/10 border border-purple-500/30 rounded-full text-purple-300 text-sm font-medium mb-6">
             <span className="mr-2">🔐</span>Security Deep Dive
           </div>
           <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">
@@ -38,7 +38,7 @@ const Security = () => {
               onClick={() => setActiveTab(id)}
               className={`px-4 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === id
-                  ? "border-purple-600 text-purple-600"
+                  ? "border-purple-600 text-brand-dark"
                   : "border-transparent text-gray-500 hover:text-gray-700"
               }`}
             >
@@ -86,7 +86,7 @@ const Security = () => {
                     ["Public audit records", "SHA-256 + signed payloads", "Internal verification profile", "Supplementary transparency metadata"],
                   ].map(([comp, algo, std, purpose]) => (
                     <tr key={comp} className="border-b border-gray-800 hover:bg-white/5">
-                      <td className="py-2 pr-4 text-blue-300 font-semibold">{comp}</td>
+                      <td className="py-2 pr-4 text-brand-light font-semibold">{comp}</td>
                       <td className="py-2 pr-4 text-yellow-300">{algo}</td>
                       <td className="py-2 pr-4 text-gray-400">{std}</td>
                       <td className="py-2 text-gray-300">{purpose}</td>
@@ -106,7 +106,7 @@ const Security = () => {
                 { icon: "🤖", title: "Anti-Fraud", items: ["FingerprintJS BotD 1.9.1 browser-side", "5-minute timestamp freshness check server-side", "OTP rate limiting + 5-min expiry"], color: "red" },
                 { icon: "🏗️", title: "Threshold Security", items: ["k-of-n Shamir-style guardian quorum", "No single guardian can decrypt alone", "Lagrange compensation for absent guardians"], color: "orange" },
               ].map(({ icon, title, items, color }) => (
-                <div key={title} className={`bg-white rounded-2xl border p-5 ${color === "purple" ? "border-purple-200" : color === "blue" ? "border-blue-200" : color === "green" ? "border-green-200" : color === "teal" ? "border-teal-200" : color === "red" ? "border-red-200" : "border-orange-200"}`}>
+                <div key={title} className={`bg-white rounded-2xl border p-5 ${color === "purple" ? "border-purple-200" : color === "blue" ? "border-brand/20" : color === "green" ? "border-green-200" : color === "teal" ? "border-teal-200" : color === "red" ? "border-red-200" : "border-orange-200"}`}>
                   <div className="text-2xl mb-2">{icon}</div>
                   <h3 className="font-bold text-gray-900 mb-3">{title}</h3>
                   <ul className="space-y-1.5">
@@ -135,8 +135,8 @@ const Security = () => {
                     <div><span className="text-yellow-300">q</span> = (p-1)/2 (large Sophie Germain prime)</div>
                     <br />
                     <div className="text-gray-500">// Key generation per guardian i:</div>
-                    <div><span className="text-blue-300">s_i</span> ← random ∈ [2, q-2]  <span className="text-gray-500">// secret key</span></div>
-                    <div><span className="text-blue-300">K_i</span> = g^s_i mod p       <span className="text-gray-500">// public key share</span></div>
+                    <div><span className="text-brand-light">s_i</span> ← random ∈ [2, q-2]  <span className="text-gray-500">// secret key</span></div>
+                    <div><span className="text-brand-light">K_i</span> = g^s_i mod p       <span className="text-gray-500">// public key share</span></div>
                     <div>K = ∏ K_i mod p          <span className="text-gray-500">// combined public key</span></div>
                     <br />
                     <div className="text-gray-500">// Ballot encryption per selection m ∈ {"{0, 1}"}:</div>
@@ -159,9 +159,9 @@ const Security = () => {
                 </div>
               </div>
               <div className="space-y-4">
-                <div className="bg-purple-50 border border-purple-200 rounded-2xl p-5">
+                <div className="bg-glacier border border-purple-200 rounded-2xl p-5">
                   <h3 className="font-bold text-purple-900 mb-3">Why 4096-bit?</h3>
-                  <p className="text-purple-800 text-sm mb-3">4096-bit discrete log provides ~200 bits of classical security (comparable to AES-200, far beyond AES-128). NIST recommends ≥2048-bit for elections through 2030+. AmarVote uses 4096-bit for long-term security of encrypted ballots.</p>
+                  <p className="text-ink text-sm mb-3">4096-bit discrete log provides ~200 bits of classical security (comparable to AES-200, far beyond AES-128). NIST recommends ≥2048-bit for elections through 2030+. AmarVote uses 4096-bit for long-term security of encrypted ballots.</p>
                   <div className="bg-white rounded-lg p-3 font-mono text-xs text-gray-600 border border-purple-100">
                     <div>Classical security: ~200 bits</div>
                     <div>Best attack: Number Field Sieve</div>
@@ -170,10 +170,10 @@ const Security = () => {
                     <div>gmpy2: GMP-accelerated bignum arithmetic</div>
                   </div>
                 </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-blue-900 mb-3">Threshold Decryption — Lagrange Interpolation</h3>
-                  <p className="text-blue-800 text-sm mb-3">With k-of-n threshold, guardian i holds polynomial coefficient share. Any k guardians can reconstruct using Lagrange basis polynomials:</p>
-                  <div className="bg-white rounded-lg p-3 font-mono text-xs text-gray-600 border border-blue-100">
+                <div className="bg-glacier border border-brand/20 rounded-2xl p-5">
+                  <h3 className="font-bold text-deep mb-3">Threshold Decryption — Lagrange Interpolation</h3>
+                  <p className="text-ink text-sm mb-3">With k-of-n threshold, guardian i holds polynomial coefficient share. Any k guardians can reconstruct using Lagrange basis polynomials:</p>
+                  <div className="bg-white rounded-lg p-3 font-mono text-xs text-gray-600 border border-glacier">
                     <div>λ_i = ∏_j≠i j / (j - i) mod q  // Lagrange coefficient</div>
                     <div>M = ∏_i M_i^λ_i mod p         // combined result</div>
                     <div className="mt-2 text-gray-400">// Absent guardian compensation:</div>
@@ -182,9 +182,9 @@ const Security = () => {
                     <div>M_comp_j_for_i = A^(f_j(i) · λ_j(S_i)) mod p</div>
                   </div>
                 </div>
-                <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
+                <div className="bg-sage-soft border border-green-200 rounded-2xl p-5">
                   <h3 className="font-bold text-green-900 mb-3">Tracking Code Generation</h3>
-                  <p className="text-green-800 text-sm">Each encrypted ballot receives a unique tracking code = SHA-256(concatenation of all ciphertext pairs). Voters can confirm their code appears on the public bulletin board after election closes.</p>
+                  <p className="text-emerald-800 text-sm">Each encrypted ballot receives a unique tracking code = SHA-256(concatenation of all ciphertext pairs). Voters can confirm their code appears on the public bulletin board after election closes.</p>
                 </div>
               </div>
             </div>
@@ -235,9 +235,9 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 </div>
               </div>
               <div className="space-y-4">
-                <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-indigo-900 mb-3">Why ML-KEM-1024?</h3>
-                  <div className="space-y-3 text-sm text-indigo-800">
+                <div className="bg-glacier border border-brand/25 rounded-2xl p-5">
+                  <h3 className="font-bold text-deep mb-3">Why ML-KEM-1024?</h3>
+                  <div className="space-y-3 text-sm text-ink">
                     <p><strong>CRYSTALS-Kyber</strong> was selected by NIST in 2022 and standardized as FIPS 203 (ML-KEM) in 2024. It is based on the Module Learning With Errors (MLWE) problem, which is believed to be hard for both classical and quantum computers.</p>
                     <p><strong>Shor's algorithm</strong> breaks RSA and elliptic-curve cryptography in polynomial time on a quantum computer, but has no known efficient attack on MLWE. Guardian keys must remain secret even after a quantum computer is built — hence post-quantum wrapping is essential for long-term election integrity.</p>
                     <p>ML-KEM-1024 provides <strong>≥256-bit post-quantum security</strong> (NIST Category 5).</p>
@@ -256,7 +256,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       "Private key stored in Redis with 6h TTL for worker use",
                     ].map((step, i) => (
                       <div key={i} className="flex items-start">
-                        <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">{i + 1}</div>
+                        <div className="w-5 h-5 rounded-full bg-glacier text-ink text-xs font-bold flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">{i + 1}</div>
                         <span>{step}</span>
                       </div>
                     ))}
@@ -304,7 +304,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 </div>
               </div>
               <div>
-                <div className="bg-green-50 border border-green-200 rounded-2xl p-5 mb-6">
+                <div className="bg-sage-soft border border-green-200 rounded-2xl p-5 mb-6">
                   <h3 className="font-bold text-green-900 mb-4">What Voters Can Verify</h3>
                   <div className="space-y-3 text-sm">
                     {[
@@ -316,8 +316,8 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       ["Result is correct", "Discrete log of final decryption matches announced tally"],
                     ].map(([claim, how]) => (
                       <div key={claim} className="flex items-start bg-white rounded-lg p-3 border border-green-100">
-                        <span className="text-green-600 mr-2 flex-shrink-0">✓</span>
-                        <div><strong className="text-green-900">{claim}:</strong> <span className="text-green-800">{how}</span></div>
+                        <span className="text-sage mr-2 flex-shrink-0">✓</span>
+                        <div><strong className="text-green-900">{claim}:</strong> <span className="text-emerald-800">{how}</span></div>
                       </div>
                     ))}
                   </div>
@@ -367,7 +367,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       { n: "5", label: "If CAST", color: "green", text: "No nonce exposure. Ballot encrypted and counted. Tracking code recorded on public bulletin board. Voter cannot later demand nonce." },
                     ].map(({ n, label, color, text }) => (
                       <div key={n} className="flex items-start">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 mr-3 mt-0.5 ${color === "blue" ? "bg-blue-500" : color === "yellow" ? "bg-yellow-500" : color === "orange" ? "bg-orange-500" : color === "red" ? "bg-red-500" : "bg-green-500"}`}>{n}</div>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 mr-3 mt-0.5 ${color === "blue" ? "bg-brand" : color === "yellow" ? "bg-yellow-500" : color === "orange" ? "bg-orange-500" : color === "red" ? "bg-red-500" : "bg-sage-soft0"}`}>{n}</div>
                         <div>
                           <div className="font-semibold text-gray-900 text-sm">{label}</div>
                           <p className="text-gray-600 text-sm">{text}</p>
@@ -402,9 +402,9 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
 // Only available BEFORE cast decision
 // Challenge = automatic spoil; voter must re-encrypt`}</pre>
                 </div>
-                <div className="bg-purple-50 border border-purple-200 rounded-2xl p-5">
+                <div className="bg-glacier border border-purple-200 rounded-2xl p-5">
                   <h3 className="font-bold text-purple-900 mb-3">Auditability of Spoiled Ballots</h3>
-                  <p className="text-purple-800 text-sm mb-3">All spoiled (challenged) ballots are recorded on the public bulletin board with their nonces. This creates a public audit trail proving the system encrypted honestly during the election period.</p>
+                  <p className="text-ink text-sm mb-3">All spoiled (challenged) ballots are recorded on the public bulletin board with their nonces. This creates a public audit trail proving the system encrypted honestly during the election period.</p>
                   <div className="space-y-2 text-sm text-purple-700">
                     <div>• Spoiled ballot: (α, β, ξ, m_actual) all public</div>
                     <div>• Verify: α == g^ξ mod p ✓</div>
@@ -435,7 +435,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       ["No password", "Users never create passwords; eliminates credential stuffing vectors"],
                     ].map(([k, v]) => (
                       <div key={k} className="flex items-start">
-                        <span className="font-semibold text-blue-700 w-28 flex-shrink-0">{k}</span>
+                        <span className="font-semibold text-brand-dark w-28 flex-shrink-0">{k}</span>
                         <span>{v}</span>
                       </div>
                     ))}
@@ -446,10 +446,10 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                   <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs text-gray-300 mb-3">
                     <div className="text-yellow-300">// JWT Payload</div>
                     <div>{`{`}</div>
-                    <div>  <span className="text-blue-300">"sub"</span>: <span className="text-green-300">"user@example.com"</span>,</div>
-                    <div>  <span className="text-blue-300">"role"</span>: <span className="text-green-300">"VOTER" | "GUARDIAN" | "ADMIN"</span>,</div>
-                    <div>  <span className="text-blue-300">"iat"</span>: <span className="text-orange-300">1704067200</span>,</div>
-                    <div>  <span className="text-blue-300">"exp"</span>: <span className="text-orange-300">1704672000</span> <span className="text-gray-500">// iat + 7 days</span></div>
+                    <div>  <span className="text-brand-light">"sub"</span>: <span className="text-green-300">"user@example.com"</span>,</div>
+                    <div>  <span className="text-brand-light">"role"</span>: <span className="text-green-300">"VOTER" | "GUARDIAN" | "ADMIN"</span>,</div>
+                    <div>  <span className="text-brand-light">"iat"</span>: <span className="text-orange-300">1704067200</span>,</div>
+                    <div>  <span className="text-brand-light">"exp"</span>: <span className="text-orange-300">1704672000</span> <span className="text-gray-500">// iat + 7 days</span></div>
                     <div>{`}`}</div>
                     <div className="mt-2 text-gray-500">// Signed with HMAC-SHA256</div>
                     <div className="text-gray-500">// Stored as HttpOnly cookie (not accessible to JS)</div>
@@ -478,7 +478,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                           {perms.map((p) => <li key={p} className="text-sm text-gray-700 flex items-start"><span className="mr-1.5 text-green-500">✓</span>{p}</li>)}
                         </ul>
                         <div className="flex flex-wrap gap-1">
-                          {endpoints.map((e) => <span key={e} className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-mono text-xs">{e}</span>)}
+                          {endpoints.map((e) => <span key={e} className="px-2 py-0.5 bg-glacier text-brand-dark rounded font-mono text-xs">{e}</span>)}
                         </div>
                       </div>
                     ))}

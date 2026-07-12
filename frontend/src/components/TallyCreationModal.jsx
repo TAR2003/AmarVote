@@ -169,7 +169,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
             </div>
           </div>
           <div className="p-6 text-center py-8">
-            <FiLoader className="h-10 w-10 text-blue-500 mx-auto animate-spin" />
+            <FiLoader className="h-10 w-10 text-brand mx-auto animate-spin" />
             <p className="text-gray-600 mt-4">
               {isConnecting ? 'Loading tally status…' : 'Connecting to live progress…'}
             </p>
@@ -184,7 +184,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
       return (
         <div className="text-center py-8">
           <div className="mb-6">
-            <FiRefreshCw className="h-16 w-16 text-blue-500 mx-auto" />
+            <FiRefreshCw className="h-16 w-16 text-brand mx-auto" />
           </div>
           <h3 className="text-xl font-semibold text-gray-900 mb-4">
             Ready to Create Tally
@@ -207,7 +207,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
             className={`px-6 py-3 rounded-lg font-medium text-white transition-colors ${
               isLoading
                 ? 'bg-gray-400 cursor-not-allowed'
-                : 'bg-blue-600 hover:bg-blue-700'
+                : 'bg-brand hover:bg-brand-dark'
             }`}
           >
             {isLoading ? (
@@ -284,7 +284,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
               Processing chunks: {status.processedChunks || 0} / {status.totalChunks || 0}
             </p>
             {estimatedTime && (
-              <p className="text-sm text-indigo-600 font-medium">
+              <p className="text-sm text-brand-dark font-medium">
                 ⏱️ Estimated time remaining: {estimatedTime}
               </p>
             )}
@@ -309,13 +309,13 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
             )}
             <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
               <div
-                className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+                className="bg-brand h-2 rounded-full transition-all duration-300"
                 style={{ width: `${progress}%` }}
               ></div>
             </div>
           </div>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-            <div className="flex items-center text-blue-800">
+          <div className="bg-glacier border border-brand/20 rounded-lg p-4">
+            <div className="flex items-center text-ink">
               <FiLoader className="h-5 w-5 mr-2 animate-spin flex-shrink-0" />
               <span className="text-sm">
                 Tally creation in progress. Please wait...
@@ -351,7 +351,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
           <button
             onClick={handleCreateTally}
             disabled={isLoading}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-brand text-white rounded-lg font-medium hover:bg-brand-dark transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <div className="flex items-center space-x-2">
@@ -381,8 +381,8 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
           <p className="text-sm text-gray-500 mb-6">
             Processed {status.processedChunks || status.totalChunks} of {status.totalChunks} chunk{status.totalChunks !== 1 ? 's' : ''}
           </p>
-          <div className="bg-green-50 border border-green-200 rounded-lg p-4">
-            <p className="text-sm text-green-800">
+          <div className="bg-sage-soft border border-green-200 rounded-lg p-4">
+            <p className="text-sm text-emerald-800">
               ✓ Guardians can now submit their keys to decrypt the results
             </p>
           </div>
@@ -407,7 +407,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
           <button
             onClick={handleCreateTally}
             disabled={isLoading}
-            className="px-6 py-3 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-brand text-white rounded-lg font-medium hover:bg-brand-dark transition-colors disabled:bg-gray-400 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <div className="flex items-center space-x-2">

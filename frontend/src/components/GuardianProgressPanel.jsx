@@ -88,7 +88,7 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
                 key={guardian.guardianId || guardian.userEmail}
                 type="button"
                 onClick={() => setSelectedGuardian(guardian)}
-                className="flex flex-col items-center rounded-lg border border-gray-100 bg-gray-50 p-3 transition hover:border-blue-300 hover:bg-blue-50"
+                className="flex flex-col items-center rounded-lg border border-gray-100 bg-gray-50 p-3 transition hover:border-blue-300 hover:bg-glacier"
               >
                 <div className="h-14 w-14">
                   <CircularProgressbar
@@ -111,7 +111,7 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
       )}
 
       {active && (
-        <div className="mt-4 rounded-md border border-blue-100 bg-blue-50 p-3 text-sm text-gray-800">
+        <div className="mt-4 rounded-md border border-glacier bg-glacier p-3 text-sm text-gray-800">
           <p className="font-semibold">{active.guardianName || active.userEmail}</p>
           <p>Phase: {active.currentPhase || active.status || 'not started'}</p>
           <p>

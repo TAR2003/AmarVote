@@ -59,14 +59,14 @@ export default function KeyVerificationTab({ electionId, electionData }) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-sky-50 p-5 sm:p-6 shadow-sm">
+      <div className="rounded-2xl border border-brand/25 bg-gradient-to-br from-glacier via-white to-sky-50 p-5 sm:p-6 shadow-sm">
         <div className="flex items-start gap-3">
-          <div className="rounded-full bg-indigo-100 p-2">
-            <FiShield className="h-5 w-5 text-indigo-700" />
+          <div className="rounded-full bg-glacier p-2">
+            <FiShield className="h-5 w-5 text-ink" />
           </div>
           <div>
-            <h4 className="text-lg font-semibold text-indigo-900">Private Key Verification</h4>
-            <p className="text-sm text-indigo-800 mt-1">
+            <h4 className="text-lg font-semibold text-deep">Private Key Verification</h4>
+            <p className="text-sm text-ink mt-1">
               Confirm that your downloaded credential file matches the public key stored for this election.
               This check is private — only you see the result, and nothing is saved.
             </p>
@@ -88,10 +88,10 @@ export default function KeyVerificationTab({ electionId, electionData }) {
               type="file"
               accept=".txt,text/plain"
               onChange={(e) => handleFileLoad(e.target.files?.[0])}
-              className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-indigo-50 file:text-indigo-700 hover:file:bg-indigo-100"
+              className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-glacier file:text-ink hover:file:bg-glacier"
             />
             {credentialFileName && (
-              <p className="mt-2 text-xs text-green-700">Loaded file: {credentialFileName}</p>
+              <p className="mt-2 text-xs text-sage">Loaded file: {credentialFileName}</p>
             )}
           </div>
 
@@ -110,7 +110,7 @@ export default function KeyVerificationTab({ electionId, electionData }) {
             type="button"
             onClick={handleVerify}
             disabled={verifying || !credentialContent.trim()}
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="inline-flex items-center gap-2 rounded-lg bg-brand-dark px-4 py-2.5 text-sm font-medium text-white hover:bg-ink disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {verifying ? (
               <>

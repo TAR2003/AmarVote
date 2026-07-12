@@ -263,7 +263,7 @@ export default function KeyCeremonyDashboard() {
         </p>
       </div>
 
-      {message && <div className="bg-green-50 border border-green-200 text-green-800 p-3 rounded">{message}</div>}
+      {message && <div className="bg-sage-soft border border-green-200 text-emerald-800 p-3 rounded">{message}</div>}
       {error && <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded">{error}</div>}
 
       <div className="bg-white rounded-lg shadow p-4">
@@ -287,7 +287,7 @@ export default function KeyCeremonyDashboard() {
                     <div className="flex flex-wrap gap-2 mb-3">
                       <button
                         onClick={() => handleGenerateCredentials(item)}
-                        className="px-3 py-2 bg-indigo-600 text-white rounded"
+                        className="px-3 py-2 bg-brand-dark text-white rounded"
                       >
                         Generate Credentials
                       </button>
@@ -342,7 +342,7 @@ export default function KeyCeremonyDashboard() {
                     </div>
                     <button
                       onClick={() => handleGuardianSubmit(item.electionId)}
-                      className="mt-3 px-4 py-2 bg-blue-600 text-white rounded"
+                      className="mt-3 px-4 py-2 bg-brand text-white rounded"
                     >
                       Submit Key Ceremony Data (Round 1)
                     </button>
@@ -371,7 +371,7 @@ export default function KeyCeremonyDashboard() {
                     </div>
 
                     {backupForm[item.electionId]?.credentialFileName && (
-                      <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded p-2">
+                      <div className="text-xs text-sage bg-sage-soft border border-green-200 rounded p-2">
                         Loaded: {backupForm[item.electionId]?.credentialFileName}
                       </div>
                     )}
@@ -409,7 +409,7 @@ export default function KeyCeremonyDashboard() {
                 )}
 
                 {item.currentRound === 'backup_submitted_waiting_others' && (
-                  <div className="mt-2 text-blue-700 bg-blue-50 border border-blue-200 rounded p-3 text-sm">
+                  <div className="mt-2 text-brand-dark bg-glacier border border-brand/20 rounded p-3 text-sm">
                     Your encrypted backup shares are submitted. Waiting for other guardians to finish Round 2.
                   </div>
                 )}
@@ -436,7 +436,7 @@ export default function KeyCeremonyDashboard() {
                     {status ? `${status.submittedGuardians}/${status.totalGuardians} submitted` : 'Loading status...'}
                   </div>
                   {status?.readyForActivation && (
-                    <div className="text-green-700 text-sm mb-2 flex items-center gap-1">
+                    <div className="text-sage text-sm mb-2 flex items-center gap-1">
                       <FiCheckCircle /> Ready for activation
                     </div>
                   )}
@@ -445,7 +445,7 @@ export default function KeyCeremonyDashboard() {
                       <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Election Start</span>
                       <input
                         type="datetime-local"
-                        className="w-full border-2 border-slate-200 focus:border-blue-500 rounded-lg px-3 py-2.5 outline-none bg-white"
+                        className="w-full border-2 border-slate-200 focus:border-brand rounded-lg px-3 py-2.5 outline-none bg-white"
                         value={activationForm[e.electionId]?.startingTime || ''}
                         onChange={(ev) =>
                           setActivationForm((prev) => ({
@@ -462,7 +462,7 @@ export default function KeyCeremonyDashboard() {
                       <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Election End</span>
                       <input
                         type="datetime-local"
-                        className="w-full border-2 border-slate-200 focus:border-blue-500 rounded-lg px-3 py-2.5 outline-none bg-white"
+                        className="w-full border-2 border-slate-200 focus:border-brand rounded-lg px-3 py-2.5 outline-none bg-white"
                         value={activationForm[e.electionId]?.endingTime || ''}
                         onChange={(ev) =>
                           setActivationForm((prev) => ({

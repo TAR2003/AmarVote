@@ -151,8 +151,8 @@ export default function OtpLogin({ setUserEmail }) {
           )}
 
           {info && (
-            <div className="rounded-md bg-blue-50 p-4 border-l-4 border-blue-500">
-              <p className="text-sm text-blue-700">{info}</p>
+            <div className="rounded-md bg-glacier p-4 border-l-4 border-brand">
+              <p className="text-sm text-brand-dark">{info}</p>
             </div>
           )}
 
@@ -172,7 +172,7 @@ export default function OtpLogin({ setUserEmail }) {
                       required
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand focus:border-brand sm:text-sm"
                       placeholder="you@example.com"
                     />
                   </div>
@@ -187,7 +187,7 @@ export default function OtpLogin({ setUserEmail }) {
                 <button
                   type="submit"
                   disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand hover:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand disabled:bg-brand-soft disabled:cursor-not-allowed"
                 >
                   {loading ? "Sending..." : "Continue"}
                 </button>
@@ -208,7 +208,7 @@ export default function OtpLogin({ setUserEmail }) {
                       required
                       value={otpCode}
                       onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 text-center text-2xl tracking-widest font-mono"
+                      className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-brand focus:border-brand text-center text-2xl tracking-widest font-mono"
                       placeholder="000000"
                       autoComplete="off"
                     />
@@ -217,7 +217,7 @@ export default function OtpLogin({ setUserEmail }) {
                     {timeLeft > 0 ? (
                       <>
                         Code expires in{" "}
-                        <span className="font-semibold text-blue-600">{formatTime(timeLeft)}</span>
+                        <span className="font-semibold text-brand">{formatTime(timeLeft)}</span>
                       </>
                     ) : (
                       <span className="text-red-600 font-semibold">Code expired</span>
@@ -229,7 +229,7 @@ export default function OtpLogin({ setUserEmail }) {
                   <button
                     type="submit"
                     disabled={loading || timeLeft === 0 || otpCode.length !== 6}
-                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-400 disabled:cursor-not-allowed"
+                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-brand hover:bg-brand-dark focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand disabled:bg-brand-soft disabled:cursor-not-allowed"
                   >
                     {loading ? "Verifying..." : "Sign In"}
                   </button>
@@ -244,7 +244,7 @@ export default function OtpLogin({ setUserEmail }) {
                     type="button"
                     onClick={handleResendOTP}
                     disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
-                    className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-gray-100 disabled:cursor-not-allowed"
+                    className="w-full py-2 px-4 border border-gray-300 rounded-md shadow-sm text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand disabled:bg-gray-100 disabled:cursor-not-allowed"
                   >
                     Resend Code
                   </button>
@@ -258,7 +258,7 @@ export default function OtpLogin({ setUserEmail }) {
                       setInfo(null);
                       resetCaptcha();
                     }}
-                    className="text-sm text-blue-600 hover:text-blue-800"
+                    className="text-sm text-brand hover:text-ink"
                   >
                     ← Change email address
                   </button>

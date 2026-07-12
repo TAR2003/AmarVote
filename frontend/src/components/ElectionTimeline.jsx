@@ -76,11 +76,11 @@ const formatGap = (milliseconds) => {
 
 const getColorClasses = (color) => {
   const colors = {
-    blue: 'bg-blue-50 text-blue-600 border-blue-200',
+    blue: 'bg-glacier text-brand border-brand/20',
     green: 'bg-emerald-50 text-emerald-600 border-emerald-200',
     orange: 'bg-amber-50 text-amber-600 border-amber-200',
-    purple: 'bg-purple-50 text-purple-600 border-purple-200',
-    indigo: 'bg-indigo-50 text-indigo-600 border-indigo-200',
+    purple: 'bg-glacier text-brand-dark border-purple-200',
+    indigo: 'bg-glacier text-brand-dark border-brand/25',
     teal: 'bg-teal-50 text-teal-600 border-teal-200',
     pink: 'bg-pink-50 text-pink-600 border-pink-200',
     gray: 'bg-slate-50 text-slate-500 border-slate-200',
@@ -95,7 +95,7 @@ const getAccentBorder = (color) => {
     green: 'border-l-emerald-500',
     orange: 'border-l-amber-500',
     purple: 'border-l-purple-500',
-    indigo: 'border-l-indigo-500',
+    indigo: 'border-l-glacier0',
     teal: 'border-l-teal-500',
     pink: 'border-l-pink-500',
     gray: 'border-l-slate-400',
@@ -494,7 +494,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand" />
       </div>
     );
   }
@@ -510,19 +510,19 @@ const ElectionTimeline = ({ electionId, electionData }) => {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 shadow-sm">
+      <div className="rounded-2xl border border-glacier bg-gradient-to-br from-slate-50 via-blue-50 to-glacier p-6 shadow-sm">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-              <FiClock className="h-5 w-5 text-blue-600" />
+              <FiClock className="h-5 w-5 text-brand" />
               Election Process Timeline
             </h3>
             <p className="text-sm text-slate-600 mt-1 max-w-2xl">
               Sorted by time, oldest first. Each step shows when it happened and how long after the previous event.
             </p>
           </div>
-          <div className="rounded-xl border border-blue-200 bg-white/80 px-4 py-3 text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600">Sort order</p>
+          <div className="rounded-xl border border-brand/20 bg-white/80 px-4 py-3 text-right">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-brand">Sort order</p>
             <p className="text-sm font-semibold text-slate-800">Oldest → Newest</p>
             <p className="text-xs text-slate-500 mt-0.5">{sortedTimelineItems.length} events</p>
           </div>
@@ -540,7 +540,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
       </div>
 
       <div className="relative pl-0 sm:pl-4">
-        <div className="absolute left-[4.5rem] sm:left-[7.5rem] top-4 bottom-4 w-px bg-gradient-to-b from-blue-200 via-indigo-200 to-purple-200" />
+        <div className="absolute left-[4.5rem] sm:left-[7.5rem] top-4 bottom-4 w-px bg-gradient-to-b from-blue-200 via-brand-200 to-purple-200" />
 
         <div className="space-y-5">
           {renderedTimeline.map(({
@@ -566,10 +566,10 @@ const ElectionTimeline = ({ electionId, electionData }) => {
               <React.Fragment key={item.id}>
                 {showDateHeader && (
                   <div className="relative flex items-center gap-3 pl-[4.5rem] sm:pl-28">
-                    <div className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-indigo-200 text-indigo-600 shadow-sm">
+                    <div className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-brand/25 text-brand-dark shadow-sm">
                       <FiCalendar className="h-4 w-4" />
                     </div>
-                    <span className="text-xs font-semibold uppercase tracking-wider text-indigo-700">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-ink">
                       {dateLabel}
                     </span>
                   </div>
@@ -668,7 +668,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
                                   </span>
                                   <span className="text-slate-300">to</span>
                                   <span>{formatTimestamp(item.endTime)}</span>
-                                  <span className="rounded-md bg-blue-50 px-2 py-1 font-medium text-blue-700">
+                                  <span className="rounded-md bg-glacier px-2 py-1 font-medium text-brand-dark">
                                     {formatDuration(durationMs)}
                                   </span>
                                 </div>
@@ -710,7 +710,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
                                       <span>{formatTimestamp(chunk.endTime)}</span>
                                     </div>
                                   </div>
-                                  <span className="shrink-0 rounded-md bg-white border border-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                                  <span className="shrink-0 rounded-md bg-white border border-glacier px-2 py-1 text-xs font-medium text-brand-dark">
                                     {formatDuration(chunk.duration)}
                                   </span>
                                 </div>
@@ -737,15 +737,15 @@ const ElectionTimeline = ({ electionId, electionData }) => {
           </div>
           <div className="rounded-xl bg-white border border-slate-200 p-3">
             <p className="text-slate-500">Worker Tasks</p>
-            <p className="text-2xl font-bold text-purple-600">{taskCount}</p>
+            <p className="text-2xl font-bold text-brand-dark">{taskCount}</p>
           </div>
           <div className="rounded-xl bg-white border border-slate-200 p-3">
             <p className="text-slate-500">Total Chunks</p>
-            <p className="text-2xl font-bold text-blue-600">{totalChunks}</p>
+            <p className="text-2xl font-bold text-brand">{totalChunks}</p>
           </div>
           <div className="rounded-xl bg-white border border-slate-200 p-3">
             <p className="text-slate-500">Guardians</p>
-            <p className="text-2xl font-bold text-indigo-600">
+            <p className="text-2xl font-bold text-brand-dark">
               {electionData.guardians?.length || electionData.numberOfGuardians || 0}
             </p>
           </div>
