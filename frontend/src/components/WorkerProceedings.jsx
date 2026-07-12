@@ -49,26 +49,15 @@ const WorkerProceedings = ({ electionId }) => {
     combine: null
   });
 
-  // Dark mode detection for chart label colors
-  const [isDark, setIsDark] = useState(
-    typeof document !== 'undefined' && document.documentElement.classList.contains('dark')
-  );
-  useEffect(() => {
-    const observer = new MutationObserver(() => {
-      setIsDark(document.documentElement.classList.contains('dark'));
-    });
-    observer.observe(document.documentElement, { attributes: true, attributeFilter: ['class'] });
-    return () => observer.disconnect();
-  }, []);
-  const labelColor = isDark ? '#E5E7EB' : '#374151';
-  const tickColor = isDark ? '#9CA3AF' : '#6B7280';
-  const gridColor = isDark ? '#374151' : '#e5e7eb';
+  const labelColor = '#334155';
+  const tickColor = '#64748B';
+  const gridColor = '#D9EAF0';
 
   const tabs = [
-    { id: 'tally', label: 'Tally Processing', icon: FiBarChart2, color: 'blue' },
-    { id: 'partialDecryption', label: 'Partial Decryption', icon: FiActivity, color: 'purple' },
-    { id: 'compensatedDecryption', label: 'Compensated Decryption', icon: FiZap, color: 'orange' },
-    { id: 'combine', label: 'Combine Decryption', icon: FiPackage, color: 'green' }
+    { id: 'tally', label: 'Tally Processing', icon: FiBarChart2, color: 'brand' },
+    { id: 'partialDecryption', label: 'Partial Decryption', icon: FiActivity, color: 'brand' },
+    { id: 'compensatedDecryption', label: 'Compensated Decryption', icon: FiZap, color: 'amber' },
+    { id: 'combine', label: 'Combine Decryption', icon: FiPackage, color: 'sage' }
   ];
 
   const getEndpointForTab = useCallback((tab) => {
@@ -283,34 +272,24 @@ const WorkerProceedings = ({ electionId }) => {
   });
 
   return (
-    <div className="w-full min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-glacier dark:from-gray-900 dark:via-slate-900 dark:to-gray-800 p-4 md:p-8">
-      {/* Modern Header with Glassmorphism */}
-      <div className="mb-10 backdrop-blur-xl bg-white/70 dark:bg-gray-800/70 rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50 p-8">
-        <div className="flex items-center justify-between flex-wrap gap-4">
+    <div className="w-full space-y-5 p-1 sm:p-2">
+      <header className="surface-card flex flex-wrap items-center justify-between gap-4 p-5 sm:p-6">
           <div>
-            <h1 className="text-4xl md:text-5xl font-extrabold bg-gradient-to-r from-brand via-purple-600 to-brand-dark bg-clip-text text-transparent mb-3 flex items-center gap-4">
-              <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-2xl shadow-lg">
-                <FiActivity className="text-3xl text-white" />
-              </div>
-              Worker Proceedings Analytics
-            </h1>
-            <p className="text-gray-600 dark:text-gray-300 text-lg ml-1">
-              Real-time performance metrics and advanced processing insights
-            </p>
+            <p className="section-kicker">Operations analytics</p>
+            <h1 className="font-display mt-1 text-2xl font-semibold text-deep sm:text-3xl">Worker proceedings</h1>
+            <p className="mt-1 text-sm text-slate-600">Monitor each processing stage, throughput, and worker outcomes.</p>
           </div>
           <button
             onClick={() => fetchWorkerLogs()}
-            className="px-6 py-3 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-brand hover:to-purple-700 text-white rounded-xl font-semibold flex items-center gap-2 transition-all duration-300 shadow-lg hover:shadow-xl transform hover:scale-105"
+            className="btn-brand inline-flex items-center gap-2"
           >
             <FiRefreshCw className={loading ? 'animate-spin' : ''} />
-            Refresh Data
+            Refresh
           </button>
-        </div>
-      </div>
+      </header>
 
-      {/* Modern Tabs with Pill Design */}
-      <div className="mb-8">
-        <div className="flex flex-wrap gap-3 p-2 bg-white/70 dark:bg-gray-800/70 backdrop-blur-xl rounded-2xl shadow-xl border border-white/20 dark:border-gray-700/50">
+      <nav className="glass-panel p-1.5" aria-label="Worker process">
+        <div className="grid grid-cols-2 gap-1 sm:grid-cols-4">
           {tabs.map((tab) => {
             const Icon = tab.icon;
             const isActive = activeTab === tab.id;
@@ -318,18 +297,9 @@ const WorkerProceedings = ({ electionId }) => {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`
-                  flex items-center gap-3 px-6 py-3.5 rounded-xl font-bold transition-all duration-300 transform flex-1 min-w-fit justify-center
-                  ${isActive 
-                    ? `bg-gradient-to-r ${
-                        tab.color === 'blue' ? 'from-blue-500 to-blue-600' :
-                        tab.color === 'purple' ? 'from-purple-500 to-purple-600' :
-                        tab.color === 'orange' ? 'from-orange-500 to-orange-600' :
-                        'from-green-500 to-green-600'
-                      } text-white shadow-xl scale-105`
-                    : 'bg-gray-50 dark:bg-gray-700/50 text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 hover:scale-102 shadow-md'
-                  }
-                `}
+                className={`flex items-center justify-center gap-2 rounded-lg px-3 py-2.5 text-sm font-semibold transition-colors ${
+                  isActive ? 'bg-deep text-white shadow-sm' : 'text-slate-600 hover:bg-frost hover:text-deep'
+                }`}
               >
                 <Icon className="text-xl" />
                 <span className="hidden sm:inline">{tab.label}</span>
@@ -337,138 +307,104 @@ const WorkerProceedings = ({ electionId }) => {
             );
           })}
         </div>
-      </div>
+      </nav>
 
       {loading ? (
-        <div className="flex items-center justify-center min-h-96">
-          <div className="flex flex-col items-center gap-6 p-12 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50">
-            <div className="relative">
-              <div className="w-24 h-24 border-8 border-brand/20 dark:border-blue-900 rounded-full"></div>
-              <div className="absolute top-0 left-0 w-24 h-24 border-8 border-transparent border-t-blue-600 rounded-full animate-spin"></div>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-black bg-gradient-to-r from-brand to-purple-600 bg-clip-text text-transparent mb-2">
-                Loading Worker Data
-              </p>
-              <p className="text-gray-500 dark:text-gray-400">Fetching processing analytics...</p>
-            </div>
+        <div className="glass-panel flex min-h-64 items-center justify-center p-8">
+          <div className="flex items-center gap-3 text-slate-600">
+            <FiRefreshCw className="animate-spin text-xl text-brand" />
+            <div><p className="font-semibold text-deep">Loading proceedings</p><p className="text-sm">Fetching processing analytics.</p></div>
           </div>
         </div>
       ) : error ? (
-        <div className="flex items-center justify-center min-h-96">
-          <div className="flex flex-col items-center gap-6 max-w-3xl p-12 bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 backdrop-blur-xl rounded-3xl shadow-2xl border-2 border-red-200 dark:border-red-800">
-            <div className="p-6 bg-gradient-to-br from-red-500 to-pink-600 rounded-3xl shadow-xl">
-              <FiAlertTriangle className="text-6xl text-white" />
-            </div>
-            <div className="text-center">
-              <h3 className="text-3xl font-black bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent mb-3">
-                Error Loading Worker Logs
-              </h3>
-              <p className="text-gray-700 dark:text-gray-300 text-lg mb-6">{error.message}</p>
-            </div>
+        <section className="surface-card mx-auto max-w-3xl p-6 sm:p-8">
+          <div className="flex items-start gap-3">
+            <div className="rounded-lg bg-red-50 p-3 text-red-600"><FiAlertTriangle className="text-xl" /></div>
+            <div className="flex-1"><p className="font-display text-xl font-semibold text-deep">Unable to load worker logs</p><p className="mt-1 text-slate-600">{error.message}</p></div>
+          </div>
             {error.details && (
-              <details className="w-full">
-                <summary className="cursor-pointer text-sm font-semibold text-gray-600 dark:text-gray-400 hover:text-gray-800 dark:hover:text-gray-200 bg-white/50 dark:bg-gray-800/50 p-4 rounded-xl transition-colors">
+              <details className="mt-5">
+                <summary className="cursor-pointer rounded-lg bg-frost px-4 py-3 text-sm font-medium text-slate-600">
                   Show technical details
                 </summary>
-                <pre className="mt-4 p-6 bg-gray-800 dark:bg-gray-900 text-green-400 rounded-2xl text-xs overflow-auto max-h-60 shadow-inner border border-gray-700">
+                <pre className="mt-3 max-h-60 overflow-auto rounded-lg bg-deep p-4 text-xs text-frost">
                   {JSON.stringify(error.details, null, 2)}
                 </pre>
               </details>
             )}
             <button
               onClick={() => fetchWorkerLogs()}
-              className="mt-4 px-8 py-4 bg-gradient-to-r from-blue-500 to-purple-600 hover:from-brand hover:to-purple-700 text-white rounded-2xl font-black flex items-center gap-3 transition-all transform hover:scale-105 shadow-xl"
+              className="btn-brand mt-5 inline-flex items-center gap-2"
             >
-              <FiRefreshCw className="text-xl" /> Retry
+              <FiRefreshCw /> Retry
             </button>
-            <div className="mt-6 p-6 bg-gradient-to-br from-yellow-50 to-orange-50 dark:from-yellow-900/20 dark:to-orange-900/20 border-2 border-yellow-200 dark:border-yellow-800 rounded-2xl">
-              <h4 className="font-black text-yellow-800 dark:text-yellow-200 mb-4 flex items-center gap-2 text-lg">
-                💡 Troubleshooting Tips
-              </h4>
-              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-2 list-none">
+            <div className="mt-6 rounded-xl border border-amber-200 bg-amber-50/70 p-5">
+              <h4 className="mb-3 font-semibold text-amber-900">Troubleshooting</h4>
+              <ul className="space-y-2 text-sm text-slate-700">
                 <li className="flex items-start gap-2">
-                  <span className="text-yellow-600 dark:text-yellow-400 font-bold">•</span>
+                  <span className="font-bold text-amber-600">•</span>
                   <span>Make sure the worker log tables exist in the database</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-yellow-600 dark:text-yellow-400 font-bold">•</span>
+                  <span className="font-bold text-amber-600">•</span>
                   <span>Run the table creation SQL script if tables are missing</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-yellow-600 dark:text-yellow-400 font-bold">•</span>
+                  <span className="font-bold text-amber-600">•</span>
                   <span>Check backend logs for detailed error messages</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-yellow-600 dark:text-yellow-400 font-bold">•</span>
+                  <span className="font-bold text-amber-600">•</span>
                   <span>Verify the election ID is correct</span>
                 </li>
               </ul>
             </div>
-          </div>
-        </div>
+        </section>
       ) : !currentData ? (
-        <div className="flex items-center justify-center min-h-96">
-          <div className="flex flex-col items-center gap-6 p-12 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl border border-white/20 dark:border-gray-700/50">
-            <div className="p-6 bg-gradient-to-br from-yellow-400 to-orange-500 rounded-3xl shadow-xl">
-              <FiAlertTriangle className="text-6xl text-white" />
-            </div>
-            <p className="text-2xl font-black bg-gradient-to-r from-yellow-600 to-orange-600 bg-clip-text text-transparent">
-              No data available
-            </p>
-          </div>
+        <div className="glass-panel flex min-h-64 items-center justify-center p-8 text-center">
+          <div><FiAlertTriangle className="mx-auto mb-3 text-2xl text-amber-500" /><p className="font-display text-lg font-semibold text-deep">No data available</p></div>
         </div>
       ) : logs.length === 0 ? (
-        <div className="flex items-center justify-center min-h-96">
-          <div className="flex flex-col items-center gap-6 max-w-3xl p-12 bg-gradient-to-br from-glacier to-frost dark:from-deep/20 dark:to-deep/20 backdrop-blur-xl rounded-3xl shadow-2xl border-2 border-brand/20 dark:border-blue-800">
-            <div className="p-6 bg-gradient-to-br from-blue-500 to-brand-dark rounded-3xl shadow-xl">
-              <FiActivity className="text-6xl text-white" />
-            </div>
-            <div className="text-center">
-              <h3 className="text-3xl font-black bg-gradient-to-r from-brand to-brand-dark bg-clip-text text-transparent mb-3">
-                No Processing Logs Yet
-              </h3>
-              <p className="text-gray-700 dark:text-gray-300 text-lg">
+        <section className="surface-card mx-auto max-w-3xl p-8 text-center">
+            <div className="mx-auto mb-4 w-fit rounded-xl bg-glacier p-3 text-brand"><FiActivity className="text-2xl" /></div>
+            <h3 className="font-display text-2xl font-semibold text-deep">No processing logs yet</h3>
+              <p className="mt-2 text-slate-600">
                 This election hasn't gone through {activeTab === 'tally' ? 'tally processing' 
                   : activeTab === 'partialDecryption' ? 'partial decryption' 
                   : activeTab === 'compensatedDecryption' ? 'compensated decryption' 
                   : 'combine decryption'} yet.
               </p>
-            </div>
-            <div className="mt-4 p-6 bg-white/70 dark:bg-gray-800/70 backdrop-blur-sm border-2 border-gray-200 dark:border-gray-700 rounded-2xl">
-              <h4 className="font-black text-gray-800 dark:text-gray-200 mb-4 flex items-center gap-2">
-                ℹ️ Information
-              </h4>
-              <ul className="text-sm text-gray-700 dark:text-gray-300 space-y-2 list-none">
+            <div className="mt-6 rounded-xl bg-frost p-5 text-left">
+              <h4 className="mb-3 font-semibold text-deep">What to expect</h4>
+              <ul className="space-y-2 text-sm text-slate-600">
                 <li className="flex items-start gap-2">
-                  <span className="text-brand dark:text-brand font-bold">•</span>
+                  <span className="font-bold text-brand">•</span>
                   <span>Worker logs are created during election processing</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-brand dark:text-brand font-bold">•</span>
+                  <span className="font-bold text-brand">•</span>
                   <span>Only new elections (after worker log tables were created) will have logs</span>
                 </li>
                 <li className="flex items-start gap-2">
-                  <span className="text-brand dark:text-brand font-bold">•</span>
+                  <span className="font-bold text-brand">•</span>
                   <span>Logs appear after tally creation, guardian decryption, or result combining</span>
                 </li>
               </ul>
             </div>
-          </div>
-        </div>
+        </section>
       ) : (
         <>
           {/* Initiator Email Banner */}
           {statistics.initiatorEmail && (
-            <div className="mb-6 flex items-center gap-3 px-6 py-4 bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-2xl shadow-lg border border-white/20 dark:border-gray-700/50">
-              <div className="p-2 bg-gradient-to-br from-glacier0 to-purple-600 rounded-xl">
-                <FiActivity className="text-lg text-white" />
+            <div className="surface-card flex items-center gap-3 p-4">
+              <div className="rounded-lg bg-glacier p-2 text-brand">
+                <FiActivity className="text-lg" />
               </div>
               <div>
-                <span className="text-xs font-bold uppercase tracking-widest text-gray-500 dark:text-gray-400">
+                <span className="text-xs font-bold uppercase tracking-widest text-slate-500">
                   {activeTab === 'tally' ? 'Tally Creation' : 'Combine Decryption'} Initiated By
                 </span>
-                <p className="text-base font-black text-gray-800 dark:text-gray-100">
+                <p className="text-base font-semibold text-deep">
                   {statistics.initiatorEmail}
                 </p>
               </div>
@@ -476,111 +412,83 @@ const WorkerProceedings = ({ electionId }) => {
           )}
 
           {/* Modern Statistics Cards with Glassmorphism */}
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-10">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
             {/* Total Processing Time */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-blue-500 via-blue-600 to-blue-700 rounded-3xl p-8 text-white shadow-2xl transform hover:scale-105 transition-all duration-500 hover:shadow-brand-500/50">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg">
-                    <FiClock className="text-4xl" />
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-1.5 text-sm font-bold">
-                    TOTAL
-                  </div>
+            <div className="surface-card border-t-4 border-brand p-5">
+                <div className="flex items-center justify-between">
+                  <div className="rounded-lg bg-glacier p-3 text-brand"><FiClock className="text-xl" /></div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Total</span>
                 </div>
-                <p className="text-4xl font-black mb-3 tracking-tight">
+                <p className="mt-5 text-2xl font-semibold tracking-tight text-deep">
                   {formatDuration(statistics.totalProcessingTime)}
                 </p>
-                <p className="text-glacier text-sm font-medium uppercase tracking-wide">Total Processing Time</p>
-              </div>
+                <p className="mt-1 text-sm text-slate-500">Total processing time</p>
             </div>
 
             {/* Average Time */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-purple-500 via-purple-600 to-purple-700 rounded-3xl p-8 text-white shadow-2xl transform hover:scale-105 transition-all duration-500 hover:shadow-purple-500/50">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg">
-                    <FiTrendingUp className="text-4xl" />
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-1.5 text-sm font-bold">
-                    AVG
-                  </div>
+            <div className="surface-card border-t-4 border-deep p-5">
+                <div className="flex items-center justify-between">
+                  <div className="rounded-lg bg-frost p-3 text-deep"><FiTrendingUp className="text-xl" /></div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Average</span>
                 </div>
-                <p className="text-4xl font-black mb-3 tracking-tight">
+                <p className="mt-5 text-2xl font-semibold tracking-tight text-deep">
                   {formatDuration(statistics.averageProcessingTime)}
                 </p>
-                <p className="text-purple-100 text-sm font-medium uppercase tracking-wide">Average Per Chunk</p>
-              </div>
+                <p className="mt-1 text-sm text-slate-500">Average per chunk</p>
             </div>
 
             {/* Total Elapsed Time */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-green-500 via-green-600 to-green-700 rounded-3xl p-8 text-white shadow-2xl transform hover:scale-105 transition-all duration-500 hover:shadow-green-500/50">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg">
-                    <FiZap className="text-4xl" />
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-1.5 text-sm font-bold">
-                    ELAPSED
-                  </div>
+            <div className="surface-card border-t-4 border-sage p-5">
+                <div className="flex items-center justify-between">
+                  <div className="rounded-lg bg-sage/15 p-3 text-sage"><FiZap className="text-xl" /></div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Elapsed</span>
                 </div>
-                <p className="text-4xl font-black mb-3 tracking-tight">
+                <p className="mt-5 text-2xl font-semibold tracking-tight text-deep">
                   {formatDuration(statistics.totalElapsedTime)}
                 </p>
-                <p className="text-green-100 text-sm font-medium uppercase tracking-wide">Total Elapsed Time</p>
-              </div>
+                <p className="mt-1 text-sm text-slate-500">Total elapsed time</p>
             </div>
 
             {/* Completion Status */}
-            <div className="group relative overflow-hidden bg-gradient-to-br from-orange-500 via-orange-600 to-orange-700 rounded-3xl p-8 text-white shadow-2xl transform hover:scale-105 transition-all duration-500 hover:shadow-orange-500/50">
-              <div className="absolute top-0 right-0 w-32 h-32 bg-white/10 rounded-full -mr-16 -mt-16 group-hover:scale-150 transition-transform duration-700"></div>
-              <div className="relative z-10">
-                <div className="flex items-center justify-between mb-6">
-                  <div className="p-4 bg-white/20 backdrop-blur-sm rounded-2xl shadow-lg">
-                    <FiCheckCircle className="text-4xl" />
-                  </div>
-                  <div className="bg-white/20 backdrop-blur-sm rounded-full px-4 py-1.5 text-sm font-bold">
-                    STATUS
-                  </div>
+            <div className="surface-card border-t-4 border-amber-400 p-5">
+                <div className="flex items-center justify-between">
+                  <div className="rounded-lg bg-amber-50 p-3 text-amber-600"><FiCheckCircle className="text-xl" /></div>
+                  <span className="text-xs font-bold uppercase tracking-wider text-slate-500">Status</span>
                 </div>
-                <p className="text-4xl font-black mb-3 tracking-tight">
+                <p className="mt-5 text-2xl font-semibold tracking-tight text-deep">
                   {statistics.completedCount || 0} / {logs.length}
                 </p>
-                <p className="text-orange-100 text-sm font-medium uppercase tracking-wide">
-                  Completed Chunks
+                <p className="mt-1 text-sm text-slate-500">
+                  Completed chunks
                   {statistics.failedCount > 0 && (
-                    <span className="ml-2 bg-red-500/40 px-3 py-1 rounded-full text-xs font-bold">
+                    <span className="ml-2 rounded-full bg-red-50 px-2 py-1 text-xs font-semibold text-red-700">
                       {statistics.failedCount} Failed
                     </span>
                   )}
                 </p>
-              </div>
             </div>
           </div>
 
           {/* NEW GRAPH 1: Cumulative Chunks Completed Over Time (Line Graph) */}
           {cumulativeData.length > 0 && (
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-10 border border-white/20 dark:border-gray-700/50">
-              <div className="flex items-center justify-between mb-8">
+            <div className="surface-card p-5 sm:p-6">
+              <div className="mb-5">
                 <div>
-                  <h3 className="text-3xl font-black bg-gradient-to-r from-brand to-purple-600 bg-clip-text text-transparent mb-2 flex items-center gap-3">
-                    <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl">
-                      <FiTrendingUp className="text-2xl text-white" />
+                  <h3 className="font-display flex items-center gap-2 text-xl font-semibold text-deep">
+                    <div className="rounded-lg bg-glacier p-2 text-brand">
+                      <FiTrendingUp className="text-lg" />
                     </div>
                     Completion Progress Over Time
                   </h3>
-                  <p className="text-gray-600 dark:text-gray-400 ml-1">Cumulative chunks completed as processing progresses</p>
+                  <p className="mt-1 text-sm text-slate-600">Cumulative chunks completed as processing progresses</p>
                 </div>
               </div>
               <ResponsiveContainer width="100%" height={450}>
                 <AreaChart data={cumulativeData}>
                   <defs>
                     <linearGradient id="colorCumulative" x1="0" y1="0" x2="0" y2="1">
-                      <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.8}/>
-                      <stop offset="95%" stopColor="#3B82F6" stopOpacity={0.1}/>
+                      <stop offset="5%" stopColor="#00B4D8" stopOpacity={0.45}/>
+                      <stop offset="95%" stopColor="#00B4D8" stopOpacity={0.03}/>
                     </linearGradient>
                   </defs>
                   <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.3} />
@@ -597,20 +505,18 @@ const WorkerProceedings = ({ electionId }) => {
                   />
                   <Tooltip 
                     contentStyle={{ 
-                      backgroundColor: 'rgba(31, 41, 55, 0.95)', 
-                      border: 'none', 
-                      borderRadius: '16px',
-                      boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
-                      backdropFilter: 'blur(10px)',
-                      padding: '16px'
+                      backgroundColor: '#073B4C',
+                      border: '1px solid #00B4D8',
+                      borderRadius: '10px',
+                      padding: '12px'
                     }}
-                    labelStyle={{ color: '#F3F4F6', fontWeight: 'bold', marginBottom: '8px' }}
-                    itemStyle={{ color: '#A78BFA', fontWeight: 600 }}
+                    labelStyle={{ color: '#F8FCFC', fontWeight: 'bold', marginBottom: '8px' }}
+                    itemStyle={{ color: '#8FD6C2', fontWeight: 600 }}
                   />
                   <Area 
                     type="monotone" 
                     dataKey="completedChunks" 
-                    stroke="#8B5CF6" 
+                    stroke="#00B4D8" 
                     strokeWidth={3}
                     fillOpacity={1} 
                     fill="url(#colorCumulative)"
@@ -635,27 +541,27 @@ const WorkerProceedings = ({ electionId }) => {
             const barWidth = Math.max(6, Math.min(24, Math.floor(900 / (ganttData.length || 1))));
             const chartWidth = Math.max(900, ganttData.length * (barWidth + 4) + 100);
             return (
-              <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-10 border border-white/20 dark:border-gray-700/50">
+              <div className="surface-card p-5 sm:p-6">
                 <div className="flex items-center justify-between mb-8">
                   <div>
-                    <h3 className="text-3xl font-black bg-gradient-to-r from-green-600 to-teal-600 bg-clip-text text-transparent mb-2 flex items-center gap-3">
-                      <div className="p-3 bg-gradient-to-br from-green-500 to-teal-600 rounded-xl">
-                        <FiCalendar className="text-2xl text-white" />
+                    <h3 className="font-display flex items-center gap-2 text-xl font-semibold text-deep">
+                      <div className="rounded-lg bg-sage/15 p-2 text-sage">
+                        <FiCalendar className="text-lg" />
                       </div>
                       Processing Schedule Timeline
                     </h3>
-                    <p className="text-gray-600 dark:text-gray-400 ml-1">
+                    <p className="mt-1 text-sm text-slate-600">
                       Each bar shows the time-span (start → end) of a chunk — chunk on X-axis, time on Y-axis
                     </p>
                   </div>
                   <div className="flex items-center gap-6 text-sm">
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 rounded bg-sage-soft0"></div>
-                      <span className="text-gray-600 dark:text-gray-400 font-medium">Completed</span>
+                      <span className="font-medium text-slate-600">Completed</span>
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-4 h-4 rounded bg-red-500"></div>
-                      <span className="text-gray-600 dark:text-gray-400 font-medium">Failed</span>
+                      <span className="font-medium text-slate-600">Failed</span>
                     </div>
                   </div>
                 </div>
@@ -750,9 +656,9 @@ const WorkerProceedings = ({ electionId }) => {
                   </div>
                 </div>
 
-                <div className="mt-6 p-4 bg-glacier dark:bg-blue-900/20 rounded-xl border border-brand/20 dark:border-blue-800">
-                  <p className="text-sm text-gray-700 dark:text-gray-300">
-                    <span className="font-bold text-brand dark:text-brand">💡 Tip:</span> Each bar spans from its
+                <div className="mt-6 rounded-xl border border-brand/20 bg-glacier p-4">
+                  <p className="text-sm text-slate-700">
+                    <span className="font-bold text-brand">Tip:</span> Each bar spans from its
                     <strong> start time</strong> to its <strong>end time</strong> on the Y-axis.
                     Chunks are sorted by start time left-to-right. Hover for details.
                   </p>
@@ -763,34 +669,34 @@ const WorkerProceedings = ({ electionId }) => {
 
           {/* Timeline View */}
           {statistics.firstStartTime && statistics.lastEndTime && (
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-10 border border-white/20 dark:border-gray-700/50">
-              <h3 className="text-3xl font-black bg-gradient-to-r from-brand to-blue-600 bg-clip-text text-transparent mb-6 flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-glacier0 to-blue-600 rounded-xl">
-                  <FiClock className="text-2xl text-white" />
+            <div className="surface-card p-5 sm:p-6">
+              <h3 className="font-display mb-5 flex items-center gap-2 text-xl font-semibold text-deep">
+                <div className="rounded-lg bg-glacier p-2 text-brand">
+                  <FiClock className="text-lg" />
                 </div>
                 Processing Duration Overview
               </h3>
               <div className="flex items-center justify-between">
-                <div className="flex flex-col bg-gradient-to-br from-glacier to-frost dark:from-gray-700 dark:to-gray-600 p-6 rounded-2xl shadow-lg flex-1 mr-4">
-                  <span className="text-sm font-bold text-brand dark:text-brand uppercase tracking-wide mb-2">Start Time</span>
-                  <span className="text-2xl font-black text-gray-800 dark:text-white">
+                <div className="mr-4 flex flex-1 flex-col rounded-xl bg-glacier p-5">
+                  <span className="mb-2 text-sm font-bold uppercase tracking-wide text-brand">Start Time</span>
+                  <span className="text-xl font-semibold text-deep">
                     {formatTime(statistics.firstStartTime)}
                   </span>
                 </div>
                 <div className="flex-1 mx-8">
-                  <div className="relative h-4 bg-gradient-to-r from-gray-200 to-gray-300 dark:from-gray-700 dark:to-gray-600 rounded-full overflow-hidden shadow-inner">
+                  <div className="relative h-3 overflow-hidden rounded-full bg-frost">
                     <div 
-                      className="absolute inset-y-0 left-0 bg-gradient-to-r from-blue-500 via-purple-500 to-glacier0 rounded-full shadow-lg animate-pulse"
+                      className="absolute inset-y-0 left-0 rounded-full bg-brand"
                       style={{ width: '100%' }}
                     />
                   </div>
-                  <p className="text-center mt-3 text-sm font-semibold text-gray-600 dark:text-gray-400">
-                    Total Duration: <span className="text-brand-dark dark:text-purple-400 font-bold">{formatDuration(statistics.totalElapsedTime)}</span>
+                  <p className="mt-3 text-center text-sm font-semibold text-slate-600">
+                    Total Duration: <span className="font-bold text-deep">{formatDuration(statistics.totalElapsedTime)}</span>
                   </p>
                 </div>
-                <div className="flex flex-col bg-gradient-to-br from-purple-50 to-glacier dark:from-gray-700 dark:to-gray-600 p-6 rounded-2xl shadow-lg flex-1 ml-4 text-right">
-                  <span className="text-sm font-bold text-brand-dark dark:text-purple-400 uppercase tracking-wide mb-2">End Time</span>
-                  <span className="text-2xl font-black text-gray-800 dark:text-white">
+                <div className="ml-4 flex flex-1 flex-col rounded-xl bg-frost p-5 text-right">
+                  <span className="mb-2 text-sm font-bold uppercase tracking-wide text-deep">End Time</span>
+                  <span className="text-xl font-semibold text-deep">
                     {formatTime(statistics.lastEndTime)}
                   </span>
                 </div>
@@ -800,14 +706,14 @@ const WorkerProceedings = ({ electionId }) => {
 
           {/* Original Bar Chart - Modernized with completion order */}
           {logs.length > 0 && completionOrderedData.length > 0 && (
-            <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl p-8 mb-10 border border-white/20 dark:border-gray-700/50">
-              <h3 className="text-3xl font-black bg-gradient-to-r from-purple-600 to-pink-600 bg-clip-text text-transparent mb-4 flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-purple-500 to-pink-600 rounded-xl">
-                  <FiBarChart2 className="text-2xl text-white" />
+            <div className="surface-card p-5 sm:p-6">
+              <h3 className="font-display mb-2 flex items-center gap-2 text-xl font-semibold text-deep">
+                <div className="rounded-lg bg-glacier p-2 text-brand">
+                  <FiBarChart2 className="text-lg" />
                 </div>
                 Processing Time Distribution
               </h3>
-              <p className="text-gray-500 dark:text-gray-400 text-sm mb-6 ml-1">
+              <p className="mb-5 text-sm text-slate-600">
                 Bars sorted by <strong>completion order</strong>. The top label is the chunk number; the bottom label shows when it finished (1st, 2nd, 3rd…).
               </p>
               <div className="overflow-x-auto">
@@ -819,8 +725,8 @@ const WorkerProceedings = ({ electionId }) => {
                     >
                       <defs>
                         <linearGradient id="colorGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="0%" stopColor="#8B5CF6" stopOpacity={1}/>
-                          <stop offset="100%" stopColor="#3B82F6" stopOpacity={0.8}/>
+                          <stop offset="0%" stopColor="#00B4D8" stopOpacity={1}/>
+                          <stop offset="100%" stopColor="#0077B6" stopOpacity={0.8}/>
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" stroke={gridColor} opacity={0.3} />
@@ -873,7 +779,7 @@ const WorkerProceedings = ({ electionId }) => {
                           if (!entry) return null;
                           return (
                             <div className="bg-gray-900/98 text-white p-4 rounded-2xl shadow-2xl border border-gray-700">
-                              <p className="font-bold text-base mb-1 text-purple-400">Chunk #{entry.chunkNumber}</p>
+                              <p className="mb-1 text-base font-bold text-brand">Chunk #{entry.chunkNumber}</p>
                               <p className="text-sm mb-1"><span className="text-gray-400">Completion order:</span> <span className="text-white font-semibold">{getOrdinal(entry.completionRank)} to finish</span></p>
                               <p className="text-sm"><span className="text-gray-400">Duration:</span> <span className="text-white font-semibold">{formatDuration(entry.duration)}</span></p>
                             </div>
@@ -894,17 +800,17 @@ const WorkerProceedings = ({ electionId }) => {
           )}
 
           {/* Detailed Logs Table - Modernized */}
-          <div className="bg-white/80 dark:bg-gray-800/80 backdrop-blur-xl rounded-3xl shadow-2xl overflow-hidden border border-white/20 dark:border-gray-700/50">
-            <div className="bg-gradient-to-r from-green-500 to-teal-600 p-8">
-              <h3 className="text-3xl font-black text-white flex items-center gap-3">
-                <FiLayers className="text-3xl" />
+          <div className="surface-card overflow-hidden">
+            <div className="border-b border-brand/15 bg-glacier px-5 py-5 sm:px-6">
+              <h3 className="font-display flex items-center gap-2 text-xl font-semibold text-deep">
+                <FiLayers className="text-brand" />
                 Detailed Chunk Logs
               </h3>
-              <p className="text-green-50 mt-2">Complete processing details for every chunk</p>
+              <p className="mt-1 text-sm text-slate-600">Complete processing details for every chunk</p>
             </div>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px]">
-                <thead className="bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-700 dark:to-gray-600">
+                <thead className="bg-frost">
                   <tr>
                     <th className="px-4 sm:px-8 py-4 sm:py-5 text-left text-xs font-black text-gray-700 dark:text-gray-200 uppercase tracking-wider">
                       Chunk
@@ -923,15 +829,15 @@ const WorkerProceedings = ({ electionId }) => {
                     </th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-200 dark:divide-gray-700">
+                <tbody className="divide-y divide-slate-100">
                   {logs.map((log, index) => (
                     <tr 
                       key={log.id}
-                      className="hover:bg-gradient-to-r hover:from-blue-50 hover:to-purple-50 dark:hover:from-gray-700 dark:hover:to-gray-600 transition-all duration-200 group"
+                      className="group transition-colors hover:bg-glacier/50"
                     >
                       <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap">
                         <div className="flex items-center">
-                          <div className="flex-shrink-0 h-10 w-10 sm:h-12 sm:w-12 bg-gradient-to-br from-blue-500 via-purple-500 to-glacier0 rounded-xl flex items-center justify-center text-white font-black shadow-lg group-hover:scale-110 transition-transform">
+                          <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-deep text-sm font-semibold text-white transition-transform group-hover:scale-105 sm:h-12 sm:w-12">
                             {log.chunkNumber}
                           </div>
                         </div>
@@ -943,7 +849,7 @@ const WorkerProceedings = ({ electionId }) => {
                         {formatTime(log.endTime)}
                       </td>
                       <td className="px-4 sm:px-8 py-4 sm:py-5 whitespace-nowrap">
-                        <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-purple-100 to-blue-100 dark:from-purple-900 dark:to-blue-900 text-ink dark:text-purple-200 shadow-md">
+                        <span className="inline-flex items-center rounded-lg bg-glacier px-3 py-2 text-sm font-semibold text-deep">
                           <FiClock className="mr-2" />
                           {formatDuration(log.duration)}
                         </span>
@@ -955,7 +861,7 @@ const WorkerProceedings = ({ electionId }) => {
                             Completed
                           </span>
                         ) : log.status === 'FAILED' ? (
-                          <span className="inline-flex items-center px-4 py-2 rounded-xl text-sm font-bold bg-gradient-to-r from-red-100 to-pink-100 dark:from-red-900 dark:to-pink-900 text-red-800 dark:text-red-200 shadow-md">
+                          <span className="inline-flex items-center rounded-lg bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
                             <FiXCircle className="mr-2" />
                             Failed
                           </span>
@@ -975,18 +881,18 @@ const WorkerProceedings = ({ electionId }) => {
 
           {/* Error Messages Section - Modernized */}
           {logs.some(log => log.errorMessage) && (
-            <div className="mt-10 bg-gradient-to-br from-red-50 to-pink-50 dark:from-red-900/20 dark:to-pink-900/20 backdrop-blur-xl rounded-3xl shadow-2xl p-8 border-2 border-red-200 dark:border-red-800">
-              <h3 className="text-3xl font-black bg-gradient-to-r from-red-600 to-pink-600 bg-clip-text text-transparent mb-6 flex items-center gap-3">
-                <div className="p-3 bg-gradient-to-br from-red-500 to-pink-600 rounded-xl">
-                  <FiAlertTriangle className="text-2xl text-white" />
+            <div className="surface-card mt-6 border-l-4 border-l-red-500 p-5 sm:p-6">
+              <h3 className="font-display mb-5 flex items-center gap-2 text-xl font-semibold text-deep">
+                <div className="rounded-lg bg-red-50 p-2 text-red-600">
+                  <FiAlertTriangle className="text-lg" />
                 </div>
                 Error Details
               </h3>
               <div className="space-y-4">
                 {logs.filter(log => log.errorMessage).map(log => (
-                  <div key={log.id} className="bg-white dark:bg-gray-800 rounded-2xl p-6 border-l-8 border-red-500 shadow-lg hover:shadow-xl transition-shadow">
+                  <div key={log.id} className="rounded-xl border border-red-100 bg-red-50/30 p-5">
                     <div className="flex items-center gap-3 mb-3">
-                      <span className="px-4 py-2 bg-gradient-to-r from-red-500 to-pink-500 text-white font-black rounded-xl shadow-md">
+                      <span className="rounded-lg bg-red-600 px-3 py-2 text-sm font-semibold text-white">
                         Chunk {log.chunkNumber}
                       </span>
                       <span className="text-sm font-semibold text-gray-600 dark:text-gray-400">

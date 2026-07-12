@@ -138,12 +138,12 @@ const subMenus = [
   { name: 'Voting Booth', shortName: 'Vote', key: 'voting', path: 'voting-booth', icon: FiCheckCircle, hint: 'Cast your encrypted ballot' },
   { name: 'Guardian', shortName: 'Guardian', key: 'guardian', path: 'guardian', icon: FiShield, hint: 'Key ceremony, decryption, and combination' },
   { name: 'Key Verification', shortName: 'Keys', key: 'key-verification', path: 'key-verification', icon: FiKey, guardianOnly: true, hint: 'Verify your guardian credentials' },
-  { name: 'Results', shortName: 'Results', key: 'results', path: 'results', icon: FiTrendingUp, hint: 'Tallied outcomes after combination' },
+  { name: 'Results', shortName: 'Results', key: 'results', path: 'results', icon: FiTrendingUp, hint: 'Tallied outcomes (available after combination)' },
   { name: 'Ballots in Tally', shortName: 'Ballots', key: 'ballots', path: 'ballots-in-tally', icon: FiDatabase, hint: 'Ballots included in the tally' },
   { name: 'Verify Your Vote', shortName: 'Verify', key: 'verify', path: 'verify-vote', icon: FiHash, hint: 'Confirm your ballot was recorded' },
   { name: 'Verification', shortName: 'Audit', key: 'verification', path: 'verification', icon: FiEye, hint: 'Public audit trail and proofs' },
   { name: 'Send Email', shortName: 'Email', key: 'send-email', path: 'send-email', icon: FiMail, adminOnly: true, hint: 'Notify voters and guardians' },
-  { name: 'Worker Proceedings', shortName: 'Workers', key: 'worker-proceedings', path: 'worker-proceedings', icon: FiActivity, hint: 'Background job telemetry' },
+  { name: 'Worker Proceedings', shortName: 'Workers', key: 'worker-proceedings', path: 'worker-proceedings', icon: FiActivity, hint: 'Open processing telemetry for everyone' },
 ];
 
 // Timer Component
@@ -3732,19 +3732,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
       {/* Navigation Tabs */}
       <ElectionTabNav
         tabs={subMenus.filter((menu) => {
-          if (menu.key === 'worker-proceedings' && isKeyCeremonyPending) {
-            return false;
-          }
+          // Role-gated tools stay restricted; process/audit tabs stay visible for everyone.
           if (menu.adminOnly && !electionData?.userRoles?.includes('admin')) {
             return false;
           }
           if (menu.guardianOnly && !canUserManageGuardian()) {
-            return false;
-          }
-          if (menu.key === 'results' && !isCombineComplete) {
-            return false;
-          }
-          if (menu.key === 'ballots' && !isElectionFinished()) {
             return false;
           }
           return true;

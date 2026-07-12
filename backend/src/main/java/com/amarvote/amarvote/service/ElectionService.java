@@ -305,8 +305,7 @@ public class ElectionService {
         }
         String normalized = userEmail.trim().toLowerCase();
         return electionRepository.findById(electionId)
-                .map(election -> isElectionAdmin(election, normalized)
-                        || !guardianRepository.findByElectionIdAndUserEmail(electionId, normalized).isEmpty())
+                .map(election -> isUserAuthorizedToViewElection(election, normalized))
                 .orElse(false);
     }
 
