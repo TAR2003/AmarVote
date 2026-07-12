@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import {
-  FiCalendar,
   FiCheckCircle,
   FiBarChart2,
   FiUsers,
@@ -10,7 +9,7 @@ import {
 } from "react-icons/fi";
 import { userApi } from "../utils/userApi";
 import { useElections } from "../context/ElectionsContext";
-import { timezoneUtils } from "../utils/timezoneUtils";
+import ElectionBrowseCard from "../components/ElectionBrowseCard";
 
 // Helper function to determine if user can vote in an election based on eligibility
 const canUserVoteInElection = (election) => {
@@ -63,80 +62,6 @@ const ElectionCardSkeleton = () => (
   </div>
 );
 
-// Memoized election card component
-const ElectionCard = React.memo(({ election, getVoteButtonInfo, handleElectionClick }) => {
-  const { buttonText, buttonStyle, isDisabled } = getVoteButtonInfo(election);
-  
-  return (
-    <div
-      className="surface-card-interactive cursor-pointer p-5"
-      onClick={() => handleElectionClick(election.electionId)}
-    >
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="min-w-0 flex-1">
-          <div className="flex flex-wrap items-center gap-2">
-            <h3 className="font-display text-lg font-semibold text-deep">
-              {election.electionTitle}
-            </h3>
-            <span
-              className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                election.isPublic 
-                  ? 'bg-sage-soft text-sage' 
-                  : 'bg-amber-100 text-amber-800'
-              }`}
-            >
-              {election.isPublic ? 'Public' : 'Private'}
-            </span>
-          </div>
-          
-          <p className="mt-1.5 truncate text-sm text-slate-600">
-            {election.electionDescription}
-          </p>
-
-          <div className="mt-3 flex flex-wrap gap-2">
-            {election.userRoles && election.userRoles.slice(0, 2).map((role) => (
-              <span
-                key={role}
-                className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                  role === 'admin' ? 'bg-red-100 text-red-800' :
-                  role === 'guardian' ? 'bg-glacier text-ink' :
-                  'bg-glacier text-ink'
-                }`}
-              >
-                {role.charAt(0).toUpperCase() + role.slice(1)}
-              </span>
-            ))}
-            {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-              <span className="inline-flex items-center rounded-lg bg-sage-soft px-2.5 py-1 text-xs font-semibold text-sage">
-                {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
-              </span>
-            )}
-          </div>
-          
-          <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-slate-500">
-            <FiCalendar className="h-3.5 w-3.5 text-brand" />
-            {election.startingTime && election.endingTime
-              ? `${timezoneUtils.formatShortDate(election.startingTime)} - ${timezoneUtils.formatShortDate(election.endingTime)}`
-              : 'Schedule pending (key ceremony)'}
-          </div>
-        </div>
-        <div className="w-full sm:w-auto sm:flex-shrink-0">
-          <button 
-            className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-xs font-semibold shadow-soft transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 sm:w-auto ${buttonStyle}`}
-            onClick={(e) => {
-              e.stopPropagation();
-              handleElectionClick(election.electionId);
-            }}
-            disabled={isDisabled}
-          >
-            {buttonText}
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-});
-
 const Dashboard = ({ userEmail }) => {
   const navigate = useNavigate();
   const { elections, loading: electionsLoading, error: electionsError } = useElections();
@@ -150,8 +75,17 @@ const Dashboard = ({ userEmail }) => {
   const MAX_DISPLAY_COUNT = 3;
 
   // Optimized memoized calculations to prevent unnecessary re-computations
-  const { upcoming, ongoing, completed } = useMemo(() => {
-    if (!elections.length) return { upcoming: [], ongoing: [], completed: [] };
+  const { upcoming, ongoing, completed, upcomingCount, ongoingCount, completedCount } = useMemo(() => {
+    if (!elections.length) {
+      return {
+        upcoming: [],
+        ongoing: [],
+        completed: [],
+        upcomingCount: 0,
+        ongoingCount: 0,
+        completedCount: 0,
+      };
+    }
     
     const now = new Date();
     const categorized = elections.reduce((acc, election) => {
@@ -182,7 +116,10 @@ const Dashboard = ({ userEmail }) => {
     return {
       upcoming: categorized.upcoming.slice(0, MAX_DISPLAY_COUNT),
       ongoing: categorized.ongoing.slice(0, MAX_DISPLAY_COUNT),
-      completed: categorized.completed.slice(0, MAX_DISPLAY_COUNT)
+      completed: categorized.completed.slice(0, MAX_DISPLAY_COUNT),
+      upcomingCount: categorized.upcoming.length,
+      ongoingCount: categorized.ongoing.length,
+      completedCount: categorized.completed.length,
     };
   }, [elections]);
 
@@ -481,86 +418,24 @@ const Dashboard = ({ userEmail }) => {
               Elections you can currently participate in
             </p>
           </div>
-          <div className="divide-y divide-glacier">
+          <div className="space-y-3 p-4">
             {ongoing.length > 0 ? (
-              ongoing.map((election) => (
-                <div
-                  key={election.electionId}
-                  className="cursor-pointer p-5 transition-colors duration-150 hover:bg-frost/60"
-                  onClick={() => handleElectionClick(election.electionId)}
-                >
-                  <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center">
-                        <h3 className="text-base font-medium text-gray-900">
-                          {election.electionTitle}
-                        </h3>
-                        {/* Public/Private Indicator */}
-                        <span
-                          className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                            election.isPublic 
-                              ? 'bg-sage-soft text-sage' 
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {election.isPublic ? 'Public' : 'Private'}
-                        </span>
-                      </div>
-                      
-                      <p className="text-sm text-gray-500 mt-1">
-                        {election.electionDescription}
-                      </p>
-
-                      {/* User Roles */}
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
-                          <span
-                            key={role}
-                            className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                              role === 'admin' ? 'bg-red-100 text-red-800' :
-                              role === 'guardian' ? 'bg-glacier text-ink' :
-                              'bg-glacier text-ink'
-                            }`}
-                          >
-                            {role.charAt(0).toUpperCase() + role.slice(1)}
-                          </span>
-                        ))}
-                        {/* Show eligible voter status */}
-                        {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-                          <span className="inline-flex items-center rounded-lg bg-sage-soft px-2.5 py-1 text-xs font-semibold text-sage">
-                            {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="mt-2 text-xs text-gray-400">
-                        Admin: {election.adminName ? `${election.adminName} (${election.adminEmail})` : election.adminEmail}
-                      </div>
-                      
-                      <p className="text-xs text-gray-400 mt-1">
-                        Ends: {timezoneUtils.formatElectionDate(election.endingTime)}
-                      </p>
-                    </div>
-                    <div className="w-full sm:w-auto sm:flex-shrink-0 sm:ml-4">
-                      {(() => {
-                        const { buttonText, buttonStyle, isDisabled } = getVoteButtonInfo(election);
-                        return (
-                          <button 
-                            className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-xs font-semibold shadow-soft transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 sm:w-auto ${buttonStyle}`}
-                            onClick={(e) => {
-                              e.stopPropagation();
-                              handleElectionClick(election.electionId);
-                            }}
-                            disabled={isDisabled}
-                          >
-                            {buttonText}
-                          </button>
-                        );
-                      })()}
-                    </div>
-                  </div>
-                </div>
-              ))
+              ongoing.map((election) => {
+                const { buttonText, isDisabled } = getVoteButtonInfo(election);
+                return (
+                  <ElectionBrowseCard
+                    key={election.electionId}
+                    election={election}
+                    status="ongoing"
+                    statusClass="bg-sage-soft text-emerald-800"
+                    onOpen={handleElectionClick}
+                    onAction={handleElectionClick}
+                    actionLabel={buttonText}
+                    actionDisabled={isDisabled}
+                    density="compact"
+                  />
+                );
+              })
             ) : (
               <div className="p-6 text-center">
                 <p className="text-gray-500">
@@ -568,7 +443,7 @@ const Dashboard = ({ userEmail }) => {
                 </p>
               </div>
             )}
-            {ongoing.length > MAX_DISPLAY_COUNT && (
+            {ongoingCount > MAX_DISPLAY_COUNT && (
               <div className="p-4 text-center">
                 <button 
                   onClick={() => navigate('/all-elections')} 
@@ -592,74 +467,26 @@ const Dashboard = ({ userEmail }) => {
               Your recent voting participation
             </p>
           </div>
-          <div className="divide-y divide-glacier">
+          <div className="space-y-3 p-4">
             {completed.length > 0 ? (
               completed.map((election) => (
-                <div
+                <ElectionBrowseCard
                   key={election.electionId}
-                  className="cursor-pointer p-5 transition-colors duration-150 hover:bg-frost/60"
-                  onClick={() => handleElectionClick(election.electionId)}
-                >
-                  <div className="flex items-start">
-                    <div className="flex-1">
-                      <div className="flex items-center">
-                        <h3 className="text-base font-medium text-gray-900">
-                          {election.electionTitle}
-                        </h3>
-                        <span
-                          className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                            election.isPublic 
-                              ? 'bg-sage-soft text-sage' 
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {election.isPublic ? 'Public' : 'Private'}
-                        </span>
-                      </div>
-                      
-                      <p className="text-sm text-gray-500 mt-1">
-                        {election.electionDescription}
-                      </p>
-
-                      {/* User Roles */}
-                      <div className="mt-2 flex flex-wrap gap-1">
-                        {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
-                          <span
-                            key={role}
-                            className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                              role === 'admin' ? 'bg-red-100 text-red-800' :
-                              role === 'guardian' ? 'bg-glacier text-ink' :
-                              'bg-glacier text-ink'
-                            }`}
-                          >
-                            {role.charAt(0).toUpperCase() + role.slice(1)}
-                          </span>
-                        ))}
-                        {/* Show eligible voter status */}
-                        {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-                          <span className="inline-flex items-center rounded-lg bg-sage-soft px-2.5 py-1 text-xs font-semibold text-sage">
-                            {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="mt-2 text-xs text-gray-400">
-                        Admin: {election.adminName ? `${election.adminName} (${election.adminEmail})` : election.adminEmail}
-                      </div>
-                      
-                      <p className="text-xs text-gray-400 mt-1">
-                        Ended on {timezoneUtils.formatShortDate(election.endingTime)}
-                      </p>
-                    </div>
-                  </div>
-                </div>
+                  election={election}
+                  status="completed"
+                  statusClass="bg-slate-100 text-slate-600"
+                  onOpen={handleElectionClick}
+                  onAction={handleElectionClick}
+                  actionLabel="View Results"
+                  density="compact"
+                />
               ))
             ) : (
               <div className="p-6 text-center">
                 <p className="text-gray-500">No recent activity to display</p>
               </div>
             )}
-            {completed.length > MAX_DISPLAY_COUNT && (
+            {completedCount > MAX_DISPLAY_COUNT && (
               <div className="p-4 text-center">
                 <button 
                   onClick={() => navigate('/all-elections?filter=completed')} 
@@ -684,86 +511,26 @@ const Dashboard = ({ userEmail }) => {
             Mark your calendar for these important dates
           </p>
         </div>
-        <div className="divide-y divide-glacier">
+        <div className="space-y-3 p-4">
           {upcoming.length > 0 ? (
             upcoming.map((election) => (
-              <div
+              <ElectionBrowseCard
                 key={election.electionId}
-                className="cursor-pointer p-5 transition-colors duration-150 hover:bg-frost/60"
-                onClick={() => handleElectionClick(election.electionId)}
-              >
-                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center">
-                      <h3 className="text-base font-medium text-gray-900">
-                        {election.electionTitle}
-                      </h3>
-                      {/* Public/Private Indicator */}
-                      <span
-                        className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                          election.isPublic 
-                            ? 'bg-sage-soft text-sage' 
-                            : 'bg-amber-100 text-amber-800'
-                        }`}
-                      >
-                        {election.isPublic ? 'Public' : 'Private'}
-                      </span>
-                    </div>
-                    
-                    <p className="text-sm text-gray-500 mt-1">
-                      {election.electionDescription}
-                    </p>
-
-                    {/* User Roles */}
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
-                        <span
-                          key={role}
-                          className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                            role === 'admin' ? 'bg-red-100 text-red-800' :
-                            role === 'guardian' ? 'bg-glacier text-ink' :
-                            'bg-glacier text-ink'
-                          }`}
-                        >
-                          {role.charAt(0).toUpperCase() + role.slice(1)}
-                        </span>
-                      ))}
-                      {/* Show eligible voter status */}
-                      {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-                        <span className="inline-flex items-center rounded-lg bg-sage-soft px-2.5 py-1 text-xs font-semibold text-sage">
-                          {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
-                        </span>
-                      )}
-                    </div>
-                    
-                    <div className="mt-2 text-xs text-gray-400">
-                      Admin: {election.adminName ? `${election.adminName} (${election.adminEmail})` : election.adminEmail}
-                    </div>
-                    
-                    <div className="mt-1 flex items-center text-xs text-gray-500">
-                      <FiCalendar className="h-3 w-3 mr-1" />
-                      <span>Starts: {timezoneUtils.formatElectionDate(election.startingTime)}</span>
-                    </div>
-                  </div>
-                  <button
-                    className="btn-ghost w-full rounded-xl px-4 py-2.5 text-xs font-semibold sm:ml-4 sm:w-auto"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      // Set reminder functionality would go here
-                      handleElectionClick(election.electionId);
-                    }}
-                  >
-                    View Details
-                  </button>
-                </div>
-              </div>
+                election={election}
+                status="upcoming"
+                statusClass="bg-glacier text-brand-dark"
+                onOpen={handleElectionClick}
+                onAction={handleElectionClick}
+                actionLabel="View Details"
+                density="compact"
+              />
             ))
           ) : (
             <div className="p-6 text-center">
               <p className="text-gray-500">No upcoming elections scheduled</p>
             </div>
           )}
-          {upcoming.length > MAX_DISPLAY_COUNT && (
+          {upcomingCount > MAX_DISPLAY_COUNT && (
             <div className="p-4 text-center">
               <button 
                 onClick={() => navigate('/all-elections?filter=upcoming')} 

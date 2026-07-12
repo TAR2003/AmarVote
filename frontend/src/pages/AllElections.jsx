@@ -5,6 +5,7 @@ import { getApiErrorMessage } from "../utils/httpErrors";
 import { useElections } from "../context/ElectionsContext";
 import { timezoneUtils } from "../utils/timezoneUtils";
 import { FiCalendar, FiClock, FiUsers, FiInfo, FiLoader, FiTrash2 } from "react-icons/fi";
+import ElectionBrowseCard from "../components/ElectionBrowseCard";
 
 /**
  * AllElections Component - Optimized for single API call
@@ -457,93 +458,27 @@ const AllElections = () => {
         </div>
       )}
 
-      <div className="space-y-3">
+      <div className="grid grid-cols-1 gap-3 xl:grid-cols-2">
           {filteredElections.length > 0 ? (
             filteredElections.map((election) => {
               const status = getElectionStatus(election);
+              const canVote = canUserVoteInElection(election);
+              const actionLabel = status === "ongoing"
+                ? (canVote && !election.hasVoted ? "Vote Now" : election.hasVoted ? "Already Voted" : "View Election")
+                : status === "upcoming"
+                  ? "View"
+                  : "View results";
               return (
-                <div
+                <ElectionBrowseCard
                   key={election.electionId}
-                  className="surface-card-interactive group cursor-pointer border border-transparent p-5 transition-all duration-200 hover:-translate-y-0.5 hover:border-brand/20 hover:shadow-lift sm:p-6"
-                  onClick={() => handleElectionClick(election.electionId)}
-                >
-                  <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-display text-lg font-semibold text-deep break-words transition-colors group-hover:text-brand-dark sm:text-xl">
-                          {election.electionTitle}
-                        </h3>
-                        <span
-                          className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${getStatusColor(
-                            status
-                          )}`}
-                        >
-                          {status.charAt(0).toUpperCase() + status.slice(1)}
-                        </span>
-                        {/* Public/Private Indicator */}
-                        <span
-                          className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                            election.isPublic 
-                              ? 'bg-sage-soft text-sage' 
-                              : 'bg-amber-100 text-amber-800'
-                          }`}
-                        >
-                          {election.isPublic ? 'Public' : 'Private'}
-                        </span>
-                      </div>
-                      
-                      <p className="mt-2 max-w-3xl text-sm leading-relaxed text-slate-600">
-                        {election.electionDescription}
-                      </p>
-
-                      {/* User Roles */}
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
-                          <span
-                            key={role}
-                            className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
-                              role === 'admin' ? 'bg-red-100 text-red-800' :
-                              role === 'guardian' ? 'bg-glacier text-ink' :
-                              'bg-glacier text-ink'
-                            }`}
-                          >
-                            {role.charAt(0).toUpperCase() + role.slice(1)}
-                          </span>
-                        ))}
-                        {/* Show eligible voter status */}
-                        {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-                          <span className="inline-flex items-center rounded-lg bg-sage-soft px-2.5 py-1 text-xs font-semibold text-sage">
-                            {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
-                          </span>
-                        )}
-                      </div>
-                      
-                      <div className="mt-5 grid gap-2 border-t border-glacier pt-4 text-sm text-slate-600 sm:flex sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
-                        <div className="flex items-center">
-                          <FiCalendar className="h-4 w-4 mr-1" />
-                          <span>
-                            {timezoneUtils.formatElectionDate(election.startingTime)}
-                          </span>
-                        </div>
-                        <div className="flex items-center">
-                          <FiClock className="h-4 w-4 mr-1" />
-                          <span>
-                            Ends: {timezoneUtils.formatElectionDate(election.endingTime)}
-                          </span>
-                        </div>
-                        <div className="flex items-center">
-                          <FiUsers className="h-4 w-4 mr-1" />
-                          <span>{election.noOfCandidates} candidates</span>
-                        </div>
-                      </div>
-                      
-                      <div className="mt-3 text-xs font-medium text-slate-500">
-                        Admin: {election.adminName ? `${election.adminName} (${election.adminEmail})` : election.adminEmail}
-                      </div>
-                    </div>
-                    
-                    <div className="flex w-full flex-col gap-2 sm:ml-4 sm:w-auto sm:flex-shrink-0">
-                      {canDeleteElection(election) && (
+                  election={election}
+                  status={status}
+                  statusClass={getStatusColor(status)}
+                  onOpen={handleElectionClick}
+                  onAction={handleElectionClick}
+                  actionLabel={actionLabel}
+                  actionDisabled={status === "ongoing" && election.hasVoted && canVote}
+                  secondaryAction={canDeleteElection(election) ? (
                         <button
                           className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 shadow-soft transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                           onClick={(e) => handleRequestDelete(election, e)}
@@ -552,53 +487,8 @@ const AllElections = () => {
                           <FiTrash2 className="h-4 w-4" />
                           {deletingElectionId === election.electionId ? "Deleting..." : "Delete"}
                         </button>
-                      )}
-
-                      {status === "ongoing" && (
-                        <button 
-                          className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold shadow-soft transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
-                            election.hasVoted 
-                              ? 'cursor-not-allowed bg-slate-100 text-slate-600'
-                              : (canUserVoteInElection(election) 
-                                  ? 'text-white bg-brand hover:bg-brand-dark focus:ring-brand' 
-                                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-400')
-                          }`}
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleElectionClick(election.electionId);
-                          }}
-                          disabled={election.hasVoted && canUserVoteInElection(election)}
-                        >
-                          {/* Show Vote Now only if user is eligible and hasn't voted yet */}
-                          {(canUserVoteInElection(election) && !election.hasVoted) ? 'Vote Now' : 
-                           election.hasVoted ? 'Already Voted' : 'View Election'}
-                        </button>
-                      )}
-                      {status === "upcoming" && (
-                        <button 
-                          className="btn-ghost inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            // Set reminder functionality can be added here
-                          }}
-                        >
-                          Set Reminder
-                        </button>
-                      )}
-                      {status === "completed" && (
-                        <button 
-                          className="btn-ghost inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold"
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleElectionClick(election.electionId);
-                          }}
-                        >
-                          View Results
-                        </button>
-                      )}
-                    </div>
-                  </div>
-                </div>
+                      ) : null}
+                />
               );
             })
           ) : (

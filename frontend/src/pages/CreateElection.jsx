@@ -1483,65 +1483,97 @@ const CreateElection = () => {
             </form>
 
             {showConfirmModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-deep/65 p-4 backdrop-blur-sm">
-                    <div className="glass-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto">
-                        <div className="border-b border-slate-200/80 px-5 py-5 sm:px-6">
-                            <p className="section-kicker">Final review</p>
-                            <h2 className="mt-1 font-display text-2xl font-bold text-deep">Confirm election details</h2>
-                            <p className="mt-1 text-sm text-slate-600">Review everything before creating this election.</p>
+                <div className="fixed inset-0 z-50 flex items-end justify-center bg-deep/60 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="create-election-confirm-title"
+                        className="flex max-h-[min(92dvh,720px)] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-lift sm:rounded-3xl"
+                    >
+                        <div className="shrink-0 border-b border-slate-200/80 bg-deep-aurora px-5 py-5 text-white sm:px-6">
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-light">Final step</p>
+                            <h2 id="create-election-confirm-title" className="mt-1 font-display text-2xl font-bold">
+                                Create this election?
+                            </h2>
+                            <p className="mt-1 text-sm text-glacier">One confirm creates it and opens the election page.</p>
                         </div>
-                        <div className="space-y-4 px-5 py-5 text-sm sm:px-6">
-                            <section className="rounded-xl border border-slate-200 bg-white/60 p-4">
-                                <h3 className="mb-2 font-semibold text-ink">Basic information</h3>
-                                <p><span className="font-medium">Title:</span> {form.electionTitle}</p>
-                                <p><span className="font-medium">Description:</span> {form.electionDescription || '—'}</p>
-                            </section>
-                            <section className="rounded-xl border border-slate-200 bg-white/60 p-4">
-                                <h3 className="mb-2 font-semibold text-ink">Settings</h3>
-                                <p><span className="font-medium">Privacy:</span> {form.electionPrivacy}</p>
-                                <p><span className="font-medium">Eligibility:</span> {form.electionEligibility}</p>
-                                <p><span className="font-medium">Max choices:</span> {form.maxChoices}</p>
-                                <p><span className="font-medium">Winners:</span> Top {form.winnerNo || form.maxChoices}</p>
-                                <p><span className="font-medium">Ballot receipts:</span> {form.sendBallotReceipt ? 'Enabled' : 'Disabled'}</p>
-                            </section>
-                            <section className="rounded-xl border border-slate-200 bg-white/60 p-4">
-                                <h3 className="mb-2 font-semibold text-ink">Co-admins ({form.coAdminEmails.length})</h3>
-                                <p className="text-slate-700">{form.coAdminEmails.length ? form.coAdminEmails.join(', ') : 'None'}</p>
-                            </section>
-                            <section className="rounded-xl border border-slate-200 bg-white/60 p-4">
-                                <h3 className="mb-2 font-semibold text-ink">Voters ({form.voterEmails.length})</h3>
-                                <p className="break-words text-slate-700">{form.voterEmails.length ? form.voterEmails.join(', ') : 'None / open eligibility'}</p>
-                            </section>
-                            <section className="rounded-xl border border-slate-200 bg-white/60 p-4">
-                                <h3 className="mb-2 font-semibold text-ink">Guardians ({form.guardianEmails.length})</h3>
-                                <p><span className="font-medium">Count / Quorum:</span> {form.guardianNumber} / {form.quorumNumber}</p>
-                                <p className="mt-1 break-words text-slate-700">{form.guardianEmails.join(', ')}</p>
-                            </section>
-                            <section className="rounded-xl border border-slate-200 bg-white/60 p-4">
-                                <h3 className="mb-2 font-semibold text-ink">Candidates ({form.candidateNames.filter(n => n.trim()).length})</h3>
-                                <ol className="list-inside list-decimal space-y-1 text-slate-700">
-                                    {form.candidateNames.filter(n => n.trim()).map((name) => (
-                                        <li key={name}>{name}</li>
-                                    ))}
-                                </ol>
-                            </section>
+
+                        <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 text-sm sm:px-6">
+                            <div className="rounded-2xl border border-brand/20 bg-glacier/50 p-4">
+                                <p className="section-kicker">Title</p>
+                                <p className="mt-1 font-display text-lg font-semibold text-deep">{form.electionTitle}</p>
+                                {form.electionDescription ? (
+                                    <p className="mt-1 line-clamp-3 text-slate-600">{form.electionDescription}</p>
+                                ) : null}
+                            </div>
+
+                            <div className="mt-3 grid grid-cols-2 gap-2">
+                                <div className="rounded-xl border border-slate-200 bg-frost/80 p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Privacy</p>
+                                    <p className="mt-1 font-semibold capitalize text-ink">{form.electionPrivacy}</p>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 bg-frost/80 p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Eligibility</p>
+                                    <p className="mt-1 font-semibold capitalize text-ink">{form.electionEligibility}</p>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 bg-frost/80 p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Guardians</p>
+                                    <p className="mt-1 font-semibold text-ink">{form.guardianNumber} · quorum {form.quorumNumber}</p>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 bg-frost/80 p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Ballot</p>
+                                    <p className="mt-1 font-semibold text-ink">
+                                        {form.candidateNames.filter((n) => n.trim()).length} candidates · max {form.maxChoices} · top {form.winnerNo}
+                                    </p>
+                                </div>
+                            </div>
+
+                            <div className="mt-3 space-y-2">
+                                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Candidates</p>
+                                    <p className="mt-1 text-ink">
+                                        {form.candidateNames.filter((n) => n.trim()).join(" · ") || "—"}
+                                    </p>
+                                </div>
+                                <div className="rounded-xl border border-slate-200 bg-white p-3">
+                                    <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">
+                                        Guardians ({form.guardianEmails.length})
+                                    </p>
+                                    <p className="mt-1 line-clamp-2 break-all text-slate-700">
+                                        {form.guardianEmails.join(", ") || "—"}
+                                    </p>
+                                </div>
+                                {(form.voterEmails.length > 0 || form.coAdminEmails.length > 0) && (
+                                    <div className="rounded-xl border border-slate-200 bg-white p-3">
+                                        <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">People</p>
+                                        <p className="mt-1 text-slate-700">
+                                            {form.voterEmails.length} voter{form.voterEmails.length === 1 ? "" : "s"}
+                                            {form.coAdminEmails.length
+                                                ? ` · ${form.coAdminEmails.length} co-admin${form.coAdminEmails.length === 1 ? "" : "s"}`
+                                                : ""}
+                                            {form.sendBallotReceipt ? " · receipts on" : ""}
+                                        </p>
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                        <div className="flex flex-col-reverse justify-end gap-3 border-t border-slate-200/80 px-5 py-4 sm:flex-row sm:px-6">
+
+                        <div className="shrink-0 flex flex-col-reverse gap-2 border-t border-slate-200/80 bg-white px-5 py-4 sm:flex-row sm:justify-end sm:px-6">
                             <button
                                 type="button"
                                 onClick={() => setShowConfirmModal(false)}
                                 disabled={isSubmitting}
-                                className="btn-ghost"
+                                className="btn-ghost w-full sm:w-auto"
                             >
-                                Go Back
+                                Go back
                             </button>
                             <button
                                 type="button"
                                 onClick={confirmCreateElection}
                                 disabled={isSubmitting}
-                                className="btn-brand"
+                                className="btn-brand w-full sm:w-auto"
                             >
-                                {isSubmitting ? 'Creating...' : 'Confirm & Create Election'}
+                                {isSubmitting ? "Creating..." : "Confirm & create"}
                             </button>
                         </div>
                     </div>

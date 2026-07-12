@@ -4577,49 +4577,74 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Encrypted Ballot Confirmation Modal */}
         {showConfirmModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-4 z-[100]">
-            <div className="surface-card-xl max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-3 sm:mb-4">
-                <h3 className="text-base sm:text-lg font-semibold text-deep">Confirm Encrypted Ballot</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmModal(false)}
-                  disabled={isSubmitting}
-                  className="text-slate-400 hover:text-slate-600"
-                >
-                  <FiX className="h-5 w-5 sm:h-6 sm:w-6" />
-                </button>
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-deep/55 p-3 backdrop-blur-sm sm:p-4">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ballot-confirm-title"
+              className="glass-panel flex w-full max-w-lg max-h-[min(88dvh,640px)] flex-col overflow-hidden shadow-lift"
+            >
+              <div className="shrink-0 border-b border-slate-200/80 px-5 py-4 sm:px-6 sm:py-5">
+                <p className="section-kicker">Before encryption</p>
+                <h3 id="ballot-confirm-title" className="mt-1 font-display text-xl font-bold text-deep sm:text-2xl">
+                  Create encrypted ballot?
+                </h3>
+                <p className="mt-1.5 text-sm text-slate-600">
+                  Confirm these are the choice{selectedCandidates.length === 1 ? "" : "s"} you want encrypted.
+                </p>
               </div>
 
-              <div className="mb-4 sm:mb-6">
-                <p className="text-xs sm:text-sm text-slate-600 mb-3 sm:mb-4">
-                  You are about to create an encrypted ballot with the following selection{selectedCandidates.length === 1 ? '' : 's'}:
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-slate-500">
+                  Your selection{selectedCandidates.length === 1 ? "" : "s"}
                 </p>
-                <ul className="space-y-2 list-disc list-inside text-sm text-deep">
+                <ul className="space-y-2">
                   {electionData.electionChoices
-                    .filter(choice => selectedCandidates.includes(choice.choiceId.toString()))
+                    ?.filter((choice) => selectedCandidates.includes(String(choice.choiceId)))
                     .map((choice) => (
-                      <li key={choice.choiceId} className="min-w-0">
-                        <TruncatedCandidateName name={choice.optionTitle} />
+                      <li
+                        key={choice.choiceId}
+                        className="flex items-center gap-3 rounded-2xl border border-brand/20 bg-glacier/60 px-3.5 py-3"
+                      >
+                        <CandidateThumbnail
+                          src={choice.candidatePic}
+                          name={choice.optionTitle}
+                          size="md"
+                        />
+                        {!choice.candidatePic && (
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-glow text-sm font-bold text-white">
+                            {(choice.optionTitle || "?").charAt(0).toUpperCase()}
+                          </span>
+                        )}
+                        <span className="min-w-0 flex-1 font-display text-sm font-semibold text-deep sm:text-base">
+                          {choice.optionTitle}
+                        </span>
+                        <FiCheckCircle className="h-5 w-5 shrink-0 text-brand" />
                       </li>
                     ))}
                 </ul>
-
-                <div className="mt-3 sm:mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-xs sm:text-sm text-yellow-800">
-                    <strong>Please confirm:</strong> This will generate your encrypted ballot. Review your choices carefully before proceeding.
+                {(!electionData.electionChoices ||
+                  electionData.electionChoices.filter((c) =>
+                    selectedCandidates.includes(String(c.choiceId))
+                  ).length === 0) && (
+                  <p className="rounded-xl border border-amber-200 bg-amber-soft px-3 py-2 text-sm text-amber-warn">
+                    No choices detected. Go back and select again.
                   </p>
+                )}
+
+                <div className="mt-4 rounded-xl border border-amber-200/80 bg-amber-soft/70 px-3.5 py-3 text-sm text-amber-warn">
+                  After you confirm, AmarVote encrypts this ballot. You can cast it or challenge it next.
                 </div>
               </div>
 
-              <div className="flex space-x-2 sm:space-x-3">
+              <div className="shrink-0 flex flex-col-reverse gap-2 border-t border-slate-200/80 bg-white/90 px-5 py-4 sm:flex-row sm:px-6">
                 <button
                   type="button"
                   onClick={() => setShowConfirmModal(false)}
                   disabled={isSubmitting}
-                  className="flex-1 bg-slate-200 text-ink py-2 px-3 sm:px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50 text-sm sm:text-base"
+                  className="btn-ghost flex-1"
                 >
-                  Cancel
+                  Go back
                 </button>
                 <button
                   type="button"
@@ -4627,10 +4652,15 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     setShowConfirmModal(false);
                     await handleCreateEncryptedBallot();
                   }}
-                  disabled={isSubmitting}
-                  className="flex-1 bg-brand text-white py-2 px-3 sm:px-4 rounded-lg hover:bg-brand-dark disabled:opacity-50 text-sm sm:text-base"
+                  disabled={
+                    isSubmitting ||
+                    !electionData.electionChoices?.some((c) =>
+                      selectedCandidates.includes(String(c.choiceId))
+                    )
+                  }
+                  className="btn-brand flex-1"
                 >
-                  Confirm &amp; Create Ballot
+                  Confirm & encrypt
                 </button>
               </div>
             </div>
