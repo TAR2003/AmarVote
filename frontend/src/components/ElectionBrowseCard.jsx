@@ -11,6 +11,7 @@ const ElectionBrowseCard = memo(function ElectionBrowseCard({
   onOpen,
   actionLabel = "Open",
   actionDisabled = false,
+  actionClassName,
   onAction,
   secondaryAction,
   meta,
@@ -18,6 +19,8 @@ const ElectionBrowseCard = memo(function ElectionBrowseCard({
 }) {
   const roles = election.userRoles || [];
   const isCompact = density === "compact";
+  const buttonClass =
+    actionClassName || "btn-brand w-full justify-center py-2.5 text-xs sm:text-sm";
 
   return (
     <article
@@ -30,7 +33,7 @@ const ElectionBrowseCard = memo(function ElectionBrowseCard({
           onOpen?.(election.electionId);
         }
       }}
-      className={`group relative overflow-hidden rounded-2xl border border-ink/10 bg-paper shadow-soft transition duration-300 hover:-translate-y-0.5 hover:border-brand/25 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
+      className={`group relative overflow-hidden rounded-2xl border border-ink/10 bg-paper/95 shadow-soft transition duration-300 hover:-translate-y-0.5 hover:border-brand/30 hover:shadow-lift focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${
         isCompact ? "p-4" : "p-5 sm:p-6"
       }`}
     >
@@ -128,10 +131,10 @@ const ElectionBrowseCard = memo(function ElectionBrowseCard({
               if (onAction) onAction(election.electionId);
               else onOpen?.(election.electionId);
             }}
-            className="btn-brand w-full justify-center py-2.5 text-xs sm:text-sm"
+            className={buttonClass}
           >
             {actionLabel}
-            <FiArrowRight className="h-3.5 w-3.5" />
+            {!actionDisabled ? <FiArrowRight className="h-3.5 w-3.5" aria-hidden="true" /> : null}
           </button>
         </div>
       </div>

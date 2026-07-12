@@ -289,6 +289,45 @@
     @apply sticky bottom-0 z-10 -mx-1 mt-2 border-t border-ink/10 bg-paper/90 px-3 py-3 backdrop-blur-md sm:static sm:mx-0 sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none;
   }
 
+  /* Dashboard — observatory composition on frost-mesh */
+  .dash-hero {
+    @apply relative bg-deep-aurora text-paper;
+  }
+
+  .dash-stat {
+    @apply relative overflow-hidden rounded-2xl border border-ink/10 bg-paper/90 shadow-soft
+      transition duration-300 hover:-translate-y-0.5 hover:border-brand/25 hover:shadow-lift;
+  }
+
+  .dash-panel {
+    @apply relative rounded-2xl border border-ink/10 bg-paper/90 shadow-soft;
+  }
+
+  .dash-panel-rail {
+    @apply pointer-events-none absolute inset-y-0 left-0 w-[3px] rounded-l-2xl;
+  }
+
+  .dash-panel-rail-live {
+    background: linear-gradient(180deg, #3fc7b8 0%, rgba(63, 199, 184, 0.25) 100%);
+  }
+
+  .dash-panel-rail-quiet {
+    background: linear-gradient(180deg, rgba(27, 29, 46, 0.35) 0%, rgba(27, 29, 46, 0.08) 100%);
+  }
+
+  .dash-panel-rail-ahead {
+    background: linear-gradient(180deg, #8b7fe8 0%, rgba(139, 127, 232, 0.2) 100%);
+  }
+
+  .dash-empty {
+    @apply flex flex-col items-center justify-center rounded-2xl border border-dashed border-ink/10
+      bg-observatory px-6 py-10 text-center;
+  }
+
+  .dash-empty-icon {
+    @apply mb-3 flex h-11 w-11 items-center justify-center rounded-xl bg-brand-soft text-brand-dark;
+  }
+
   .marketing-page {
     color: var(--color-dusk);
   }

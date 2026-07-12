@@ -152,6 +152,10 @@ export default {
           "0%, 100%": { transform: "translate(0, 0) scale(1)" },
           "50%": { transform: "translate(3%, -2%) scale(1.04)" },
         },
+        auroraDriftAlt: {
+          "0%, 100%": { transform: "translate(0, 0) scale(1)" },
+          "50%": { transform: "translate(-2%, 3%) scale(1.03)" },
+        },
         tabSlideInRight: {
           "0%": { opacity: "0", transform: "translateX(18px)" },
           "100%": { opacity: "1", transform: "translateX(0)" },
@@ -186,6 +190,7 @@ export default {
         shimmer: "shimmer 3.5s linear infinite",
         "draw-check": "drawCheck 0.8s ease-out 0.4s both",
         "aurora-drift": "auroraDrift 16s ease-in-out infinite",
+        "aurora-drift-alt": "auroraDriftAlt 20s ease-in-out infinite",
         "tab-slide-in-right": "tabSlideInRight 220ms cubic-bezier(0.22, 1, 0.36, 1) both",
         "tab-slide-in-left": "tabSlideInLeft 220ms cubic-bezier(0.22, 1, 0.36, 1) both",
         "cipher-dissolve": "cipherDissolve 1.6s ease-in-out both",
