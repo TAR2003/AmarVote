@@ -170,6 +170,34 @@
   .page-enter {
     animation: fadeUp 0.55s var(--ease-out-expo) both;
   }
+
+  .process-panel {
+    @apply surface-card p-4 sm:p-6;
+  }
+
+  .process-panel-title {
+    @apply mb-3 flex items-center gap-2 font-display text-base font-semibold text-deep sm:mb-4 sm:text-lg;
+  }
+
+  .status-chip {
+    @apply inline-flex items-center rounded-xl px-2.5 py-1 text-xs font-semibold;
+  }
+
+  .status-chip-active {
+    @apply status-chip bg-sage-soft text-emerald-800;
+  }
+
+  .status-chip-pending {
+    @apply status-chip bg-glacier text-brand-dark;
+  }
+
+  .status-chip-ended {
+    @apply status-chip bg-slate-100 text-slate-600;
+  }
+
+  .status-chip-warn {
+    @apply status-chip bg-amber-soft text-amber-warn;
+  }
 }
 
 @layer utilities {

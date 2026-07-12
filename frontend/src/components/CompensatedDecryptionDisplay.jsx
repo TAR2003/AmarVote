@@ -113,7 +113,7 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
     return (
       <div className="flex items-center justify-center py-8">
         <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
-        <span className="ml-2 text-gray-600">Loading compensated decryption data...</span>
+        <span className="ml-2 text-slate-600">Loading compensated decryption data...</span>
       </div>
     );
   }
@@ -157,28 +157,28 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
+          <h3 className="text-lg font-semibold text-deep flex items-center">
             <FiRefreshCw className="h-5 w-5 mr-2 text-brand-dark" />
             Compensated Decryption Shares
             <span className="ml-3 bg-glacier text-ink text-sm font-medium px-2.5 py-1 rounded-full">
               {compensatedDecryptions.length} {compensatedDecryptions.length === 1 ? 'Share' : 'Shares'}
             </span>
           </h3>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-slate-600 mt-1">
             Download recovery shares from guardians compensating for missing guardians
           </p>
         </div>
         <button
           type="button"
           onClick={downloadAllCompensatedDecryptionsData}
-          className="flex items-center space-x-2 bg-ink text-white px-4 py-2 rounded-lg hover:bg-purple-700 transition-all shadow-sm hover:shadow-md"
+          className="btn-deep"
         >
           <FiDownload className="h-4 w-4" />
           <span>Download All</span>
         </button>
       </div>
 
-      <div className="bg-glacier border border-purple-200 rounded-lg p-3">
+      <div className="rounded-2xl border border-brand/20 bg-glacier/60 p-4">
         <div className="flex items-start">
           <FiInfo className="h-5 w-5 text-brand-dark mr-2 mt-0.5 flex-shrink-0" />
           <p className="text-sm text-ink">
@@ -190,19 +190,19 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
 
       <div className="space-y-4">
         {Object.entries(groupedByMissing).map(([missingGuardianSeq, shares]) => (
-          <div key={missingGuardianSeq} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
-            <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-purple-50 to-white border-b border-gray-200">
+          <div key={missingGuardianSeq} className="surface-card overflow-hidden">
+            <div className="flex items-center space-x-4 p-4 bg-gradient-to-r from-glacier to-white border-b border-gray-200">
               <div className="flex-shrink-0">
-                <div className="h-12 w-12 bg-gradient-to-br from-red-400 to-red-600 rounded-full flex items-center justify-center shadow-sm">
+                <div className="h-12 w-12 bg-gradient-to-br from-brand to-ink rounded-full flex items-center justify-center shadow-sm">
                   <FiUsers className="h-6 w-6 text-white" />
                 </div>
               </div>
               <div>
-                <h4 className="text-base font-semibold text-gray-900">
+                <h4 className="text-base font-semibold text-deep">
                   Missing Guardian {missingGuardianSeq}
                 </h4>
                 {shares[0]?.missingGuardianName && (
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-slate-600">
                     {shares[0].missingGuardianName} • {shares[0].missingGuardianEmail}
                   </p>
                 )}
@@ -218,14 +218,14 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
                 return (
                   <div
                     key={cd.compensatedDecryptionId}
-                    className="flex items-center justify-between p-4 bg-gray-50 border border-gray-200 rounded-lg"
+                    className="flex items-center justify-between p-4 rounded-2xl border border-slate-200/80 bg-frost/80"
                   >
                     <div className="min-w-0">
-                      <h5 className="font-semibold text-gray-900 text-sm">
+                      <h5 className="font-semibold text-deep text-sm">
                         Compensating Guardian {cd.compensatingGuardianSequence}
                       </h5>
                       {cd.compensatingGuardianName && (
-                        <p className="text-xs text-gray-600 truncate">
+                        <p className="text-xs text-slate-600 truncate">
                           {cd.compensatingGuardianName} • {cd.compensatingGuardianEmail}
                         </p>
                       )}
@@ -239,7 +239,7 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
                       type="button"
                       onClick={() => downloadAllCompensatedDecryptionData(cd)}
                       disabled={isDownloading}
-                      className="flex items-center gap-2 shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-white bg-ink hover:bg-purple-700 disabled:opacity-50 transition-colors"
+                      className="btn-deep shrink-0"
                     >
                       {isDownloading ? (
                         <FiLoader className="h-4 w-4 animate-spin" />

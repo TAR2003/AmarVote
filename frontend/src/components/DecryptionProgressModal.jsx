@@ -194,10 +194,10 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
     if (!status || !status.currentPhase) {
       // If status is pending or in_progress, show appropriate message
       if (status && status.status === 'pending') {
-        return '🔐 Processing Partial Decryption';
+        return ' Processing Partial Decryption';
       }
       if (status && status.status === 'in_progress') {
-        return '🔐 Processing Decryption';
+        return ' Processing Decryption';
       }
       return 'Initializing...';
     }
@@ -221,7 +221,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
   };
 
   const getStatusColor = () => {
-    if (!status) return '#6366f1';
+    if (!status) return '#00B4D8';
     
     switch (status.status) {
       case 'completed':
@@ -229,39 +229,39 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
       case 'failed':
         return '#ef4444';
       case 'in_progress':
-        return '#6366f1';
+        return '#00B4D8';
       default:
         return '#94a3b8';
     }
   };
 
   const getPhaseIcon = () => {
-    if (!status || !status.currentPhase) return '🔄';
+    if (!status || !status.currentPhase) return '';
 
     switch (status.currentPhase) {
       case 'pending':
-        return '⏳';
+        return '';
       case 'partial_decryption':
-        return '🔐';
+        return '';
       case 'compensated_shares_generation':
-        return '💫';
+        return '';
       case 'completed':
-        return '✅';
+        return '';
       case 'error':
-        return '❌';
+        return '';
       default:
-        return '🔄';
+        return '';
     }
   };
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-      <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-deep/60 p-0 backdrop-blur-sm sm:items-center sm:p-4">
+      <div className="glass-panel w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-2xl">
         {/* Header */}
-        <div className="bg-gradient-to-r from-brand to-purple-600 text-white px-6 py-4 rounded-t-xl">
+        <div className="rounded-t-3xl bg-deep px-5 py-4 text-white sm:rounded-t-2xl sm:px-6">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-2xl font-bold">Guardian Decryption Progress</h2>
+              <h2 className="font-display text-xl font-bold sm:text-2xl">Guardian Decryption Progress</h2>
               <p className="text-glacier mt-1">{guardianName || 'Guardian'}</p>
             </div>
             <div className="flex items-center gap-2">
@@ -276,7 +276,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
               </button>
               <button
                 onClick={onClose}
-                className="text-white hover:text-gray-200 transition-colors text-2xl font-bold w-8 h-8 flex items-center justify-center"
+                className="text-white hover:text-gray-200 transition-colors font-display text-xl font-bold sm:text-2xl w-8 h-8 flex items-center justify-center"
                 aria-label="Close"
               >
                 ×
@@ -286,7 +286,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
         </div>
 
         {/* Content */}
-        <div className="p-6">
+        <div className="p-5 sm:p-6">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
               <p className="font-semibold">Error</p>
@@ -296,8 +296,8 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
 
           {!status && !error && (
             <div className="text-center py-8">
-              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-              <p className="text-gray-600 mt-4">Connecting to live progress…</p>
+              <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto"></div>
+              <p className="text-slate-600 mt-4">Connecting to live progress…</p>
             </div>
           )}
 
@@ -305,9 +305,9 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
             <>
               {/* Lock Metadata Display */}
               {status.isLocked && status.lockHeldBy && (
-                <div className="bg-amber-50 border-l-4 border-amber-500 rounded-lg p-4 mb-4 shadow-sm">
+                <div className="bg-amber-50 border-l-4 border-amber-500 rounded-2xl p-4 mb-4 shadow-sm">
                   <div className="flex items-start gap-3">
-                    <div className="text-2xl">🔒</div>
+                    <div className="text-2xl"></div>
                     <div className="flex-1">
                       <h4 className="font-semibold text-amber-900 mb-2">
                         Task In Progress
@@ -339,7 +339,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
               {/* Overall Progress */}
               <div className="mb-6">
                 <div className="flex items-center justify-between mb-2">
-                  <h3 className="text-lg font-semibold text-gray-800">
+                  <h3 className="text-lg font-semibold text-ink">
                     {getPhaseIcon()} {getPhaseDisplay()}
                   </h3>
                   <span className={`px-3 py-1 rounded-full text-sm font-medium ${
@@ -347,7 +347,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                     status.status === 'stopped' ? 'bg-amber-100 text-amber-800' :
                     status.status === 'failed' ? 'bg-red-100 text-red-800' :
                     status.status === 'in_progress' ? 'bg-glacier text-ink' :
-                    'bg-gray-100 text-gray-800'
+                    'bg-frost text-ink'
                   }`}>
                     {status.status}
                   </span>
@@ -375,11 +375,11 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                   </div>
                   
                   <div className="flex-1">
-                    <div className="bg-gray-100 rounded-lg p-4">
+                    <div className="bg-frost rounded-2xl p-4">
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <p className="text-sm text-gray-600">Total Progress (All Operations)</p>
-                          <p className="text-2xl font-bold text-gray-900">
+                          <p className="text-sm text-slate-600">Total Progress (All Operations)</p>
+                          <p className="font-display text-xl font-bold sm:text-2xl text-deep">
                             {(() => {
                               const { total, completed } = calculateTotalOperations(status);
                               return `${completed} / ${total}`;
@@ -397,7 +397,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                           </p>
                         </div>
                         <div>
-                          <p className="text-sm text-gray-600">Current Operation</p>
+                          <p className="text-sm text-slate-600">Current Operation</p>
                           <p className="text-lg font-bold text-brand-dark">
                             {status.currentPhase === 'partial_decryption' 
                               ? 'Partial Decryption'
@@ -415,25 +415,25 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                       </div>
                       
                       {calculateEstimatedTime(status) && (
-                        <div className="mt-3 pt-3 border-t border-gray-300">
-                          <p className="text-sm text-gray-600 font-medium">
-                            ⏱️ Estimated time remaining (entire process): <span className="text-brand-dark font-bold">{calculateEstimatedTime(status)}</span>
+                        <div className="mt-3 pt-3 border-t border-slate-200">
+                          <p className="text-sm text-slate-600 font-medium">
+                             Estimated time remaining (entire process): <span className="text-brand-dark font-bold">{calculateEstimatedTime(status)}</span>
                           </p>
                         </div>
                       )}
                       
                       {/* Task Metadata */}
                       {(status.startedAt || status.lockStartTime) && (
-                        <div className="mt-3 pt-3 border-t border-gray-300 space-y-1">
+                        <div className="mt-3 pt-3 border-t border-slate-200 space-y-1">
                           {status.guardianEmail && (
-                            <p className="text-sm text-gray-600">
+                            <p className="text-sm text-slate-600">
                               <span className="font-medium">Guardian:</span>{' '}
-                              <span className="text-gray-900 font-semibold">{status.guardianEmail}</span>
+                              <span className="text-deep font-semibold">{status.guardianEmail}</span>
                             </p>
                           )}
-                          <p className="text-sm text-gray-600">
+                          <p className="text-sm text-slate-600">
                             <span className="font-medium">Started:</span>{' '}
-                            <span className="text-gray-900">{timezoneUtils.formatDateTime(status.startedAt || status.lockStartTime)}</span>
+                            <span className="text-deep">{timezoneUtils.formatDateTime(status.startedAt || status.lockStartTime)}</span>
                           </p>
                         </div>
                       )}
@@ -444,9 +444,9 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
 
               {/* Phase Details */}
               {status.currentPhase === 'partial_decryption' && (
-                <div className="bg-glacier border border-brand/20 rounded-lg p-4 mb-4">
+                <div className="bg-glacier border border-brand/20 rounded-2xl p-4 mb-4">
                   <div className="flex items-start gap-3">
-                    <div className="text-2xl">🔐</div>
+                    <div className="text-2xl"></div>
                     <div className="flex-1">
                       <h4 className="font-semibold text-deep mb-1">
                         Phase 1: Partial Decryption
@@ -496,23 +496,23 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
               )}
 
               {status.currentPhase === 'compensated_shares_generation' && (
-                <div className="bg-glacier border border-purple-200 rounded-lg p-4 mb-4">
+                <div className="bg-glacier border border-brand/20 rounded-2xl p-4 mb-4">
                   <div className="flex items-start gap-3">
-                    <div className="text-2xl">💫</div>
+                    <div className="text-2xl"></div>
                     <div className="flex-1">
-                      <h4 className="font-semibold text-purple-900 mb-1">
+                      <h4 className="font-semibold text-deep mb-1">
                         Phase 2: Compensated Shares Generation
                       </h4>
-                      <p className="text-sm text-purple-700 mb-2">
+                      <p className="text-sm text-ink mb-2">
                         Generating backup decryption shares for other guardians.
                         This ensures the election can still be decrypted even if some guardians are unavailable.
                       </p>
                       
                       {status.compensatingForGuardianName && (
-                        <div className="bg-white rounded-lg p-3 mb-3 border border-purple-200">
-                          <p className="text-sm text-gray-600 mb-1">Current Process:</p>
-                          <p className="text-lg font-semibold text-purple-900">
-                            💫 Compensating for {status.compensatingForGuardianName}
+                        <div className="bg-white rounded-lg p-3 mb-3 border border-brand/20">
+                          <p className="text-sm text-slate-600 mb-1">Current Process:</p>
+                          <p className="text-lg font-semibold text-deep">
+                             Compensating for {status.compensatingForGuardianName}
                           </p>
                           {status.currentChunkNumber > 0 && (
                             <p className="text-xs text-brand-dark mt-1">
@@ -522,33 +522,33 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                         </div>
                       )}
                       
-                      <div className="bg-white rounded-lg p-3 mb-3 border border-purple-200">
+                      <div className="bg-white rounded-lg p-3 mb-3 border border-brand/20">
                         <div className="grid grid-cols-3 gap-3">
                           <div>
                             <p className="text-xs text-brand-dark mb-1">Guardians Progress</p>
-                            <p className="text-lg font-semibold text-purple-900">
+                            <p className="text-lg font-semibold text-deep">
                               {status.processedCompensatedGuardians || 0} / {status.totalCompensatedGuardians || 0}
                             </p>
                           </div>
                           <div>
                             <p className="text-xs text-brand-dark mb-1">Phase 2 Progress</p>
-                            <p className="text-lg font-semibold text-purple-900">
+                            <p className="text-lg font-semibold text-deep">
                               {status.processedChunks || 0} / {status.totalChunks || 0}
                             </p>
                           </div>
                           <div>
                             <p className="text-xs text-brand-dark mb-1">Current Chunk</p>
-                            <p className="text-lg font-semibold text-purple-900">
+                            <p className="text-lg font-semibold text-deep">
                               #{status.currentChunkNumber || 0}
                             </p>
                           </div>
                         </div>
                       </div>
                       
-                      <p className="text-xs text-purple-500 mb-2">
+                      <p className="text-xs text-brand-dark mb-2">
                         Phase 2 progress:
                       </p>
-                      <div className="h-2 bg-purple-200 rounded-full overflow-hidden">
+                      <div className="h-2 bg-glacier rounded-full overflow-hidden">
                         <div
                           className="h-full bg-ink transition-all duration-500"
                           style={{ 
@@ -567,14 +567,14 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
               )}
 
               {status.status === 'completed' && (
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-lg p-5 mb-4 shadow-md">
+                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-5 mb-4 shadow-md">
                   <div className="flex items-start gap-4">
-                    <div className="text-5xl animate-bounce">🎉</div>
+                    <div className="text-5xl animate-bounce"></div>
                     <div className="flex-1">
                       <h4 className="font-bold text-green-900 mb-2 text-xl flex items-center gap-2">
-                        ✅ Decryption Successfully Completed!
+                         Decryption Successfully Completed!
                       </h4>
-                      <div className="bg-white rounded-lg p-4 mb-3 border-l-4 border-green-500 shadow-sm">
+                      <div className="bg-white rounded-2xl p-4 mb-3 border-l-4 border-green-500 shadow-sm">
                         <p className="text-sm text-emerald-800 font-medium mb-2">
                           Your guardian credentials have been verified and processed successfully.
                         </p>
@@ -628,12 +628,12 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
               )}
 
               {status.status === 'failed' && (
-                <div className="bg-red-50 border border-red-300 rounded-lg p-5 mb-4">
+                <div className="bg-red-50 border border-red-300 rounded-2xl p-5 mb-4">
                   <div className="flex items-start gap-4">
-                    <div className="text-4xl">🚫</div>
+                    <div className="text-4xl"></div>
                     <div className="flex-1">
                       <h4 className="font-bold text-red-900 mb-2 text-lg">
-                        ❌ Decryption Failed
+                         Decryption Failed
                       </h4>
                       <div className="bg-white rounded p-3 mb-3 border-l-4 border-red-500">
                         <p className="text-sm text-red-800 font-medium mb-2">
@@ -664,18 +664,18 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
 
               {/* Timeline */}
               <div className="border-t pt-4">
-                <h4 className="font-semibold text-gray-800 mb-3">Process Timeline</h4>
+                <h4 className="font-semibold text-ink mb-3">Process Timeline</h4>
                 <div className="space-y-3">
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                      status.startedAt ? 'bg-sage-soft0 text-white' : 'bg-gray-300 text-gray-600'
+                      status.startedAt ? 'bg-sage text-white' : 'bg-slate-300 text-slate-600'
                     }`}>
                       ✓
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Decryption Initiated</p>
+                      <p className="text-sm font-medium text-deep">Decryption Initiated</p>
                       {status.startedAt && (
-                        <p className="text-xs text-gray-600">
+                        <p className="text-xs text-slate-600">
                           {timezoneUtils.formatDateTime(status.startedAt)}
                         </p>
                       )}
@@ -686,13 +686,13 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                       status.status === 'in_progress' || status.status === 'completed' 
                         ? 'bg-brand text-white animate-pulse' 
-                        : 'bg-gray-300 text-gray-600'
+                        : 'bg-slate-300 text-slate-600'
                     }`}>
                       {status.status === 'in_progress' || status.status === 'completed' ? '⟳' : '○'}
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Processing Operations</p>
-                      <p className="text-xs text-gray-600">
+                      <p className="text-sm font-medium text-deep">Processing Operations</p>
+                      <p className="text-xs text-slate-600">
                         {(() => {
                           const { total, completed } = calculateTotalOperations(status);
                           return `${completed} of ${total} operations completed`;
@@ -704,15 +704,15 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                       status.status === 'completed' 
-                        ? 'bg-sage-soft0 text-white' 
-                        : 'bg-gray-300 text-gray-600'
+                        ? 'bg-sage text-white' 
+                        : 'bg-slate-300 text-slate-600'
                     }`}>
                       {status.status === 'completed' ? '✓' : '○'}
                     </div>
                     <div className="flex-1">
-                      <p className="text-sm font-medium text-gray-900">Decryption Complete</p>
+                      <p className="text-sm font-medium text-deep">Decryption Complete</p>
                       {status.completedAt && (
-                        <p className="text-xs text-gray-600">
+                        <p className="text-xs text-slate-600">
                           {timezoneUtils.formatDateTime(status.completedAt)}
                         </p>
                       )}
@@ -725,21 +725,21 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
         </div>
 
         {/* Footer */}
-        <div className="bg-gray-50 px-6 py-4 rounded-b-xl flex justify-between items-center gap-3">
+        <div className="border-t border-slate-200/80 bg-white/60 px-5 py-4 sm:px-6 flex justify-between items-center gap-3">
           <div className="flex-1">
             {status && status.status === 'failed' && (
               <p className="text-sm text-red-600 font-medium">
-                ⚠️ Close this modal and submit the correct credentials file
+                 Close this modal and submit the correct credentials file
               </p>
             )}
             {status && status.status === 'stopped' && (
               <p className="text-sm text-amber-700 font-medium">
-                ⏸️ Decryption stopped. Submit credentials again to resume remaining chunks.
+                 Decryption stopped. Submit credentials again to resume remaining chunks.
               </p>
             )}
             {status && status.status === 'in_progress' && (
               <p className="text-sm text-brand font-medium">
-                🔄 Processing continues in background after closing
+                 Processing continues in background after closing
               </p>
             )}
           </div>

@@ -61,14 +61,14 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
     : null;
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="surface-card p-4 sm:p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h4 className="text-sm font-semibold text-gray-900">Guardian Decryption Progress</h4>
+        <h4 className="font-display text-sm font-semibold text-deep">Guardian Decryption Progress</h4>
         <button
           type="button"
           onClick={refreshProgress}
           disabled={isRefreshing}
-          className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+          className="inline-flex items-center gap-1.5 btn-ghost px-2.5 py-1 text-xs"
           title="Refresh guardian progress"
         >
           <FiRefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -77,7 +77,7 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
       </div>
 
       {merged.length === 0 && progressList.length === 0 ? (
-        <p className="text-sm text-gray-500">Connecting to live progress…</p>
+        <p className="text-sm text-slate-500">Connecting to live progress…</p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {merged.map((guardian) => {
@@ -88,7 +88,7 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
                 key={guardian.guardianId || guardian.userEmail}
                 type="button"
                 onClick={() => setSelectedGuardian(guardian)}
-                className="flex flex-col items-center rounded-lg border border-gray-100 bg-gray-50 p-3 transition hover:border-blue-300 hover:bg-glacier"
+                className="flex flex-col items-center rounded-2xl border border-slate-200/80 bg-frost/70 p-3 transition hover:border-brand/40 hover:bg-glacier"
               >
                 <div className="h-14 w-14">
                   <CircularProgressbar
@@ -96,14 +96,14 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
                     text={`${pct}%`}
                     styles={buildStyles({
                       textSize: '22px',
-                      pathColor: guardian.decryptedOrNot ? '#16a34a' : '#2563eb',
-                      textColor: '#111827',
+                      pathColor: guardian.decryptedOrNot ? '#10b981' : '#00B4D8',
+                      textColor: '#0b132b',
                       trailColor: '#e5e7eb',
                     })}
                   />
                 </div>
-                <p className="mt-2 line-clamp-2 text-center text-xs font-medium text-gray-800">{label}</p>
-                <p className="text-[10px] uppercase tracking-wide text-gray-500">{guardian.status || 'idle'}</p>
+                <p className="mt-2 line-clamp-2 text-center text-xs font-medium text-ink">{label}</p>
+                <p className="text-[10px] uppercase tracking-wide text-slate-500">{guardian.status || 'idle'}</p>
               </button>
             );
           })}
@@ -111,7 +111,7 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
       )}
 
       {active && (
-        <div className="mt-4 rounded-md border border-glacier bg-glacier p-3 text-sm text-gray-800">
+        <div className="mt-4 rounded-2xl border border-brand/20 bg-glacier/60 p-4 text-sm text-ink">
           <p className="font-semibold">{active.guardianName || active.userEmail}</p>
           <p>Phase: {active.currentPhase || active.status || 'not started'}</p>
           <p>

@@ -667,13 +667,13 @@ const CreateElection = () => {
     const renderEmailTag = (email, onRemove) => (
         <div
             key={email}
-            className="bg-glacier text-ink px-2 py-1 rounded-md inline-flex items-center mr-2 mb-2"
+            className="mb-2 mr-2 inline-flex items-center rounded-lg bg-glacier px-2.5 py-1.5 text-sm text-ink"
         >
             <span className="mr-1">{email}</span>
             <button
                 type="button"
                 onClick={() => onRemove(email)}
-                className="text-brand hover:text-brand-dark"
+                className="ml-1 rounded p-0.5 text-brand-dark hover:bg-white/70 hover:text-deep"
             >
                 ×
             </button>
@@ -684,33 +684,33 @@ const CreateElection = () => {
     const renderEmailSuggestions = () => (
         <div
             ref={suggestionsRef}
-            className="absolute z-10 w-full bg-white border border-gray-200 rounded-md shadow-lg max-h-60 overflow-auto"
+            className="glass-panel absolute z-10 mt-2 max-h-60 w-full overflow-auto rounded-xl"
         >
             {emailSuggestions.map((suggestion, index) => (
                 <div
                     key={index}
-                    className="px-4 py-2 hover:bg-glacier cursor-pointer flex items-center justify-between transition-colors"
+                    className="flex cursor-pointer items-center justify-between px-4 py-3 transition-colors hover:bg-glacier/70"
                     onClick={() => addGuardianEmail(suggestion.email)}
                 >
                     <div className="flex items-center flex-1">
-                        <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-blue-600 flex items-center justify-center text-white mr-3 font-semibold">
+                        <div className="mr-3 flex h-8 w-8 items-center justify-center rounded-full bg-brand text-sm font-semibold text-white">
                             @
                         </div>
                         <div className="flex-1">
-                            <div className="font-medium text-gray-800">{suggestion.email}</div>
-                            <div className="text-xs text-gray-500 capitalize">
+                            <div className="font-medium text-ink">{suggestion.email}</div>
+                            <div className="text-xs text-slate-500 capitalize">
                                 {suggestion.source ? `${suggestion.source} account` : "Registered user"}
                             </div>
                         </div>
                     </div>
-                    <div className="text-brand text-sm">
+                    <div className="text-sm text-brand-dark">
                         Click to add
                     </div>
                 </div>
             ))}
             {emailSuggestions.length === 0 && searchQuery.length > 0 && (
-                <div className="px-4 py-3 text-gray-500 text-center">
-                    <div className="mb-1">💡 Type your email address</div>
+                <div className="px-4 py-3 text-center text-slate-500">
+                    <div className="mb-1">Enter an email address</div>
                     <div className="text-xs">Suggestions will appear as you type</div>
                 </div>
             )}
@@ -718,34 +718,51 @@ const CreateElection = () => {
     );
 
     return (
-        <div className="max-w-4xl mx-auto p-3 sm:p-6">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-6 text-gray-800">Create New Election</h1>
+        <div className="mx-auto max-w-5xl px-1 py-2 sm:px-2 sm:py-4">
+            <header className="mb-6 px-2 sm:mb-8 sm:px-0">
+                <p className="section-kicker">Election workspace</p>
+                <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-deep sm:text-4xl">Create an election</h1>
+                <p className="mt-2 max-w-2xl text-sm leading-relaxed text-slate-600 sm:text-base">
+                    Set the election rules, appoint guardians, and review the configuration before key ceremony begins.
+                </p>
+                <ol className="mt-5 grid grid-cols-2 gap-2 text-xs font-semibold text-ink sm:grid-cols-5 sm:text-sm">
+                    {["Basics", "Privacy & eligibility", "Guardians", "Candidates", "Review"].map((step, index) => (
+                        <li key={step} className="flex min-h-11 items-center gap-2 rounded-xl border border-slate-200 bg-white/75 px-3 py-2">
+                            <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-glacier text-xs text-brand-dark">{index + 1}</span>
+                            <span>{step}</span>
+                        </li>
+                    ))}
+                </ol>
+            </header>
 
             {checkingPermission && (
-                <div className="bg-glacier border border-blue-300 text-ink px-4 py-3 rounded mb-4">
+                <div className="mb-4 rounded-xl border border-brand/25 bg-glacier px-4 py-3 text-sm text-ink">
                     Verifying your election creation permission...
                 </div>
             )}
 
             {error && (
-                <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded mb-4">
+                <div className="mb-4 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     {error}
                 </div>
             )}
 
             {success && (
-                <div className="bg-sage-soft border border-green-400 text-sage px-4 py-3 rounded mb-4">
+                <div className="mb-4 rounded-xl border border-sage/25 bg-sage-soft px-4 py-3 text-sm text-sage">
                     {success}
                 </div>
             )}
 
-            <form onSubmit={handleSubmit} className="space-y-6">
+            <form onSubmit={handleSubmit} className="space-y-5 sm:space-y-6">
                 {/* Basic Election Information */}
-                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Basic Information</h2>
+                <section className="surface-card p-4 sm:p-6">
+                    <div className="mb-5">
+                        <p className="section-kicker">Step 1</p>
+                        <h2 className="mt-1 font-display text-2xl font-bold text-deep">Basics</h2>
+                    </div>
 
                     <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-2">
+                        <label className="mb-2 block text-sm font-semibold text-ink">
                             Election Title <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -753,32 +770,33 @@ const CreateElection = () => {
                             name="electionTitle"
                             value={form.electionTitle}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"
+                            className="input-field"
                             required
                         />
                     </div>
 
                     <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-2">
+                        <label className="mb-2 block text-sm font-semibold text-ink">
                             Election Description
                         </label>
                         <textarea
                             name="electionDescription"
                             value={form.electionDescription}
                             onChange={handleChange}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand h-24"
+                            className="input-field h-28 resize-y"
                         />
                     </div>
 
-                    <div className="rounded-md border border-brand/20 bg-glacier p-3 text-sm text-ink">
+                    <div className="rounded-xl border border-brand/20 bg-glacier/75 p-3 text-sm text-ink">
                         Election start and end time are set later, after key ceremony completion.
                     </div>
-                </div>
+                </section>
 
                 {/* Co-Administrators */}
-                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-semibold mb-2 text-gray-700">Co-Administrators</h2>
-                    <p className="text-sm text-gray-600 mb-4">
+                <section className="surface-card p-4 sm:p-6">
+                    <p className="section-kicker">Administration</p>
+                    <h2 className="mt-1 font-display text-2xl font-bold text-deep">Co-administrators</h2>
+                    <p className="mb-4 mt-2 text-sm text-slate-600">
                         Optionally add co-admins who can manage this election with the same permissions as you.
                         Co-admin assignments are permanent once the election is created.
                     </p>
@@ -790,16 +808,19 @@ const CreateElection = () => {
                         emptyMessage="No co-admin emails added yet"
                         entityLabel="co-admin"
                     />
-                </div>
+                </section>
 
                 {/* Election Privacy Settings */}
-                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Privacy Settings</h2>
+                <section className="surface-card p-4 sm:p-6">
+                    <div className="mb-5">
+                        <p className="section-kicker">Step 2</p>
+                        <h2 className="mt-1 font-display text-2xl font-bold text-deep">Privacy & eligibility</h2>
+                    </div>
 
                     <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-2">Election Privacy</label>
+                        <label className="mb-3 block text-sm font-semibold text-ink">Election privacy</label>
                         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                            <label className="inline-flex items-center">
+                            <label className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-frost px-3 text-sm font-medium text-ink">
                                 <input
                                     type="radio"
                                     name="electionPrivacy"
@@ -808,10 +829,10 @@ const CreateElection = () => {
                                     onChange={handleChange}
                                     className="form-radio h-5 w-5 text-brand"
                                 />
-                                <span className="ml-2 text-gray-700">Public</span>
+                                <span className="ml-2">Public</span>
                             </label>
 
-                            <label className="inline-flex items-center">
+                            <label className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-frost px-3 text-sm font-medium text-ink">
                                 <input
                                     type="radio"
                                     name="electionPrivacy"
@@ -820,15 +841,15 @@ const CreateElection = () => {
                                     onChange={handleChange}
                                     className="form-radio h-5 w-5 text-brand"
                                 />
-                                <span className="ml-2 text-gray-700">Private</span>
+                                <span className="ml-2">Private</span>
                             </label>
                         </div>
                     </div>
 
                     <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-2">Voter Eligibility</label>
+                        <label className="mb-3 block text-sm font-semibold text-ink">Voter eligibility</label>
                         <div className="flex flex-col sm:flex-row gap-3 sm:gap-4">
-                            <label className="inline-flex items-center">
+                            <label className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-frost px-3 text-sm font-medium text-ink">
                                 <input
                                     type="radio"
                                     name="electionEligibility"
@@ -837,10 +858,10 @@ const CreateElection = () => {
                                     onChange={handleChange}
                                     className="form-radio h-5 w-5 text-brand"
                                 />
-                                <span className="ml-2 text-gray-700">Listed Voters Only</span>
+                                <span className="ml-2">Listed voters only</span>
                             </label>
 
-                            <label className="inline-flex items-center">
+                            <label className="flex min-h-11 items-center rounded-xl border border-slate-200 bg-frost px-3 text-sm font-medium text-ink">
                                 <input
                                     type="radio"
                                     name="electionEligibility"
@@ -849,13 +870,13 @@ const CreateElection = () => {
                                     onChange={handleChange}
                                     className="form-radio h-5 w-5 text-brand"
                                 />
-                                <span className="ml-2 text-gray-700">Anyone Can Vote</span>
+                                <span className="ml-2">Anyone can vote</span>
                             </label>
                         </div>
                     </div>
 
                     <div className="mb-4">
-                        <label className="inline-flex items-start gap-2 cursor-pointer">
+                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-slate-200 bg-frost p-3">
                             <input
                                 type="checkbox"
                                 name="sendBallotReceipt"
@@ -864,8 +885,8 @@ const CreateElection = () => {
                                 className="form-checkbox h-5 w-5 text-brand mt-0.5"
                             />
                             <span>
-                                <span className="block text-gray-700 font-medium">Send ballot receipts by email</span>
-                                <span className="block text-sm text-gray-600 mt-1">
+                                <span className="block text-sm font-semibold text-ink">Send ballot receipts by email</span>
+                                <span className="mt-1 block text-sm text-slate-600">
                                     When enabled, voters receive an email receipt after casting their ballot. Admins and co-admins can change this later on the election page.
                                 </span>
                             </span>
@@ -874,7 +895,7 @@ const CreateElection = () => {
 
                     {(form.electionPrivacy === "private" || form.electionEligibility === "listed") && (
                         <div className="mb-4">
-                            <label className="block text-gray-700 font-medium mb-3">
+                            <label className="mb-3 block text-sm font-semibold text-ink">
                                 Voter Emails
                                 {form.electionPrivacy === "private" && <span className="text-red-500">*</span>}
                             </label>
@@ -886,14 +907,18 @@ const CreateElection = () => {
                             />
                         </div>
                     )}
-                </div>
+                </section>
 
                 {/* Guardian Settings */}
-                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
-                    <h2 className="text-xl font-semibold mb-4 text-gray-700">Guardian Settings</h2>
+                <section className="surface-card p-4 sm:p-6">
+                    <div className="mb-5">
+                        <p className="section-kicker">Step 3</p>
+                        <h2 className="mt-1 font-display text-2xl font-bold text-deep">Guardians</h2>
+                        <p className="mt-2 text-sm text-slate-600">Set the key holders and the threshold required to decrypt election results.</p>
+                    </div>
 
                     <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-2">
+                        <label className="mb-2 block text-sm font-semibold text-ink">
                             Number of Guardians <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -903,16 +928,16 @@ const CreateElection = () => {
                             onChange={handleChange}
                             min="1"
                             max="20"
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"
+                            className="input-field"
                             placeholder="Enter number of guardians (1-20)"
                         />
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="mt-1 text-sm text-slate-600">
                             Choose any number of guardians between 1 and 20. More guardians provide better security through distributed key management.
                         </p>
                     </div>
 
                     <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-2">
+                        <label className="mb-2 block text-sm font-semibold text-ink">
                             Quorum Threshold <span className="text-red-500">*</span>
                         </label>
                         <input
@@ -922,10 +947,10 @@ const CreateElection = () => {
                             onChange={handleChange}
                             min="1"
                             max={form.guardianNumber}
-                            className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"
+                            className="input-field"
                             placeholder={form.guardianNumber ? `Enter quorum (1-${form.guardianNumber})` : 'Set guardian count first'}
                         />
-                        <p className="text-sm text-gray-600 mt-1">
+                        <p className="mt-1 text-sm text-slate-600">
                             Minimum number of guardians needed to decrypt the election results (must be ≤ {form.guardianNumber || 0}).
                             Default is set to more than half ({form.guardianNumber ? Math.floor(parseInt(form.guardianNumber) / 2) + 1 : 0}). 
                             This enables fault tolerance - if some guardians are unavailable, the election can still be decrypted.
@@ -937,16 +962,16 @@ const CreateElection = () => {
 
                             if (quorumCount > guardianCount && guardianCount > 0) {
                                 return (
-                                    <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded text-sm text-red-700">
-                                        ⚠️ Quorum cannot be greater than the number of guardians ({guardianCount})
+                                    <div className="mt-2 rounded-xl border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+                                        Quorum cannot be greater than the number of guardians ({guardianCount})
                                     </div>
                                 );
                             }
 
                             if (quorumCount <= 0 && guardianCount > 0) {
                                 return (
-                                    <div className="mt-2 p-2 bg-yellow-50 border border-yellow-200 rounded text-sm text-yellow-700">
-                                        ⚠️ Quorum must be at least 1
+                                    <div className="mt-2 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                                        Quorum must be at least 1
                                     </div>
                                 );
                             }
@@ -954,8 +979,8 @@ const CreateElection = () => {
                             if (quorumCount > 0 && guardianCount > 0 && quorumCount <= guardianCount) {
                                 const isDefault = quorumCount === Math.floor(guardianCount / 2) + 1;
                                 return (
-                                    <div className="mt-2 p-2 bg-sage-soft border border-green-200 rounded text-sm text-sage">
-                                        ✓ Valid quorum: {quorumCount} out of {guardianCount} guardians required
+                                    <div className="mt-2 rounded-xl border border-sage/25 bg-sage-soft p-3 text-sm text-sage">
+                                        Valid quorum: {quorumCount} out of {guardianCount} guardians required
                                         {isDefault && ' (default recommended value)'}
                                     </div>
                                 );
@@ -966,20 +991,20 @@ const CreateElection = () => {
                     </div>
 
                     <div className="mb-4">
-                        <label className="block text-gray-700 font-medium mb-2">
+                        <label className="mb-2 block text-sm font-semibold text-ink">
                             Guardian Emails <span className="text-red-500">*</span>
                         </label>
 
                         {/* File Upload for Guardian Emails */}
-                        <div className="mb-3 p-4 bg-glacier border border-brand/20 rounded-md">
+                        <div className="mb-3 rounded-xl border border-brand/20 bg-glacier/70 p-4">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
                                 <div>
-                                    <p className="text-sm font-medium text-gray-700">Upload Guardian Emails (CSV/TXT)</p>
-                                    <p className="text-xs text-gray-600 mt-1">
+                                    <p className="text-sm font-semibold text-ink">Upload guardian emails (CSV/TXT)</p>
+                                    <p className="mt-1 text-xs text-slate-600">
                                         Upload a file with one email per line or comma-separated. This will automatically set the guardian count and quorum.
                                     </p>
                                 </div>
-                                <label className="cursor-pointer inline-flex items-center justify-center w-full sm:w-auto bg-brand hover:bg-brand-dark text-white px-4 py-2 rounded-md text-sm font-medium transition-colors">
+                                <label className="btn-brand w-full cursor-pointer sm:w-auto">
                                     Choose File
                                     <input
                                         type="file"
@@ -989,14 +1014,14 @@ const CreateElection = () => {
                                     />
                                 </label>
                             </div>
-                            <div className="text-xs text-gray-500 mt-2">
+                            <div className="mt-2 text-xs text-slate-500">
                                 Supported formats: .txt, .csv (max 20 guardians)
                             </div>
                         </div>
 
                         {/* Manual Email Input */}
                         <div className="mb-2">
-                            <p className="text-sm font-medium text-gray-700 mb-2">Or add emails manually:</p>
+                            <p className="mb-2 text-sm font-semibold text-ink">Or add emails manually</p>
                             <div className="relative">
                                 <input
                                     type="text"
@@ -1015,52 +1040,53 @@ const CreateElection = () => {
                                         }
                                     }}
                                     placeholder="Type email address (e.g., user@gmail.com)..."
-                                    className="w-full px-3 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-brand"
+                                    className="input-field"
                                 />
 
                                 {emailSuggestions.length > 0 && renderEmailSuggestions()}
                             </div>
                         </div>
 
-                        <div className="border border-gray-300 rounded-md p-3 min-h-[100px]">
+                        <div className="min-h-[100px] rounded-xl border border-slate-200 bg-frost/60 p-3">
                             <div className="flex flex-wrap">
                                 {form.guardianEmails.length > 0 ? (
                                     form.guardianEmails.map(email => renderEmailTag(email, removeGuardianEmail))
                                 ) : (
-                                    <span className="text-gray-500">No guardian emails added yet</span>
+                                    <span className="text-sm text-slate-500">No guardian emails added yet</span>
                                 )}
                             </div>
                         </div>
 
-                        <div className="mt-2 text-sm text-gray-600">
+                        <div className="mt-2 text-sm text-slate-600">
                             <div>{form.guardianEmails.length} of {form.guardianNumber || 0} guardians added</div>
-                            <div className="text-xs mt-1">💡 Tip: Upload a file for bulk import or press Enter to add email manually</div>
+                            <div className="mt-1 text-xs">Upload a file for bulk import or press Enter to add an email manually.</div>
                         </div>
                     </div>
-                </div>
+                </section>
 
                 {/* Candidate Information */}
-                <div className="bg-white p-4 sm:p-6 rounded-lg shadow-md">
+                <section className="surface-card p-4 sm:p-6">
                     <div className="mb-5">
-                        <h2 className="text-xl font-semibold text-gray-700">Candidates</h2>
-                        <p className="text-sm text-gray-500 mt-1">
+                        <p className="section-kicker">Step 4</p>
+                        <h2 className="mt-1 font-display text-2xl font-bold text-deep">Candidates</h2>
+                        <p className="mt-2 text-sm text-slate-600">
                             Set how many candidates voters can choose from, then enter each name below. Photos are optional.
                         </p>
                     </div>
 
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
                         <div>
-                            <label className="block text-gray-700 font-medium mb-2">
+                            <label className="mb-2 block text-sm font-semibold text-ink">
                                 Total Candidates <span className="text-red-500">*</span>
                             </label>
                             <input
                                 type="number"
                                 value={form.totalCandidates}
                                 onChange={handleTotalCandidatesChange}
-                                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                                className={`input-field ${
                                     isTotalCandidatesInvalid(form.totalCandidates)
                                         ? "border-red-500 bg-red-50 focus:ring-red-500"
-                                        : "border-gray-300 focus:ring-brand"
+                                        : ""
                                 }`}
                             />
                             {isTotalCandidatesInvalid(form.totalCandidates) && (
@@ -1070,7 +1096,7 @@ const CreateElection = () => {
                             )}
                         </div>
                         <div>
-                            <label className="block text-gray-700 font-medium mb-2">
+                            <label className="mb-2 block text-sm font-semibold text-ink">
                                 Max Choices <span className="text-red-500">*</span>
                             </label>
                             <input
@@ -1078,10 +1104,10 @@ const CreateElection = () => {
                                 name="maxChoices"
                                 value={form.maxChoices}
                                 onChange={handleChange}
-                                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                                className={`input-field ${
                                     isMaxChoicesInvalid(form.maxChoices, form.totalCandidates)
                                         ? "border-red-500 bg-red-50 focus:ring-red-500"
-                                        : "border-gray-300 focus:ring-brand"
+                                        : ""
                                 }`}
                             />
                             {isMaxChoicesInvalid(form.maxChoices, form.totalCandidates) && (
@@ -1096,7 +1122,7 @@ const CreateElection = () => {
                             )}
                         </div>
                         <div>
-                            <label className="block text-gray-700 font-medium mb-2">
+                            <label className="mb-2 block text-sm font-semibold text-ink">
                                 Number of Winners <span className="text-red-500">*</span>
                             </label>
                             <input
@@ -1104,10 +1130,10 @@ const CreateElection = () => {
                                 name="winnerNo"
                                 value={form.winnerNo}
                                 onChange={handleChange}
-                                className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                                className={`input-field ${
                                     isMaxChoicesInvalid(form.winnerNo, form.totalCandidates)
                                         ? "border-red-500 bg-red-50 focus:ring-red-500"
-                                        : "border-gray-300 focus:ring-brand"
+                                        : ""
                                 }`}
                             />
                             {isMaxChoicesInvalid(form.winnerNo, form.totalCandidates) && (
@@ -1127,7 +1153,7 @@ const CreateElection = () => {
                         <button
                             type="button"
                             onClick={() => candidateFileInputRef.current?.click()}
-                            className="inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-brand/20 bg-glacier text-brand-dark text-sm font-medium hover:bg-glacier"
+                            className="btn-ghost border-brand/20 bg-glacier/70 text-brand-dark"
                         >
                             <FiUpload className="h-4 w-4" />
                             Import Names (CSV/TXT)
@@ -1139,7 +1165,7 @@ const CreateElection = () => {
                             onChange={handleCandidateFileUpload}
                             className="hidden"
                         />
-                        <span className="text-xs text-gray-500">One candidate name per line or comma-separated</span>
+                        <span className="text-xs text-slate-500">One candidate name per line or comma-separated</span>
                     </div>
 
                     <div className="space-y-3 mb-5">
@@ -1147,20 +1173,20 @@ const CreateElection = () => {
                             const candidateValidation = getCandidateNameValidation(index, name);
                             const isNameBlank = !name || !name.trim();
                             return (
-                                <div key={index} className="flex items-start gap-3 rounded-lg border border-gray-200 bg-gray-50 p-3">
-                                    <span className="mt-2 text-xs font-semibold text-gray-500 w-6">{index + 1}.</span>
+                                <div key={index} className="flex items-start gap-3 rounded-xl border border-slate-200 bg-frost/60 p-3">
+                                    <span className="mt-3 w-6 text-xs font-semibold text-slate-500">{index + 1}.</span>
                                     <div className="flex-1 min-w-0">
                                         <input
                                             type="text"
                                             value={name}
                                             placeholder={`Candidate ${index + 1} name`}
                                             onChange={(e) => handleCandidateChange(index, 'candidateNames', e.target.value)}
-                                            className={`w-full px-3 py-2 border rounded-md focus:outline-none focus:ring-2 ${
+                                            className={`input-field ${
                                                 !candidateValidation.isValid
                                                     ? 'border-red-500 bg-red-50 focus:ring-red-500'
                                                     : isNameBlank
                                                     ? 'border-red-500 bg-red-50 focus:ring-red-500'
-                                                    : 'border-gray-300 bg-white focus:ring-brand'
+                                                    : 'bg-white'
                                             }`}
                                         />
                                         {!candidateValidation.isValid && (
@@ -1184,7 +1210,7 @@ const CreateElection = () => {
                                         <button
                                             type="button"
                                             onClick={() => removeCandidate(index)}
-                                            className="mt-1 text-xs text-red-500 hover:text-red-700"
+                                            className="mt-1 min-h-9 rounded-lg px-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700"
                                         >
                                             Remove
                                         </button>
@@ -1195,8 +1221,8 @@ const CreateElection = () => {
                     </div>
 
                     {form.candidateNames.some((name) => name.trim()) && (
-                        <div className="rounded-xl border border-slate-200 bg-slate-50 p-4">
-                            <h3 className="text-sm font-semibold text-slate-800 mb-3">Added Candidates</h3>
+                        <div className="rounded-xl border border-slate-200 bg-frost/70 p-4">
+                            <h3 className="mb-3 text-sm font-semibold text-ink">Added candidates</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {form.candidateNames
                                     .map((name, index) => ({ name, index, image: candidateImages[index] }))
@@ -1230,13 +1256,19 @@ const CreateElection = () => {
                             )}
                         </div>
                     )}
-                </div>
+                </section>
 
-                <div className="flex flex-col-reverse sm:flex-row gap-3 sm:justify-between">
+                <section className="surface-card p-4 sm:p-6">
+                    <div className="mb-4">
+                        <p className="section-kicker">Step 5</p>
+                        <h2 className="mt-1 font-display text-2xl font-bold text-deep">Review & submit</h2>
+                        <p className="mt-2 text-sm text-slate-600">Confirm the election details in the next step before creating it.</p>
+                    </div>
+                <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-between">
                     <button
                         type="button"
                         onClick={() => navigate(-1)}
-                        className="w-full sm:w-auto px-6 py-3 bg-gray-500 text-white rounded-md hover:bg-gray-600"
+                        className="btn-ghost w-full sm:w-auto"
                     >
                         Cancel
                     </button>
@@ -1244,65 +1276,64 @@ const CreateElection = () => {
                     <button
                         type="submit"
                         disabled={!isFormReadyForSubmit()}
-                        className={`w-full sm:w-auto px-6 py-3 text-white rounded-md ${!isFormReadyForSubmit()
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-brand hover:bg-brand'
-                            }`}
+                        className="btn-brand w-full sm:w-auto"
                     >
                         {isSubmitting ? 'Creating...' : 'Create Election'}
                     </button>
                 </div>
+                </section>
             </form>
 
             {showConfirmModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-                    <div className="max-h-[90vh] w-full max-w-2xl overflow-y-auto rounded-2xl bg-white shadow-2xl">
-                        <div className="border-b border-gray-200 px-6 py-4">
-                            <h2 className="text-xl font-bold text-gray-900">Confirm Election Details</h2>
-                            <p className="text-sm text-gray-600 mt-1">Review everything before creating this election.</p>
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-deep/65 p-4 backdrop-blur-sm">
+                    <div className="glass-panel max-h-[90vh] w-full max-w-2xl overflow-y-auto">
+                        <div className="border-b border-slate-200/80 px-5 py-5 sm:px-6">
+                            <p className="section-kicker">Final review</p>
+                            <h2 className="mt-1 font-display text-2xl font-bold text-deep">Confirm election details</h2>
+                            <p className="mt-1 text-sm text-slate-600">Review everything before creating this election.</p>
                         </div>
-                        <div className="px-6 py-5 space-y-5 text-sm">
-                            <section>
-                                <h3 className="font-semibold text-gray-900 mb-2">Basic Information</h3>
+                        <div className="space-y-4 px-5 py-5 text-sm sm:px-6">
+                            <section className="rounded-xl border border-slate-200 bg-white/60 p-4">
+                                <h3 className="mb-2 font-semibold text-ink">Basic information</h3>
                                 <p><span className="font-medium">Title:</span> {form.electionTitle}</p>
                                 <p><span className="font-medium">Description:</span> {form.electionDescription || '—'}</p>
                             </section>
-                            <section>
-                                <h3 className="font-semibold text-gray-900 mb-2">Settings</h3>
+                            <section className="rounded-xl border border-slate-200 bg-white/60 p-4">
+                                <h3 className="mb-2 font-semibold text-ink">Settings</h3>
                                 <p><span className="font-medium">Privacy:</span> {form.electionPrivacy}</p>
                                 <p><span className="font-medium">Eligibility:</span> {form.electionEligibility}</p>
                                 <p><span className="font-medium">Max choices:</span> {form.maxChoices}</p>
                                 <p><span className="font-medium">Winners:</span> Top {form.winnerNo || form.maxChoices}</p>
                                 <p><span className="font-medium">Ballot receipts:</span> {form.sendBallotReceipt ? 'Enabled' : 'Disabled'}</p>
                             </section>
-                            <section>
-                                <h3 className="font-semibold text-gray-900 mb-2">Co-Admins ({form.coAdminEmails.length})</h3>
-                                <p className="text-gray-700">{form.coAdminEmails.length ? form.coAdminEmails.join(', ') : 'None'}</p>
+                            <section className="rounded-xl border border-slate-200 bg-white/60 p-4">
+                                <h3 className="mb-2 font-semibold text-ink">Co-admins ({form.coAdminEmails.length})</h3>
+                                <p className="text-slate-700">{form.coAdminEmails.length ? form.coAdminEmails.join(', ') : 'None'}</p>
                             </section>
-                            <section>
-                                <h3 className="font-semibold text-gray-900 mb-2">Voters ({form.voterEmails.length})</h3>
-                                <p className="text-gray-700 break-words">{form.voterEmails.length ? form.voterEmails.join(', ') : 'None / open eligibility'}</p>
+                            <section className="rounded-xl border border-slate-200 bg-white/60 p-4">
+                                <h3 className="mb-2 font-semibold text-ink">Voters ({form.voterEmails.length})</h3>
+                                <p className="break-words text-slate-700">{form.voterEmails.length ? form.voterEmails.join(', ') : 'None / open eligibility'}</p>
                             </section>
-                            <section>
-                                <h3 className="font-semibold text-gray-900 mb-2">Guardians ({form.guardianEmails.length})</h3>
+                            <section className="rounded-xl border border-slate-200 bg-white/60 p-4">
+                                <h3 className="mb-2 font-semibold text-ink">Guardians ({form.guardianEmails.length})</h3>
                                 <p><span className="font-medium">Count / Quorum:</span> {form.guardianNumber} / {form.quorumNumber}</p>
-                                <p className="text-gray-700 break-words mt-1">{form.guardianEmails.join(', ')}</p>
+                                <p className="mt-1 break-words text-slate-700">{form.guardianEmails.join(', ')}</p>
                             </section>
-                            <section>
-                                <h3 className="font-semibold text-gray-900 mb-2">Candidates ({form.candidateNames.filter(n => n.trim()).length})</h3>
-                                <ol className="list-decimal list-inside text-gray-700 space-y-1">
+                            <section className="rounded-xl border border-slate-200 bg-white/60 p-4">
+                                <h3 className="mb-2 font-semibold text-ink">Candidates ({form.candidateNames.filter(n => n.trim()).length})</h3>
+                                <ol className="list-inside list-decimal space-y-1 text-slate-700">
                                     {form.candidateNames.filter(n => n.trim()).map((name) => (
                                         <li key={name}>{name}</li>
                                     ))}
                                 </ol>
                             </section>
                         </div>
-                        <div className="flex flex-col-reverse sm:flex-row justify-end gap-3 border-t border-gray-200 px-6 py-4">
+                        <div className="flex flex-col-reverse justify-end gap-3 border-t border-slate-200/80 px-5 py-4 sm:flex-row sm:px-6">
                             <button
                                 type="button"
                                 onClick={() => setShowConfirmModal(false)}
                                 disabled={isSubmitting}
-                                className="px-5 py-2.5 rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50"
+                                className="btn-ghost"
                             >
                                 Go Back
                             </button>
@@ -1310,7 +1341,7 @@ const CreateElection = () => {
                                 type="button"
                                 onClick={confirmCreateElection}
                                 disabled={isSubmitting}
-                                className="px-5 py-2.5 rounded-lg bg-brand text-white hover:bg-brand-dark disabled:opacity-50"
+                                className="btn-brand"
                             >
                                 {isSubmitting ? 'Creating...' : 'Confirm & Create Election'}
                             </button>

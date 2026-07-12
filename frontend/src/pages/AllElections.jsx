@@ -31,27 +31,27 @@ import { FiCalendar, FiClock, FiUsers, FiInfo, FiLoader, FiTrash2 } from "react-
 
 // Skeleton component for loading states
 const ElectionCardSkeleton = () => (
-  <div className="p-6 border-b border-gray-200 animate-pulse">
+  <div className="surface-card animate-pulse p-6">
     <div className="flex items-start justify-between">
       <div className="flex-1">
-        <div className="h-6 bg-gray-300 rounded w-2/3 mb-2"></div>
-        <div className="h-4 bg-gray-200 rounded w-1/2 mb-3"></div>
+        <div className="mb-2 h-6 w-2/3 rounded-lg bg-glacier"></div>
+        <div className="mb-3 h-4 w-1/2 rounded-lg bg-frost"></div>
         <div className="flex gap-2 mb-3">
-          <div className="h-5 bg-gray-200 rounded w-16"></div>
-          <div className="h-5 bg-gray-200 rounded w-20"></div>
+          <div className="h-5 w-16 rounded-lg bg-frost"></div>
+          <div className="h-5 w-20 rounded-lg bg-frost"></div>
         </div>
         <div className="flex gap-4">
-          <div className="h-4 bg-gray-200 rounded w-24"></div>
-          <div className="h-4 bg-gray-200 rounded w-32"></div>
+          <div className="h-4 w-24 rounded-lg bg-frost"></div>
+          <div className="h-4 w-32 rounded-lg bg-frost"></div>
         </div>
       </div>
-      <div className="h-8 bg-gray-200 rounded w-24"></div>
+      <div className="h-10 w-24 rounded-xl bg-frost"></div>
     </div>
   </div>
 );
 
 // Memoized Election Card component for better performance
-const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getStatusColor }) => {
+const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getStatusColor, canUserVoteInElection }) => {
   const status = getElectionStatus(election);
   
   const handleClick = useCallback(() => {
@@ -65,32 +65,32 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
 
   return (
     <div
-      className="p-6 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+      className="surface-card-interactive cursor-pointer p-6"
       onClick={handleClick}
     >
-      <div className="flex items-start justify-between">
-        <div className="flex-1">
-          <div className="flex items-center">
-            <h3 className="text-lg font-medium text-gray-900">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-display text-lg font-semibold text-deep">
               {election.electionTitle}
             </h3>
             <span
-              className={`ml-3 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(status)}`}
+              className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${getStatusColor(status)}`}
             >
               {status.charAt(0).toUpperCase() + status.slice(1)}
             </span>
             <span
-              className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+              className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                 election.isPublic 
-                  ? 'bg-sage-soft text-emerald-800' 
-                  : 'bg-orange-100 text-orange-800'
+                  ? 'bg-sage-soft text-sage' 
+                  : 'bg-amber-100 text-amber-800'
               }`}
             >
               {election.isPublic ? 'Public' : 'Private'}
             </span>
           </div>
           
-          <p className="mt-1 text-sm text-gray-500">
+          <p className="mt-1.5 text-sm text-slate-600">
             {election.electionDescription}
           </p>
 
@@ -99,7 +99,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
             {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
               <span
                 key={role}
-                className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                   role === 'admin' ? 'bg-red-100 text-red-800' :
                   role === 'guardian' ? 'bg-glacier text-ink' :
                   'bg-glacier text-ink'
@@ -109,13 +109,13 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
               </span>
             ))}
             {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-              <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sage-soft text-emerald-800">
+              <span className="inline-flex items-center rounded-lg bg-sage-soft px-2.5 py-1 text-xs font-semibold text-sage">
                 {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
               </span>
             )}
           </div>
           
-          <div className="mt-4 flex items-center space-x-6 text-sm text-gray-500">
+          <div className="mt-4 flex flex-col gap-2 text-sm text-slate-600 sm:flex-row sm:flex-wrap sm:gap-x-6">
             <div className="flex items-center">
               <FiCalendar className="h-4 w-4 mr-1" />
               <span>
@@ -139,14 +139,14 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
           </div>
         </div>
         
-        <div className="flex-shrink-0 ml-4">
+        <div className="w-full sm:ml-4 sm:w-auto sm:flex-shrink-0">
           {status === "ongoing" && (
-            <button                          className={`inline-flex items-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+            <button                          className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold shadow-soft transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 sm:w-auto ${
                             election.hasVoted 
-                              ? 'text-gray-700 bg-gray-200 cursor-not-allowed'
+                              ? 'cursor-not-allowed bg-slate-100 text-slate-600'
                               : (canUserVoteInElection(election) 
                                   ? 'text-white bg-brand hover:bg-brand-dark focus:ring-brand' 
-                                  : 'text-gray-700 bg-gray-200 hover:bg-gray-300 focus:ring-gray-500')
+                                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-400')
                           }`}
                           onClick={handleActionClick}
                           disabled={election.hasVoted && canUserVoteInElection(election)}
@@ -157,7 +157,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
           )}
           {status === "upcoming" && (
             <button 
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand"
+              className="btn-ghost inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto"
               onClick={handleActionClick}
             >
               Set Reminder
@@ -165,7 +165,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
           )}
           {status === "completed" && (
             <button 
-              className="inline-flex items-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand"
+              className="btn-ghost inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto"
               onClick={handleActionClick}
             >
               View Results
@@ -184,7 +184,6 @@ const AllElections = () => {
   const [successMessage, setSuccessMessage] = useState("");
   const [filter, setFilter] = useState("all");
   const [displayLimit, setDisplayLimit] = useState(10);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
   const [electionToDelete, setElectionToDelete] = useState(null);
   const [deletingElectionId, setDeletingElectionId] = useState(null);
   const canDeleteElection = useCallback((election) => election.userRoles?.includes('admin'), []);
@@ -194,12 +193,6 @@ const AllElections = () => {
       setError(electionsError);
     }
   }, [electionsError]);
-
-  useEffect(() => {
-    if (!loading) {
-      setInitialLoadComplete(true);
-    }
-  }, [loading]);
 
   // Handle navigation to election page - memoized
   const handleElectionClick = useCallback((electionId) => {
@@ -221,13 +214,13 @@ const AllElections = () => {
   const getStatusColor = useCallback((status) => {
     switch (status) {
       case "upcoming":
-        return "bg-glacier text-ink";
+        return "bg-glacier text-brand-dark";
       case "ongoing":
-        return "bg-sage-soft text-emerald-800";
+        return "bg-sage-soft text-sage";
       case "completed":
-        return "bg-gray-100 text-gray-800";
+        return "bg-slate-100 text-slate-700";
       default:
-        return "bg-gray-100 text-gray-800";
+        return "bg-slate-100 text-slate-700";
     }
   }, []);
 
@@ -259,7 +252,7 @@ const AllElections = () => {
       await deleteElection(electionToDelete.electionId);
       setElections((prev) => prev.filter((e) => e.electionId !== electionToDelete.electionId));
       invalidateElectionsCache();
-      setSuccessMessage(`Election \"${electionToDelete.electionTitle}\" deleted successfully.`);
+      setSuccessMessage(`Election "${electionToDelete.electionTitle}" deleted successfully.`);
       setElectionToDelete(null);
     } catch (err) {
       setError(err.message || "Failed to delete election");
@@ -321,7 +314,7 @@ const AllElections = () => {
       filteredElections: filtered.slice(0, displayLimit),
       hasMore: filtered.length > displayLimit
     };
-  }, [elections, filter, displayLimit]);
+  }, [elections, filter, displayLimit, canUserVoteInElection]);
 
   // Function to load more elections
   const loadMoreElections = useCallback(() => {
@@ -347,13 +340,13 @@ const AllElections = () => {
       admin: elections.filter(e => e.userRoles?.includes('admin')).length,
       guardian: elections.filter(e => e.userRoles?.includes('guardian')).length,
     };
-  }, [elections]);
+  }, [elections, canUserVoteInElection]);
 
   if (loading) {
     return (
-      <div className="space-y-6">
-        <div className="bg-white shadow rounded-lg">
-          <div className="px-6 py-4 border-b border-gray-200">
+      <div className="space-y-6 page-enter">
+        <div className="surface-card overflow-hidden">
+          <div className="border-b border-glacier px-6 py-5">
             <div className="animate-pulse">
               <div className="h-8 bg-gray-300 rounded w-1/4 mb-2"></div>
               <div className="h-4 bg-gray-200 rounded w-1/2"></div>
@@ -371,8 +364,8 @@ const AllElections = () => {
         </div>
 
         {/* Elections List Skeleton */}
-        <div className="bg-white shadow rounded-lg">
-          <div className="divide-y divide-gray-200">
+        <div className="surface-card overflow-hidden">
+          <div className="space-y-3 p-3">
             {[...Array(5)].map((_, i) => (
               <ElectionCardSkeleton key={i} />
             ))}
@@ -415,18 +408,19 @@ const AllElections = () => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       {/* Header */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="px-4 sm:px-6 py-4 border-b border-gray-200">
-          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">All Elections</h1>
-          <p className="mt-1 text-sm text-gray-500">
+      <div className="surface-card overflow-hidden">
+        <div className="border-b border-glacier px-4 py-5 sm:px-6 sm:py-6">
+          <p className="section-kicker">Election directory</p>
+          <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-deep sm:text-3xl">All Elections</h1>
+          <p className="mt-2 text-sm text-slate-600">
             View and participate in all elections you have access to
           </p>
         </div>
         
         {/* Filter tabs */}
-        <div className="px-4 sm:px-6 py-4">
+        <div className="bg-frost/50 px-4 py-4 sm:px-6">
           <div className="flex gap-2 overflow-x-auto pb-1 scrollbar-hide">
             {[
               { key: "all", label: "All Elections", count: tabCounts.all },
@@ -442,14 +436,14 @@ const AllElections = () => {
               <button
                 key={tab.key}
                 onClick={() => setFilter(tab.key)}
-                className={`whitespace-nowrap px-3 sm:px-4 py-2 rounded-md text-xs sm:text-sm font-medium transition-colors ${
+                className={`whitespace-nowrap rounded-xl px-3 py-2.5 text-xs font-semibold transition-colors sm:px-4 sm:text-sm ${
                   filter === tab.key
-                    ? "bg-brand text-white"
-                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                    ? "bg-deep text-white shadow-soft"
+                    : "bg-white text-slate-700 ring-1 ring-glacier hover:bg-glacier/50"
                 }`}
               >
                 {tab.label}
-                <span className="ml-2 bg-white bg-opacity-20 text-current py-0.5 px-2 rounded-full text-xs">
+                <span className="ml-2 rounded-lg bg-white/20 px-2 py-0.5 text-xs text-current">
                   {tab.count}
                 </span>
               </button>
@@ -459,31 +453,30 @@ const AllElections = () => {
       </div>
 
       {successMessage && (
-        <div className="bg-sage-soft border border-green-200 rounded-lg p-4 text-sm text-sage">
+        <div className="rounded-xl border border-sage/30 bg-sage-soft p-4 text-sm font-medium text-sage shadow-soft">
           {successMessage}
         </div>
       )}
 
       {/* Elections List */}
-      <div className="bg-white shadow rounded-lg">
-        <div className="divide-y divide-gray-200">
+      <div className="space-y-3">
           {filteredElections.length > 0 ? (
             filteredElections.map((election) => {
               const status = getElectionStatus(election);
               return (
                 <div
                   key={election.electionId}
-                  className="p-6 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                  className="surface-card-interactive cursor-pointer p-5 sm:p-6"
                   onClick={() => handleElectionClick(election.electionId)}
                 >
                   <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="text-base sm:text-lg font-medium text-gray-900 break-words">
+                        <h3 className="font-display text-lg font-semibold text-deep break-words sm:text-xl">
                           {election.electionTitle}
                         </h3>
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${getStatusColor(
+                          className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${getStatusColor(
                             status
                           )}`}
                         >
@@ -491,17 +484,17 @@ const AllElections = () => {
                         </span>
                         {/* Public/Private Indicator */}
                         <span
-                          className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                             election.isPublic 
-                              ? 'bg-sage-soft text-emerald-800' 
-                              : 'bg-orange-100 text-orange-800'
+                              ? 'bg-sage-soft text-sage' 
+                              : 'bg-amber-100 text-amber-800'
                           }`}
                         >
                           {election.isPublic ? 'Public' : 'Private'}
                         </span>
                       </div>
                       
-                      <p className="mt-1 text-sm text-gray-500">
+                      <p className="mt-2 text-sm leading-relaxed text-slate-600">
                         {election.electionDescription}
                       </p>
 
@@ -510,7 +503,7 @@ const AllElections = () => {
                         {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
                           <span
                             key={role}
-                            className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                            className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                               role === 'admin' ? 'bg-red-100 text-red-800' :
                               role === 'guardian' ? 'bg-glacier text-ink' :
                               'bg-glacier text-ink'
@@ -521,13 +514,13 @@ const AllElections = () => {
                         ))}
                         {/* Show eligible voter status */}
                         {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-                          <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-sage-soft text-emerald-800">
+                          <span className="inline-flex items-center rounded-lg bg-sage-soft px-2.5 py-1 text-xs font-semibold text-sage">
                             {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
                           </span>
                         )}
                       </div>
                       
-                      <div className="mt-4 flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6 text-sm text-gray-500">
+                      <div className="mt-5 flex flex-col gap-2 border-t border-glacier pt-4 text-sm text-slate-600 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-6">
                         <div className="flex items-center">
                           <FiCalendar className="h-4 w-4 mr-1" />
                           <span>
@@ -546,7 +539,7 @@ const AllElections = () => {
                         </div>
                       </div>
                       
-                      <div className="mt-2 text-xs text-gray-400">
+                      <div className="mt-3 text-xs font-medium text-slate-500">
                         Admin: {election.adminName ? `${election.adminName} (${election.adminEmail})` : election.adminEmail}
                       </div>
                     </div>
@@ -554,7 +547,7 @@ const AllElections = () => {
                     <div className="w-full sm:w-auto sm:flex-shrink-0 sm:ml-4 flex flex-col gap-2">
                       {canDeleteElection(election) && (
                         <button
-                          className="w-full inline-flex items-center justify-center gap-2 px-4 py-2 border border-red-300 shadow-sm text-sm font-medium rounded-md text-red-700 bg-white hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-red-200 bg-white px-4 py-2.5 text-sm font-semibold text-red-700 shadow-soft transition-colors hover:bg-red-50 focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
                           onClick={(e) => handleRequestDelete(election, e)}
                           disabled={deletingElectionId === election.electionId}
                         >
@@ -565,12 +558,12 @@ const AllElections = () => {
 
                       {status === "ongoing" && (
                         <button 
-                          className={`w-full inline-flex items-center justify-center px-4 py-2 border border-transparent text-sm font-medium rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${
+                          className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold shadow-soft transition-colors focus:outline-none focus:ring-2 focus:ring-offset-2 ${
                             election.hasVoted 
-                              ? 'text-gray-700 bg-gray-200 cursor-not-allowed'
+                              ? 'cursor-not-allowed bg-slate-100 text-slate-600'
                               : (canUserVoteInElection(election) 
                                   ? 'text-white bg-brand hover:bg-brand-dark focus:ring-brand' 
-                                  : 'text-gray-700 bg-gray-200 hover:bg-gray-300 focus:ring-gray-500')
+                                  : 'bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-400')
                           }`}
                           onClick={(e) => {
                             e.stopPropagation();
@@ -585,7 +578,7 @@ const AllElections = () => {
                       )}
                       {status === "upcoming" && (
                         <button 
-                          className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand"
+                          className="btn-ghost inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold"
                           onClick={(e) => {
                             e.stopPropagation();
                             // Set reminder functionality can be added here
@@ -596,7 +589,7 @@ const AllElections = () => {
                       )}
                       {status === "completed" && (
                         <button 
-                          className="w-full inline-flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand"
+                          className="btn-ghost inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold"
                           onClick={(e) => {
                             e.stopPropagation();
                             handleElectionClick(election.electionId);
@@ -611,26 +604,25 @@ const AllElections = () => {
               );
             })
           ) : (
-            <div className="p-12 text-center">
-              <FiCalendar className="mx-auto h-12 w-12 text-gray-400" />
-              <h3 className="mt-2 text-sm font-medium text-gray-900">
+            <div className="surface-card p-12 text-center">
+              <FiCalendar className="mx-auto h-12 w-12 text-brand" />
+              <h3 className="mt-3 font-display text-lg font-semibold text-deep">
                 No elections found
               </h3>
-              <p className="mt-1 text-sm text-gray-500">
+              <p className="mt-1 text-sm text-slate-600">
                 {filter === "all"
                   ? "You don't have access to any elections at the moment."
                   : `No ${filter} elections found.`}
               </p>
             </div>
           )}
-        </div>
         
         {/* Load More Button */}
         {hasMore && filteredElections.length > 0 && (
-          <div className="px-6 py-4 border-t border-gray-200">
+          <div className="surface-card px-6 py-4">
             <button
               onClick={loadMoreElections}
-              className="w-full flex items-center justify-center px-4 py-2 border border-gray-300 shadow-sm text-sm font-medium rounded-md text-gray-700 bg-white hover:bg-gray-50 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand transition-colors"
+              className="btn-ghost flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-semibold"
             >
               <FiLoader className="h-4 w-4 mr-2" />
               Load More Elections
@@ -641,23 +633,24 @@ const AllElections = () => {
 
       {electionToDelete && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
-          <div className="w-full max-w-md bg-white rounded-xl shadow-xl p-4 sm:p-6">
-            <h3 className="text-lg font-semibold text-gray-900">Delete Election</h3>
-            <p className="mt-2 text-sm text-gray-600">
+          <div className="glass-panel w-full max-w-md rounded-2xl p-5 shadow-lift sm:p-6">
+            <p className="section-kicker text-red-600">Permanent action</p>
+            <h3 className="mt-1 font-display text-xl font-semibold text-deep">Delete Election</h3>
+            <p className="mt-3 text-sm leading-relaxed text-slate-600">
               Are you sure you want to permanently delete "{electionToDelete.electionTitle}"?
               This action cannot be undone.
             </p>
             <div className="mt-6 flex flex-col-reverse sm:flex-row sm:justify-end gap-3">
               <button
                 onClick={() => setElectionToDelete(null)}
-                className="w-full sm:w-auto px-4 py-2 rounded-md border border-gray-300 text-gray-700 hover:bg-gray-50"
+                className="btn-ghost w-full rounded-xl px-4 py-2.5 text-sm font-semibold sm:w-auto"
                 disabled={!!deletingElectionId}
               >
                 Cancel
               </button>
               <button
                 onClick={handleConfirmDelete}
-                className="w-full sm:w-auto px-4 py-2 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:opacity-60"
+                className="w-full rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-soft transition-colors hover:bg-red-700 disabled:opacity-60 sm:w-auto"
                 disabled={!!deletingElectionId}
               >
                 {deletingElectionId ? "Deleting..." : "Confirm Delete"}

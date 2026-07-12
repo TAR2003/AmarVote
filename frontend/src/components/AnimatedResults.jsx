@@ -91,8 +91,8 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
 
   return (
     <div className="space-y-8">
-      <div className="bg-gradient-to-r from-brand to-blue-800 text-white rounded-lg p-6 shadow-lg">
-        <h2 className="text-3xl font-bold mb-2">Election Results</h2>
+      <div className="rounded-2xl bg-deep p-5 text-white shadow-glass sm:p-6">
+        <h2 className="font-display text-3xl font-bold mb-2">Election Results</h2>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
           <p className="text-glacier text-lg">
             Voters Who Voted: <span className="font-bold text-white">{votersWhoVotedCount}</span>
@@ -116,10 +116,10 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className={`bg-white rounded-lg shadow-lg p-6 border-2 ${
+              className={`surface-card rounded-2xl p-5 sm:p-6 border-2 ${
                 isWinner && !isAnimating
-                  ? 'border-yellow-400 ring-4 ring-yellow-100 bg-gradient-to-br from-yellow-50 to-white'
-                  : 'border-gray-200'
+                  ? 'border-amber-400 ring-4 ring-amber-100 bg-gradient-to-br from-amber-50 to-white'
+                  : 'border-slate-200'
               }`}
             >
               <div className="flex items-start justify-between gap-2 mb-4">
@@ -131,12 +131,12 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
                   />
                   <div className="min-w-0 flex-1">
                     <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${
-                      isWinner && !isAnimating ? 'text-amber-600' : 'text-gray-500'
+                      isWinner && !isAnimating ? 'text-amber-600' : 'text-slate-500'
                     }`}>
                       {positionLabel}
                     </p>
                     <h3 className={`text-lg font-bold leading-snug ${
-                      isWinner && !isAnimating ? 'text-amber-800' : 'text-gray-800'
+                      isWinner && !isAnimating ? 'text-amber-800' : 'text-ink'
                     }`}>
                       <TruncatedCandidateName name={candidate.name} />
                     </h3>
@@ -144,7 +144,7 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
                 </div>
                 {isWinner && !isAnimating && (
                   <span className="flex flex-col items-center flex-shrink-0" title={`${positionLabel} place`}>
-                    <span className="text-2xl leading-none">🏆</span>
+                    <span className="text-2xl leading-none"></span>
                     <span className="text-[10px] font-bold text-amber-700 mt-0.5">{positionLabel}</span>
                   </span>
                 )}
@@ -160,18 +160,18 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
                 {displayVotes}
               </motion.div>
 
-              <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden">
+              <div className="relative h-3 bg-frost-muted rounded-full overflow-hidden">
                 <motion.div
                   className={`h-full ${
                     isWinner && !isAnimating
-                      ? 'bg-gradient-to-r from-yellow-400 to-yellow-500'
-                      : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                      ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                      : 'bg-gradient-to-r from-brand to-brand-dark'
                   }`}
                   initial={{ width: 0 }}
                   animate={{ width: `${percentage}%` }}
                   transition={{ duration: 0.5, ease: 'easeOut' }}
                 />
-                <div className="absolute inset-0 flex items-center justify-center text-sm font-medium text-gray-700">
+                <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-ink">
                   {Math.round(percentage)}%
                 </div>
               </div>

@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import Layout from "./Layout";
 import BrandMark from "../components/BrandMark";
 import OtpInput from "../components/OtpInput";
@@ -7,6 +7,7 @@ import PasswordInput from "../components/PasswordInput";
 import { getCsrfToken } from "../utils/api";
 import { readAuthResponse, resolveAuthErrorMessage } from "../utils/authApi";
 import { getApiErrorMessage } from "../utils/httpErrors";
+import { buildAuthUrl, consumeReturnPath, readReturnPath } from "../utils/authRedirect";
 
 const STAGES = {
   IDLE: "IDLE",
@@ -16,6 +17,9 @@ const STAGES = {
 
 export default function Login({ setUserEmail }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnPath = readReturnPath(searchParams);
+  const registerHref = returnPath ? buildAuthUrl(returnPath, "register") : "/register";
 
   const [stage, setStage] = useState(STAGES.IDLE);
   const [email, setEmail] = useState("");
@@ -23,6 +27,10 @@ export default function Login({ setUserEmail }) {
   const [otpCode, setOtpCode] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const goAfterAuth = () => {
+    navigate(consumeReturnPath(searchParams), { replace: true });
+  };
 
   const handleLogin = async (e) => {
     e.preventDefault();
@@ -45,7 +53,7 @@ export default function Login({ setUserEmail }) {
       if (ok && data.status === "LOGIN_SUCCESS") {
         setStage(STAGES.SUCCESS);
         if (setUserEmail) setUserEmail(email);
-        navigate("/dashboard");
+        goAfterAuth();
         return;
       }
 
@@ -93,7 +101,7 @@ export default function Login({ setUserEmail }) {
 
       setStage(STAGES.SUCCESS);
       if (setUserEmail) setUserEmail(email);
-      navigate("/dashboard");
+      goAfterAuth();
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -123,7 +131,9 @@ export default function Login({ setUserEmail }) {
             </h1>
             <p className="mt-2 text-sm text-slate-600">
               {stage === STAGES.IDLE
-                ? "Encrypted sessions. MFA when your account requires it."
+                ? returnPath
+                  ? "Sign in and we’ll return you to the election you were opening."
+                  : "Encrypted sessions. MFA when your account requires it."
                 : "Open your authenticator and enter the current 6-digit code."}
             </p>
           </div>
@@ -178,7 +188,7 @@ export default function Login({ setUserEmail }) {
 
               <p className="text-center text-sm text-slate-600">
                 New here?{" "}
-                <Link className="link-brand font-semibold" to="/register">
+                <Link className="link-brand font-semibold" to={registerHref}>
                   Create an account
                 </Link>
               </p>

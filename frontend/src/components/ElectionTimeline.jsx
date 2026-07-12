@@ -33,7 +33,7 @@ const PHASE_FOR_ITEM = {
 const PHASE_META = {
   setup: { label: 'Setup', color: 'blue', description: 'Election created and guardians prepared keys' },
   voting: { label: 'Voting', color: 'green', description: 'Voters cast encrypted ballots' },
-  tabulation: { label: 'Tabulation', color: 'purple', description: 'Tallying, decryption, and final results' },
+  tabulation: { label: 'Tabulation', color: 'brand', description: 'Tallying, decryption, and final results' },
 };
 
 const toSortTime = (value) => {
@@ -79,12 +79,12 @@ const getColorClasses = (color) => {
     blue: 'bg-glacier text-brand border-brand/20',
     green: 'bg-emerald-50 text-emerald-600 border-emerald-200',
     orange: 'bg-amber-50 text-amber-600 border-amber-200',
-    purple: 'bg-glacier text-brand-dark border-purple-200',
-    indigo: 'bg-glacier text-brand-dark border-brand/25',
-    teal: 'bg-teal-50 text-teal-600 border-teal-200',
-    pink: 'bg-pink-50 text-pink-600 border-pink-200',
+    brand: 'bg-glacier text-brand-dark border-brand/20',
+    deep: 'bg-glacier text-ink border-brand/25',
+    sage: 'bg-sage-soft text-sage border-sage/20',
+    ink: 'bg-frost text-ink border-slate-200',
     gray: 'bg-slate-50 text-slate-500 border-slate-200',
-    violet: 'bg-violet-50 text-violet-600 border-violet-200',
+    brandSoft: 'bg-glacier text-brand-dark border-brand/20',
   };
   return colors[color] || colors.blue;
 };
@@ -94,12 +94,12 @@ const getAccentBorder = (color) => {
     blue: 'border-l-blue-500',
     green: 'border-l-emerald-500',
     orange: 'border-l-amber-500',
-    purple: 'border-l-purple-500',
-    indigo: 'border-l-glacier0',
-    teal: 'border-l-teal-500',
-    pink: 'border-l-pink-500',
+    brand: 'border-l-brand',
+    deep: 'border-l-ink',
+    sage: 'border-l-sage',
+    ink: 'border-l-ink',
     gray: 'border-l-slate-400',
-    violet: 'border-l-violet-500',
+    brandSoft: 'border-l-brand',
   };
   return colors[color] || colors.blue;
 };
@@ -224,7 +224,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
               title: 'Tally Creation',
               type: 'tally',
               icon: FiBox,
-              color: 'purple',
+              color: 'brand',
               startTime: tallyRange.startTime,
               endTime: tallyRange.endTime,
               chunks: tallyRange.sortedLogs.map((log) => ({
@@ -261,7 +261,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
                 title: `Partial Decryption by ${guardianName}`,
                 type: 'partial-decryption',
                 icon: FiLock,
-                color: 'indigo',
+                color: 'deep',
                 startTime: range.startTime,
                 endTime: range.endTime,
                 chunks: range.sortedLogs.map((log) => ({
@@ -308,7 +308,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
                 title: `Compensated Decryption by ${decryptingName} for ${targetName}`,
                 type: 'compensated-decryption',
                 icon: FiZap,
-                color: 'teal',
+                color: 'sage',
                 startTime: range.startTime,
                 endTime: range.endTime,
                 chunks: range.sortedLogs.map((log) => ({
@@ -332,7 +332,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
               title: 'Combine Decryption Process',
               type: 'combine',
               icon: FiPackage,
-              color: 'pink',
+              color: 'ink',
               startTime: combineRange.startTime,
               endTime: combineRange.endTime,
               chunks: combineRange.sortedLogs.map((log) => ({
@@ -370,7 +370,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
             title: 'Key Ceremony Completed',
             timestamp: estimateMidpointTimestamp(electionData.createdAt, electionData.startingTime),
             icon: FiKey,
-            color: 'violet',
+            color: 'brandSoft',
             description: `Guardians established the joint public key (${electionData.guardiansSubmitted || 0}/${electionData.totalGuardians || electionData.numberOfGuardians || 0} submitted)`,
           }));
         }
@@ -414,7 +414,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
             title: 'Results Available',
             timestamp: resultsTimestamp,
             icon: FiTrendingUp,
-            color: 'purple',
+            color: 'brand',
             description: 'Final tallies were decrypted and are ready for verification',
             status: electionData.status === 'decrypted' ? 'completed' : 'pending',
           }));
@@ -510,10 +510,10 @@ const ElectionTimeline = ({ electionId, electionData }) => {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-glacier bg-gradient-to-br from-slate-50 via-blue-50 to-glacier p-6 shadow-sm">
+      <div className="glass-panel border-brand/15 bg-gradient-to-br from-frost via-white to-glacier/50 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
+            <h3 className="font-display text-xl font-semibold text-deep flex items-center gap-2">
               <FiClock className="h-5 w-5 text-brand" />
               Election Process Timeline
             </h3>
@@ -521,7 +521,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
               Sorted by time, oldest first. Each step shows when it happened and how long after the previous event.
             </p>
           </div>
-          <div className="rounded-xl border border-brand/20 bg-white/80 px-4 py-3 text-right">
+          <div className="rounded-xl border border-brand/20 bg-white/80 px-4 py-3 text-right shadow-soft">
             <p className="text-[10px] font-semibold uppercase tracking-wider text-brand">Sort order</p>
             <p className="text-sm font-semibold text-slate-800">Oldest → Newest</p>
             <p className="text-xs text-slate-500 mt-0.5">{sortedTimelineItems.length} events</p>
@@ -540,7 +540,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
       </div>
 
       <div className="relative pl-0 sm:pl-4">
-        <div className="absolute left-[4.5rem] sm:left-[7.5rem] top-4 bottom-4 w-px bg-gradient-to-b from-blue-200 via-brand-200 to-purple-200" />
+        <div className="absolute left-[4.5rem] sm:left-[7.5rem] top-4 bottom-4 w-px bg-gradient-to-b from-glacier via-brand/50 to-sage/40" />
 
         <div className="space-y-5">
           {renderedTimeline.map(({
@@ -601,7 +601,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
 
                   <div className="flex-1 min-w-0">
                     {item.itemType === 'event' ? (
-                      <div className={`rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow border-l-4 ${accentBorder}`}>
+                      <div className={`surface-card rounded-2xl hover:shadow-lift border-l-4 ${accentBorder}`}>
                         <div className="p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
@@ -638,7 +638,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
                         <button
                           type="button"
                           onClick={() => toggleTaskExpansion(item.id)}
-                          className={`w-full text-left rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all border-l-4 ${accentBorder}`}
+                          className={`surface-card w-full rounded-2xl text-left hover:shadow-lift border-l-4 ${accentBorder}`}
                         >
                           <div className="p-4">
                             <div className="flex items-start justify-between gap-3">
@@ -728,7 +728,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
+      <div className="surface-card bg-frost/80 p-5">
         <h4 className="font-semibold text-slate-900 mb-3">Timeline Summary</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
           <div className="rounded-xl bg-white border border-slate-200 p-3">

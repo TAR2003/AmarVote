@@ -87,6 +87,7 @@ import ProcessProgressPanel from '../components/ProcessProgressPanel';
 import ProcessControlPanel from '../components/ProcessControlPanel';
 import ScheduledEmailTab from '../components/ScheduledEmailTab';
 import KeyVerificationTab from '../components/KeyVerificationTab';
+import ElectionTabNav from '../components/ElectionTabNav';
 import useElectionProgressStream from '../hooks/useElectionProgressStream';
 import {
   getSnapshotFromEvent,
@@ -133,16 +134,16 @@ const sortVotersVotedFirst = (voters) => {
 };
 
 const subMenus = [
-  { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
-  { name: 'Voting Booth', key: 'voting', path: 'voting-booth', icon: FiCheckCircle },
-  { name: 'Guardian', key: 'guardian', path: 'guardian', icon: FiShield },
-  { name: 'Key Verification', key: 'key-verification', path: 'key-verification', icon: FiKey, guardianOnly: true },
-  { name: 'Results', key: 'results', path: 'results', icon: FiTrendingUp },
-  { name: 'Ballots in Tally', key: 'ballots', path: 'ballots-in-tally', icon: FiDatabase },
-  { name: 'Verify Your Vote', key: 'verify', path: 'verify-vote', icon: FiHash },
-  { name: 'Verification', key: 'verification', path: 'verification', icon: FiEye },
-  { name: 'Send Email', key: 'send-email', path: 'send-email', icon: FiMail, adminOnly: true },
-  { name: 'Worker Proceedings', key: 'worker-proceedings', path: 'worker-proceedings', icon: FiActivity },
+  { name: 'Election Info', shortName: 'Info', key: 'info', path: '', icon: FiInfo, hint: 'Schedule, candidates, and election details' },
+  { name: 'Voting Booth', shortName: 'Vote', key: 'voting', path: 'voting-booth', icon: FiCheckCircle, hint: 'Cast your encrypted ballot' },
+  { name: 'Guardian', shortName: 'Guardian', key: 'guardian', path: 'guardian', icon: FiShield, hint: 'Key ceremony, decryption, and combination' },
+  { name: 'Key Verification', shortName: 'Keys', key: 'key-verification', path: 'key-verification', icon: FiKey, guardianOnly: true, hint: 'Verify your guardian credentials' },
+  { name: 'Results', shortName: 'Results', key: 'results', path: 'results', icon: FiTrendingUp, hint: 'Tallied outcomes after combination' },
+  { name: 'Ballots in Tally', shortName: 'Ballots', key: 'ballots', path: 'ballots-in-tally', icon: FiDatabase, hint: 'Ballots included in the tally' },
+  { name: 'Verify Your Vote', shortName: 'Verify', key: 'verify', path: 'verify-vote', icon: FiHash, hint: 'Confirm your ballot was recorded' },
+  { name: 'Verification', shortName: 'Audit', key: 'verification', path: 'verification', icon: FiEye, hint: 'Public audit trail and proofs' },
+  { name: 'Send Email', shortName: 'Email', key: 'send-email', path: 'send-email', icon: FiMail, adminOnly: true, hint: 'Notify voters and guardians' },
+  { name: 'Worker Proceedings', shortName: 'Workers', key: 'worker-proceedings', path: 'worker-proceedings', icon: FiActivity, hint: 'Background job telemetry' },
 ];
 
 // Timer Component
@@ -222,27 +223,27 @@ const ElectionTimer = ({ startTime, endTime }) => {
   };
 
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-semibold mb-4 flex items-center">
-        <FiClock className="h-5 w-5 mr-2" />
+    <div className="surface-card p-5 sm:p-6">
+      <h3 className="process-panel-title">
+        <FiClock className="h-5 w-5 text-brand" />
         Election Timeline
       </h3>
       <div className="flex items-center space-x-4">
-        <div className="w-16 h-16">
+        <div className="w-16 h-16 shrink-0">
           <CircularProgressbar
             value={timeInfo.progress}
             text={`${Math.round(timeInfo.progress)}%`}
             styles={buildStyles({
               textColor: getProgressColor(),
               pathColor: getProgressColor(),
-              trailColor: '#e5e7eb',
+              trailColor: '#e2e8f0',
             })}
           />
         </div>
-        <div className="flex-1">
-          <p className="text-2xl font-bold text-gray-900">{timeInfo.timeLeft}</p>
-          <p className="text-sm text-gray-600 capitalize">Status: {timeInfo.phase}</p>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+        <div className="flex-1 min-w-0">
+          <p className="font-display text-xl sm:text-2xl font-bold text-deep">{timeInfo.timeLeft}</p>
+          <p className="text-sm text-slate-600 capitalize">Status: {timeInfo.phase}</p>
+          <div className="w-full bg-slate-200 rounded-full h-2 mt-2">
             <div
               className="h-2 rounded-full transition-all duration-1000"
               style={{
@@ -281,10 +282,10 @@ const ArtifactDownloadRow = ({ title, data, downloadFilename }) => {
   };
 
   return (
-    <div className="flex items-center justify-between gap-4 border border-gray-200 rounded-lg p-4 bg-white">
+    <div className="flex items-center justify-between gap-4 border border-slate-200 rounded-lg p-4 bg-white">
       <div className="min-w-0">
-        <h4 className="font-medium text-gray-900">{title}</h4>
-        <p className="text-sm text-gray-500 mt-1">
+        <h4 className="font-medium text-deep">{title}</h4>
+        <p className="text-sm text-slate-500 mt-1">
           {isAvailable ? 'Download to inspect this artifact locally' : 'Not available'}
         </p>
       </div>
@@ -327,11 +328,11 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData }) =
   
   if (!canUserViewVerification()) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="surface-card p-6">
         <div className="text-center py-12">
           <FiEye className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Verification Not Available</h3>
-          <p className="text-gray-600 mb-4">
+          <h3 className="text-lg font-semibold text-deep mb-2">Verification Not Available</h3>
+          <p className="text-slate-600 mb-4">
             Election verification will be available after the results have been displayed.
           </p>
           <div className="bg-glacier border border-brand/20 rounded-lg p-4 inline-block">
@@ -353,16 +354,16 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData }) =
   ];
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div className="surface-card">
       {/* Header with Stats */}
-      <div className="border-b border-gray-200 bg-gradient-to-r from-glacier to-frost p-6">
+      <div className="border-b border-slate-200 bg-gradient-to-r from-glacier to-frost p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-2xl font-bold text-gray-900 flex items-center">
+            <h3 className="text-2xl font-bold text-deep flex items-center">
               <FiEye className="h-7 w-7 mr-3 text-brand" />
               Election Verification
             </h3>
-            <p className="text-sm text-gray-600 mt-1">
+            <p className="text-sm text-slate-600 mt-1">
               Cryptographic verification data and audit trail
             </p>
           </div>
@@ -370,19 +371,19 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData }) =
 
         {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+          <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Guardians</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wide">Guardians</p>
                 <p className="text-2xl font-bold text-brand">{electionData.numberOfGuardians || electionData.guardians?.length || 0}</p>
               </div>
               <FiShield className="h-8 w-8 text-brand" />
             </div>
           </div>
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+          <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Chunks</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wide">Chunks</p>
                 <p className="text-2xl font-bold text-sage">
                   {chunkCount}
                 </p>
@@ -390,10 +391,10 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData }) =
               <FiLayers className="h-8 w-8 text-green-400" />
             </div>
           </div>
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+          <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Artifacts</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wide">Artifacts</p>
                 <p className="text-2xl font-bold text-brand-dark">
                   {[
                     electionData.jointPublicKey,
@@ -402,25 +403,25 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData }) =
                   ].filter(Boolean).length}
                 </p>
               </div>
-              <FiKey className="h-8 w-8 text-purple-400" />
+              <FiKey className="h-8 w-8 text-brand-light" />
             </div>
           </div>
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+          <div className="bg-white rounded-lg p-3 shadow-sm border border-slate-200">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Verification</p>
+                <p className="text-xs text-slate-500 uppercase tracking-wide">Verification</p>
                 <p className="text-2xl font-bold text-brand-dark">Ready</p>
               </div>
-              <FiShield className="h-8 w-8 text-indigo-400" />
+              <FiShield className="h-8 w-8 text-brand-light" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Sub-navigation Tabs */}
-      <div className="border-b border-gray-200 bg-gray-50">
+      <div className="border-b border-slate-200 bg-frost">
         <div className="px-6 py-2">
-          <div className="border border-gray-300 rounded-lg bg-white overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
+          <div className="border border-slate-200 rounded-lg bg-white overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
             <nav className="flex space-x-1 px-2 min-w-max" aria-label="Verification sections">
               {verificationTabs.map((tab) => {
             const Icon = tab.icon;
@@ -432,7 +433,7 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData }) =
                   flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors
                   ${verificationSubTab === tab.id
                     ? 'border-brand text-brand bg-white'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                    : 'border-transparent text-slate-600 hover:text-deep hover:border-slate-200'
                   }
                 `}
               >
@@ -497,9 +498,9 @@ const OverviewTabContent = ({ electionData, id }) => {
       </div>
 
       {/* Core Cryptographic Artifacts */}
-      <div className="bg-white border border-gray-200 rounded-lg">
-        <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
-          <h4 className="font-semibold text-gray-900 flex items-center">
+      <div className="bg-white border border-slate-200 rounded-lg">
+        <div className="border-b border-slate-200 bg-frost px-4 py-3">
+          <h4 className="font-semibold text-deep flex items-center">
             <FiKey className="h-5 w-5 mr-2 text-brand" />
             Core Cryptographic Artifacts
           </h4>
@@ -542,9 +543,9 @@ const OverviewTabContent = ({ electionData, id }) => {
       </div>
 
       {/* Verification Instructions */}
-      <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-5">
-        <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-          <FiInfo className="h-5 w-5 mr-2 text-gray-600" />
+      <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-slate-200 rounded-lg p-5">
+        <h4 className="font-semibold text-deep mb-3 flex items-center">
+          <FiInfo className="h-5 w-5 mr-2 text-slate-600" />
           Verification Instructions
         </h4>
         <div className="space-y-3">
@@ -553,8 +554,8 @@ const OverviewTabContent = ({ electionData, id }) => {
               <span className="text-brand text-xs font-bold">1</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Joint Public Key</p>
-              <p className="text-sm text-gray-600">Used to encrypt all ballots in this election</p>
+              <p className="text-sm font-medium text-deep">Joint Public Key</p>
+              <p className="text-sm text-slate-600">Used to encrypt all ballots in this election</p>
             </div>
           </div>
           <div className="flex items-start">
@@ -562,8 +563,8 @@ const OverviewTabContent = ({ electionData, id }) => {
               <span className="text-brand text-xs font-bold">2</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Commitment Hash</p>
-              <p className="text-sm text-gray-600">Cryptographic commitment to the election parameters</p>
+              <p className="text-sm font-medium text-deep">Commitment Hash</p>
+              <p className="text-sm text-slate-600">Cryptographic commitment to the election parameters</p>
             </div>
           </div>
           <div className="flex items-start">
@@ -571,8 +572,8 @@ const OverviewTabContent = ({ electionData, id }) => {
               <span className="text-brand text-xs font-bold">3</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Guardian Keys</p>
-              <p className="text-sm text-gray-600">Public keys and polynomials used in the threshold cryptography</p>
+              <p className="text-sm font-medium text-deep">Guardian Keys</p>
+              <p className="text-sm text-slate-600">Public keys and polynomials used in the threshold cryptography</p>
             </div>
           </div>
           <div className="flex items-start">
@@ -580,8 +581,8 @@ const OverviewTabContent = ({ electionData, id }) => {
               <span className="text-brand text-xs font-bold">4</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Encrypted Tally</p>
-              <p className="text-sm text-gray-600">The encrypted sum of all valid ballots</p>
+              <p className="text-sm font-medium text-deep">Encrypted Tally</p>
+              <p className="text-sm text-slate-600">The encrypted sum of all valid ballots</p>
             </div>
           </div>
           <div className="flex items-start">
@@ -589,8 +590,8 @@ const OverviewTabContent = ({ electionData, id }) => {
               <span className="text-brand text-xs font-bold">5</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Proofs</p>
-              <p className="text-sm text-gray-600">Zero-knowledge proofs that the tallying was performed correctly</p>
+              <p className="text-sm font-medium text-deep">Proofs</p>
+              <p className="text-sm text-slate-600">Zero-knowledge proofs that the tallying was performed correctly</p>
             </div>
           </div>
         </div>
@@ -664,7 +665,7 @@ const ChunksTabContent = ({ electionId }) => {
     return (
       <div className="text-center py-12">
         <FiLoader className="h-12 w-12 text-brand mx-auto mb-4 animate-spin" />
-        <p className="text-gray-600">Loading chunk summaries...</p>
+        <p className="text-slate-600">Loading chunk summaries...</p>
       </div>
     );
   }
@@ -673,7 +674,7 @@ const ChunksTabContent = ({ electionId }) => {
     return (
       <div className="text-center py-12">
         <FiAlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-        <p className="text-gray-700">{loadError}</p>
+        <p className="text-slate-700">{loadError}</p>
       </div>
     );
   }
@@ -682,8 +683,8 @@ const ChunksTabContent = ({ electionId }) => {
     return (
       <div className="text-center py-12">
         <FiLayers className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Chunk Data Available</h3>
-        <p className="text-gray-600">
+        <h3 className="text-lg font-semibold text-deep mb-2">No Chunk Data Available</h3>
+        <p className="text-slate-600">
           Chunk tallies and decryptions will appear here once available.
         </p>
       </div>
@@ -700,8 +701,8 @@ const ChunksTabContent = ({ electionId }) => {
       {/* Header with Search */}
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="font-semibold text-gray-900 text-lg">Per-Chunk Tallies and Decryptions</h4>
-          <p className="text-sm text-gray-600 mt-1">
+          <h4 className="font-semibold text-deep text-lg">Per-Chunk Tallies and Decryptions</h4>
+          <p className="text-sm text-slate-600 mt-1">
             Per-chunk vote counts are shown below. Download encrypted tally ciphertext when needed for verification.
           </p>
         </div>
@@ -712,11 +713,11 @@ const ChunksTabContent = ({ electionId }) => {
               placeholder="Search chunks..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
+              className="pl-10 pr-4 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
             />
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-slate-400" />
           </div>
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-slate-600">
             {filteredChunks.length} of {chunks.length} chunks
           </span>
         </div>
@@ -727,7 +728,7 @@ const ChunksTabContent = ({ electionId }) => {
         {filteredChunks.map((chunk) => {
           const isDownloading = downloadingTallies[chunk.electionCenterId];
           return (
-            <div key={chunk.electionCenterId} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div key={chunk.electionCenterId} className="bg-white border border-slate-200 rounded-lg overflow-hidden">
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white">
                 <div className="flex items-center space-x-4">
                   <div className="flex-shrink-0">
@@ -736,10 +737,10 @@ const ChunksTabContent = ({ electionId }) => {
                     </div>
                   </div>
                   <div>
-                    <h5 className="font-semibold text-gray-900">
+                    <h5 className="font-semibold text-deep">
                       Chunk {chunk.chunkIndex}
                     </h5>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-slate-600">
                       Election Center ID: {chunk.electionCenterId} • {chunk.ballotCount} ballots
                     </p>
                   </div>
@@ -764,17 +765,17 @@ const ChunksTabContent = ({ electionId }) => {
                 </div>
               </div>
 
-              <div className="p-4 bg-gray-50 border-t border-gray-200">
+              <div className="p-4 bg-frost border-t border-slate-200">
                 <div className="mb-4">
-                  <h6 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
+                  <h6 className="text-sm font-semibold text-slate-700 mb-3 flex items-center">
                     <FiBarChart className="h-4 w-4 mr-2 text-brand" />
                     Tally Results for this Chunk
                   </h6>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                     {Object.entries(chunk.candidateVotes || {}).map(([candidate, votes]) => (
-                      <div key={candidate} className="bg-white rounded-lg px-4 py-3 border border-gray-200 shadow-sm">
-                        <p className="text-xs text-gray-500 mb-1">Candidate</p>
-                        <p className="font-semibold text-gray-900 truncate">{candidate}</p>
+                      <div key={candidate} className="bg-white rounded-lg px-4 py-3 border border-slate-200 shadow-sm">
+                        <p className="text-xs text-slate-500 mb-1">Candidate</p>
+                        <p className="font-semibold text-deep truncate">{candidate}</p>
                         <p className="text-2xl font-bold text-brand mt-1">{votes}</p>
                       </div>
                     ))}
@@ -799,7 +800,7 @@ const ChunksTabContent = ({ electionId }) => {
       {filteredChunks.length === 0 && (
         <div className="text-center py-8">
           <FiSearch className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-600">No chunks match your search</p>
+          <p className="text-slate-600">No chunks match your search</p>
         </div>
       )}
     </div>
@@ -989,7 +990,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
       case 'no_initial_hash':
         return { text: 'No Hash', color: 'yellow', icon: FiAlertCircle, bgColor: 'bg-yellow-100', textColor: 'text-yellow-800', borderColor: 'border-yellow-200' };
       default:
-        return { text: 'Unknown', color: 'gray', icon: FiInfo, bgColor: 'bg-gray-100', textColor: 'text-gray-800', borderColor: 'border-gray-200' };
+        return { text: 'Unknown', color: 'gray', icon: FiInfo, bgColor: 'bg-frost-muted', textColor: 'text-ink', borderColor: 'border-slate-200' };
     }
   };
 
@@ -1014,7 +1015,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
       {loading && ballots.length === 0 ? (
         <div className="text-center py-12">
           <FiLoader className="h-12 w-12 text-brand mx-auto mb-4 animate-spin" />
-          <p className="text-gray-600">Loading ballot data...</p>
+          <p className="text-slate-600">Loading ballot data...</p>
         </div>
       ) : (
         <>
@@ -1035,7 +1036,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
           <div className="text-2xl font-bold text-orange-800">{statusCounts.spoiled || 0}</div>
           <div className="text-sm text-orange-600">Spoiled</div>
         </div>
-        <div className="bg-glacier border border-purple-200 rounded-lg p-3 text-center">
+        <div className="bg-glacier border border-brand/20 rounded-lg p-3 text-center">
           <div className="text-2xl font-bold text-ink">{totalBallots}</div>
           <div className="text-sm text-brand-dark">Total</div>
         </div>
@@ -1048,16 +1049,16 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
             placeholder="Search by tracking code, hash code, or verification status..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
+            className="w-full px-4 py-2 pl-10 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
           />
-          <FiHash className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <FiHash className="absolute left-3 top-1/2 transform -translate-y-1/2 text-slate-400 h-4 w-4" />
         </div>
 
         <div className="flex gap-2">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
+            className="px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
           >
             <option value="ballot_id">Sort by Tracking Code</option>
             <option value="status">Sort by Status</option>
@@ -1066,7 +1067,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
 
           <button
             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-3 py-2 border border-slate-200 rounded-lg hover:bg-frost transition-colors"
             title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
           >
             {sortOrder === 'asc' ? '↑' : '↓'}
@@ -1074,7 +1075,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
         </div>
       </div>
 
-      <p className="text-xs text-gray-500 mb-4">
+      <p className="text-xs text-slate-500 mb-4">
         Showing {ballots.length} of {totalBallots} ballots.
         {debouncedSearch
           ? ' Search scans the entire tally on the server — not just the rows currently visible.'
@@ -1082,7 +1083,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
       </p>
 
       {debouncedSearch && (
-        <div className="mb-4 text-sm text-gray-600">
+        <div className="mb-4 text-sm text-slate-600">
           {totalBallots === 0
             ? 'No ballots match your search.'
             : `Found ${totalBallots} matching ballot${totalBallots === 1 ? '' : 's'}.`}
@@ -1118,7 +1119,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
                 </div>
                 <button
                   onClick={() => downloadBallotInfo(ballot)}
-                  className="text-gray-400 hover:text-brand transition-colors p-1 rounded hover:bg-glacier"
+                  className="text-slate-400 hover:text-brand transition-colors p-1 rounded hover:bg-glacier"
                   title="Download encrypted ballot and verification details"
                 >
                   <FiDownload className="h-4 w-4" />
@@ -1127,28 +1128,28 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
 
               <div className="space-y-3 text-xs">
                 <div>
-                  <span className="text-gray-500 font-medium">Tracking Code:</span>
-                  <div className="font-mono text-gray-900 bg-gray-50 px-2 py-1 rounded mt-1 break-all text-xs border">
+                  <span className="text-slate-500 font-medium">Tracking Code:</span>
+                  <div className="font-mono text-deep bg-frost px-2 py-1 rounded mt-1 break-all text-xs border">
                     {ballot.ballot_id}
                   </div>
                 </div>
                 <div>
-                  <span className="text-gray-500 font-medium">Initial Hash:</span>
-                  <div className="font-mono text-gray-900 bg-gray-50 px-2 py-1 rounded mt-1 break-all text-xs border">
+                  <span className="text-slate-500 font-medium">Initial Hash:</span>
+                  <div className="font-mono text-deep bg-frost px-2 py-1 rounded mt-1 break-all text-xs border">
                     {ballot.initial_hash || 'N/A'}
                   </div>
                 </div>
                 {ballot.decrypted_hash && ballot.decrypted_hash !== ballot.initial_hash && (
                   <div>
-                    <span className="text-gray-500 font-medium">Decrypted Hash:</span>
-                    <div className="font-mono text-gray-900 bg-gray-50 px-2 py-1 rounded mt-1 break-all text-xs border">
+                    <span className="text-slate-500 font-medium">Decrypted Hash:</span>
+                    <div className="font-mono text-deep bg-frost px-2 py-1 rounded mt-1 break-all text-xs border">
                       {ballot.decrypted_hash}
                     </div>
                   </div>
                 )}
                 <div className="flex items-center justify-between pt-2 border-t border-gray-100">
                   <div>
-                    <span className="text-gray-500 font-medium">Status:</span>
+                    <span className="text-slate-500 font-medium">Status:</span>
                     <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${ballot.status === 'cast' ? 'bg-glacier text-ink' : 'bg-orange-100 text-orange-800'
                       }`}>
                       {ballot.status}
@@ -1171,7 +1172,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
             type="button"
             onClick={loadMore}
             disabled={loadingMore}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-slate-200 text-sm font-medium text-slate-700 hover:bg-frost disabled:opacity-50"
           >
             {loadingMore ? <FiLoader className="h-4 w-4 animate-spin" /> : <FiChevronDown className="h-4 w-4" />}
             <span>{loadingMore ? 'Loading...' : `Load more (${ballots.length} of ${totalBallots})`}</span>
@@ -1182,16 +1183,16 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
       {ballots.length === 0 && searchTerm && !loading && (
         <div className="text-center py-12">
           <FiHash className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Ballots Found</h3>
-          <p className="text-gray-500">No ballots match your search criteria. Try a different search term.</p>
+          <h3 className="text-lg font-medium text-deep mb-2">No Ballots Found</h3>
+          <p className="text-slate-500">No ballots match your search criteria. Try a different search term.</p>
         </div>
       )}
 
       {ballots.length === 0 && !searchTerm && !hasError && !loading && (
         <div className="text-center py-12">
           <FiDatabase className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Ballots Available</h3>
-          <p className="text-gray-500">Ballot verification data will be available after the election results are computed.</p>
+          <h3 className="text-lg font-medium text-deep mb-2">No Ballots Available</h3>
+          <p className="text-slate-500">Ballot verification data will be available after the election results are computed.</p>
         </div>
       )}
 
@@ -1199,8 +1200,8 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
         <div className="text-center py-12">
           <FiAlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
           <h3 className="text-lg font-medium text-red-600 mb-2">Error Loading Ballots</h3>
-          <p className="text-gray-700">{errorMessage}</p>
-          <p className="text-gray-500 mt-4">Please refresh the page or contact support if this issue persists.</p>
+          <p className="text-slate-700">{errorMessage}</p>
+          <p className="text-slate-500 mt-4">Please refresh the page or contact support if this issue persists.</p>
         </div>
       )}
         </>
@@ -1446,7 +1447,7 @@ const VerifyVoteSection = ({ electionId }) => {
             className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               inputMethod === 'file'
                 ? 'bg-brand text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-slate-200 text-slate-700 hover:bg-gray-300'
             }`}
           >
             Upload File
@@ -1456,7 +1457,7 @@ const VerifyVoteSection = ({ electionId }) => {
             className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
               inputMethod === 'manual'
                 ? 'bg-brand text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                : 'bg-slate-200 text-slate-700 hover:bg-gray-300'
             }`}
           >
             Manual Entry
@@ -1483,7 +1484,7 @@ const VerifyVoteSection = ({ electionId }) => {
           className={`border-2 border-dashed rounded-lg p-4 sm:p-8 text-center transition-colors mb-4 sm:mb-6 ${
             dragOver
               ? 'border-brand bg-glacier'
-              : 'border-gray-300 hover:border-gray-400'
+              : 'border-slate-200 hover:border-gray-400'
           }`}
           onDragOver={(e) => {
             e.preventDefault();
@@ -1500,11 +1501,11 @@ const VerifyVoteSection = ({ electionId }) => {
             id="verification-file"
           />
           <label htmlFor="verification-file" className="cursor-pointer">
-            <FiFileText className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
-            <p className="text-base sm:text-lg font-medium text-gray-900 mb-1 sm:mb-2">
+            <FiFileText className="h-10 w-10 sm:h-12 sm:w-12 text-slate-400 mx-auto mb-3 sm:mb-4" />
+            <p className="text-base sm:text-lg font-medium text-deep mb-1 sm:mb-2">
               Upload Your Vote Receipt
             </p>
-            <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4 px-2">
+            <p className="text-xs sm:text-sm text-slate-600 mb-3 sm:mb-4 px-2">
               Drag and drop your vote receipt file here (.txt or .json), or click to browse
             </p>
             <span className="inline-block px-3 sm:px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors text-sm sm:text-base">
@@ -1515,31 +1516,31 @@ const VerifyVoteSection = ({ electionId }) => {
       ) : (
         /* Manual Input Method */
         <div className="bg-white border rounded-lg p-4 sm:p-6 mb-4 sm:mb-6">
-          <h4 className="font-medium text-gray-900 mb-3 sm:mb-4 text-sm sm:text-base">Enter Verification Details</h4>
+          <h4 className="font-medium text-deep mb-3 sm:mb-4 text-sm sm:text-base">Enter Verification Details</h4>
 
           <div className="space-y-4">
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Tracking Code
               </label>
               <input
                 type="text"
                 value={manualInput.tracking_code}
                 onChange={(e) => setManualInput(prev => ({ ...prev, tracking_code: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand font-mono"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand font-mono"
                 placeholder="Enter your tracking code..."
               />
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
+              <label className="block text-sm font-medium text-slate-700 mb-2">
                 Hash Code
               </label>
               <input
                 type="text"
                 value={manualInput.hash_code}
                 onChange={(e) => setManualInput(prev => ({ ...prev, hash_code: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand font-mono"
+                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand font-mono"
                 placeholder="Enter your hash code..."
               />
             </div>
@@ -1580,29 +1581,29 @@ const VerifyVoteSection = ({ electionId }) => {
 
               {verificationFile && (
                 <div className="bg-white rounded-lg p-4 border shadow-sm">
-                  <h5 className="font-medium text-gray-900 mb-3">Verification Details</h5>
+                  <h5 className="font-medium text-deep mb-3">Verification Details</h5>
                   <div className="text-sm space-y-2">
                     <div className="flex flex-col sm:flex-row sm:items-center">
-                      <span className="text-gray-500 font-medium min-w-[120px]">Tracking Code:</span>
-                      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs break-all">
+                      <span className="text-slate-500 font-medium min-w-[120px]">Tracking Code:</span>
+                      <span className="font-mono bg-frost-muted px-2 py-1 rounded text-xs break-all">
                         {verificationFile.tracking_code}
                       </span>
                     </div>
                     <div className="flex flex-col sm:flex-row sm:items-center">
-                      <span className="text-gray-500 font-medium min-w-[120px]">Hash Code:</span>
-                      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs break-all">
+                      <span className="text-slate-500 font-medium min-w-[120px]">Hash Code:</span>
+                      <span className="font-mono bg-frost-muted px-2 py-1 rounded text-xs break-all">
                         {verificationFile.hash_code}
                       </span>
                     </div>
                     {verificationResult.found_ballot && (
                       <div className="flex flex-col sm:flex-row sm:items-center">
-                        <span className="text-gray-500 font-medium min-w-[120px]">Found in Tally:</span>
+                        <span className="text-slate-500 font-medium min-w-[120px]">Found in Tally:</span>
                         <span className="text-sage font-medium">✓ Yes</span>
                       </div>
                     )}
                     {verificationResult.ballot_info && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        <span className="text-gray-500 font-medium">Ballot Status:</span>
+                      <div className="mt-3 pt-3 border-t border-slate-200">
+                        <span className="text-slate-500 font-medium">Ballot Status:</span>
                         <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${verificationResult.ballot_info.status === 'cast'
                             ? 'bg-glacier text-ink'
                             : 'bg-orange-100 text-orange-800'
@@ -1612,7 +1613,7 @@ const VerifyVoteSection = ({ electionId }) => {
                       </div>
                     )}
                     {verificationResult.expected_hash && verificationResult.provided_hash && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
+                      <div className="mt-3 pt-3 border-t border-slate-200">
                         <div className="text-xs text-red-600">
                           <div>Expected: {verificationResult.expected_hash}</div>
                           <div>Provided: {verificationResult.provided_hash}</div>
@@ -1628,9 +1629,9 @@ const VerifyVoteSection = ({ electionId }) => {
       )}
 
       {/* Instructions */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h4 className="font-medium text-gray-900 mb-3">Understanding Verification Results</h4>
-        <div className="text-sm text-gray-700 space-y-2">
+      <div className="bg-frost rounded-lg p-4">
+        <h4 className="font-medium text-deep mb-3">Understanding Verification Results</h4>
+        <div className="text-sm text-slate-700 space-y-2">
           <div className="flex items-start">
             <div className="w-6 h-6 bg-sage-soft rounded-full flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
               <FiCheck className="h-3 w-3 text-sage" />
@@ -3014,7 +3015,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
       case 'scheduled': return 'bg-glacier text-ink';
       case 'ongoing': return 'bg-sage-soft text-emerald-800';
       case 'finished': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      default: return 'bg-frost-muted text-ink';
     }
   };
 
@@ -3582,10 +3583,10 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-frost-mesh flex items-center justify-center">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading election data...</p>
+          <p className="mt-4 text-slate-600">Loading election data...</p>
           {creatingTally && <p className="text-sm text-brand">Creating tally...</p>}
         </div>
       </div>
@@ -3594,11 +3595,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
+      <div className="min-h-screen bg-frost-mesh flex items-center justify-center">
+        <div className="text-center p-8 glass-panel max-w-md">
           <FiAlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Access Denied</h2>
-          <p className="text-gray-600">{error}</p>
+          <h2 className="text-xl font-semibold text-ink mb-2">Access Denied</h2>
+          <p className="text-slate-600">{error}</p>
         </div>
       </div>
     );
@@ -3606,18 +3607,18 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
   if (!electionData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
-          <FiInfo className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">No Data</h2>
-          <p className="text-gray-600">No election data available.</p>
+      <div className="min-h-screen bg-frost-mesh flex items-center justify-center">
+        <div className="text-center p-8 glass-panel max-w-md">
+          <FiInfo className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-ink mb-2">No Data</h2>
+          <p className="text-slate-600">No election data available.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-frost-mesh">
       {/* Tally Creation Modal */}
       <TallyCreationModal
         isOpen={isTallyModalOpen}
@@ -3673,38 +3674,44 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
       />
       
       {/* Header */}
-      <header className="bg-white/90 backdrop-blur-sm shadow-soft border-b border-slate-200/80">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
+      <header className="border-b border-slate-200/80 bg-white/90 backdrop-blur-md shadow-soft">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 gap-3 sm:gap-4">
             <div className="flex-1 min-w-0 w-full sm:w-auto">
-              <h1 className="font-display text-lg sm:text-xl md:text-2xl font-bold text-deep truncate">{electionData.electionTitle}</h1>
-              <p className="text-xs sm:text-sm text-gray-500 truncate">Election ID: {electionData.electionId}</p>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+              <p className="section-kicker mb-1">Election</p>
+              <h1 className="font-display text-xl sm:text-2xl md:text-[1.65rem] font-bold text-deep truncate">{electionData.electionTitle}</h1>
+              <p className="mt-0.5 text-xs sm:text-sm text-slate-500 font-mono truncate">ID {electionData.electionId}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-slate-500">
                 <span className="inline-flex items-center gap-1">
-                  <FiMail className="h-3 w-3 shrink-0" />
-                  <span className="font-medium text-gray-600">Admin:</span>
+                  <FiMail className="h-3 w-3 shrink-0 text-brand" />
+                  <span className="font-medium text-slate-600">Admin</span>
                   <span className="truncate">{electionData.adminEmail}</span>
                 </span>
                 {electionData.coAdminEmails?.length > 0 && (
                   <span className="inline-flex items-center gap-1">
-                    <FiUsers className="h-3 w-3 shrink-0" />
-                    <span className="font-medium text-gray-600">Co-Admins:</span>
+                    <FiUsers className="h-3 w-3 shrink-0 text-brand" />
+                    <span className="font-medium text-slate-600">Co-Admins</span>
                     <span className="truncate">{electionData.coAdminEmails.join(', ')}</span>
                   </span>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2 sm:gap-4 flex-wrap w-full sm:w-auto">
-              <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium capitalize ${getStatusColor(getElectionStatus())}`}>
-                {getElectionStatus()}
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
+              <span className={`status-chip capitalize ${
+                getElectionStatus() === 'ongoing' || getElectionStatus() === 'active'
+                  ? 'status-chip-active'
+                  : getElectionStatus() === 'upcoming' || getElectionStatus() === 'scheduled' || getElectionStatus() === 'key_ceremony_pending'
+                    ? 'status-chip-pending'
+                    : 'status-chip-ended'
+              }`}>
+                {getElectionStatus()?.replace(/_/g, ' ')}
               </span>
-              <div className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm text-gray-600">
-                <FiUser className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="truncate max-w-[150px] sm:max-w-none">
+              <div className="inline-flex items-center gap-1.5 rounded-xl bg-frost px-2.5 py-1.5 text-xs sm:text-sm text-slate-600">
+                <FiUser className="h-3.5 w-3.5 text-brand" />
+                <span className="truncate max-w-[160px] sm:max-w-none">
                   {
                     (() => {
                       const roles = [...(electionData.userRoles || [])];
-                      // Add voting eligibility info based on new eligibility field
                       if (canUserVoteInElection(electionData) && !roles.includes('voter')) {
                         if (electionData.eligibility === 'unlisted') {
                           roles.push('voter (open voting)');
@@ -3723,54 +3730,31 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
       </header>
 
       {/* Navigation Tabs */}
-      <div className="bg-white/90 backdrop-blur-sm border-b border-slate-200/80 sticky top-0 z-20 md:static">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-          <div className="overflow-x-auto scrollbar-hide" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
-            <nav className="flex space-x-1 sm:space-x-2 md:space-x-6 pb-px min-w-max" aria-label="Election sections">
-              {subMenus
-                .filter((menu) => {
-                  if (menu.key === 'worker-proceedings' && isKeyCeremonyPending) {
-                    return false;
-                  }
-                  if (menu.adminOnly && !electionData?.userRoles?.includes('admin')) {
-                    return false;
-                  }
-                  if (menu.guardianOnly && !canUserManageGuardian()) {
-                    return false;
-                  }
-                  if (menu.key === 'results' && !isCombineComplete) {
-                    return false;
-                  }
-                  if (menu.key === 'ballots' && !isElectionFinished()) {
-                    return false;
-                  }
-                  return true;
-                })
-                .map((menu) => {
-              const Icon = menu.icon;
-              return (
-                <button
-                  key={menu.key}
-                  onClick={() => handleTabClick(menu.key)}
-                  className={`flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-2.5 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-colors rounded-t-lg ${
-                    activeTab === menu.key
-                      ? 'border-brand text-brand-dark bg-glacier/50'
-                      : 'border-transparent text-slate-500 hover:text-ink hover:border-slate-300 hover:bg-frost'
-                  }`}
-                >
-                  <Icon className="h-3.5 w-3.5 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline">{menu.name}</span>
-                  <span className="inline xs:hidden">{menu.name.split(' ')[0]}</span>
-                </button>
-              );
-            })}
-            </nav>
-          </div>
-        </div>
-      </div>
+      <ElectionTabNav
+        tabs={subMenus.filter((menu) => {
+          if (menu.key === 'worker-proceedings' && isKeyCeremonyPending) {
+            return false;
+          }
+          if (menu.adminOnly && !electionData?.userRoles?.includes('admin')) {
+            return false;
+          }
+          if (menu.guardianOnly && !canUserManageGuardian()) {
+            return false;
+          }
+          if (menu.key === 'results' && !isCombineComplete) {
+            return false;
+          }
+          if (menu.key === 'ballots' && !isElectionFinished()) {
+            return false;
+          }
+          return true;
+        })}
+        activeKey={activeTab}
+        onSelect={handleTabClick}
+      />
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 page-enter">
         {/* Election Info Tab */}
         {activeTab === 'info' && (
           <div className="space-y-6">
@@ -3782,14 +3766,14 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             />
 
             {/* Election Details Card */}
-            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
-                <FiInfo className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+            <div className="surface-card p-4 sm:p-6">
+              <h3 className="font-display text-base sm:text-lg font-semibold text-deep mb-3 sm:mb-4 flex items-center">
+                <FiInfo className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-brand" />
                 Election Details
               </h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Basic Information</h4>
+                  <h4 className="font-medium text-deep mb-2">Basic Information</h4>
                   <div className="space-y-2 text-sm">
                     <p><span className="font-medium">Title:</span> {electionData.electionTitle}</p>
                     <div>
@@ -3799,7 +3783,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           <textarea
                             value={descriptionDraft}
                             onChange={(e) => setDescriptionDraft(e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            className="w-full rounded-lg border border-slate-200 px-3 py-2 text-sm"
                             rows={3}
                           />
                           <div className="flex gap-2">
@@ -3817,7 +3801,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 setEditingDescription(false);
                                 setDescriptionDraft(electionData.electionDescription || '');
                               }}
-                              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                              className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-frost"
                             >
                               Cancel
                             </button>
@@ -3901,7 +3885,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             <button
                               type="button"
                               onClick={() => setEditingVotingRules(false)}
-                              className="text-xs font-medium text-gray-600 hover:underline"
+                              className="text-xs font-medium text-slate-600 hover:underline"
                             >
                               Cancel
                             </button>
@@ -3910,7 +3894,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       </div>
                       <div className="mt-1 space-y-1 text-sm">
                         <p>
-                          <span className="text-gray-600">Max choices per voter:</span>{' '}
+                          <span className="text-slate-600">Max choices per voter:</span>{' '}
                           {canEditVotingRules() && editingVotingRules ? (
                             <input
                               type="number"
@@ -3918,7 +3902,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               max={candidateCountForElection()}
                               value={maxChoicesDraft}
                               onChange={(e) => setMaxChoicesDraft(e.target.value)}
-                              className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                              className="w-20 rounded-md border border-slate-200 px-2 py-1 text-sm"
                             />
                           ) : (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-glacier text-ink">
@@ -3927,7 +3911,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           )}
                         </p>
                         <p>
-                          <span className="text-gray-600">Number of winners:</span>{' '}
+                          <span className="text-slate-600">Number of winners:</span>{' '}
                           {canEditVotingRules() && editingVotingRules ? (
                             <input
                               type="number"
@@ -3935,7 +3919,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               max={candidateCountForElection()}
                               value={winnerNoDraft}
                               onChange={(e) => setWinnerNoDraft(e.target.value)}
-                              className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                              className="w-20 rounded-md border border-slate-200 px-2 py-1 text-sm"
                             />
                           ) : (
                             <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
@@ -3944,7 +3928,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           )}
                         </p>
                         {canEditVotingRules() && (
-                          <p className="text-xs text-gray-500">Editable until the election begins.</p>
+                          <p className="text-xs text-slate-500">Editable until the election begins.</p>
                         )}
                       </div>
                     </div>
@@ -3976,27 +3960,27 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   </div>
                 </div>
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Timeline</h4>
+                  <h4 className="font-medium text-deep mb-2">Timeline</h4>
                   <div className="space-y-2 text-sm">
                     {canEditElectionSchedule() && editingSchedule ? (
                       <div className="space-y-3 rounded-lg border border-glacier bg-glacier/50 p-3">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <label className="space-y-1">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Election Start</span>
+                            <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Election Start</span>
                             <input
                               type="datetime-local"
                               value={scheduleDraft.startingTime}
                               onChange={(e) => setScheduleDraft((prev) => ({ ...prev, startingTime: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-brand outline-none bg-white"
+                              className="w-full px-3 py-2 border border-slate-200 rounded-md focus:border-brand outline-none bg-white"
                             />
                           </label>
                           <label className="space-y-1">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Election End</span>
+                            <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Election End</span>
                             <input
                               type="datetime-local"
                               value={scheduleDraft.endingTime}
                               onChange={(e) => setScheduleDraft((prev) => ({ ...prev, endingTime: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-brand outline-none bg-white"
+                              className="w-full px-3 py-2 border border-slate-200 rounded-md focus:border-brand outline-none bg-white"
                             />
                           </label>
                         </div>
@@ -4012,7 +3996,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           <button
                             type="button"
                             onClick={() => setEditingSchedule(false)}
-                            className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                            className="rounded-md border border-slate-200 px-3 py-1.5 text-xs font-medium text-slate-700 hover:bg-frost"
                           >
                             Cancel
                           </button>
@@ -4043,13 +4027,13 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       </>
                     )}
                     <p className="flex items-center flex-wrap gap-1"><FiClock className="h-4 w-4 mr-1" /><span className="font-medium">Created:</span> {formatDate(electionData.createdAt)}</p>
-                    <p className="text-xs text-gray-500">Times shown in your timezone: {timezoneUtils.getTimezoneLabel()}</p>
+                    <p className="text-xs text-slate-500">Times shown in your timezone: {timezoneUtils.getTimezoneLabel()}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-6 border-t border-gray-200 pt-4">
-                <h4 className="font-medium text-gray-900 mb-3">Guardian Configuration</h4>
+              <div className="mt-6 border-t border-slate-200 pt-4">
+                <h4 className="font-medium text-deep mb-3">Guardian Configuration</h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
                   <div className="rounded-lg border border-green-100 bg-sage-soft p-3">
@@ -4065,23 +4049,23 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">Guardians (Emails)</p>
+                  <p className="text-sm font-medium text-slate-700 mb-2">Guardians (Emails)</p>
                   {electionData.guardians && electionData.guardians.length > 0 ? (
-                    <div className="max-h-44 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2">
+                    <div className="max-h-44 overflow-y-auto rounded-lg border border-slate-200 bg-frost p-2">
                       <div className="space-y-2">
                         {electionData.guardians.map((guardian, index) => (
                           <div
                             key={guardian.userEmail || `${guardian.userName || 'guardian'}-${index}`}
                             className="flex items-center justify-between rounded-md border border-gray-100 bg-white px-3 py-2"
                           >
-                            <span className="text-sm text-gray-900">{guardian.userName || `Guardian ${index + 1}`}</span>
-                            <span className="text-xs text-gray-600 break-all ml-3">{guardian.userEmail || 'No email available'}</span>
+                            <span className="text-sm text-deep">{guardian.userName || `Guardian ${index + 1}`}</span>
+                            <span className="text-xs text-slate-600 break-all ml-3">{guardian.userEmail || 'No email available'}</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                    <div className="rounded-lg border border-slate-200 bg-frost p-3 text-sm text-slate-600">
                       No guardian emails available.
                     </div>
                   )}
@@ -4101,46 +4085,46 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
             {/* Election Statistics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="surface-card p-4 sm:p-6">
                 <div className="flex items-center">
                   <FiUsers className="h-6 w-6 sm:h-8 sm:w-8 text-brand" />
                   <div className="ml-3 sm:ml-4">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600">Total Voters</p>
-                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{getTotalVoters(electionData)}</p>
+                    <p className="text-xs sm:text-sm font-medium text-slate-600">Total Voters</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-deep">{getTotalVoters(electionData)}</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="surface-card p-4 sm:p-6">
                 <div className="flex items-center">
                   <FiShield className="h-6 w-6 sm:h-8 sm:w-8 text-green-500" />
                   <div className="ml-3 sm:ml-4">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600">Guardians</p>
-                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{electionData.guardians?.length || 0}</p>
+                    <p className="text-xs sm:text-sm font-medium text-slate-600">Guardians</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-deep">{electionData.guardians?.length || 0}</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="surface-card p-4 sm:p-6">
                 <div className="flex items-center">
                   <FiKey className="h-6 w-6 sm:h-8 sm:w-8 text-amber-500" />
                   <div className="ml-3 sm:ml-4">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600">Quorum</p>
-                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{electionData.electionQuorum || 0}</p>
+                    <p className="text-xs sm:text-sm font-medium text-slate-600">Quorum</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-deep">{electionData.electionQuorum || 0}</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="surface-card p-4 sm:p-6">
                 <div className="flex items-center">
-                  <FiCheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500" />
+                  <FiCheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-brand" />
                   <div className="ml-3 sm:ml-4">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600">Candidates</p>
-                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{electionData.electionChoices?.length || 0}</p>
+                    <p className="text-xs sm:text-sm font-medium text-slate-600">Candidates</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-deep">{electionData.electionChoices?.length || 0}</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Candidates */}
-            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+            <div className="surface-card p-4 sm:p-6">
               <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Candidates</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {electionData.electionChoices?.map((choice) => (
@@ -4150,8 +4134,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         <img src={choice.candidatePic} alt={choice.optionTitle} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover flex-shrink-0" />
                       )}
                       <div className="min-w-0 flex-1">
-                        <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">{choice.optionTitle}</h4>
-                        <p className="text-xs sm:text-sm text-gray-500 line-clamp-2">{choice.optionDescription}</p>
+                        <h4 className="font-medium text-deep text-sm sm:text-base truncate">{choice.optionTitle}</h4>
+                        <p className="text-xs sm:text-sm text-slate-500 line-clamp-2">{choice.optionDescription}</p>
                       </div>
                     </div>
                   </div>
@@ -4161,7 +4145,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
             {/* Voter summary — counts visible to all; full email list only for authorized roles */}
             {(canEditVoterList() || getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
-              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="surface-card p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <h3 className="text-base sm:text-lg font-semibold flex items-center">
                     <FiUsers className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-brand" />
@@ -4262,7 +4246,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     </div>
                     <div className="w-full bg-white rounded-full h-2 border border-brand/20">
                       <div
-                        className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-glacier0 transition-all duration-700"
+                        className="h-2 rounded-full bg-gradient-to-r from-brand to-brand-dark transition-all duration-700"
                         style={{ width: `${getTotalVoters(electionData) > 0 ? (getVotedCount(electionData) / getTotalVoters(electionData)) * 100 : 0}%` }}
                       />
                     </div>
@@ -4270,7 +4254,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 )}
 
                 {canViewVoterList() && !showVoterEditor && !showVoterList && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-slate-600">
                     {getTotalVoters(electionData) > 0
                       ? `This election has ${getTotalVoters(electionData).toLocaleString()} registered voter${getTotalVoters(electionData) === 1 ? '' : 's'}. Click "Show Voters" to load the full list.`
                       : `${getVotedCount(electionData).toLocaleString()} voter${getVotedCount(electionData) === 1 ? ' has' : 's have'} participated. Click "Show Voters" to load the list.`}
@@ -4289,7 +4273,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         className={`flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all ${
                           voter.hasVoted || electionData.eligibility !== 'listed'
                             ? 'bg-sage-soft border-green-200 hover:border-green-300'
-                            : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                            : 'bg-frost border-slate-200 hover:border-slate-200'
                         }`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
@@ -4298,7 +4282,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           }`}>
                             <FiUser className="h-3.5 w-3.5 text-white" />
                           </div>
-                          <span className="text-xs sm:text-sm text-gray-700 truncate font-medium">{voter.userEmail}</span>
+                          <span className="text-xs sm:text-sm text-slate-700 truncate font-medium">{voter.userEmail}</span>
                         </div>
                         {electionData.eligibility === 'listed' ? (
                           voter.hasVoted ? (
@@ -4306,7 +4290,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               <FiCheckCircle className="h-3 w-3" /> Voted
                             </span>
                           ) : (
-                            <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
+                            <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-frost-muted text-slate-500 rounded-full">
                               <FiClock className="h-3 w-3" /> Pending
                             </span>
                           )
@@ -4326,17 +4310,23 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Voting Booth Tab */}
         {activeTab === 'voting' && (
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
-              <FiCheckCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-              Voting Booth
-            </h3>
+          <div className="surface-card p-4 sm:p-6">
+            <div className="mb-4 sm:mb-6">
+              <p className="section-kicker">Ballot</p>
+              <h3 className="mt-1 font-display text-xl sm:text-2xl font-bold text-deep flex items-center gap-2">
+                <FiCheckCircle className="h-5 w-5 text-brand" />
+                Voting Booth
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Select candidates, encrypt your ballot, then cast or challenge it.
+              </p>
+            </div>
 
             {/* Eligibility Loading */}
             {checkingEligibility && (
               <div className="text-center py-8">
                 <FiLoader className="h-8 w-8 text-brand mx-auto mb-4 animate-spin" />
-                <p className="text-gray-600">Checking your eligibility to vote...</p>
+                <p className="text-slate-600">Checking your eligibility to vote...</p>
               </div>
             )}
 
@@ -4382,7 +4372,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             {/* Bot Detection Status */}
             {activeTab === 'voting' && (
               <div className={`border rounded-lg p-4 mb-6 ${botDetection.loading
-                  ? 'bg-gray-50 border-gray-200'
+                  ? 'bg-frost border-slate-200'
                   : botDetection.error
                     ? 'bg-yellow-50 border-yellow-200'
                     : botDetection.isBot
@@ -4391,7 +4381,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 }`}>
                 <div className="flex items-center">
                   {botDetection.loading ? (
-                    <FiLoader className="h-5 w-5 text-gray-500 mr-3 animate-spin" />
+                    <FiLoader className="h-5 w-5 text-slate-500 mr-3 animate-spin" />
                   ) : botDetection.error ? (
                     <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-3" />
                   ) : botDetection.isBot ? (
@@ -4401,7 +4391,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   )}
                   <div>
                     <h4 className={`font-medium ${botDetection.loading
-                        ? 'text-gray-900'
+                        ? 'text-deep'
                         : botDetection.error
                           ? 'text-yellow-900'
                           : botDetection.isBot
@@ -4418,7 +4408,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       }
                     </h4>
                     <p className={`text-xs ${botDetection.loading
-                        ? 'text-gray-600'
+                        ? 'text-slate-600'
                         : botDetection.error
                           ? 'text-yellow-800'
                           : botDetection.isBot
@@ -4481,7 +4471,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                       <div className="max-w-2xl">
                         <div className="mb-6">
-                          <label className="block text-sm font-medium text-gray-700 mb-3">
+                          <label className="block text-sm font-medium text-slate-700 mb-3">
                             {maxChoices > 1
                               ? `Select up to ${maxChoices} candidate(s): (${selectedCandidates.length}/${maxChoices} selected)`
                               : 'Select your candidate:'}
@@ -4521,14 +4511,14 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                     readOnly
                                     tabIndex={-1}
                                     aria-hidden
-                                    className="pointer-events-none h-4 w-4 text-brand border-gray-300 rounded flex-shrink-0"
+                                    className="pointer-events-none h-4 w-4 text-brand border-slate-200 rounded flex-shrink-0"
                                   />
                                   <CandidateThumbnail
                                     src={choice.candidatePic}
                                     name={choice.optionTitle}
                                     size="md"
                                   />
-                                  <span className="text-sm sm:text-base text-gray-900 leading-snug min-w-0 flex-1">
+                                  <span className="text-sm sm:text-base text-deep leading-snug min-w-0 flex-1">
                                     <TruncatedCandidateName name={choice.optionTitle} />
                                   </span>
                                 </div>
@@ -4539,7 +4529,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                         <div className="flex flex-col items-center gap-3">
                           {!canCreateBallot && (
-                            <p className="text-sm text-gray-600 text-center max-w-md">
+                            <p className="text-sm text-slate-600 text-center max-w-md">
                               {!electionOngoing
                                 ? (getElectionStatus() === 'finished'
                                   ? 'Voting has ended for this election.'
@@ -4588,24 +4578,24 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
         {/* Encrypted Ballot Confirmation Modal */}
         {showConfirmModal && (
           <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-4 z-[100]">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
+            <div className="surface-card-xl max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
               <div className="flex justify-between items-center mb-3 sm:mb-4">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Confirm Encrypted Ballot</h3>
+                <h3 className="text-base sm:text-lg font-semibold text-deep">Confirm Encrypted Ballot</h3>
                 <button
                   type="button"
                   onClick={() => setShowConfirmModal(false)}
                   disabled={isSubmitting}
-                  className="text-gray-400 hover:text-gray-600"
+                  className="text-slate-400 hover:text-slate-600"
                 >
                   <FiX className="h-5 w-5 sm:h-6 sm:w-6" />
                 </button>
               </div>
 
               <div className="mb-4 sm:mb-6">
-                <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
+                <p className="text-xs sm:text-sm text-slate-600 mb-3 sm:mb-4">
                   You are about to create an encrypted ballot with the following selection{selectedCandidates.length === 1 ? '' : 's'}:
                 </p>
-                <ul className="space-y-2 list-disc list-inside text-sm text-gray-900">
+                <ul className="space-y-2 list-disc list-inside text-sm text-deep">
                   {electionData.electionChoices
                     .filter(choice => selectedCandidates.includes(choice.choiceId.toString()))
                     .map((choice) => (
@@ -4627,7 +4617,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   type="button"
                   onClick={() => setShowConfirmModal(false)}
                   disabled={isSubmitting}
-                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-3 sm:px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50 text-sm sm:text-base"
+                  className="flex-1 bg-slate-200 text-ink py-2 px-3 sm:px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50 text-sm sm:text-base"
                 >
                   Cancel
                 </button>
@@ -4649,24 +4639,30 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Guardian Keys Tab */}
         {activeTab === 'guardian' && (
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
-              <FiShield className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-              Guardian Credential Submission
-            </h3>
+          <div className="surface-card p-4 sm:p-6">
+            <div className="mb-4 sm:mb-6">
+              <p className="section-kicker">Guardians</p>
+              <h3 className="mt-1 font-display text-xl sm:text-2xl font-bold text-deep flex items-center gap-2">
+                <FiShield className="h-5 w-5 text-brand" />
+                Guardian Workflow
+              </h3>
+              <p className="mt-1 text-sm text-slate-600">
+                Key ceremony, decryption shares, and result combination.
+              </p>
+            </div>
             <div className="space-y-6">
                 {electionData?.status === 'key_ceremony_pending' && (
-                  <div className="rounded-2xl border border-brand/25 bg-gradient-to-br from-glacier via-white to-sky-50 p-5 sm:p-6 shadow-sm">
+                  <div className="rounded-2xl border border-brand/25 bg-gradient-to-br from-glacier via-white to-frost p-5 sm:p-6 shadow-soft">
                     <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
                       <div>
-                        <h4 className="text-lg font-semibold text-deep">Key Ceremony</h4>
-                        <p className="text-sm text-ink mt-1">{getKeyCeremonyProgressMessage()}</p>
+                        <h4 className="font-display text-lg font-semibold text-deep">Key Ceremony</h4>
+                        <p className="text-sm text-slate-600 mt-1">{getKeyCeremonyProgressMessage()}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-glacier text-ink">
+                        <span className="status-chip-pending">
                           Guardians: {electionData.numberOfGuardians}
                         </span>
-                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
+                        <span className="status-chip-warn">
                           Quorum: {electionData.electionQuorum}
                         </span>
                       </div>
@@ -4675,32 +4671,32 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     {/* Guardian completion overview during key ceremony */}
                     {isKeyCeremonyPending && (
                       <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="rounded-xl border border-brand/25 bg-white p-4 flex items-center gap-4">
+                        <div className="rounded-2xl border border-brand/25 bg-white p-4 flex items-center gap-4 shadow-soft">
                           <div className="h-20 w-20">
                             <CircularProgressbar
                               value={getRound1Progress()}
                               text={`${getRound1Progress()}%`}
-                              styles={buildStyles({ pathColor: '#4f46e5', textColor: '#111827', trailColor: '#e5e7eb' })}
+                              styles={buildStyles({ pathColor: '#00B4D8', textColor: '#0B132B', trailColor: '#e2e8f0' })}
                             />
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900">Step 1: Key Pairs</p>
-                            <p className="text-sm text-gray-600">
+                            <p className="font-display font-semibold text-deep">Step 1: Key Pairs</p>
+                            <p className="text-sm text-slate-600">
                               {(adminKeyCeremonyStatus?.submittedGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians completed
                             </p>
                           </div>
                         </div>
-                        <div className="rounded-xl border border-violet-200 bg-white p-4 flex items-center gap-4">
+                        <div className="rounded-2xl border border-brand/20 bg-white p-4 flex items-center gap-4 shadow-soft">
                           <div className="h-20 w-20">
                             <CircularProgressbar
                               value={getRound2Progress()}
                               text={`${getRound2Progress()}%`}
-                              styles={buildStyles({ pathColor: '#7c3aed', textColor: '#111827', trailColor: '#e5e7eb' })}
+                              styles={buildStyles({ pathColor: '#0096B4', textColor: '#0B132B', trailColor: '#e2e8f0' })}
                             />
                           </div>
                           <div>
-                            <p className="font-semibold text-gray-900">Step 2: Backup Shares</p>
-                            <p className="text-sm text-gray-600">
+                            <p className="font-display font-semibold text-deep">Step 2: Backup Shares</p>
+                            <p className="text-sm text-slate-600">
                               {(adminKeyCeremonyStatus?.submittedBackupGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians completed
                             </p>
                           </div>
@@ -4710,24 +4706,24 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                     {/* Modern process stepper */}
                     <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-                      <div className={`rounded-xl border p-3 ${getKeyCeremonyStep() >= 1 ? 'border-brand/40 bg-glacier' : 'border-gray-200 bg-gray-50'}`}>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 1</p>
-                        <p className="font-medium text-gray-900">Key Pair Generation</p>
-                        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                      <div className={`rounded-xl border p-3 ${getKeyCeremonyStep() >= 1 ? 'border-brand/40 bg-glacier' : 'border-slate-200 bg-frost'}`}>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Step 1</p>
+                        <p className="font-medium text-deep">Key Pair Generation</p>
+                        <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
                           <div className="h-2 rounded-full bg-brand-dark" style={{ width: `${getRound1Progress()}%` }}></div>
                         </div>
                       </div>
-                      <div className={`rounded-xl border p-3 ${getKeyCeremonyStep() >= 2 ? 'border-violet-300 bg-violet-50' : 'border-gray-200 bg-gray-50'}`}>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 2</p>
-                        <p className="font-medium text-gray-900">Backup Share Exchange</p>
-                        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                          <div className="h-2 rounded-full bg-violet-600" style={{ width: `${getRound2Progress()}%` }}></div>
+                      <div className={`rounded-xl border p-3 ${getKeyCeremonyStep() >= 2 ? 'border-brand/40 bg-glacier' : 'border-slate-200 bg-frost'}`}>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Step 2</p>
+                        <p className="font-medium text-deep">Backup Share Exchange</p>
+                        <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
+                          <div className="h-2 rounded-full bg-brand-dark" style={{ width: `${getRound2Progress()}%` }}></div>
                         </div>
                       </div>
-                      <div className={`rounded-xl border p-3 ${(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation) ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`}>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 3</p>
-                        <p className="font-medium text-gray-900">Activation by Admin</p>
-                        <p className="text-xs text-gray-600 mt-2">
+                      <div className={`rounded-xl border p-3 ${(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation) ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-frost'}`}>
+                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Step 3</p>
+                        <p className="font-medium text-deep">Activation by Admin</p>
+                        <p className="text-xs text-slate-600 mt-2">
                           {(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation)
                             ? 'Ready for schedule setup'
                             : 'Waiting for all guardians to finish steps 1-2'}
@@ -4735,23 +4731,23 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       </div>
                     </div>
 
-                    <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4">
-                      <h5 className="text-sm font-semibold text-gray-900 mb-3">Guardian Ceremony Progress</h5>
+                    <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4">
+                      <h5 className="text-sm font-semibold text-deep mb-3">Guardian Ceremony Progress</h5>
                       <div className="space-y-2">
                         {electionData.guardians?.map((guardian) => (
-                          <div key={guardian.userEmail} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border rounded-lg bg-gray-50">
+                          <div key={guardian.userEmail} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border rounded-lg bg-frost">
                             <div className="flex items-center gap-3 min-w-0">
-                              <FiUser className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                              <FiUser className="h-5 w-5 text-slate-400 flex-shrink-0" />
                               <div className="min-w-0">
-                                <p className="font-medium text-gray-900 truncate">{guardian.userName || guardian.userEmail}</p>
-                                <p className="text-xs text-gray-500">Order {guardian.sequenceOrder}</p>
+                                <p className="font-medium text-deep truncate">{guardian.userName || guardian.userEmail}</p>
+                                <p className="text-xs text-slate-500">Order {guardian.sequenceOrder}</p>
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-2">
                               <span className={`px-2 py-1 rounded-full text-xs font-medium ${guardian.guardianKeySubmitted ? 'bg-glacier text-ink' : 'bg-yellow-100 text-yellow-800'}`}>
                                 Step 1: {guardian.guardianKeySubmitted ? 'Keypair submitted' : 'Keypair pending'}
                               </span>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${guardian.backupSharesSubmitted ? 'bg-violet-100 text-violet-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${guardian.backupSharesSubmitted ? 'bg-glacier text-brand-dark' : 'bg-yellow-100 text-yellow-800'}`}>
                                 Step 2: {guardian.backupSharesSubmitted ? 'Backup shared' : 'Backup pending'}
                               </span>
                             </div>
@@ -4847,8 +4843,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         )}
 
                         {(guardianKeyCeremonyContext?.currentRound === 'backup_key_sharing') && (
-                          <div className="rounded-xl border border-violet-200 bg-white p-4 mb-4">
-                            <h5 className="font-semibold text-violet-900 mb-3">Round 2: Backup Share Generation + Submission</h5>
+                          <div className="rounded-xl border border-brand/20 bg-white p-4 mb-4">
+                            <h5 className="font-semibold text-deep mb-3">Round 2: Backup Share Generation + Submission</h5>
                             <input
                               type="file"
                               accept=".txt,.json"
@@ -4864,7 +4860,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               <button
                                 onClick={handleGenerateBackupShares}
                                 disabled={keyCeremonyBusy.generatingBackup}
-                                className="px-3 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-60"
+                                className="px-3 py-2 bg-brand-dark text-white rounded-lg hover:bg-brand disabled:opacity-60"
                               >
                                 {keyCeremonyBusy.generatingBackup ? 'Generating...' : 'Generate Backup Shares'}
                               </button>
@@ -5043,7 +5039,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                   <button
                                     onClick={handleCheckCombineStatus}
                                     disabled={combiningDecryptions}
-                                    className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors font-medium"
+                                    className="bg-slate-200 text-slate-700 px-6 py-2 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors font-medium"
                                   >
                                     <FiRefreshCw className="inline h-4 w-4 mr-2" />
                                     Check Status
@@ -5082,7 +5078,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 {/* Active Decryption Process Banner */}
                 {isElectionFinished() && isTallyComplete && guardianDecryptionStatus &&
                  (guardianDecryptionStatus.status === 'in_progress' || guardianDecryptionStatus.status === 'pending') && (
-                  <div className="bg-gradient-to-r from-blue-500 to-brand-dark text-white rounded-lg p-4 shadow-lg animate-pulse">
+                  <div className="bg-gradient-to-r from-brand to-brand-dark text-white rounded-lg p-4 shadow-lg animate-pulse">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
@@ -5110,8 +5106,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                   if (submitStatus.canSubmit) {
                     return (
-                      <div className="rounded-2xl border-2 border-brand/40 bg-gradient-to-br from-glacier via-white to-violet-50 shadow-lg overflow-hidden">
-                        <div className="bg-gradient-to-r from-brand to-violet-600 px-5 sm:px-6 py-4 text-white">
+                      <div className="rounded-2xl border-2 border-brand/40 bg-gradient-to-br from-glacier via-white to-glacier shadow-lg overflow-hidden">
+                        <div className="bg-gradient-to-r from-brand to-brand-dark px-5 sm:px-6 py-4 text-white">
                           <div className="flex items-start gap-3">
                             <div className="rounded-xl bg-white/20 p-3 flex-shrink-0">
                               <FiKey className="h-7 w-7" />
@@ -5130,15 +5126,15 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
                             <div className="rounded-xl border border-glacier bg-white p-3">
                               <p className="text-xs font-bold text-brand-dark uppercase">Step 1</p>
-                              <p className="mt-1 text-gray-800">Find <span className="font-semibold">credentials.txt</span> in your email</p>
+                              <p className="mt-1 text-ink">Find <span className="font-semibold">credentials.txt</span> in your email</p>
                             </div>
                             <div className="rounded-xl border border-glacier bg-white p-3">
                               <p className="text-xs font-bold text-brand-dark uppercase">Step 2</p>
-                              <p className="mt-1 text-gray-800">Choose the file below (do not edit it)</p>
+                              <p className="mt-1 text-ink">Choose the file below (do not edit it)</p>
                             </div>
                             <div className="rounded-xl border border-glacier bg-white p-3">
                               <p className="text-xs font-bold text-brand-dark uppercase">Step 3</p>
-                              <p className="mt-1 text-gray-800">Press the big green submit button</p>
+                              <p className="mt-1 text-ink">Press the big green submit button</p>
                             </div>
                           </div>
 
@@ -5279,7 +5275,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               className="w-full text-sm file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:bg-brand-dark file:text-white file:font-semibold hover:file:bg-ink cursor-pointer"
                               required
                             />
-                            <p className="text-sm text-gray-600 mt-3">
+                            <p className="text-sm text-slate-600 mt-3">
                               Only the plain text file named <span className="font-mono font-semibold">credentials.txt</span> from your guardian ceremony will work.
                             </p>
                             {guardianKey && (
@@ -5373,19 +5369,19 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                 {/* Guardian List */}
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Guardian Status</h4>
+                  <h4 className="font-medium text-deep mb-3">Guardian Status</h4>
 
                   {getElectionStatus() === 'finished' && (
                     <>
                       {/* Guardian Progress Summary */}
-                      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+                      <div className="mb-4 p-3 bg-frost rounded-lg">
                         <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Partial Decryption Progress:</span>
-                          <span className="font-medium text-gray-900">
+                          <span className="text-sm text-slate-600">Partial Decryption Progress:</span>
+                          <span className="font-medium text-deep">
                             {electionData.guardiansSubmitted || 0} of {electionData.totalGuardians || 0} guardians submitted
                           </span>
                         </div>
-                        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
+                        <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
                           <div
                             className="bg-brand h-2 rounded-full transition-all duration-300"
                             style={{
@@ -5425,20 +5421,20 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     {electionData.guardians?.map((guardian) => (
                       <div key={guardian.userEmail} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center space-x-3">
-                          <FiUser className="h-5 w-5 text-gray-400" />
+                          <FiUser className="h-5 w-5 text-slate-400" />
                           <div>
-                            <p className="font-medium text-gray-900">{guardian.userName}</p>
-                            <p className="text-sm text-gray-600">{guardian.userEmail}</p>
+                            <p className="font-medium text-deep">{guardian.userName}</p>
+                            <p className="text-sm text-slate-600">{guardian.userEmail}</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2 flex-wrap justify-end gap-1">
-                          <span className="text-sm font-medium text-gray-600">Order: {guardian.sequenceOrder}</span>
+                          <span className="text-sm font-medium text-slate-600">Order: {guardian.sequenceOrder}</span>
                           {electionData.status === 'key_ceremony_pending' ? (
                             <>
                               <span className={`px-2 py-1 rounded-full text-xs ${guardian.guardianKeySubmitted ? 'bg-glacier text-ink' : 'bg-yellow-100 text-yellow-800'}`}>
                                 {guardian.guardianKeySubmitted ? 'Keypair done' : 'Keypair pending'}
                               </span>
-                              <span className={`px-2 py-1 rounded-full text-xs ${guardian.backupSharesSubmitted ? 'bg-violet-100 text-violet-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              <span className={`px-2 py-1 rounded-full text-xs ${guardian.backupSharesSubmitted ? 'bg-glacier text-brand-dark' : 'bg-yellow-100 text-yellow-800'}`}>
                                 {guardian.backupSharesSubmitted ? 'Backup shared' : 'Backup pending'}
                               </span>
                             </>
@@ -5458,16 +5454,19 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Results Tab */}
         {activeTab === 'results' && (
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
-              <FiTrendingUp className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-              Election Results
-            </h3>
+          <div className="surface-card p-4 sm:p-6">
+            <div className="mb-4 sm:mb-6">
+              <p className="section-kicker">Outcome</p>
+              <h3 className="mt-1 font-display text-xl sm:text-2xl font-bold text-deep flex items-center gap-2">
+                <FiTrendingUp className="h-5 w-5 text-brand" />
+                Election Results
+              </h3>
+            </div>
             {!canUserViewResults() ? (
               <div className="text-center py-8">
-                <FiTrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-gray-700 mb-2">Results Not Available</h4>
-                <p className="text-gray-600">
+                <FiTrendingUp className="h-12 w-12 text-slate-400 mx-auto mb-4" />
+                <h4 className="text-lg font-semibold text-slate-700 mb-2">Results Not Available</h4>
+                <p className="text-slate-600">
                   Results will be available after decryption shares are combined on the Guardian tab.
                 </p>
               </div>
@@ -5476,7 +5475,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 {loadingResults && (
                   <div className="text-center py-8">
                     <FiLoader className="h-8 w-8 text-brand mx-auto mb-4 animate-spin" />
-                    <p className="text-gray-600">Loading election results...</p>
+                    <p className="text-slate-600">Loading election results...</p>
                   </div>
                 )}
 
@@ -5567,11 +5566,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
                           <div>
                             <p className="text-xs uppercase tracking-wide text-brand-dark font-semibold">Election</p>
-                            <p className="font-bold text-gray-900 mt-1">{electionData.electionTitle}</p>
+                            <p className="font-bold text-deep mt-1">{electionData.electionTitle}</p>
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-wide text-brand-dark font-semibold">Max Choices</p>
-                            <p className="font-bold text-gray-900 mt-1">{electionData.maxChoices || 1}</p>
+                            <p className="font-bold text-deep mt-1">{electionData.maxChoices || 1}</p>
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-wide text-brand-dark font-semibold">Winners</p>
@@ -5579,7 +5578,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           </div>
                           <div>
                             <p className="text-xs uppercase tracking-wide text-brand-dark font-semibold">Eligible Voters</p>
-                            <p className="font-bold text-gray-900 mt-1">{processedResults.totalEligibleVoters}</p>
+                            <p className="font-bold text-deep mt-1">{processedResults.totalEligibleVoters}</p>
                           </div>
                         </div>
                       </div>
@@ -5596,9 +5595,9 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           <h4 className="font-medium text-sage mb-1 text-xs sm:text-sm">Eligible Voters</h4>
                           <p className="text-xl sm:text-3xl font-extrabold text-emerald-800">{processedResults.totalEligibleVoters}</p>
                         </div>
-                        <div className="p-3 sm:p-4 bg-glacier border border-purple-100 rounded-xl text-center">
+                        <div className="p-3 sm:p-4 bg-glacier border border-brand/15 rounded-xl text-center">
                           <div className="text-2xl mb-1">📊</div>
-                          <h4 className="font-medium text-purple-700 mb-1 text-xs sm:text-sm">Voter Turnout</h4>
+                          <h4 className="font-medium text-brand-dark mb-1 text-xs sm:text-sm">Voter Turnout</h4>
                           <p className="text-xl sm:text-3xl font-extrabold text-ink">{processedResults.turnoutRate}%</p>
                         </div>
                         <div className="p-3 sm:p-4 bg-orange-50 border border-orange-100 rounded-xl text-center">
@@ -5634,8 +5633,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       {/* Charts */}
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6 mb-6">
                         {/* Bar Chart */}
-                        <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-                          <h4 className="font-medium text-gray-900 mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
+                        <div className="bg-frost rounded-lg p-3 sm:p-4">
+                          <h4 className="font-medium text-deep mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
                             <FiBarChart className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                             Vote Distribution
                           </h4>
@@ -5663,8 +5662,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         </div>
 
                         {/* Pie Chart */}
-                        <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-                          <h4 className="font-medium text-gray-900 mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
+                        <div className="bg-frost rounded-lg p-3 sm:p-4">
+                          <h4 className="font-medium text-deep mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
                             <FiPieChart className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                             Vote Share
                           </h4>
@@ -5693,17 +5692,17 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       </div>
 
                       {/* Detailed Results Table */}
-                      <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-                        <h4 className="font-medium text-gray-900 mb-3 sm:mb-4 text-sm sm:text-base">Detailed Results</h4>
+                      <div className="bg-frost rounded-lg p-3 sm:p-4">
+                        <h4 className="font-medium text-deep mb-3 sm:mb-4 text-sm sm:text-base">Detailed Results</h4>
                         <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                           <table className="w-full border-collapse min-w-[500px]">
                             <thead>
-                              <tr className="border-b-2 border-gray-300">
-                                <th className="text-left p-3 font-medium text-gray-900">Position</th>
-                                <th className="text-left p-3 font-medium text-gray-900">Candidate</th>
-                                <th className="text-left p-3 font-medium text-gray-900">Votes</th>
-                                <th className="text-left p-3 font-medium text-gray-900">Percentage</th>
-                                <th className="text-left p-3 font-medium text-gray-900">Visual</th>
+                              <tr className="border-b-2 border-slate-200">
+                                <th className="text-left p-3 font-medium text-deep">Position</th>
+                                <th className="text-left p-3 font-medium text-deep">Candidate</th>
+                                <th className="text-left p-3 font-medium text-deep">Votes</th>
+                                <th className="text-left p-3 font-medium text-deep">Percentage</th>
+                                <th className="text-left p-3 font-medium text-deep">Visual</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -5712,16 +5711,16 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 const isWinner = isWinnerByRank(candidate.rank, winnerCount);
                                 const positionLabel = formatOrdinal(candidate.rank);
                                 return (
-                                  <tr key={candidate.name} className={`border-b border-gray-200 hover:bg-gray-100 ${isWinner ? 'bg-amber-50/60' : ''}`}>
+                                  <tr key={candidate.name} className={`border-b border-slate-200 hover:bg-frost-muted ${isWinner ? 'bg-amber-50/60' : ''}`}>
                                     <td className="p-3">
                                       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium ${
-                                        isWinner ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' : 'bg-gray-100 text-gray-600'
+                                        isWinner ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' : 'bg-frost-muted text-slate-600'
                                       }`}>
                                         {isWinner && <span aria-hidden>🏆</span>}
                                         {positionLabel}
                                       </span>
                                     </td>
-                                    <td className={`p-3 font-medium min-w-0 ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>
+                                    <td className={`p-3 font-medium min-w-0 ${isWinner ? 'text-amber-800' : 'text-deep'}`}>
                                       <div className="flex items-center gap-3 min-w-0">
                                         <CandidateThumbnail
                                           src={getCandidatePic(electionData.electionChoices, candidate.name)}
@@ -5734,10 +5733,10 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                         </div>
                                       </div>
                                     </td>
-                                    <td className="p-3 font-semibold text-gray-900">{candidate.votes}</td>
-                                    <td className="p-3 text-gray-900">{candidate.percentage}%</td>
+                                    <td className="p-3 font-semibold text-deep">{candidate.votes}</td>
+                                    <td className="p-3 text-deep">{candidate.percentage}%</td>
                                     <td className="p-3">
-                                      <div className="w-20 bg-gray-200 rounded-full h-2">
+                                      <div className="w-20 bg-slate-200 rounded-full h-2">
                                         <div
                                           className={`h-2 rounded-full transition-all duration-1000 ${isWinner ? 'bg-yellow-500' : 'bg-brand'}`}
                                           style={{ width: `${candidate.percentage}%` }}
@@ -5756,7 +5755,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       {processedResults.chartData && processedResults.chartData.length > 0 && (
                         <div className="mt-6">
                           <div className="bg-white rounded-xl border border-glacier shadow-sm p-4 sm:p-6">
-                            <h4 className="font-bold text-gray-900 mb-5 flex items-center gap-2 text-base sm:text-lg">
+                            <h4 className="font-bold text-deep mb-5 flex items-center gap-2 text-base sm:text-lg">
                               <span className="text-2xl">🏆</span>
                               Election Rankings
                             </h4>
@@ -5767,7 +5766,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 const positionLabel = formatOrdinal(candidate.rank);
                                 const style = isWinner
                                   ? { bg: 'bg-gradient-to-r from-yellow-50 to-amber-50', border: 'border-yellow-300', badge: 'bg-yellow-100 text-yellow-800 border border-yellow-300', rank: 'text-yellow-600', bar: 'from-yellow-400 to-amber-500' }
-                                  : { bg: 'bg-glacier', border: 'border-glacier', badge: 'bg-glacier text-brand-dark border border-brand/20', rank: 'text-brand', bar: 'from-blue-400 to-glacier0' };
+                                  : { bg: 'bg-glacier', border: 'border-glacier', badge: 'bg-glacier text-brand-dark border border-brand/20', rank: 'text-brand', bar: 'from-brand-light to-brand' };
                                 return (
                                   <div key={candidate.name} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border ${style.bg} ${style.border} transition-all hover:shadow-md`}>
                                     <div className="w-14 text-center flex-shrink-0">
@@ -5787,7 +5786,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                           name={candidate.name}
                                           size="md"
                                         />
-                                        <p className={`font-bold text-sm sm:text-base min-w-0 ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>
+                                        <p className={`font-bold text-sm sm:text-base min-w-0 ${isWinner ? 'text-amber-800' : 'text-deep'}`}>
                                           <TruncatedCandidateName name={candidate.name} />
                                         </p>
                                       </div>
@@ -5802,7 +5801,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${style.badge}`}>
                                         {candidate.votes} votes
                                       </span>
-                                      <span className="text-xs font-semibold text-gray-500">{candidate.percentage}%</span>
+                                      <span className="text-xs font-semibold text-slate-500">{candidate.percentage}%</span>
                                     </div>
                                   </div>
                                 );
@@ -5815,16 +5814,16 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       {/* Chunk Breakdown Section - Modern UI */}
                       {animatedResults && animatedResults.results && animatedResults.results.chunks && animatedResults.results.chunks.length > 0 && (
                         <div className="mt-8">
-                          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
+                          <div className="bg-gradient-to-r from-glacier to-frost rounded-lg p-6 border border-brand/20">
                             <div className="flex items-center justify-between mb-6">
                               <div>
-                                <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+                                <h4 className="text-xl font-bold text-deep flex items-center gap-2">
                                   <svg className="w-6 h-6 text-brand-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                                   </svg>
                                   Processing Chunk Breakdown
                                 </h4>
-                                <p className="text-sm text-gray-600 mt-1">
+                                <p className="text-sm text-slate-600 mt-1">
                                   Detailed view of vote distribution across {animatedResults.results.chunks.length} processing chunks
                                 </p>
                               </div>
@@ -5837,10 +5836,10 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               {animatedResults.results.chunks.map((chunk, index) => (
                                 <div 
                                   key={chunk.electionCenterId}
-                                  className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden border border-gray-200"
+                                  className="surface-card-md hover:shadow-lg transition-shadow duration-300 overflow-hidden border border-slate-200"
                                 >
                                   {/* Chunk Header */}
-                                  <div className="bg-gradient-to-r from-purple-500 to-blue-500 px-4 py-3">
+                                  <div className="bg-gradient-to-r from-brand to-brand-dark px-4 py-3">
                                     <div className="flex items-center justify-between">
                                       <h5 className="font-bold text-white text-lg">
                                         Chunk #{chunk.chunkIndex}
@@ -5854,18 +5853,18 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                   {/* Chunk Body */}
                                   <div className="p-4">
                                     {/* Ballot Count */}
-                                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200">
+                                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-slate-200">
                                       <svg className="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                       </svg>
-                                      <span className="text-sm font-medium text-gray-700">
+                                      <span className="text-sm font-medium text-slate-700">
                                         {chunk.ballotCount || 0} Ballots Processed
                                       </span>
                                     </div>
 
                                     {/* Vote Distribution */}
                                     <div className="space-y-3">
-                                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vote Distribution</p>
+                                      <p className="text-xs font-semibold text-slate-500 uppercase tracking-wide">Vote Distribution</p>
                                       {Object.entries(chunk.candidateVotes || {}).map(([candidate, voteData]) => {
                                         let votes = 0;
                                         if (typeof voteData === 'number') {
@@ -5887,12 +5886,12 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                         return (
                                           <div key={candidate} className="space-y-1">
                                             <div className="flex items-center justify-between text-sm">
-                                              <span className="font-medium text-gray-700 truncate">{candidate}</span>
+                                              <span className="font-medium text-slate-700 truncate">{candidate}</span>
                                               <span className="font-bold text-brand ml-2">{votes}</span>
                                             </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                            <div className="w-full bg-slate-200 rounded-full h-2 overflow-hidden">
                                               <div
-                                                className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                                                className="bg-gradient-to-r from-brand to-brand-dark h-2 rounded-full transition-all duration-500"
                                                 style={{ width: `${percentage}%` }}
                                               ></div>
                                             </div>
@@ -5903,8 +5902,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                   </div>
 
                                   {/* Chunk Footer */}
-                                  <div className="bg-gray-50 px-4 py-2 border-t border-gray-200">
-                                    <p className="text-xs text-gray-500 text-center">
+                                  <div className="bg-frost px-4 py-2 border-t border-slate-200">
+                                    <p className="text-xs text-slate-500 text-center">
                                       Chunk {index + 1} of {animatedResults.results.chunks.length}
                                     </p>
                                   </div>
@@ -5925,22 +5924,22 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Ballots in Tally Tab */}
         {activeTab === 'ballots' && (
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
+          <div className="surface-card p-3 sm:p-6">
             {!canUserViewVerification() ? (
               <div className="text-center py-8 sm:py-12 px-4">
                 <FiDatabase className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Ballots Not Available</h3>
-                <p className="text-sm sm:text-base text-gray-600 mb-4">
+                <h3 className="text-base sm:text-lg font-semibold text-deep mb-2">Ballots Not Available</h3>
+                <p className="text-sm sm:text-base text-slate-600 mb-4">
                   Ballot information will be available after the election results have been computed.
                 </p>
               </div>
             ) : combiningDecryptions ? (
               <div className="text-center py-8 sm:py-12 px-4">
                 <FiLoader className="h-12 w-12 sm:h-16 sm:w-16 text-brand mx-auto mb-4 animate-spin" />
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                <h3 className="text-base sm:text-lg font-semibold text-deep mb-2">
                   🔄 Combining Decryptions
                 </h3>
-                <p className="text-sm sm:text-base text-gray-600 mb-4">
+                <p className="text-sm sm:text-base text-slate-600 mb-4">
                   Combining guardian keys to retrieve ballot hashes and tracking codes...
                 </p>
               </div>
@@ -5953,8 +5952,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 return (
                   <div className="text-center py-12">
                     <FiShield className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">⏳ Waiting for Guardians</h3>
-                    <p className="text-gray-600 mb-4">
+                    <h3 className="text-lg font-semibold text-deep mb-2">⏳ Waiting for Guardians</h3>
+                    <p className="text-slate-600 mb-4">
                       Not enough guardians have submitted their decryption keys yet.
                     </p>
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 inline-block">
@@ -5986,7 +5985,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Key Verification Tab (guardians only) */}
         {activeTab === 'key-verification' && (
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
+          <div className="surface-card p-3 sm:p-6">
             <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
               <FiKey className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Key Verification
@@ -5996,8 +5995,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             ) : (
               <div className="text-center py-8 sm:py-12 px-4">
                 <FiShield className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Guardians Only</h3>
-                <p className="text-sm sm:text-base text-gray-600">
+                <h3 className="text-base sm:text-lg font-semibold text-deep mb-2">Guardians Only</h3>
+                <p className="text-sm sm:text-base text-slate-600">
                   Key verification is available only to guardians assigned to this election.
                 </p>
               </div>
@@ -6007,20 +6006,27 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Verify Your Vote Tab */}
         {activeTab === 'verify' && (
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
+          <div className="surface-card p-4 sm:p-6">
+            <div className="mb-4 sm:mb-6">
+              <p className="section-kicker">Individual check</p>
+              <h3 className="mt-1 font-display text-xl sm:text-2xl font-bold text-deep flex items-center gap-2">
+                <FiHash className="h-5 w-5 text-brand" />
+                Verify Your Vote
+              </h3>
+            </div>
             {!canUserViewVerification() ? (
               <div className="text-center py-8 sm:py-12 px-4">
-                <FiHash className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Vote Verification Not Available</h3>
-                <p className="text-sm sm:text-base text-gray-600 mb-4">
+                <FiHash className="h-12 w-12 sm:h-16 sm:w-16 text-slate-300 mx-auto mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold text-deep mb-2">Vote Verification Not Available</h3>
+                <p className="text-sm sm:text-base text-slate-600 mb-4">
                   Vote verification will be available after the election results have been computed.
                 </p>
               </div>
             ) : combiningDecryptions ? (
               <div className="text-center py-8 sm:py-12 px-4">
                 <FiLoader className="h-12 w-12 sm:h-16 sm:w-16 text-brand mx-auto mb-4 animate-spin" />
-                <h3 className="text-base sm:text-lg font-semibold text-deep mb-2">🔄 Combining Decryptions</h3>
-                <p className="text-sm sm:text-base text-gray-600 mb-4">
+                <h3 className="text-base sm:text-lg font-semibold text-deep mb-2">Combining Decryptions</h3>
+                <p className="text-sm sm:text-base text-slate-600 mb-4">
                   Combining guardian keys to enable vote verification...
                 </p>
               </div>
@@ -6033,8 +6039,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 return (
                   <div className="text-center py-12">
                     <FiShield className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">⏳ Waiting for Guardians</h3>
-                    <p className="text-gray-600 mb-4">
+                    <h3 className="text-lg font-semibold text-deep mb-2">⏳ Waiting for Guardians</h3>
+                    <p className="text-slate-600 mb-4">
                       Vote verification requires ballot hashes, but not enough guardians have submitted their decryption keys yet.
                     </p>
                     <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 inline-block">

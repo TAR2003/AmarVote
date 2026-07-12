@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo, useCallback, Suspense, lazy } from "react";
+import React, { useState, useEffect, useMemo, useCallback, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
 import {
   FiCalendar,
@@ -57,9 +57,9 @@ const canUserVoteInElection = (election) => {
 
 // Lazy load heavy components
 const ElectionCardSkeleton = () => (
-  <div className="p-4 bg-white rounded-lg shadow animate-pulse">
-    <div className="h-4 bg-gray-300 rounded w-3/4 mb-2"></div>
-    <div className="h-3 bg-gray-200 rounded w-1/2"></div>
+  <div className="surface-card animate-pulse p-5">
+    <div className="mb-3 h-4 w-3/4 rounded-lg bg-glacier"></div>
+    <div className="h-3 w-1/2 rounded-lg bg-frost"></div>
   </div>
 );
 
@@ -69,35 +69,35 @@ const ElectionCard = React.memo(({ election, getVoteButtonInfo, handleElectionCl
   
   return (
     <div
-      className="p-4 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+      className="surface-card-interactive cursor-pointer p-5"
       onClick={() => handleElectionClick(election.electionId)}
     >
-      <div className="flex items-center justify-between">
-        <div className="flex-1">
-          <div className="flex items-center">
-            <h3 className="text-base font-medium text-gray-900">
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <h3 className="font-display text-lg font-semibold text-deep">
               {election.electionTitle}
             </h3>
             <span
-              className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+              className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                 election.isPublic 
-                  ? 'bg-sage-soft text-emerald-800' 
-                  : 'bg-orange-100 text-orange-800'
+                  ? 'bg-sage-soft text-sage' 
+                  : 'bg-amber-100 text-amber-800'
               }`}
             >
               {election.isPublic ? 'Public' : 'Private'}
             </span>
           </div>
           
-          <p className="text-sm text-gray-500 mt-1 truncate">
+          <p className="mt-1.5 truncate text-sm text-slate-600">
             {election.electionDescription}
           </p>
 
-          <div className="mt-2 flex flex-wrap gap-1">
+          <div className="mt-3 flex flex-wrap gap-2">
             {election.userRoles && election.userRoles.slice(0, 2).map((role) => (
               <span
                 key={role}
-                className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                   role === 'admin' ? 'bg-red-100 text-red-800' :
                   role === 'guardian' ? 'bg-glacier text-ink' :
                   'bg-glacier text-ink'
@@ -107,21 +107,22 @@ const ElectionCard = React.memo(({ election, getVoteButtonInfo, handleElectionCl
               </span>
             ))}
             {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sage-soft text-emerald-800">
+              <span className="inline-flex items-center rounded-lg bg-sage-soft px-2.5 py-1 text-xs font-semibold text-sage">
                 {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
               </span>
             )}
           </div>
           
-          <div className="mt-2 text-xs text-gray-400">
+          <div className="mt-3 flex items-center gap-1.5 text-xs font-medium text-slate-500">
+            <FiCalendar className="h-3.5 w-3.5 text-brand" />
             {election.startingTime && election.endingTime
               ? `${timezoneUtils.formatShortDate(election.startingTime)} - ${timezoneUtils.formatShortDate(election.endingTime)}`
               : 'Schedule pending (key ceremony)'}
           </div>
         </div>
-        <div className="flex-shrink-0 ml-4">
+        <div className="w-full sm:w-auto sm:flex-shrink-0">
           <button 
-            className={`inline-flex items-center px-3 py-1.5 border border-transparent text-xs font-medium rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${buttonStyle}`}
+            className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-xs font-semibold shadow-soft transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 sm:w-auto ${buttonStyle}`}
             onClick={(e) => {
               e.stopPropagation();
               handleElectionClick(election.electionId);
@@ -141,7 +142,6 @@ const Dashboard = ({ userEmail }) => {
   const { elections, loading: electionsLoading, error: electionsError } = useElections();
   const [userStats, setUserStats] = useState({ registeredUsers: 0, activeUsers: 0 });
   const [statsLoading, setStatsLoading] = useState(true);
-  const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
   const loading = electionsLoading || statsLoading;
   const error = electionsError;
@@ -229,10 +229,10 @@ const Dashboard = ({ userEmail }) => {
       name: "Registered Users",
       value: userStats.registeredUsers.toLocaleString(),
       icon: FiUsers,
-      gradient: "from-violet-500 to-purple-600",
-      iconBg: "bg-violet-100",
-      iconColor: "text-violet-600",
-      ring: "ring-violet-100",
+      gradient: "from-deep to-ink",
+      iconBg: "bg-frost",
+      iconColor: "text-ink",
+      ring: "ring-glacier",
     },
     {
       name: "Active Users",
@@ -273,12 +273,6 @@ const Dashboard = ({ userEmail }) => {
     };
   }, [userEmail]);
 
-  useEffect(() => {
-    if (!electionsLoading) {
-      setInitialLoadComplete(true);
-    }
-  }, [electionsLoading]);
-
   // Handle navigation to election page
   const handleElectionClick = useCallback((electionId) => {
     navigate(`/election-page/${electionId}`);
@@ -289,7 +283,7 @@ const Dashboard = ({ userEmail }) => {
     if (!election.startingTime || !election.endingTime) {
       return {
         buttonText: "Key Ceremony",
-        buttonStyle: "text-purple-700 bg-glacier hover:bg-purple-200 focus:ring-purple-500",
+        buttonStyle: "text-ink bg-glacier hover:bg-frost focus:ring-brand",
         isDisabled: false,
       };
     }
@@ -300,7 +294,7 @@ const Dashboard = ({ userEmail }) => {
     
     // Default values
     let buttonText = "View Election";
-    let buttonStyle = "text-gray-700 bg-gray-200 hover:bg-gray-300 focus:ring-gray-500";
+    let buttonStyle = "text-slate-700 bg-slate-100 hover:bg-slate-200 focus:ring-slate-400";
     let isDisabled = false;
     
     // Check if election is active
@@ -310,11 +304,11 @@ const Dashboard = ({ userEmail }) => {
       // Election is not active (upcoming or ended)
       if (startTime > now) {
         buttonText = "Upcoming";
-        buttonStyle = "text-brand-dark bg-glacier cursor-not-allowed";
+        buttonStyle = "text-ink bg-glacier cursor-not-allowed";
         isDisabled = true;
       } else {
         buttonText = "View Results";
-        buttonStyle = "text-sage bg-sage-soft hover:bg-green-200 focus:ring-green-500";
+        buttonStyle = "text-sage bg-sage-soft hover:bg-green-100 focus:ring-sage";
       }
       return { buttonText, buttonStyle, isDisabled };
     }
@@ -322,7 +316,7 @@ const Dashboard = ({ userEmail }) => {
     // Election is active - check if user has already voted
     if (election.hasVoted) {
       buttonText = "Already Voted";
-      buttonStyle = "text-gray-700 bg-gray-200 cursor-not-allowed";
+      buttonStyle = "text-slate-600 bg-slate-100 cursor-not-allowed";
       isDisabled = true;
       return { buttonText, buttonStyle, isDisabled };
     }
@@ -345,7 +339,7 @@ const Dashboard = ({ userEmail }) => {
   // Optimized loading screen with skeleton
   if (loading) {
     return (
-      <div className="space-y-6">
+      <div className="space-y-6 page-enter">
         {/* Welcome Banner Skeleton */}
         <div className="bg-gradient-to-r from-brand to-brand-dark rounded-2xl shadow-lg overflow-hidden">
           <div className="px-6 py-8 sm:p-10">
@@ -359,7 +353,7 @@ const Dashboard = ({ userEmail }) => {
         {/* Stats Skeleton */}
         <div className="grid grid-cols-4 gap-2 sm:gap-4">
           {[...Array(4)].map((_, i) => (
-            <div key={i} className="bg-white shadow rounded-xl p-4 sm:p-6">
+            <div key={i} className="surface-card p-4 sm:p-6">
               <div className="animate-pulse">
                 <div className="h-6 bg-gray-300 rounded w-1/3 mb-4"></div>
                 <div className="h-8 bg-gray-200 rounded w-1/4"></div>
@@ -371,7 +365,7 @@ const Dashboard = ({ userEmail }) => {
         {/* Elections Sections Skeleton */}
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           {[...Array(3)].map((_, i) => (
-            <div key={i} className="bg-white shadow rounded-xl p-6">
+            <div key={i} className="surface-card p-6">
               <div className="animate-pulse">
                 <div className="h-6 bg-gray-300 rounded w-1/3 mb-4"></div>
                 <div className="space-y-3">
@@ -410,15 +404,15 @@ const Dashboard = ({ userEmail }) => {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 page-enter">
       {/* Welcome Banner */}
       <div className="relative overflow-hidden rounded-2xl bg-deep-aurora shadow-lift">
         <div className="pointer-events-none absolute inset-0 bg-hero-grid opacity-30" style={{ backgroundSize: "40px 40px" }} />
         <div className="relative px-4 py-6 sm:px-8 sm:py-10">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-light">
-                Your command center
+              <p className="section-kicker text-brand-light">
+                Election overview
               </p>
               <h1 className="mt-1.5 font-display text-2xl font-bold leading-tight tracking-tight text-white break-words sm:text-3xl">
                 Welcome back, {userEmail.split("@")[0]}
@@ -441,7 +435,7 @@ const Dashboard = ({ userEmail }) => {
         {stats.map((stat) => (
           <div
             key={stat.name}
-            className={`relative overflow-hidden rounded-xl sm:rounded-2xl bg-white border border-gray-100 shadow-sm hover:shadow-md transition-all duration-300 ring-1 ${stat.ring}`}
+            className={`surface-card relative overflow-hidden rounded-xl sm:rounded-2xl transition-all duration-300 hover:shadow-lift ring-1 ${stat.ring}`}
           >
             <div className={`absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${stat.gradient}`} />
             <div className="p-3 sm:p-5">
@@ -454,7 +448,7 @@ const Dashboard = ({ userEmail }) => {
                     )}
                   </p>
                   <div className="mt-1 flex items-center gap-1.5">
-                    <p className="text-lg sm:text-3xl font-bold text-gray-900 tracking-tight">
+                  <p className="font-display text-lg font-bold tracking-tight text-deep sm:text-3xl">
                       {stat.value}
                     </p>
                     {stat.pulse && (
@@ -477,21 +471,22 @@ const Dashboard = ({ userEmail }) => {
       {/* Elections Sections */}
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         {/* Available Elections */}
-        <div className="bg-white shadow rounded-xl overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">
+        <div className="surface-card overflow-hidden">
+          <div className="border-b border-glacier px-6 py-5">
+            <p className="section-kicker">Live participation</p>
+            <h2 className="mt-1 font-display text-xl font-semibold text-deep">
               Available Elections
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-slate-600">
               Elections you can currently participate in
             </p>
           </div>
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-glacier">
             {ongoing.length > 0 ? (
               ongoing.map((election) => (
                 <div
                   key={election.electionId}
-                  className="p-4 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                  className="cursor-pointer p-5 transition-colors duration-150 hover:bg-frost/60"
                   onClick={() => handleElectionClick(election.electionId)}
                 >
                   <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -502,10 +497,10 @@ const Dashboard = ({ userEmail }) => {
                         </h3>
                         {/* Public/Private Indicator */}
                         <span
-                          className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                             election.isPublic 
-                              ? 'bg-sage-soft text-emerald-800' 
-                              : 'bg-orange-100 text-orange-800'
+                              ? 'bg-sage-soft text-sage' 
+                              : 'bg-amber-100 text-amber-800'
                           }`}
                         >
                           {election.isPublic ? 'Public' : 'Private'}
@@ -521,7 +516,7 @@ const Dashboard = ({ userEmail }) => {
                         {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
                           <span
                             key={role}
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                               role === 'admin' ? 'bg-red-100 text-red-800' :
                               role === 'guardian' ? 'bg-glacier text-ink' :
                               'bg-glacier text-ink'
@@ -532,7 +527,7 @@ const Dashboard = ({ userEmail }) => {
                         ))}
                         {/* Show eligible voter status */}
                         {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sage-soft text-emerald-800">
+                          <span className="inline-flex items-center rounded-lg bg-sage-soft px-2.5 py-1 text-xs font-semibold text-sage">
                             {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
                           </span>
                         )}
@@ -551,7 +546,7 @@ const Dashboard = ({ userEmail }) => {
                         const { buttonText, buttonStyle, isDisabled } = getVoteButtonInfo(election);
                         return (
                           <button 
-                            className={`w-full sm:w-auto inline-flex items-center justify-center px-3 py-2 border border-transparent text-xs font-medium rounded-full shadow-sm focus:outline-none focus:ring-2 focus:ring-offset-2 ${buttonStyle}`}
+                            className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-xs font-semibold shadow-soft transition-colors focus:outline-none focus:ring-2 focus:ring-brand focus:ring-offset-2 sm:w-auto ${buttonStyle}`}
                             onClick={(e) => {
                               e.stopPropagation();
                               handleElectionClick(election.electionId);
@@ -587,21 +582,22 @@ const Dashboard = ({ userEmail }) => {
         </div>
 
         {/* Recent Activity */}
-        <div className="bg-white shadow rounded-xl overflow-hidden">
-          <div className="px-6 py-5 border-b border-gray-200">
-            <h2 className="text-lg font-medium text-gray-900">
+        <div className="surface-card overflow-hidden">
+          <div className="border-b border-glacier px-6 py-5">
+            <p className="section-kicker">Election record</p>
+            <h2 className="mt-1 font-display text-xl font-semibold text-deep">
               Recent Activity
             </h2>
-            <p className="mt-1 text-sm text-gray-500">
+            <p className="mt-1 text-sm text-slate-600">
               Your recent voting participation
             </p>
           </div>
-          <div className="divide-y divide-gray-200">
+          <div className="divide-y divide-glacier">
             {completed.length > 0 ? (
               completed.map((election) => (
                 <div
                   key={election.electionId}
-                  className="p-4 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                  className="cursor-pointer p-5 transition-colors duration-150 hover:bg-frost/60"
                   onClick={() => handleElectionClick(election.electionId)}
                 >
                   <div className="flex items-start">
@@ -611,10 +607,10 @@ const Dashboard = ({ userEmail }) => {
                           {election.electionTitle}
                         </h3>
                         <span
-                          className={`ml-2 inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium ${
+                          className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                             election.isPublic 
-                              ? 'bg-sage-soft text-emerald-800' 
-                              : 'bg-orange-100 text-orange-800'
+                              ? 'bg-sage-soft text-sage' 
+                              : 'bg-amber-100 text-amber-800'
                           }`}
                         >
                           {election.isPublic ? 'Public' : 'Private'}
@@ -630,7 +626,7 @@ const Dashboard = ({ userEmail }) => {
                         {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
                           <span
                             key={role}
-                            className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                            className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                               role === 'admin' ? 'bg-red-100 text-red-800' :
                               role === 'guardian' ? 'bg-glacier text-ink' :
                               'bg-glacier text-ink'
@@ -641,7 +637,7 @@ const Dashboard = ({ userEmail }) => {
                         ))}
                         {/* Show eligible voter status */}
                         {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sage-soft text-emerald-800">
+                          <span className="inline-flex items-center rounded-lg bg-sage-soft px-2.5 py-1 text-xs font-semibold text-sage">
                             {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
                           </span>
                         )}
@@ -678,21 +674,22 @@ const Dashboard = ({ userEmail }) => {
       </div>
 
       {/* Upcoming Elections */}
-      <div className="bg-white shadow rounded-xl overflow-hidden">
-        <div className="px-6 py-5 border-b border-gray-200">
-          <h2 className="text-lg font-medium text-gray-900">
+      <div className="surface-card overflow-hidden">
+        <div className="border-b border-glacier px-6 py-5">
+          <p className="section-kicker">Scheduled ahead</p>
+          <h2 className="mt-1 font-display text-xl font-semibold text-deep">
             Upcoming Elections
           </h2>
           <p className="mt-1 text-sm text-gray-500">
             Mark your calendar for these important dates
           </p>
         </div>
-        <div className="divide-y divide-gray-200">
+        <div className="divide-y divide-glacier">
           {upcoming.length > 0 ? (
             upcoming.map((election) => (
               <div
                 key={election.electionId}
-                className="p-4 hover:bg-gray-50 transition-colors duration-150 cursor-pointer"
+                className="cursor-pointer p-5 transition-colors duration-150 hover:bg-frost/60"
                 onClick={() => handleElectionClick(election.electionId)}
               >
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
@@ -703,10 +700,10 @@ const Dashboard = ({ userEmail }) => {
                       </h3>
                       {/* Public/Private Indicator */}
                       <span
-                        className={`ml-2 inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                        className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                           election.isPublic 
-                            ? 'bg-sage-soft text-emerald-800' 
-                            : 'bg-orange-100 text-orange-800'
+                            ? 'bg-sage-soft text-sage' 
+                            : 'bg-amber-100 text-amber-800'
                         }`}
                       >
                         {election.isPublic ? 'Public' : 'Private'}
@@ -722,7 +719,7 @@ const Dashboard = ({ userEmail }) => {
                       {election.userRoles && election.userRoles.length > 0 && election.userRoles.map((role) => (
                         <span
                           key={role}
-                          className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
+                          className={`inline-flex items-center rounded-lg px-2.5 py-1 text-xs font-semibold ${
                             role === 'admin' ? 'bg-red-100 text-red-800' :
                             role === 'guardian' ? 'bg-glacier text-ink' :
                             'bg-glacier text-ink'
@@ -733,7 +730,7 @@ const Dashboard = ({ userEmail }) => {
                       ))}
                       {/* Show eligible voter status */}
                       {canUserVoteInElection(election) && !election.userRoles?.includes('voter') && (
-                        <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-sage-soft text-emerald-800">
+                        <span className="inline-flex items-center rounded-lg bg-sage-soft px-2.5 py-1 text-xs font-semibold text-sage">
                           {election.eligibility === 'unlisted' ? 'Eligible (Open)' : 'Eligible Voter'}
                         </span>
                       )}
@@ -749,7 +746,7 @@ const Dashboard = ({ userEmail }) => {
                     </div>
                   </div>
                   <button
-                    className="w-full sm:w-auto sm:ml-4 px-3 py-2 border border-gray-300 shadow-sm text-xs font-medium rounded-full text-gray-700 bg-white hover:bg-gray-50"
+                    className="btn-ghost w-full rounded-xl px-4 py-2.5 text-xs font-semibold sm:ml-4 sm:w-auto"
                     onClick={(e) => {
                       e.stopPropagation();
                       // Set reminder functionality would go here

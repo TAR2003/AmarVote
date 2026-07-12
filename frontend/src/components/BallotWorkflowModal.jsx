@@ -168,7 +168,7 @@ const BallotWorkflowModal = ({
       aria-labelledby="ballot-workflow-title"
     >
       <div
-        className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/40 bg-white/92 p-4 shadow-glass backdrop-blur-xl sm:rounded-2xl sm:p-6"
+        className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl border border-white/40 glass-panel bg-white/92 p-4 shadow-glass backdrop-blur-xl sm:rounded-2xl sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-4 flex items-start justify-between gap-3">
@@ -288,7 +288,7 @@ const BallotWorkflowModal = ({
         {/* Challenge candidate pick */}
         {phase === 'challenge-pick' && electionData?.electionChoices && (
           <div className="space-y-4">
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-slate-600">
               Select the candidate(s) you voted for to verify against your encrypted ballot.
             </p>
 
@@ -302,7 +302,7 @@ const BallotWorkflowModal = ({
                     key={choice.choiceId}
                     className={`flex cursor-pointer items-center rounded-lg border-2 p-3 transition-all ${
                       isDisabled
-                        ? 'cursor-not-allowed border-gray-100 opacity-50'
+                        ? 'cursor-not-allowed border-slate-200 opacity-50'
                         : isChecked
                           ? 'selected-ballot'
                           : 'border-slate-200 hover:border-brand/40'
@@ -316,13 +316,13 @@ const BallotWorkflowModal = ({
                       onChange={() => {}}
                       className="pointer-events-none mr-3"
                     />
-                    <span className="text-sm font-medium text-gray-900">{choice.optionTitle}</span>
+                    <span className="text-sm font-medium text-deep">{choice.optionTitle}</span>
                   </div>
                 );
               })}
             </div>
 
-            <div className="rounded-lg border border-yellow-200 bg-yellow-50 p-3 text-xs text-yellow-800">
+            <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
               <strong>Important:</strong> After challenging, this ballot cannot be cast. Challenge is for verification only.
             </div>
 
@@ -330,7 +330,7 @@ const BallotWorkflowModal = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-lg bg-gray-200 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-300"
+                className="btn-ghost flex-1 py-2.5"
               >
                 Cancel
               </button>
@@ -340,8 +340,8 @@ const BallotWorkflowModal = ({
                 disabled={!challengeCandidateChoices.length}
                 className={`flex-1 rounded-lg py-2.5 text-sm font-medium text-white ${
                   challengeCandidateChoices.length
-                    ? 'bg-orange-600 hover:bg-orange-700'
-                    : 'cursor-not-allowed bg-gray-400'
+                    ? 'bg-amber-600 hover:bg-amber-700'
+                    : 'cursor-not-allowed bg-slate-400'
                 }`}
               >
                 Challenge Ballot
@@ -354,7 +354,7 @@ const BallotWorkflowModal = ({
         {phase === 'challenging' && (
           <div className="py-8 text-center">
             <FiLoader className="mx-auto mb-4 h-12 w-12 animate-spin text-orange-600" />
-            <p className="text-sm text-gray-600">{VOTER_STATUS_COPY.challengeBallotLoading}</p>
+            <p className="text-sm text-slate-600">{VOTER_STATUS_COPY.challengeBallotLoading}</p>
           </div>
         )}
 
@@ -394,7 +394,7 @@ const BallotWorkflowModal = ({
                   {challengeResult.message}
                 </p>
                 {challengeResult.detailed_message && (
-                  <div className="mt-3 rounded-lg border bg-white p-3 text-left text-sm text-gray-600">
+                  <div className="mt-3 rounded-lg border bg-white p-3 text-left text-sm text-slate-600">
                     {challengeResult.detailed_message}
                   </div>
                 )}
@@ -404,7 +404,7 @@ const BallotWorkflowModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-lg bg-gray-200 py-2.5 text-sm font-medium text-gray-800 hover:bg-gray-300"
+              className="btn-ghost w-full py-2.5"
             >
               Return to Voting Booth
             </button>

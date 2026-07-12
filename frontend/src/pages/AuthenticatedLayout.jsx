@@ -19,6 +19,7 @@ import { electionApi } from "../utils/electionApi";
 import { ElectionsProvider, useElections } from "../context/ElectionsContext";
 import { timezoneUtils } from "../utils/timezoneUtils";
 import { HTTP_ERROR_KIND } from "../utils/httpErrors";
+import { buildAuthUrl, pathFromLocation, rememberReturnPath } from "../utils/authRedirect";
 
 const AuthenticatedLayout = ({ userEmail, setUserEmail, sessionError, onRetrySession }) => (
   <ElectionsProvider userEmail={userEmail}>
@@ -321,8 +322,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
       localStorage.removeItem("email");
       localStorage.setItem("logout", Date.now());
 
-      // Redirect to OTP login
-      navigate("/otp-login");
+      // Redirect to login
+      navigate("/login");
     } catch (err) {
       console.error("Logout error:", err);
       alert("Failed to logout. Please try again.");
@@ -350,9 +351,13 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
 
   if (!userEmail) {
     const isSessionExpired = !sessionError || sessionError?.kind === HTTP_ERROR_KIND.SESSION_EXPIRED;
-    const title = sessionError?.title || "Session expired";
-    const message = sessionError?.message || "Please sign in again to continue.";
+    const title = sessionError?.title || "Sign in required";
+    const message = sessionError?.message || "Please sign in to continue to this page.";
     const showRetry = sessionError && !isSessionExpired && typeof onRetrySession === "function";
+    const returnPath = pathFromLocation(location);
+    if (returnPath) rememberReturnPath(returnPath);
+    const loginHref = returnPath ? buildAuthUrl(returnPath, "login") : "/login";
+    const registerHref = returnPath ? buildAuthUrl(returnPath, "register") : "/register";
 
     return (
       <div className="flex min-h-screen items-center justify-center bg-frost-mesh px-4">
@@ -369,6 +374,11 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
             {title}
           </h2>
           <p className="mt-2 text-slate-600">{message}</p>
+          {returnPath?.includes("/election-page/") && (
+            <p className="mt-3 rounded-xl bg-glacier/70 px-3 py-2 text-sm text-brand-dark">
+              After you sign in or register, we’ll bring you back to this election.
+            </p>
+          )}
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             {showRetry && (
               <button
@@ -380,9 +390,14 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               </button>
             )}
             {isSessionExpired && (
-              <Link to="/login" className="btn-brand">
-                Go to Login
-              </Link>
+              <>
+                <Link to={loginHref} className="btn-brand">
+                  Sign in
+                </Link>
+                <Link to={registerHref} className="btn-ghost">
+                  Create account
+                </Link>
+              </>
             )}
           </div>
         </div>

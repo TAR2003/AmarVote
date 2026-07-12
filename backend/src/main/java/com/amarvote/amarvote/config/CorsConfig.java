@@ -14,7 +14,7 @@ import java.util.stream.Collectors;
 @Configuration
 public class CorsConfig {
 
-    @Value("${amarvote.cors.allowed-origins:https://amarvote2026.me,http://localhost:5173,http://localhost:3000, http://localhost}")
+    @Value("${amarvote.cors.allowed-origins:https://amarvote2026.me,http://localhost:5173,http://localhost:3000, http://localhost}, https://wiglike-margarette-haematocryal.ngrok-free.dev")
     private String allowedOrigins;
 
     @Bean

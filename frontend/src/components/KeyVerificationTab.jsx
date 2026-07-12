@@ -59,7 +59,7 @@ export default function KeyVerificationTab({ electionId, electionData }) {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-brand/25 bg-gradient-to-br from-glacier via-white to-sky-50 p-5 sm:p-6 shadow-sm">
+      <div className="glass-panel border-brand/20 bg-gradient-to-br from-glacier/70 via-white to-frost p-5 sm:p-6">
         <div className="flex items-start gap-3">
           <div className="rounded-full bg-glacier p-2">
             <FiShield className="h-5 w-5 text-ink" />
@@ -79,23 +79,23 @@ export default function KeyVerificationTab({ electionId, electionData }) {
           Your guardian key has not been registered yet. Complete the key ceremony first, then return here to verify your credentials.
         </div>
       ) : (
-        <div className="rounded-xl border border-gray-200 bg-white p-5 sm:p-6 shadow-sm space-y-5">
+        <div className="surface-card space-y-5 p-5 sm:p-6">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-ink mb-2">
               Upload credentials.txt
             </label>
             <input
               type="file"
               accept=".txt,text/plain"
               onChange={(e) => handleFileLoad(e.target.files?.[0])}
-              className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-glacier file:text-ink hover:file:bg-glacier"
+              className="block w-full text-sm text-slate-600 file:mr-4 file:py-2 file:px-4 file:rounded-lg file:border-0 file:text-sm file:font-medium file:bg-glacier file:text-ink hover:file:bg-glacier"
             />
             {credentialFileName && (
               <p className="mt-2 text-xs text-sage">Loaded file: {credentialFileName}</p>
             )}
           </div>
 
-          <div className="rounded-lg border border-gray-100 bg-gray-50 p-4 text-sm text-gray-600 space-y-2">
+          <div className="rounded-lg border border-slate-200/80 bg-frost/80 p-4 text-sm text-slate-600 space-y-2">
             <p className="flex items-center gap-2">
               <FiLock className="h-4 w-4 text-gray-500" />
               Your file is used only for this one-time check and is not stored.
@@ -110,7 +110,7 @@ export default function KeyVerificationTab({ electionId, electionData }) {
             type="button"
             onClick={handleVerify}
             disabled={verifying || !credentialContent.trim()}
-            className="inline-flex items-center gap-2 rounded-lg bg-brand-dark px-4 py-2.5 text-sm font-medium text-white hover:bg-ink disabled:opacity-50 disabled:cursor-not-allowed"
+            className="btn-brand"
           >
             {verifying ? (
               <>
