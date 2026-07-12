@@ -47,6 +47,13 @@ public class EmailDeliveryGateway {
     if (messages == null || messages.isEmpty()) {
       return;
     }
+    // SMTP (and any non-Resend provider) has no true batch API — rate-limit each send.
+    if (!"resend".equalsIgnoreCase(emailSender.providerId())) {
+      for (EmailMessage message : messages) {
+        deliver(queueType, message);
+      }
+      return;
+    }
     executeWithResilience(queueType, () -> {
       emailSender.sendBatch(messages);
       return null;

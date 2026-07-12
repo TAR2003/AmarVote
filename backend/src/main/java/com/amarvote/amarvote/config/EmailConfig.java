@@ -14,10 +14,11 @@ public class EmailConfig {
     /**
      * Selects the active email provider.
      * <ul>
-     *   <li>{@code auto} (default) — Resend when API key is set, otherwise SMTP/Gmail</li>
-     *   <li>{@code resend} — force Resend</li>
-     *   <li>{@code smtp} — force SMTP/Gmail</li>
+     *   <li>{@code smtp} / {@code gmail} — Gmail SMTP ({@code amarvote2025@gmail.com})</li>
+     *   <li>{@code resend} — Resend API (batch + individual)</li>
+     *   <li>{@code auto} — Resend when API key is set, otherwise SMTP</li>
      * </ul>
+     * Switch at runtime via {@code EMAIL_PROVIDER} / {@code email.provider}.
      */
     @Bean
     public EmailSender emailSender(

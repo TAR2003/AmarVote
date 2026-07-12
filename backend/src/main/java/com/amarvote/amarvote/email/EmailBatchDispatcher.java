@@ -15,8 +15,10 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Buffers outbound emails and flushes at most one Resend API call per second per lane.
- * Batchable HTML emails are grouped (up to 100); attachment emails use a single-send slot.
+ * Buffers outbound emails and flushes at most one provider send per second per lane.
+ * With Resend, batchable HTML emails are grouped (up to 100). With SMTP (no batch API),
+ * every email is sent individually. OTP / password-reset and attachment emails always
+ * use individual sends regardless of provider.
  */
 @Service
 @RequiredArgsConstructor
@@ -26,6 +28,7 @@ public class EmailBatchDispatcher {
   private final EmailDeliveryGateway emailDeliveryGateway;
   private final EmailAddressValidator emailAddressValidator;
   private final TaskPublisherService taskPublisherService;
+  private final EmailSender emailSender;
 
   private final ConcurrentLinkedDeque<PendingEmail> transactionalBatchable = new ConcurrentLinkedDeque<>();
   private final ConcurrentLinkedDeque<PendingEmail> transactionalSingle = new ConcurrentLinkedDeque<>();
@@ -38,7 +41,7 @@ public class EmailBatchDispatcher {
   private int maxAttempts;
 
   public void enqueue(EmailQueueType queueType, EmailMessage message, EmailTask sourceTask) {
-  enqueueAll(queueType, List.of(message), sourceTask);
+    enqueueAll(queueType, List.of(message), sourceTask);
   }
 
   public void enqueueAll(EmailQueueType queueType, List<EmailMessage> messages, EmailTask sourceTask) {
@@ -69,21 +72,36 @@ public class EmailBatchDispatcher {
               .attachments(message.getAttachments())
               .build();
 
+      boolean hasAttachments = !normalizedMessage.getAttachments().isEmpty();
+      boolean individualSend = hasAttachments || requiresIndividualSend(sourceTask);
       PendingEmail pending =
-          new PendingEmail(normalizedMessage, sourceTask, 0, !normalizedMessage.getAttachments().isEmpty());
+          new PendingEmail(normalizedMessage, sourceTask, 0, hasAttachments, individualSend);
 
       if (queueType == EmailQueueType.BULK) {
-        if (pending.hasAttachments()) {
+        if (hasAttachments) {
           log.warn("Bulk queue does not support attachments; skipping {}", normalizedTo);
           continue;
         }
         bulkBatchable.addLast(pending);
-      } else if (pending.hasAttachments()) {
+      } else if (individualSend) {
         transactionalSingle.addLast(pending);
       } else {
         transactionalBatchable.addLast(pending);
       }
     }
+  }
+
+  /**
+   * Auth codes / reset tokens must never share a Resend batch request — one email per API call.
+   */
+  static boolean requiresIndividualSend(EmailTask task) {
+    if (task == null || task.getEmailType() == null) {
+      return false;
+    }
+    return switch (task.getEmailType()) {
+      case OTP, PASSWORD_RESET_CODE, FORGOT_PASSWORD -> true;
+      default -> false;
+    };
   }
 
   @Scheduled(fixedRateString = "${amarvote.email.flush-interval-ms:1000}")
@@ -98,6 +116,8 @@ public class EmailBatchDispatcher {
 
   private void flushLane(EmailQueueType queueType) {
     int batchLimit = Math.min(Math.max(maxBatchSize, 1), ResendEmailSender.MAX_BATCH_SIZE);
+    // SMTP has no batch API — one message per tick (same 1 req/s lane limit).
+    boolean individualOnly = !"resend".equalsIgnoreCase(emailSender.providerId());
 
     if (queueType == EmailQueueType.TRANSACTIONAL) {
       PendingEmail single = transactionalSingle.pollFirst();
@@ -106,9 +126,25 @@ public class EmailBatchDispatcher {
         return;
       }
 
+      if (individualOnly) {
+        PendingEmail one = transactionalBatchable.pollFirst();
+        if (one != null) {
+          deliverSingleWithRecovery(queueType, one);
+        }
+        return;
+      }
+
       List<PendingEmail> batch = drainUpTo(transactionalBatchable, batchLimit);
       if (!batch.isEmpty()) {
         deliverBatchWithRecovery(queueType, batch);
+      }
+      return;
+    }
+
+    if (individualOnly) {
+      PendingEmail one = bulkBatchable.pollFirst();
+      if (one != null) {
+        deliverSingleWithRecovery(queueType, one);
       }
       return;
     }
@@ -185,7 +221,14 @@ public class EmailBatchDispatcher {
           failed.message().getTo(),
           deliveryException.getMessage());
       requeueToFront(
-          queueType, List.of(new PendingEmail(failed.message(), failed.sourceTask(), nextAttempt, failed.hasAttachments())));
+          queueType,
+          List.of(
+              new PendingEmail(
+                  failed.message(),
+                  failed.sourceTask(),
+                  nextAttempt,
+                  failed.hasAttachments(),
+                  failed.individualSend())));
       return;
     }
 
@@ -210,7 +253,7 @@ public class EmailBatchDispatcher {
     ConcurrentLinkedDeque<PendingEmail> target =
         switch (queueType) {
           case TRANSACTIONAL -> {
-            if (items.get(0).hasAttachments()) {
+            if (items.get(0).individualSend()) {
               yield transactionalSingle;
             }
             yield transactionalBatchable;
@@ -271,5 +314,9 @@ public class EmailBatchDispatcher {
   }
 
   private record PendingEmail(
-      EmailMessage message, EmailTask sourceTask, int attempt, boolean hasAttachments) {}
+      EmailMessage message,
+      EmailTask sourceTask,
+      int attempt,
+      boolean hasAttachments,
+      boolean individualSend) {}
 }
