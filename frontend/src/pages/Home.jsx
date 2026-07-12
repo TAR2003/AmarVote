@@ -20,7 +20,7 @@ const JOURNEY = [
   {
     step: "02",
     title: "Vote in private",
-    body: "Ballots are encrypted in the browser. You can challenge encryption before casting—then verify your ballot made the tally.",
+    body: "Ballots are encrypted under the election public key with ElectionGuard. Challenge the encryption before casting—then verify your ballot made the tally.",
   },
   {
     step: "03",
@@ -82,12 +82,12 @@ const Home = () => {
           </p>
 
           <h1 className="mt-5 max-w-2xl font-display text-xl font-semibold text-brand-light text-balance animate-fade-up [animation-delay:100ms] sm:text-3xl">
-            Secure, verifiable digital democracy
+            A cryptographic observatory for verifiable elections
           </h1>
 
           <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-slate-300 text-balance animate-fade-up [animation-delay:180ms] sm:text-lg">
-            End-to-end encrypted elections that feel calm to run and impossible to corrupt—
-            ElectionGuard cryptography, without the intimidation.
+            ElectionGuard end-to-end verification — guardian key ceremonies, encrypted ballots,
+            and Benaloh challenges — made legible, not intimidating.
           </p>
 
           <div className="mt-10 flex w-full max-w-md flex-col gap-3 animate-fade-up [animation-delay:260ms] sm:max-w-none sm:flex-row sm:justify-center">

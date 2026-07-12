@@ -91,11 +91,11 @@ function About() {
             <div className="text-center max-w-3xl mx-auto">
               <h2 className="text-2xl font-bold text-gray-900 mb-3">What is AmarVote?</h2>
               <p className="text-gray-600 leading-relaxed">
-                AmarVote is a fully self-hosted, end-to-end verifiable e-voting platform. Every ballot is encrypted on the client 
-                using ElectionGuard's ElGamal scheme before it ever leaves the browser. Homomorphic tallying accumulates encrypted 
-                votes without decrypting individual ballots, and a threshold of k-of-n guardians jointly decrypts using Lagrange 
-                interpolation. Zero-knowledge Schnorr and Chaum-Pedersen proofs are published alongside every result so any 
-                independent party can audit the election.
+                AmarVote is a fully self-hosted, end-to-end verifiable e-voting platform. Every ballot is encrypted by
+                ElectionGuard&apos;s ElGamal scheme under the election&apos;s joint public key before it is recorded as a cast
+                ballot. Homomorphic tallying accumulates encrypted votes without decrypting individual ballots, and a threshold
+                of k-of-n guardians jointly decrypts using Lagrange interpolation. Zero-knowledge Schnorr and Chaum-Pedersen
+                proofs are published alongside every result so any independent party can audit the election.
               </p>
             </div>
 
@@ -249,7 +249,7 @@ function About() {
             <div className="grid md:grid-cols-2 gap-5">
               <ServiceCard icon="🌐" name="React Frontend" color="blue"
                 tags={["172.20.0.40", "Vite dev server / Nginx prod"]}
-                description="React 19.1 + Vite 6 SPA. Handles ballot encryption, bot detection, eligibility UI, animated results, and PDF export. Communicates only with Spring Boot via REST." />
+                description="React 19.1 + Vite 6 SPA. Handles voting UI, bot detection, eligibility, animated results, and PDF export. Ballot ElGamal encryption runs on the ElectionGuard service via Spring Boot." />
               <ServiceCard icon="☕" name="Spring Boot Backend" color="green"
                 tags={["172.20.0.30", "Port 8080", "Java 21", "REST + RabbitMQ producer"]}
                 description="Core orchestration layer. Manages authentication (OTP + JWT), election lifecycle, guardian credential processing, ballot storage, and RabbitMQ job publishing with fair round-robin scheduler." />

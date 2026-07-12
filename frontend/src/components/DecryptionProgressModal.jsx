@@ -255,20 +255,21 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-deep/60 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="glass-panel w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-2xl">
+    <div className="fixed inset-0 z-50 flex items-end justify-center bg-deep/75 p-0 backdrop-blur-[8px] sm:items-center sm:p-4">
+      <div className="observatory-panel w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-2xl">
         {/* Header */}
-        <div className="rounded-t-3xl bg-deep px-5 py-4 text-white sm:rounded-t-2xl sm:px-6">
+        <div className="rounded-t-3xl border-b border-white/10 bg-ink/80 px-5 py-4 text-paper sm:rounded-t-2xl sm:px-6">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="font-display text-xl font-bold sm:text-2xl">Guardian Decryption Progress</h2>
-              <p className="text-glacier mt-1">{guardianName || 'Guardian'}</p>
+              <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-threshold">Partial decryption</p>
+              <h2 className="font-display text-xl font-bold sm:text-2xl">Guardian share progress</h2>
+              <p className="mt-1 text-sm text-paper-muted">{guardianName || 'Guardian'}</p>
             </div>
             <div className="flex items-center gap-2">
               <button
                 onClick={refreshStatus}
                 disabled={isRefreshing}
-                className="text-white hover:text-gray-200 transition-colors disabled:opacity-50 w-8 h-8 flex items-center justify-center"
+                className="text-paper-muted hover:text-paper transition-colors disabled:opacity-50 w-8 h-8 flex items-center justify-center"
                 aria-label="Refresh status"
                 title="Refresh status"
               >
@@ -276,7 +277,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
               </button>
               <button
                 onClick={onClose}
-                className="text-white hover:text-gray-200 transition-colors font-display text-xl font-bold sm:text-2xl w-8 h-8 flex items-center justify-center"
+                className="text-paper-muted hover:text-paper transition-colors font-display text-xl font-bold sm:text-2xl w-8 h-8 flex items-center justify-center"
                 aria-label="Close"
               >
                 ×
@@ -286,7 +287,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
         </div>
 
         {/* Content */}
-        <div className="p-5 sm:p-6">
+        <div className="bg-frost/95 p-5 text-ink sm:p-6">
           {error && (
             <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-lg mb-4">
               <p className="font-semibold">Error</p>
@@ -725,7 +726,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
         </div>
 
         {/* Footer */}
-        <div className="border-t border-slate-200/80 bg-white/60 px-5 py-4 sm:px-6 flex justify-between items-center gap-3">
+        <div className="border-t border-white/10 bg-ink/60 px-5 py-4 sm:px-6 flex justify-between items-center gap-3">
           <div className="flex-1">
             {status && status.status === 'failed' && (
               <p className="text-sm text-red-600 font-medium">

@@ -3,16 +3,22 @@
 @tailwind utilities;
 
 :root {
-  --color-deep: #0b132b;
-  --color-ink: #1c2541;
-  --color-brand: #00b4d8;
-  --color-brand-dark: #0096b4;
-  --color-glacier: #e0f2fe;
+  /* Guardian Ledger */
+  --color-deep: #0b0e1a;
+  --color-ink: #141827;
+  --color-brand: #e8b84b;
+  --color-brand-dark: #c99a2e;
+  --color-aurora: #3fddc4;
+  --color-threshold: #7c6ff0;
+  --color-ember: #e85d4a;
+  --color-paper: #f2f0e9;
+  --color-dusk: #8b8fa3;
+  --color-glacier: #e8f0f4;
   --color-frost: #f4f7fa;
   --color-frost-muted: #e8eef4;
-  --color-sage: #10b981;
+  --color-sage: #3fddc4;
   --color-border: #e2e8f0;
-  --color-muted: #64748b;
+  --color-muted: #8b8fa3;
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-top: env(safe-area-inset-top, 0px);
   --nav-height: 4rem;
@@ -33,7 +39,7 @@
   }
 
   ::selection {
-    background: rgba(0, 180, 216, 0.22);
+    background: rgba(232, 184, 75, 0.28);
     color: var(--color-deep);
   }
 
@@ -71,9 +77,65 @@
 
   .btn-brand {
     @apply inline-flex items-center justify-center gap-2 rounded-xl bg-brand px-5 py-2.5
-      text-sm font-semibold text-white shadow-soft transition duration-200
+      text-sm font-semibold text-deep shadow-soft transition duration-200
       hover:bg-brand-dark hover:shadow-brand active:scale-[0.98]
       disabled:cursor-not-allowed disabled:opacity-50 disabled:shadow-none;
+  }
+
+  /* Cryptographic observatory panel (ballot / ceremony moments) */
+  .observatory-panel {
+    @apply rounded-2xl border border-white/10 bg-observatory text-paper shadow-glass;
+  }
+
+  .crypto-mono {
+    @apply font-mono text-aurora tracking-tight;
+  }
+
+  .signal-proof {
+    @apply text-aurora;
+  }
+
+  .signal-authority {
+    @apply text-brand;
+  }
+
+  .signal-threshold {
+    @apply text-threshold;
+  }
+
+  .signal-ember {
+    @apply text-ember;
+  }
+
+  .quorum-shard-ray {
+    stroke-dasharray: 4 6;
+    animation: shardPulse 2.4s ease-in-out infinite;
+  }
+
+  .quorum-node-pulse {
+    animation: nodeGlow 2.2s ease-in-out infinite;
+  }
+
+  @keyframes shardPulse {
+    0%,
+    100% {
+      opacity: 0.35;
+      stroke-dashoffset: 12;
+    }
+    50% {
+      opacity: 0.9;
+      stroke-dashoffset: 0;
+    }
+  }
+
+  @keyframes nodeGlow {
+    0%,
+    100% {
+      box-shadow: 0 0 0 0 rgba(124, 111, 240, 0.35);
+    }
+    50% {
+      box-shadow: 0 0 0 6px rgba(124, 111, 240, 0);
+    }
   }
 
   .btn-ghost {
@@ -104,7 +166,7 @@
   }
 
   .brand-mark {
-    @apply flex shrink-0 items-center justify-center rounded-xl bg-brand-glow text-white shadow-soft;
+    @apply flex shrink-0 items-center justify-center rounded-xl bg-brand-glow text-deep shadow-soft;
   }
 
   .brand-mark-light {
@@ -143,7 +205,7 @@
   }
 
   .selected-ballot {
-    @apply border-brand bg-glacier shadow-soft ring-1 ring-brand/30;
+    @apply border-brand bg-brand-soft/40 shadow-soft ring-1 ring-brand/40;
   }
 
   .mobile-bottom-pad {
@@ -303,4 +365,12 @@ input::-webkit-credentials-auto-fill-button {
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
   }
+}
+
+/* Guardian gold fills fail AA with white text — force deep ink */
+.bg-brand.text-white,
+.bg-brand-dark.text-white,
+.bg-brand-glow.text-white,
+.from-brand.to-brand-dark.text-white {
+  color: var(--color-deep) !important;
 }

@@ -1,28 +1,29 @@
 /**
  * User-facing copy and error normalization for the voting booth.
+ * Vocabulary: "Cast" = final submission; "Challenge" = Benaloh spoil-and-verify.
  */
 
 export const VOTER_STATUS_COPY = {
   createBallotInfo:
-    'During peak voting periods, creating your encrypted ballot may take a little longer than usual. Please remain on this page and allow the process to complete.',
+    'Encrypting your ballot under the election public key may take a little longer during peak voting. Remain on this page until encryption finishes.',
   createBallotLoading:
-    'Creating your encrypted ballot. This may take a moment when many voters are participating — thank you for your patience.',
+    'Encrypting your ballot with ElectionGuard under the election public key…',
   castBallotInfo:
-    'During periods of high traffic, casting your vote may take a little longer than usual. Please remain on this page and allow the process to complete.',
+    'Casting may take a little longer during high traffic. Remain on this page until your ballot is recorded.',
   castBallotLoading:
-    'Casting your vote. Please wait while we securely record your ballot — thank you for your patience.',
+    'Casting your ballot. Recording the ciphertext — please wait.',
   challengeBallotInfo:
-    'Ballot verification may take a moment during busy voting periods. Please remain on this page while the challenge completes.',
+    'Challenge verification may take a moment during busy periods. Remain on this page while the challenge completes.',
   challengeBallotLoading:
-    'Verifying your encrypted ballot. This may take a moment — thank you for your patience.',
+    'Opening encryption randomness to verify this ballot — then it will be spoiled…',
   ballotActionsInfo:
-    'During periods of high traffic, casting your vote or verifying your ballot may take a little longer than usual. Please remain on this page and allow the process to complete.',
+    'Cast submits this ballot as final. Challenge verifies encryption honesty, spoils this ballot, and lets you encrypt again.',
   serviceUnavailable:
-    'We are sorry, but we have encountered a temporary service issue. Our team is working to resolve it. Please wait a moment and try again.',
+    'Temporary service issue. Wait a moment and try again.',
   requestTimeout:
-    'Your request is taking longer than expected, which can happen during busy voting periods. Please wait a moment and try again.',
+    'Request is taking longer than expected — common during busy voting periods. Wait a moment and try again.',
   unexpected:
-    'Something went wrong while processing your request. Please try again in a moment.',
+    'Something went wrong while processing your request. Try again in a moment.',
 };
 
 /**

@@ -161,7 +161,7 @@ const HowItWorks = () => {
                 </ul>
               </Step>
               <Step n="2" title="Candidate Selection & Encryption" actor="React + EG Fast API" color="blue">
-                <p className="text-sm text-slate-700 mb-2">Voter selects a candidate → frontend immediately calls ElectionGuard to encrypt.</p>
+                <p className="text-sm text-slate-700 mb-2">Voter selects a candidate → AmarVote submits the selection to ElectionGuard for encryption under the election public key.</p>
                 <ul className="space-y-0.5">
                   <SubPoint>POST to EG Fast API /ballot/encrypt with selection index + election_id</SubPoint>
                   <SubPoint>EG encrypts each selection: (α_i, β_i) = (g^ξ_i, g^m_i · K^ξ_i) mod p</SubPoint>

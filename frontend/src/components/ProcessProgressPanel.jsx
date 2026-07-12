@@ -27,7 +27,7 @@ export default function ProcessProgressPanel({
     pct = 5;
   }
 
-  const pathColor = isFailed ? '#dc2626' : isCompleted ? '#10b981' : '#00B4D8';
+  const pathColor = isFailed ? '#E85D4A' : isCompleted ? '#3FDDC4' : '#E8B84B';
   const statusLabel = isFailed
     ? 'Failed'
     : isCompleted
@@ -37,7 +37,7 @@ export default function ProcessProgressPanel({
         : 'Not started';
 
   return (
-    <div className="surface-card p-4 sm:p-5">
+    <div className="rounded-2xl border border-slate-200/80 bg-white p-4 shadow-soft sm:p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
         <h4 className="font-display text-sm font-semibold text-deep">{title}</h4>
         {onRefresh && (
@@ -61,7 +61,7 @@ export default function ProcessProgressPanel({
             styles={buildStyles({
               textSize: '22px',
               pathColor,
-              textColor: '#0b132b',
+              textColor: '#0B0E1A',
               trailColor: '#e5e7eb',
             })}
           />
@@ -69,7 +69,7 @@ export default function ProcessProgressPanel({
         <div className="mt-3 text-center sm:mt-0 sm:text-left">
           <p className="text-sm font-medium text-deep">{statusLabel}</p>
           {totalChunks > 0 && (
-            <p className="mt-1 text-xs text-slate-600">
+            <p className="mt-1 font-mono text-xs text-slate-600">
               Chunks: {processedChunks} / {totalChunks}
             </p>
           )}

@@ -82,6 +82,8 @@ import ElectionTimeline from '../components/ElectionTimeline';
 import WorkerProceedings from '../components/WorkerProceedings';
 import VoterStatusSlot from '../components/VoterStatusSlot';
 import BallotWorkflowModal from '../components/BallotWorkflowModal';
+import GuardianQuorumViz from '../components/GuardianQuorumViz';
+import VerifyVoteSection from '../components/VerifyVoteSection';
 import GuardianProgressPanel from '../components/GuardianProgressPanel';
 import ProcessProgressPanel from '../components/ProcessProgressPanel';
 import ProcessControlPanel from '../components/ProcessControlPanel';
@@ -1206,468 +1208,6 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
       )}
         </>
       )}
-    </div>
-  );
-};
-
-// Verify Vote Section Component
-const VerifyVoteSection = ({ electionId }) => {
-  const [verificationFile, setVerificationFile] = useState(null);
-  const [verificationResult, setVerificationResult] = useState(null);
-  const [verifyingVote, setVerifyingVote] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const [manualInput, setManualInput] = useState({ tracking_code: '', hash_code: '' });
-  const [inputMethod, setInputMethod] = useState('file'); // 'file' or 'manual'
-
-  const handleFileUpload = (file) => {
-    if (file && (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.json'))) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const content = e.target.result;
-
-          // First try to parse as JSON in case it's a JSON file
-          try {
-            const jsonData = JSON.parse(content);
-            // Check if this is a valid vote receipt JSON format
-            if (jsonData.tracking_code && jsonData.hash_code) {
-              setVerificationFile(jsonData);
-              verifyVoteData(jsonData);
-              return;
-            }
-            if (jsonData.trackingCode && jsonData.hashCode) {
-              const normalized = {
-                tracking_code: jsonData.trackingCode,
-                hash_code: jsonData.hashCode,
-              };
-              setVerificationFile(normalized);
-              verifyVoteData(normalized);
-              return;
-            }
-            if (jsonData.ballot_id && (jsonData.initial_hash || jsonData.hash || jsonData.hash_code)) {
-              // Alternative format that might be used
-              const data = {
-                tracking_code: jsonData.ballot_id,
-                hash_code: jsonData.initial_hash || jsonData.hash
-              };
-              setVerificationFile(data);
-              verifyVoteData(data);
-              return;
-            }
-          } catch {
-            // Not JSON, continue with text parsing
-          }
-
-          // Parse TXT vote receipt format - try different possible formats
-          const voteHashMatch = content.match(/Vote Hash:\s*([a-f0-9]+)/i) ||
-            content.match(/Hash:\s*([a-f0-9]+)/i) ||
-            content.match(/Hash Code:\s*([a-f0-9]+)/i);
-
-          const trackingCodeMatch = content.match(/Tracking Code:\s*([a-f0-9]+)/i) ||
-            content.match(/Ballot ID:\s*([a-f0-9]+)/i) ||
-            content.match(/Ballot Tracking ID:\s*([a-f0-9]+)/i);
-
-          if (voteHashMatch && trackingCodeMatch) {
-            const data = {
-              tracking_code: trackingCodeMatch[1],
-              hash_code: voteHashMatch[1]
-            };
-            setVerificationFile(data);
-            verifyVoteData(data);
-          } else {
-            toast.error('File must contain both a hash code and tracking code');
-          }
-        } catch (error) {
-          toast.error('Failed to read vote receipt file: ' + error.message);
-        }
-      };
-      reader.readAsText(file);
-    } else {
-      toast.error('Please upload a valid TXT or JSON vote receipt file');
-    }
-  };
-
-  const handleFileDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      handleFileUpload(files[0]);
-    }
-  };
-
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      handleFileUpload(file);
-    }
-  };
-
-  const handleManualVerification = () => {
-    if (!manualInput.tracking_code.trim() || !manualInput.hash_code.trim()) {
-      toast.error('Please enter both tracking code and hash code');
-      return;
-    }
-
-    const data = {
-      tracking_code: manualInput.tracking_code.trim(),
-      hash_code: manualInput.hash_code.trim()
-    };
-
-    setVerificationFile(data);
-    verifyVoteData(data);
-  };
-
-  const verifyVoteData = async (data) => {
-    try {
-      setVerifyingVote(true);
-      setVerificationResult(null);
-
-      const result = await electionApi.verifyVote(electionId, data);
-      if (result?.status) {
-        setVerificationResult(result);
-        return;
-      }
-
-      setVerificationResult({
-        status: 'error',
-        message: result?.message || 'Unexpected verification response',
-        found_ballot: false,
-      });
-    } catch (error) {
-      setVerificationResult({
-        status: 'error',
-        message: 'Failed to verify vote: ' + error.message,
-        found_ballot: false,
-      });
-    } finally {
-      setVerifyingVote(false);
-    }
-  };
-
-  const verifyVoteLocally = (data, ballots) => {
-    const { tracking_code, hash_code } = data;
-
-    // Make sure ballots is valid
-    if (!Array.isArray(ballots)) {
-      return {
-        status: 'error',
-        message: 'Error: Ballot data is not available or in incorrect format',
-        found_ballot: false,
-        error_details: 'Ballots is not an array'
-      };
-    }
-
-    // Find ballot by tracking code
-    const foundBallot = ballots.find(ballot => ballot.ballot_id === tracking_code);
-
-    if (!foundBallot) {
-      return {
-        status: 'not_found',
-        message: 'Tracking code not found in the tally',
-        found_ballot: false
-      };
-    }
-
-    // Check hash match
-    const hashMatches = foundBallot.initial_hash === hash_code ||
-      foundBallot.decrypted_hash === hash_code;
-
-    if (hashMatches) {
-      return {
-        status: 'verified',
-        message: 'Vote verified successfully',
-        found_ballot: true,
-        ballot_info: foundBallot
-      };
-    } else {
-      return {
-        status: 'corrupted',
-        message: 'Hash mismatch detected - possible tampering',
-        found_ballot: true,
-        ballot_info: foundBallot,
-        expected_hash: foundBallot.initial_hash,
-        provided_hash: hash_code
-      };
-    }
-  };
-
-  const getVerificationStatusDisplay = () => {
-    if (!verificationResult) return null;
-
-    const { status, message } = verificationResult;
-
-    switch (status) {
-      case 'verified':
-        return {
-          icon: FiCheck,
-          color: 'green',
-          title: 'Vote Verified Successfully! ✅',
-          description: 'Your vote was found and verified in the tally. Both tracking code and hash match perfectly.',
-        };
-      case 'corrupted':
-        return {
-          icon: FiAlertCircle,
-          color: 'yellow',
-          title: 'Vote Found but Hash Mismatch ⚠️',
-          description: 'Your tracking code was found, but the hash doesn\'t match. This may indicate tampering or data corruption.',
-        };
-      case 'not_found':
-        return {
-          icon: FiX,
-          color: 'red',
-          title: 'Vote Not Found ❌',
-          description: 'Your tracking code was not found in the final tally. Your vote may not have been counted.',
-        };
-      case 'error':
-        return {
-          icon: FiAlertCircle,
-          color: 'red',
-          title: 'Verification Error',
-          description: message || 'An error occurred during verification.',
-        };
-      default:
-        return null;
-    }
-  };
-
-  const statusDisplay = getVerificationStatusDisplay();
-
-  return (
-    <div>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
-        <h3 className="text-base sm:text-lg font-semibold flex items-center">
-          <FiHash className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-          Verify Your Vote
-        </h3>
-
-        <div className="flex space-x-2 w-full sm:w-auto">
-          <button
-            onClick={() => setInputMethod('file')}
-            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-              inputMethod === 'file'
-                ? 'bg-brand text-white'
-                : 'bg-slate-200 text-slate-700 hover:bg-gray-300'
-            }`}
-          >
-            Upload File
-          </button>
-          <button
-            onClick={() => setInputMethod('manual')}
-            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-              inputMethod === 'manual'
-                ? 'bg-brand text-white'
-                : 'bg-slate-200 text-slate-700 hover:bg-gray-300'
-            }`}
-          >
-            Manual Entry
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-glacier border border-brand/20 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
-        <div className="flex items-start">
-          <FiInfo className="h-4 w-4 sm:h-5 sm:w-5 text-brand mr-2 flex-shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-deep text-sm sm:text-base">How to Verify Your Vote</h4>
-            <p className="text-xs sm:text-sm text-ink mt-1">
-              Use either method below to verify that your vote was counted correctly in the final tally.
-              You need both your tracking code and hash code from your vote receipt.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {inputMethod === 'file' ? (
-        /* File Upload Method */
-        <div
-          className={`border-2 border-dashed rounded-lg p-4 sm:p-8 text-center transition-colors mb-4 sm:mb-6 ${
-            dragOver
-              ? 'border-brand bg-glacier'
-              : 'border-slate-200 hover:border-gray-400'
-          }`}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleFileDrop}
-        >
-          <input
-            type="file"
-            accept=".txt,.json"
-            onChange={handleFileSelect}
-            className="hidden"
-            id="verification-file"
-          />
-          <label htmlFor="verification-file" className="cursor-pointer">
-            <FiFileText className="h-10 w-10 sm:h-12 sm:w-12 text-slate-400 mx-auto mb-3 sm:mb-4" />
-            <p className="text-base sm:text-lg font-medium text-deep mb-1 sm:mb-2">
-              Upload Your Vote Receipt
-            </p>
-            <p className="text-xs sm:text-sm text-slate-600 mb-3 sm:mb-4 px-2">
-              Drag and drop your vote receipt file here (.txt or .json), or click to browse
-            </p>
-            <span className="inline-block px-3 sm:px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark transition-colors text-sm sm:text-base">
-              Choose File
-            </span>
-          </label>
-        </div>
-      ) : (
-        /* Manual Input Method */
-        <div className="bg-white border rounded-lg p-4 sm:p-6 mb-4 sm:mb-6">
-          <h4 className="font-medium text-deep mb-3 sm:mb-4 text-sm sm:text-base">Enter Verification Details</h4>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Tracking Code
-              </label>
-              <input
-                type="text"
-                value={manualInput.tracking_code}
-                onChange={(e) => setManualInput(prev => ({ ...prev, tracking_code: e.target.value }))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand font-mono"
-                placeholder="Enter your tracking code..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-slate-700 mb-2">
-                Hash Code
-              </label>
-              <input
-                type="text"
-                value={manualInput.hash_code}
-                onChange={(e) => setManualInput(prev => ({ ...prev, hash_code: e.target.value }))}
-                className="w-full px-3 py-2 border border-slate-200 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand font-mono"
-                placeholder="Enter your hash code..."
-              />
-            </div>
-
-            <button
-              onClick={handleManualVerification}
-              disabled={verifyingVote || !manualInput.tracking_code.trim() || !manualInput.hash_code.trim()}
-              className="w-full bg-brand text-white px-4 py-2 rounded-lg hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {verifyingVote ? 'Verifying...' : 'Verify Vote'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Verification in Progress */}
-      {verifyingVote && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <div className="flex items-center">
-            <FiLoader className="h-5 w-5 text-yellow-600 mr-2 animate-spin" />
-            <span className="text-yellow-800">Verifying your vote...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Verification Result */}
-      {statusDisplay && (
-        <div className={`mb-6 p-6 bg-${statusDisplay.color}-50 border border-${statusDisplay.color}-200 rounded-lg`}>
-          <div className="flex items-start">
-            <statusDisplay.icon className={`h-6 w-6 text-${statusDisplay.color}-600 mr-3 mt-1 flex-shrink-0`} />
-            <div className="flex-1">
-              <h4 className={`font-medium text-${statusDisplay.color}-900 mb-2`}>
-                {statusDisplay.title}
-              </h4>
-              <p className={`text-${statusDisplay.color}-800 mb-4`}>
-                {statusDisplay.description}
-              </p>
-
-              {verificationFile && (
-                <div className="bg-white rounded-lg p-4 border shadow-sm">
-                  <h5 className="font-medium text-deep mb-3">Verification Details</h5>
-                  <div className="text-sm space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center">
-                      <span className="text-slate-500 font-medium min-w-[120px]">Tracking Code:</span>
-                      <span className="font-mono bg-frost-muted px-2 py-1 rounded text-xs break-all">
-                        {verificationFile.tracking_code}
-                      </span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center">
-                      <span className="text-slate-500 font-medium min-w-[120px]">Hash Code:</span>
-                      <span className="font-mono bg-frost-muted px-2 py-1 rounded text-xs break-all">
-                        {verificationFile.hash_code}
-                      </span>
-                    </div>
-                    {verificationResult.found_ballot && (
-                      <div className="flex flex-col sm:flex-row sm:items-center">
-                        <span className="text-slate-500 font-medium min-w-[120px]">Found in Tally:</span>
-                        <span className="text-sage font-medium">✓ Yes</span>
-                      </div>
-                    )}
-                    {verificationResult.ballot_info && (
-                      <div className="mt-3 pt-3 border-t border-slate-200">
-                        <span className="text-slate-500 font-medium">Ballot Status:</span>
-                        <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${verificationResult.ballot_info.status === 'cast'
-                            ? 'bg-glacier text-ink'
-                            : 'bg-orange-100 text-orange-800'
-                          }`}>
-                          {verificationResult.ballot_info.status}
-                        </span>
-                      </div>
-                    )}
-                    {verificationResult.expected_hash && verificationResult.provided_hash && (
-                      <div className="mt-3 pt-3 border-t border-slate-200">
-                        <div className="text-xs text-red-600">
-                          <div>Expected: {verificationResult.expected_hash}</div>
-                          <div>Provided: {verificationResult.provided_hash}</div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Instructions */}
-      <div className="bg-frost rounded-lg p-4">
-        <h4 className="font-medium text-deep mb-3">Understanding Verification Results</h4>
-        <div className="text-sm text-slate-700 space-y-2">
-          <div className="flex items-start">
-            <div className="w-6 h-6 bg-sage-soft rounded-full flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
-              <FiCheck className="h-3 w-3 text-sage" />
-            </div>
-            <div>
-              <span className="font-medium">Verified:</span>
-              <span className="ml-1">Your vote was found and the hash matches perfectly. Your vote was counted correctly.</span>
-            </div>
-          </div>
-          <div className="flex items-start">
-            <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
-              <FiAlertCircle className="h-3 w-3 text-yellow-600" />
-            </div>
-            <div>
-              <span className="font-medium">Hash Mismatch:</span>
-              <span className="ml-1">Vote found but hash doesn't match. This may indicate tampering or data corruption.</span>
-            </div>
-          </div>
-          <div className="flex items-start">
-            <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
-              <FiX className="h-3 w-3 text-red-600" />
-            </div>
-            <div>
-              <span className="font-medium">Not Found:</span>
-              <span className="ml-1">Your tracking code was not found in the final tally. Your vote may not have been counted.</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 p-3 bg-glacier border border-brand/20 rounded">
-          <p className="text-sm text-ink">
-            <strong>Note:</strong> This verification system provides cryptographic proof that your vote was counted correctly.
-            The verification is performed against the official election tally and cannot be tampered with.
-          </p>
-        </div>
-      </div>
     </div>
   );
 };
@@ -3661,6 +3201,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
         castBallotError={castBallotError}
         challengeError={challengeError}
         electionData={electionData}
+        selectedCandidates={selectedCandidates}
         challengeCandidateChoices={challengeCandidateChoices}
         onChallengeCandidateToggle={handleChallengeCandidateToggle}
         onCastVote={handleCastEncryptedBallot}
@@ -4669,107 +4210,102 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 Guardian Workflow
               </h3>
               <p className="mt-1 text-sm text-slate-600">
-                Key ceremony, decryption shares, and result combination.
+                Watch guardians assemble keys, contribute partial decryptions, and meet threshold — real ElectionGuard stages, rendered honestly.
               </p>
             </div>
             <div className="space-y-6">
                 {electionData?.status === 'key_ceremony_pending' && (
-                  <div className="rounded-2xl border border-brand/25 bg-gradient-to-br from-glacier via-white to-frost p-5 sm:p-6 shadow-soft">
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
+                  <div className="observatory-panel p-5 sm:p-6">
+                    <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div>
-                        <h4 className="font-display text-lg font-semibold text-deep">Key Ceremony</h4>
-                        <p className="text-sm text-slate-600 mt-1">{getKeyCeremonyProgressMessage()}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-brand">Authority</p>
+                        <h4 className="mt-1 font-display text-lg font-semibold text-paper">Key ceremony</h4>
+                        <p className="mt-1 text-sm text-paper-muted">{getKeyCeremonyProgressMessage()}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <span className="status-chip-pending">
+                        <span className="inline-flex items-center rounded-lg border border-brand/30 bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand">
                           Guardians: {electionData.numberOfGuardians}
                         </span>
-                        <span className="status-chip-warn">
-                          Quorum: {electionData.electionQuorum}
+                        <span className="inline-flex items-center rounded-lg border border-threshold/35 bg-threshold/10 px-2.5 py-1 text-xs font-semibold text-threshold">
+                          Threshold: {electionData.electionQuorum} of {electionData.numberOfGuardians}
                         </span>
                       </div>
                     </div>
 
-                    {/* Guardian completion overview during key ceremony */}
                     {isKeyCeremonyPending && (
-                      <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="rounded-2xl border border-brand/25 bg-white p-4 flex items-center gap-4 shadow-soft">
-                          <div className="h-20 w-20">
-                            <CircularProgressbar
-                              value={getRound1Progress()}
-                              text={`${getRound1Progress()}%`}
-                              styles={buildStyles({ pathColor: '#00B4D8', textColor: '#0B132B', trailColor: '#e2e8f0' })}
-                            />
-                          </div>
-                          <div>
-                            <p className="font-display font-semibold text-deep">Step 1: Key Pairs</p>
-                            <p className="text-sm text-slate-600">
-                              {(adminKeyCeremonyStatus?.submittedGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians completed
+                      <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        <GuardianQuorumViz
+                          mode={getKeyCeremonyStep() >= 2 ? 'ceremony-r2' : 'ceremony'}
+                          title={getKeyCeremonyStep() >= 2 ? 'Backup share exchange' : 'Keypair assembly'}
+                          total={adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0}
+                          threshold={electionData.electionQuorum || electionData.numberOfGuardians || 0}
+                          filled={
+                            getKeyCeremonyStep() >= 2
+                              ? (adminKeyCeremonyStatus?.submittedBackupGuardians ?? 0)
+                              : (adminKeyCeremonyStatus?.submittedGuardians ?? 0)
+                          }
+                          guardians={(electionData.guardians || []).map((g) => ({
+                            id: g.userEmail,
+                            label: g.userName || g.userEmail,
+                            filled: getKeyCeremonyStep() >= 2 ? !!g.backupSharesSubmitted : !!g.guardianKeySubmitted,
+                            secondaryFilled: !!g.backupSharesSubmitted,
+                          }))}
+                          combined={!!(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation)}
+                        />
+                        <div className="space-y-3">
+                          <div className="rounded-xl border border-white/10 bg-ink/50 p-4">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <p className="font-display text-sm font-semibold text-paper">Step 1 — Key pairs</p>
+                              <span className="font-mono text-xs text-brand">{getRound1Progress()}%</span>
+                            </div>
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                              <div className="h-2 rounded-full bg-brand" style={{ width: `${getRound1Progress()}%` }} />
+                            </div>
+                            <p className="mt-2 text-xs text-paper-muted">
+                              {(adminKeyCeremonyStatus?.submittedGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians submitted credentials
                             </p>
                           </div>
-                        </div>
-                        <div className="rounded-2xl border border-brand/20 bg-white p-4 flex items-center gap-4 shadow-soft">
-                          <div className="h-20 w-20">
-                            <CircularProgressbar
-                              value={getRound2Progress()}
-                              text={`${getRound2Progress()}%`}
-                              styles={buildStyles({ pathColor: '#0096B4', textColor: '#0B132B', trailColor: '#e2e8f0' })}
-                            />
+                          <div className="rounded-xl border border-white/10 bg-ink/50 p-4">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <p className="font-display text-sm font-semibold text-paper">Step 2 — Backup shares</p>
+                              <span className="font-mono text-xs text-threshold">{getRound2Progress()}%</span>
+                            </div>
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-white/10">
+                              <div className="h-2 rounded-full bg-threshold" style={{ width: `${getRound2Progress()}%` }} />
+                            </div>
+                            <p className="mt-2 text-xs text-paper-muted">
+                              {(adminKeyCeremonyStatus?.submittedBackupGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians shared backups
+                            </p>
                           </div>
-                          <div>
-                            <p className="font-display font-semibold text-deep">Step 2: Backup Shares</p>
-                            <p className="text-sm text-slate-600">
-                              {(adminKeyCeremonyStatus?.submittedBackupGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians completed
+                          <div className={`rounded-xl border p-4 ${(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation) ? 'border-aurora/35 bg-aurora/10' : 'border-white/10 bg-ink/50'}`}>
+                            <p className="font-display text-sm font-semibold text-paper">Step 3 — Activation</p>
+                            <p className="mt-1 text-xs text-paper-muted">
+                              {(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation)
+                                ? 'Quorum formed. Admin can set the schedule and activate voting.'
+                                : 'Waiting for all guardians to finish steps 1–2.'}
                             </p>
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Modern process stepper */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-                      <div className={`rounded-xl border p-3 ${getKeyCeremonyStep() >= 1 ? 'border-brand/40 bg-glacier' : 'border-slate-200 bg-frost'}`}>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Step 1</p>
-                        <p className="font-medium text-deep">Key Pair Generation</p>
-                        <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
-                          <div className="h-2 rounded-full bg-brand-dark" style={{ width: `${getRound1Progress()}%` }}></div>
-                        </div>
-                      </div>
-                      <div className={`rounded-xl border p-3 ${getKeyCeremonyStep() >= 2 ? 'border-brand/40 bg-glacier' : 'border-slate-200 bg-frost'}`}>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Step 2</p>
-                        <p className="font-medium text-deep">Backup Share Exchange</p>
-                        <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
-                          <div className="h-2 rounded-full bg-brand-dark" style={{ width: `${getRound2Progress()}%` }}></div>
-                        </div>
-                      </div>
-                      <div className={`rounded-xl border p-3 ${(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation) ? 'border-emerald-300 bg-emerald-50' : 'border-slate-200 bg-frost'}`}>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-slate-500">Step 3</p>
-                        <p className="font-medium text-deep">Activation by Admin</p>
-                        <p className="text-xs text-slate-600 mt-2">
-                          {(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation)
-                            ? 'Ready for schedule setup'
-                            : 'Waiting for all guardians to finish steps 1-2'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mb-5 rounded-xl border border-slate-200 bg-white p-4">
-                      <h5 className="text-sm font-semibold text-deep mb-3">Guardian Ceremony Progress</h5>
+                    <div className="mb-5 rounded-xl border border-white/10 bg-ink/50 p-4">
+                      <h5 className="mb-3 text-sm font-semibold text-paper">Guardian ceremony progress</h5>
                       <div className="space-y-2">
                         {electionData.guardians?.map((guardian) => (
-                          <div key={guardian.userEmail} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border rounded-lg bg-frost">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <FiUser className="h-5 w-5 text-slate-400 flex-shrink-0" />
+                          <div key={guardian.userEmail} className="flex flex-col gap-2 rounded-lg border border-white/10 bg-deep/40 p-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <FiUser className="h-5 w-5 flex-shrink-0 text-paper-muted" />
                               <div className="min-w-0">
-                                <p className="font-medium text-deep truncate">{guardian.userName || guardian.userEmail}</p>
-                                <p className="text-xs text-slate-500">Order {guardian.sequenceOrder}</p>
+                                <p className="truncate font-medium text-paper">{guardian.userName || guardian.userEmail}</p>
+                                <p className="text-xs text-paper-muted">Order {guardian.sequenceOrder}</p>
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${guardian.guardianKeySubmitted ? 'bg-glacier text-ink' : 'bg-yellow-100 text-yellow-800'}`}>
+                              <span className={`rounded-full px-2 py-1 text-xs font-medium ${guardian.guardianKeySubmitted ? 'bg-brand/15 text-brand' : 'bg-white/5 text-paper-muted'}`}>
                                 Step 1: {guardian.guardianKeySubmitted ? 'Keypair submitted' : 'Keypair pending'}
                               </span>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${guardian.backupSharesSubmitted ? 'bg-glacier text-brand-dark' : 'bg-yellow-100 text-yellow-800'}`}>
+                              <span className={`rounded-full px-2 py-1 text-xs font-medium ${guardian.backupSharesSubmitted ? 'bg-threshold/15 text-threshold' : 'bg-white/5 text-paper-muted'}`}>
                                 Step 2: {guardian.backupSharesSubmitted ? 'Backup shared' : 'Backup pending'}
                               </span>
                             </div>
@@ -4956,16 +4492,16 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                 {/* Tally Creation Section - Only show if election has ended */}
                 {isElectionFinished() && !isKeyCeremonyPending && (
-                  <div className="border border-brand/20 rounded-lg p-6 bg-glacier space-y-4">
+                  <div className="space-y-4 rounded-2xl border border-brand/20 bg-gradient-to-br from-white to-frost p-6 shadow-soft">
                     <ProcessProgressPanel
-                      title="Tally Creation Progress"
+                      title="Tally creation progress"
                       status={tallyStatus}
                     />
                     <div className="flex items-center justify-between">
                       <div>
-                        <h4 className="font-medium text-deep mb-2">Step 1: Create Encrypted Tally</h4>
-                        <p className="text-sm text-ink">
-                          Before guardians can submit their keys, the encrypted tally must be created from all cast ballots.
+                        <h4 className="font-display font-semibold text-deep mb-2">Create encrypted tally</h4>
+                        <p className="text-sm text-slate-600">
+                          Homomorphic product of cast ballots — ciphertext only. Guardians decrypt after this stage completes.
                         </p>
                       </div>
                     </div>
@@ -5029,42 +4565,55 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       return (
                         <>
                           {needsDecryption && !quorumMet && (
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                              <div className="flex items-center">
-                                <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
-                                <div>
-                                  <h4 className="font-medium text-yellow-900">Waiting for Guardian Keys</h4>
-                                  <p className="text-sm text-yellow-800">
-                                    Need at least {electionQuorum} guardians to submit keys ({guardiansSubmitted} of {electionQuorum} submitted).
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
+                            <GuardianQuorumViz
+                              mode="decryption"
+                              title="Waiting for partial decryption shares"
+                              total={electionData.totalGuardians || electionData.numberOfGuardians || 0}
+                              threshold={electionQuorum}
+                              filled={guardiansSubmitted}
+                              guardians={(electionData.guardians || []).map((g) => ({
+                                id: g.userEmail,
+                                label: g.userName || g.userEmail,
+                                filled: !!g.decryptedOrNot,
+                              }))}
+                            />
                           )}
 
                           {needsDecryption && quorumMet && isElectionAdminUser() && (
-                            <div className="bg-glacier border border-brand/20 rounded-lg p-6">
+                            <div className="observatory-panel space-y-4 p-6">
+                              <GuardianQuorumViz
+                                mode="combine"
+                                title="Threshold met — ready to combine"
+                                total={electionData.totalGuardians || electionData.numberOfGuardians || 0}
+                                threshold={electionQuorum}
+                                filled={guardiansSubmitted}
+                                combined={false}
+                                guardians={(electionData.guardians || []).map((g) => ({
+                                  id: g.userEmail,
+                                  label: g.userName || g.userEmail,
+                                  filled: !!g.decryptedOrNot,
+                                }))}
+                              />
                               <div className="text-center">
-                                <FiKey className="h-12 w-12 text-brand mx-auto mb-4" />
-                                <h4 className="font-medium text-deep mb-2">Step 3: Combine Decryption Shares</h4>
-                                <p className="text-sm text-ink mb-4">
-                                  Quorum met. Combine all guardian partial decryptions to reveal final results.
+                                <h4 className="font-display text-lg font-semibold text-paper mb-2">Combine decryption shares</h4>
+                                <p className="text-sm text-paper-muted mb-4">
+                                  Quorum met. Combine guardian partial decryptions to reveal the final result.
                                 </p>
                                 <div className="flex flex-wrap justify-center gap-3">
                                   <button
                                     onClick={handleInitiateCombine}
                                     disabled={combiningDecryptions}
-                                    className="bg-brand text-white px-6 py-2 rounded-lg hover:bg-brand-dark disabled:opacity-50 transition-colors font-medium"
+                                    className="btn-brand px-6 py-2 disabled:opacity-50"
                                   >
-                                    {combiningDecryptions ? 'Combining...' : 'Combine Partial Decryptions'}
+                                    {combiningDecryptions ? 'Combining...' : 'Combine partial decryptions'}
                                   </button>
                                   <button
                                     onClick={handleCheckCombineStatus}
                                     disabled={combiningDecryptions}
-                                    className="bg-slate-200 text-slate-700 px-6 py-2 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors font-medium"
+                                    className="inline-flex items-center rounded-xl border border-white/15 px-6 py-2 text-sm font-medium text-paper-muted hover:text-paper disabled:opacity-50"
                                   >
-                                    <FiRefreshCw className="inline h-4 w-4 mr-2" />
-                                    Check Status
+                                    <FiRefreshCw className="mr-2 inline h-4 w-4" />
+                                    Check status
                                   </button>
                                 </div>
                               </div>
@@ -5072,8 +4621,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           )}
 
                           {isCombineComplete && (
-                            <div className="rounded-lg border border-green-200 bg-sage-soft p-4 text-sm text-emerald-800">
-                              Decryption shares combined successfully. Results are available in the Results tab.
+                            <div className="rounded-xl border border-aurora/35 bg-aurora/10 p-4 text-sm text-aurora">
+                              Decryption shares combined. Results are available in the Results tab.
                             </div>
                           )}
                         </>
@@ -5100,23 +4649,24 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 {/* Active Decryption Process Banner */}
                 {isElectionFinished() && isTallyComplete && guardianDecryptionStatus &&
                  (guardianDecryptionStatus.status === 'in_progress' || guardianDecryptionStatus.status === 'pending') && (
-                  <div className="bg-gradient-to-r from-brand to-brand-dark text-white rounded-lg p-4 shadow-lg animate-pulse">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                  <div className="rounded-2xl border border-threshold/40 bg-threshold/10 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-3">
+                        <FiLoader className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-threshold" />
                         <div>
-                          <p className="font-bold text-lg">🔄 Your Decryption is in Progress</p>
-                          <p className="text-sm text-glacier">
-                            Processing your guardian credentials... Click below to view real-time progress
+                          <p className="font-display font-semibold text-deep">Partial decryption in progress</p>
+                          <p className="text-sm text-slate-600">
+                            Your guardian share is being computed. Open the live status view for per-phase detail.
                           </p>
                         </div>
                       </div>
                       <button
+                        type="button"
                         onClick={() => setIsDecryptionModalOpen(true)}
-                        className="px-6 py-3 bg-white text-brand rounded-lg font-bold hover:bg-glacier transition-all shadow-md flex items-center space-x-2"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-threshold/40 bg-white px-4 py-2.5 text-sm font-semibold text-threshold hover:bg-threshold/5"
                       >
-                        <FiEye className="h-5 w-5" />
-                        <span>View Progress</span>
+                        <FiEye className="h-4 w-4" />
+                        View progress
                       </button>
                     </div>
                   </div>
@@ -5394,49 +4944,21 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   <h4 className="font-medium text-deep mb-3">Guardian Status</h4>
 
                   {getElectionStatus() === 'finished' && (
-                    <>
-                      {/* Guardian Progress Summary */}
-                      <div className="mb-4 p-3 bg-frost rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-slate-600">Partial Decryption Progress:</span>
-                          <span className="font-medium text-deep">
-                            {electionData.guardiansSubmitted || 0} of {electionData.totalGuardians || 0} guardians submitted
-                          </span>
-                        </div>
-                        <div className="mt-2 w-full bg-slate-200 rounded-full h-2">
-                          <div
-                            className="bg-brand h-2 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${electionData.totalGuardians > 0 ? ((electionData.guardiansSubmitted || 0) / electionData.totalGuardians) * 100 : 0}%`
-                            }}
-                          ></div>
-                        </div>
-                        {(() => {
-                          const guardiansSubmitted = electionData.guardiansSubmitted || 0;
-                          const totalGuardians = electionData.totalGuardians || 0;
-                          const electionQuorum = electionData.electionQuorum || totalGuardians || 0;
-                          const quorumMet = guardiansSubmitted >= electionQuorum;
-                          const allGuardiansSubmitted = guardiansSubmitted >= totalGuardians && totalGuardians > 0;
-
-                          if (allGuardiansSubmitted) {
-                            return (
-                              <div className="mt-2 flex items-center text-sage">
-                                <FiCheck className="h-4 w-4 mr-1" />
-                                <span className="text-sm font-medium">All guardians have submitted their keys ({guardiansSubmitted}/{totalGuardians})</span>
-                              </div>
-                            );
-                          } else if (quorumMet) {
-                            return (
-                              <div className="mt-2 flex items-center text-brand">
-                                <FiCheck className="h-4 w-4 mr-1" />
-                                <span className="text-sm font-medium">Quorum met! Ready to decrypt ({guardiansSubmitted}/{electionQuorum} required)</span>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </div>
-                    </>
+                    <div className="mb-4">
+                      <GuardianQuorumViz
+                        mode="decryption"
+                        title="Partial decryption response"
+                        total={electionData.totalGuardians || electionData.numberOfGuardians || 0}
+                        threshold={electionData.electionQuorum || electionData.totalGuardians || 0}
+                        filled={electionData.guardiansSubmitted || 0}
+                        combined={isCombineComplete}
+                        guardians={(electionData.guardians || []).map((g) => ({
+                          id: g.userEmail,
+                          label: g.userName || g.userEmail,
+                          filled: !!g.decryptedOrNot,
+                        }))}
+                      />
+                    </div>
                   )}
 
                   <div className="space-y-2">
@@ -6030,11 +5552,14 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
         {activeTab === 'verify' && (
           <div className="surface-card p-4 sm:p-6">
             <div className="mb-4 sm:mb-6">
-              <p className="section-kicker">Individual check</p>
+              <p className="section-kicker signal-proof">Individual proof</p>
               <h3 className="mt-1 font-display text-xl sm:text-2xl font-bold text-deep flex items-center gap-2">
-                <FiHash className="h-5 w-5 text-brand" />
-                Verify Your Vote
+                <FiHash className="h-5 w-5 text-aurora" />
+                Verify your vote
               </h3>
+              <p className="mt-1 max-w-2xl text-sm text-slate-600">
+                Quiet confirmation that your encrypted ballot is in the tally — without revealing your choice.
+              </p>
             </div>
             {!canUserViewVerification() ? (
               <div className="text-center py-8 sm:py-12 px-4">
@@ -6059,17 +5584,22 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
               if (!quorumMet) {
                 return (
-                  <div className="text-center py-12">
-                    <FiShield className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-deep mb-2">⏳ Waiting for Guardians</h3>
-                    <p className="text-slate-600 mb-4">
-                      Vote verification requires ballot hashes, but not enough guardians have submitted their decryption keys yet.
+                  <div className="mx-auto max-w-lg space-y-4 py-6">
+                    <GuardianQuorumViz
+                      mode="decryption"
+                      title="Verification waiting on threshold"
+                      total={electionData.totalGuardians || electionData.numberOfGuardians || 0}
+                      threshold={electionQuorum}
+                      filled={guardiansSubmitted}
+                      guardians={(electionData.guardians || []).map((g) => ({
+                        id: g.userEmail,
+                        label: g.userName || g.userEmail,
+                        filled: !!g.decryptedOrNot,
+                      }))}
+                    />
+                    <p className="text-center text-sm text-slate-600">
+                      Vote verification opens after enough guardians contribute partial decryption shares.
                     </p>
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 inline-block">
-                      <p className="text-sm text-yellow-800">
-                        <strong>Status:</strong> {guardiansSubmitted} of {electionQuorum} required guardians have submitted keys.
-                      </p>
-                    </div>
                   </div>
                 );
               }

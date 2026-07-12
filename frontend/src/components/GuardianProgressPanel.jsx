@@ -61,14 +61,17 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
     : null;
 
   return (
-    <div className="surface-card p-4 sm:p-5">
+    <div className="observatory-panel p-4 sm:p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h4 className="font-display text-sm font-semibold text-deep">Guardian Decryption Progress</h4>
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-threshold">Threshold</p>
+          <h4 className="font-display text-sm font-semibold text-paper">Guardian decryption progress</h4>
+        </div>
         <button
           type="button"
           onClick={refreshProgress}
           disabled={isRefreshing}
-          className="inline-flex items-center gap-1.5 btn-ghost px-2.5 py-1 text-xs"
+          className="inline-flex items-center gap-1.5 rounded-lg border border-white/15 px-2.5 py-1 text-xs font-medium text-paper-muted hover:text-paper disabled:opacity-50"
           title="Refresh guardian progress"
         >
           <FiRefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
@@ -77,7 +80,7 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
       </div>
 
       {merged.length === 0 && progressList.length === 0 ? (
-        <p className="text-sm text-slate-500">Connecting to live progress…</p>
+        <p className="text-sm text-paper-muted">Connecting to live progress…</p>
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {merged.map((guardian) => {
@@ -88,7 +91,7 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
                 key={guardian.guardianId || guardian.userEmail}
                 type="button"
                 onClick={() => setSelectedGuardian(guardian)}
-                className="flex flex-col items-center rounded-2xl border border-slate-200/80 bg-frost/70 p-3 transition hover:border-brand/40 hover:bg-glacier"
+                className="flex flex-col items-center rounded-2xl border border-white/10 bg-ink/60 p-3 transition hover:border-threshold/40"
               >
                 <div className="h-14 w-14">
                   <CircularProgressbar
@@ -96,14 +99,14 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
                     text={`${pct}%`}
                     styles={buildStyles({
                       textSize: '22px',
-                      pathColor: guardian.decryptedOrNot ? '#10b981' : '#00B4D8',
-                      textColor: '#0b132b',
-                      trailColor: '#e5e7eb',
+                      pathColor: guardian.decryptedOrNot ? '#3FDDC4' : '#7C6FF0',
+                      textColor: '#F2F0E9',
+                      trailColor: 'rgba(255,255,255,0.12)',
                     })}
                   />
                 </div>
-                <p className="mt-2 line-clamp-2 text-center text-xs font-medium text-ink">{label}</p>
-                <p className="text-[10px] uppercase tracking-wide text-slate-500">{guardian.status || 'idle'}</p>
+                <p className="mt-2 line-clamp-2 text-center text-xs font-medium text-paper">{label}</p>
+                <p className="text-[10px] uppercase tracking-wide text-paper-muted">{guardian.status || 'idle'}</p>
               </button>
             );
           })}
@@ -111,10 +114,10 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
       )}
 
       {active && (
-        <div className="mt-4 rounded-2xl border border-brand/20 bg-glacier/60 p-4 text-sm text-ink">
+        <div className="mt-4 rounded-2xl border border-threshold/30 bg-threshold/10 p-4 text-sm text-paper">
           <p className="font-semibold">{active.guardianName || active.userEmail}</p>
-          <p>Phase: {active.currentPhase || active.status || 'not started'}</p>
-          <p>
+          <p className="text-paper-muted">Phase: {active.currentPhase || active.status || 'not started'}</p>
+          <p className="font-mono text-xs text-aurora">
             Chunks: {active.processedChunks ?? 0} / {active.totalChunks ?? 0}
           </p>
         </div>
