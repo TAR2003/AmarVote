@@ -25,12 +25,12 @@ const Security = () => {
 
       <MarketingTabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-      <div className="max-w-7xl mx-auto px-4 py-12 page-enter">
+      <div className="marketing-page max-w-6xl mx-auto px-4 py-12 sm:py-16 page-enter">
 
         {/* ═══════════════════════ OVERVIEW ═══════════════════════ */}
         {activeTab === "overview" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Security Layer Overview</h2>
+            <h2 className="section-title text-center mb-8">Security Layer Overview</h2>
 
             {/* Quick reference table */}
             <div className="bg-gray-900 rounded-2xl p-6 mb-8 overflow-x-auto">
@@ -76,16 +76,15 @@ const Security = () => {
             {/* Defense in depth */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { icon: "🔐", title: "Encryption at Rest", items: ["AWS/Neon TLS for cloud DB", "Ballot blobs stored as msgpack binary", "No plaintext votes ever in DB"], color: "blue" },
-                { icon: "🔒", title: "Encryption in Transit", items: ["HTTPS via Nginx TLS termination", "Internal service communication: plaintext on private 172.20.0.0/24", "Redis and RabbitMQ on private network only"], color: "blue" },
-                { icon: "👁️‍🗨️", title: "Vote Privacy", items: ["ElGamal encrypts per-selection", "Homomorphic tally: votes counted encrypted", "No voter↔ballot linkage in DB schema"], color: "green" },
-                { icon: "✅", title: "Integrity Proofs", items: ["Chaum-Pedersen proofs per decryption share", "Schnorr proofs per ballot selection", "All proofs downloadable for independent verification"], color: "teal" },
-                { icon: "🤖", title: "Anti-Fraud", items: ["FingerprintJS BotD 1.9.1 browser-side", "5-minute timestamp freshness check server-side", "OTP rate limiting + 5-min expiry"], color: "red" },
-                { icon: "🏗️", title: "Threshold Security", items: ["k-of-n Shamir-style guardian quorum", "No single guardian can decrypt alone", "Lagrange compensation for absent guardians"], color: "orange" },
+                { title: "Encryption at Rest", items: ["AWS/Neon TLS for cloud DB", "Ballot blobs stored as msgpack binary", "No plaintext votes ever in DB"], color: "blue" },
+                { title: "Encryption in Transit", items: ["HTTPS via Nginx TLS termination", "Internal service communication: plaintext on private 172.20.0.0/24", "Redis and RabbitMQ on private network only"], color: "blue" },
+                { title: "Vote Privacy", items: ["ElGamal encrypts per-selection", "Homomorphic tally: votes counted encrypted", "No voter↔ballot linkage in DB schema"], color: "green" },
+                { title: "Integrity Proofs", items: ["Chaum-Pedersen proofs per decryption share", "Schnorr proofs per ballot selection", "All proofs downloadable for independent verification"], color: "teal" },
+                { title: "Anti-Fraud", items: ["FingerprintJS BotD 1.9.1 browser-side", "5-minute timestamp freshness check server-side", "OTP rate limiting + 5-min expiry"], color: "red" },
+                { title: "Threshold Security", items: ["k-of-n Shamir-style guardian quorum", "No single guardian can decrypt alone", "Lagrange compensation for absent guardians"], color: "orange" },
               ].map(({ icon, title, items, color }) => (
-                <div key={title} className={`bg-white rounded-2xl border p-5 ${color === "purple" ? "border-brand/25" : color === "blue" ? "border-brand/20" : color === "green" ? "border-green-200" : color === "teal" ? "border-teal-200" : color === "red" ? "border-red-200" : "border-orange-200"}`}>
-                  <div className="text-2xl mb-2">{icon}</div>
-                  <h3 className="font-bold text-gray-900 mb-3">{title}</h3>
+                <div key={title} className={`surface-card rounded-2xl border p-5 ${color === "blue" ? "border-brand/20" : color === "green" ? "border-green-200" : color === "teal" ? "border-teal-200" : color === "red" ? "border-red-200" : "border-orange-200"}`}>
+                  <h3 className="font-display font-bold text-deep mb-3">{title}</h3>
                   <ul className="space-y-1.5">
                     {items.map((item) => (
                       <li key={item} className="flex items-start text-sm text-gray-700"><span className="mr-2 text-gray-400 flex-shrink-0">•</span>{item}</li>

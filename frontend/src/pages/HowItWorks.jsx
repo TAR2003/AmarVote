@@ -4,9 +4,9 @@ import Layout from "./Layout";
 import MarketingHero, { MarketingTabs } from "../components/MarketingHero";
 
 const Step = ({ n, title, actor, color, children }) => {
-  const bg = { blue: "bg-brand", green: "bg-sage", purple: "bg-ink", orange: "bg-amber-warn", indigo: "bg-brand-dark", red: "bg-red-600", teal: "bg-brand" };
-  const border = { blue: "border-brand/20 bg-glacier/50", green: "border-sage/30 bg-sage-soft/60", purple: "border-slate-200 bg-white", orange: "border-amber-soft bg-amber-soft/50", indigo: "border-brand/25 bg-glacier/40", red: "border-red-200 bg-red-50", teal: "border-brand/20 bg-glacier/50" };
-  const actorColor = { blue: "text-brand-dark bg-glacier", green: "text-emerald-800 bg-sage-soft", purple: "text-ink bg-frost", orange: "text-amber-warn bg-amber-soft", indigo: "text-ink bg-glacier", red: "text-red-700 bg-red-100", teal: "text-brand-dark bg-glacier" };
+  const bg = { blue: "bg-brand", green: "bg-sage", teal: "bg-brand", orange: "bg-amber-warn", indigo: "bg-brand-dark", red: "bg-red-600" };
+  const border = { blue: "border-brand/20 bg-glacier/50", green: "border-sage/30 bg-sage-soft/60", teal: "border-brand/20 bg-frost", orange: "border-amber-soft bg-amber-soft/50", indigo: "border-brand/25 bg-glacier/40", red: "border-red-200 bg-red-50" };
+  const actorColor = { blue: "text-brand-dark bg-glacier", green: "text-emerald-800 bg-sage-soft", teal: "text-brand-dark bg-glacier", orange: "text-amber-warn bg-amber-soft", indigo: "text-ink bg-glacier", red: "text-red-700 bg-red-100" };
   return (
     <div className="flex items-start gap-4">
       <div className="flex flex-col items-center flex-shrink-0">
@@ -31,8 +31,8 @@ const SubPoint = ({ children }) => (
 );
 
 const CodeSnip = ({ label, code }) => (
-  <div className="bg-gray-900 rounded-xl p-4 mt-3 font-mono text-xs text-gray-300">
-    {label && <div className="text-green-400 mb-2">// {label}</div>}
+  <div className="bg-deep rounded-2xl border border-brand/20 p-4 mt-3 font-mono text-xs text-slate-200 shadow-soft">
+    {label && <div className="text-brand-light mb-2">// {label}</div>}
     <pre className="whitespace-pre-wrap leading-relaxed overflow-x-auto">{code}</pre>
   </div>
 );
@@ -59,7 +59,7 @@ const HowItWorks = () => {
 
       <MarketingTabs tabs={tabs} active={activePhase} onChange={setActivePhase} />
 
-      <div className="max-w-4xl mx-auto px-4 py-12 page-enter">
+      <div className="marketing-page max-w-5xl mx-auto px-4 py-12 sm:py-16 page-enter">
 
         {/* ═══ AUTH ═══ */}
         {activePhase === "auth" && (
@@ -364,7 +364,7 @@ A^v · M_ic^challenge == commitment_b // ✓?
           {[
             ["auth", "← Authentication", "blue"],
             ["setup", "Election Setup →", "green"],
-            ["voting", "Ballot Casting →", "purple"],
+            ["voting", "Ballot Casting →", "blue"],
             ["tally", "Tallying →", "orange"],
             ["decrypt", "Decryption →", "indigo"],
             ["verify", "Verification →", "teal"],
@@ -374,7 +374,6 @@ A^v · M_ic^challenge == commitment_b // ✓?
                 className={`px-4 py-2 text-sm font-medium rounded-xl border transition-colors ${
                   color === "blue" ? "border-brand/20 text-brand-dark hover:bg-glacier" :
                   color === "green" ? "border-green-200 text-sage hover:bg-sage-soft" :
-                  color === "purple" ? "border-purple-200 text-purple-700 hover:bg-glacier" :
                   color === "orange" ? "border-orange-200 text-orange-700 hover:bg-orange-50" :
                   color === "indigo" ? "border-brand/25 text-ink hover:bg-glacier" :
                   "border-teal-200 text-teal-700 hover:bg-teal-50"

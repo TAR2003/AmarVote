@@ -32,14 +32,17 @@ export default function MarketingHero({ kicker, title, subtitle, children }) {
 
 export function MarketingTabs({ tabs, active, onChange }) {
   return (
-    <div className="sticky top-16 z-20 border-b border-slate-200/80 bg-white/90 backdrop-blur-lg">
-      <div className="mx-auto flex max-w-6xl overflow-x-auto scrollbar-hide px-4">
+    <div className="sticky top-16 z-20 border-b border-slate-200/80 bg-white/90 shadow-[0_8px_20px_rgba(11,19,43,0.03)] backdrop-blur-lg">
+      <div className="relative mx-auto max-w-6xl">
+        <div className="pointer-events-none absolute inset-y-0 left-0 z-10 w-8 bg-gradient-to-r from-white/90 to-transparent sm:hidden" />
+        <div className="pointer-events-none absolute inset-y-0 right-0 z-10 w-8 bg-gradient-to-l from-white/90 to-transparent sm:hidden" />
+        <div className="flex overflow-x-auto scrollbar-hide px-4 sm:px-5">
         {tabs.map(({ id, label }) => (
           <button
             key={id}
             type="button"
             onClick={() => onChange(id)}
-            className={`relative whitespace-nowrap px-4 py-4 text-sm font-medium transition ${
+            className={`relative whitespace-nowrap px-3.5 py-4 text-sm font-medium transition sm:px-4 ${
               active === id
                 ? "text-brand-dark"
                 : "text-slate-500 hover:text-slate-800"
@@ -51,6 +54,7 @@ export function MarketingTabs({ tabs, active, onChange }) {
             )}
           </button>
         ))}
+        </div>
       </div>
     </div>
   );

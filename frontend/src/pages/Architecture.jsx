@@ -3,9 +3,8 @@ import Layout from "./Layout";
 import MarketingHero, { MarketingTabs } from "../components/MarketingHero";
 
 const SvcBox = ({ icon, name, tech, ip, port, color }) => (
-  <div className={`rounded-xl border-2 ${color} p-4 text-center bg-white shadow-md`}>
-    <div className="text-2xl mb-1">{icon}</div>
-    <div className="font-bold text-gray-900 text-sm">{name}</div>
+  <div className={`surface-card rounded-2xl border ${color} p-4 text-center`}>
+    <div className="font-display font-bold text-deep text-sm">{name}</div>
     <div className="text-xs text-gray-500 mt-1 font-mono">{tech}</div>
     {ip && <div className="mt-1 text-xs font-mono text-brand">{ip}</div>}
     {port && <div className="text-xs font-mono text-gray-400">{port}</div>}
@@ -15,7 +14,7 @@ const SvcBox = ({ icon, name, tech, ip, port, color }) => (
 const ArrowLabel = ({ label }) => (
   <div className="flex flex-col items-center my-1">
     <div className="w-px h-6 bg-gray-300" />
-    <div className="text-xs text-gray-400 px-2 py-0.5 bg-gray-100 rounded font-mono border border-gray-200">{label}</div>
+    <div className="text-xs text-slate-500 px-2 py-0.5 bg-frost rounded-lg font-mono border border-slate-200">{label}</div>
     <div className="w-px h-6 bg-gray-300" />
   </div>
 );
@@ -44,12 +43,12 @@ const Architecture = () => {
         onChange={setActiveTab}
       />
 
-      <div className="max-w-7xl mx-auto px-4 py-12 page-enter">
+      <div className="marketing-page max-w-6xl mx-auto px-4 py-12 sm:py-16 page-enter">
 
         {/* ═══════════════════════ OVERVIEW ═══════════════════════ */}
         {activeTab === "overview" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">High-Level Architecture Diagram</h2>
+            <h2 className="section-title text-center mb-8">High-Level Architecture Diagram</h2>
 
             {/* System Map */}
             <div className="bg-gray-50 rounded-2xl border border-gray-200 p-8 mb-10 overflow-x-auto">
@@ -57,7 +56,7 @@ const Architecture = () => {
                 {/* Browser / User layer */}
                 <div className="flex justify-center mb-4">
                   <div className="bg-white border-2 border-gray-300 rounded-xl px-8 py-3 font-semibold text-gray-700 shadow-sm">
-                    🌐 Browser (User / Guardian / Admin)
+                    Browser (User / Guardian / Admin)
                   </div>
                 </div>
                 <ArrowLabel label="HTTPS :443 (Nginx Proxy)" />
@@ -111,11 +110,11 @@ const Architecture = () => {
                 <div className="flex justify-center gap-4 mt-2">
                   <div className="flex flex-col items-center">
                     <ArrowLabel label="HTTP :5000 (fast API)" />
-                    <SvcBox icon="🔐" name="EG Fast API" tech="Flask · ElectionGuard 2.x" ip="172.20.0.10" port="5000" color="border-purple-400" />
+                    <SvcBox icon="🔐" name="EG Fast API" tech="Flask · ElectionGuard 2.x" ip="172.20.0.10" port="5000" color="border-brand" />
                   </div>
                   <div className="flex flex-col items-center">
                     <ArrowLabel label="RabbitMQ dequeue" />
-                    <SvcBox icon="⚙️" name="EG Worker" tech="RabbitMQ consumer" ip="172.20.0.11" port="5001" color="border-violet-400" />
+                    <SvcBox icon="⚙️" name="EG Worker" tech="RabbitMQ consumer" ip="172.20.0.11" port="5001" color="border-brand-dark" />
                   </div>
                 </div>
 
@@ -130,7 +129,7 @@ const Architecture = () => {
 
             {/* Nginx Proxy */}
             <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
-              <h3 className="font-bold text-gray-900 text-lg mb-4">🔀 Nginx Reverse Proxy (Production)</h3>
+              <h3 className="font-display font-bold text-gray-900 text-lg mb-4">Nginx Reverse Proxy (Production)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <p className="text-gray-600 text-sm mb-3">The nginx proxy terminates SSL and routes traffic to services based on path prefix:</p>
@@ -183,7 +182,7 @@ const Architecture = () => {
                   ]
                 },
                 {
-                  icon: "🔐", name: "ElectionGuard Microservice — Fast API Container", color: "purple",
+                  icon: "🔐", name: "ElectionGuard Microservice — Fast API Container", color: "blue",
                   tech: "Python 3.12 · Flask · Microsoft ElectionGuard SDK 2.x · gmpy2 · msgpack",
                   ip: "172.20.0.10:5000",
                   desc: "Handles time-sensitive synchronous operations: guardian key ceremony, ballot encryption, and session-scoped tasks that need low latency.",
@@ -198,7 +197,7 @@ const Architecture = () => {
                   ]
                 },
                 {
-                  icon: "⚙️", name: "ElectionGuard Microservice — Worker Container", color: "violet",
+                  icon: "⚙️", name: "ElectionGuard Microservice — Worker Container", color: "blue",
                   tech: "Python 3.12 · Flask · RabbitMQ consumer (aio-pika) · ElectionGuard SDK 2.x",
                   ip: "172.20.0.11:5001",
                   desc: "Long-running async batch processor for decryption phases. Consumes from RabbitMQ queues, coordinates via Redis, writes results to DB.",
@@ -231,16 +230,15 @@ const Architecture = () => {
                   ]
                 },
               ].map(({ icon, name, color, tech, ip, desc, responsibilities }) => (
-                <div key={name} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                <div key={name} className="surface-card p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center">
-                      <span className="text-3xl mr-3">{icon}</span>
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900">{name}</h3>
+                        <h3 className="font-display text-xl font-bold text-deep">{name}</h3>
                         <div className="font-mono text-xs text-gray-500 mt-0.5">{tech}</div>
                       </div>
                     </div>
-                    <div className="font-mono text-xs text-brand bg-glacier px-3 py-1 rounded-lg border border-brand/20 flex-shrink-0 ml-4">{ip}</div>
+                    <div className="font-mono text-xs text-brand-dark bg-glacier px-3 py-1 rounded-lg border border-brand/20 flex-shrink-0 ml-4">{ip}</div>
                   </div>
                   <p className="text-gray-600 text-sm mb-4">{desc}</p>
                   <ul className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
@@ -375,7 +373,7 @@ const Architecture = () => {
                 },
                 {
                   phase: "Phase 4 — Guardian Decryption",
-                  color: "purple",
+                  color: "teal",
                   steps: [
                     ["Guardian", "Uploads credential file via React frontend → Backend decrypts ML-KEM-1024 wrap"],
                     ["Spring Boot", "Stores decrypted ElGamal private key in Redis: key guardian:${id}:key, TTL=6h"],
@@ -388,7 +386,7 @@ const Architecture = () => {
                   ]
                 },
               ].map(({ phase, color, steps }) => (
-                <div key={phase} className={`bg-white rounded-2xl border-l-4 ${color === "blue" ? "border-brand" : color === "green" ? "border-green-500" : color === "orange" ? "border-orange-500" : "border-purple-500"} border-r border-t border-b border-gray-200 p-6 shadow-sm`}>
+                <div key={phase} className={`surface-card border-l-4 ${color === "blue" ? "border-brand" : color === "green" ? "border-green-500" : color === "orange" ? "border-orange-500" : "border-brand-dark"} p-6`}>
                   <h3 className={`text-xl font-bold mb-5 ${color === "blue" ? "text-ink" : color === "green" ? "text-emerald-800" : color === "orange" ? "text-orange-800" : "text-ink"}`}>{phase}</h3>
                   <div className="space-y-3">
                     {steps.map(([actor, action], i) => (
@@ -397,7 +395,7 @@ const Architecture = () => {
                           <div className={`w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center ${color === "blue" ? "bg-brand" : color === "green" ? "bg-sage-soft0" : color === "orange" ? "bg-orange-500" : "bg-glacier0"}`}>{i + 1}</div>
                         </div>
                         <div>
-                          <span className={`font-semibold text-sm ${color === "blue" ? "text-brand-dark" : color === "green" ? "text-sage" : color === "orange" ? "text-orange-700" : "text-purple-700"}`}>[{actor}]</span>
+                          <span className={`font-semibold text-sm ${color === "blue" ? "text-brand-dark" : color === "green" ? "text-sage" : color === "orange" ? "text-orange-700" : "text-brand-dark"}`}>[{actor}]</span>
                           <span className="text-gray-700 text-sm ml-2">{action}</span>
                         </div>
                       </div>
@@ -498,7 +496,7 @@ For each 100ms tick:
               {[
                 {
                   icon: "🔑", title: "Guardian Private Key Cache",
-                  color: "bg-glacier border-purple-200",
+                  color: "bg-glacier border-brand/25",
                   ttl: "6 hours",
                   pattern: "guardian:{guardianId}:key",
                   type: "STRING (binary, msgpack)",

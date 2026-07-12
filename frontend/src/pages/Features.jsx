@@ -7,7 +7,6 @@ const FeatureCard = ({ icon, title, items, color }) => {
   const colors = {
     blue: "bg-glacier border-brand/20",
     green: "bg-sage-soft border-green-200",
-    purple: "bg-glacier border-brand/20",
     orange: "bg-orange-50 border-orange-200",
     red: "bg-red-50 border-red-200",
     indigo: "bg-glacier border-brand/25",
@@ -15,14 +14,13 @@ const FeatureCard = ({ icon, title, items, color }) => {
     amber: "bg-amber-50 border-amber-200",
   };
   const headColors = {
-    blue: "text-ink", green: "text-emerald-800", purple: "text-ink",
+    blue: "text-ink", green: "text-emerald-800",
     orange: "text-orange-800", red: "text-red-800", indigo: "text-ink",
     teal: "text-teal-800", amber: "text-amber-800",
   };
   return (
     <div className={`rounded-2xl border p-5 ${colors[color]}`}>
-      <div className="text-2xl mb-2">{icon}</div>
-      <h3 className={`font-bold text-lg mb-3 ${headColors[color]}`}>{title}</h3>
+      <h3 className={`font-display font-bold text-lg mb-3 ${headColors[color]}`}>{title}</h3>
       <ul className="space-y-1.5">
         {items.map((item) => (
           <li key={item} className="flex items-start text-sm text-gray-700">
@@ -56,15 +54,15 @@ function Features() {
 
       <MarketingTabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-      <div className="max-w-7xl mx-auto px-4 py-12 page-enter">
+      <div className="marketing-page max-w-6xl mx-auto px-4 py-12 sm:py-16 page-enter">
 
         {/* Cryptography tab */}
         {activeTab === "crypto" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">Cryptographic Features</h2>
+            <h2 className="section-title text-center mb-3">Cryptographic Features</h2>
             <p className="text-gray-500 text-center mb-8">Every layer is cryptographically sound and independently verifiable</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-8">
-              <FeatureCard icon="🔒" color="purple" title="ElGamal 4096-bit End-to-End Encryption (ElectionGuard)"
+              <FeatureCard icon="🔒" color="blue" title="ElGamal 4096-bit End-to-End Encryption (ElectionGuard)"
                 items={[
                   "Each ballot selection encrypted with 4096-bit ElGamal (NIST safe-prime group)",
                   "Encryption produces (α, β) ciphertext pair + nonce ξ per selection",
@@ -161,7 +159,7 @@ function Features() {
         {/* Architecture tab */}
         {activeTab === "arch" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">Platform Architecture</h2>
+            <h2 className="section-title text-center mb-3">Platform Architecture</h2>
             <p className="text-gray-500 text-center mb-8">Six microservices on a private Docker overlay network, purpose-built for a voting workload</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <FeatureCard icon="⚛️" color="blue" title="React 19.1 Frontend (172.20.0.40)"
@@ -185,7 +183,7 @@ function Features() {
                   "Micrometer + Prometheus: /actuator/prometheus scrape endpoint",
                   "Jackson-dataformat-msgpack 0.9.8 for binary ballot serialization",
                 ]} />
-              <FeatureCard icon="🔐" color="purple" title="ElectionGuard Microservice — Two Containers"
+              <FeatureCard icon="🔐" color="blue" title="ElectionGuard Microservice — Two Containers"
                 items={[
                   "Fast API (172.20.0.10:5000): synchronous key ceremony + ballot encryption",
                   "Worker (172.20.0.11:5001): async tally + partial + compensated + combine",
@@ -229,7 +227,7 @@ function Features() {
         {/* Security layers tab */}
         {activeTab === "security" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">Security Layers</h2>
+            <h2 className="section-title text-center mb-3">Security Layers</h2>
             <p className="text-gray-500 text-center mb-8">Defense-in-depth from the browser to the database</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <FeatureCard icon="🪪" color="blue" title="Authentication (Passwordless OTP)"
@@ -258,7 +256,7 @@ function Features() {
                   "Applied at the ballot encryption layer before submission",
                   "Standard: RFC 5652 (Cryptographic Message Syntax)",
                 ]} />
-              <FeatureCard icon="🔗" color="purple" title="API Security"
+              <FeatureCard icon="🔗" color="blue" title="API Security"
                 items={[
                   "All endpoints protected by Spring Security role-based access control",
                   "JWT bearer token in HttpOnly cookie — not readable by JavaScript",
@@ -291,7 +289,7 @@ function Features() {
         {/* Election Management tab */}
         {activeTab === "election" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">Election Management Features</h2>
+            <h2 className="section-title text-center mb-3">Election Management Features</h2>
             <p className="text-gray-500 text-center mb-8">Complete lifecycle from creation to verified results</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <FeatureCard icon="📋" color="blue" title="Election Creation"
@@ -313,7 +311,7 @@ function Features() {
                   "Tracking code saved: voter can verify inclusion post-election",
                   "One ballot per voter per election enforced at DB level",
                 ]} />
-              <FeatureCard icon="📊" color="purple" title="Tally & Decryption Workflow"
+              <FeatureCard icon="📊" color="blue" title="Tally & Decryption Workflow"
                 items={[
                   "Admin initiates tally → backend chunks 200 ballots each (SecureRandom shuffle)",
                   "Each chunk published to tally.creation.queue via RabbitMQ",
@@ -358,7 +356,7 @@ function Features() {
         {/* Monitoring tab */}
         {activeTab === "monitoring" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">Observability & Monitoring</h2>
+            <h2 className="section-title text-center mb-3">Observability & Monitoring</h2>
             <p className="text-gray-500 text-center mb-8">Production-grade Prometheus metrics, pre-configured Grafana dashboards</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5 mb-6">
               <FeatureCard icon="📈" color="blue" title="Prometheus Metrics (Spring Boot Actuator)"
@@ -397,7 +395,7 @@ function Features() {
         {/* Optional Services tab */}
         {activeTab === "optional" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-3 text-center">Optional Platform Extensions</h2>
+            <h2 className="section-title text-center mb-3">Optional Platform Extensions</h2>
             <p className="text-gray-500 text-center mb-8">Infrastructure ready — enable by uncommenting in Docker Compose</p>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
               <FeatureCard icon="🧾" color="amber" title="Extended Public Audit Metadata"
@@ -420,7 +418,7 @@ function Features() {
                 ]} />
             </div>
             <div className="mt-6 bg-amber-50 border border-amber-200 rounded-2xl p-5">
-              <h3 className="font-bold text-amber-800 mb-2">⚠️ Enabling Optional Services</h3>
+              <h3 className="font-display font-bold text-amber-800 mb-2">Enabling Optional Services</h3>
               <p className="text-amber-700 text-sm">Uncomment the respective service blocks in <code className="bg-white px-1 rounded text-xs border">docker-compose.yml</code>. The core 6-service platform (frontend, backend, EG API, EG Worker, RabbitMQ, Redis, PostgreSQL) runs without optional services with full E2E verifiability. Optional services add complementary capabilities.</p>
             </div>
           </div>

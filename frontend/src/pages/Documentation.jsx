@@ -3,14 +3,14 @@ import Layout from "./Layout";
 import MarketingHero from "../components/MarketingHero";
 
 const SectionCard = ({ title, children }) => (
-  <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-    <h2 className="text-xl font-bold text-gray-900 mb-4">{title}</h2>
+  <section className="surface-card glass-panel p-6 sm:p-7">
+    <h2 className="font-display text-xl font-bold text-deep mb-4">{title}</h2>
     {children}
   </section>
 );
 
 const Code = ({ children }) => (
-  <code className="px-2 py-1 rounded bg-gray-100 text-gray-800 text-sm font-mono">{children}</code>
+  <code className="px-2 py-1 rounded-lg bg-glacier text-brand-dark text-sm font-mono">{children}</code>
 );
 
 function Documentation() {
@@ -22,7 +22,7 @@ function Documentation() {
         subtitle="Routes and permissions as implemented today—a living snapshot of AmarVote’s access rules and structure."
       />
 
-      <div className="max-w-6xl mx-auto px-4 py-10 space-y-6 page-enter">
+      <div className="marketing-page max-w-5xl mx-auto px-4 py-12 sm:py-16 space-y-6 page-enter">
         <SectionCard title="Authentication and Login Rules">
           <ul className="space-y-3 text-gray-700 leading-relaxed list-disc pl-5">
             <li>Login is restricted to authorized users when registration is not open to all.</li>
@@ -42,16 +42,16 @@ function Documentation() {
 
         <SectionCard title="Roles and Permission Model">
           <div className="grid md:grid-cols-3 gap-4 mb-4">
-            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-              <h3 className="font-bold text-gray-900 mb-2">User</h3>
+            <div className="rounded-2xl border border-slate-200 p-4 bg-frost">
+              <h3 className="font-display font-bold text-deep mb-2">User</h3>
               <p className="text-sm text-gray-700">Can log in if authorized. Cannot manage authorized-users settings by default.</p>
             </div>
             <div className="rounded-xl border border-brand/20 p-4 bg-glacier">
-              <h3 className="font-bold text-deep mb-2">Admin</h3>
+              <h3 className="font-display font-bold text-deep mb-2">Admin</h3>
               <p className="text-sm text-deep">Can add/remove/update authorized users (except owner records), and manage permission settings.</p>
             </div>
             <div className="rounded-xl border border-brand/25 p-4 bg-glacier">
-              <h3 className="font-bold text-deep mb-2">Owner</h3>
+              <h3 className="font-display font-bold text-deep mb-2">Owner</h3>
               <p className="text-sm text-deep">Full management role. Can promote users to admin and perform all admin operations.</p>
             </div>
           </div>

@@ -17,8 +17,12 @@ import {
 import { VOTER_STATUS_COPY } from '../utils/voterMessages';
 
 const HOLD_MS = 1800;
+const RING_SIZE = 56;
+const RING_STROKE = 4;
+const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
+const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
-function HoldToConfirm({ onConfirm, label = 'Hold to Cast Ballot', disabled = false }) {
+function HoldToConfirm({ onConfirm, label = 'Hold to cast ballot', disabled = false }) {
   const [progress, setProgress] = useState(0);
   const [holding, setHolding] = useState(false);
   const rafRef = useRef(null);
@@ -36,12 +40,12 @@ function HoldToConfirm({ onConfirm, label = 'Hold to Cast Ballot', disabled = fa
   const tick = useCallback(
     (now) => {
       const elapsed = now - startRef.current;
-      const next = Math.min(100, (elapsed / HOLD_MS) * 100);
+      const next = Math.min(1, elapsed / HOLD_MS);
       setProgress(next);
-      if (next >= 100 && !doneRef.current) {
+      if (next >= 1 && !doneRef.current) {
         doneRef.current = true;
         if (typeof navigator !== 'undefined' && navigator.vibrate) {
-          navigator.vibrate(24);
+          navigator.vibrate(28);
         }
         onConfirm?.();
         clear();
@@ -65,6 +69,13 @@ function HoldToConfirm({ onConfirm, label = 'Hold to Cast Ballot', disabled = fa
 
   useEffect(() => () => clear(), [clear]);
 
+  const dashOffset = RING_CIRCUMFERENCE * (1 - progress);
+  const statusText = holding
+    ? progress > 0.85
+      ? 'Almost there…'
+      : 'Keep holding…'
+    : label;
+
   return (
     <button
       type="button"
@@ -80,16 +91,52 @@ function HoldToConfirm({ onConfirm, label = 'Hold to Cast Ballot', disabled = fa
       }}
       onKeyUp={clear}
       aria-label={label}
-      className="relative flex w-full items-center justify-center overflow-hidden rounded-xl bg-brand px-4 py-3.5 text-sm font-semibold text-white shadow-soft transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:opacity-50 select-none"
+      aria-pressed={holding}
+      className="group relative flex w-full select-none items-center gap-4 overflow-hidden rounded-2xl border border-brand/25 bg-gradient-to-br from-brand to-brand-dark px-4 py-3.5 text-left text-white shadow-brand transition hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span
-        className="absolute inset-y-0 left-0 bg-brand-dark/50"
-        style={{ width: `${progress}%` }}
+        className="pointer-events-none absolute inset-0 bg-white/10 transition-opacity duration-300"
+        style={{ opacity: holding ? 0.12 + progress * 0.2 : 0 }}
         aria-hidden
       />
-      <span className="relative z-10 flex items-center gap-2">
-        <FiCheck className={`h-4 w-4 ${holding ? 'animate-soft-pulse' : ''}`} />
-        {holding ? `Hold… ${Math.round(progress)}%` : label}
+
+      <span className="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center">
+        <svg width={RING_SIZE} height={RING_SIZE} className="-rotate-90" aria-hidden>
+          <circle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_RADIUS}
+            fill="none"
+            stroke="rgba(255,255,255,0.28)"
+            strokeWidth={RING_STROKE}
+          />
+          <circle
+            cx={RING_SIZE / 2}
+            cy={RING_SIZE / 2}
+            r={RING_RADIUS}
+            fill="none"
+            stroke="white"
+            strokeWidth={RING_STROKE}
+            strokeLinecap="round"
+            strokeDasharray={RING_CIRCUMFERENCE}
+            strokeDashoffset={dashOffset}
+            className="transition-[stroke-dashoffset] duration-75 ease-linear"
+          />
+        </svg>
+        <span className="absolute inset-0 flex items-center justify-center">
+          <FiCheck className={`h-5 w-5 transition ${holding ? 'scale-110' : 'opacity-90'}`} />
+        </span>
+      </span>
+
+      <span className="relative z-10 min-w-0 flex-1">
+        <span className="block font-display text-base font-semibold tracking-tight">
+          {statusText}
+        </span>
+        <span className="mt-0.5 block text-xs text-white/80">
+          {holding
+            ? 'Release to cancel · keep holding to cast'
+            : 'Press and hold until the ring completes'}
+        </span>
       </span>
     </button>
   );

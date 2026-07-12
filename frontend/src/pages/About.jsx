@@ -15,7 +15,6 @@ const ServiceCard = ({ icon, name, color, tags, description }) => {
   const colors = {
     blue: "border-brand/20 bg-glacier",
     green: "border-green-200 bg-sage-soft",
-    purple: "border-purple-200 bg-glacier",
     orange: "border-orange-200 bg-orange-50",
     teal: "border-teal-200 bg-teal-50",
     indigo: "border-brand/25 bg-glacier",
@@ -25,7 +24,6 @@ const ServiceCard = ({ icon, name, color, tags, description }) => {
   const tagColor = {
     blue: "bg-glacier text-brand-dark",
     green: "bg-sage-soft text-sage",
-    purple: "bg-glacier text-purple-700",
     orange: "bg-orange-100 text-orange-700",
     teal: "bg-teal-100 text-teal-700",
     indigo: "bg-glacier text-ink",
@@ -35,8 +33,7 @@ const ServiceCard = ({ icon, name, color, tags, description }) => {
   return (
     <div className={`rounded-2xl border p-5 ${colors[color]}`}>
       <div className="flex items-center gap-3 mb-2">
-        <span className="text-2xl">{icon}</span>
-        <span className="font-bold text-gray-900">{name}</span>
+        <span className="font-display font-bold text-deep">{name}</span>
       </div>
       <p className="text-sm text-gray-600 mb-3">{description}</p>
       <div className="flex flex-wrap gap-1">
@@ -86,7 +83,7 @@ function About() {
         onChange={setTab}
       />
 
-      <div className="max-w-6xl mx-auto px-4 py-12">
+      <div className="marketing-page max-w-6xl mx-auto px-4 py-12 sm:py-16 page-enter">
 
         {/* OVERVIEW */}
         {tab === "overview" && (
@@ -122,7 +119,7 @@ function About() {
               <h2 className="text-xl font-bold text-gray-900 mb-4">Three Participant Roles</h2>
               <div className="grid md:grid-cols-3 gap-5">
                 <div className="rounded-2xl border border-brand/20 bg-glacier p-5">
-                  <div className="font-bold text-ink mb-2 text-lg">🪪 Voter</div>
+                  <div className="font-display font-bold text-ink mb-2 text-lg">Voter</div>
                   <ul className="text-sm text-gray-700 space-y-1">
                     <li>→ OTP login (email, no password)</li>
                     <li>→ Browse eligible elections</li>
@@ -131,8 +128,8 @@ function About() {
                     <li>→ View animated results after decryption</li>
                   </ul>
                 </div>
-                <div className="rounded-2xl border border-purple-200 bg-glacier p-5">
-                  <div className="font-bold text-ink mb-2 text-lg">🔑 Guardian</div>
+                <div className="rounded-2xl border border-brand/25 bg-glacier p-5">
+                  <div className="font-display font-bold text-ink mb-2 text-lg">Guardian</div>
                   <ul className="text-sm text-gray-700 space-y-1">
                     <li>→ Receives ML-KEM-1024 encrypted credential.json</li>
                     <li>→ Holds ElGamal private key share s_i</li>
@@ -142,7 +139,7 @@ function About() {
                   </ul>
                 </div>
                 <div className="rounded-2xl border border-orange-200 bg-orange-50 p-5">
-                  <div className="font-bold text-orange-800 mb-2 text-lg">⚙ Admin</div>
+                  <div className="font-display font-bold text-orange-800 mb-2 text-lg">Admin</div>
                   <ul className="text-sm text-gray-700 space-y-1">
                     <li>→ Create elections with guardian parameters</li>
                     <li>→ Manage voter eligibility lists</li>
@@ -216,7 +213,7 @@ function About() {
                     <TRow label="Spring Mail" value="3.x" sub="OTP + credential delivery via Gmail SMTP" />
                     <TRow label="msgpack" value="1.1" sub="Compact binary serialization for ballot blobs" />
 
-                    <tr className="bg-glacier"><td colSpan={3} className="px-4 py-2 text-xs font-bold text-purple-700 uppercase tracking-wider">ElectionGuard Microservice (Python)</td></tr>
+                    <tr className="bg-glacier"><td colSpan={3} className="px-4 py-2 text-xs font-bold text-brand-dark uppercase tracking-wider">ElectionGuard Microservice (Python)</td></tr>
                     <TRow label="ElectionGuard" value="2.x" sub="Core cryptographic library (MIT, by Microsoft)" />
                     <TRow label="FastAPI" value="0.115.x" sub="Async HTTP API for EG endpoints" />
                     <TRow label="Celery" value="5.x" sub="Distributed task worker (EG Worker)" />
@@ -256,7 +253,7 @@ function About() {
               <ServiceCard icon="☕" name="Spring Boot Backend" color="green"
                 tags={["172.20.0.30", "Port 8080", "Java 21", "REST + RabbitMQ producer"]}
                 description="Core orchestration layer. Manages authentication (OTP + JWT), election lifecycle, guardian credential processing, ballot storage, and RabbitMQ job publishing with fair round-robin scheduler." />
-              <ServiceCard icon="⚡" name="EG Fast API" color="purple"
+              <ServiceCard icon="⚡" name="EG Fast API" color="blue"
                 tags={["172.20.0.10", "Port 5000", "FastAPI", "Python 3.12"]}
                 description="Synchronous ElectionGuard endpoints: /ceremony/setup, /ballot/encrypt, /ballot/challenge, and ZK proof generation. Handles key ceremony and per-voter encryption requests." />
               <ServiceCard icon="⚙️" name="EG Worker" color="orange"
@@ -361,14 +358,14 @@ function About() {
             {/* Explore links */}
             <div className="grid sm:grid-cols-2 gap-4">
               <Link to="/security">
-                <div className="rounded-2xl border border-purple-200 bg-glacier p-5 hover:border-purple-400 transition cursor-pointer">
-                  <div className="font-bold text-ink mb-1">🔐 Security Deep Dive →</div>
+                <div className="rounded-2xl border border-brand/25 bg-glacier p-5 hover:border-brand transition cursor-pointer">
+                  <div className="font-display font-bold text-ink mb-1">Security Deep Dive →</div>
                   <p className="text-sm text-gray-600">Full mathematical proofs, pseudocode for ML-KEM-1024 flow, ZK proof formulas, and Benaloh protocol steps</p>
                 </div>
               </Link>
               <Link to="/architecture">
                 <div className="rounded-2xl border border-brand/20 bg-glacier p-5 hover:border-brand transition cursor-pointer">
-                  <div className="font-bold text-ink mb-1">🏗 Architecture Details →</div>
+                  <div className="font-display font-bold text-ink mb-1">Architecture Details →</div>
                   <p className="text-sm text-gray-600">Service map, Docker network topology, 4-phase data flow, RabbitMQ queue configs, Redis key patterns</p>
                 </div>
               </Link>
@@ -386,7 +383,7 @@ function About() {
 
             <div className="grid md:grid-cols-2 gap-6">
               <div className="rounded-2xl border border-gray-200 p-6">
-                <h3 className="font-bold text-gray-900 mb-3">🗂 Repository Structure</h3>
+                <h3 className="font-display font-bold text-gray-900 mb-3">Repository Structure</h3>
                 <div className="font-mono text-xs text-gray-700 space-y-1 bg-gray-50 rounded-xl p-4">
                   <div><span className="text-brand">frontend/</span> — React 19.1 + Vite SPA</div>
                   <div><span className="text-sage">backend/</span> — Spring Boot 3.5 + Java 21</div>
@@ -399,7 +396,7 @@ function About() {
                 </div>
               </div>
               <div className="rounded-2xl border border-gray-200 p-6">
-                <h3 className="font-bold text-gray-900 mb-3">📋 License & Compliance</h3>
+                <h3 className="font-display font-bold text-gray-900 mb-3">License & Compliance</h3>
                 <div className="space-y-3">
                   <div className="rounded-xl bg-sage-soft border border-green-200 p-3">
                     <div className="font-semibold text-emerald-800 text-sm">AmarVote</div>
@@ -409,7 +406,7 @@ function About() {
                     <div className="font-semibold text-ink text-sm">ElectionGuard SDK</div>
                     <div className="text-xs text-gray-600">MIT License (Microsoft) — open-source cryptographic library</div>
                   </div>
-                  <div className="rounded-xl bg-glacier border border-purple-200 p-3">
+                  <div className="rounded-xl bg-glacier border border-brand/25 p-3">
                     <div className="font-semibold text-ink text-sm">NIST FIPS 203 / ML-KEM-1024</div>
                     <div className="text-xs text-gray-600">CRYSTALS-Kyber — standardized post-quantum KEM algorithm</div>
                   </div>
@@ -423,7 +420,7 @@ function About() {
 
             {/* Video demos */}
             <div>
-              <h3 className="font-bold text-gray-900 mb-3 text-lg">🎥 Demo Videos</h3>
+              <h3 className="font-display font-bold text-gray-900 mb-3 text-lg">Demo Videos</h3>
               <div className="grid sm:grid-cols-2 gap-4">
                 <a href="https://youtu.be/ixsvvl_7qVo" target="_blank" rel="noreferrer"
                   className="block rounded-2xl border border-gray-200 bg-gray-50 p-5 hover:border-blue-300 transition">
@@ -454,7 +451,7 @@ function About() {
                 <button className="px-5 py-2.5 bg-brand text-white font-semibold rounded-xl hover:bg-brand-dark transition text-sm">Architecture →</button>
               </Link>
               <Link to="/security">
-                <button className="px-5 py-2.5 bg-ink text-white font-semibold rounded-xl hover:bg-purple-700 transition text-sm">Security →</button>
+                <button className="px-5 py-2.5 bg-ink text-white font-semibold rounded-xl hover:bg-brand-dark transition text-sm">Security →</button>
               </Link>
               <Link to="/how-it-works">
                 <button className="px-5 py-2.5 border border-white/30 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">How It Works →</button>
