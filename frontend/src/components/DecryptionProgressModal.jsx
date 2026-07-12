@@ -686,7 +686,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                   <div className="flex items-center gap-3">
                     <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
                       status.status === 'in_progress' || status.status === 'completed' 
-                        ? 'bg-brand text-white animate-pulse' 
+                        ? 'bg-brand-dark text-paper animate-pulse' 
                         : 'bg-slate-300 text-slate-600'
                     }`}>
                       {status.status === 'in_progress' || status.status === 'completed' ? '⟳' : '○'}

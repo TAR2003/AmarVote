@@ -342,7 +342,7 @@ export default function KeyCeremonyDashboard() {
                     </div>
                     <button
                       onClick={() => handleGuardianSubmit(item.electionId)}
-                      className="mt-3 px-4 py-2 bg-brand text-white rounded"
+                      className="mt-3 px-4 py-2 bg-brand-dark text-paper rounded"
                     >
                       Submit Key Ceremony Data (Round 1)
                     </button>

@@ -99,8 +99,8 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
                     text={`${pct}%`}
                     styles={buildStyles({
                       textSize: '22px',
-                      pathColor: guardian.decryptedOrNot ? '#3FDDC4' : '#7C6FF0',
-                      textColor: '#F2F0E9',
+                      pathColor: guardian.decryptedOrNot ? '#3FC7B8' : '#8B7FE8',
+                      textColor: '#F7F4EC',
                       trailColor: 'rgba(255,255,255,0.12)',
                     })}
                   />

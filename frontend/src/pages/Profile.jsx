@@ -206,7 +206,7 @@ const Profile = () => {
           <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand/15 blur-3xl" />
           <div className="absolute -bottom-24 left-1/4 h-48 w-72 rounded-full bg-sage/10 blur-3xl" />
           <div className="relative">
-            <p className="section-kicker text-brand-light">Account vault</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Account vault</p>
             <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Account security</h1>
             <p className="mt-3 max-w-xl text-sm leading-6 text-glacier sm:text-base">
             Keep your AmarVote account protected with a strong password and two-step verification.

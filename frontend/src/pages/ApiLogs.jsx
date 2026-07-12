@@ -1,4 +1,4 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteApiLogs } from "../utils/api";
 import { timezoneUtils } from "../utils/timezoneUtils";
@@ -28,7 +28,7 @@ const ICONS = {
 };
 
 function formatDate(ds) {
-  if (!ds) return "—";
+  if (!ds) return "�";
   return timezoneUtils.formatDateTime(ds);
 }
 
@@ -304,7 +304,7 @@ export default function ApiLogs() {
   function getTabCount(tabId) {
     if (SERVER_VIEW_TABS.has(tabId)) {
       if (activeTab === tabId) return totalElements;
-      return tabTotals[tabId] ?? "—";
+      return tabTotals[tabId] ?? "�";
     }
     switch (tabId) {
       case "authenticated": return authenticatedLogs.length;
@@ -366,14 +366,14 @@ export default function ApiLogs() {
     { id: "all",           label: "All Requests",    icon: ICONS.chart,   color: "blue",    desc: "Every API call logged" },
     { id: "authenticated", label: "With Email",       icon: ICONS.mail,    color: "emerald", desc: "Requests from identified users" },
     { id: "anonymous",     label: "Anonymous",        icon: ICONS.user,    color: "amber",   desc: "Requests without user identity" },
-    { id: "invalid",       label: "Invalid / Expired",icon: ICONS.ban,     color: "rose",    desc: "401/403 — token invalid or expired" },
+    { id: "invalid",       label: "Invalid / Expired",icon: ICONS.ban,     color: "rose",    desc: "401/403 � token invalid or expired" },
     { id: "unique-email",  label: "Unique Email",     icon: ICONS.mail,    color: "indigo",  desc: "Latest request per email, paginated across all logs" },
     { id: "unique-ip",     label: "Unique IP",        icon: ICONS.globe,   color: "cyan",    desc: "Latest request per IP, paginated across all logs" },
     { id: "clusters",      label: "Clusters",         icon: ICONS.shield,  color: "slate",  desc: "Visit sessions grouped by IP + email" },
   ];
 
   const TAB_COLOR_MAP = {
-    blue:    { active: "bg-brand text-white shadow-brand-200",     inactive: "text-brand hover:bg-glacier",     badge: "bg-glacier text-brand-dark" },
+    blue:    { active: "bg-brand-dark text-paper shadow-brand-200",     inactive: "text-brand hover:bg-glacier",     badge: "bg-glacier text-brand-dark" },
     emerald: { active: "bg-emerald-600 text-white shadow-emerald-200",inactive: "text-emerald-700 hover:bg-emerald-50",badge: "bg-emerald-100 text-emerald-700" },
     amber:   { active: "bg-amber-500 text-white shadow-amber-200",   inactive: "text-amber-700 hover:bg-amber-50",   badge: "bg-amber-100 text-amber-700" },
     rose:    { active: "bg-rose-600 text-white shadow-rose-200",     inactive: "text-rose-600 hover:bg-rose-50",     badge: "bg-rose-100 text-rose-700" },
@@ -389,7 +389,7 @@ export default function ApiLogs() {
     { label: "Anonymous",         value: anonymousLogs.length,         icon: ICONS.user,    border: "border-amber-400",   bg: "bg-amber-50",   iconColor: "text-amber-500" },
     { label: "Invalid / Expired", value: invalidLogs.length,           icon: ICONS.ban,     border: "border-rose-500",    bg: "bg-rose-50",    iconColor: "text-rose-600" },
     { label: "Success Rate",
-      value: stats.totalLogs > 0 ? `${((stats.totalLogs - stats.errorLogs) / stats.totalLogs * 100).toFixed(1)}%` : "—",
+      value: stats.totalLogs > 0 ? `${((stats.totalLogs - stats.errorLogs) / stats.totalLogs * 100).toFixed(1)}%` : "�",
       icon: ICONS.shield, border: "border-teal-400", bg: "bg-teal-50", iconColor: "text-teal-500" },
   ];
 
@@ -436,11 +436,11 @@ export default function ApiLogs() {
                   <Icon d={ICONS.lock} className="w-5 h-5 text-white" />
                 </div>
                 <div>
-                  <p className="section-kicker text-brand-light">Security observability</p>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Security observability</p>
                   <h1 className="font-display text-3xl font-bold text-white">API Logs</h1>
                 </div>
               </div>
-              <p className="ml-14 mt-1 text-sm text-frost/75">Metadata-only access logs · No tokens or request bodies · 90-day retention</p>
+              <p className="ml-14 mt-1 text-sm text-frost/75">Metadata-only access logs � No tokens or request bodies � 90-day retention</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -472,7 +472,7 @@ export default function ApiLogs() {
                 className="btn-ghost flex items-center gap-2 border-white/20 bg-white/10 text-white hover:bg-white/20 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Icon d={ICONS.download} className={`w-4 h-4 ${exporting ? "animate-pulse" : ""}`} />
-                {exporting ? "Exporting all…" : "Export CSV"}
+                {exporting ? "Exporting all�" : "Export CSV"}
               </button>
 
               <button
@@ -559,7 +559,7 @@ export default function ApiLogs() {
               <div>
                 <p className="text-sm font-semibold text-amber-800">Anonymous Requests</p>
                 <p className="text-xs text-amber-600 mt-0.5">
-                  Requests with no user identity — unauthenticated calls, public endpoints, or requests with missing tokens.
+                  Requests with no user identity � unauthenticated calls, public endpoints, or requests with missing tokens.
                 </p>
               </div>
             </div>
@@ -614,7 +614,7 @@ export default function ApiLogs() {
                 <Icon d={ICONS.filter} className="w-4 h-4 text-slate-300" />
                 <span className="text-sm font-semibold text-white">Filters &amp; Search</span>
                 {activeFiltersCount > 0 && (
-                  <span className="px-2 py-0.5 bg-brand text-white text-xs font-bold rounded-xl">
+                  <span className="px-2 py-0.5 bg-brand-dark text-paper text-xs font-bold rounded-xl">
                     {activeFiltersCount} active
                   </span>
                 )}
@@ -623,7 +623,7 @@ export default function ApiLogs() {
                 onClick={() => setShowAdvancedFilters(p => !p)}
                 className="text-slate-300 hover:text-white text-xs font-medium transition"
               >
-                {showAdvancedFilters ? "Hide advanced ↑" : "Show advanced ↓"}
+                {showAdvancedFilters ? "Hide advanced ?" : "Show advanced ?"}
               </button>
             </div>
 
@@ -682,9 +682,9 @@ export default function ApiLogs() {
                       className="input-field w-full py-2 text-sm"
                     >
                       <option value="">All Statuses</option>
-                      {[["200","200 – OK"],["201","201 – Created"],["400","400 – Bad Request"],
-                        ["401","401 – Unauthorized"],["403","403 – Forbidden"],
-                        ["404","404 – Not Found"],["500","500 – Server Error"]
+                      {[["200","200 � OK"],["201","201 � Created"],["400","400 � Bad Request"],
+                        ["401","401 � Unauthorized"],["403","403 � Forbidden"],
+                        ["404","404 � Not Found"],["500","500 � Server Error"]
                       ].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </div>
@@ -742,7 +742,7 @@ export default function ApiLogs() {
                   key={mode}
                   onClick={() => setViewMode(mode)}
                   className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${
-                    viewMode === mode ? "bg-brand text-white shadow" : "text-gray-600 hover:bg-gray-100"
+                    viewMode === mode ? "bg-brand-dark text-paper shadow" : "text-gray-600 hover:bg-gray-100"
                   }`}
                 >
                   {label}
@@ -756,7 +756,7 @@ export default function ApiLogs() {
                   ({TABS.find(t => t.id === activeTab)?.label})
                 </span>
               )}
-              <span className="text-xs text-gray-400 ml-2">· {pageSize} per page</span>
+              <span className="text-xs text-gray-400 ml-2">� {pageSize} per page</span>
             </p>
           </div>
 
@@ -768,7 +768,7 @@ export default function ApiLogs() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                <p className="text-gray-500 font-medium">Loading logs…</p>
+                <p className="text-gray-500 font-medium">Loading logs�</p>
               </div>
             ) : displayedLogs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -807,7 +807,7 @@ export default function ApiLogs() {
               <div className="border-t border-gray-100 px-5 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-gray-50/60">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <p className="text-sm text-gray-600">
-                    Showing {rangeStart}–{rangeEnd} of {totalElements.toLocaleString()}
+                    Showing {rangeStart}�{rangeEnd} of {totalElements.toLocaleString()}
                   </p>
                   <label className="flex items-center gap-2 text-sm text-gray-700">
                     <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Per page</span>
@@ -828,14 +828,14 @@ export default function ApiLogs() {
                     disabled={page === 0 || loading}
                     className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
                   >
-                    ← Previous {pageSize}
+                    ? Previous {pageSize}
                   </button>
                   <button
                     onClick={() => setPage((p) => p + 1)}
                     disabled={!hasNext || loading}
-                    className="px-4 py-2 text-sm font-semibold text-white bg-brand rounded-xl hover:bg-brand-dark disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    className="px-4 py-2 text-sm font-semibold text-paper bg-brand-dark rounded-xl hover:bg-brand-dark disabled:opacity-40 disabled:cursor-not-allowed transition"
                   >
-                    Next {pageSize} →
+                    Next {pageSize} ?
                   </button>
                 </div>
               </div>
@@ -861,7 +861,7 @@ function ClusterBadge({ log }) {
 
 function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selectedLogIds, onToggleSelect, onToggleSelectAll, allSelected, deleting, showClusterInfo = false }) {
   const SortIcon = ({ field }) => sortBy === field ? (
-    <span className="text-brand font-bold text-base"> {sortOrder === "asc" ? "↑" : "↓"}</span>
+    <span className="text-brand font-bold text-base"> {sortOrder === "asc" ? "?" : "?"}</span>
   ) : null;
 
   const Th = ({ field, children }) => (
@@ -920,9 +920,9 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
                 <span className="text-xs font-mono bg-slate-100 text-slate-700 px-2 py-1 rounded break-all">{log.requestPath}</span>
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
-                <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
+                <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-gray-700">{log.requestIp || "—"}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-gray-700">{log.requestIp || "�"}</td>
               <td className="px-4 py-3 whitespace-nowrap">
                 {log.extractedEmail ? (
                   <div className="flex items-center gap-1.5">
@@ -948,12 +948,12 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
                       <Icon d={ICONS.ban} className="w-3 h-3" />
                       {log.responseStatus === 401 ? "Expired/Invalid" : "Forbidden"}
                     </span>
-                  ) : <span className="text-xs text-gray-400">—</span>}
+                  ) : <span className="text-xs text-gray-400">�</span>}
                 </td>
               )}
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className={`text-xs font-bold ${responseTimeColor(log.responseTime)}`}>
-                  {log.responseTime ? `${log.responseTime}ms` : "—"}
+                  {log.responseTime ? `${log.responseTime}ms` : "�"}
                 </span>
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
@@ -982,7 +982,7 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
         <span className={`px-2.5 py-1 text-xs font-bold rounded-full ring-1 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
         <div className="flex items-center gap-2">
           {showClusterInfo && <ClusterBadge log={log} />}
-          <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
+          <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
         </div>
       </div>
       <div className="bg-frost rounded-lg px-3 py-2 mb-3">
@@ -991,7 +991,7 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
       <div className="space-y-2 text-xs">
         <div className="flex items-center gap-2">
           <Icon d={ICONS.globe} className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-          <span className="font-mono text-gray-600">{log.requestIp || "—"}</span>
+          <span className="font-mono text-gray-600">{log.requestIp || "�"}</span>
         </div>
         {log.extractedEmail ? (
           <div className="flex items-center gap-2">
@@ -1011,7 +1011,7 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
             <Icon d={ICONS.ban} className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
             <span className="text-rose-600 font-semibold">
               {log.responseStatus === 401 ? "Token expired / invalid" : "Access forbidden"}
-              {log.extractedEmail && ` — ${log.extractedEmail}`}
+              {log.extractedEmail && ` � ${log.extractedEmail}`}
             </span>
           </div>
         )}
@@ -1019,7 +1019,7 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
       <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
         <span className="text-gray-400 text-xs">{formatDate(log.requestTime)}</span>
         <span className={`text-xs font-bold ${responseTimeColor(log.responseTime)}`}>
-          {log.responseTime ? `${log.responseTime}ms` : "—"}
+          {log.responseTime ? `${log.responseTime}ms` : "�"}
         </span>
       </div>
     </div>
@@ -1045,7 +1045,7 @@ function CompactRow({ log, onSelect, showClusterInfo = false }) {
           {log.responseStatus === 401 ? "EXPIRED" : "FORBIDDEN"}
         </span>
       )}
-      <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full flex-shrink-0 ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
+      <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full flex-shrink-0 ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
       <span className="text-gray-400 text-xs flex-shrink-0 hidden md:block">{formatDate(log.requestTime)}</span>
     </div>
   );
@@ -1078,11 +1078,11 @@ function LogDetailModal({ log, onClose }) {
                 <Icon d={ICONS.ban} className="w-5 h-5 text-rose-500 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-bold text-rose-800">
-                    {log.responseStatus === 401 ? "Authentication Failed — Invalid or Expired Token" : "Authorization Failed — Access Forbidden"}
+                    {log.responseStatus === 401 ? "Authentication Failed � Invalid or Expired Token" : "Authorization Failed � Access Forbidden"}
                   </p>
                   {log.extractedEmail ? (
                     <p className="text-xs text-rose-600 mt-1">
-                      Email: <span className="font-bold">{log.extractedEmail}</span> — session token was no longer valid.
+                      Email: <span className="font-bold">{log.extractedEmail}</span> � session token was no longer valid.
                     </p>
                   ) : (
                     <p className="text-xs text-rose-600 mt-1">No user identity was extracted from this request.</p>
@@ -1099,7 +1099,7 @@ function LogDetailModal({ log, onClose }) {
             </div>
             <div className="bg-slate-50 rounded-2xl p-4">
               <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Status Code</p>
-              <span className={`px-3 py-1.5 text-sm font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
+              <span className={`px-3 py-1.5 text-sm font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
             </div>
           </div>
 
@@ -1142,14 +1142,14 @@ function LogDetailModal({ log, onClose }) {
               <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">IP Address</p>
               <div className="bg-slate-50 rounded-2xl p-4 flex items-center gap-2">
                 <Icon d={ICONS.globe} className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <p className="font-mono text-sm text-slate-800">{log.requestIp || "—"}</p>
+                <p className="font-mono text-sm text-slate-800">{log.requestIp || "�"}</p>
               </div>
             </div>
             <div>
               <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Response Time</p>
               <div className="bg-slate-50 rounded-2xl p-4">
                 <p className={`text-2xl font-extrabold ${responseTimeColor(log.responseTime)}`}>
-                  {log.responseTime ? `${log.responseTime}ms` : "—"}
+                  {log.responseTime ? `${log.responseTime}ms` : "�"}
                 </p>
                 {log.responseTime && <p className="text-xs text-gray-400 mt-1">{log.responseTime < 100 ? "Excellent" : log.responseTime < 500 ? "Acceptable" : "Slow"}</p>}
               </div>

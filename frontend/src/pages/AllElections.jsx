@@ -146,7 +146,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
                             election.hasVoted 
                               ? 'cursor-not-allowed bg-slate-100 text-slate-600'
                               : (canUserVoteInElection(election) 
-                                  ? 'text-white bg-brand hover:bg-brand-dark focus:ring-brand' 
+                                  ? 'text-paper bg-brand-dark hover:bg-brand focus:ring-brand' 
                                   : 'bg-slate-100 text-slate-700 hover:bg-slate-200 focus:ring-slate-400')
                           }`}
                           onClick={handleActionClick}
@@ -412,7 +412,7 @@ const AllElections = () => {
           <div className="absolute -right-20 -top-20 h-56 w-56 rounded-full bg-brand/15 blur-3xl" />
           <div className="absolute bottom-0 left-1/3 h-24 w-80 rounded-full bg-sage/10 blur-3xl" />
           <div className="relative">
-            <p className="section-kicker text-brand-light">Election directory</p>
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Election directory</p>
             <h1 className="mt-2 font-display text-3xl font-bold tracking-tight text-white sm:text-4xl">All Elections</h1>
             <p className="mt-3 max-w-2xl text-sm leading-6 text-glacier sm:text-base">
             View and participate in all elections you have access to

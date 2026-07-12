@@ -184,7 +184,7 @@ const Chatbot = () => {
       <div className={`max-w-[75%] ${message.type === 'user' ? 'order-1' : ''}`}>
         <div className={`p-3 rounded-lg ${
           message.type === 'user' 
-            ? 'bg-brand text-white rounded-br-sm' 
+            ? 'bg-brand-dark text-paper rounded-br-sm' 
             : 'bg-white text-gray-800 rounded-bl-sm shadow-sm border border-gray-100'
         }`}>
           {message.type === 'bot' ? (
@@ -415,7 +415,7 @@ const Chatbot = () => {
             <button
               onClick={() => handleSendMessage()}
               disabled={!inputMessage.trim() || isLoading || !sessionId}
-              className="px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
+              className="px-4 py-2 bg-brand-dark text-paper rounded-lg hover:bg-brand disabled:opacity-50 disabled:cursor-not-allowed transition-colors flex items-center justify-center"
               aria-label="Send message"
             >
               <FiSend className="w-4 h-4" />

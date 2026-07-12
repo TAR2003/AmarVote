@@ -92,7 +92,7 @@ export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
               aria-haspopup="dialog"
               aria-expanded={sheetOpen}
             >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-glow text-white shadow-soft">
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-brand-glow text-paper shadow-soft">
                 {ActiveIcon ? <ActiveIcon className="h-4 w-4" /> : null}
               </span>
               <span className="min-w-0 flex-1">
@@ -224,7 +224,7 @@ export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
                         </span>
                         <span
                           className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl ${
-                            isActive ? "bg-brand-glow text-white" : "bg-frost text-slate-500"
+                            isActive ? "bg-brand-glow text-paper" : "bg-frost text-slate-500"
                           }`}
                         >
                           {Icon ? <Icon className="h-5 w-5" /> : null}

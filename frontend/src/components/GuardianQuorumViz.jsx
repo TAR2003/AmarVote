@@ -2,8 +2,8 @@ import React, { useMemo } from 'react';
 
 /**
  * Shared N-of-M guardian quorum visualization.
- * Gold = authority/ceremony, indigo = threshold shares, teal = proof/complete.
- * Filled vs unfilled nodes — never color alone.
+ * Violet = key fragments / threshold shares, teal = proof/complete.
+ * Filled vs unfilled nodes — never color alone. Skippable via prefers-reduced-motion.
  */
 export default function GuardianQuorumViz({
   total = 0,
@@ -119,7 +119,7 @@ export default function GuardianQuorumViz({
                 y1={y}
                 x2={cx}
                 y2={cy}
-                stroke={combined ? '#3FDDC4' : '#7C6FF0'}
+                stroke={combined ? '#3FC7B8' : '#8B7FE8'}
                 strokeWidth="1.25"
                 strokeOpacity={preferReduced ? 0.55 : undefined}
                 className={preferReduced ? undefined : 'quorum-shard-ray'}
@@ -150,8 +150,8 @@ export default function GuardianQuorumViz({
           const isFilled = node.filled;
           const fillClass = isFilled
             ? mode === 'decryption' || mode === 'combine'
-              ? 'border-threshold bg-threshold text-paper shadow-threshold'
-              : 'border-brand bg-brand text-deep shadow-brand'
+              ? 'border-threshold bg-threshold-muted text-paper shadow-threshold'
+              : 'border-brand-dark bg-brand-dark text-paper shadow-brand'
             : 'border-white/20 bg-ink/70 text-paper-muted';
 
           return (

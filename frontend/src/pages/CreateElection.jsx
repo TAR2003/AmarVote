@@ -825,7 +825,7 @@ const CreateElection = () => {
     return (
         <div ref={wizardTopRef} className="mx-auto max-w-4xl px-1 py-2 sm:px-2 sm:py-4 page-enter">
             <header className="mb-6 overflow-hidden rounded-3xl bg-deep-aurora px-5 py-6 text-white shadow-lift sm:mb-8 sm:px-8 sm:py-8">
-                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-brand-light">Create election</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Create election</p>
                 <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Build in clear steps</h1>
                 <p className="mt-2 max-w-2xl text-sm leading-relaxed text-glacier sm:text-base">
                     Complete one section at a time. Your progress is kept until you submit.
@@ -1491,7 +1491,7 @@ const CreateElection = () => {
                         className="flex max-h-[min(92dvh,720px)] w-full max-w-xl flex-col overflow-hidden rounded-t-3xl bg-white shadow-lift sm:rounded-3xl"
                     >
                         <div className="shrink-0 border-b border-slate-200/80 bg-deep-aurora px-5 py-5 text-white sm:px-6">
-                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-brand-light">Final step</p>
+                            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-dusk-soft">Final step</p>
                             <h2 id="create-election-confirm-title" className="mt-1 font-display text-2xl font-bold">
                                 Create this election?
                             </h2>

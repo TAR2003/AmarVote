@@ -124,7 +124,7 @@ function HoldToConfirm({ onConfirm, label = 'Hold to cast this ballot', disabled
       aria-valuemin={0}
       aria-valuemax={100}
       aria-valuenow={pct}
-      className="group relative flex w-full touch-none select-none items-center gap-3 overflow-hidden rounded-2xl border border-brand/40 bg-gradient-to-br from-brand to-brand-dark px-4 py-4 text-left text-deep shadow-brand transition hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+      className="group relative flex w-full touch-none select-none items-center gap-3 overflow-hidden rounded-2xl border border-brand/40 bg-gradient-to-br from-brand-dark to-brand px-4 py-4 text-left text-paper shadow-brand transition hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
     >
       <span
         className="pointer-events-none absolute inset-y-0 left-0 bg-deep/[0.06]"
@@ -156,7 +156,7 @@ function HoldToConfirm({ onConfirm, label = 'Hold to cast this ballot', disabled
         <span className="block font-display text-base font-semibold tracking-tight">
           {statusText}
         </span>
-        <span className="mt-0.5 block text-xs text-deep/80">
+        <span className="mt-0.5 block text-xs text-paper/80">
           {hintText}
         </span>
       </span>
@@ -594,7 +594,7 @@ const BallotWorkflowModal = ({
               })}
             </div>
 
-            <div className="rounded-lg border border-brand/30 bg-brand/10 p-3 text-xs text-brand-soft">
+            <div className="rounded-lg border border-brand/30 bg-brand/10 p-3 text-xs text-dusk-soft">
               <strong className="text-brand">Important:</strong> After challenging, this ballot
               cannot be cast. Challenge verifies honesty only — then encrypt again to vote for real.
             </div>
@@ -615,7 +615,7 @@ const BallotWorkflowModal = ({
                 disabled={!challengeCandidateChoices.length}
                 className={`flex-1 rounded-xl py-2.5 text-sm font-semibold ${
                   challengeCandidateChoices.length
-                    ? 'bg-aurora text-deep hover:brightness-105'
+                    ? 'bg-aurora text-ink hover:brightness-105'
                     : 'cursor-not-allowed bg-white/10 text-paper-muted'
                 }`}
               >

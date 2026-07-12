@@ -385,17 +385,18 @@ A^v · M_ic^challenge == commitment_b // ✓?
         </div>
 
         {/* Bottom CTA */}
-        <div className="mt-12 bg-gradient-to-r from-brand to-brand-dark rounded-2xl p-8 text-center">
-          <h2 className="text-xl font-bold text-white mb-3">Ready to experience it yourself?</h2>
-          <p className="text-brand-soft text-sm mb-5">Sign in with just your email address — no password needed.</p>
+        <div className="mt-12 rounded-2xl bg-deep px-8 py-10 text-center">
+          <div className="mx-auto mb-5 h-px w-12 bg-ceremonial" aria-hidden="true" />
+          <h2 className="font-display text-xl font-bold text-paper mb-3">Ready to experience it yourself?</h2>
+          <p className="text-dusk-soft text-base mb-5">Sign in with just your email address — no password needed.</p>
           <div className="flex flex-wrap justify-center gap-4">
             <Link to="/otp-login">
-              <button className="px-6 py-3 bg-white text-brand-dark font-bold rounded-xl hover:bg-glacier transition">
+              <button type="button" className="btn-brand px-6 py-3">
                 Get Started →
               </button>
             </Link>
             <Link to="/security">
-              <button className="px-6 py-3 border border-white/40 text-white font-semibold rounded-xl hover:bg-white/10 transition">
+              <button type="button" className="btn-ghost-light px-6 py-3">
                 Security Details →
               </button>
             </Link>

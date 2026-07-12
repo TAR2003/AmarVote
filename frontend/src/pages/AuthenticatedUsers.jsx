@@ -510,7 +510,7 @@ const AuthenticatedUsers = () => {
           <div className="relative">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <p className="section-kicker text-brand-light">Access control</p>
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Access control</p>
               <h1 className="font-display text-3xl font-bold flex items-center gap-3">
                 <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand shadow-brand"><FiUsers className="h-5 w-5" /></span>
                 Authenticated Users

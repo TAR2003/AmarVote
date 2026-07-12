@@ -27,7 +27,7 @@ export default function ProcessProgressPanel({
     pct = 5;
   }
 
-  const pathColor = isFailed ? '#E85D4A' : isCompleted ? '#3FDDC4' : '#E8B84B';
+  const pathColor = isFailed ? '#D9614F' : isCompleted ? '#3FC7B8' : '#5C52C4';
   const statusLabel = isFailed
     ? 'Failed'
     : isCompleted
@@ -61,7 +61,7 @@ export default function ProcessProgressPanel({
             styles={buildStyles({
               textSize: '22px',
               pathColor,
-              textColor: '#0B0E1A',
+              textColor: '#1B1D2E',
               trailColor: '#e5e7eb',
             })}
           />

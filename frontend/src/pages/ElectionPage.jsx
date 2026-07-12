@@ -295,7 +295,7 @@ const ArtifactDownloadRow = ({ title, data, downloadFilename }) => {
         type="button"
         onClick={handleDownload}
         disabled={!isAvailable || downloading}
-        className="flex items-center gap-2 shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-white bg-brand hover:bg-brand-dark disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center gap-2 shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-paper bg-brand-dark hover:bg-brand disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {downloading ? (
           <FiLoader className="h-4 w-4 animate-spin" />
@@ -755,7 +755,7 @@ const ChunksTabContent = ({ electionId }) => {
                     type="button"
                     onClick={() => downloadEncryptedTally(chunk)}
                     disabled={isDownloading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-brand hover:bg-brand-dark disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-paper bg-brand-dark hover:bg-brand disabled:opacity-50 transition-colors"
                   >
                     {isDownloading ? (
                       <FiLoader className="h-4 w-4 animate-spin" />
@@ -3713,7 +3713,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         type="button"
                         onClick={handleToggleVoterList}
                         disabled={votersLoading}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand text-white hover:bg-brand-dark transition-colors disabled:opacity-60"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-dark text-paper hover:bg-brand-dark transition-colors disabled:opacity-60"
                       >
                         {votersLoading ? (
                           <>
@@ -4079,7 +4079,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${
                               !canCreateBallot || !selectedCandidates.length || ballotModalOpen
                                 ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-brand hover:bg-brand-dark active:bg-ink'
+                                : 'bg-brand-dark hover:bg-brand active:bg-ink'
                             }`}
                           >
                             {botDetection.loading ? (
@@ -4145,7 +4145,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           size="md"
                         />
                         {!choice.candidatePic && (
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-glow text-sm font-bold text-white">
+                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-glow text-sm font-bold text-paper">
                             {(choice.optionTitle || "?").charAt(0).toUpperCase()}
                           </span>
                         )}
@@ -4387,7 +4387,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             <button
                               onClick={handleSubmitKeyCeremonyRound1}
                               disabled={keyCeremonyBusy.submittingRound1}
-                              className="mt-3 px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark disabled:opacity-60"
+                              className="mt-3 px-4 py-2 bg-brand-dark text-paper rounded-lg hover:bg-brand-dark disabled:opacity-60"
                             >
                               {keyCeremonyBusy.submittingRound1 ? 'Submitting...' : 'Submit Round 1'}
                             </button>
@@ -4514,7 +4514,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           ? 'bg-brand-soft text-white cursor-default'
                           : tallyStatus?.status === 'completed'
                             ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'bg-brand text-white hover:bg-brand-dark'
+                            : 'bg-brand-dark text-paper hover:bg-brand-dark'
                       }`}
                     >
                       {(tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending') ? (
@@ -4679,13 +4679,13 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   if (submitStatus.canSubmit) {
                     return (
                       <div className="rounded-2xl border-2 border-brand/40 bg-gradient-to-br from-glacier via-white to-glacier shadow-lg overflow-hidden">
-                        <div className="bg-gradient-to-r from-brand to-brand-dark px-5 sm:px-6 py-4 text-white">
+                        <div className="bg-gradient-to-r from-brand-dark to-brand px-5 sm:px-6 py-4 text-paper">
                           <div className="flex items-start gap-3">
                             <div className="rounded-xl bg-white/20 p-3 flex-shrink-0">
                               <FiKey className="h-7 w-7" />
                             </div>
                             <div>
-                              <p className="text-xs font-semibold uppercase tracking-wider text-glacier">Guardian action required</p>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-paper/80">Guardian action required</p>
                               <h4 className="text-lg sm:text-xl font-bold mt-1">Submit Your Guardian Key for Decryption</h4>
                               <p className="text-sm text-glacier mt-1 max-w-2xl">
                                 Upload the <strong className="text-white">credentials.txt</strong> file from your guardian key ceremony email. This unlocks your share of the encrypted results.
@@ -4752,7 +4752,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               ? 'bg-red-600 hover:bg-red-700'
                               : guardianDecryptionStatus?.status === 'completed'
                               ? 'bg-green-600 hover:bg-green-700'
-                              : 'bg-brand hover:bg-brand-dark';
+                              : 'bg-brand-dark hover:bg-brand';
                             
                             const icon = guardianDecryptionStatus?.status === 'failed'
                               ? <FiAlertCircle className="h-5 w-5 text-red-500 mr-2" />

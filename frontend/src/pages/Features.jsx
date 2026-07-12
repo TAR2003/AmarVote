@@ -425,12 +425,13 @@ function Features() {
         )}
 
         {/* Navigation CTA */}
-        <div className="mt-12 bg-gradient-to-r from-brand to-brand-dark rounded-2xl p-8 text-center">
-          <h2 className="text-2xl font-bold text-white mb-3">Dive deeper into the platform</h2>
+        <div className="mt-12 rounded-2xl bg-deep px-8 py-10 text-center">
+          <div className="mx-auto mb-5 h-px w-12 bg-ceremonial" aria-hidden="true" />
+          <h2 className="font-display text-2xl font-bold text-paper mb-3">Dive deeper into the platform</h2>
           <div className="flex flex-wrap justify-center gap-4 mt-4">
-            <Link to="/architecture"><button className="px-5 py-2.5 bg-white text-brand-dark font-semibold rounded-xl hover:bg-glacier transition text-sm">Architecture →</button></Link>
-            <Link to="/security"><button className="px-5 py-2.5 border border-white/40 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">Security Details →</button></Link>
-            <Link to="/how-it-works"><button className="px-5 py-2.5 border border-white/40 text-white font-semibold rounded-xl hover:bg-white/10 transition text-sm">How It Works →</button></Link>
+            <Link to="/architecture"><button type="button" className="btn-brand px-5 py-2.5">Architecture →</button></Link>
+            <Link to="/security"><button type="button" className="btn-ghost-light px-5 py-2.5">Security Details →</button></Link>
+            <Link to="/how-it-works"><button type="button" className="btn-ghost-light px-5 py-2.5">How It Works →</button></Link>
           </div>
         </div>
       </div>

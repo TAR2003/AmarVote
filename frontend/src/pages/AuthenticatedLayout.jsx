@@ -590,7 +590,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               to="/dashboard"
               onClick={closeMobileMenu}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/dashboard')
-                  ? 'text-brand-light bg-brand/15'
+                  ? 'text-paper bg-brand/15'
                   : 'text-slate-300 hover:text-white hover:bg-white/5 transition-all duration-300'
                 }`}
             >
@@ -602,7 +602,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               to="/all-elections"
               onClick={closeMobileMenu}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/all-elections')
-                  ? 'text-brand-light bg-brand/15'
+                  ? 'text-paper bg-brand/15'
                   : 'text-slate-300 hover:text-white hover:bg-white/5 transition-all duration-300'
                 }`}
             >
@@ -615,8 +615,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                 to="/create-election"
                 onClick={closeMobileMenu}
                 className={`mt-2 mb-2 flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium shadow-md ${isActiveRoute('/create-election')
-                    ? 'text-white bg-brand-glow'
-                    : 'text-white bg-brand hover:bg-brand-dark'
+                    ? 'text-paper bg-brand-glow shadow-brand'
+                    : 'text-paper bg-brand-dark hover:bg-brand'
                   }`}
               >
                 <FiPlus className="h-5 w-5" />
@@ -632,7 +632,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                     handleApiLogsAccess();
                   }}
                   className={`flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/api-logs')
-                      ? 'text-brand-light bg-brand/15'
+                      ? 'text-paper bg-brand/15'
                       : 'text-slate-300 hover:text-white hover:bg-white/5 transition-all duration-300'
                     }`}
                 >
@@ -644,7 +644,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                   to="/authenticated-users"
                   onClick={closeMobileMenu}
                   className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/authenticated-users')
-                      ? 'text-brand-light bg-brand/15'
+                      ? 'text-paper bg-brand/15'
                       : 'text-slate-300 hover:text-white hover:bg-white/5 transition-all duration-300'
                     }`}
                 >
@@ -658,7 +658,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               to="/profile"
               onClick={closeMobileMenu}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/profile')
-                  ? 'text-brand-light bg-brand/15'
+                  ? 'text-paper bg-brand/15'
                   : 'text-slate-300 hover:text-white hover:bg-white/5 transition-all duration-300'
                 }`}
             >
@@ -758,7 +758,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                 onClick={() => navigate(item.path)}
                 className={`flex flex-col items-center justify-center rounded-xl py-2 text-[11px] font-medium transition-colors ${
                   isActive
-                    ? 'bg-brand/20 text-brand-light'
+                    ? 'bg-brand/20 text-paper'
                     : 'text-slate-400 hover:bg-white/5 hover:text-white'
                 }`}
               >

@@ -283,7 +283,7 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
             <button
               type="submit"
               disabled={saving}
-              className="px-4 py-2 bg-brand text-white rounded-lg hover:bg-brand-dark disabled:opacity-60"
+              className="px-4 py-2 bg-brand-dark text-paper rounded-lg hover:bg-brand-dark disabled:opacity-60"
             >
               {saving ? 'Saving...' : editingId ? 'Update Schedule' : 'Schedule Email'}
             </button>

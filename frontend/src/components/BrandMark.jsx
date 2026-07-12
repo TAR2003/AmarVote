@@ -1,7 +1,7 @@
 import React from "react";
 
 /**
- * Official AmarVote mark — ballot + verified check on guardian-gold glow.
+ * Official AmarVote mark — ballot + verified check on guardian-violet glow.
  * Use across nav, loading, footer, and branded moments.
  */
 export default function BrandMark({

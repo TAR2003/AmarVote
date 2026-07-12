@@ -263,7 +263,7 @@ const Dashboard = ({ userEmail }) => {
     
     if (canVote) {
       buttonText = "Vote Now";
-      buttonStyle = "text-white bg-brand hover:bg-brand-dark focus:ring-brand";
+      buttonStyle = "text-paper bg-brand-dark hover:bg-brand focus:ring-brand";
     } else {
       buttonText = "Not Allowed";
       buttonStyle = "text-red-700 bg-red-100 cursor-not-allowed";
@@ -348,20 +348,20 @@ const Dashboard = ({ userEmail }) => {
         <div className="relative px-4 py-6 sm:px-8 sm:py-10">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <p className="section-kicker text-brand-light">
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">
                 Election overview
               </p>
-              <h1 className="mt-1.5 font-display text-2xl font-bold leading-tight tracking-tight text-white break-words sm:text-3xl">
+              <h1 className="mt-1.5 font-display text-2xl font-bold leading-tight tracking-tight text-paper break-words sm:text-3xl">
                 Welcome back, {userEmail.split("@")[0]}
               </h1>
-              <p className="mt-2 max-w-lg text-sm text-slate-300 sm:text-base">
+              <p className="mt-2 max-w-lg text-base text-dusk-soft">
                 {ongoing.length === 0
                   ? "No active elections right now — browse upcoming ones or create when you’re ready."
                   : `You have ${ongoing.length} active election${ongoing.length === 1 ? "" : "s"} in progress.`}
               </p>
             </div>
             <div className="hidden sm:flex h-16 w-16 items-center justify-center rounded-2xl border border-brand/30 bg-brand/15 shadow-brand">
-              <FiAward className="h-8 w-8 text-brand-light" />
+              <FiAward className="h-8 w-8 text-brand-light" aria-hidden="true" />
             </div>
           </div>
         </div>

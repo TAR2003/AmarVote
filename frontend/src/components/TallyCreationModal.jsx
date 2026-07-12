@@ -207,7 +207,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
             className={`btn-brand px-6 py-3 ${
               isLoading
                 ? 'bg-slate-400 cursor-not-allowed'
-                : 'bg-brand hover:bg-brand-dark'
+                : 'bg-brand-dark hover:bg-brand'
             }`}
           >
             {isLoading ? (
@@ -351,7 +351,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
           <button
             onClick={handleCreateTally}
             disabled={isLoading}
-            className="px-6 py-3 bg-brand text-white rounded-lg font-medium hover:bg-brand-dark transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-brand-dark text-paper rounded-lg font-medium hover:bg-brand-dark transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <div className="flex items-center space-x-2">
@@ -407,7 +407,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
           <button
             onClick={handleCreateTally}
             disabled={isLoading}
-            className="px-6 py-3 bg-brand text-white rounded-lg font-medium hover:bg-brand-dark transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed"
+            className="px-6 py-3 bg-brand-dark text-paper rounded-lg font-medium hover:bg-brand-dark transition-colors disabled:bg-slate-400 disabled:cursor-not-allowed"
           >
             {isLoading ? (
               <div className="flex items-center space-x-2">

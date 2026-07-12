@@ -107,9 +107,9 @@ function About() {
                 ["k-of-n", "Threshold guardian system"],
                 ["200 ballots/chunk", "RabbitMQ processing unit"],
               ].map(([v, l]) => (
-                <div key={v} className="bg-gradient-to-br from-brand to-brand-dark rounded-2xl p-5 text-center">
-                  <div className="text-2xl font-extrabold text-white">{v}</div>
-                  <div className="text-brand-soft text-xs mt-1">{l}</div>
+                <div key={v} className="rounded-2xl border border-ink/10 bg-paper p-5 text-center shadow-soft">
+                  <div className="font-display text-2xl font-extrabold text-ink">{v}</div>
+                  <div className="text-dusk text-sm mt-1">{l}</div>
                 </div>
               ))}
             </div>
@@ -448,7 +448,7 @@ function About() {
             </div>
             <div className="flex flex-wrap gap-3">
               <Link to="/architecture">
-                <button className="px-5 py-2.5 bg-brand text-white font-semibold rounded-xl hover:bg-brand-dark transition text-sm">Architecture →</button>
+                <button className="px-5 py-2.5 bg-brand-dark text-paper font-semibold rounded-xl hover:bg-brand-dark transition text-sm">Architecture →</button>
               </Link>
               <Link to="/security">
                 <button className="px-5 py-2.5 bg-ink text-white font-semibold rounded-xl hover:bg-brand-dark transition text-sm">Security →</button>

@@ -51,15 +51,15 @@ const Layout = ({ children }) => {
               <Link
                 key={path}
                 to={path}
-                className={`relative rounded-lg px-3 py-2 text-sm font-medium transition duration-200 ${
+                className={`relative rounded-lg px-3 py-2 text-base font-medium transition duration-200 ${
                   isActiveRoute(path)
-                    ? "text-brand-light"
-                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                    ? "text-paper"
+                    : "text-dusk-soft hover:bg-white/5 hover:text-paper"
                 }`}
               >
                 {label}
                 {isActiveRoute(path) && (
-                  <span className="absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-brand-light" />
+                  <span className="absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-brand" />
                 )}
               </Link>
             ))}
@@ -95,10 +95,10 @@ const Layout = ({ children }) => {
                 key={path}
                 to={path}
                 onClick={() => setMobileOpen(false)}
-                className={`block rounded-xl px-3 py-3 text-sm font-medium transition ${
+                className={`block rounded-xl px-3 py-3 text-base font-medium transition ${
                   isActiveRoute(path)
-                    ? "bg-brand/15 text-brand-light"
-                    : "text-slate-300 hover:bg-white/5 hover:text-white"
+                    ? "bg-brand/15 text-paper"
+                    : "text-dusk-soft hover:bg-white/5 hover:text-paper"
                 }`}
               >
                 {label}
@@ -126,43 +126,43 @@ const Layout = ({ children }) => {
 
       <main className="flex-grow page-enter">{children}</main>
 
-      <footer className="relative overflow-hidden bg-deep text-slate-300">
+          <footer className="relative overflow-hidden bg-deep text-dusk-soft">
         <div className="pointer-events-none absolute -right-20 top-0 h-64 w-64 rounded-full bg-brand/10 blur-3xl" />
         <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
           <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Product</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-dusk">Product</h3>
               <ul className="mt-4 space-y-3">
-                <li><Link to="/features" className="transition hover:text-brand-light">Features</Link></li>
-                <li><Link to="/security" className="transition hover:text-brand-light">Security</Link></li>
+                <li><Link to="/features" className="transition hover:text-paper">Features</Link></li>
+                <li><Link to="/security" className="transition hover:text-paper">Security</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Resources</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-dusk">Resources</h3>
               <ul className="mt-4 space-y-3">
-                <li><Link to="/documentation" className="transition hover:text-brand-light">Documentation</Link></li>
-                <li><Link to="/how-it-works" className="transition hover:text-brand-light">How It Works</Link></li>
+                <li><Link to="/documentation" className="transition hover:text-paper">Documentation</Link></li>
+                <li><Link to="/how-it-works" className="transition hover:text-paper">How It Works</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Company</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-dusk">Company</h3>
               <ul className="mt-4 space-y-3">
-                <li><Link to="/about" className="transition hover:text-brand-light">About</Link></li>
+                <li><Link to="/about" className="transition hover:text-paper">About</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-500">Platform</h3>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-dusk">Platform</h3>
               <ul className="mt-4 space-y-3">
-                <li><Link to="/architecture" className="transition hover:text-brand-light">Architecture</Link></li>
+                <li><Link to="/architecture" className="transition hover:text-paper">Architecture</Link></li>
               </ul>
             </div>
           </div>
           <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-8 sm:flex-row sm:items-center sm:justify-between">
             <div className="flex items-center gap-2.5">
               <BrandMark size="sm" />
-              <span className="font-display font-semibold text-white">AmarVote</span>
+              <span className="font-display font-semibold text-paper">AmarVote</span>
             </div>
-            <p className="text-sm text-slate-500">
+            <p className="text-base text-dusk">
               &copy; {new Date().getFullYear()} AmarVote. Secure, verifiable digital democracy.
             </p>
           </div>
