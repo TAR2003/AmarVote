@@ -17,21 +17,22 @@ import {
 import { VOTER_STATUS_COPY } from '../utils/voterMessages';
 
 const HOLD_MS = 1800;
-const RING_SIZE = 56;
-const RING_STROKE = 4;
-const RING_RADIUS = (RING_SIZE - RING_STROKE) / 2;
-const RING_CIRCUMFERENCE = 2 * Math.PI * RING_RADIUS;
 
+/**
+ * Bkash-style press-and-hold: white fill sweeps left → right to show remaining hold time.
+ */
 function HoldToConfirm({ onConfirm, label = 'Hold to cast ballot', disabled = false }) {
   const [progress, setProgress] = useState(0);
   const [holding, setHolding] = useState(false);
   const rafRef = useRef(null);
   const startRef = useRef(0);
   const doneRef = useRef(false);
+  const pointerIdRef = useRef(null);
 
   const clear = useCallback(() => {
     if (rafRef.current) cancelAnimationFrame(rafRef.current);
     rafRef.current = null;
+    pointerIdRef.current = null;
     setHolding(false);
     setProgress(0);
     doneRef.current = false;
@@ -58,85 +59,120 @@ function HoldToConfirm({ onConfirm, label = 'Hold to cast ballot', disabled = fa
 
   const startHold = useCallback(
     (event) => {
-      if (disabled || doneRef.current) return;
+      if (disabled || doneRef.current || rafRef.current) return;
+      // Ignore secondary mouse buttons; allow keyboard + primary pointer.
+      if (event.pointerType === 'mouse' && event.button !== 0) return;
       event.preventDefault();
+      try {
+        event.currentTarget.setPointerCapture?.(event.pointerId);
+        pointerIdRef.current = event.pointerId;
+      } catch {
+        /* setPointerCapture may fail for non-pointer events */
+      }
       startRef.current = performance.now();
       setHolding(true);
+      setProgress(0);
+      if (rafRef.current) cancelAnimationFrame(rafRef.current);
       rafRef.current = requestAnimationFrame(tick);
     },
     [disabled, tick]
   );
 
+  const endHold = useCallback(
+    (event) => {
+      if (
+        pointerIdRef.current != null &&
+        event?.pointerId != null &&
+        event.pointerId !== pointerIdRef.current
+      ) {
+        return;
+      }
+      clear();
+    },
+    [clear]
+  );
+
   useEffect(() => () => clear(), [clear]);
 
-  const dashOffset = RING_CIRCUMFERENCE * (1 - progress);
+  const pct = Math.round(progress * 100);
+  const remainingSec = Math.max(0, ((1 - progress) * HOLD_MS) / 1000);
   const statusText = holding
     ? progress > 0.85
       ? 'Almost there…'
       : 'Keep holding…'
     : label;
+  const hintText = holding
+    ? `Release to cancel · ${remainingSec.toFixed(1)}s left`
+    : 'Press and hold — watch the bar fill to cast';
 
   return (
     <button
       type="button"
       disabled={disabled}
-      onMouseDown={startHold}
-      onMouseUp={clear}
-      onMouseLeave={clear}
-      onTouchStart={startHold}
-      onTouchEnd={clear}
-      onTouchCancel={clear}
+      onPointerDown={startHold}
+      onPointerUp={endHold}
+      onPointerCancel={endHold}
+      onLostPointerCapture={endHold}
+      onContextMenu={(e) => e.preventDefault()}
       onKeyDown={(e) => {
+        if (e.repeat) return;
         if (e.key === ' ' || e.key === 'Enter') startHold(e);
       }}
-      onKeyUp={clear}
+      onKeyUp={endHold}
       aria-label={label}
       aria-pressed={holding}
-      className="group relative flex w-full select-none items-center gap-4 overflow-hidden rounded-2xl border border-brand/25 bg-gradient-to-br from-brand to-brand-dark px-4 py-3.5 text-left text-white shadow-brand transition hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
+      aria-valuemin={0}
+      aria-valuemax={100}
+      aria-valuenow={pct}
+      className="group relative flex w-full touch-none select-none items-center gap-3 overflow-hidden rounded-2xl border border-brand/25 bg-gradient-to-br from-brand to-brand-dark px-4 py-4 text-left text-white shadow-brand transition hover:brightness-105 active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-50"
     >
+      {/* Idle track hint */}
       <span
-        className="pointer-events-none absolute inset-0 bg-white/10 transition-opacity duration-300"
-        style={{ opacity: holding ? 0.12 + progress * 0.2 : 0 }}
+        className="pointer-events-none absolute inset-y-0 left-0 bg-white/[0.08]"
+        style={{ width: '100%' }}
         aria-hidden
       />
 
-      <span className="relative z-10 flex h-14 w-14 shrink-0 items-center justify-center">
-        <svg width={RING_SIZE} height={RING_SIZE} className="-rotate-90" aria-hidden>
-          <circle
-            cx={RING_SIZE / 2}
-            cy={RING_SIZE / 2}
-            r={RING_RADIUS}
-            fill="none"
-            stroke="rgba(255,255,255,0.28)"
-            strokeWidth={RING_STROKE}
-          />
-          <circle
-            cx={RING_SIZE / 2}
-            cy={RING_SIZE / 2}
-            r={RING_RADIUS}
-            fill="none"
-            stroke="white"
-            strokeWidth={RING_STROKE}
-            strokeLinecap="round"
-            strokeDasharray={RING_CIRCUMFERENCE}
-            strokeDashoffset={dashOffset}
-            className="transition-[stroke-dashoffset] duration-75 ease-linear"
-          />
-        </svg>
-        <span className="absolute inset-0 flex items-center justify-center">
-          <FiCheck className={`h-5 w-5 transition ${holding ? 'scale-110' : 'opacity-90'}`} />
-        </span>
+      {/* Bkash-style left→right fill at ~50% white */}
+      <span
+        className="pointer-events-none absolute inset-y-0 left-0 origin-left bg-white/50 will-change-transform"
+        style={{
+          width: '100%',
+          transform: `scaleX(${holding || progress > 0 ? progress : 0})`,
+          transition: holding ? 'none' : 'transform 180ms ease-out',
+        }}
+        aria-hidden
+      />
+
+      {/* Soft edge glow on the leading edge of the fill */}
+      {holding && progress > 0 && progress < 1 && (
+        <span
+          className="pointer-events-none absolute inset-y-0 w-8 bg-gradient-to-r from-transparent to-white/40"
+          style={{ left: `calc(${pct}% - 2rem)` }}
+          aria-hidden
+        />
+      )}
+
+      <span className="relative z-10 flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-white/15 ring-2 ring-white/30">
+        <FiCheck className={`h-5 w-5 transition-transform duration-150 ${holding ? 'scale-110' : ''}`} />
       </span>
 
       <span className="relative z-10 min-w-0 flex-1">
         <span className="block font-display text-base font-semibold tracking-tight">
           {statusText}
         </span>
-        <span className="mt-0.5 block text-xs text-white/80">
-          {holding
-            ? 'Release to cancel · keep holding to cast'
-            : 'Press and hold until the ring completes'}
+        <span className="mt-0.5 block text-xs text-white/85">
+          {hintText}
         </span>
+      </span>
+
+      <span
+        className={`relative z-10 shrink-0 tabular-nums text-sm font-semibold tracking-tight transition-opacity ${
+          holding ? 'opacity-100' : 'opacity-70'
+        }`}
+        aria-hidden
+      >
+        {holding ? `${pct}%` : 'Hold'}
       </span>
     </button>
   );
