@@ -1,4 +1,5 @@
 import React, { useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { FiX } from 'react-icons/fi';
 
 /** Dark backdrop image viewer — ESC / backdrop / close button. */
@@ -14,9 +15,10 @@ const ImageLightbox = ({ src, alt = 'Image', isOpen, onClose }) => {
 
   if (!isOpen || !src) return null;
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[60] flex items-center justify-center bg-deep/85 p-4 backdrop-blur-sm"
+      style={{ width: '100vw', height: '100dvh', left: 0, top: 0 }}
       onClick={onClose}
       role="dialog"
       aria-modal="true"
@@ -36,7 +38,8 @@ const ImageLightbox = ({ src, alt = 'Image', isOpen, onClose }) => {
         className="max-h-[90dvh] max-w-full rounded-xl object-contain shadow-lift"
         onClick={(e) => e.stopPropagation()}
       />
-    </div>
+    </div>,
+    document.body
   );
 };
 

@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ModalOverlay, { ModalPanel } from './ModalOverlay';
 import toast from 'react-hot-toast';
 import { electionApi } from '../utils/electionApi';
 
@@ -189,8 +190,8 @@ const ProcessControlPanel = ({
     </div>
 
     {pendingConfig && (
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-deep/60 px-0 backdrop-blur-sm sm:items-center sm:px-4">
-        <div className="glass-panel w-full max-w-md rounded-t-3xl p-5 sm:rounded-2xl sm:p-6">
+      <ModalOverlay onClose={handleCancelAction} dismissible={!busy}>
+        <ModalPanel size="sm" className="p-5 sm:p-6">
           <h3 className="font-display text-lg font-semibold text-deep">{pendingConfig.title}</h3>
           <p className="mt-2 text-sm text-dusk">{pendingConfig.message}</p>
           <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
@@ -211,8 +212,8 @@ const ProcessControlPanel = ({
               {busy === pendingAction?.key ? 'Working…' : pendingConfig.confirmLabel}
             </button>
           </div>
-        </div>
-      </div>
+        </ModalPanel>
+      </ModalOverlay>
     )}
     </>
   );

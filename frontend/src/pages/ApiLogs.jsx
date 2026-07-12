@@ -1,3 +1,4 @@
+import { createPortal } from 'react-dom';
 import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteApiLogs } from "../utils/api";
@@ -1053,9 +1054,9 @@ function CompactRow({ log, onSelect, showClusterInfo = false }) {
 
 function LogDetailModal({ log, onClose }) {
   const invalid = isInvalidToken(log);
-  return (
-    <div className="fixed inset-0 bg-deep/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="glass-panel rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-deep/65 p-4 backdrop-blur-sm" style={{ width: '100vw', height: '100dvh', left: 0, top: 0 }} onClick={onClose}>
+      <div className="glass-panel flex max-h-[min(90dvh,720px)] w-full max-w-5xl flex-col overflow-hidden rounded-3xl shadow-2xl" onClick={e => e.stopPropagation()}>
         <div className={`px-6 py-5 flex items-center justify-between flex-shrink-0 ${invalid ? "bg-gradient-to-r from-ember to-ember" : "bg-gradient-to-r from-brand to-brand-dark"}`}>
           <div className="flex items-center gap-3">
             <div className="w-9 h-9 bg-paper/20 rounded-xl flex items-center justify-center">
@@ -1195,6 +1196,7 @@ function LogDetailModal({ log, onClose }) {
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

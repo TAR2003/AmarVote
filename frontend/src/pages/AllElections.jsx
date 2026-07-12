@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useCallback, memo, Suspense } from "react";
 import { useNavigate } from "react-router-dom";
+import ModalOverlay, { ModalPanel } from "../components/ModalOverlay";
 import { deleteElection, invalidateElectionsCache } from "../utils/api";
 import { getApiErrorMessage } from "../utils/httpErrors";
 import { useElections } from "../context/ElectionsContext";
@@ -523,8 +524,8 @@ const AllElections = () => {
       </div>
 
       {electionToDelete && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-deep/50 px-4">
-          <div className="glass-panel w-full max-w-md rounded-2xl p-5 shadow-lift sm:p-6">
+        <ModalOverlay onClose={() => setElectionToDelete(null)} dismissible>
+          <ModalPanel size="sm" className="p-5 shadow-lift sm:p-6">
             <p className="section-kicker text-ember">Permanent action</p>
             <h3 className="mt-1 font-display text-xl font-semibold text-deep">Delete Election</h3>
             <p className="mt-3 text-sm leading-relaxed text-dusk">
@@ -547,8 +548,8 @@ const AllElections = () => {
                 {deletingElectionId ? "Deleting..." : "Confirm Delete"}
               </button>
             </div>
-          </div>
-        </div>
+          </ModalPanel>
+        </ModalOverlay>
       )}
     </div>
   );

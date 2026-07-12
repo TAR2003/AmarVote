@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ModalOverlay, { ModalPanel } from './ModalOverlay';
 import { FiRefreshCw } from 'react-icons/fi';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
@@ -255,8 +256,9 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-deep/75 p-0 backdrop-blur-[8px] sm:items-center sm:p-4">
-      <div className="modal-surface w-full max-w-2xl max-h-[92dvh] overflow-y-auto rounded-t-3xl sm:rounded-2xl">
+    <ModalOverlay onClose={onClose} dismissible>
+      <ModalPanel size="lg" surface="deep">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
         {/* Header */}
         <div className="rounded-t-3xl border-b border-white/10 bg-ink/80 px-5 py-4 text-paper sm:rounded-t-2xl sm:px-6">
           <div className="flex justify-between items-center">
@@ -780,7 +782,8 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
           </div>
         </div>
       </div>
-    </div>
+      </ModalPanel>
+    </ModalOverlay>
   );
 };
 

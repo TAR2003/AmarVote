@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import ModalOverlay, { ModalPanel } from './ModalOverlay';
 import { FiLoader, FiCheckCircle, FiAlertCircle, FiX, FiRefreshCw } from 'react-icons/fi';
 import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
@@ -158,8 +159,9 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
 
   if (!status) {
     return (
-      <div className="fixed inset-0 z-50 flex items-end justify-center bg-deep/60 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-        <div className="glass-panel relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl sm:rounded-2xl">
+      <ModalOverlay onClose={handleClose} dismissible>
+        <ModalPanel size="md" className="relative">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           <div className="border-b border-ink/10 p-5 sm:p-6">
             <div className="flex justify-between items-center">
               <h2 className="font-display text-2xl font-bold text-deep">Tally Creation</h2>
@@ -175,7 +177,8 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
             </p>
           </div>
         </div>
-      </div>
+      </ModalPanel>
+    </ModalOverlay>
     );
   }
 
@@ -426,8 +429,9 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-deep/60 p-0 backdrop-blur-sm sm:items-center sm:p-4">
-      <div className="glass-panel relative max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl sm:rounded-2xl">
+    <ModalOverlay onClose={handleClose} dismissible>
+      <ModalPanel size="md" className="relative">
+      <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
         {/* Header */}
         <div className="border-b border-ink/10 p-5 sm:p-6">
           <div className="flex justify-between items-center">
@@ -456,7 +460,8 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
         {/* Content */}
         <div className="p-5 sm:p-6">{getStatusDisplay()}</div>
       </div>
-    </div>
+      </ModalPanel>
+    </ModalOverlay>
   );
 };
 

@@ -86,6 +86,7 @@ import ElectionTimeline from '../components/ElectionTimeline';
 import WorkerProceedings from '../components/WorkerProceedings';
 import VoterStatusSlot from '../components/VoterStatusSlot';
 import BallotWorkflowModal from '../components/BallotWorkflowModal';
+import ModalOverlay, { ModalPanel } from '../components/ModalOverlay';
 import GuardianQuorumViz from '../components/GuardianQuorumViz';
 import VerifyVoteSection from '../components/VerifyVoteSection';
 import GuardianProgressPanel from '../components/GuardianProgressPanel';
@@ -4129,12 +4130,13 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Encrypted Ballot Confirmation Modal */}
         {showConfirmModal && (
-          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-deep/55 p-3 backdrop-blur-sm sm:p-4">
+          <ModalOverlay onClose={() => setShowConfirmModal(false)} dismissible>
+            <ModalPanel size="md" className="shadow-lift">
             <div
               role="dialog"
               aria-modal="true"
               aria-labelledby="ballot-confirm-title"
-              className="glass-panel flex w-full max-w-lg max-h-[min(88dvh,640px)] flex-col overflow-hidden shadow-lift"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
             >
               <div className="shrink-0 border-b border-ink/10 px-5 py-4 sm:px-6 sm:py-5">
                 <p className="section-kicker">Before encryption</p>
@@ -4214,7 +4216,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 </button>
               </div>
             </div>
-          </div>
+            </ModalPanel>
+          </ModalOverlay>
         )}
 
         {/* Guardian Keys Tab */}

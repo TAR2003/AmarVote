@@ -17,6 +17,7 @@ import {
 } from 'react-icons/fi';
 import { VOTER_STATUS_COPY } from '../utils/voterMessages';
 import CandidateIdentity from './CandidateIdentity';
+import ModalOverlay, { ModalPanel } from './ModalOverlay';
 
 const HOLD_MS = 1800;
 
@@ -391,18 +392,9 @@ const BallotWorkflowModal = ({
   })();
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-deep/60 p-0 backdrop-blur-[8px] sm:items-center sm:p-4"
-      onClick={handleBackdropClick}
-      role="dialog"
-      aria-modal="true"
-      aria-labelledby="ballot-workflow-title"
-      aria-describedby="ballot-workflow-status"
-    >
-      <div
-        className="glass-panel max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl p-4 shadow-lift sm:rounded-2xl sm:p-6"
-        onClick={(e) => e.stopPropagation()}
-      >
+    <ModalOverlay onClose={handleBackdropClick} dismissible={canDismiss}>
+      <ModalPanel size="md" className="p-4 sm:p-6">
+        <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
         <p id="ballot-workflow-status" className="sr-only" aria-live="polite">
           {statusAnnouncement}
         </p>
@@ -794,8 +786,9 @@ const BallotWorkflowModal = ({
             </button>
           </div>
         )}
-      </div>
-    </div>
+        </div>
+      </ModalPanel>
+    </ModalOverlay>
   );
 };
 

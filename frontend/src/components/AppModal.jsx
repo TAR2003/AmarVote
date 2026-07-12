@@ -1,9 +1,11 @@
 import React, { useEffect, useId, useRef } from 'react';
 import { FiX } from 'react-icons/fi';
+import ModalOverlay, { ModalPanel } from './ModalOverlay';
 
 /**
  * Light glass-panel modal shell matching the app design system.
- * ESC / backdrop click close when dismissible.
+ * Portaled full-viewport backdrop; ESC / backdrop click close when dismissible.
+ * Panel fits the screen — body scrolls internally only if content overflows.
  */
 const AppModal = ({
   isOpen,
@@ -20,18 +22,11 @@ const AppModal = ({
   const panelRef = useRef(null);
   const previousFocusRef = useRef(null);
 
-  const maxWidth =
-    size === 'sm' ? 'max-w-md' : size === 'lg' ? 'max-w-2xl' : size === 'xl' ? 'max-w-3xl' : 'max-w-lg';
-
   useEffect(() => {
     if (!isOpen) return undefined;
 
     previousFocusRef.current = document.activeElement;
     const onKeyDown = (e) => {
-      if (e.key === 'Escape' && dismissible) {
-        e.preventDefault();
-        onClose?.();
-      }
       if (e.key !== 'Tab' || !panelRef.current) return;
 
       const focusable = panelRef.current.querySelectorAll(
@@ -60,53 +55,50 @@ const AppModal = ({
       window.clearTimeout(t);
       previousFocusRef.current?.focus?.();
     };
-  }, [isOpen, dismissible, onClose]);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-deep/60 p-0 backdrop-blur-sm sm:items-center sm:p-4"
-      onClick={() => dismissible && onClose?.()}
-      role="presentation"
-    >
-      <div
-        ref={panelRef}
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby={labelledBy || (title ? titleId : undefined)}
-        tabIndex={-1}
-        className={`glass-panel relative flex max-h-[92dvh] w-full ${maxWidth} flex-col overflow-hidden rounded-t-3xl shadow-lift sm:rounded-2xl ${className}`}
-        onClick={(e) => e.stopPropagation()}
-      >
-        {(title || dismissible) && (
-          <div className="flex items-start justify-between gap-3 border-b border-ink/10 px-4 py-3 sm:px-5">
-            {title ? (
-              <h2 id={titleId} className="font-display text-lg font-semibold text-deep sm:text-xl">
-                {title}
-              </h2>
-            ) : (
-              <span className="sr-only">Dialog</span>
-            )}
-            {dismissible && (
-              <button
-                type="button"
-                data-modal-close
-                onClick={onClose}
-                className="shrink-0 rounded-xl p-1.5 text-dusk transition hover:bg-frost hover:text-ink"
-                aria-label="Close"
-              >
-                <FiX className="h-5 w-5" />
-              </button>
-            )}
+    <ModalOverlay onClose={onClose} dismissible={dismissible}>
+      <ModalPanel size={size} className={className}>
+        <div
+          ref={panelRef}
+          tabIndex={-1}
+          aria-labelledby={labelledBy || (title ? titleId : undefined)}
+          className="flex min-h-0 flex-1 flex-col outline-none"
+        >
+          {(title || dismissible) && (
+            <div className="flex shrink-0 items-start justify-between gap-3 border-b border-ink/10 px-4 py-3 sm:px-5">
+              {title ? (
+                <h2 id={titleId} className="font-display text-lg font-semibold text-deep sm:text-xl">
+                  {title}
+                </h2>
+              ) : (
+                <span className="sr-only">Dialog</span>
+              )}
+              {dismissible && (
+                <button
+                  type="button"
+                  data-modal-close
+                  onClick={onClose}
+                  className="shrink-0 rounded-xl p-1.5 text-dusk transition hover:bg-frost hover:text-ink"
+                  aria-label="Close"
+                >
+                  <FiX className="h-5 w-5" />
+                </button>
+              )}
+            </div>
+          )}
+          <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-4 sm:px-5">
+            {children}
           </div>
-        )}
-        <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 sm:px-5">{children}</div>
-        {footer && (
-          <div className="border-t border-ink/10 px-4 py-3 sm:px-5">{footer}</div>
-        )}
-      </div>
-    </div>
+          {footer && (
+            <div className="shrink-0 border-t border-ink/10 px-4 py-3 sm:px-5">{footer}</div>
+          )}
+        </div>
+      </ModalPanel>
+    </ModalOverlay>
   );
 };
 

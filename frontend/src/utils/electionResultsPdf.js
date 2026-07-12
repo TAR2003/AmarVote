@@ -51,15 +51,11 @@ const HEX = {
   neutralSoft: '#C5C6D4',
 };
 
-const SERIES_PRIMARY = HEX.brand;
-const SERIES_PRIMARY_LIGHT = '#A89EF0';
-const SERIES_SECONDARY = HEX.aurora;
+/** Gold only for declared winners; one consistent dusk neutral for everyone else. */
 const SERIES_WINNER = HEX.gold;
 const SERIES_WINNER_LIGHT = '#E0C078';
-const SERIES_NEUTRAL = [
-  HEX.neutral, '#8E90A4', '#B0B2C0', '#7A7C90', HEX.neutralSoft,
-  '#6E7084', '#A8AABC', '#9496A8', '#828496', '#BCBECC',
-];
+const SERIES_OTHER = HEX.dusk;
+const SERIES_OTHER_LIGHT = '#8A8CA0';
 
 const FONT_SANS = 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
 const FONT_SERIF = 'Fraunces, Georgia, "Times New Roman", serif';
@@ -80,6 +76,54 @@ export function truncateChartLabel(name, maxLen = 16) {
   const trimmed = String(name).trim();
   if (trimmed.length <= maxLen) return trimmed;
   return `${trimmed.slice(0, Math.max(4, maxLen - 1))}…`;
+}
+
+/**
+ * Candidate description for the standings ledger:
+ * - if a newline exists, show only the first line then ........
+ * - otherwise first 80 characters then ........
+ */
+export function truncateCandidateDescription(description) {
+  const raw = String(description || '');
+  if (!raw.trim()) return '';
+  const nl = raw.search(/\r\n|\n|\r/);
+  if (nl >= 0) {
+    const first = raw.slice(0, nl).trimEnd();
+    return first ? `${first}........` : '........';
+  }
+  const trimmed = raw.trim();
+  if (trimmed.length <= 80) return trimmed;
+  return `${trimmed.slice(0, 80)}........`;
+}
+
+/**
+ * Distinct integer Y-axis ticks — never duplicates from naive max/steps rounding.
+ * Small ranges (0..N) list every integer; larger ranges use human-friendly steps.
+ */
+export function generateAxisTicks(maxValue, preferredCount = 5) {
+  const max = Math.max(0, Math.ceil(Number(maxValue) || 0));
+  if (max === 0) return [0];
+  if (max <= 5) {
+    return Array.from({ length: max + 1 }, (_, i) => i);
+  }
+
+  const target = Math.max(3, Math.min(preferredCount, 6));
+  const rough = max / (target - 1);
+  const power = 10 ** Math.floor(Math.log10(rough));
+  const normalized = rough / power;
+  let nice;
+  if (normalized <= 1) nice = 1;
+  else if (normalized <= 2) nice = 2;
+  else if (normalized <= 2.5) nice = 2.5;
+  else if (normalized <= 5) nice = 5;
+  else nice = 10;
+  const step = Math.max(1, Math.round(nice * power));
+  const top = Math.ceil(max / step) * step;
+  const ticks = [];
+  for (let v = 0; v <= top + 1e-9; v += step) {
+    ticks.push(Math.round(v));
+  }
+  return [...new Set(ticks)];
 }
 
 /** Truncate so painted text fits a fixed pixel width (consistent legend column). */
@@ -233,7 +277,7 @@ export function enrichRankedWithMeta(ranked, electionData) {
   const metaMap = buildCandidateMetaMap(electionData);
   return ranked.map((row) => ({
     ...row,
-    description: metaMap.get(row.name)?.description || '',
+    description: truncateCandidateDescription(metaMap.get(row.name)?.description || ''),
     candidatePic: metaMap.get(row.name)?.candidatePic || '',
   }));
 }
@@ -357,11 +401,14 @@ function renderHeaderBand(logicalW, logicalH) {
   return canvasToPng(canvas);
 }
 
-function chartColorFor(item, index, winnerCount) {
+function chartColorFor(item, winnerCount) {
   if (isWinnerByRank(item.rank, winnerCount) && item.votes > 0) return SERIES_WINNER;
-  if (index === 0) return SERIES_PRIMARY;
-  if (index === 1) return SERIES_SECONDARY;
-  return SERIES_NEUTRAL[(index - 2) % SERIES_NEUTRAL.length];
+  return SERIES_OTHER;
+}
+
+function chartColorLightFor(item, winnerCount) {
+  if (isWinnerByRank(item.rank, winnerCount) && item.votes > 0) return SERIES_WINNER_LIGHT;
+  return SERIES_OTHER_LIGHT;
 }
 
 function drawChartFrame(ctx, w, h, title, subtitle) {
@@ -398,17 +445,23 @@ function drawChartFrame(ctx, w, h, title, subtitle) {
 function renderColumnChartImage(data, winnerCount, logicalW, logicalH) {
   const ordered = ensureRankOrder(data);
   const { canvas, ctx } = createHiDPICanvas(logicalW, logicalH);
-  drawChartFrame(ctx, logicalW, logicalH, 'Vote Distribution', 'Rank order · gold marks declared winners');
+  drawChartFrame(
+    ctx, logicalW, logicalH,
+    'Vote Distribution',
+    'Rank order · gold = declared winners · dusk = all others',
+  );
 
   const padding = { top: 68, right: 24, bottom: 64, left: 48 };
   const plotW = logicalW - padding.left - padding.right;
   const plotH = logicalH - padding.top - padding.bottom;
   const n = Math.max(ordered.length, 1);
   const maxVotes = Math.max(...ordered.map((d) => d.votes), 1);
+  const ticks = generateAxisTicks(maxVotes);
+  const axisMax = ticks[ticks.length - 1] || maxVotes;
   const baseY = padding.top + plotH;
 
-  for (let g = 0; g <= 4; g += 1) {
-    const gy = padding.top + (plotH / 4) * g;
+  ticks.forEach((tick) => {
+    const gy = baseY - (tick / axisMax) * plotH;
     ctx.strokeStyle = HEX.lineSoft;
     ctx.lineWidth = 1;
     ctx.beginPath();
@@ -420,8 +473,8 @@ function renderColumnChartImage(data, winnerCount, logicalW, logicalH) {
     ctx.font = `400 9px ${FONT_SANS}`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
-    ctx.fillText(String(Math.round(maxVotes - (maxVotes / 4) * g)), padding.left - 6, gy);
-  }
+    ctx.fillText(String(tick), padding.left - 6, gy);
+  });
 
   ctx.strokeStyle = HEX.line;
   ctx.lineWidth = 1.2;
@@ -437,18 +490,12 @@ function renderColumnChartImage(data, winnerCount, logicalW, logicalH) {
 
   ordered.forEach((item, i) => {
     const cx = padding.left + slot * i + slot / 2;
-    const h = (item.votes / maxVotes) * plotH;
+    const h = (item.votes / axisMax) * plotH;
     const x = cx - colW / 2;
     const y = baseY - h;
     const isWinner = isWinnerByRank(item.rank, winnerCount) && item.votes > 0;
-    const color = chartColorFor(item, i, winnerCount);
-    const light = isWinner
-      ? SERIES_WINNER_LIGHT
-      : i === 0
-        ? SERIES_PRIMARY_LIGHT
-        : i === 1
-          ? '#6DD4C8'
-          : SERIES_NEUTRAL[(i - 2) % SERIES_NEUTRAL.length];
+    const color = chartColorFor(item, winnerCount);
+    const light = chartColorLightFor(item, winnerCount);
 
     if (h > 0) {
       const grad = ctx.createLinearGradient(0, y, 0, baseY);
@@ -507,7 +554,7 @@ async function renderPieChartImage(data, winnerCount, logicalW, logicalH) {
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, R, startAngle, endAngle);
     ctx.closePath();
-    ctx.fillStyle = chartColorFor(item, i, winnerCount);
+    ctx.fillStyle = chartColorFor(item, winnerCount);
     ctx.fill();
     ctx.strokeStyle = HEX.white;
     ctx.lineWidth = 2;
@@ -572,7 +619,7 @@ async function renderPieChartImage(data, winnerCount, logicalW, logicalH) {
     } else {
       ctx.beginPath();
       ctx.arc(legendX + thumb / 2, legendY, thumb / 2, 0, Math.PI * 2);
-      ctx.fillStyle = chartColorFor(item, i, winnerCount);
+      ctx.fillStyle = chartColorFor(item, winnerCount);
       ctx.fill();
     }
 
@@ -625,10 +672,10 @@ function remainingHeight(flow) {
   return flow.pageHeight - FOOTER_RESERVE - flow.y;
 }
 
-/** True when more than ~25% of the page body is still unused. */
+/** True when more than ~15% of the page body is still unused — pull content up. */
 function hasSubstantialEmptySpace(flow) {
   const bodyH = flow.pageHeight - FOOTER_RESERVE - MARGIN;
-  return remainingHeight(flow) > bodyH * 0.25;
+  return remainingHeight(flow) > bodyH * 0.15;
 }
 
 function ensureSpace(flow, needed, continuedTitle) {
@@ -703,14 +750,14 @@ function wrapDisplayTitle(doc, title, maxWidth, startSize = 28, minSize = 14) {
  * ------------------------------------------------------------------ */
 
 function drawCompactStatBar(doc, contentWidth, y, stats) {
-  const h = 13;
+  const h = 10.5;
   setColor(doc, 'fill', C.surface);
   setColor(doc, 'draw', C.line);
   doc.setLineWidth(0.25);
-  doc.roundedRect(MARGIN, y, contentWidth, h, 2, 2, 'FD');
+  doc.roundedRect(MARGIN, y, contentWidth, h, 1.8, 1.8, 'FD');
 
   setColor(doc, 'fill', C.brand);
-  doc.roundedRect(MARGIN, y, 1.8, h, 0.8, 0.8, 'F');
+  doc.roundedRect(MARGIN, y, 1.5, h, 0.7, 0.7, 'F');
 
   const slotW = contentWidth / stats.length;
   stats.forEach((stat, i) => {
@@ -718,18 +765,18 @@ function drawCompactStatBar(doc, contentWidth, y, stats) {
     if (i > 0) {
       setColor(doc, 'draw', C.line);
       doc.setLineWidth(0.2);
-      doc.line(x, y + 2.5, x, y + h - 2.5);
+      doc.line(x, y + 2, x, y + h - 2);
     }
     setColor(doc, 'text', C.dusk);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(5.5);
-    doc.text(stat.label, x + 4, y + 4.5);
+    doc.setFontSize(5);
+    doc.text(stat.label, x + 3.5, y + 3.6);
     setColor(doc, 'text', C.ink);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(9.5);
-    doc.text(String(stat.value), x + 4, y + 10.5);
+    doc.setFontSize(8.5);
+    doc.text(String(stat.value), x + 3.5, y + 8.4);
   });
-  return y + h + 4;
+  return y + h + 3;
 }
 
 /* ------------------------------------------------------------------ *
@@ -767,27 +814,29 @@ function drawCoverAndConfigSection(flow, opts) {
   doc.setFontSize(7);
   doc.text('OFFICIAL ELECTION RESULTS', MARGIN, 26.5);
 
-  // Headline title — commanding weight + air above/below
-  let y = headerH + 11;
+  // Headline title — commanding weight; title + description as one unit
+  let y = headerH + 9;
   const title = electionData?.electionTitle || 'Untitled Election';
-  const wrapped = wrapDisplayTitle(doc, title, contentWidth, 30, 14);
+  const wrapped = wrapDisplayTitle(doc, title, contentWidth, 32, 15);
   setColor(doc, 'text', C.deep);
   doc.setFont('times', 'bold');
   doc.setFontSize(wrapped.size);
   wrapped.lines.forEach((line) => {
     doc.text(line, MARGIN, y);
-    y += wrapped.size * 0.4;
+    y += wrapped.size * 0.38;
   });
-  y += 8;
 
   const description = electionData?.electionDescription;
   if (description && String(description).trim()) {
+    y += 2.5;
     setColor(doc, 'text', C.ink);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
+    doc.setFontSize(8);
     const descLines = doc.splitTextToSize(String(description).trim(), contentWidth).slice(0, 2);
     doc.text(descLines, MARGIN, y);
-    y += descLines.length * 3.6 + 4;
+    y += descLines.length * 3.3 + 3.5;
+  } else {
+    y += 5;
   }
 
   y = drawWinnerSpotlight(doc, pageWidth, pageHeight, contentWidth, y, ranked, winnerCount);
@@ -966,41 +1015,42 @@ function drawWinnerSpotlight(doc, pageWidth, pageHeight, contentWidth, y, ranked
 }
 
 function drawKeyValueGrid(doc, contentWidth, y, pairs, electionId) {
-  const gap = 3.5;
+  const gap = 3;
   const colW = (contentWidth - gap) / 2;
-  const rowH = 10;
+  const rowH = 8.5;
+  const rowGap = 1.4;
   pairs.forEach((pair, i) => {
     const col = i % 2;
     const row = Math.floor(i / 2);
     const x = MARGIN + col * (colW + gap);
-    const cy = y + row * (rowH + 2);
+    const cy = y + row * (rowH + rowGap);
     const isId = pair[0] === 'Election ID';
 
     setColor(doc, 'fill', C.white);
     setColor(doc, 'draw', C.line);
     doc.setLineWidth(0.25);
-    doc.roundedRect(x, cy, colW, rowH, 1.6, 1.6, 'FD');
+    doc.roundedRect(x, cy, colW, rowH, 1.4, 1.4, 'FD');
 
     setColor(doc, 'text', C.dusk);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(5);
-    doc.text(String(pair[0]).toUpperCase(), x + 3, cy + 3.5);
+    doc.setFontSize(4.5);
+    doc.text(String(pair[0]).toUpperCase(), x + 2.5, cy + 2.8);
 
     if (isId) {
       setColor(doc, 'fill', C.brandSoft);
-      doc.roundedRect(x + 2.5, cy + 4.5, Math.min(colW - 5, 40), 4.2, 1, 1, 'F');
+      doc.roundedRect(x + 2, cy + 3.6, Math.min(colW - 4, 38), 3.8, 0.9, 0.9, 'F');
       setColor(doc, 'text', C.brandDark);
       doc.setFont('courier', 'bold');
-      doc.setFontSize(6.5);
-      doc.text(String(electionId ?? pair[1]), x + 4, cy + 7.7);
+      doc.setFontSize(6);
+      doc.text(String(electionId ?? pair[1]), x + 3.5, cy + 6.4);
     } else {
       setColor(doc, 'text', C.ink);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(7.5);
-      doc.text(doc.splitTextToSize(String(pair[1] ?? '—'), colW - 6)[0], x + 3, cy + 7.7);
+      doc.setFontSize(7);
+      doc.text(doc.splitTextToSize(String(pair[1] ?? '—'), colW - 5)[0], x + 2.5, cy + 6.5);
     }
   });
-  return y + Math.ceil(pairs.length / 2) * (rowH + 2) + 1.5;
+  return y + Math.ceil(pairs.length / 2) * (rowH + rowGap) + 1;
 }
 
 function estimateGuardianTableHeight(count) {
@@ -1061,49 +1111,94 @@ function placeChart(flow, dataUrl, logicalW, logicalH, widthMm, continuedTitle) 
 async function drawAnalyticsSection(flow, ranked, winnerCount) {
   const ordered = ensureRankOrder(ranked);
   const n = ordered.length;
-  const minBlock = 62;
+  const minBlock = 58;
 
-  // Pull analytics onto the current page when ≥25% remains and a chart fits;
-  // otherwise start a fresh page (never leave a mostly-empty page behind unused).
+  // Pull analytics onto the current page when ≥15% remains and a chart fits.
   if (!hasSubstantialEmptySpace(flow) || remainingHeight(flow) < minBlock) {
     flow.doc.addPage();
     flow.y = drawRunningHeader(flow.doc, flow.pageWidth, flow.pageTitle);
   }
 
   flow.y = drawSectionHeader(
-    flow.doc, MARGIN, flow.y + 1, 'Visual Analytics',
-    'Bar, pie, and legend share one rank order',
+    flow.doc, MARGIN, flow.y + 0.5, 'Visual Analytics',
+    'Bar, pie & standings share one rank order · gold = winners only',
   );
 
+  // Margin of victory (1st vs 2nd) — fills dead space purposefully
+  const first = ordered[0];
+  const second = ordered[1];
+  if (first && second && first.votes >= 0) {
+    const margin = Math.max(0, (first.votes || 0) - (second.votes || 0));
+    setColor(flow.doc, 'fill', C.surface);
+    setColor(flow.doc, 'draw', C.line);
+    flow.doc.setLineWidth(0.2);
+    flow.doc.roundedRect(MARGIN, flow.y, flow.contentWidth, 8, 1.5, 1.5, 'FD');
+    setColor(flow.doc, 'text', C.dusk);
+    flow.doc.setFont('helvetica', 'bold');
+    flow.doc.setFontSize(5.5);
+    flow.doc.text('MARGIN OF VICTORY (1ST − 2ND)', MARGIN + 3.5, flow.y + 3.2);
+    setColor(flow.doc, 'text', C.ink);
+    flow.doc.setFont('helvetica', 'bold');
+    flow.doc.setFontSize(8);
+    flow.doc.text(
+      `${fmtNum(margin)} vote${margin === 1 ? '' : 's'}`,
+      MARGIN + 3.5,
+      flow.y + 6.6,
+    );
+    flow.y += 10;
+  }
+
   const contentWidth = flow.contentWidth;
-  const gap = 4;
+  const gap = 3.5;
   let avail = remainingHeight(flow);
 
-  // Prefer both charts on this page — scale heights to fill remaining space.
+  // Prefer both charts on this page — scale heights to fill remaining space (≤15% void).
   let barMm;
   let pieMm;
-  if (avail >= 130) {
-    barMm = Math.min(100, Math.max(58, avail * 0.52));
-    pieMm = Math.min(95, Math.max(55, avail - barMm - gap));
+  if (avail >= 120) {
+    const usable = avail - gap - 2;
+    barMm = Math.min(110, Math.max(62, usable * 0.55));
+    pieMm = Math.min(105, Math.max(58, usable - barMm));
   } else if (avail >= minBlock) {
-    barMm = Math.max(55, avail - 4);
-    pieMm = 72;
+    barMm = Math.max(52, avail - 3);
+    pieMm = Math.min(95, Math.max(58, avail * 0.9));
   } else {
     ensureSpace(flow, minBlock, 'Visual Analytics');
     avail = remainingHeight(flow);
-    barMm = Math.min(95, Math.max(58, avail * 0.5));
-    pieMm = Math.min(90, Math.max(55, avail - barMm - gap));
+    const usable = Math.max(avail - gap, minBlock);
+    barMm = Math.min(110, Math.max(62, usable * 0.55));
+    pieMm = Math.min(105, Math.max(58, usable - barMm));
   }
 
-  const colLogicalW = Math.min(880, Math.max(600, 100 + n * 40));
+  const colLogicalW = Math.min(960, Math.max(640, 120 + n * 48));
   const colLogicalH = Math.round(colLogicalW * (barMm / contentWidth));
   const colImg = renderColumnChartImage(ordered, winnerCount, colLogicalW, colLogicalH);
   placeChart(flow, colImg, colLogicalW, colLogicalH, contentWidth, 'Visual Analytics');
 
-  const pieLogicalW = 640;
-  const pieLogicalH = Math.max(200, Math.round(pieLogicalW * (pieMm / contentWidth)));
+  // If pie would leave the page mostly empty after a page break, enlarge it.
+  avail = remainingHeight(flow);
+  if (avail < pieMm + 4 && hasSubstantialEmptySpace(flow) === false) {
+    // fit remaining on this page if possible, else new page with large pie
+    if (avail >= 50) {
+      pieMm = Math.max(50, avail - 2);
+    } else {
+      ensureSpace(flow, 70, 'Visual Analytics');
+      avail = remainingHeight(flow);
+      pieMm = Math.min(120, Math.max(70, avail - 2));
+    }
+  } else if (avail > pieMm + bodyEmptyAllowance(flow)) {
+    pieMm = Math.min(120, avail - 2);
+  }
+
+  const pieLogicalW = 720;
+  const pieLogicalH = Math.max(220, Math.round(pieLogicalW * (pieMm / contentWidth)));
   const pieImg = await renderPieChartImage(ordered, winnerCount, pieLogicalW, pieLogicalH);
   placeChart(flow, pieImg, pieLogicalW, pieLogicalH, contentWidth, 'Visual Analytics');
+}
+
+function bodyEmptyAllowance(flow) {
+  const bodyH = flow.pageHeight - FOOTER_RESERVE - MARGIN;
+  return bodyH * 0.15;
 }
 
 /* ------------------------------------------------------------------ *
@@ -1161,7 +1256,14 @@ function drawCandidateCell(doc, cell, row) {
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(6.5);
     setColor(doc, 'text', C.dusk);
-    doc.text(doc.splitTextToSize(row.description, width - (textX - x) - padX), textX, cursorY);
+    const descWidth = width - (textX - x) - padX;
+    const paragraphs = String(row.description).split(/\n+/).filter(Boolean);
+    paragraphs.forEach((para, pi) => {
+      if (pi > 0) cursorY += 1.8;
+      const lines = doc.splitTextToSize(para, descWidth);
+      doc.text(lines, textX, cursorY);
+      cursorY += lines.length * 2.9;
+    });
   }
 }
 
@@ -1174,7 +1276,7 @@ function drawShareBar(doc, cell, pct, isWinner) {
   doc.roundedRect(barX, barY, barW, 1.8, 0.9, 0.9, 'F');
   const fillW = Math.max((Number(pct) / 100) * barW, 0);
   if (fillW > 0) {
-    setColor(doc, 'fill', isWinner ? C.gold : C.brand);
+    setColor(doc, 'fill', isWinner ? C.gold : C.dusk);
     doc.roundedRect(barX, barY, fillW, 1.8, 0.9, 0.9, 'F');
   }
 }
@@ -1383,7 +1485,7 @@ export async function generateElectionResultsPdf({
     statusLabel,
   };
 
-  // Continuous flow: sections share pages when space remains (≥25% rule).
+  // Continuous flow: sections share pages when space remains (≤15% empty rule).
   drawCoverAndConfigSection(flow, opts);
   await drawAnalyticsSection(flow, enrichedRanked, winnerCount);
   drawLedgerSection(flow, enrichedRanked, winnerCount);
