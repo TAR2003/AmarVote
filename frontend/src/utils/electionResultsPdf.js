@@ -5,30 +5,26 @@ import { formatOrdinal, isWinnerByRank } from './electionRankings';
 /**
  * AmarVote — Official Election Results report (Ink & Indigo design system).
  *
- * Flowing, page-break-aware document:
- *   • Page 1  — Cover: indigo header band, wrapped title, winners + photos, stats
- *   • Page 2  — Election Overview: metadata, guardian quorum viz, guardian table
- *   • Page 3+ — Visual Analytics: violet/teal/gold charts with photo legends
- *   • Page 4+ — Detailed Standings Ledger
- *
- * Charts rasterized at ~300 DPI; atomic blocks never split across pages.
+ * Dense, flowing document (typical 7-candidate election ≈ 3 pages):
+ *   • Page 1  — Cover + winners + stats + election configuration + guardians
+ *   • Page 2  — Visual Analytics (bar + pie, rank-ordered)
+ *   • Page 3+ — Full Standings Ledger
  */
 
 const CHART_SCALE = 4;
 
 /** Ink & Indigo tokens — exact app palette, adapted for print. */
 const C = {
-  deep: [18, 20, 43],       // #12142B
-  ink: [27, 29, 46],        // #1B1D2E
-  paper: [247, 244, 236],   // #F7F4EC
+  deep: [18, 20, 43],
+  ink: [27, 29, 46],
+  paper: [247, 244, 236],
   white: [255, 255, 255],
-  brand: [139, 127, 232],   // #8B7FE8 Guardian Violet
-  brandDark: [92, 82, 196], // #5C52C4
-  brandSoft: [239, 235, 248], // #EFEBF8 glacier
-  aurora: [63, 199, 184],   // #3FC7B8
-  auroraSoft: [232, 247, 245],
-  gold: [212, 165, 72],     // #D4A548 — winner accent only
-  dusk: [91, 93, 116],      // #5B5D74
+  brand: [139, 127, 232],
+  brandDark: [92, 82, 196],
+  brandSoft: [239, 235, 248],
+  aurora: [63, 199, 184],
+  gold: [212, 165, 72],
+  dusk: [91, 93, 116],
   lavender: [160, 162, 180],
   line: [226, 224, 216],
   lineSoft: [238, 235, 226],
@@ -52,7 +48,6 @@ const HEX = {
   neutralSoft: '#C5C6D4',
 };
 
-/** Chart series: violet primary, teal secondary, gold winners, lavender others. */
 const SERIES_PRIMARY = HEX.brand;
 const SERIES_PRIMARY_LIGHT = '#A89EF0';
 const SERIES_SECONDARY = HEX.aurora;
@@ -65,12 +60,13 @@ const SERIES_NEUTRAL = [
 
 const FONT_SANS = 'Inter, system-ui, -apple-system, "Segoe UI", sans-serif';
 const FONT_SERIF = 'Fraunces, Georgia, "Times New Roman", serif';
-const FONT_MONO = '"JetBrains Mono", ui-monospace, monospace';
 
 const MARGIN = 16;
-const FOOTER_RESERVE = 16;
-const CANDIDATE_IMG_MM = 10;
-const WINNER_IMG_MM = 16;
+const FOOTER_RESERVE = 14;
+const CANDIDATE_IMG_MM = 9;
+const WINNER_IMG_MM = 14;
+/** Fixed legend truncation so every row truncates at the same visual width. */
+const PIE_LEGEND_NAME_LEN = 22;
 
 /* ------------------------------------------------------------------ *
  * Small utilities
@@ -81,6 +77,28 @@ export function truncateChartLabel(name, maxLen = 16) {
   const trimmed = String(name).trim();
   if (trimmed.length <= maxLen) return trimmed;
   return `${trimmed.slice(0, Math.max(4, maxLen - 1))}…`;
+}
+
+/** Lock rank order (highest votes / lowest rank number first) everywhere. */
+function ensureRankOrder(ranked) {
+  return [...ranked].sort((a, b) => {
+    if (a.rank !== b.rank) return a.rank - b.rank;
+    return (b.votes || 0) - (a.votes || 0);
+  });
+}
+
+/** Mark ties so UI can show an explicit TIED label. */
+function withTieFlags(ranked) {
+  const counts = new Map();
+  ranked.forEach((r) => counts.set(r.rank, (counts.get(r.rank) || 0) + 1));
+  return ranked.map((r) => ({ ...r, isTied: (counts.get(r.rank) || 0) > 1 }));
+}
+
+/** Display name size step-down: 1st > 2nd > 3rd+. */
+function nameFontSizeForRank(rank, base = 11) {
+  if (rank === 1) return base + 2;
+  if (rank === 2) return base;
+  return base - 1;
 }
 
 function createHiDPICanvas(logicalW, logicalH, scale = CHART_SCALE) {
@@ -143,11 +161,34 @@ function fmtNum(v) {
   return n.toLocaleString('en-US');
 }
 
-function candidateInitials(name) {
-  const parts = String(name || '').trim().split(/\s+/).filter(Boolean);
-  if (parts.length === 0) return '?';
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
-  return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase();
+/**
+ * First letter of first name + first letter of last name.
+ * Strips punctuation/whitespace so names like ", George" or "Dr. Ada" never yield ",G".
+ */
+export function candidateInitials(name) {
+  const cleaned = String(name || '')
+    .replace(/[^\p{L}\p{N}\s'-]/gu, ' ')
+    .replace(/\s+/g, ' ')
+    .trim();
+  if (!cleaned) return '?';
+
+  const firstLetter = (token) => {
+    const match = token.match(/[\p{L}\p{N}]/u);
+    return match ? match[0].toUpperCase() : '';
+  };
+
+  const parts = cleaned.split(' ').filter(Boolean);
+  if (parts.length === 1) {
+    const letters = parts[0].match(/[\p{L}\p{N}]/gu) || [];
+    if (letters.length === 0) return '?';
+    if (letters.length === 1) return letters[0].toUpperCase();
+    return `${letters[0]}${letters[1]}`.toUpperCase();
+  }
+
+  const a = firstLetter(parts[0]);
+  const b = firstLetter(parts[parts.length - 1]);
+  const initials = `${a}${b}`;
+  return initials || '?';
 }
 
 function buildCandidateMetaMap(electionData) {
@@ -169,13 +210,6 @@ export function enrichRankedWithMeta(ranked, electionData) {
     description: metaMap.get(row.name)?.description || '',
     candidatePic: metaMap.get(row.name)?.candidatePic || '',
   }));
-}
-
-function imageFormatFromDataUrl(dataUrl) {
-  if (!dataUrl) return 'JPEG';
-  if (dataUrl.startsWith('data:image/png')) return 'PNG';
-  if (dataUrl.startsWith('data:image/webp')) return 'WEBP';
-  return 'JPEG';
 }
 
 async function fetchImageAsDataUrl(url) {
@@ -204,7 +238,6 @@ async function loadImageElement(dataUrl) {
   });
 }
 
-/** Circular avatar with violet/teal ring; initials placeholder when no photo. */
 async function renderCircularAvatar(dataUrl, name, sizePx = 128, ringColor = HEX.brand) {
   const { canvas, ctx } = createHiDPICanvas(sizePx, sizePx, 2);
   const cx = sizePx / 2;
@@ -260,11 +293,7 @@ async function attachCandidateImageData(enrichedRanked) {
   return Promise.all(enrichedRanked.map(async (row) => {
     const raw = row.candidatePic ? (urlToData.get(row.candidatePic) || null) : null;
     const avatar = await renderCircularAvatar(raw, row.name, 128, HEX.brand);
-    return {
-      ...row,
-      candidatePicDataUrl: raw,
-      avatarDataUrl: avatar,
-    };
+    return { ...row, candidatePicDataUrl: raw, avatarDataUrl: avatar };
   }));
 }
 
@@ -273,12 +302,12 @@ function drawPng(doc, dataUrl, x, y, size) {
   try {
     doc.addImage(dataUrl, 'PNG', x, y, size, size, undefined, 'FAST');
   } catch {
-    // ignore corrupt image
+    // ignore
   }
 }
 
 /* ------------------------------------------------------------------ *
- * Rasterized backgrounds
+ * Rasterized backgrounds & charts
  * ------------------------------------------------------------------ */
 
 function renderHeaderBand(logicalW, logicalH) {
@@ -290,24 +319,17 @@ function renderHeaderBand(logicalW, logicalH) {
   ctx.fillStyle = g;
   ctx.fillRect(0, 0, logicalW, logicalH);
 
-  const glow = ctx.createRadialGradient(logicalW * 0.82, logicalH * 0.35, 4, logicalW * 0.82, logicalH * 0.35, logicalW * 0.35);
+  const glow = ctx.createRadialGradient(
+    logicalW * 0.82, logicalH * 0.35, 4,
+    logicalW * 0.82, logicalH * 0.35, logicalW * 0.35,
+  );
   glow.addColorStop(0, 'rgba(139, 127, 232, 0.28)');
   glow.addColorStop(1, 'rgba(139, 127, 232, 0)');
   ctx.fillStyle = glow;
   ctx.fillRect(0, 0, logicalW, logicalH);
 
-  const aurora = ctx.createRadialGradient(logicalW * 0.12, logicalH * 0.9, 2, logicalW * 0.12, logicalH * 0.9, logicalW * 0.28);
-  aurora.addColorStop(0, 'rgba(63, 199, 184, 0.12)');
-  aurora.addColorStop(1, 'rgba(63, 199, 184, 0)');
-  ctx.fillStyle = aurora;
-  ctx.fillRect(0, 0, logicalW, logicalH);
-
   return canvasToPng(canvas);
 }
-
-/* ------------------------------------------------------------------ *
- * Chart renderers
- * ------------------------------------------------------------------ */
 
 function chartColorFor(item, index, winnerCount) {
   if (isWinnerByRank(item.rank, winnerCount) && item.votes > 0) return SERIES_WINNER;
@@ -318,47 +340,47 @@ function chartColorFor(item, index, winnerCount) {
 
 function drawChartFrame(ctx, w, h, title, subtitle) {
   ctx.fillStyle = HEX.white;
-  roundRectPath(ctx, 0, 0, w, h, 12);
+  roundRectPath(ctx, 0, 0, w, h, 10);
   ctx.fill();
   ctx.strokeStyle = HEX.line;
   ctx.lineWidth = 1;
-  roundRectPath(ctx, 0.5, 0.5, w - 1, h - 1, 12);
+  roundRectPath(ctx, 0.5, 0.5, w - 1, h - 1, 10);
   ctx.stroke();
 
   ctx.fillStyle = HEX.brand;
-  roundRectPath(ctx, 20, 20, 5, 15, 2.5);
+  roundRectPath(ctx, 16, 16, 4, 13, 2);
   ctx.fill();
 
   ctx.fillStyle = HEX.ink;
-  ctx.font = `600 16px ${FONT_SERIF}`;
+  ctx.font = `600 14px ${FONT_SERIF}`;
   ctx.textAlign = 'left';
   ctx.textBaseline = 'alphabetic';
-  ctx.fillText(title, 34, 32);
+  ctx.fillText(title, 28, 27);
   if (subtitle) {
     ctx.fillStyle = HEX.dusk;
-    ctx.font = `400 11px ${FONT_SANS}`;
-    ctx.fillText(subtitle, 34, 48);
+    ctx.font = `400 10px ${FONT_SANS}`;
+    ctx.fillText(subtitle, 28, 42);
   }
   ctx.strokeStyle = HEX.lineSoft;
   ctx.lineWidth = 1;
   ctx.beginPath();
-  ctx.moveTo(20, 60);
-  ctx.lineTo(w - 20, 60);
+  ctx.moveTo(16, 52);
+  ctx.lineTo(w - 16, 52);
   ctx.stroke();
 }
 
-function renderColumnChartImage(data, winnerCount, logicalW, logicalH, labelMaxLen = 12) {
+function renderColumnChartImage(data, winnerCount, logicalW, logicalH) {
+  const ordered = ensureRankOrder(data);
   const { canvas, ctx } = createHiDPICanvas(logicalW, logicalH);
-  drawChartFrame(ctx, logicalW, logicalH, 'Vote Distribution', 'Votes received per candidate · gold marks declared winners');
+  drawChartFrame(ctx, logicalW, logicalH, 'Vote Distribution', 'Rank order · gold marks declared winners');
 
-  const padding = { top: 84, right: 30, bottom: 78, left: 56 };
+  const padding = { top: 68, right: 24, bottom: 64, left: 48 };
   const plotW = logicalW - padding.left - padding.right;
   const plotH = logicalH - padding.top - padding.bottom;
-  const n = Math.max(data.length, 1);
-  const maxVotes = Math.max(...data.map((d) => d.votes), 1);
+  const n = Math.max(ordered.length, 1);
+  const maxVotes = Math.max(...ordered.map((d) => d.votes), 1);
   const baseY = padding.top + plotH;
 
-  ctx.textBaseline = 'middle';
   for (let g = 0; g <= 4; g += 1) {
     const gy = padding.top + (plotH / 4) * g;
     ctx.strokeStyle = HEX.lineSoft;
@@ -368,11 +390,11 @@ function renderColumnChartImage(data, winnerCount, logicalW, logicalH, labelMaxL
     ctx.lineTo(padding.left + plotW, gy);
     ctx.stroke();
 
-    const val = Math.round(maxVotes - (maxVotes / 4) * g);
     ctx.fillStyle = HEX.lavender;
     ctx.font = `400 9px ${FONT_SANS}`;
     ctx.textAlign = 'right';
-    ctx.fillText(String(val), padding.left - 8, gy);
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(Math.round(maxVotes - (maxVotes / 4) * g)), padding.left - 6, gy);
   }
 
   ctx.strokeStyle = HEX.line;
@@ -383,11 +405,11 @@ function renderColumnChartImage(data, winnerCount, logicalW, logicalH, labelMaxL
   ctx.stroke();
 
   const slot = plotW / n;
-  const colW = Math.max(6, Math.min(48, slot * 0.62));
+  const colW = Math.max(6, Math.min(42, slot * 0.6));
   const labelAngle = slot < 46 ? -Math.PI / 3 : slot < 70 ? -Math.PI / 4 : -Math.PI / 9;
-  const labelLen = slot < 46 ? 9 : slot < 70 ? Math.max(labelMaxLen, 12) : Math.max(labelMaxLen, 16);
+  const labelLen = slot < 46 ? 9 : slot < 70 ? 12 : 16;
 
-  data.forEach((item, i) => {
+  ordered.forEach((item, i) => {
     const cx = padding.left + slot * i + slot / 2;
     const h = (item.votes / maxVotes) * plotH;
     const x = cx - colW / 2;
@@ -406,22 +428,22 @@ function renderColumnChartImage(data, winnerCount, logicalW, logicalH, labelMaxL
       const grad = ctx.createLinearGradient(0, y, 0, baseY);
       grad.addColorStop(0, light);
       grad.addColorStop(1, color);
-      roundRectTopPath(ctx, x, y, colW, h, 5);
+      roundRectTopPath(ctx, x, y, colW, h, 4);
       ctx.fillStyle = grad;
       ctx.fill();
     }
 
-    ctx.fillStyle = isWinner ? HEX.ink : HEX.ink;
-    ctx.font = `700 10px ${FONT_SANS}`;
+    ctx.fillStyle = HEX.ink;
+    ctx.font = `700 9px ${FONT_SANS}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'bottom';
-    ctx.fillText(String(item.votes), cx, y - 4);
+    ctx.fillText(String(item.votes), cx, y - 3);
 
     ctx.save();
-    ctx.translate(cx, baseY + 10);
+    ctx.translate(cx, baseY + 8);
     ctx.rotate(labelAngle);
     ctx.fillStyle = isWinner ? HEX.ink : HEX.dusk;
-    ctx.font = `${isWinner ? '700' : '500'} 9px ${FONT_SANS}`;
+    ctx.font = `${isWinner ? '700' : '500'} 8px ${FONT_SANS}`;
     ctx.textAlign = 'right';
     ctx.textBaseline = 'middle';
     ctx.fillText(truncateChartLabel(item.name, labelLen), 0, 0);
@@ -431,18 +453,19 @@ function renderColumnChartImage(data, winnerCount, logicalW, logicalH, labelMaxL
   return canvasToPng(canvas);
 }
 
-async function renderPieChartImage(data, winnerCount, logicalW, logicalH, labelMaxLen = 18) {
+async function renderPieChartImage(data, winnerCount, logicalW, logicalH) {
+  const ordered = ensureRankOrder(data);
   const { canvas, ctx } = createHiDPICanvas(logicalW, logicalH);
-  drawChartFrame(ctx, logicalW, logicalH, 'Vote Share', 'Proportional breakdown · candidate photos in the legend');
+  drawChartFrame(ctx, logicalW, logicalH, 'Vote Share', 'Same rank order as the bar chart and standings');
 
-  const total = data.reduce((sum, d) => sum + d.votes, 0);
-  const cx = logicalW * 0.26;
-  const cy = 62 + (logicalH - 62) * 0.52;
-  const R = Math.min(logicalW * 0.22, (logicalH - 62) * 0.40);
+  const total = ordered.reduce((sum, d) => sum + d.votes, 0);
+  const cx = logicalW * 0.24;
+  const cy = 56 + (logicalH - 56) * 0.52;
+  const R = Math.min(logicalW * 0.20, (logicalH - 56) * 0.38);
 
   if (total === 0) {
     ctx.fillStyle = HEX.lavender;
-    ctx.font = `400 13px ${FONT_SANS}`;
+    ctx.font = `400 12px ${FONT_SANS}`;
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.fillText('No votes recorded', cx, cy);
@@ -450,11 +473,10 @@ async function renderPieChartImage(data, winnerCount, logicalW, logicalH, labelM
   }
 
   let startAngle = -Math.PI / 2;
-  data.forEach((item, i) => {
+  ordered.forEach((item, i) => {
     const slice = (item.votes / total) * Math.PI * 2;
     if (slice <= 0) return;
     const endAngle = startAngle + slice;
-
     ctx.beginPath();
     ctx.moveTo(cx, cy);
     ctx.arc(cx, cy, R, startAngle, endAngle);
@@ -462,76 +484,83 @@ async function renderPieChartImage(data, winnerCount, logicalW, logicalH, labelM
     ctx.fillStyle = chartColorFor(item, i, winnerCount);
     ctx.fill();
     ctx.strokeStyle = HEX.white;
-    ctx.lineWidth = 2.4;
+    ctx.lineWidth = 2;
     ctx.stroke();
 
     if (slice > 0.28) {
       const mid = startAngle + slice / 2;
-      const lx = cx + Math.cos(mid) * R * 0.62;
-      const ly = cy + Math.sin(mid) * R * 0.62;
       ctx.fillStyle = HEX.white;
-      ctx.font = `700 10px ${FONT_SANS}`;
+      ctx.font = `700 9px ${FONT_SANS}`;
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText(`${((item.votes / total) * 100).toFixed(1)}%`, lx, ly);
+      ctx.fillText(
+        `${((item.votes / total) * 100).toFixed(1)}%`,
+        cx + Math.cos(mid) * R * 0.62,
+        cy + Math.sin(mid) * R * 0.62,
+      );
     }
     startAngle = endAngle;
   });
 
-  // Donut hole
   const hole = R * 0.42;
   ctx.beginPath();
   ctx.arc(cx, cy, hole, 0, Math.PI * 2);
   ctx.fillStyle = HEX.white;
   ctx.fill();
   ctx.fillStyle = HEX.ink;
-  ctx.font = `600 12px ${FONT_SERIF}`;
+  ctx.font = `600 11px ${FONT_SERIF}`;
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText('Share', cx, cy - 6);
+  ctx.fillText('Share', cx, cy - 5);
   ctx.fillStyle = HEX.dusk;
-  ctx.font = `500 10px ${FONT_SANS}`;
-  ctx.fillText(`${fmtNum(total)} votes`, cx, cy + 10);
+  ctx.font = `500 9px ${FONT_SANS}`;
+  ctx.fillText(`${fmtNum(total)} votes`, cx, cy + 9);
 
-  const legendX = logicalW * 0.50;
-  const legendRight = logicalW - 18;
-  const rows = data.length;
-  const availH = logicalH - 78;
-  const rowH = Math.min(28, availH / Math.max(rows, 1));
-  let legendY = 78 + (availH - rowH * rows) / 2 + rowH / 2;
-  const thumb = Math.min(18, rowH - 6);
+  // Legend — fixed name column width for consistent truncation
+  const legendX = logicalW * 0.46;
+  const legendRight = logicalW - 16;
+  const nameColRight = legendRight - 58;
+  const rows = ordered.length;
+  const availH = logicalH - 66;
+  const rowH = Math.min(24, availH / Math.max(rows, 1));
+  let legendY = 66 + (availH - rowH * rows) / 2 + rowH / 2;
+  const thumb = Math.min(16, rowH - 5);
 
-  for (let i = 0; i < data.length; i += 1) {
-    const item = data[i];
+  for (let i = 0; i < ordered.length; i += 1) {
+    const item = ordered[i];
     const pct = ((item.votes / total) * 100).toFixed(1);
     const isWinner = isWinnerByRank(item.rank, winnerCount) && item.votes > 0;
 
     if (isWinner) {
       ctx.strokeStyle = HEX.gold;
-      ctx.lineWidth = 1.5;
-      roundRectPath(ctx, legendX - 6, legendY - rowH / 2 + 1, legendRight - legendX + 12, rowH - 2, 6);
+      ctx.lineWidth = 1.25;
+      roundRectPath(ctx, legendX - 4, legendY - rowH / 2 + 1, legendRight - legendX + 8, rowH - 2, 5);
       ctx.stroke();
     }
 
-    const thumbX = legendX;
-    const thumbY = legendY - thumb / 2;
     if (item.avatarDataUrl) {
       const img = await loadImageElement(item.avatarDataUrl);
-      if (img) {
-        ctx.drawImage(img, thumbX, thumbY, thumb, thumb);
-      }
+      if (img) ctx.drawImage(img, legendX, legendY - thumb / 2, thumb, thumb);
     } else {
       ctx.beginPath();
-      ctx.arc(thumbX + thumb / 2, legendY, thumb / 2, 0, Math.PI * 2);
+      ctx.arc(legendX + thumb / 2, legendY, thumb / 2, 0, Math.PI * 2);
       ctx.fillStyle = chartColorFor(item, i, winnerCount);
       ctx.fill();
     }
 
     ctx.fillStyle = HEX.ink;
-    ctx.font = `600 11px ${FONT_SANS}`;
+    ctx.font = `600 10px ${FONT_SANS}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(truncateChartLabel(item.name, labelMaxLen), legendX + thumb + 8, legendY);
+    ctx.fillText(
+      truncateChartLabel(item.name, PIE_LEGEND_NAME_LEN),
+      legendX + thumb + 6,
+      legendY,
+    );
+
+    // Clip overflow into the votes column visually by painting votes on top of a white wipe
+    ctx.fillStyle = HEX.white;
+    ctx.fillRect(nameColRight, legendY - rowH / 2 + 1, legendRight - nameColRight + 2, rowH - 2);
 
     ctx.fillStyle = HEX.dusk;
     ctx.font = `500 9px ${FONT_SANS}`;
@@ -543,128 +572,8 @@ async function renderPieChartImage(data, winnerCount, logicalW, logicalH, labelM
   return canvasToPng(canvas);
 }
 
-/** Guardian quorum visualization — filled/unfilled nodes echoing the app UI. */
-function renderGuardianQuorumImage(total, filled, threshold, logicalW, logicalH) {
-  const { canvas, ctx } = createHiDPICanvas(logicalW, logicalH, 3);
-  const n = Math.max(0, Number(total) || 0);
-  const k = Math.max(0, Number(threshold) || 0);
-  const filledCount = Math.min(n, Math.max(0, Number(filled) || 0));
-  const quorumMet = filledCount >= k && k > 0;
-
-  roundRectPath(ctx, 0, 0, logicalW, logicalH, 14);
-  ctx.fillStyle = HEX.paper;
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(139, 127, 232, 0.25)';
-  ctx.lineWidth = 1;
-  roundRectPath(ctx, 0.5, 0.5, logicalW - 1, logicalH - 1, 14);
-  ctx.stroke();
-
-  ctx.fillStyle = HEX.brandDark;
-  ctx.font = `600 10px ${FONT_SANS}`;
-  ctx.textAlign = 'left';
-  ctx.fillText('GUARDIAN QUORUM', 18, 22);
-  ctx.fillStyle = HEX.ink;
-  ctx.font = `600 15px ${FONT_SERIF}`;
-  ctx.fillText('Threshold key ceremony', 18, 40);
-
-  // Badges
-  const badgeY = 18;
-  roundRectPath(ctx, logicalW - 210, badgeY, 92, 22, 8);
-  ctx.fillStyle = HEX.brandSoft;
-  ctx.fill();
-  ctx.strokeStyle = 'rgba(139, 127, 232, 0.35)';
-  ctx.stroke();
-  ctx.fillStyle = HEX.brandDark;
-  ctx.font = `600 11px ${FONT_SANS}`;
-  ctx.textAlign = 'center';
-  ctx.fillText(`${k} of ${n} required`, logicalW - 164, badgeY + 15);
-
-  roundRectPath(ctx, logicalW - 108, badgeY, 90, 22, 8);
-  ctx.fillStyle = quorumMet ? 'rgba(63, 199, 184, 0.15)' : HEX.white;
-  ctx.fill();
-  ctx.strokeStyle = quorumMet ? 'rgba(63, 199, 184, 0.4)' : HEX.line;
-  ctx.stroke();
-  ctx.fillStyle = quorumMet ? '#2A9A8E' : HEX.dusk;
-  ctx.fillText(`${filledCount} of ${n} responded`, logicalW - 63, badgeY + 15);
-
-  const size = Math.min(logicalW * 0.55, logicalH - 70);
-  const cx = logicalW / 2;
-  const cy = 58 + (logicalH - 58) / 2;
-  const ringR = size * 0.28;
-  const nodeR = n > 8 ? 14 : 16;
-
-  ctx.beginPath();
-  ctx.setLineDash([4, 4]);
-  ctx.arc(cx, cy, ringR * 0.72, 0, Math.PI * 2);
-  ctx.strokeStyle = 'rgba(139, 127, 232, 0.3)';
-  ctx.lineWidth = 1.2;
-  ctx.stroke();
-  ctx.setLineDash([]);
-
-  const nodes = Array.from({ length: n }, (_, i) => ({
-    filled: i < filledCount,
-    angle: (i / Math.max(n, 1)) * Math.PI * 2 - Math.PI / 2,
-  }));
-
-  nodes.forEach((node) => {
-    if (!node.filled) return;
-    const x = cx + Math.cos(node.angle) * ringR * 1.55;
-    const y = cy + Math.sin(node.angle) * ringR * 1.55;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(cx, cy);
-    ctx.strokeStyle = quorumMet ? HEX.aurora : HEX.brand;
-    ctx.lineWidth = 1.25;
-    ctx.globalAlpha = 0.7;
-    ctx.stroke();
-    ctx.globalAlpha = 1;
-  });
-
-  // Center
-  ctx.beginPath();
-  ctx.arc(cx, cy, 34, 0, Math.PI * 2);
-  ctx.fillStyle = quorumMet ? 'rgba(63, 199, 184, 0.15)' : HEX.white;
-  ctx.fill();
-  ctx.strokeStyle = quorumMet ? 'rgba(63, 199, 184, 0.5)' : 'rgba(139, 127, 232, 0.35)';
-  ctx.lineWidth = 1.5;
-  ctx.stroke();
-  ctx.fillStyle = HEX.dusk;
-  ctx.font = `500 9px ${FONT_MONO}`;
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(quorumMet ? 'READY' : 'KEY', cx, cy - 8);
-  ctx.fillStyle = HEX.ink;
-  ctx.font = `600 13px ${FONT_SERIF}`;
-  ctx.fillText(`${filledCount}/${k || n}`, cx, cy + 8);
-
-  nodes.forEach((node, i) => {
-    const x = cx + Math.cos(node.angle) * ringR * 1.55;
-    const y = cy + Math.sin(node.angle) * ringR * 1.55;
-    ctx.beginPath();
-    ctx.arc(x, y, nodeR, 0, Math.PI * 2);
-    if (node.filled) {
-      ctx.fillStyle = HEX.brandDark;
-      ctx.fill();
-      ctx.strokeStyle = HEX.brand;
-    } else {
-      ctx.fillStyle = HEX.white;
-      ctx.fill();
-      ctx.strokeStyle = 'rgba(139, 127, 232, 0.35)';
-    }
-    ctx.lineWidth = 1.5;
-    ctx.stroke();
-    ctx.fillStyle = node.filled ? HEX.paper : HEX.dusk;
-    ctx.font = `600 9px ${FONT_SANS}`;
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(`G${i + 1}`, x, y + 0.5);
-  });
-
-  return canvasToPng(canvas);
-}
-
 /* ------------------------------------------------------------------ *
- * PDF layout primitives — flowing cursor
+ * PDF layout primitives
  * ------------------------------------------------------------------ */
 
 function setColor(doc, kind, rgb) {
@@ -689,406 +598,376 @@ function ensureSpace(flow, needed, continuedTitle) {
   flow.doc.addPage();
   flow.y = drawRunningHeader(flow.doc, flow.pageWidth, flow.pageTitle);
   if (continuedTitle) {
-    flow.y = drawSectionHeader(flow.doc, MARGIN, flow.y + 2, `${continuedTitle} (continued)`, null);
+    flow.y = drawSectionHeader(flow.doc, MARGIN, flow.y + 1, `${continuedTitle} (continued)`, null);
   }
 }
 
 function drawRunningHeader(doc, pageWidth, title) {
   setColor(doc, 'text', C.brandDark);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8.5);
-  doc.text('AMARVOTE', MARGIN, 14);
+  doc.setFontSize(8);
+  doc.text('AMARVOTE', MARGIN, 12);
 
   setColor(doc, 'text', C.dusk);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(8);
-  doc.text(title, pageWidth - MARGIN, 14, { align: 'right' });
+  doc.setFontSize(7.5);
+  doc.text(title, pageWidth - MARGIN, 12, { align: 'right' });
 
   setColor(doc, 'draw', C.brand);
-  doc.setLineWidth(0.6);
-  doc.line(MARGIN, 17, MARGIN + 18, 17);
+  doc.setLineWidth(0.55);
+  doc.line(MARGIN, 14.5, MARGIN + 16, 14.5);
   setColor(doc, 'draw', C.line);
   doc.setLineWidth(0.2);
-  doc.line(MARGIN + 20, 17, pageWidth - MARGIN, 17);
+  doc.line(MARGIN + 18, 14.5, pageWidth - MARGIN, 14.5);
 
-  return 26;
+  return 22;
 }
 
 function drawSectionHeader(doc, x, y, title, subtitle) {
   setColor(doc, 'fill', C.brand);
-  doc.roundedRect(x, y - 4, 3.2, 9, 1.2, 1.2, 'F');
+  doc.roundedRect(x, y - 3.5, 2.8, 8, 1, 1, 'F');
 
   setColor(doc, 'text', C.ink);
   doc.setFont('times', 'bold');
-  doc.setFontSize(15);
-  doc.text(title, x + 7, y + 3);
-  let next = y + 8;
+  doc.setFontSize(12);
+  doc.text(title, x + 6, y + 2.5);
+  let next = y + 6.5;
   if (subtitle) {
     setColor(doc, 'text', C.dusk);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8.5);
-    doc.text(subtitle, x + 7, next + 2.5);
-    next += 6;
+    doc.setFontSize(7.5);
+    doc.text(subtitle, x + 6, next + 1.5);
+    next += 5;
   }
-  return next + 4;
+  return next + 2;
 }
 
-/** Wrap display title: set font size first, then split — never truncate. */
-function wrapDisplayTitle(doc, title, maxWidth, startSize = 26, minSize = 14) {
+function wrapDisplayTitle(doc, title, maxWidth, startSize = 28, minSize = 14) {
   let size = startSize;
   doc.setFont('times', 'bold');
   doc.setFontSize(size);
   let lines = doc.splitTextToSize(String(title || 'Untitled Election'), maxWidth);
-  while (lines.length > 4 && size > minSize) {
+  while (lines.length > 3 && size > minSize) {
     size -= 1;
     doc.setFontSize(size);
     lines = doc.splitTextToSize(String(title || 'Untitled Election'), maxWidth);
   }
-  // Prefer slightly smaller type over more than 5 lines of display text.
-  while (lines.length > 5 && size > 11) {
+  while (lines.length > 4 && size > 11) {
     size -= 1;
     doc.setFontSize(size);
     lines = doc.splitTextToSize(String(title || 'Untitled Election'), maxWidth);
   }
-  return { lines, size, height: lines.length * size * 0.42 };
+  return { lines, size, height: lines.length * size * 0.4 };
 }
 
 /* ------------------------------------------------------------------ *
- * Cover page
+ * Compact stat bar (replaces tall cards)
  * ------------------------------------------------------------------ */
 
-function drawCoverPage(doc, pageWidth, pageHeight, contentWidth, opts) {
+function drawCompactStatBar(doc, contentWidth, y, stats) {
+  const h = 14;
+  setColor(doc, 'fill', C.surface);
+  setColor(doc, 'draw', C.line);
+  doc.setLineWidth(0.25);
+  doc.roundedRect(MARGIN, y, contentWidth, h, 2, 2, 'FD');
+
+  setColor(doc, 'fill', C.brand);
+  doc.roundedRect(MARGIN, y, 1.8, h, 0.8, 0.8, 'F');
+
+  const slotW = contentWidth / stats.length;
+  stats.forEach((stat, i) => {
+    const x = MARGIN + i * slotW;
+    if (i > 0) {
+      setColor(doc, 'draw', C.line);
+      doc.setLineWidth(0.2);
+      doc.line(x, y + 2.5, x, y + h - 2.5);
+    }
+    setColor(doc, 'text', C.dusk);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5.5);
+    doc.text(stat.label, x + 4, y + 5);
+    setColor(doc, 'text', C.ink);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(10);
+    doc.text(String(stat.value), x + 4, y + 11);
+  });
+  return y + h + 5;
+}
+
+/* ------------------------------------------------------------------ *
+ * Page 1 — Cover + configuration + guardians (merged, dense)
+ * ------------------------------------------------------------------ */
+
+function drawCoverAndConfigPage(doc, pageWidth, pageHeight, contentWidth, opts) {
   const {
-    electionData, processedResults, ranked,
+    electionData, electionId, processedResults, ranked,
     winnerCount, formatGeneratedAt,
   } = opts;
 
-  const headerH = 42;
+  const headerH = 34;
   const headerImg = renderHeaderBand(pageWidth * 2, headerH * 2);
   doc.addImage(headerImg, 'PNG', 0, 0, pageWidth, headerH, undefined, 'FAST');
 
   setColor(doc, 'text', C.white);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(11);
-  doc.text('AmarVote', MARGIN, 16);
+  doc.setFontSize(10);
+  doc.text('AmarVote', MARGIN, 13);
 
   setColor(doc, 'text', [199, 196, 232]);
   doc.setFont('helvetica', 'normal');
-  doc.setFontSize(7.5);
-  doc.text('SECURE · VERIFIABLE · END-TO-END ENCRYPTED', MARGIN, 22);
+  doc.setFontSize(6.5);
+  doc.text('SECURE · VERIFIABLE · END-TO-END ENCRYPTED', MARGIN, 18.5);
 
   setColor(doc, 'text', C.lavender);
   doc.setFont('courier', 'normal');
-  doc.setFontSize(7);
-  doc.text(`Generated ${formatGeneratedAt || '—'}`, pageWidth - MARGIN, 16, { align: 'right' });
+  doc.setFontSize(6.5);
+  doc.text(`Generated ${formatGeneratedAt || '—'}`, pageWidth - MARGIN, 13, { align: 'right' });
 
   setColor(doc, 'text', [196, 190, 240]);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(8);
-  doc.text('OFFICIAL ELECTION RESULTS', MARGIN, 34);
+  doc.setFontSize(7);
+  doc.text('OFFICIAL ELECTION RESULTS', MARGIN, 28);
 
-  // Title on ivory — full wrap, never truncated
-  let y = headerH + 14;
+  // Headline title — commanding weight + air
+  let y = headerH + 10;
   const title = electionData?.electionTitle || 'Untitled Election';
-  const wrapped = wrapDisplayTitle(doc, title, contentWidth, 26, 13);
+  const wrapped = wrapDisplayTitle(doc, title, contentWidth, 28, 14);
   setColor(doc, 'text', C.deep);
   doc.setFont('times', 'bold');
   doc.setFontSize(wrapped.size);
   wrapped.lines.forEach((line) => {
     doc.text(line, MARGIN, y);
-    y += wrapped.size * 0.42;
+    y += wrapped.size * 0.4;
   });
-  y += 6;
+  y += 7;
 
-  // Description — atomic wrap, push if needed
   const description = electionData?.electionDescription;
   if (description && String(description).trim()) {
-    setColor(doc, 'text', C.dusk);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(7.5);
-    doc.text('ABOUT THIS ELECTION', MARGIN, y);
-    y += 5;
     setColor(doc, 'text', C.ink);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9.5);
-    const descLines = doc.splitTextToSize(String(description).trim(), contentWidth);
-    const maxDesc = Math.min(descLines.length, 6);
-    const descBlockH = maxDesc * 4.6 + 8;
-    if (y + descBlockH > pageHeight - FOOTER_RESERVE - 80) {
-      // leave room for winners + metrics; clip description rather than overflow
-    }
-    const shown = descLines.slice(0, maxDesc);
-    doc.text(shown, MARGIN, y);
-    y += shown.length * 4.6 + 8;
+    doc.setFontSize(8.5);
+    const descLines = doc.splitTextToSize(String(description).trim(), contentWidth).slice(0, 3);
+    doc.text(descLines, MARGIN, y);
+    y += descLines.length * 3.8 + 5;
   }
 
   y = drawWinnerSpotlight(doc, pageWidth, pageHeight, contentWidth, y, ranked, winnerCount);
 
-  y += 4;
-  const metricsH = 32;
-  if (y + metricsH > pageHeight - FOOTER_RESERVE) {
-    doc.addPage();
-    y = drawRunningHeader(doc, pageWidth, 'Official Election Results');
-  }
-  drawMetricCards(doc, contentWidth, y, [
-    { label: 'ELIGIBLE VOTERS', value: fmtNum(processedResults.totalEligibleVoters) },
-    { label: 'VOTERS WHO VOTED', value: fmtNum(processedResults.totalVotedUsers ?? 0) },
-    { label: 'VOTER TURNOUT', value: `${processedResults.turnoutRate ?? 0}%` },
+  y = drawCompactStatBar(doc, contentWidth, y, [
+    { label: 'ELIGIBLE', value: fmtNum(processedResults.totalEligibleVoters) },
+    { label: 'VOTED', value: fmtNum(processedResults.totalVotedUsers ?? 0) },
+    { label: 'TURNOUT', value: `${processedResults.turnoutRate ?? 0}%` },
     { label: 'CANDIDATES', value: String(ranked.length) },
   ]);
-}
 
-function drawWinnerSpotlight(doc, pageWidth, pageHeight, contentWidth, y, ranked, winnerCount) {
-  const winners = ranked.filter((r) => isWinnerByRank(r.rank, winnerCount) && r.votes > 0);
-
-  // Pre-measure single-winner name wrap so the panel grows instead of truncating.
-  let singleNameWrap = null;
-  if (winners.length === 1) {
-    const nameMaxW = contentWidth - WINNER_IMG_MM - 55;
-    singleNameWrap = wrapDisplayTitle(doc, winners[0].name, nameMaxW, 18, 11);
-  }
-
-  // Multi-winner rows: measure wrapped names so long names push the panel down.
-  const multiRows = winners.length > 1
-    ? winners.map((w) => {
-      doc.setFont('times', 'bold');
-      doc.setFontSize(10);
-      const nameMax = contentWidth - 72 - 9;
-      const lines = doc.splitTextToSize(w.name, nameMax);
-      return { winner: w, lines, rowH: Math.max(12, 6 + lines.length * 4) };
-    })
-    : [];
-
-  let panelH;
-  if (winners.length === 0) {
-    panelH = 28;
-  } else if (winners.length === 1) {
-    const nameBlock = Math.max(WINNER_IMG_MM, singleNameWrap.height + 4);
-    panelH = 14 + nameBlock;
-  } else {
-    panelH = 14 + multiRows.reduce((sum, r) => sum + r.rowH, 0);
-  }
-
-  if (y + panelH > pageHeight - FOOTER_RESERVE - 36) {
-    doc.addPage();
-    y = drawRunningHeader(doc, pageWidth, 'Official Election Results');
-  }
-
-  // Ivory panel with gold thin border — never gold fill behind light text
-  setColor(doc, 'fill', C.paper);
-  setColor(doc, 'draw', C.gold);
-  doc.setLineWidth(0.7);
-  doc.roundedRect(MARGIN, y, contentWidth, panelH, 3.2, 3.2, 'FD');
-
-  setColor(doc, 'text', C.ink);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7.5);
-  doc.text(
-    winnerCount > 1 ? `DECLARED WINNERS · TOP ${winnerCount}` : 'DECLARED WINNER',
-    MARGIN + 7,
-    y + 8,
-  );
-
-  const badgeW = 22;
-  setColor(doc, 'fill', C.white);
-  setColor(doc, 'draw', C.gold);
-  doc.setLineWidth(0.5);
-  doc.roundedRect(pageWidth - MARGIN - badgeW - 7, y + 4, badgeW, 6.5, 2, 2, 'FD');
-  setColor(doc, 'text', C.ink);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.5);
-  doc.text('CERTIFIED', pageWidth - MARGIN - badgeW / 2 - 7, y + 8.5, { align: 'center' });
-
-  if (winners.length === 0) {
-    setColor(doc, 'text', C.dusk);
-    doc.setFont('helvetica', 'italic');
-    doc.setFontSize(11);
-    doc.text('No winner declared — no votes were recorded.', MARGIN + 7, y + 20);
-    return y + panelH + 6;
-  }
-
-  if (winners.length === 1) {
-    const w = winners[0];
-    const imageSize = WINNER_IMG_MM;
-    const imgX = MARGIN + 7;
-    const imgY = y + 11;
-    drawPng(doc, w.avatarDataUrl, imgX, imgY, imageSize);
-
-    const textX = imgX + imageSize + 5;
-    setColor(doc, 'text', C.ink);
-    doc.setFont('times', 'bold');
-    doc.setFontSize(singleNameWrap.size);
-    let ny = y + 18;
-    singleNameWrap.lines.forEach((line) => {
-      doc.text(line, textX, ny);
-      ny += singleNameWrap.size * 0.42;
-    });
-
-    setColor(doc, 'text', C.ink);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(18);
-    doc.text(`${fmtNum(w.votes)}`, pageWidth - MARGIN - 7, y + 18, { align: 'right' });
-    setColor(doc, 'text', C.dusk);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(8);
-    doc.text(`votes · ${w.percentage}% share`, pageWidth - MARGIN - 7, y + 25, { align: 'right' });
-    return y + panelH + 6;
-  }
-
-  let ly = y + 16;
-  multiRows.forEach(({ winner: w, lines, rowH }) => {
-    const imageSize = 9;
-    drawPng(doc, w.avatarDataUrl, MARGIN + 7, ly - 5, imageSize);
-
-    setColor(doc, 'text', C.brandDark);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(8.5);
-    doc.text(formatOrdinal(w.rank), MARGIN + 7 + imageSize + 3, ly);
-
-    setColor(doc, 'text', C.ink);
-    doc.setFont('times', 'bold');
-    doc.setFontSize(10);
-    doc.text(lines, MARGIN + 7 + imageSize + 16, ly);
-
-    setColor(doc, 'text', C.dusk);
-    doc.setFont('helvetica', 'normal');
-    doc.setFontSize(9);
-    doc.text(`${fmtNum(w.votes)} votes · ${w.percentage}%`, pageWidth - MARGIN - 7, ly, { align: 'right' });
-    ly += rowH;
-  });
-  return y + panelH + 6;
-}
-
-function drawMetricCards(doc, contentWidth, y, stats) {
-  const gap = 5;
-  const cardW = (contentWidth - gap * (stats.length - 1)) / stats.length;
-  const cardH = 28;
-  stats.forEach((stat, i) => {
-    const x = MARGIN + i * (cardW + gap);
-    setColor(doc, 'fill', C.white);
-    setColor(doc, 'draw', C.line);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(x, y, cardW, cardH, 3, 3, 'FD');
-
-    setColor(doc, 'fill', C.brand);
-    doc.roundedRect(x, y, 2.2, cardH, 1, 1, 'F');
-
-    setColor(doc, 'text', C.dusk);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.2);
-    doc.text(stat.label, x + 6, y + 8);
-
-    setColor(doc, 'text', C.ink);
-    doc.setFont('helvetica', 'bold');
-    doc.setFontSize(16);
-    doc.text(String(stat.value), x + 6, y + 21);
-  });
-  return y + cardH + 8;
-}
-
-/* ------------------------------------------------------------------ *
- * Election overview page
- * ------------------------------------------------------------------ */
-
-function drawOverviewPage(doc, pageWidth, pageHeight, contentWidth, opts) {
-  const { electionData, electionId, processedResults, winnerCount } = opts;
-  const flow = createFlow(doc, pageWidth, pageHeight);
-  flow.y = drawRunningHeader(doc, pageWidth, 'Official Election Results');
-  flow.y = drawSectionHeader(doc, MARGIN, flow.y + 2, 'Election Configuration', 'Metadata, voting window, and eligibility');
-
-  const cfg = [
-    ['Election ID', String(electionId)],
-    ['Status', opts.statusLabel || electionData?.status || '—'],
-    ['Max choices per voter', String(electionData?.maxChoices || 1)],
-    ['Winners declared', `Top ${winnerCount}`],
-    ['Voting eligibility', electionData?.eligibility === 'listed' ? 'Listed voters only' : 'Open to anyone'],
-    ['Total candidates', String((electionData?.electionChoices || []).length || processedResults.chartData.length)],
-    ['Voting opens', fmtDate(opts.formatStartTime || electionData?.startingTime)],
-    ['Voting closes', fmtDate(opts.formatEndTime || electionData?.endingTime)],
-  ];
-  flow.y = drawKeyValueGrid(doc, contentWidth, flow.y, cfg, electionId);
-
-  flow.y += 6;
-  ensureSpace(flow, 90, 'Guardians & Threshold Security');
-  flow.y = drawSectionHeader(doc, MARGIN, flow.y, 'Guardians & Threshold Security',
-    'Results require a quorum of guardians to jointly decrypt the tally');
+  // —— Configuration (same page) ——
+  y = drawSectionHeader(doc, MARGIN, y + 1, 'Election Configuration', null);
 
   const totalGuardians = electionData?.numberOfGuardians || electionData?.totalGuardians
     || (electionData?.guardians?.length ?? 0);
   const quorum = electionData?.electionQuorum || 0;
   const submitted = electionData?.guardiansSubmitted ?? totalGuardians;
 
-  flow.y = drawMetricCards(doc, contentWidth, flow.y, [
-    { label: 'GUARDIANS', value: String(totalGuardians) },
-    { label: 'QUORUM REQUIRED', value: String(quorum) },
-    { label: 'SUBMITTED KEYS', value: String(submitted) },
-  ]);
-
-  // Quorum visualization — atomic block
-  if (totalGuardians > 0) {
-    const qW = contentWidth;
-    const qH = Math.min(78, 48 + totalGuardians * 2);
-    ensureSpace(flow, qH + 6, 'Guardians & Threshold Security');
-    const qImg = renderGuardianQuorumImage(totalGuardians, submitted, quorum, qW * 3.2, qH * 3.2);
-    doc.addImage(qImg, 'PNG', MARGIN, flow.y, qW, qH, undefined, 'FAST');
-    flow.y += qH + 8;
-  }
+  const cfg = [
+    ['Election ID', String(electionId)],
+    ['Status', opts.statusLabel || electionData?.status || '—'],
+    ['Max choices', String(electionData?.maxChoices || 1)],
+    ['Winners', `Top ${winnerCount}`],
+    ['Eligibility', electionData?.eligibility === 'listed' ? 'Listed only' : 'Open'],
+    ['Opens', fmtDate(opts.formatStartTime || electionData?.startingTime)],
+    ['Closes', fmtDate(opts.formatEndTime || electionData?.endingTime)],
+    ['Guardians', `${totalGuardians} · quorum ${quorum} · ${submitted} submitted`],
+  ];
+  y = drawKeyValueGrid(doc, contentWidth, y, cfg, electionId);
 
   const guardians = electionData?.guardians || [];
   if (guardians.length > 0) {
-    ensureSpace(flow, 30, 'Guardians & Threshold Security');
-    drawGuardianTable(doc, contentWidth, flow.y, guardians);
+    const tableH = estimateGuardianTableHeight(guardians.length);
+    if (y + tableH > pageHeight - FOOTER_RESERVE) {
+      doc.addPage();
+      y = drawRunningHeader(doc, pageWidth, 'Official Election Results');
+      y = drawSectionHeader(doc, MARGIN, y + 1, 'Appointed Guardians', null);
+    } else {
+      setColor(doc, 'text', C.dusk);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(6.5);
+      doc.text('APPOINTED GUARDIANS', MARGIN, y + 2);
+      y += 5;
+    }
+    y = drawGuardianTable(doc, contentWidth, y, guardians);
   }
+
+  return y;
+}
+
+function drawWinnerSpotlight(doc, pageWidth, pageHeight, contentWidth, y, ranked, winnerCount) {
+  const winners = withTieFlags(
+    ranked.filter((r) => isWinnerByRank(r.rank, winnerCount) && r.votes > 0),
+  );
+
+  let singleNameWrap = null;
+  if (winners.length === 1) {
+    singleNameWrap = wrapDisplayTitle(doc, winners[0].name, contentWidth - WINNER_IMG_MM - 50, 16, 11);
+  }
+
+  const multiRows = winners.length > 1
+    ? winners.map((w) => {
+      const nameSize = nameFontSizeForRank(w.rank, 10);
+      doc.setFont('times', 'bold');
+      doc.setFontSize(nameSize);
+      const nameMax = contentWidth - 78 - 9;
+      const lines = doc.splitTextToSize(w.name, nameMax);
+      const rowH = Math.max(11, 5 + lines.length * (nameSize * 0.38) + (w.isTied ? 3 : 0));
+      return { winner: w, lines, nameSize, rowH };
+    })
+    : [];
+
+  let panelH;
+  if (winners.length === 0) panelH = 22;
+  else if (winners.length === 1) panelH = 12 + Math.max(WINNER_IMG_MM, singleNameWrap.height + 2);
+  else panelH = 12 + multiRows.reduce((sum, r) => sum + r.rowH, 0);
+
+  if (y + panelH > pageHeight - FOOTER_RESERVE - 40) {
+    doc.addPage();
+    y = drawRunningHeader(doc, pageWidth, 'Official Election Results');
+  }
+
+  setColor(doc, 'fill', C.paper);
+  setColor(doc, 'draw', C.gold);
+  doc.setLineWidth(0.65);
+  doc.roundedRect(MARGIN, y, contentWidth, panelH, 2.8, 2.8, 'FD');
+
+  // Heading + CERTIFIED as one unit (badge immediately after label)
+  const heading = winnerCount > 1 ? `DECLARED WINNERS · TOP ${winnerCount}` : 'DECLARED WINNER';
+  setColor(doc, 'text', C.ink);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(7);
+  doc.text(heading, MARGIN + 6, y + 7);
+  const headingW = doc.getTextWidth(heading);
+
+  const badgeW = 18;
+  const badgeX = MARGIN + 6 + headingW + 3;
+  setColor(doc, 'fill', C.white);
+  setColor(doc, 'draw', C.gold);
+  doc.setLineWidth(0.45);
+  doc.roundedRect(badgeX, y + 3.2, badgeW, 5.5, 1.5, 1.5, 'FD');
+  setColor(doc, 'text', C.ink);
+  doc.setFontSize(5.5);
+  doc.text('CERTIFIED', badgeX + badgeW / 2, y + 7, { align: 'center' });
+
+  if (winners.length === 0) {
+    setColor(doc, 'text', C.dusk);
+    doc.setFont('helvetica', 'italic');
+    doc.setFontSize(9);
+    doc.text('No winner declared — no votes were recorded.', MARGIN + 6, y + 16);
+    return y + panelH + 4;
+  }
+
+  if (winners.length === 1) {
+    const w = winners[0];
+    drawPng(doc, w.avatarDataUrl, MARGIN + 6, y + 10, WINNER_IMG_MM);
+    const textX = MARGIN + 6 + WINNER_IMG_MM + 4;
+    setColor(doc, 'text', C.ink);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(singleNameWrap.size);
+    let ny = y + 16;
+    singleNameWrap.lines.forEach((line) => {
+      doc.text(line, textX, ny);
+      ny += singleNameWrap.size * 0.4;
+    });
+
+    setColor(doc, 'text', C.ink);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(16);
+    doc.text(`${fmtNum(w.votes)}`, pageWidth - MARGIN - 6, y + 16, { align: 'right' });
+    setColor(doc, 'text', C.dusk);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(7);
+    doc.text(`votes · ${w.percentage}%`, pageWidth - MARGIN - 6, y + 22, { align: 'right' });
+    return y + panelH + 4;
+  }
+
+  let ly = y + 14;
+  multiRows.forEach(({ winner: w, lines, nameSize, rowH }) => {
+    drawPng(doc, w.avatarDataUrl, MARGIN + 6, ly - 4.5, 8);
+
+    // Rank carries hierarchy — larger than any status pill
+    const rankLabel = formatOrdinal(w.rank);
+    setColor(doc, 'text', C.deep);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(w.rank === 1 ? 11 : w.rank === 2 ? 10 : 9);
+    doc.text(rankLabel, MARGIN + 17, ly);
+
+    let nameX = MARGIN + 17 + doc.getTextWidth(rankLabel) + 3;
+    if (w.isTied) {
+      setColor(doc, 'fill', C.white);
+      setColor(doc, 'draw', C.dusk);
+      doc.setLineWidth(0.3);
+      doc.roundedRect(nameX, ly - 3.2, 12, 4.5, 1, 1, 'FD');
+      setColor(doc, 'text', C.dusk);
+      doc.setFont('helvetica', 'bold');
+      doc.setFontSize(5);
+      doc.text('TIED', nameX + 6, ly, { align: 'center' });
+      nameX += 14;
+    }
+
+    setColor(doc, 'text', C.ink);
+    doc.setFont('times', 'bold');
+    doc.setFontSize(nameSize);
+    doc.text(lines, nameX, ly);
+
+    setColor(doc, 'text', C.dusk);
+    doc.setFont('helvetica', 'normal');
+    doc.setFontSize(8);
+    doc.text(`${fmtNum(w.votes)} · ${w.percentage}%`, pageWidth - MARGIN - 6, ly, { align: 'right' });
+    ly += rowH;
+  });
+  return y + panelH + 4;
 }
 
 function drawKeyValueGrid(doc, contentWidth, y, pairs, electionId) {
-  const gap = 5;
+  const gap = 4;
   const colW = (contentWidth - gap) / 2;
-  const rowH = 15;
+  const rowH = 11;
   pairs.forEach((pair, i) => {
     const col = i % 2;
     const row = Math.floor(i / 2);
     const x = MARGIN + col * (colW + gap);
-    const cy = y + row * (rowH + 4);
+    const cy = y + row * (rowH + 2.5);
     const isId = pair[0] === 'Election ID';
 
     setColor(doc, 'fill', C.white);
     setColor(doc, 'draw', C.line);
-    doc.setLineWidth(0.3);
-    doc.roundedRect(x, cy, colW, rowH, 2.4, 2.4, 'FD');
+    doc.setLineWidth(0.25);
+    doc.roundedRect(x, cy, colW, rowH, 1.8, 1.8, 'FD');
 
     setColor(doc, 'text', C.dusk);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(6.5);
-    doc.text(String(pair[0]).toUpperCase(), x + 5, cy + 5.5);
+    doc.setFontSize(5.5);
+    doc.text(String(pair[0]).toUpperCase(), x + 3.5, cy + 4);
 
     if (isId) {
-      // Mono chip for election ID
       setColor(doc, 'fill', C.brandSoft);
-      doc.roundedRect(x + 4, cy + 7, Math.min(colW - 8, 48), 6, 1.5, 1.5, 'F');
+      doc.roundedRect(x + 3, cy + 5, Math.min(colW - 6, 40), 4.5, 1, 1, 'F');
       setColor(doc, 'text', C.brandDark);
       doc.setFont('courier', 'bold');
-      doc.setFontSize(8);
-      doc.text(String(electionId ?? pair[1]), x + 6, cy + 11.5);
+      doc.setFontSize(7);
+      doc.text(String(electionId ?? pair[1]), x + 4.5, cy + 8.5);
     } else {
       setColor(doc, 'text', C.ink);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(9.5);
-      const val = doc.splitTextToSize(String(pair[1] ?? '—'), colW - 10)[0];
-      doc.text(val, x + 5, cy + 11.5);
+      doc.setFontSize(8);
+      doc.text(doc.splitTextToSize(String(pair[1] ?? '—'), colW - 7)[0], x + 3.5, cy + 8.5);
     }
   });
-  const rows = Math.ceil(pairs.length / 2);
-  return y + rows * (rowH + 4) + 2;
+  return y + Math.ceil(pairs.length / 2) * (rowH + 2.5) + 2;
+}
+
+function estimateGuardianTableHeight(count) {
+  return 5 + 7 + (count + 1) * 7;
 }
 
 function drawGuardianTable(doc, contentWidth, y, guardians) {
-  setColor(doc, 'text', C.dusk);
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(7);
-  doc.text('APPOINTED GUARDIANS', MARGIN, y + 2);
-  y += 5;
-
   doc.autoTable({
     startY: y,
     head: [['#', 'Guardian', 'Email']],
@@ -1097,14 +976,14 @@ function drawGuardianTable(doc, contentWidth, y, guardians) {
       g.userName || `Guardian ${i + 1}`,
       g.userEmail || 'No email available',
     ]),
-    showHead: 'everyPage',
+    showHead: 'firstPage',
     rowPageBreak: 'avoid',
     theme: 'grid',
     styles: {
-      fontSize: 8.5,
-      cellPadding: { top: 2.4, right: 4, bottom: 2.4, left: 4 },
+      fontSize: 7.5,
+      cellPadding: { top: 1.6, right: 3, bottom: 1.6, left: 3 },
       lineColor: C.line,
-      lineWidth: 0.15,
+      lineWidth: 0.12,
       textColor: C.ink,
       valign: 'middle',
     },
@@ -1113,18 +992,18 @@ function drawGuardianTable(doc, contentWidth, y, guardians) {
       fillColor: C.brandSoft,
       textColor: C.brandDark,
       fontStyle: 'bold',
-      fontSize: 7.5,
+      fontSize: 6.5,
       lineColor: C.line,
-      lineWidth: 0.15,
+      lineWidth: 0.12,
     },
     columnStyles: {
-      0: { cellWidth: 12, halign: 'center', textColor: C.dusk },
-      1: { cellWidth: contentWidth * 0.42, fontStyle: 'bold', textColor: C.ink },
-      2: { cellWidth: contentWidth * 0.42, textColor: C.dusk, font: 'courier', fontSize: 7.5 },
+      0: { cellWidth: 10, halign: 'center', textColor: C.dusk },
+      1: { cellWidth: contentWidth * 0.4, fontStyle: 'bold', textColor: C.ink },
+      2: { cellWidth: contentWidth * 0.48, textColor: C.dusk, font: 'courier', fontSize: 7 },
     },
     margin: { left: MARGIN, right: MARGIN, bottom: FOOTER_RESERVE },
   });
-  return (doc.lastAutoTable?.finalY ?? y) + 4;
+  return (doc.lastAutoTable?.finalY ?? y) + 3;
 }
 
 /* ------------------------------------------------------------------ *
@@ -1133,124 +1012,159 @@ function drawGuardianTable(doc, contentWidth, y, guardians) {
 
 function placeChart(flow, dataUrl, logicalW, logicalH, width, continuedTitle) {
   const height = width * (logicalH / logicalW);
-  ensureSpace(flow, height + 4, continuedTitle);
+  ensureSpace(flow, height + 3, continuedTitle);
   flow.doc.addImage(dataUrl, 'PNG', MARGIN, flow.y, width, height, undefined, 'FAST');
-  flow.y += height + 8;
+  flow.y += height + 5;
 }
 
 async function drawAnalyticsPage(doc, pageWidth, pageHeight, contentWidth, ranked, winnerCount) {
+  const ordered = ensureRankOrder(ranked);
   const flow = createFlow(doc, pageWidth, pageHeight);
   flow.pageTitle = 'Visual Analytics';
   flow.y = drawRunningHeader(doc, pageWidth, 'Official Election Results');
-  flow.y = drawSectionHeader(doc, MARGIN, flow.y + 2, 'Visual Analytics',
-    'Violet primary · teal secondary · gold reserved for winners');
+  flow.y = drawSectionHeader(doc, MARGIN, flow.y + 1, 'Visual Analytics',
+    'Bar, pie, and legend share one rank order');
 
-  const n = ranked.length;
-  const colLogicalW = Math.min(920, Math.max(660, 120 + n * 44));
-  const colLogicalH = 460;
-  const colImg = renderColumnChartImage(ranked, winnerCount, colLogicalW, colLogicalH);
+  const n = ordered.length;
+  // Compact charts so both typically fit on one page for ~7 candidates
+  const colLogicalW = Math.min(880, Math.max(600, 100 + n * 40));
+  const colLogicalH = 300;
+  const colImg = renderColumnChartImage(ordered, winnerCount, colLogicalW, colLogicalH);
   placeChart(flow, colImg, colLogicalW, colLogicalH, contentWidth, 'Visual Analytics');
 
-  const pieLogicalW = 640;
-  const pieLogicalH = Math.min(460, Math.max(250, 110 + n * 24));
-  const pieImg = await renderPieChartImage(ranked, winnerCount, pieLogicalW, pieLogicalH);
+  const pieLogicalW = 620;
+  const pieLogicalH = Math.min(300, Math.max(200, 90 + n * 20));
+  const pieImg = await renderPieChartImage(ordered, winnerCount, pieLogicalW, pieLogicalH);
   placeChart(flow, pieImg, pieLogicalW, pieLogicalH, contentWidth, 'Visual Analytics');
 }
 
 /* ------------------------------------------------------------------ *
- * Detailed ledger
+ * Standings ledger
  * ------------------------------------------------------------------ */
 
 function estimateCandidateCellHeight(doc, row, colWidth) {
-  const textOffset = CANDIDATE_IMG_MM + 4;
-  const innerW = colWidth - 8 - textOffset;
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(9.5);
+  const textOffset = CANDIDATE_IMG_MM + 3;
+  const innerW = colWidth - 7 - textOffset;
+  const nameSize = nameFontSizeForRank(row.rank, 9.5);
+  doc.setFont('times', 'bold');
+  doc.setFontSize(nameSize);
   const nameLines = doc.splitTextToSize(row.name || '', innerW);
-  let height = 5 + nameLines.length * 4;
+  let height = 4 + nameLines.length * (nameSize * 0.4);
+  if (row.isTied) height += 3;
   if (row.description) {
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     const descLines = doc.splitTextToSize(row.description, innerW);
-    height += 2 + descLines.length * 3.2;
+    height += 1.5 + descLines.length * 2.8;
   }
-  return Math.max(CANDIDATE_IMG_MM + 6, height + 5);
+  return Math.max(CANDIDATE_IMG_MM + 5, height + 4);
 }
 
 function drawCandidateCell(doc, cell, row) {
   const { x, y, width } = cell;
-  const padX = 3;
+  const padX = 2.5;
   const imageSize = CANDIDATE_IMG_MM;
-  const imageY = y + Math.max(2, (cell.height - imageSize) / 2);
-  drawPng(doc, row.avatarDataUrl, x + padX, imageY, imageSize);
+  drawPng(doc, row.avatarDataUrl, x + padX, y + Math.max(2, (cell.height - imageSize) / 2), imageSize);
 
-  const textX = x + padX + imageSize + 3;
-  let cursorY = y + 5.5;
+  const textX = x + padX + imageSize + 2.5;
+  let cursorY = y + 5;
+  const nameSize = nameFontSizeForRank(row.rank, 9.5);
 
   doc.setFont('times', 'bold');
-  doc.setFontSize(10);
+  doc.setFontSize(nameSize);
   setColor(doc, 'text', C.ink);
   const nameLines = doc.splitTextToSize(row.name || '', width - (textX - x) - padX);
   doc.text(nameLines, textX, cursorY);
-  cursorY += nameLines.length * 4 + 1;
+  cursorY += nameLines.length * (nameSize * 0.4) + 0.5;
+
+  if (row.isTied) {
+    setColor(doc, 'fill', C.white);
+    setColor(doc, 'draw', C.dusk);
+    doc.setLineWidth(0.3);
+    doc.roundedRect(textX, cursorY - 2.2, 11, 4, 1, 1, 'FD');
+    setColor(doc, 'text', C.dusk);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5);
+    doc.text('TIED', textX + 5.5, cursorY + 0.5, { align: 'center' });
+    cursorY += 4.5;
+  }
 
   if (row.description) {
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(7);
+    doc.setFontSize(6.5);
     setColor(doc, 'text', C.dusk);
-    const descLines = doc.splitTextToSize(row.description, width - (textX - x) - padX);
-    doc.text(descLines, textX, cursorY);
+    doc.text(doc.splitTextToSize(row.description, width - (textX - x) - padX), textX, cursorY);
   }
 }
 
 function drawShareBar(doc, cell, pct, isWinner) {
   const { x, y, width, height } = cell;
-  const barW = width - 8;
-  const barX = x + 4;
-  const barY = y + height - 6;
+  const barW = width - 7;
+  const barX = x + 3.5;
+  const barY = y + height - 5;
   setColor(doc, 'fill', C.lineSoft);
-  doc.roundedRect(barX, barY, barW, 2.2, 1.1, 1.1, 'F');
+  doc.roundedRect(barX, barY, barW, 1.8, 0.9, 0.9, 'F');
   const fillW = Math.max((Number(pct) / 100) * barW, 0);
   if (fillW > 0) {
     setColor(doc, 'fill', isWinner ? C.gold : C.brand);
-    doc.roundedRect(barX, barY, fillW, 2.2, 1.1, 1.1, 'F');
+    doc.roundedRect(barX, barY, fillW, 1.8, 0.9, 0.9, 'F');
   }
 }
 
-/** Gold-border winner pill — dark ink text, never light-on-gold. */
+/** Subtle status chip — rank remains the primary signal. */
 function drawWinnerPill(doc, x, y, w, h) {
-  const pillW = 22;
-  const pillH = 7;
+  const pillW = 18;
+  const pillH = 5.5;
   const px = x + (w - pillW) / 2;
   const py = y + (h - pillH) / 2;
   setColor(doc, 'fill', C.white);
   setColor(doc, 'draw', C.gold);
-  doc.setLineWidth(0.55);
-  doc.roundedRect(px, py, pillW, pillH, 2.5, 2.5, 'FD');
-  setColor(doc, 'text', C.ink);
+  doc.setLineWidth(0.4);
+  doc.roundedRect(px, py, pillW, pillH, 1.8, 1.8, 'FD');
+  setColor(doc, 'text', C.dusk);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(6.5);
-  doc.text('WINNER', px + pillW / 2, py + 4.8, { align: 'center' });
+  doc.setFontSize(5.5);
+  doc.text('WINNER', px + pillW / 2, py + 3.8, { align: 'center' });
+}
+
+function drawRankCell(doc, cell, row) {
+  const { x, y, width, height } = cell;
+  const cx = x + width / 2;
+  const cy = y + height / 2;
+  const size = row.rank === 1 ? 12 : row.rank === 2 ? 10.5 : 9;
+
+  setColor(doc, 'text', C.deep);
+  doc.setFont('helvetica', 'bold');
+  doc.setFontSize(size);
+  doc.text(formatOrdinal(row.rank), cx, cy + (row.isTied ? -1.5 : 1), { align: 'center' });
+
+  if (row.isTied) {
+    setColor(doc, 'text', C.dusk);
+    doc.setFont('helvetica', 'bold');
+    doc.setFontSize(5);
+    doc.text('TIED', cx, cy + 4.5, { align: 'center' });
+  }
 }
 
 function drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked, winnerCount) {
+  const ordered = withTieFlags(ensureRankOrder(enrichedRanked));
   let y = drawRunningHeader(doc, pageWidth, 'Official Election Results');
-  y = drawSectionHeader(doc, MARGIN, y + 2, 'Full Standings Ledger',
-    `Every candidate · photo · votes · share · ${enrichedRanked.length} entries`);
+  y = drawSectionHeader(doc, MARGIN, y + 1, 'Full Standings Ledger',
+    `${ordered.length} candidates · competition ranking`);
 
-  const colRank = contentWidth * 0.09;
-  const colCandidate = contentWidth * 0.52;
+  const colRank = contentWidth * 0.10;
+  const colCandidate = contentWidth * 0.50;
   const colVotes = contentWidth * 0.13;
   const colShare = contentWidth * 0.14;
-  const colStatus = contentWidth * 0.12;
+  const colStatus = contentWidth * 0.13;
 
   let ledgerPage = 0;
 
   doc.autoTable({
     startY: y,
     head: [['Rank', 'Candidate', 'Votes', 'Share', 'Status']],
-    body: enrichedRanked.map((row) => [
-      formatOrdinal(row.rank),
+    body: ordered.map((row) => [
+      '',
       '',
       fmtNum(row.votes),
       `${row.percentage}%`,
@@ -1259,11 +1173,11 @@ function drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked
     showHead: 'everyPage',
     rowPageBreak: 'avoid',
     styles: {
-      fontSize: 9,
-      cellPadding: { top: 3, right: 4, bottom: 3, left: 4 },
+      fontSize: 8.5,
+      cellPadding: { top: 2.5, right: 3, bottom: 2.5, left: 3 },
       overflow: 'linebreak',
       lineColor: C.line,
-      lineWidth: 0.15,
+      lineWidth: 0.12,
       textColor: C.ink,
       valign: 'middle',
     },
@@ -1273,7 +1187,7 @@ function drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked
       textColor: 255,
       fontStyle: 'bold',
       halign: 'left',
-      fontSize: 8.5,
+      fontSize: 7.5,
     },
     columnStyles: {
       0: { cellWidth: colRank, halign: 'center' },
@@ -1282,55 +1196,45 @@ function drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked
       3: { cellWidth: colShare, halign: 'right' },
       4: { cellWidth: colStatus, halign: 'center' },
     },
-    margin: { left: MARGIN, right: MARGIN, top: 30, bottom: FOOTER_RESERVE },
+    margin: { left: MARGIN, right: MARGIN, top: 26, bottom: FOOTER_RESERVE },
     didDrawPage: () => {
       ledgerPage += 1;
       if (ledgerPage === 1) return;
       drawRunningHeader(doc, pageWidth, 'Official Election Results');
       setColor(doc, 'text', C.ink);
       doc.setFont('times', 'bold');
-      doc.setFontSize(11);
-      doc.text('Full Standings Ledger', MARGIN, 24);
+      doc.setFontSize(10);
+      doc.text('Full Standings Ledger', MARGIN, 21);
       setColor(doc, 'text', C.dusk);
       doc.setFont('helvetica', 'normal');
-      doc.setFontSize(8);
-      doc.text('(continued)', MARGIN + 48, 24);
+      doc.setFontSize(7);
+      doc.text('(continued)', MARGIN + 44, 21);
     },
     didParseCell: (data) => {
-      const row = enrichedRanked[data.row.index];
+      const row = ordered[data.row.index];
       if (data.section !== 'body' || !row) return;
-      const winner = isWinnerByRank(row.rank, winnerCount) && row.votes > 0;
+      if (data.column.index === 0 || data.column.index === 1) data.cell.text = '';
+      if (data.column.index === 3 || data.column.index === 4) data.cell.text = '';
       if (data.column.index === 1) {
-        data.cell.text = '';
         data.cell.styles.minCellHeight = estimateCandidateCellHeight(doc, row, colCandidate);
-      }
-      if (data.column.index === 3 || data.column.index === 4) {
-        data.cell.text = '';
-      }
-      if (winner && data.column.index === 0) {
-        data.cell.styles.textColor = C.ink;
-        data.cell.styles.fontStyle = 'bold';
       }
     },
     didDrawCell: (data) => {
-      const row = enrichedRanked[data.row.index];
+      const row = ordered[data.row.index];
       if (data.section !== 'body' || !row) return;
       const winner = isWinnerByRank(row.rank, winnerCount) && row.votes > 0;
 
-      // Gold left-border accent on winner rows (not a gold fill)
       if (winner && data.column.index === 0) {
         setColor(doc, 'fill', C.gold);
-        doc.rect(data.cell.x, data.cell.y, 1.4, data.cell.height, 'F');
+        doc.rect(data.cell.x, data.cell.y, 1.2, data.cell.height, 'F');
       }
-
-      if (data.column.index === 1) {
-        drawCandidateCell(doc, data.cell, row);
-      }
+      if (data.column.index === 0) drawRankCell(doc, data.cell, row);
+      if (data.column.index === 1) drawCandidateCell(doc, data.cell, row);
       if (data.column.index === 3) {
         setColor(doc, 'text', C.ink);
         doc.setFont('helvetica', 'bold');
-        doc.setFontSize(9);
-        doc.text(`${row.percentage}%`, data.cell.x + data.cell.width - 4, data.cell.y + 6, { align: 'right' });
+        doc.setFontSize(8.5);
+        doc.text(`${row.percentage}%`, data.cell.x + data.cell.width - 3.5, data.cell.y + 5.5, { align: 'right' });
         drawShareBar(doc, data.cell, row.percentage, winner);
       }
       if (data.column.index === 4 && data.cell.raw === '__WINNER__') {
@@ -1341,7 +1245,7 @@ function drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked
 }
 
 /* ------------------------------------------------------------------ *
- * Footer
+ * Footer & entry
  * ------------------------------------------------------------------ */
 
 function addCertifiedFooter(doc, pageWidth, pageHeight) {
@@ -1350,19 +1254,15 @@ function addCertifiedFooter(doc, pageWidth, pageHeight) {
     doc.setPage(i);
     setColor(doc, 'draw', C.line);
     doc.setLineWidth(0.2);
-    doc.line(MARGIN, pageHeight - 12, pageWidth - MARGIN, pageHeight - 12);
+    doc.line(MARGIN, pageHeight - 10, pageWidth - MARGIN, pageHeight - 10);
 
     setColor(doc, 'text', C.dusk);
     doc.setFont('helvetica', 'normal');
-    doc.setFontSize(6.5);
-    doc.text('AmarVote · Certified Ledger', MARGIN, pageHeight - 7);
-    doc.text(`Page ${i} of ${pages}`, pageWidth - MARGIN, pageHeight - 7, { align: 'right' });
+    doc.setFontSize(6);
+    doc.text('AmarVote · Certified Ledger', MARGIN, pageHeight - 6);
+    doc.text(`Page ${i} of ${pages}`, pageWidth - MARGIN, pageHeight - 6, { align: 'right' });
   }
 }
-
-/* ------------------------------------------------------------------ *
- * Entry point
- * ------------------------------------------------------------------ */
 
 export async function generateElectionResultsPdf({
   electionData,
@@ -1375,7 +1275,11 @@ export async function generateElectionResultsPdf({
   formatEndTime = null,
   statusLabel = null,
 }) {
-  const enrichedRanked = await attachCandidateImageData(enrichRankedWithMeta(ranked, electionData));
+  const enrichedRanked = withTieFlags(
+    ensureRankOrder(
+      await attachCandidateImageData(enrichRankedWithMeta(ranked, electionData)),
+    ),
+  );
 
   const doc = new jsPDF({
     orientation: 'portrait',
@@ -1393,14 +1297,14 @@ export async function generateElectionResultsPdf({
     statusLabel,
   };
 
-  drawCoverPage(doc, pageWidth, pageHeight, contentWidth, opts);
+  // Page 1 — cover + config + guardians (merged)
+  drawCoverAndConfigPage(doc, pageWidth, pageHeight, contentWidth, opts);
 
-  doc.addPage();
-  drawOverviewPage(doc, pageWidth, pageHeight, contentWidth, opts);
-
+  // Page 2 — analytics
   doc.addPage();
   await drawAnalyticsPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked, winnerCount);
 
+  // Page 3+ — ledger
   doc.addPage();
   drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked, winnerCount);
 
