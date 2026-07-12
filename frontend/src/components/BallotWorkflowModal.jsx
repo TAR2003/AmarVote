@@ -16,6 +16,7 @@ import {
   FiChevronDown,
 } from 'react-icons/fi';
 import { VOTER_STATUS_COPY } from '../utils/voterMessages';
+import CandidateIdentity from './CandidateIdentity';
 
 const HOLD_MS = 1800;
 
@@ -201,13 +202,13 @@ function EncryptionMorph({ selectionLabels, encryptedBallotData, phase }) {
   if (preferReduced) {
     return (
       <div className="space-y-3" aria-live="polite">
-        <div className="rounded-xl border border-white/10 bg-ink/60 p-3">
-          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-muted">
+        <div className="rounded-xl border border-ink/10 bg-frost p-3">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-dusk">
             Selections
           </p>
           <ul className="mt-2 space-y-1">
             {labels.map((label) => (
-              <li key={label} className="font-display text-sm text-paper">
+              <li key={label} className="font-display text-sm text-ink">
                 {label}
               </li>
             ))}
@@ -222,7 +223,7 @@ function EncryptionMorph({ selectionLabels, encryptedBallotData, phase }) {
           </div>
         )}
         {!ready && (
-          <p className="text-sm text-paper-muted">
+          <p className="text-sm text-dusk">
             Your selections are being encrypted under the election public key by ElectionGuard…
           </p>
         )}
@@ -233,18 +234,18 @@ function EncryptionMorph({ selectionLabels, encryptedBallotData, phase }) {
   return (
     <div className="relative min-h-[7.5rem]" aria-live="polite">
       <div
-        className={`rounded-xl border border-white/10 bg-ink/60 p-3 transition-opacity duration-700 ${
+        className={`rounded-xl border border-ink/10 bg-frost p-3 transition-opacity duration-700 ${
           ready ? 'pointer-events-none absolute inset-0 opacity-0' : 'opacity-100'
         }`}
       >
-        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-paper-muted">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-dusk">
           Selections
         </p>
         <ul className="mt-2 space-y-1">
           {labels.map((label) => (
             <li
               key={label}
-              className={`font-display text-sm text-paper ${
+              className={`font-display text-sm text-ink ${
                 phase === 'creating' ? 'animate-cipher-dissolve' : ''
               }`}
             >
@@ -253,7 +254,7 @@ function EncryptionMorph({ selectionLabels, encryptedBallotData, phase }) {
           ))}
         </ul>
         {phase === 'creating' && (
-          <p className="mt-3 text-xs text-paper-muted">
+          <p className="mt-3 text-xs text-dusk">
             Encrypting under the election public key via ElectionGuard…
           </p>
         )}
@@ -294,7 +295,7 @@ function BenalohLearnMore() {
         />
       </button>
       {open && (
-        <div id={panelId} className="border-t border-aurora/15 px-3 py-2.5 text-xs leading-relaxed text-paper-muted">
+        <div id={panelId} className="border-t border-aurora/15 px-3 py-2.5 text-xs leading-relaxed text-dusk">
           A challenge reveals the encryption randomness for this specific ballot so you can confirm
           the ciphertext matches your selections. That ballot is then spoiled (discarded) and cannot
           be cast — you encrypt again to vote for real. This is a cast-or-spoil proof: the system
@@ -391,7 +392,7 @@ const BallotWorkflowModal = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center bg-deep/75 p-0 backdrop-blur-[8px] sm:items-center sm:p-4"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-deep/60 p-0 backdrop-blur-[8px] sm:items-center sm:p-4"
       onClick={handleBackdropClick}
       role="dialog"
       aria-modal="true"
@@ -399,7 +400,7 @@ const BallotWorkflowModal = ({
       aria-describedby="ballot-workflow-status"
     >
       <div
-        className="modal-surface max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl p-4 sm:rounded-2xl sm:p-6"
+        className="glass-panel max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-3xl p-4 shadow-lift sm:rounded-2xl sm:p-6"
         onClick={(e) => e.stopPropagation()}
       >
         <p id="ballot-workflow-status" className="sr-only" aria-live="polite">
@@ -413,7 +414,7 @@ const BallotWorkflowModal = ({
             </p>
             <h3
               id="ballot-workflow-title"
-              className="mt-1 font-display text-lg font-semibold text-paper sm:text-xl"
+              className="mt-1 font-display text-lg font-semibold text-ink sm:text-xl"
             >
               {modalTitle}
             </h3>
@@ -422,7 +423,7 @@ const BallotWorkflowModal = ({
             <button
               type="button"
               onClick={handleCloseClick}
-              className="shrink-0 rounded-xl p-1.5 text-paper-muted transition hover:bg-paper/5 hover:text-paper"
+              className="shrink-0 rounded-xl p-1.5 text-dusk transition hover:bg-frost hover:text-ink"
               aria-label="Close"
             >
               <FiX className="h-5 w-5 sm:h-6 sm:w-6" />
@@ -438,7 +439,7 @@ const BallotWorkflowModal = ({
               encryptedBallotData={null}
               phase={phase}
             />
-            <div className="flex items-center justify-center gap-2 text-paper-muted">
+            <div className="flex items-center justify-center gap-2 text-dusk">
               <FiLoader className="h-5 w-5 animate-spin text-aurora" aria-hidden />
               <p className="text-sm">{VOTER_STATUS_COPY.createBallotLoading}</p>
             </div>
@@ -450,11 +451,11 @@ const BallotWorkflowModal = ({
           <div className="space-y-4">
             <div className="rounded-xl border border-ember/40 bg-ember/10 p-4 text-center">
               <FiAlertCircle className="mx-auto mb-3 h-10 w-10 text-ember" aria-hidden />
-              <p className="text-sm text-paper">
+              <p className="text-sm text-ink">
                 {createBallotError || VOTER_STATUS_COPY.unexpected}
               </p>
             </div>
-            <button type="button" onClick={onClose} className="btn-ghost-light w-full">
+            <button type="button" onClick={onClose} className="btn-ghost w-full">
               Close
             </button>
           </div>
@@ -469,7 +470,7 @@ const BallotWorkflowModal = ({
               phase={phase}
             />
 
-            <p className="text-sm leading-relaxed text-paper-muted">
+            <p className="text-sm leading-relaxed text-dusk">
               Prove it&apos;s honest, then vote for real — or cast this ballot as your final vote.
               Challenge reveals encryption randomness for verification; that ballot is then spoiled
               and you encrypt again.
@@ -477,8 +478,8 @@ const BallotWorkflowModal = ({
 
             <BenalohLearnMore />
 
-            <div className="rounded-xl border border-white/10 bg-ink/50 p-3">
-              <h4 className="mb-2 flex items-center text-sm font-semibold text-paper">
+            <div className="rounded-xl border border-ink/10 bg-frost/80 p-3">
+              <h4 className="mb-2 flex items-center text-sm font-semibold text-ink">
                 <FiDownload className="mr-2 h-4 w-4 text-brand" aria-hidden />
                 Cryptographic artifacts
               </h4>
@@ -506,7 +507,7 @@ const BallotWorkflowModal = ({
                       'Encrypted Ballot with Nonce'
                     )
                   }
-                  className="flex items-center justify-center rounded-lg border border-white/10 bg-paper/5 p-2 text-xs font-medium text-paper hover:bg-paper/10"
+                  className="flex items-center justify-center rounded-lg border border-ink/10 bg-frost p-2 text-xs font-medium text-ink hover:bg-glacier"
                 >
                   <FiKey className="mr-1.5 h-4 w-4" aria-hidden />
                   With nonce
@@ -514,7 +515,7 @@ const BallotWorkflowModal = ({
                 <button
                   type="button"
                   onClick={onDownloadBallotInfo}
-                  className="flex items-center justify-center rounded-lg border border-white/10 bg-paper/5 p-2 text-xs font-medium text-paper-muted hover:bg-paper/10"
+                  className="flex items-center justify-center rounded-lg border border-ink/10 bg-frost p-2 text-xs font-medium text-dusk hover:bg-glacier"
                 >
                   <FiInfo className="mr-1.5 h-4 w-4" aria-hidden />
                   Info
@@ -523,7 +524,7 @@ const BallotWorkflowModal = ({
             </div>
 
             {castBallotError && (
-              <div className="rounded-lg border border-ember/40 bg-ember/10 p-3 text-sm text-paper">
+              <div className="rounded-lg border border-ember/40 bg-ember/10 p-3 text-sm text-ink">
                 {castBallotError}
               </div>
             )}
@@ -541,14 +542,14 @@ const BallotWorkflowModal = ({
               <button
                 type="button"
                 onClick={onDiscard}
-                className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-white/15 px-4 py-2.5 text-sm font-medium text-paper-muted transition hover:border-white/25 hover:text-paper"
+                className="btn-ghost w-full py-2.5"
               >
                 <FiTrash2 className="h-4 w-4" aria-hidden />
                 Discard ballot
               </button>
             </div>
 
-            <p className="text-center text-xs text-paper-muted">
+            <p className="text-center text-xs text-dusk">
               {VOTER_STATUS_COPY.ballotActionsInfo}
             </p>
           </div>
@@ -557,7 +558,7 @@ const BallotWorkflowModal = ({
         {/* Challenge candidate pick */}
         {phase === 'challenge-pick' && electionData?.electionChoices && (
           <div className="space-y-4">
-            <p className="text-sm leading-relaxed text-paper-muted">
+            <p className="text-sm leading-relaxed text-dusk">
               Re-select the candidate(s) you chose. The system opens this ballot&apos;s encryption
               randomness so you can confirm the ciphertext matches — then this ballot is spoiled.
             </p>
@@ -572,10 +573,10 @@ const BallotWorkflowModal = ({
                     key={choice.choiceId}
                     className={`flex cursor-pointer items-center rounded-lg border-2 p-3 transition-all ${
                       isDisabled
-                        ? 'cursor-not-allowed border-white/10 opacity-50'
+                        ? 'cursor-not-allowed border-ink/10 opacity-50'
                         : isChecked
                           ? 'border-brand bg-brand/10 ring-1 ring-brand/40'
-                          : 'border-white/10 hover:border-brand/40'
+                          : 'border-ink/10 hover:border-brand/40'
                     }`}
                     onClick={() => !isDisabled && onChallengeCandidateToggle(idStr)}
                   >
@@ -586,16 +587,24 @@ const BallotWorkflowModal = ({
                       onChange={() => {}}
                       className="pointer-events-none mr-3"
                     />
-                    <span className="font-display text-sm font-medium text-paper">
-                      {choice.optionTitle}
-                    </span>
+                    <div className="min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
+                      <CandidateIdentity
+                        name={choice.optionTitle}
+                        image={choice.candidatePic}
+                        description={choice.optionDescription}
+                        partyName={choice.partyName}
+                        size="sm"
+                        enableProfile
+                        nameClassName="font-display text-sm font-medium text-ink"
+                      />
+                    </div>
                   </div>
                 );
               })}
             </div>
 
-            <div className="rounded-lg border border-brand/30 bg-brand/10 p-3 text-xs text-dusk-soft">
-              <strong className="text-brand">Important:</strong> After challenging, this ballot
+            <div className="rounded-lg border border-brand/30 bg-brand/10 p-3 text-xs text-dusk">
+              <strong className="text-brand-dark">Important:</strong> After challenging, this ballot
               cannot be cast. Challenge verifies honesty only — then encrypt again to vote for real.
             </div>
 
@@ -605,7 +614,7 @@ const BallotWorkflowModal = ({
               <button
                 type="button"
                 onClick={onClose}
-                className="flex-1 rounded-xl border border-white/15 py-2.5 text-sm font-medium text-paper-muted hover:text-paper"
+                className="btn-ghost flex-1 py-2.5"
               >
                 Cancel
               </button>
@@ -613,11 +622,11 @@ const BallotWorkflowModal = ({
                 type="button"
                 onClick={onConfirmChallenge}
                 disabled={!challengeCandidateChoices.length}
-                className={`flex-1 rounded-xl py-2.5 text-sm font-semibold ${
+                className={
                   challengeCandidateChoices.length
-                    ? 'bg-aurora text-ink hover:brightness-105'
-                    : 'cursor-not-allowed bg-paper/10 text-paper-muted'
-                }`}
+                    ? 'btn-brand flex-1'
+                    : 'flex-1 cursor-not-allowed rounded-xl bg-frost py-2.5 text-sm font-semibold text-dusk'
+                }
               >
                 Challenge ballot
               </button>
@@ -629,7 +638,7 @@ const BallotWorkflowModal = ({
         {phase === 'challenging' && (
           <div className="space-y-4 py-6 text-center">
             <FiLoader className="mx-auto h-12 w-12 animate-spin text-aurora" aria-hidden />
-            <p className="text-sm text-paper-muted">{VOTER_STATUS_COPY.challengeBallotLoading}</p>
+            <p className="text-sm text-dusk">{VOTER_STATUS_COPY.challengeBallotLoading}</p>
           </div>
         )}
 
@@ -639,7 +648,7 @@ const BallotWorkflowModal = ({
             {challengeError ? (
               <div className="rounded-lg border border-ember/40 bg-ember/10 p-4 text-center">
                 <FiAlertCircle className="mx-auto mb-3 h-10 w-10 text-ember" aria-hidden />
-                <p className="text-sm text-paper">{challengeError}</p>
+                <p className="text-sm text-ink">{challengeError}</p>
               </div>
             ) : challengeResult ? (
               <div
@@ -669,14 +678,14 @@ const BallotWorkflowModal = ({
                     ? 'Encryption verified — ballot spoiled'
                     : 'Challenge verification failed'}
                 </h4>
-                <p className="text-sm text-paper-muted">{challengeResult.message}</p>
+                <p className="text-sm text-dusk">{challengeResult.message}</p>
                 {challengeResult.detailed_message && (
-                  <div className="mt-3 rounded-lg border border-white/10 bg-ink/60 p-3 text-left text-sm text-paper-muted">
+                  <div className="mt-3 rounded-lg border border-ink/10 bg-frost p-3 text-left text-sm text-dusk">
                     {challengeResult.detailed_message}
                   </div>
                 )}
                 {challengeResult.match && (
-                  <p className="mt-3 text-xs text-paper-muted">
+                  <p className="mt-3 text-xs text-dusk">
                     This ballot was discarded. Return to the booth and encrypt a new ballot to cast.
                   </p>
                 )}
@@ -686,7 +695,7 @@ const BallotWorkflowModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-xl border border-white/15 py-2.5 text-sm font-medium text-paper hover:bg-paper/5"
+              className="w-full rounded-xl border border-ink/15 py-2.5 text-sm font-medium text-ink hover:bg-frost"
             >
               Return to voting booth
             </button>
@@ -698,10 +707,10 @@ const BallotWorkflowModal = ({
           <div className="space-y-4">
             <div className="py-6 text-center">
               <FiLoader className="mx-auto mb-4 h-12 w-12 animate-spin text-brand" aria-hidden />
-              <p className="text-sm text-paper-muted">{VOTER_STATUS_COPY.castBallotLoading}</p>
+              <p className="text-sm text-dusk">{VOTER_STATUS_COPY.castBallotLoading}</p>
             </div>
             {castBallotError && (
-              <div className="rounded-lg border border-ember/40 bg-ember/10 p-3 text-sm text-paper">
+              <div className="rounded-lg border border-ember/40 bg-ember/10 p-3 text-sm text-ink">
                 {castBallotError}
               </div>
             )}
@@ -713,7 +722,7 @@ const BallotWorkflowModal = ({
           <div className="space-y-5">
             <div className="text-center">
               <FiCheckCircle className="mx-auto mb-3 h-12 w-12 text-aurora" aria-hidden />
-              <p className="text-sm leading-relaxed text-paper-muted">
+              <p className="text-sm leading-relaxed text-dusk">
                 This code lets you confirm your encrypted ballot is included in the tally, without
                 revealing your choice to anyone — including AmarVote.
               </p>
@@ -738,11 +747,11 @@ const BallotWorkflowModal = ({
               </div>
             </div>
 
-            <div className="rounded-xl border border-white/10 bg-ink/50 p-3">
+            <div className="rounded-xl border border-ink/10 bg-frost/80 p-3">
               <div className="flex items-center justify-between gap-2">
-                <span className="shrink-0 text-xs font-medium text-paper-muted">Vote hash</span>
+                <span className="shrink-0 text-xs font-medium text-dusk">Vote hash</span>
                 <div className="flex min-w-0 items-center gap-2">
-                  <span className="truncate font-mono text-xs text-paper-muted">
+                  <span className="truncate font-mono text-xs text-dusk">
                     {voteResult.hashCode}
                   </span>
                   <button
@@ -769,7 +778,7 @@ const BallotWorkflowModal = ({
               <button
                 type="button"
                 onClick={() => onSaveVoteDetails('json')}
-                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-white/15 bg-paper/5 px-4 py-2.5 text-sm font-semibold text-paper hover:bg-paper/10"
+                className="flex flex-1 items-center justify-center gap-2 rounded-xl border border-ink/15 bg-frost px-4 py-2.5 text-sm font-semibold text-ink hover:bg-glacier"
               >
                 <FiFileText className="h-4 w-4" aria-hidden />
                 Save JSON
@@ -779,7 +788,7 @@ const BallotWorkflowModal = ({
             <button
               type="button"
               onClick={onClose}
-              className="w-full rounded-xl border border-white/15 py-2.5 text-sm font-medium text-paper-muted hover:text-paper"
+              className="btn-ghost w-full py-2.5"
             >
               Return to voting booth
             </button>

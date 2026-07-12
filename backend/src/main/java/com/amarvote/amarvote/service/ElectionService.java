@@ -223,17 +223,28 @@ public class ElectionService {
 
         List<String> candidateNames = request.candidateNames();
         List<String> candidatePictures = request.candidatePictures();
+        List<String> candidateDescriptions = request.candidateDescriptions();
 
         for (int i = 0; i < candidateNames.size(); i++) {
             String candidateName = candidateNames.get(i);
             String partyName = String.valueOf(i + 1);
             String candidatePic = (candidatePictures != null && i < candidatePictures.size()) ? candidatePictures.get(i)
                     : null;
+            String optionDescription = null;
+            if (candidateDescriptions != null && i < candidateDescriptions.size()) {
+                String raw = candidateDescriptions.get(i);
+                if (raw != null) {
+                    String trimmed = raw.trim();
+                    if (!trimmed.isEmpty()) {
+                        optionDescription = trimmed;
+                    }
+                }
+            }
 
             ElectionChoice choice = ElectionChoice.builder()
                     .electionId(election.getElectionId())
                     .optionTitle(candidateName)
-                    .optionDescription(null) // or some logic to provide description
+                    .optionDescription(optionDescription)
                     .partyName(partyName)
                     .candidatePic(candidatePic)
                 .partyPic(null)

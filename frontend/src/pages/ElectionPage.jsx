@@ -65,14 +65,18 @@ import ErrorBoundary from '../components/ErrorBoundary';
 import GuardianDataDisplay from '../components/GuardianDataDisplay';
 import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
 import AnimatedResults from '../components/AnimatedResults';
+import CandidateIdentity from '../components/CandidateIdentity';
 import TruncatedCandidateName from '../components/TruncatedCandidateName';
-import CandidateThumbnail from '../components/CandidateThumbnail';
 import {
   buildCompetitionRankings,
   formatOrdinal,
+  getCandidateDescription,
   getCandidatePic,
   isWinnerByRank,
 } from '../utils/electionRankings';
+
+const findChoiceByName = (choices, name) =>
+  choices?.find((c) => c.optionTitle === name) || null;
 import { getVoterFriendlyError, getGuardianKeyFriendlyError } from '../utils/voterMessages';
 import { getAuthorizedUsersAccess } from '../utils/api';
 import TallyCreationModal from '../components/TallyCreationModal';
@@ -776,9 +780,16 @@ const ChunksTabContent = ({ electionId }) => {
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                     {Object.entries(chunk.candidateVotes || {}).map(([candidate, votes]) => (
                       <div key={candidate} className="bg-paper rounded-lg px-4 py-3 border border-ink/10 shadow-sm">
-                        <p className="text-xs text-dusk mb-1">Candidate</p>
-                        <p className="font-semibold text-deep truncate">{candidate}</p>
-                        <p className="text-2xl font-bold text-brand mt-1">{votes}</p>
+                        <CandidateIdentity
+                          name={candidate}
+                          image={getCandidatePic(electionData?.electionChoices, candidate)}
+                          description={getCandidateDescription(electionData?.electionChoices, candidate)}
+                          partyName={findChoiceByName(electionData?.electionChoices, candidate)?.partyName}
+                          size="sm"
+                          enableProfile
+                          nameClassName="font-semibold text-deep text-sm"
+                        />
+                        <p className="text-2xl font-bold text-brand mt-2">{votes}</p>
                       </div>
                     ))}
                   </div>
@@ -3661,16 +3672,17 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Candidates</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {electionData.electionChoices?.map((choice) => (
-                  <div key={choice.choiceId} className="border rounded-lg p-3 sm:p-4">
-                    <div className="flex items-center space-x-2 sm:space-x-3">
-                      {choice.candidatePic && (
-                        <img src={choice.candidatePic} alt={choice.optionTitle} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover flex-shrink-0" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <h4 className="font-medium text-deep text-sm sm:text-base truncate">{choice.optionTitle}</h4>
-                        <p className="text-xs sm:text-sm text-dusk line-clamp-2">{choice.optionDescription}</p>
-                      </div>
-                    </div>
+                  <div key={choice.choiceId} className="rounded-xl border border-ink/10 bg-frost/50 p-3 sm:p-4">
+                    <CandidateIdentity
+                      name={choice.optionTitle}
+                      image={choice.candidatePic}
+                      description={choice.optionDescription}
+                      partyName={choice.partyName}
+                      size="lg"
+                      enableProfile
+                      showInlineDescription
+                      nameClassName="font-display text-sm sm:text-base font-semibold text-deep"
+                    />
                   </div>
                 ))}
               </div>
@@ -4046,14 +4058,21 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                     aria-hidden
                                     className="pointer-events-none h-4 w-4 text-brand border-ink/10 rounded flex-shrink-0"
                                   />
-                                  <CandidateThumbnail
-                                    src={choice.candidatePic}
-                                    name={choice.optionTitle}
-                                    size="md"
-                                  />
-                                  <span className="text-sm sm:text-base text-deep leading-snug min-w-0 flex-1">
-                                    <TruncatedCandidateName name={choice.optionTitle} />
-                                  </span>
+                                  <div
+                                    className="min-w-0 flex-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                  >
+                                    <CandidateIdentity
+                                      name={choice.optionTitle}
+                                      image={choice.candidatePic}
+                                      description={choice.optionDescription}
+                                      partyName={choice.partyName}
+                                      size="md"
+                                      enableProfile
+                                      nameClassName="text-sm sm:text-base text-deep leading-snug"
+                                    />
+                                  </div>
                                 </div>
                               );
                             })}
@@ -4139,19 +4158,17 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         key={choice.choiceId}
                         className="flex items-center gap-3 rounded-2xl border border-brand/20 bg-glacier/60 px-3.5 py-3"
                       >
-                        <CandidateThumbnail
-                          src={choice.candidatePic}
-                          name={choice.optionTitle}
-                          size="md"
-                        />
-                        {!choice.candidatePic && (
-                          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-glow text-sm font-bold text-paper">
-                            {(choice.optionTitle || "?").charAt(0).toUpperCase()}
-                          </span>
-                        )}
-                        <span className="min-w-0 flex-1 font-display text-sm font-semibold text-deep sm:text-base">
-                          {choice.optionTitle}
-                        </span>
+                        <div className="min-w-0 flex-1">
+                          <CandidateIdentity
+                            name={choice.optionTitle}
+                            image={choice.candidatePic}
+                            description={choice.optionDescription}
+                            partyName={choice.partyName}
+                            size="md"
+                            enableProfile
+                            nameClassName="font-display text-sm font-semibold text-deep sm:text-base"
+                          />
+                        </div>
                         <FiCheckCircle className="h-5 w-5 shrink-0 text-brand" />
                       </li>
                     ))}
@@ -5265,17 +5282,15 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                       </span>
                                     </td>
                                     <td className={`p-3 font-medium min-w-0 ${isWinner ? 'text-ink' : 'text-deep'}`}>
-                                      <div className="flex items-center gap-3 min-w-0">
-                                        <CandidateThumbnail
-                                          src={getCandidatePic(electionData.electionChoices, candidate.name)}
-                                          name={candidate.name}
-                                          size="sm"
-                                        />
-                                        <div className="min-w-0">
-                                          <TruncatedCandidateName name={candidate.name} />
-                                          {isWinner && <span className="ml-2 text-xs font-bold text-ink">Winner</span>}
-                                        </div>
-                                      </div>
+                                      <CandidateIdentity
+                                        name={candidate.name}
+                                        image={getCandidatePic(electionData.electionChoices, candidate.name)}
+                                        description={getCandidateDescription(electionData.electionChoices, candidate.name)}
+                                        partyName={findChoiceByName(electionData.electionChoices, candidate.name)?.partyName}
+                                        size="sm"
+                                        enableProfile
+                                      />
+                                      {isWinner && <span className="mt-1 block text-xs font-bold text-ink">Winner</span>}
                                     </td>
                                     <td className="p-3 font-semibold text-deep">{candidate.votes}</td>
                                     <td className="p-3 text-deep">{candidate.percentage}%</td>
@@ -5324,16 +5339,15 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                       )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-3 min-w-0">
-                                        <CandidateThumbnail
-                                          src={getCandidatePic(electionData.electionChoices, candidate.name)}
-                                          name={candidate.name}
-                                          size="md"
-                                        />
-                                        <p className={`font-bold text-sm sm:text-base min-w-0 ${isWinner ? 'text-ink' : 'text-deep'}`}>
-                                          <TruncatedCandidateName name={candidate.name} />
-                                        </p>
-                                      </div>
+                                      <CandidateIdentity
+                                        name={candidate.name}
+                                        image={getCandidatePic(electionData.electionChoices, candidate.name)}
+                                        description={getCandidateDescription(electionData.electionChoices, candidate.name)}
+                                        partyName={findChoiceByName(electionData.electionChoices, candidate.name)?.partyName}
+                                        size="md"
+                                        enableProfile
+                                        nameClassName={`font-bold text-sm sm:text-base ${isWinner ? 'text-ink' : 'text-deep'}`}
+                                      />
                                       <div className="mt-1.5 w-full bg-paper/70 rounded-full h-1.5 overflow-hidden border border-white">
                                         <div
                                           className={`h-1.5 rounded-full bg-gradient-to-r ${style.bar} transition-all duration-1000`}
@@ -5429,9 +5443,19 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                                         return (
                                           <div key={candidate} className="space-y-1">
-                                            <div className="flex items-center justify-between text-sm">
-                                              <span className="font-medium text-ink truncate">{candidate}</span>
-                                              <span className="font-bold text-brand ml-2">{votes}</span>
+                                            <div className="flex items-center justify-between text-sm gap-2">
+                                              <div className="min-w-0 flex-1">
+                                                <CandidateIdentity
+                                                  name={candidate}
+                                                  image={getCandidatePic(electionData?.electionChoices, candidate)}
+                                                  description={getCandidateDescription(electionData?.electionChoices, candidate)}
+                                                  partyName={findChoiceByName(electionData?.electionChoices, candidate)?.partyName}
+                                                  size="sm"
+                                                  enableProfile
+                                                  nameClassName="font-medium text-ink text-sm"
+                                                />
+                                              </div>
+                                              <span className="font-bold text-brand ml-2 shrink-0">{votes}</span>
                                             </div>
                                             <div className="w-full bg-ink/10 rounded-full h-2 overflow-hidden">
                                               <div

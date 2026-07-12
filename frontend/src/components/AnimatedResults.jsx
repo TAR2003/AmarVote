@@ -1,16 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import TruncatedCandidateName from './TruncatedCandidateName';
-import CandidateThumbnail from './CandidateThumbnail';
+import CandidateIdentity from './CandidateIdentity';
 import {
   buildCompetitionRankings,
   formatOrdinal,
+  getCandidateDescription,
   getCandidatePic,
   getVoteCountFromTally,
   isWinnerByRank,
 } from '../utils/electionRankings';
 
-const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 1, votersWhoVoted = null }) => {
+const AnimatedResults = ({
+  electionResults,
+  electionChoices = [],
+  winnerCount = 1,
+  votersWhoVoted = null,
+}) => {
   const [animationStep, setAnimationStep] = useState(0);
   const [currentTotals, setCurrentTotals] = useState({});
   const [isAnimating, setIsAnimating] = useState(false);
@@ -123,24 +128,23 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
               }`}
             >
               <div className="flex items-start justify-between gap-2 mb-4">
-                <div className="min-w-0 flex-1 flex items-start gap-3">
-                  <CandidateThumbnail
-                    src={getCandidatePic(electionChoices, candidate.name)}
+                <div className="min-w-0 flex-1">
+                  <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${
+                    isWinner && !isAnimating ? 'text-ink' : 'text-dusk'
+                  }`}>
+                    {positionLabel}
+                  </p>
+                  <CandidateIdentity
                     name={candidate.name}
+                    image={getCandidatePic(electionChoices, candidate.name)}
+                    description={getCandidateDescription(electionChoices, candidate.name)}
+                    partyName={electionChoices.find((c) => c.optionTitle === candidate.name)?.partyName}
                     size="lg"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${
-                      isWinner && !isAnimating ? 'text-ink' : 'text-dusk'
-                    }`}>
-                      {positionLabel}
-                    </p>
-                    <h3 className={`text-lg font-bold leading-snug ${
+                    enableProfile
+                    nameClassName={`text-lg font-bold leading-snug ${
                       isWinner && !isAnimating ? 'text-ink' : 'text-ink'
-                    }`}>
-                      <TruncatedCandidateName name={candidate.name} />
-                    </h3>
-                  </div>
+                    }`}
+                  />
                 </div>
                 {isWinner && !isAnimating && (
                   <span className="flex flex-col items-center flex-shrink-0" title={`${positionLabel} place`}>

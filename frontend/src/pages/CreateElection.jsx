@@ -4,7 +4,8 @@ import { FiUpload, FiUser, FiArrowLeft, FiArrowRight, FiCheck } from "react-icon
 import { electionApi } from "../utils/electionApi";
 import { uploadCandidateImage } from "../utils/api";
 import { userApi } from "../utils/userApi";
-import ImageUpload from "../components/ImageUpload";
+import CandidatePhotoField from "../components/CandidatePhotoField";
+import TruncatedCandidateName from "../components/TruncatedCandidateName";
 import VoterListEditor from "../components/VoterListEditor";
 
 const WIZARD_STEPS = [
@@ -41,10 +42,12 @@ const CreateElection = () => {
         coAdminEmails: [],
         candidateNames: ["", ""],
         candidatePictures: ["", ""],
+        candidateDescriptions: ["", ""],
+        enableCandidateProfiles: false,
         totalCandidates: "2",
         maxChoices: "1",
         winnerNo: "1",
-        sendBallotReceipt: false
+        sendBallotReceipt: false,
     });
 
     // Track image URLs for preview
@@ -421,19 +424,23 @@ const CreateElection = () => {
         setForm((prev) => {
             const names = [...prev.candidateNames];
             const pictures = [...prev.candidatePictures];
+            const descriptions = [...(prev.candidateDescriptions || [])];
             while (names.length < n) {
                 names.push("");
                 pictures.push("");
+                descriptions.push("");
             }
             while (names.length > n) {
                 names.pop();
                 pictures.pop();
+                descriptions.pop();
             }
             return {
                 ...prev,
                 totalCandidates: rawCount === null || rawCount === undefined ? "" : String(rawCount),
                 candidateNames: names,
                 candidatePictures: pictures,
+                candidateDescriptions: descriptions,
             };
         });
         setCandidateImages((prev) => {
@@ -472,6 +479,7 @@ const CreateElection = () => {
                 ...prev,
                 candidateNames: uniqueNames,
                 candidatePictures: uniqueNames.map((_, i) => prev.candidatePictures[i] || ""),
+                candidateDescriptions: uniqueNames.map((_, i) => prev.candidateDescriptions?.[i] || ""),
             }));
             setSuccess(`Loaded ${uniqueNames.length} candidate name(s) from file.`);
             setTimeout(() => setSuccess(""), 4000);
@@ -484,21 +492,23 @@ const CreateElection = () => {
         setForm((prev) => {
             const names = prev.candidateNames.filter((_, i) => i !== index);
             const pictures = prev.candidatePictures.filter((_, i) => i !== index);
+            const descriptions = (prev.candidateDescriptions || []).filter((_, i) => i !== index);
             return {
                 ...prev,
                 totalCandidates: names.length === 0 ? "" : String(names.length),
                 candidateNames: names,
                 candidatePictures: pictures,
+                candidateDescriptions: descriptions,
             };
         });
         setCandidateImages((prev) => prev.filter((_, i) => i !== index));
     };
 
     const handleCandidateChange = (index, field, value) => {
-        setForm(prev => {
-            const updated = { ...prev };
-            updated[field][index] = value;
-            return updated;
+        setForm((prev) => {
+            const list = [...(prev[field] || [])];
+            list[index] = value;
+            return { ...prev, [field]: list };
         });
     };
 
@@ -743,12 +753,27 @@ const CreateElection = () => {
         setIsSubmitting(true);
 
         try {
+            const validIndexes = form.candidateNames
+                .map((name, index) => ({ name, index }))
+                .filter(({ name }) => name.trim() !== "")
+                .map(({ index }) => index);
+            const {
+                enableCandidateProfiles,
+                totalCandidates,
+                candidateDescriptions,
+                ...formRest
+            } = form;
             const electionData = {
-                ...form,
+                ...formRest,
+                candidateNames: validCandidateNames,
                 maxChoices: getMaxChoicesNumber(form.maxChoices),
                 winnerNo: getMaxChoicesNumber(form.winnerNo || form.maxChoices),
                 partyNames: validCandidateNames.map((_, index) => `${index + 1}`),
-                partyPictures: []
+                partyPictures: [],
+                candidatePictures: validIndexes.map((i) => form.candidatePictures[i] || ""),
+                candidateDescriptions: enableCandidateProfiles
+                    ? validIndexes.map((i) => (candidateDescriptions?.[i] || "").trim())
+                    : validIndexes.map(() => ""),
             };
 
             const response = await electionApi.createElection(electionData);
@@ -1296,6 +1321,32 @@ const CreateElection = () => {
                         </div>
                     </div>
 
+                    <div className="mb-4 rounded-xl border border-ink/10 bg-frost/70 p-4">
+                        <p className="section-kicker">Candidate information</p>
+                        <label className="mt-3 flex cursor-pointer items-start gap-3">
+                            <input
+                                type="checkbox"
+                                checked={form.enableCandidateProfiles}
+                                onChange={(e) =>
+                                    setForm((prev) => ({
+                                        ...prev,
+                                        enableCandidateProfiles: e.target.checked,
+                                    }))
+                                }
+                                className="mt-1 h-4 w-4 rounded border-ink/20 text-brand-dark focus:ring-brand/30"
+                            />
+                            <span>
+                                <span className="block text-sm font-semibold text-ink">
+                                    Enable candidate profiles
+                                </span>
+                                <span className="mt-0.5 block text-xs text-dusk">
+                                    When enabled, each candidate can include a description / manifesto
+                                    (paragraphs and line breaks are preserved). Photos stay available either way.
+                                </span>
+                            </span>
+                        </label>
+                    </div>
+
                     <div className="mb-4 flex flex-wrap items-center gap-2">
                         <button
                             type="button"
@@ -1320,48 +1371,91 @@ const CreateElection = () => {
                             const candidateValidation = getCandidateNameValidation(index, name);
                             const isNameBlank = !name || !name.trim();
                             return (
-                                <div key={index} className="flex items-start gap-3 rounded-xl border border-ink/10 bg-frost/60 p-3">
-                                    <span className="mt-3 w-6 text-xs font-semibold text-dusk">{index + 1}.</span>
-                                    <div className="flex-1 min-w-0">
-                                        <input
-                                            type="text"
-                                            value={name}
-                                            placeholder={`Candidate ${index + 1} name`}
-                                            onChange={(e) => handleCandidateChange(index, 'candidateNames', e.target.value)}
-                                            className={`input-field ${
-                                                !candidateValidation.isValid
-                                                    ? 'border-red-500 bg-ember-soft focus:ring-red-500'
-                                                    : isNameBlank
-                                                    ? 'border-red-500 bg-ember-soft focus:ring-red-500'
-                                                    : 'bg-paper'
-                                            }`}
-                                        />
-                                        {!candidateValidation.isValid && (
-                                            <p className="mt-1 text-xs text-ember">{candidateValidation.message}</p>
-                                        )}
-                                        {candidateValidation.isValid && isNameBlank && (
-                                            <p className="mt-1 text-xs text-ember">Candidate name is required</p>
+                                <div key={index} className="rounded-xl border border-ink/10 bg-frost/60 p-3 sm:p-4">
+                                    <div className="flex items-start gap-3">
+                                        <span className="mt-3 w-6 text-xs font-semibold text-dusk">{index + 1}.</span>
+                                        <div className="min-w-0 flex-1 space-y-3">
+                                            <input
+                                                type="text"
+                                                value={name}
+                                                placeholder={`Candidate ${index + 1} name`}
+                                                onChange={(e) => handleCandidateChange(index, 'candidateNames', e.target.value)}
+                                                className={`input-field ${
+                                                    !candidateValidation.isValid
+                                                        ? 'border-red-500 bg-ember-soft focus:ring-red-500'
+                                                        : isNameBlank
+                                                        ? 'border-red-500 bg-ember-soft focus:ring-red-500'
+                                                        : 'bg-paper'
+                                                }`}
+                                            />
+                                            {!candidateValidation.isValid && (
+                                                <p className="text-xs text-ember">{candidateValidation.message}</p>
+                                            )}
+                                            {candidateValidation.isValid && isNameBlank && (
+                                                <p className="text-xs text-ember">Candidate name is required</p>
+                                            )}
+
+                                            <div>
+                                                <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-dusk">
+                                                    Candidate image
+                                                </p>
+                                                <CandidatePhotoField
+                                                    imageUrl={candidateImages[index] || form.candidatePictures[index]}
+                                                    candidateName={name}
+                                                    onUpload={(file) => handleImageChange(index, file)}
+                                                    onRemove={() => {
+                                                        setCandidateImages((prev) => {
+                                                            const next = [...prev];
+                                                            next[index] = "";
+                                                            return next;
+                                                        });
+                                                        setForm((prev) => {
+                                                            const pics = [...prev.candidatePictures];
+                                                            pics[index] = "";
+                                                            return { ...prev, candidatePictures: pics };
+                                                        });
+                                                    }}
+                                                />
+                                            </div>
+
+                                            {form.enableCandidateProfiles && (
+                                                <div>
+                                                    <label
+                                                        htmlFor={`candidate-manifesto-${index}`}
+                                                        className="mb-2 block text-xs font-semibold uppercase tracking-wide text-dusk"
+                                                    >
+                                                        Description / Manifesto
+                                                    </label>
+                                                    <textarea
+                                                        id={`candidate-manifesto-${index}`}
+                                                        rows={4}
+                                                        value={form.candidateDescriptions?.[index] || ""}
+                                                        onChange={(e) =>
+                                                            handleCandidateChange(
+                                                                index,
+                                                                "candidateDescriptions",
+                                                                e.target.value
+                                                            )
+                                                        }
+                                                        placeholder="Optional bio or manifesto. Use line breaks and bullet-style lines as needed."
+                                                        className="input-field min-h-[6rem] resize-y whitespace-pre-wrap"
+                                                    />
+                                                    <p className="mt-1 text-xs text-dusk">
+                                                        Formatting tip: blank lines create paragraphs; start lines with • or - for bullets.
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
+                                        {form.candidateNames.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => removeCandidate(index)}
+                                                className="mt-1 min-h-9 shrink-0 rounded-lg px-2 text-xs font-semibold text-ember hover:bg-ember-soft hover:text-ember"
+                                            >
+                                                Remove
+                                            </button>
                                         )}
                                     </div>
-                                    <div className="flex-shrink-0 w-12">
-                                        <ImageUpload
-                                            currentImage={candidateImages[index]}
-                                            onImageUpload={(file) => handleImageChange(index, file)}
-                                            uploadType="candidate"
-                                            size="mini"
-                                            placeholder=""
-                                            iconOnly
-                                        />
-                                    </div>
-                                    {form.candidateNames.length > 0 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => removeCandidate(index)}
-                                            className="mt-1 min-h-9 rounded-lg px-2 text-xs font-semibold text-ember hover:bg-ember-soft hover:text-ember"
-                                        >
-                                            Remove
-                                        </button>
-                                    )}
                                 </div>
                             );
                         })}
@@ -1372,20 +1466,34 @@ const CreateElection = () => {
                             <h3 className="mb-3 text-sm font-semibold text-ink">Added candidates</h3>
                             <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                                 {form.candidateNames
-                                    .map((name, index) => ({ name, index, image: candidateImages[index] }))
+                                    .map((name, index) => ({
+                                        name,
+                                        index,
+                                        image: candidateImages[index] || form.candidatePictures[index],
+                                        description: form.enableCandidateProfiles
+                                            ? form.candidateDescriptions?.[index]
+                                            : "",
+                                    }))
                                     .filter((item) => item.name.trim())
                                     .map((item) => (
-                                        <div key={item.index} className="flex items-center gap-3 rounded-lg border border-white bg-paper px-3 py-2 shadow-sm">
+                                        <div key={item.index} className="flex items-start gap-3 rounded-lg border border-white bg-paper px-3 py-2 shadow-sm">
                                             {item.image ? (
-                                                <img src={item.image} alt={item.name} className="h-10 w-10 rounded-full object-cover" />
+                                                <img src={item.image} alt="" className="h-10 w-10 shrink-0 rounded-full object-cover" />
                                             ) : (
-                                                <div className="h-10 w-10 rounded-full bg-glacier text-brand-dark flex items-center justify-center">
+                                                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-glacier text-brand-dark">
                                                     <FiUser className="h-4 w-4" />
                                                 </div>
                                             )}
-                                            <div className="min-w-0">
-                                                <p className="text-sm font-medium text-ink truncate">{item.name}</p>
+                                            <div className="min-w-0 flex-1">
+                                                <p className="text-sm font-medium text-ink">
+                                                    <TruncatedCandidateName name={item.name} lines={1} />
+                                                </p>
                                                 <p className="text-xs text-dusk">Candidate {item.index + 1}</p>
+                                                {item.description?.trim() && (
+                                                    <p className="mt-1 line-clamp-2 whitespace-pre-line text-xs text-dusk">
+                                                        {item.description.trim()}
+                                                    </p>
+                                                )}
                                             </div>
                                         </div>
                                     ))}
@@ -1435,10 +1543,26 @@ const CreateElection = () => {
                         <div className="rounded-2xl border border-ink/10 bg-frost/70 p-4">
                             <p className="section-kicker">Candidates</p>
                             <p className="mt-1 text-ink">Max choices {form.maxChoices} · winners {form.winnerNo}</p>
-                            <ol className="mt-2 list-inside list-decimal space-y-1 text-ink">
-                                {form.candidateNames.filter((n) => n.trim()).map((name) => (
-                                    <li key={name}>{name}</li>
-                                ))}
+                            <p className="mt-1 text-ink">
+                                Profiles: {form.enableCandidateProfiles ? "Enabled" : "Disabled"}
+                            </p>
+                            <ol className="mt-2 list-inside list-decimal space-y-2 text-ink">
+                                {form.candidateNames.map((name, idx) => {
+                                    if (!name.trim()) return null;
+                                    const desc = form.enableCandidateProfiles
+                                        ? form.candidateDescriptions?.[idx]
+                                        : "";
+                                    return (
+                                        <li key={`${name}-${idx}`} className="min-w-0">
+                                            <TruncatedCandidateName name={name} lines={1} />
+                                            {desc?.trim() && (
+                                                <p className="mt-0.5 line-clamp-2 whitespace-pre-line text-xs text-dusk">
+                                                    {desc.trim()}
+                                                </p>
+                                            )}
+                                        </li>
+                                    );
+                                })}
                             </ol>
                         </div>
                     </div>

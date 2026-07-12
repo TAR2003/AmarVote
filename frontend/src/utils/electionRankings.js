@@ -60,3 +60,16 @@ export function getCandidatePic(electionChoices, candidateName) {
   const match = electionChoices.find((choice) => choice.optionTitle === candidateName);
   return match?.candidatePic || null;
 }
+
+export function getCandidateDescription(electionChoices, candidateName) {
+  if (!candidateName || !electionChoices?.length) return '';
+  const match = electionChoices.find((choice) => choice.optionTitle === candidateName);
+  return match?.optionDescription || '';
+}
+
+/** Profiles when any choice has a photo or description (no election-level DB flag). */
+export function electionHasCandidateProfiles(electionChoices = []) {
+  return electionChoices.some(
+    (c) => Boolean(c?.candidatePic) || Boolean(c?.optionDescription?.trim())
+  );
+}
