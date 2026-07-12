@@ -6,9 +6,12 @@ import { formatOrdinal, isWinnerByRank } from './electionRankings';
  * AmarVote — Official Election Results report (Ink & Indigo design system).
  *
  * Dense, flowing document (typical 7-candidate election ≈ 3 pages):
- *   • Page 1  — Cover + winners + stats + election configuration + guardians
- *   • Page 2  — Visual Analytics (bar + pie, rank-ordered)
- *   • Page 3+ — Full Standings Ledger
+ *   • Cover + winners + stats + election configuration + guardians
+ *   • Visual Analytics (bar + pie, rank-ordered) — continues on same page when space allows
+ *   • Full Standings Ledger — continues on same page when space allows
+ *
+ * Page count scales with content. Sections never force a blank page;
+ * orphaned single-row blocks (e.g. guardian #3 alone) are avoided.
  */
 
 const CHART_SCALE = 4;
@@ -65,8 +68,8 @@ const MARGIN = 16;
 const FOOTER_RESERVE = 14;
 const CANDIDATE_IMG_MM = 9;
 const WINNER_IMG_MM = 14;
-/** Fixed legend truncation so every row truncates at the same visual width. */
-const PIE_LEGEND_NAME_LEN = 22;
+/** Fixed legend name column — truncate by measured width, not ragged char counts. */
+const PIE_LEGEND_NAME_MAX_CHARS = 24;
 
 /* ------------------------------------------------------------------ *
  * Small utilities
@@ -77,6 +80,22 @@ export function truncateChartLabel(name, maxLen = 16) {
   const trimmed = String(name).trim();
   if (trimmed.length <= maxLen) return trimmed;
   return `${trimmed.slice(0, Math.max(4, maxLen - 1))}…`;
+}
+
+/** Truncate so painted text fits a fixed pixel width (consistent legend column). */
+function truncateToWidth(ctx, text, maxWidth) {
+  const raw = String(text || '').trim();
+  if (!raw) return '';
+  if (ctx.measureText(raw).width <= maxWidth) return raw;
+  let lo = 0;
+  let hi = raw.length;
+  while (lo < hi) {
+    const mid = Math.ceil((lo + hi) / 2);
+    const candidate = `${raw.slice(0, mid)}…`;
+    if (ctx.measureText(candidate).width <= maxWidth) lo = mid;
+    else hi = mid - 1;
+  }
+  return lo > 0 ? `${raw.slice(0, lo)}…` : '…';
 }
 
 /** Lock rank order (highest votes / lowest rank number first) everywhere. */
@@ -96,7 +115,7 @@ function withTieFlags(ranked) {
 
 /** Display name size step-down: 1st > 2nd > 3rd+. */
 function nameFontSizeForRank(rank, base = 11) {
-  if (rank === 1) return base + 2;
+  if (rank === 1) return base + 2.5;
   if (rank === 2) return base;
   return base - 1;
 }
@@ -166,14 +185,22 @@ function fmtNum(v) {
  * Strips punctuation/whitespace so names like ", George" or "Dr. Ada" never yield ",G".
  */
 export function candidateInitials(name) {
-  const cleaned = String(name || '')
+  // Normalize "Last, First" and strip stray punctuation before extracting letters.
+  let raw = String(name || '').trim();
+  if (raw.includes(',')) {
+    const [left, ...rest] = raw.split(',');
+    const right = rest.join(',').trim();
+    raw = right ? `${right} ${left.trim()}` : left.trim();
+  }
+
+  const cleaned = raw
     .replace(/[^\p{L}\p{N}\s'-]/gu, ' ')
     .replace(/\s+/g, ' ')
     .trim();
   if (!cleaned) return '?';
 
   const firstLetter = (token) => {
-    const match = token.match(/[\p{L}\p{N}]/u);
+    const match = String(token).match(/[\p{L}\p{N}]/u);
     return match ? match[0].toUpperCase() : '';
   };
 
@@ -187,8 +214,7 @@ export function candidateInitials(name) {
 
   const a = firstLetter(parts[0]);
   const b = firstLetter(parts[parts.length - 1]);
-  const initials = `${a}${b}`;
-  return initials || '?';
+  return `${a}${b}` || '?';
 }
 
 function buildCandidateMetaMap(electionData) {
@@ -516,10 +542,12 @@ async function renderPieChartImage(data, winnerCount, logicalW, logicalH) {
   ctx.font = `500 9px ${FONT_SANS}`;
   ctx.fillText(`${fmtNum(total)} votes`, cx, cy + 9);
 
-  // Legend — fixed name column width for consistent truncation
-  const legendX = logicalW * 0.46;
-  const legendRight = logicalW - 16;
-  const nameColRight = legendRight - 58;
+  // Legend — fixed name column width; truncate by measured width for consistent edges
+  const legendX = logicalW * 0.44;
+  const legendRight = logicalW - 14;
+  const votesColW = 62;
+  const nameColRight = legendRight - votesColW;
+  const nameMaxW = Math.max(40, nameColRight - (legendX + 22));
   const rows = ordered.length;
   const availH = logicalH - 66;
   const rowH = Math.min(24, availH / Math.max(rows, 1));
@@ -552,13 +580,13 @@ async function renderPieChartImage(data, winnerCount, logicalW, logicalH) {
     ctx.font = `600 10px ${FONT_SANS}`;
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
-    ctx.fillText(
-      truncateChartLabel(item.name, PIE_LEGEND_NAME_LEN),
-      legendX + thumb + 6,
-      legendY,
+    const label = truncateToWidth(
+      ctx,
+      truncateChartLabel(item.name, PIE_LEGEND_NAME_MAX_CHARS),
+      nameMaxW,
     );
+    ctx.fillText(label, legendX + thumb + 6, legendY);
 
-    // Clip overflow into the votes column visually by painting votes on top of a white wipe
     ctx.fillStyle = HEX.white;
     ctx.fillRect(nameColRight, legendY - rowH / 2 + 1, legendRight - nameColRight + 2, rowH - 2);
 
@@ -591,6 +619,16 @@ function createFlow(doc, pageWidth, pageHeight) {
     y: MARGIN,
     pageTitle: 'Official Election Results',
   };
+}
+
+function remainingHeight(flow) {
+  return flow.pageHeight - FOOTER_RESERVE - flow.y;
+}
+
+/** True when more than ~25% of the page body is still unused. */
+function hasSubstantialEmptySpace(flow) {
+  const bodyH = flow.pageHeight - FOOTER_RESERVE - MARGIN;
+  return remainingHeight(flow) > bodyH * 0.25;
 }
 
 function ensureSpace(flow, needed, continuedTitle) {
@@ -665,7 +703,7 @@ function wrapDisplayTitle(doc, title, maxWidth, startSize = 28, minSize = 14) {
  * ------------------------------------------------------------------ */
 
 function drawCompactStatBar(doc, contentWidth, y, stats) {
-  const h = 14;
+  const h = 13;
   setColor(doc, 'fill', C.surface);
   setColor(doc, 'draw', C.line);
   doc.setLineWidth(0.25);
@@ -685,53 +723,54 @@ function drawCompactStatBar(doc, contentWidth, y, stats) {
     setColor(doc, 'text', C.dusk);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(5.5);
-    doc.text(stat.label, x + 4, y + 5);
+    doc.text(stat.label, x + 4, y + 4.5);
     setColor(doc, 'text', C.ink);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(10);
-    doc.text(String(stat.value), x + 4, y + 11);
+    doc.setFontSize(9.5);
+    doc.text(String(stat.value), x + 4, y + 10.5);
   });
-  return y + h + 5;
+  return y + h + 4;
 }
 
 /* ------------------------------------------------------------------ *
- * Page 1 — Cover + configuration + guardians (merged, dense)
+ * Cover + configuration + guardians (merged, dense)
  * ------------------------------------------------------------------ */
 
-function drawCoverAndConfigPage(doc, pageWidth, pageHeight, contentWidth, opts) {
+function drawCoverAndConfigSection(flow, opts) {
   const {
     electionData, electionId, processedResults, ranked,
     winnerCount, formatGeneratedAt,
   } = opts;
+  const { doc, pageWidth, pageHeight, contentWidth } = flow;
 
-  const headerH = 34;
+  const headerH = 32;
   const headerImg = renderHeaderBand(pageWidth * 2, headerH * 2);
   doc.addImage(headerImg, 'PNG', 0, 0, pageWidth, headerH, undefined, 'FAST');
 
   setColor(doc, 'text', C.white);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(10);
-  doc.text('AmarVote', MARGIN, 13);
+  doc.text('AmarVote', MARGIN, 12);
 
   setColor(doc, 'text', [199, 196, 232]);
   doc.setFont('helvetica', 'normal');
   doc.setFontSize(6.5);
-  doc.text('SECURE · VERIFIABLE · END-TO-END ENCRYPTED', MARGIN, 18.5);
+  doc.text('SECURE · VERIFIABLE · END-TO-END ENCRYPTED', MARGIN, 17.5);
 
   setColor(doc, 'text', C.lavender);
   doc.setFont('courier', 'normal');
   doc.setFontSize(6.5);
-  doc.text(`Generated ${formatGeneratedAt || '—'}`, pageWidth - MARGIN, 13, { align: 'right' });
+  doc.text(`Generated ${formatGeneratedAt || '—'}`, pageWidth - MARGIN, 12, { align: 'right' });
 
   setColor(doc, 'text', [196, 190, 240]);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
-  doc.text('OFFICIAL ELECTION RESULTS', MARGIN, 28);
+  doc.text('OFFICIAL ELECTION RESULTS', MARGIN, 26.5);
 
-  // Headline title — commanding weight + air
-  let y = headerH + 10;
+  // Headline title — commanding weight + air above/below
+  let y = headerH + 11;
   const title = electionData?.electionTitle || 'Untitled Election';
-  const wrapped = wrapDisplayTitle(doc, title, contentWidth, 28, 14);
+  const wrapped = wrapDisplayTitle(doc, title, contentWidth, 30, 14);
   setColor(doc, 'text', C.deep);
   doc.setFont('times', 'bold');
   doc.setFontSize(wrapped.size);
@@ -739,16 +778,16 @@ function drawCoverAndConfigPage(doc, pageWidth, pageHeight, contentWidth, opts) 
     doc.text(line, MARGIN, y);
     y += wrapped.size * 0.4;
   });
-  y += 7;
+  y += 8;
 
   const description = electionData?.electionDescription;
   if (description && String(description).trim()) {
     setColor(doc, 'text', C.ink);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(8.5);
-    const descLines = doc.splitTextToSize(String(description).trim(), contentWidth).slice(0, 3);
+    const descLines = doc.splitTextToSize(String(description).trim(), contentWidth).slice(0, 2);
     doc.text(descLines, MARGIN, y);
-    y += descLines.length * 3.8 + 5;
+    y += descLines.length * 3.6 + 4;
   }
 
   y = drawWinnerSpotlight(doc, pageWidth, pageHeight, contentWidth, y, ranked, winnerCount);
@@ -761,7 +800,7 @@ function drawCoverAndConfigPage(doc, pageWidth, pageHeight, contentWidth, opts) 
   ]);
 
   // —— Configuration (same page) ——
-  y = drawSectionHeader(doc, MARGIN, y + 1, 'Election Configuration', null);
+  y = drawSectionHeader(doc, MARGIN, y + 0.5, 'Election Configuration', null);
 
   const totalGuardians = electionData?.numberOfGuardians || electionData?.totalGuardians
     || (electionData?.guardians?.length ?? 0);
@@ -783,6 +822,7 @@ function drawCoverAndConfigPage(doc, pageWidth, pageHeight, contentWidth, opts) 
   const guardians = electionData?.guardians || [];
   if (guardians.length > 0) {
     const tableH = estimateGuardianTableHeight(guardians.length);
+    // Keep the guardian block atomic — never orphan a trailing row onto its own page.
     if (y + tableH > pageHeight - FOOTER_RESERVE) {
       doc.addPage();
       y = drawRunningHeader(doc, pageWidth, 'Official Election Results');
@@ -791,13 +831,13 @@ function drawCoverAndConfigPage(doc, pageWidth, pageHeight, contentWidth, opts) 
       setColor(doc, 'text', C.dusk);
       doc.setFont('helvetica', 'bold');
       doc.setFontSize(6.5);
-      doc.text('APPOINTED GUARDIANS', MARGIN, y + 2);
-      y += 5;
+      doc.text('APPOINTED GUARDIANS', MARGIN, y + 1.5);
+      y += 4.5;
     }
     y = drawGuardianTable(doc, contentWidth, y, guardians);
   }
 
-  return y;
+  flow.y = y;
 }
 
 function drawWinnerSpotlight(doc, pageWidth, pageHeight, contentWidth, y, ranked, winnerCount) {
@@ -823,9 +863,9 @@ function drawWinnerSpotlight(doc, pageWidth, pageHeight, contentWidth, y, ranked
     : [];
 
   let panelH;
-  if (winners.length === 0) panelH = 22;
-  else if (winners.length === 1) panelH = 12 + Math.max(WINNER_IMG_MM, singleNameWrap.height + 2);
-  else panelH = 12 + multiRows.reduce((sum, r) => sum + r.rowH, 0);
+  if (winners.length === 0) panelH = 20;
+  else if (winners.length === 1) panelH = 11 + Math.max(WINNER_IMG_MM, singleNameWrap.height + 2);
+  else panelH = 11 + multiRows.reduce((sum, r) => sum + r.rowH, 0);
 
   if (y + panelH > pageHeight - FOOTER_RESERVE - 40) {
     doc.addPage();
@@ -842,35 +882,35 @@ function drawWinnerSpotlight(doc, pageWidth, pageHeight, contentWidth, y, ranked
   setColor(doc, 'text', C.ink);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(7);
-  doc.text(heading, MARGIN + 6, y + 7);
+  doc.text(heading, MARGIN + 6, y + 6.5);
   const headingW = doc.getTextWidth(heading);
 
   const badgeW = 18;
-  const badgeX = MARGIN + 6 + headingW + 3;
+  const badgeX = MARGIN + 6 + headingW + 2.5;
   setColor(doc, 'fill', C.white);
   setColor(doc, 'draw', C.gold);
   doc.setLineWidth(0.45);
-  doc.roundedRect(badgeX, y + 3.2, badgeW, 5.5, 1.5, 1.5, 'FD');
+  doc.roundedRect(badgeX, y + 2.8, badgeW, 5.2, 1.5, 1.5, 'FD');
   setColor(doc, 'text', C.ink);
   doc.setFontSize(5.5);
-  doc.text('CERTIFIED', badgeX + badgeW / 2, y + 7, { align: 'center' });
+  doc.text('CERTIFIED', badgeX + badgeW / 2, y + 6.5, { align: 'center' });
 
   if (winners.length === 0) {
     setColor(doc, 'text', C.dusk);
     doc.setFont('helvetica', 'italic');
     doc.setFontSize(9);
-    doc.text('No winner declared — no votes were recorded.', MARGIN + 6, y + 16);
-    return y + panelH + 4;
+    doc.text('No winner declared — no votes were recorded.', MARGIN + 6, y + 14.5);
+    return y + panelH + 3.5;
   }
 
   if (winners.length === 1) {
     const w = winners[0];
-    drawPng(doc, w.avatarDataUrl, MARGIN + 6, y + 10, WINNER_IMG_MM);
+    drawPng(doc, w.avatarDataUrl, MARGIN + 6, y + 9, WINNER_IMG_MM);
     const textX = MARGIN + 6 + WINNER_IMG_MM + 4;
     setColor(doc, 'text', C.ink);
     doc.setFont('times', 'bold');
     doc.setFontSize(singleNameWrap.size);
-    let ny = y + 16;
+    let ny = y + 15;
     singleNameWrap.lines.forEach((line) => {
       doc.text(line, textX, ny);
       ny += singleNameWrap.size * 0.4;
@@ -879,23 +919,23 @@ function drawWinnerSpotlight(doc, pageWidth, pageHeight, contentWidth, y, ranked
     setColor(doc, 'text', C.ink);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(16);
-    doc.text(`${fmtNum(w.votes)}`, pageWidth - MARGIN - 6, y + 16, { align: 'right' });
+    doc.text(`${fmtNum(w.votes)}`, pageWidth - MARGIN - 6, y + 15, { align: 'right' });
     setColor(doc, 'text', C.dusk);
     doc.setFont('helvetica', 'normal');
     doc.setFontSize(7);
-    doc.text(`votes · ${w.percentage}%`, pageWidth - MARGIN - 6, y + 22, { align: 'right' });
-    return y + panelH + 4;
+    doc.text(`votes · ${w.percentage}%`, pageWidth - MARGIN - 6, y + 21, { align: 'right' });
+    return y + panelH + 3.5;
   }
 
-  let ly = y + 14;
+  let ly = y + 13;
   multiRows.forEach(({ winner: w, lines, nameSize, rowH }) => {
     drawPng(doc, w.avatarDataUrl, MARGIN + 6, ly - 4.5, 8);
 
-    // Rank carries hierarchy — larger than any status pill
+    // Rank carries hierarchy — larger/bolder than any status flag
     const rankLabel = formatOrdinal(w.rank);
     setColor(doc, 'text', C.deep);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(w.rank === 1 ? 11 : w.rank === 2 ? 10 : 9);
+    doc.setFontSize(w.rank === 1 ? 12 : w.rank === 2 ? 10.5 : 9);
     doc.text(rankLabel, MARGIN + 17, ly);
 
     let nameX = MARGIN + 17 + doc.getTextWidth(rankLabel) + 3;
@@ -922,49 +962,49 @@ function drawWinnerSpotlight(doc, pageWidth, pageHeight, contentWidth, y, ranked
     doc.text(`${fmtNum(w.votes)} · ${w.percentage}%`, pageWidth - MARGIN - 6, ly, { align: 'right' });
     ly += rowH;
   });
-  return y + panelH + 4;
+  return y + panelH + 3.5;
 }
 
 function drawKeyValueGrid(doc, contentWidth, y, pairs, electionId) {
-  const gap = 4;
+  const gap = 3.5;
   const colW = (contentWidth - gap) / 2;
-  const rowH = 11;
+  const rowH = 10;
   pairs.forEach((pair, i) => {
     const col = i % 2;
     const row = Math.floor(i / 2);
     const x = MARGIN + col * (colW + gap);
-    const cy = y + row * (rowH + 2.5);
+    const cy = y + row * (rowH + 2);
     const isId = pair[0] === 'Election ID';
 
     setColor(doc, 'fill', C.white);
     setColor(doc, 'draw', C.line);
     doc.setLineWidth(0.25);
-    doc.roundedRect(x, cy, colW, rowH, 1.8, 1.8, 'FD');
+    doc.roundedRect(x, cy, colW, rowH, 1.6, 1.6, 'FD');
 
     setColor(doc, 'text', C.dusk);
     doc.setFont('helvetica', 'bold');
-    doc.setFontSize(5.5);
-    doc.text(String(pair[0]).toUpperCase(), x + 3.5, cy + 4);
+    doc.setFontSize(5);
+    doc.text(String(pair[0]).toUpperCase(), x + 3, cy + 3.5);
 
     if (isId) {
       setColor(doc, 'fill', C.brandSoft);
-      doc.roundedRect(x + 3, cy + 5, Math.min(colW - 6, 40), 4.5, 1, 1, 'F');
+      doc.roundedRect(x + 2.5, cy + 4.5, Math.min(colW - 5, 40), 4.2, 1, 1, 'F');
       setColor(doc, 'text', C.brandDark);
       doc.setFont('courier', 'bold');
-      doc.setFontSize(7);
-      doc.text(String(electionId ?? pair[1]), x + 4.5, cy + 8.5);
+      doc.setFontSize(6.5);
+      doc.text(String(electionId ?? pair[1]), x + 4, cy + 7.7);
     } else {
       setColor(doc, 'text', C.ink);
       doc.setFont('helvetica', 'bold');
-      doc.setFontSize(8);
-      doc.text(doc.splitTextToSize(String(pair[1] ?? '—'), colW - 7)[0], x + 3.5, cy + 8.5);
+      doc.setFontSize(7.5);
+      doc.text(doc.splitTextToSize(String(pair[1] ?? '—'), colW - 6)[0], x + 3, cy + 7.7);
     }
   });
-  return y + Math.ceil(pairs.length / 2) * (rowH + 2.5) + 2;
+  return y + Math.ceil(pairs.length / 2) * (rowH + 2) + 1.5;
 }
 
 function estimateGuardianTableHeight(count) {
-  return 5 + 7 + (count + 1) * 7;
+  return 5 + 6.5 + (count + 1) * 6.5;
 }
 
 function drawGuardianTable(doc, contentWidth, y, guardians) {
@@ -978,10 +1018,11 @@ function drawGuardianTable(doc, contentWidth, y, guardians) {
     ]),
     showHead: 'firstPage',
     rowPageBreak: 'avoid',
+    pageBreak: 'avoid',
     theme: 'grid',
     styles: {
       fontSize: 7.5,
-      cellPadding: { top: 1.6, right: 3, bottom: 1.6, left: 3 },
+      cellPadding: { top: 1.4, right: 3, bottom: 1.4, left: 3 },
       lineColor: C.line,
       lineWidth: 0.12,
       textColor: C.ink,
@@ -1003,37 +1044,64 @@ function drawGuardianTable(doc, contentWidth, y, guardians) {
     },
     margin: { left: MARGIN, right: MARGIN, bottom: FOOTER_RESERVE },
   });
-  return (doc.lastAutoTable?.finalY ?? y) + 3;
+  return (doc.lastAutoTable?.finalY ?? y) + 2.5;
 }
 
 /* ------------------------------------------------------------------ *
- * Visual analytics
+ * Visual analytics — continues on current page when space allows
  * ------------------------------------------------------------------ */
 
-function placeChart(flow, dataUrl, logicalW, logicalH, width, continuedTitle) {
-  const height = width * (logicalH / logicalW);
+function placeChart(flow, dataUrl, logicalW, logicalH, widthMm, continuedTitle) {
+  const height = widthMm * (logicalH / logicalW);
   ensureSpace(flow, height + 3, continuedTitle);
-  flow.doc.addImage(dataUrl, 'PNG', MARGIN, flow.y, width, height, undefined, 'FAST');
-  flow.y += height + 5;
+  flow.doc.addImage(dataUrl, 'PNG', MARGIN, flow.y, widthMm, height, undefined, 'FAST');
+  flow.y += height + 4;
 }
 
-async function drawAnalyticsPage(doc, pageWidth, pageHeight, contentWidth, ranked, winnerCount) {
+async function drawAnalyticsSection(flow, ranked, winnerCount) {
   const ordered = ensureRankOrder(ranked);
-  const flow = createFlow(doc, pageWidth, pageHeight);
-  flow.pageTitle = 'Visual Analytics';
-  flow.y = drawRunningHeader(doc, pageWidth, 'Official Election Results');
-  flow.y = drawSectionHeader(doc, MARGIN, flow.y + 1, 'Visual Analytics',
-    'Bar, pie, and legend share one rank order');
-
   const n = ordered.length;
-  // Compact charts so both typically fit on one page for ~7 candidates
+  const minBlock = 62;
+
+  // Pull analytics onto the current page when ≥25% remains and a chart fits;
+  // otherwise start a fresh page (never leave a mostly-empty page behind unused).
+  if (!hasSubstantialEmptySpace(flow) || remainingHeight(flow) < minBlock) {
+    flow.doc.addPage();
+    flow.y = drawRunningHeader(flow.doc, flow.pageWidth, flow.pageTitle);
+  }
+
+  flow.y = drawSectionHeader(
+    flow.doc, MARGIN, flow.y + 1, 'Visual Analytics',
+    'Bar, pie, and legend share one rank order',
+  );
+
+  const contentWidth = flow.contentWidth;
+  const gap = 4;
+  let avail = remainingHeight(flow);
+
+  // Prefer both charts on this page — scale heights to fill remaining space.
+  let barMm;
+  let pieMm;
+  if (avail >= 130) {
+    barMm = Math.min(100, Math.max(58, avail * 0.52));
+    pieMm = Math.min(95, Math.max(55, avail - barMm - gap));
+  } else if (avail >= minBlock) {
+    barMm = Math.max(55, avail - 4);
+    pieMm = 72;
+  } else {
+    ensureSpace(flow, minBlock, 'Visual Analytics');
+    avail = remainingHeight(flow);
+    barMm = Math.min(95, Math.max(58, avail * 0.5));
+    pieMm = Math.min(90, Math.max(55, avail - barMm - gap));
+  }
+
   const colLogicalW = Math.min(880, Math.max(600, 100 + n * 40));
-  const colLogicalH = 300;
+  const colLogicalH = Math.round(colLogicalW * (barMm / contentWidth));
   const colImg = renderColumnChartImage(ordered, winnerCount, colLogicalW, colLogicalH);
   placeChart(flow, colImg, colLogicalW, colLogicalH, contentWidth, 'Visual Analytics');
 
-  const pieLogicalW = 620;
-  const pieLogicalH = Math.min(300, Math.max(200, 90 + n * 20));
+  const pieLogicalW = 640;
+  const pieLogicalH = Math.max(200, Math.round(pieLogicalW * (pieMm / contentWidth)));
   const pieImg = await renderPieChartImage(ordered, winnerCount, pieLogicalW, pieLogicalH);
   placeChart(flow, pieImg, pieLogicalW, pieLogicalH, contentWidth, 'Visual Analytics');
 }
@@ -1113,44 +1181,55 @@ function drawShareBar(doc, cell, pct, isWinner) {
 
 /** Subtle status chip — rank remains the primary signal. */
 function drawWinnerPill(doc, x, y, w, h) {
-  const pillW = 18;
-  const pillH = 5.5;
+  const pillW = 16;
+  const pillH = 5;
   const px = x + (w - pillW) / 2;
   const py = y + (h - pillH) / 2;
   setColor(doc, 'fill', C.white);
   setColor(doc, 'draw', C.gold);
-  doc.setLineWidth(0.4);
-  doc.roundedRect(px, py, pillW, pillH, 1.8, 1.8, 'FD');
+  doc.setLineWidth(0.35);
+  doc.roundedRect(px, py, pillW, pillH, 1.5, 1.5, 'FD');
   setColor(doc, 'text', C.dusk);
   doc.setFont('helvetica', 'bold');
-  doc.setFontSize(5.5);
-  doc.text('WINNER', px + pillW / 2, py + 3.8, { align: 'center' });
+  doc.setFontSize(5);
+  doc.text('WINNER', px + pillW / 2, py + 3.5, { align: 'center' });
 }
 
 function drawRankCell(doc, cell, row) {
   const { x, y, width, height } = cell;
   const cx = x + width / 2;
   const cy = y + height / 2;
-  const size = row.rank === 1 ? 12 : row.rank === 2 ? 10.5 : 9;
+  // Rank numerals dominate — stepped 1st > 2nd > 3rd+
+  const size = row.rank === 1 ? 13 : row.rank === 2 ? 11 : 9.5;
 
   setColor(doc, 'text', C.deep);
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(size);
-  doc.text(formatOrdinal(row.rank), cx, cy + (row.isTied ? -1.5 : 1), { align: 'center' });
+  doc.text(formatOrdinal(row.rank), cx, cy + (row.isTied ? -1.5 : 1.2), { align: 'center' });
 
   if (row.isTied) {
     setColor(doc, 'text', C.dusk);
     doc.setFont('helvetica', 'bold');
     doc.setFontSize(5);
-    doc.text('TIED', cx, cy + 4.5, { align: 'center' });
+    doc.text('TIED', cx, cy + 4.8, { align: 'center' });
   }
 }
 
-function drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked, winnerCount) {
+function drawLedgerSection(flow, enrichedRanked, winnerCount) {
   const ordered = withTieFlags(ensureRankOrder(enrichedRanked));
-  let y = drawRunningHeader(doc, pageWidth, 'Official Election Results');
-  y = drawSectionHeader(doc, MARGIN, y + 1, 'Full Standings Ledger',
-    `${ordered.length} candidates · competition ranking`);
+  const { doc, pageWidth, contentWidth } = flow;
+
+  // Continue on this page only when substantial space remains for the table header + a row.
+  const minLedger = 36;
+  if (!hasSubstantialEmptySpace(flow) || remainingHeight(flow) < minLedger) {
+    doc.addPage();
+    flow.y = drawRunningHeader(doc, pageWidth, flow.pageTitle);
+  }
+
+  flow.y = drawSectionHeader(
+    doc, MARGIN, flow.y + 1, 'Full Standings Ledger',
+    `${ordered.length} candidates · competition ranking`,
+  );
 
   const colRank = contentWidth * 0.10;
   const colCandidate = contentWidth * 0.50;
@@ -1159,9 +1238,10 @@ function drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked
   const colStatus = contentWidth * 0.13;
 
   let ledgerPage = 0;
+  const startPage = doc.internal.getCurrentPageInfo().pageNumber;
 
   doc.autoTable({
-    startY: y,
+    startY: flow.y,
     head: [['Rank', 'Candidate', 'Votes', 'Share', 'Status']],
     body: ordered.map((row) => [
       '',
@@ -1197,9 +1277,10 @@ function drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked
       4: { cellWidth: colStatus, halign: 'center' },
     },
     margin: { left: MARGIN, right: MARGIN, top: 26, bottom: FOOTER_RESERVE },
-    didDrawPage: () => {
+    didDrawPage: (data) => {
       ledgerPage += 1;
-      if (ledgerPage === 1) return;
+      const pageNum = doc.internal.getCurrentPageInfo().pageNumber;
+      if (pageNum === startPage && ledgerPage === 1) return;
       drawRunningHeader(doc, pageWidth, 'Official Election Results');
       setColor(doc, 'text', C.ink);
       doc.setFont('times', 'bold');
@@ -1209,6 +1290,8 @@ function drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked
       doc.setFont('helvetica', 'normal');
       doc.setFontSize(7);
       doc.text('(continued)', MARGIN + 44, 21);
+      // Suppress unused-param lint for autoTable hook signature
+      void data;
     },
     didParseCell: (data) => {
       const row = ordered[data.row.index];
@@ -1242,6 +1325,8 @@ function drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked
       }
     },
   });
+
+  flow.y = (doc.lastAutoTable?.finalY ?? flow.y) + 2;
 }
 
 /* ------------------------------------------------------------------ *
@@ -1289,7 +1374,8 @@ export async function generateElectionResultsPdf({
   });
   const pageWidth = doc.internal.pageSize.getWidth();
   const pageHeight = doc.internal.pageSize.getHeight();
-  const contentWidth = pageWidth - MARGIN * 2;
+
+  const flow = createFlow(doc, pageWidth, pageHeight);
 
   const opts = {
     electionData, electionId, processedResults, ranked: enrichedRanked,
@@ -1297,16 +1383,10 @@ export async function generateElectionResultsPdf({
     statusLabel,
   };
 
-  // Page 1 — cover + config + guardians (merged)
-  drawCoverAndConfigPage(doc, pageWidth, pageHeight, contentWidth, opts);
-
-  // Page 2 — analytics
-  doc.addPage();
-  await drawAnalyticsPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked, winnerCount);
-
-  // Page 3+ — ledger
-  doc.addPage();
-  drawLedgerPage(doc, pageWidth, pageHeight, contentWidth, enrichedRanked, winnerCount);
+  // Continuous flow: sections share pages when space remains (≥25% rule).
+  drawCoverAndConfigSection(flow, opts);
+  await drawAnalyticsSection(flow, enrichedRanked, winnerCount);
+  drawLedgerSection(flow, enrichedRanked, winnerCount);
 
   addCertifiedFooter(doc, pageWidth, pageHeight);
 
