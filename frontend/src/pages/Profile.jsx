@@ -220,11 +220,11 @@ const Profile = () => {
                 <FiMail className="h-5 w-5" />
               </div>
               <div className="min-w-0">
-                <p className="section-kicker text-dusk-soft">Signed-in account</p>
-                <p className="mt-1 truncate font-display text-lg font-semibold text-paper">{profile.email || "-"}</p>
+                <p className="section-kicker text-black">Signed-in account</p>
+                <p className="mt-1 truncate font-display text-lg font-semibold text-black">{profile.email || "-"}</p>
               </div>
             </div>
-            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-deep/20 px-3 py-2 text-sm font-medium text-paper">
+            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-deep/20 px-3 py-2 text-sm font-medium text-black">
               <span className={`h-2 w-2 rounded-full ${profile.mfaEnabled ? "bg-sage" : "bg-brand"}`} />
               2FA {profile.mfaEnabled ? "enabled" : "not enabled"}
             </div>
