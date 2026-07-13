@@ -4,7 +4,9 @@ import {
   Routes,
   Route,
   Navigate,
+  useSearchParams,
 } from "react-router-dom";
+import { consumeReturnPath } from "./utils/authRedirect";
 
 import Login from "./pages/Login";
 import Register from "./pages/Register";
@@ -92,6 +94,11 @@ async function checkSessionWithRetry() {
   return lastResult || { email: null, error: buildHttpError({ kind: HTTP_ERROR_KIND.UNKNOWN }) };
 }
 
+function AuthRedirect({ fallback = "/dashboard" }) {
+  const [searchParams] = useSearchParams();
+  return <Navigate to={consumeReturnPath(searchParams, fallback)} replace />;
+}
+
 function App() {
   const [userEmail, setUserEmail] = useState(null);
   const [sessionError, setSessionError] = useState(null);
@@ -144,7 +151,7 @@ function App() {
           path="/login"
           element={
             isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
+              <AuthRedirect />
             ) : (
               <Login setUserEmail={setUserEmail} />
             )
@@ -158,7 +165,7 @@ function App() {
           path="/register"
           element={
             isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
+              <AuthRedirect />
             ) : (
               <Register setUserEmail={setUserEmail} />
             )
@@ -168,7 +175,7 @@ function App() {
           path="/forgot-password"
           element={
             isAuthenticated ? (
-              <Navigate to="/dashboard" replace />
+              <AuthRedirect />
             ) : (
               <ForgotPassword />
             )

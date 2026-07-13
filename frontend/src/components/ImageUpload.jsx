@@ -138,19 +138,19 @@ const ImageUpload = ({
           title={placeholder || 'Upload photo'}
           className={`relative flex h-10 w-10 items-center justify-center rounded-full border transition-colors ${
             preview
-              ? 'border-blue-300 bg-blue-50 hover:bg-blue-100'
-              : 'border-gray-300 bg-white hover:bg-gray-50'
+              ? 'border-brand/30 bg-glacier hover:bg-glacier'
+              : 'border-ink/15 bg-paper hover:bg-frost'
           } disabled:opacity-50`}
         >
           {preview ? (
             <img src={preview} alt="" className="h-full w-full rounded-full object-cover" />
           ) : uploading ? (
-            <div className="h-4 w-4 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
+            <div className="h-4 w-4 animate-spin rounded-full border-2 border-brand border-t-transparent" />
           ) : (
-            <FiImage className="h-4 w-4 text-gray-500" />
+            <FiImage className="h-4 w-4 text-dusk" />
           )}
         </button>
-        {error && <p className="absolute top-full mt-1 w-32 text-[10px] text-red-600">{error}</p>}
+        {error && <p className="absolute top-full mt-1 w-32 text-[10px] text-ember">{error}</p>}
       </div>
     );
   }
@@ -208,10 +208,10 @@ const ImageUpload = ({
         className={`
           relative border-2 border-dashed rounded-xl transition-all duration-200 ${isCompact ? 'p-4' : 'p-6'}
           ${dragActive 
-            ? 'border-blue-400 bg-blue-50' 
+            ? 'border-brand bg-glacier' 
             : preview 
-              ? 'border-gray-200 bg-gray-50' 
-              : 'border-gray-300 hover:border-gray-400'
+              ? 'border-ink/10 bg-frost' 
+              : 'border-ink/15 hover:border-gray-400'
           }
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           ${uploading ? 'pointer-events-none' : ''}
@@ -232,8 +232,8 @@ const ImageUpload = ({
             
             {/* Upload overlay */}
             {uploading && (
-              <div className="absolute inset-0 bg-black bg-opacity-50 rounded-lg flex items-center justify-center">
-                <div className="text-white text-center">
+              <div className="absolute inset-0 bg-deep/50 rounded-lg flex items-center justify-center">
+                <div className="text-paper text-center">
                   <div className="w-16 h-16 border-4 border-white border-t-transparent rounded-full animate-spin mx-auto mb-2"></div>
                   <div className="text-sm font-medium">Uploading...</div>
                   <div className="text-xs opacity-75">{progress}%</div>
@@ -243,8 +243,8 @@ const ImageUpload = ({
 
             {/* Success overlay */}
             {!uploading && progress === 100 && (
-              <div className="absolute inset-0 bg-green-500 bg-opacity-80 rounded-lg flex items-center justify-center transition-opacity">
-                <div className="text-white text-center">
+              <div className="absolute inset-0 bg-sage/80 rounded-lg flex items-center justify-center transition-opacity">
+                <div className="text-paper text-center">
                   <FiCheck className="w-8 h-8 mx-auto mb-2" />
                   <div className="text-sm font-medium">Uploaded!</div>
                 </div>
@@ -259,7 +259,7 @@ const ImageUpload = ({
                   e.stopPropagation();
                   removeImage();
                 }}
-                className="absolute top-2 right-2 p-1 bg-red-500 text-white rounded-full hover:bg-red-600 transition-colors"
+                className="absolute top-2 right-2 p-1 bg-ember text-paper rounded-full hover:bg-ember transition-colors"
               >
                 <FiX className="w-4 h-4" />
               </button>
@@ -267,8 +267,8 @@ const ImageUpload = ({
 
             {/* Change image overlay on hover */}
             {!uploading && (
-              <div className="absolute inset-0 bg-black bg-opacity-0 hover:bg-opacity-30 rounded-lg transition-all duration-200 flex items-center justify-center opacity-0 hover:opacity-100">
-                <div className="text-white text-center">
+              <div className="absolute inset-0 bg-deep/0 hover:bg-deep/30 rounded-lg transition-all duration-200 flex items-center justify-center opacity-0 hover:opacity-100">
+                <div className="text-paper text-center">
                   <FiUpload className="w-6 h-6 mx-auto mb-1" />
                   <div className="text-sm font-medium">Change Image</div>
                 </div>
@@ -278,13 +278,13 @@ const ImageUpload = ({
         ) : (
           <div className={`text-center ${isCompact ? 'py-3' : 'py-8'}`}>
             <div className={`${isCompact ? 'text-3xl mb-2' : 'text-4xl mb-3'}`}>{getPlaceholderIcon()}</div>
-            <div className={`${isCompact ? 'text-base' : 'text-lg'} font-medium text-gray-700 mb-2`}>
+            <div className={`${isCompact ? 'text-base' : 'text-lg'} font-medium text-dusk mb-2`}>
               {getUploadText()}
             </div>
-            <div className={`${isCompact ? 'text-xs mb-2' : 'text-sm mb-4'} text-gray-500`}>
+            <div className={`${isCompact ? 'text-xs mb-2' : 'text-sm mb-4'} text-dusk`}>
               Drag and drop an image here, or click to browse
             </div>
-            <div className={`flex items-center justify-center text-xs text-gray-400 ${isCompact ? 'space-x-2' : 'space-x-4'}`}>
+            <div className={`flex items-center justify-center text-xs text-dusk ${isCompact ? 'space-x-2' : 'space-x-4'}`}>
               <span>Formats: All image formats</span>
               <span>•</span>
               <span>Max size: 10MB</span>
@@ -292,7 +292,7 @@ const ImageUpload = ({
             
             {dragActive && (
               <div className={`${isCompact ? 'mt-2' : 'mt-4'}`}>
-                <div className="inline-flex items-center px-3 py-1 rounded-full bg-blue-100 text-blue-600 text-sm font-medium">
+                <div className="inline-flex items-center px-3 py-1 rounded-full bg-glacier text-brand text-sm font-medium">
                   <FiUpload className="w-4 h-4 mr-1" />
                   Drop to upload
                 </div>
@@ -303,9 +303,9 @@ const ImageUpload = ({
 
         {/* Progress bar */}
         {uploading && (
-          <div className="absolute bottom-0 left-0 right-0 bg-gray-200 rounded-b-xl overflow-hidden">
+          <div className="absolute bottom-0 left-0 right-0 bg-ink/10 rounded-b-xl overflow-hidden">
             <div
-              className="bg-blue-500 h-1 transition-all duration-300"
+              className="bg-brand h-1 transition-all duration-300"
               style={{ width: `${progress}%` }}
             />
           </div>
@@ -314,7 +314,7 @@ const ImageUpload = ({
 
       {/* Error message */}
       {error && (
-        <div className="mt-3 flex items-center space-x-2 text-red-600 text-sm">
+        <div className="mt-3 flex items-center space-x-2 text-ember text-sm">
           <FiAlertCircle className="w-4 h-4 flex-shrink-0" />
           <span>{error}</span>
         </div>
@@ -322,7 +322,7 @@ const ImageUpload = ({
 
       {/* Upload tips */}
       {!preview && !error && (
-        <div className="mt-3 text-xs text-gray-500">
+        <div className="mt-3 text-xs text-dusk">
           <div className="flex items-center space-x-2">
             <FiImage className="w-3 h-3" />
             <span>

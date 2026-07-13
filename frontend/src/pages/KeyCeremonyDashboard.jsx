@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FiKey, FiClock, FiCheckCircle } from 'react-icons/fi';
+import { FiKey, FiClock, FiCheckCircle, FiDownload } from 'react-icons/fi';
 import { electionApi } from '../utils/electionApi';
 import { getGuardianKeyFriendlyError } from '../utils/voterMessages';
+import AppModal from '../components/AppModal';
 
 const triggerAutoCredentialDownload = ({ electionId, encryptedCredential }) => {
   const blob = new Blob([String(encryptedCredential || '').trim()], { type: 'text/plain' });
@@ -25,6 +26,17 @@ export default function KeyCeremonyDashboard() {
   const [backupForm, setBackupForm] = useState({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [credentialModal, setCredentialModal] = useState({
+    open: false,
+    electionId: null,
+    phase: 'warn',
+    encryptedCredential: '',
+    credentials: '',
+    publicKey: '',
+    keyBackup: '',
+    error: '',
+    busy: false,
+  });
 
   const loadData = async () => {
     setLoading(true);
@@ -84,12 +96,26 @@ export default function KeyCeremonyDashboard() {
       [electionId]: {
         ...(prev[electionId] || {}),
         localEncryptionPassword: generated,
+        passwordGenerated: true,
       },
     }));
-    setMessage('Local AES-256 password generated in browser. It will be sent to backend for ML-KEM protected credential storage.');
   };
 
-  const handleGuardianSubmit = async (electionId) => {
+  const resetCredentialModal = () => {
+    setCredentialModal({
+      open: false,
+      electionId: null,
+      phase: 'warn',
+      encryptedCredential: '',
+      credentials: '',
+      publicKey: '',
+      keyBackup: '',
+      error: '',
+      busy: false,
+    });
+  };
+
+  const openCredentialModal = (electionId) => {
     setError('');
     setMessage('');
     const data = guardianForm[electionId] || {};
@@ -98,24 +124,39 @@ export default function KeyCeremonyDashboard() {
       setError('Guardian public key is required');
       return;
     }
-
     if (!data.privateKey || !String(data.privateKey).trim()) {
       setError('Guardian private key is required');
       return;
     }
-
     if (!data.polynomial || !String(data.polynomial).trim()) {
       setError('Guardian polynomial is required');
       return;
     }
-
     if (!data.localEncryptionPassword || !String(data.localEncryptionPassword).trim()) {
       setError('Local encryption password is required');
       return;
     }
 
+    setCredentialModal({
+      open: true,
+      electionId,
+      phase: 'warn',
+      encryptedCredential: '',
+      credentials: '',
+      publicKey: data.publicKey,
+      keyBackup: data.keyBackup || '',
+      error: '',
+      busy: false,
+    });
+  };
+
+  const handleSubmitAndDownloadCredentials = async () => {
+    const electionId = credentialModal.electionId;
+    const data = guardianForm[electionId] || {};
+    setCredentialModal((prev) => ({ ...prev, busy: true, error: '' }));
+
     try {
-      const response = await electionApi.submitGuardianKeyCeremony(
+      const response = await electionApi.prepareGuardianKeyCeremony(
         electionId,
         data.privateKey,
         data.publicKey,
@@ -124,19 +165,74 @@ export default function KeyCeremonyDashboard() {
         data.keyBackup
       );
 
-      if (response?.encryptedCredential) {
-        triggerAutoCredentialDownload({
-          electionId,
-          encryptedCredential: response.encryptedCredential,
-        });
+      if (!response?.encryptedCredential || !response?.credentials) {
+        throw new Error('Failed to prepare credential file. Please try again.');
       }
 
-      setMessage('Guardian key submitted successfully. Credentials were encrypted using your local password and credentials.txt was downloaded automatically.');
-      await loadData();
+      triggerAutoCredentialDownload({
+        electionId,
+        encryptedCredential: response.encryptedCredential,
+      });
+
+      setCredentialModal((prev) => ({
+        ...prev,
+        phase: 'downloaded',
+        encryptedCredential: response.encryptedCredential,
+        credentials: response.credentials,
+        publicKey: data.publicKey,
+        keyBackup: data.keyBackup || '',
+        busy: false,
+        error: '',
+      }));
     } catch (e) {
-      setError(getGuardianKeyFriendlyError(e));
+      setCredentialModal((prev) => ({
+        ...prev,
+        busy: false,
+        error: getGuardianKeyFriendlyError(e),
+      }));
     }
   };
+
+  const handleConfirmCredentialDownloaded = async () => {
+    if (!credentialModal.credentials || !credentialModal.publicKey || !credentialModal.electionId) {
+      setCredentialModal((prev) => ({
+        ...prev,
+        error: 'Missing prepared credentials. Please submit and download again.',
+      }));
+      return;
+    }
+
+    setCredentialModal((prev) => ({ ...prev, busy: true, error: '' }));
+    try {
+      await electionApi.confirmGuardianKeyCeremony(
+        credentialModal.electionId,
+        credentialModal.publicKey,
+        credentialModal.credentials,
+        credentialModal.keyBackup
+      );
+      resetCredentialModal();
+      setMessage('Round 1 submitted successfully. Credential file downloaded and confirmed.');
+      await loadData();
+    } catch (e) {
+      setCredentialModal((prev) => ({
+        ...prev,
+        busy: false,
+        error: getGuardianKeyFriendlyError(e),
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (!credentialModal.open || credentialModal.phase !== 'downloaded') {
+      return undefined;
+    }
+    const onBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [credentialModal.open, credentialModal.phase]);
 
   const handleGenerateBackupShares = async (item) => {
     setError('');
@@ -204,8 +300,6 @@ export default function KeyCeremonyDashboard() {
   };
 
   const handleGenerateCredentials = async (item) => {
-    setError('');
-    setMessage('');
     try {
       const generated = await electionApi.generateGuardianKeyCeremonyCredentials(item.electionId);
 
@@ -217,12 +311,11 @@ export default function KeyCeremonyDashboard() {
           publicKey: generated?.guardianPublicKey || '',
           polynomial: generated?.guardianPolynomial || '',
           keyBackup: generated?.guardianKeyBackup || '',
+          credentialsGenerated: true,
         },
       }));
-
-      setMessage('ElectionGuard-compatible credentials generated. Submit Round 1 to download credentials.txt.');
     } catch (e) {
-      setError(e.message || 'Failed to generate credentials');
+      console.error('Failed to generate credentials:', e);
     }
   };
 
@@ -254,31 +347,125 @@ export default function KeyCeremonyDashboard() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
-      <div className="bg-white rounded-lg shadow p-4">
+      <AppModal
+        isOpen={credentialModal.open}
+        onClose={() => {
+          if (credentialModal.phase === 'downloaded' || credentialModal.busy) return;
+          resetCredentialModal();
+        }}
+        dismissible={credentialModal.phase !== 'downloaded'}
+        title={
+          credentialModal.phase === 'downloaded'
+            ? 'Confirm credential download'
+            : 'Submit and download credentials'
+        }
+        footer={
+          credentialModal.phase === 'warn' ? (
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={resetCredentialModal}
+                disabled={credentialModal.busy}
+                className="rounded-lg border border-brand/25 bg-paper px-4 py-2 text-sm font-medium text-ink hover:bg-frost disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitAndDownloadCredentials}
+                disabled={credentialModal.busy}
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-dark px-4 py-2 text-sm font-semibold text-paper hover:bg-ink disabled:opacity-60"
+              >
+                <FiDownload className="h-4 w-4" aria-hidden />
+                {credentialModal.busy ? 'Preparing download...' : 'Submit and Download the Credentials'}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <button
+                type="button"
+                onClick={() =>
+                  triggerAutoCredentialDownload({
+                    electionId: credentialModal.electionId,
+                    encryptedCredential: credentialModal.encryptedCredential,
+                  })
+                }
+                disabled={credentialModal.busy}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand/30 bg-paper px-4 py-2 text-sm font-medium text-ink hover:bg-frost disabled:opacity-60"
+              >
+                <FiDownload className="h-4 w-4" aria-hidden />
+                Download credential file again
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCredentialDownloaded}
+                disabled={credentialModal.busy}
+                className="rounded-lg bg-aurora-muted px-4 py-2 text-sm font-semibold text-paper hover:bg-aurora disabled:opacity-60"
+              >
+                {credentialModal.busy
+                  ? 'Completing...'
+                  : 'Yes, I downloaded the file — complete submission'}
+              </button>
+            </div>
+          )
+        }
+      >
+        {credentialModal.phase === 'warn' ? (
+          <div className="space-y-3 text-sm text-ink">
+            <p>
+              When you continue, your guardian credential file will be encrypted and downloaded.
+              You must keep this file safe.
+            </p>
+            <p className="rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-ember">
+              This file cannot be recovered if lost. Round 1 is not saved until you confirm the
+              download. Reloading before confirmation means starting keypair generation again.
+            </p>
+            {credentialModal.error && (
+              <p className="rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-ember">
+                {credentialModal.error}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3 text-sm text-ink">
+            <p>
+              Are you sure you downloaded and saved the credential file? Before leaving or
+              reloading, make sure the file is on your device — it cannot be recovered later.
+            </p>
+            {credentialModal.error && (
+              <p className="rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-ember">
+                {credentialModal.error}
+              </p>
+            )}
+          </div>
+        )}
+      </AppModal>
+
+      <div className="bg-paper rounded-lg shadow p-4">
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <FiKey /> Key Ceremony Dashboard
         </h2>
-        <p className="text-sm text-gray-600 mt-1">
+        <p className="text-sm text-dusk mt-1">
           Keep private key and polynomial on-device. Submit public key and your local AES password to backend.
         </p>
       </div>
 
-      {message && <div className="bg-green-50 border border-green-200 text-green-800 p-3 rounded">{message}</div>}
-      {error && <div className="bg-red-50 border border-red-200 text-red-800 p-3 rounded">{error}</div>}
+      {message && <div className="bg-sage-soft border border-aurora/30 text-aurora-muted p-3 rounded">{message}</div>}
+      {error && <div className="bg-ember-soft border border-ember/30 text-ember p-3 rounded">{error}</div>}
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-paper rounded-lg shadow p-4">
         <h3 className="font-semibold mb-3">Guardian Key Ceremony Tasks</h3>
         {pending.length === 0 ? (
-          <p className="text-gray-600 text-sm">No pending key ceremony tasks.</p>
+          <p className="text-dusk text-sm">No pending key ceremony tasks.</p>
         ) : (
           <div className="space-y-4">
             {pending.map((item) => (
               <div key={item.electionId} className="border rounded p-3">
                 <div className="font-medium">{item.electionTitle}</div>
-                <div className="text-sm text-gray-600 mb-2">
+                <div className="text-sm text-dusk mb-2">
                   Round 1 (keypairs): {item.submittedGuardians}/{item.numberOfGuardians}
                 </div>
-                <div className="text-sm text-gray-600 mb-2">
+                <div className="text-sm text-dusk mb-2">
                   Round 2 (backup sharing): {item.submittedBackupGuardians || 0}/{item.numberOfGuardians}
                 </div>
 
@@ -287,32 +474,39 @@ export default function KeyCeremonyDashboard() {
                     <div className="flex flex-wrap gap-2 mb-3">
                       <button
                         onClick={() => handleGenerateCredentials(item)}
-                        className="px-3 py-2 bg-indigo-600 text-white rounded"
+                        className="px-3 py-2 bg-brand-dark text-paper rounded"
                       >
                         Generate Credentials
                       </button>
                     </div>
 
+                    {(() => {
+                      const form = guardianForm[item.electionId] || {};
+                      const keysReady = !!form.credentialsGenerated || !!(form.privateKey && form.publicKey && form.polynomial);
+                      const passwordReady = !!form.passwordGenerated || !!form.localEncryptionPassword;
+                      const successBorder = 'border-2 border-green-500 ring-1 ring-green-500/30';
+                      return (
+                    <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <textarea
                         readOnly
-                        className="border rounded px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                        className={`rounded px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                         placeholder="Private key (generate credentials to fill)"
-                        value={guardianForm[item.electionId]?.privateKey || ''}
+                        value={form.privateKey || ''}
                       />
 
                       <textarea
                         readOnly
-                        className="border rounded px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                        className={`rounded px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                         placeholder="Public key JSON (generate credentials to fill)"
-                        value={guardianForm[item.electionId]?.publicKey || ''}
+                        value={form.publicKey || ''}
                       />
 
                       <textarea
                         readOnly
-                        className="border rounded px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                        className={`rounded px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                         placeholder="Polynomial (generate credentials to fill)"
-                        value={guardianForm[item.electionId]?.polynomial || ''}
+                        value={form.polynomial || ''}
                       />
 
                     </div>
@@ -320,29 +514,33 @@ export default function KeyCeremonyDashboard() {
                     <div className="mt-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
                       <input
                         type="text"
-                        className="border rounded px-3 py-2"
+                        className={`rounded px-3 py-2 ${passwordReady ? successBorder : 'border'}`}
                         placeholder="Local AES-256 password (allowed to send to backend)"
-                        value={guardianForm[item.electionId]?.localEncryptionPassword || ''}
+                        value={form.localEncryptionPassword || ''}
                         onChange={(e) =>
                           setGuardianForm((prev) => ({
                             ...prev,
                             [item.electionId]: {
                               ...(prev[item.electionId] || {}),
                               localEncryptionPassword: e.target.value,
+                              passwordGenerated: false,
                             },
                           }))
                         }
                       />
                       <button
                         onClick={() => handleGenerateLocalPassword(item.electionId)}
-                        className="px-3 py-2 bg-slate-700 text-white rounded"
+                        className="px-3 py-2 bg-ink text-paper rounded"
                       >
                         Generate Random AES-256 Password
                       </button>
                     </div>
+                    </>
+                      );
+                    })()}
                     <button
-                      onClick={() => handleGuardianSubmit(item.electionId)}
-                      className="mt-3 px-4 py-2 bg-blue-600 text-white rounded"
+                      onClick={() => openCredentialModal(item.electionId)}
+                      className="mt-3 px-4 py-2 bg-brand-dark text-paper rounded"
                     >
                       Submit Key Ceremony Data (Round 1)
                     </button>
@@ -350,7 +548,7 @@ export default function KeyCeremonyDashboard() {
                 )}
 
                 {item.currentRound === 'waiting_for_all_keypairs' && (
-                  <div className="mt-2 text-amber-700 bg-amber-50 border border-amber-200 rounded p-3 text-sm">
+                  <div className="mt-2 text-ink bg-ceremonial-soft border border-ceremonial/40 rounded p-3 text-sm">
                     Your keypair is submitted. Waiting for all guardians to complete Round 1 before backup sharing starts.
                   </div>
                 )}
@@ -366,12 +564,12 @@ export default function KeyCeremonyDashboard() {
                       onChange={(e) => handleCredentialFileLoad(item.electionId, e.target.files?.[0])}
                     />
 
-                    <div className="text-xs text-gray-600 bg-gray-50 border border-gray-200 rounded p-2">
+                    <div className="text-xs text-dusk bg-frost border border-ink/10 rounded p-2">
                       Frontend never calls ElectionGuard microservice directly. Uploaded credentials.txt is sent to backend only for Round 2 backup generation.
                     </div>
 
                     {backupForm[item.electionId]?.credentialFileName && (
-                      <div className="text-xs text-green-700 bg-green-50 border border-green-200 rounded p-2">
+                      <div className="text-xs text-sage bg-sage-soft border border-aurora/30 rounded p-2">
                         Loaded: {backupForm[item.electionId]?.credentialFileName}
                       </div>
                     )}
@@ -379,13 +577,13 @@ export default function KeyCeremonyDashboard() {
                     <div className="flex flex-wrap gap-2">
                       <button
                         onClick={() => handleGenerateBackupShares(item)}
-                        className="px-3 py-2 bg-orange-600 text-white rounded"
+                        className="px-3 py-2 bg-ceremonial text-ink rounded"
                       >
                         Generate Backup Key Shares
                       </button>
                       <button
                         onClick={() => handleSubmitBackupShares(item.electionId)}
-                        className="px-3 py-2 bg-emerald-600 text-white rounded"
+                        className="px-3 py-2 bg-aurora-muted text-paper rounded"
                       >
                         Submit Encrypted Backup Shares
                       </button>
@@ -409,7 +607,7 @@ export default function KeyCeremonyDashboard() {
                 )}
 
                 {item.currentRound === 'backup_submitted_waiting_others' && (
-                  <div className="mt-2 text-blue-700 bg-blue-50 border border-blue-200 rounded p-3 text-sm">
+                  <div className="mt-2 text-brand-dark bg-glacier border border-brand/20 rounded p-3 text-sm">
                     Your encrypted backup shares are submitted. Waiting for other guardians to finish Round 2.
                   </div>
                 )}
@@ -419,12 +617,12 @@ export default function KeyCeremonyDashboard() {
         )}
       </div>
 
-      <div className="bg-white rounded-lg shadow p-4">
+      <div className="bg-paper rounded-lg shadow p-4">
         <h3 className="font-semibold mb-3 flex items-center gap-2">
           <FiClock /> Admin Waiting Room
         </h3>
         {adminPendingElections.length === 0 ? (
-          <p className="text-gray-600 text-sm">No elections waiting for activation.</p>
+          <p className="text-dusk text-sm">No elections waiting for activation.</p>
         ) : (
           <div className="space-y-4">
             {adminPendingElections.map((e) => {
@@ -432,20 +630,20 @@ export default function KeyCeremonyDashboard() {
               return (
                 <div key={e.electionId} className="border rounded-xl p-4 space-y-4 bg-gradient-to-br from-white to-slate-50">
                   <div className="font-medium">{e.electionTitle}</div>
-                  <div className="text-sm text-gray-600 mb-2">
+                  <div className="text-sm text-dusk mb-2">
                     {status ? `${status.submittedGuardians}/${status.totalGuardians} submitted` : 'Loading status...'}
                   </div>
                   {status?.readyForActivation && (
-                    <div className="text-green-700 text-sm mb-2 flex items-center gap-1">
+                    <div className="text-sage text-sm mb-2 flex items-center gap-1">
                       <FiCheckCircle /> Ready for activation
                     </div>
                   )}
                   <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
                     <label className="space-y-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Election Start</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-dusk">Election Start</span>
                       <input
                         type="datetime-local"
-                        className="w-full border-2 border-slate-200 focus:border-blue-500 rounded-lg px-3 py-2.5 outline-none bg-white"
+                        className="w-full border-2 border-ink/10 focus:border-brand rounded-lg px-3 py-2.5 outline-none bg-paper"
                         value={activationForm[e.electionId]?.startingTime || ''}
                         onChange={(ev) =>
                           setActivationForm((prev) => ({
@@ -459,10 +657,10 @@ export default function KeyCeremonyDashboard() {
                       />
                     </label>
                     <label className="space-y-1">
-                      <span className="text-xs font-semibold uppercase tracking-wide text-slate-600">Election End</span>
+                      <span className="text-xs font-semibold uppercase tracking-wide text-dusk">Election End</span>
                       <input
                         type="datetime-local"
-                        className="w-full border-2 border-slate-200 focus:border-blue-500 rounded-lg px-3 py-2.5 outline-none bg-white"
+                        className="w-full border-2 border-ink/10 focus:border-brand rounded-lg px-3 py-2.5 outline-none bg-paper"
                         value={activationForm[e.electionId]?.endingTime || ''}
                         onChange={(ev) =>
                           setActivationForm((prev) => ({
@@ -480,7 +678,7 @@ export default function KeyCeremonyDashboard() {
                   <button
                     onClick={() => handleActivate(e.electionId)}
                     disabled={!status?.readyForActivation}
-                    className="mt-1 px-4 py-2.5 bg-green-600 text-white rounded-lg disabled:bg-gray-400"
+                    className="mt-1 px-4 py-2.5 bg-aurora-muted text-paper rounded-lg disabled:bg-ink/30"
                   >
                     Activate Election
                   </button>

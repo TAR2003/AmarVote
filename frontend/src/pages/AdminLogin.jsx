@@ -50,35 +50,35 @@ export default function AdminLogin({ setUserEmail }) {
           {/* Header */}
           <div className="text-center">
             <span className="text-5xl">🔒</span>
-            <h2 className="mt-6 text-3xl font-extrabold text-gray-900">
+            <h2 className="mt-6 text-3xl font-extrabold text-ink">
               Admin Access
             </h2>
-            <p className="mt-2 text-sm text-gray-600">
+            <p className="mt-2 text-sm text-dusk">
               Login to view API logs and system analytics
             </p>
           </div>
 
           {/* Error Message */}
           {error && (
-            <div className="rounded-md bg-red-50 p-4 border-l-4 border-red-500">
+            <div className="rounded-md bg-ember-soft p-4 border-l-4 border-red-500">
               <div className="flex">
                 <div className="flex-shrink-0">
-                  <span className="text-red-500">✗</span>
+                  <span className="text-ember">✗</span>
                 </div>
                 <div className="ml-3">
-                  <p className="text-sm text-red-700">{error}</p>
+                  <p className="text-sm text-ember">{error}</p>
                 </div>
               </div>
             </div>
           )}
 
           {/* Login Form */}
-          <div className="bg-white py-8 px-6 shadow rounded-lg sm:px-10 border border-gray-200">
+          <div className="bg-paper py-8 px-6 shadow rounded-lg sm:px-10 border border-ink/10">
             <form className="space-y-6" onSubmit={handleLogin}>
               <div>
                 <label
                   htmlFor="username"
-                  className="block text-sm font-medium text-gray-700"
+                  className="block text-sm font-medium text-dusk"
                 >
                   Username
                 </label>
@@ -90,7 +90,7 @@ export default function AdminLogin({ setUserEmail }) {
                     required
                     value={username}
                     onChange={(e) => setUsername(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-ink/15 rounded-md shadow-sm placeholder:text-dusk focus:outline-none focus:ring-brand focus:border-brand sm:text-sm"
                     placeholder="admin"
                   />
                 </div>
@@ -99,7 +99,7 @@ export default function AdminLogin({ setUserEmail }) {
               <div>
                 <label
                   htmlFor="password"
-                  className="block text-sm font-medium text-gray-700"
+                  className="block text-sm font-medium text-dusk"
                 >
                   Password
                 </label>
@@ -111,7 +111,7 @@ export default function AdminLogin({ setUserEmail }) {
                     required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-gray-300 rounded-md shadow-sm placeholder-gray-400 focus:outline-none focus:ring-blue-500 focus:border-blue-500 sm:text-sm"
+                    className="appearance-none block w-full px-3 py-2 border border-ink/15 rounded-md shadow-sm placeholder:text-dusk focus:outline-none focus:ring-brand focus:border-brand sm:text-sm"
                     placeholder="Enter admin password"
                   />
                 </div>
@@ -121,12 +121,12 @@ export default function AdminLogin({ setUserEmail }) {
                 <button
                   type="submit"
                   disabled={loading}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500 disabled:bg-blue-300 disabled:cursor-not-allowed"
+                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-paper bg-brand-dark hover:bg-brand focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand disabled:bg-brand-soft disabled:text-dusk disabled:cursor-not-allowed"
                 >
                   {loading ? (
                     <span className="flex items-center">
                       <svg
-                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
+                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-paper"
                         xmlns="http://www.w3.org/2000/svg"
                         fill="none"
                         viewBox="0 0 24 24"
@@ -156,7 +156,7 @@ export default function AdminLogin({ setUserEmail }) {
           </div>
 
           {/* Help text */}
-          <p className="text-center text-xs text-gray-500">
+          <p className="text-center text-xs text-dusk">
             Only authorized administrators can access this area
           </p>
         </div>

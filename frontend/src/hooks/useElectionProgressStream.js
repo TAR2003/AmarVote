@@ -1,16 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
+import { redirectToLogin } from '../utils/authRedirect';
 
 const INITIAL_RETRY_MS = 1000;
 const MAX_RETRY_MS = 30000;
 
 function sleep(ms) {
   return new Promise((resolve) => setTimeout(resolve, ms));
-}
-
-function redirectToLogin() {
-  localStorage.removeItem('email');
-  localStorage.setItem('logout', Date.now());
-  window.location.href = '/otp-login';
 }
 
 /**
@@ -90,6 +85,8 @@ export function useElectionProgressStream(electionId, { enabled = true, onEvent 
           if (response.status === 401 || response.status === 403) {
             console.warn(`SSE auth failed (${response.status}) — login required`);
             setAuthError(true);
+            localStorage.removeItem('email');
+            localStorage.setItem('logout', Date.now());
             redirectToLogin();
             return;
           }

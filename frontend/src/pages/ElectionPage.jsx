@@ -59,20 +59,25 @@ import { CircularProgressbar, buildStyles } from 'react-circular-progressbar';
 import 'react-circular-progressbar/dist/styles.css';
 import { saveAs } from 'file-saver';
 import { downloadJsonArtifact, decodeArtifactForDownload } from '../utils/artifactDownload';
-import { generateElectionResultsPdf, truncateChartLabel } from '../utils/electionResultsPdf';
+import { generateElectionResultsPdf } from '../utils/certifiedLedger';
+import { truncateChartLabel } from '../utils/electionResultsPdf';
 import { prepareElectionResultsCsvContent, escapeCsvField } from '../utils/electionResultsCsv';
 import ErrorBoundary from '../components/ErrorBoundary';
 import GuardianDataDisplay from '../components/GuardianDataDisplay';
 import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDisplay';
 import AnimatedResults from '../components/AnimatedResults';
+import CandidateIdentity from '../components/CandidateIdentity';
 import TruncatedCandidateName from '../components/TruncatedCandidateName';
-import CandidateThumbnail from '../components/CandidateThumbnail';
 import {
   buildCompetitionRankings,
   formatOrdinal,
+  getCandidateDescription,
   getCandidatePic,
   isWinnerByRank,
 } from '../utils/electionRankings';
+
+const findChoiceByName = (choices, name) =>
+  choices?.find((c) => c.optionTitle === name) || null;
 import { getVoterFriendlyError, getGuardianKeyFriendlyError } from '../utils/voterMessages';
 import { getAuthorizedUsersAccess } from '../utils/api';
 import TallyCreationModal from '../components/TallyCreationModal';
@@ -82,11 +87,16 @@ import ElectionTimeline from '../components/ElectionTimeline';
 import WorkerProceedings from '../components/WorkerProceedings';
 import VoterStatusSlot from '../components/VoterStatusSlot';
 import BallotWorkflowModal from '../components/BallotWorkflowModal';
+import ModalOverlay, { ModalPanel } from '../components/ModalOverlay';
+import AppModal from '../components/AppModal';
+import GuardianQuorumViz from '../components/GuardianQuorumViz';
+import VerifyVoteSection from '../components/VerifyVoteSection';
 import GuardianProgressPanel from '../components/GuardianProgressPanel';
 import ProcessProgressPanel from '../components/ProcessProgressPanel';
 import ProcessControlPanel from '../components/ProcessControlPanel';
 import ScheduledEmailTab from '../components/ScheduledEmailTab';
 import KeyVerificationTab from '../components/KeyVerificationTab';
+import ElectionTabNav from '../components/ElectionTabNav';
 import useElectionProgressStream from '../hooks/useElectionProgressStream';
 import {
   getSnapshotFromEvent,
@@ -104,12 +114,119 @@ const getTotalVoters = (data) => {
 const getVotedCount = (data) => {
   if (!data) return 0;
   if (data.votedCount != null) return data.votedCount;
+  if (data.totalVoted != null) return data.totalVoted;
+  if (data.ballotsCast != null) return data.ballotsCast;
+  if (data.votersWhoVoted != null) return data.votersWhoVoted;
   return (data.voters || []).filter((v) => v.hasVoted).length;
 };
 
 const getWinnerCount = (electionData) => {
   if (!electionData) return 1;
   return electionData.winnerNo || electionData.maxChoices || 1;
+};
+
+/** Map API eligibility fields to a single professional sentence for the voting booth. */
+const getFriendlyEligibilityCopy = (eligibility) => {
+  if (!eligibility) {
+    return {
+      title: 'Checking eligibility',
+      detail: 'Please wait while we verify whether you can vote in this election.',
+    };
+  }
+
+  if (eligibility.eligible) {
+    return {
+      title: 'You are eligible to vote',
+      detail: 'You may create and cast your encrypted ballot while voting is open.',
+    };
+  }
+
+  if (eligibility.hasVoted) {
+    return {
+      title: 'You have already voted',
+      detail: 'Your ballot has been recorded for this election. You cannot cast another vote.',
+    };
+  }
+
+  const status = String(eligibility.electionStatus || '').toLowerCase();
+  const reason = String(eligibility.reason || '').toLowerCase();
+  const message = String(eligibility.message || '').toLowerCase();
+  const combined = `${status} ${reason} ${message}`;
+
+  if (
+    combined.includes('not activated') ||
+    combined.includes('key ceremony') ||
+    combined.includes('not scheduled') ||
+    combined.includes('schedule is not set')
+  ) {
+    return {
+      title: 'Voting is not available yet',
+      detail:
+        'Voting is not available yet. The election must complete its key ceremony and be activated first.',
+    };
+  }
+
+  if (
+    combined.includes('not started') ||
+    (combined.includes('not active') && !combined.includes('ended'))
+  ) {
+    return {
+      title: 'Voting has not started',
+      detail: 'Voting has not started yet. Please check back when the election opens.',
+    };
+  }
+
+  if (combined.includes('ended') || combined.includes('finished') || combined.includes('has ended')) {
+    return {
+      title: 'Voting has ended',
+      detail: 'This election has ended, so ballots can no longer be cast.',
+    };
+  }
+
+  if (
+    combined.includes('not in voter list') ||
+    combined.includes('not eligible') ||
+    combined.includes('allowed voters')
+  ) {
+    return {
+      title: 'You are not eligible to vote',
+      detail:
+        'You are not on the eligible voter list for this election, so you cannot cast a ballot.',
+    };
+  }
+
+  if (combined.includes('error') || combined.includes('unable to verify')) {
+    return {
+      title: 'Unable to verify eligibility',
+      detail: 'We could not verify your voting eligibility right now. Please try again in a moment.',
+    };
+  }
+
+  const cleanMessage = eligibility.message && !/status:\s*|reason:/i.test(eligibility.message)
+    ? eligibility.message
+    : 'You are not eligible to vote in this election at this time.';
+
+  return {
+    title: cleanMessage,
+    detail: null,
+  };
+};
+
+/** True when ineligibility is likely temporary (schedule / activation) and worth re-checking. */
+const isTemporaryIneligibility = (eligibility) => {
+  if (!eligibility || eligibility.eligible || eligibility.hasVoted) return false;
+  const status = String(eligibility.electionStatus || '').toLowerCase();
+  const reason = String(eligibility.reason || '').toLowerCase();
+  const message = String(eligibility.message || '').toLowerCase();
+  const combined = `${status} ${reason} ${message}`;
+  return (
+    combined.includes('not activated') ||
+    combined.includes('key ceremony') ||
+    combined.includes('not scheduled') ||
+    combined.includes('not started') ||
+    combined.includes('not active') ||
+    combined.includes('schedule is not set')
+  );
 };
 
 const buildSummaryPayloadFromCachedResults = (animatedResultsData, electionData) => ({
@@ -133,25 +250,26 @@ const sortVotersVotedFirst = (voters) => {
 };
 
 const subMenus = [
-  { name: 'Election Info', key: 'info', path: '', icon: FiInfo },
-  { name: 'Voting Booth', key: 'voting', path: 'voting-booth', icon: FiCheckCircle },
-  { name: 'Guardian', key: 'guardian', path: 'guardian', icon: FiShield },
-  { name: 'Key Verification', key: 'key-verification', path: 'key-verification', icon: FiKey, guardianOnly: true },
-  { name: 'Results', key: 'results', path: 'results', icon: FiTrendingUp },
-  { name: 'Ballots in Tally', key: 'ballots', path: 'ballots-in-tally', icon: FiDatabase },
-  { name: 'Verify Your Vote', key: 'verify', path: 'verify-vote', icon: FiHash },
-  { name: 'Verification', key: 'verification', path: 'verification', icon: FiEye },
-  { name: 'Send Email', key: 'send-email', path: 'send-email', icon: FiMail, adminOnly: true },
-  { name: 'Worker Proceedings', key: 'worker-proceedings', path: 'worker-proceedings', icon: FiActivity },
+  { name: 'Election Info', shortName: 'Info', key: 'info', path: 'info', icon: FiInfo, hint: 'Schedule, candidates, and election details' },
+  { name: 'Voting Booth', shortName: 'Vote', key: 'voting', path: 'voting-booth', icon: FiCheckCircle, hint: 'Cast your encrypted ballot' },
+  { name: 'Guardian', shortName: 'Guardian', key: 'guardian', path: 'guardian', icon: FiShield, hint: 'Key ceremony, decryption, and combination' },
+  { name: 'Key Verification', shortName: 'Keys', key: 'key-verification', path: 'key-verification', icon: FiKey, guardianOnly: true, hint: 'Verify your guardian credentials' },
+  { name: 'Results', shortName: 'Results', key: 'results', path: 'results', icon: FiTrendingUp, hint: 'Tallied outcomes (available after combination)' },
+  { name: 'Ballots in Tally', shortName: 'Ballots', key: 'ballots', path: 'ballots-in-tally', icon: FiDatabase, hint: 'Ballots included in the tally' },
+  { name: 'Verify Your Vote', shortName: 'Verify', key: 'verify', path: 'verify-vote', icon: FiHash, hint: 'Confirm your ballot was recorded' },
+  { name: 'Audit', shortName: 'Audit', key: 'verification', path: 'verification', icon: FiEye, hint: 'Public audit trail and proofs' },
+  { name: 'Send Email', shortName: 'Email', key: 'send-email', path: 'send-email', icon: FiMail, adminOnly: true, hint: 'Notify voters and guardians' },
+  { name: 'Worker Proceedings', shortName: 'Workers', key: 'worker-proceedings', path: 'worker-proceedings', icon: FiActivity, hint: 'Open processing telemetry for everyone' },
 ];
 
 // Timer Component
-const ElectionTimer = ({ startTime, endTime }) => {
+const ElectionTimer = ({ startTime, endTime, onPhaseChange, variant = 'full' }) => {
   const [timeInfo, setTimeInfo] = useState({
     timeLeft: '',
     progress: 0,
     phase: 'calculating'
   });
+  const lastPhaseRef = useRef(null);
 
   useEffect(() => {
     const updateTimer = () => {
@@ -165,8 +283,16 @@ const ElectionTimer = ({ startTime, endTime }) => {
       }
 
       const now = new Date();
-      const start = new Date(startTime);
-      const end = new Date(endTime);
+      const start = timezoneUtils.parseUtcTimestamp(startTime);
+      const end = timezoneUtils.parseUtcTimestamp(endTime);
+      if (!start || !end) {
+        setTimeInfo({
+          timeLeft: 'Election schedule not set yet',
+          progress: 0,
+          phase: 'upcoming'
+        });
+        return;
+      }
       const totalDuration = end - start;
 
       if (now < start) {
@@ -190,7 +316,7 @@ const ElectionTimer = ({ startTime, endTime }) => {
       } else {
         const elapsed = now - start;
         const remaining = end - now;
-        const progressPercent = (elapsed / totalDuration) * 100;
+        const progressPercent = totalDuration > 0 ? (elapsed / totalDuration) * 100 : 0;
 
         const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
         const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -211,6 +337,14 @@ const ElectionTimer = ({ startTime, endTime }) => {
     return () => clearInterval(interval);
   }, [startTime, endTime]);
 
+  useEffect(() => {
+    if (!onPhaseChange || !timeInfo.phase || timeInfo.phase === 'calculating') return;
+    if (lastPhaseRef.current === timeInfo.phase) return;
+    const previous = lastPhaseRef.current;
+    lastPhaseRef.current = timeInfo.phase;
+    onPhaseChange(timeInfo.phase, previous);
+  }, [timeInfo.phase, onPhaseChange]);
+
   const getProgressColor = () => {
     switch (timeInfo.phase) {
       case 'upcoming': return '#f59e0b';
@@ -221,28 +355,62 @@ const ElectionTimer = ({ startTime, endTime }) => {
     }
   };
 
+  const phaseLabel = timezoneUtils.getElectionStatusLabel(timeInfo.phase, startTime, endTime);
+
+  if (variant === 'compact') {
+    return (
+      <div className="flex min-w-0 max-w-full items-center gap-2.5 rounded-xl border border-ink/10 bg-frost/90 px-2.5 py-1.5 sm:gap-3 sm:px-3 sm:py-2">
+        <div className="h-10 w-10 shrink-0 sm:h-12 sm:w-12">
+          <CircularProgressbar
+            value={timeInfo.progress}
+            text={`${Math.round(timeInfo.progress)}%`}
+            styles={buildStyles({
+              textSize: '28px',
+              textColor: getProgressColor(),
+              pathColor: getProgressColor(),
+              trailColor: '#e2e8f0',
+            })}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-display text-xs font-bold text-deep sm:text-sm">{timeInfo.timeLeft}</p>
+          <p className="truncate text-[10px] text-dusk sm:text-xs">Status: {phaseLabel}</p>
+          <div className="mt-1 h-1 w-full rounded-full bg-ink/10">
+            <div
+              className="h-1 rounded-full transition-all duration-1000"
+              style={{
+                width: `${timeInfo.progress}%`,
+                backgroundColor: getProgressColor()
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <div className="bg-white rounded-lg shadow p-6">
-      <h3 className="text-lg font-semibold mb-4 flex items-center">
-        <FiClock className="h-5 w-5 mr-2" />
+    <div className="surface-card p-5 sm:p-6">
+      <h3 className="process-panel-title">
+        <FiClock className="h-5 w-5 text-brand" />
         Election Timeline
       </h3>
       <div className="flex items-center space-x-4">
-        <div className="w-16 h-16">
+        <div className="w-16 h-16 shrink-0">
           <CircularProgressbar
             value={timeInfo.progress}
             text={`${Math.round(timeInfo.progress)}%`}
             styles={buildStyles({
               textColor: getProgressColor(),
               pathColor: getProgressColor(),
-              trailColor: '#e5e7eb',
+              trailColor: '#e2e8f0',
             })}
           />
         </div>
-        <div className="flex-1">
-          <p className="text-2xl font-bold text-gray-900">{timeInfo.timeLeft}</p>
-          <p className="text-sm text-gray-600 capitalize">Status: {timeInfo.phase}</p>
-          <div className="w-full bg-gray-200 rounded-full h-2 mt-2">
+        <div className="flex-1 min-w-0">
+          <p className="font-display text-xl sm:text-2xl font-bold text-deep">{timeInfo.timeLeft}</p>
+          <p className="text-sm text-dusk">Status: {phaseLabel}</p>
+          <div className="w-full bg-ink/10 rounded-full h-2 mt-2">
             <div
               className="h-2 rounded-full transition-all duration-1000"
               style={{
@@ -281,10 +449,10 @@ const ArtifactDownloadRow = ({ title, data, downloadFilename }) => {
   };
 
   return (
-    <div className="flex items-center justify-between gap-4 border border-gray-200 rounded-lg p-4 bg-white">
+    <div className="flex items-center justify-between gap-4 border border-ink/10 rounded-lg p-4 bg-paper">
       <div className="min-w-0">
-        <h4 className="font-medium text-gray-900">{title}</h4>
-        <p className="text-sm text-gray-500 mt-1">
+        <h4 className="font-medium text-deep">{title}</h4>
+        <p className="text-sm text-dusk mt-1">
           {isAvailable ? 'Download to inspect this artifact locally' : 'Not available'}
         </p>
       </div>
@@ -292,7 +460,7 @@ const ArtifactDownloadRow = ({ title, data, downloadFilename }) => {
         type="button"
         onClick={handleDownload}
         disabled={!isAvailable || downloading}
-        className="flex items-center gap-2 shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+        className="flex items-center gap-2 shrink-0 px-4 py-2 rounded-lg text-sm font-medium text-paper bg-brand-dark hover:bg-brand disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
       >
         {downloading ? (
           <FiLoader className="h-4 w-4 animate-spin" />
@@ -327,15 +495,15 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData }) =
   
   if (!canUserViewVerification()) {
     return (
-      <div className="bg-white rounded-lg shadow p-6">
+      <div className="surface-card p-6">
         <div className="text-center py-12">
-          <FiEye className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-semibold text-gray-900 mb-2">Verification Not Available</h3>
-          <p className="text-gray-600 mb-4">
+          <FiEye className="h-16 w-16 text-dusk-soft mx-auto mb-4" />
+          <h3 className="text-lg font-semibold text-deep mb-2">Verification Not Available</h3>
+          <p className="text-dusk mb-4">
             Election verification will be available after the results have been displayed.
           </p>
-          <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 inline-block">
-            <p className="text-sm text-blue-800">
+          <div className="bg-glacier border border-brand/20 rounded-lg p-4 inline-block">
+            <p className="text-sm text-ink">
               <strong>Why?</strong> Verification artifacts are only generated after the election results have been computed and displayed.
             </p>
           </div>
@@ -353,48 +521,48 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData }) =
   ];
 
   return (
-    <div className="bg-white rounded-lg shadow">
+    <div className="surface-card">
       {/* Header with Stats */}
-      <div className="border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50 p-6">
+      <div className="border-b border-ink/10 bg-gradient-to-r from-glacier to-frost p-6">
         <div className="flex items-center justify-between mb-4">
           <div>
-            <h3 className="text-2xl font-bold text-gray-900 flex items-center">
-              <FiEye className="h-7 w-7 mr-3 text-blue-600" />
-              Election Verification
+            <h3 className="text-2xl font-bold text-deep flex items-center">
+              <FiEye className="h-7 w-7 mr-3 text-brand" />
+              Election Audit
             </h3>
-            <p className="text-sm text-gray-600 mt-1">
-              Cryptographic verification data and audit trail
+            <p className="text-sm text-dusk mt-1">
+              Cryptographic artifacts and public audit trail
             </p>
           </div>
         </div>
 
         {/* Quick Stats */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-4">
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+          <div className="bg-paper rounded-lg p-3 shadow-sm border border-ink/10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Guardians</p>
-                <p className="text-2xl font-bold text-blue-600">{electionData.numberOfGuardians || electionData.guardians?.length || 0}</p>
+                <p className="text-xs text-dusk uppercase tracking-wide">Guardians</p>
+                <p className="text-2xl font-bold text-brand">{electionData.numberOfGuardians || electionData.guardians?.length || 0}</p>
               </div>
-              <FiShield className="h-8 w-8 text-blue-400" />
+              <FiShield className="h-8 w-8 text-brand" />
             </div>
           </div>
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+          <div className="bg-paper rounded-lg p-3 shadow-sm border border-ink/10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Chunks</p>
-                <p className="text-2xl font-bold text-green-600">
+                <p className="text-xs text-dusk uppercase tracking-wide">Chunks</p>
+                <p className="text-2xl font-bold text-sage">
                   {chunkCount}
                 </p>
               </div>
-              <FiLayers className="h-8 w-8 text-green-400" />
+              <FiLayers className="h-8 w-8 text-aurora" />
             </div>
           </div>
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+          <div className="bg-paper rounded-lg p-3 shadow-sm border border-ink/10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Artifacts</p>
-                <p className="text-2xl font-bold text-purple-600">
+                <p className="text-xs text-dusk uppercase tracking-wide">Artifacts</p>
+                <p className="text-2xl font-bold text-brand-dark">
                   {[
                     electionData.jointPublicKey,
                     electionData.baseHash,
@@ -402,25 +570,25 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData }) =
                   ].filter(Boolean).length}
                 </p>
               </div>
-              <FiKey className="h-8 w-8 text-purple-400" />
+              <FiKey className="h-8 w-8 text-brand-light" />
             </div>
           </div>
-          <div className="bg-white rounded-lg p-3 shadow-sm border border-gray-200">
+          <div className="bg-paper rounded-lg p-3 shadow-sm border border-ink/10">
             <div className="flex items-center justify-between">
               <div>
-                <p className="text-xs text-gray-500 uppercase tracking-wide">Verification</p>
-                <p className="text-2xl font-bold text-indigo-600">Ready</p>
+                <p className="text-xs text-dusk uppercase tracking-wide">Verification</p>
+                <p className="text-2xl font-bold text-brand-dark">Ready</p>
               </div>
-              <FiShield className="h-8 w-8 text-indigo-400" />
+              <FiShield className="h-8 w-8 text-brand-light" />
             </div>
           </div>
         </div>
       </div>
 
       {/* Sub-navigation Tabs */}
-      <div className="border-b border-gray-200 bg-gray-50">
+      <div className="border-b border-ink/10 bg-frost">
         <div className="px-6 py-2">
-          <div className="border border-gray-300 rounded-lg bg-white overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
+          <div className="border border-ink/10 rounded-lg bg-paper overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
             <nav className="flex space-x-1 px-2 min-w-max" aria-label="Verification sections">
               {verificationTabs.map((tab) => {
             const Icon = tab.icon;
@@ -431,8 +599,8 @@ const VerificationTabContent = ({ canUserViewVerification, id, electionData }) =
                 className={`
                   flex items-center px-4 py-3 text-sm font-medium border-b-2 transition-colors
                   ${verificationSubTab === tab.id
-                    ? 'border-blue-600 text-blue-600 bg-white'
-                    : 'border-transparent text-gray-600 hover:text-gray-900 hover:border-gray-300'
+                    ? 'border-brand text-brand bg-paper'
+                    : 'border-transparent text-dusk hover:text-deep hover:border-ink/10'
                   }
                 `}
               >
@@ -483,12 +651,12 @@ const OverviewTabContent = ({ electionData, id }) => {
   return (
     <div className="space-y-6">
       {/* Info Banner */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+      <div className="bg-glacier border border-brand/20 rounded-lg p-4">
         <div className="flex items-start">
-          <FiInfo className="h-5 w-5 text-blue-500 mr-3 mt-0.5 flex-shrink-0" />
+          <FiInfo className="h-5 w-5 text-brand mr-3 mt-0.5 flex-shrink-0" />
           <div>
-            <h4 className="font-semibold text-blue-900 mb-1">Cryptographic Verification</h4>
-            <p className="text-sm text-blue-800">
+            <h4 className="font-semibold text-deep mb-1">Cryptographic Verification</h4>
+            <p className="text-sm text-ink">
               Download cryptographic artifacts below to independently verify the integrity of this election
               using ElectionGuard verification tools.
             </p>
@@ -497,10 +665,10 @@ const OverviewTabContent = ({ electionData, id }) => {
       </div>
 
       {/* Core Cryptographic Artifacts */}
-      <div className="bg-white border border-gray-200 rounded-lg">
-        <div className="border-b border-gray-200 bg-gray-50 px-4 py-3">
-          <h4 className="font-semibold text-gray-900 flex items-center">
-            <FiKey className="h-5 w-5 mr-2 text-blue-600" />
+      <div className="bg-paper border border-ink/10 rounded-lg">
+        <div className="border-b border-ink/10 bg-frost px-4 py-3">
+          <h4 className="font-semibold text-deep flex items-center">
+            <FiKey className="h-5 w-5 mr-2 text-brand" />
             Core Cryptographic Artifacts
           </h4>
         </div>
@@ -542,63 +710,63 @@ const OverviewTabContent = ({ electionData, id }) => {
       </div>
 
       {/* Verification Instructions */}
-      <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg p-5">
-        <h4 className="font-semibold text-gray-900 mb-3 flex items-center">
-          <FiInfo className="h-5 w-5 mr-2 text-gray-600" />
+      <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-ink/10 rounded-lg p-5">
+        <h4 className="font-semibold text-deep mb-3 flex items-center">
+          <FiInfo className="h-5 w-5 mr-2 text-dusk" />
           Verification Instructions
         </h4>
         <div className="space-y-3">
           <div className="flex items-start">
-            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-3 mt-0.5">
-              <span className="text-blue-600 text-xs font-bold">1</span>
+            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-glacier flex items-center justify-center mr-3 mt-0.5">
+              <span className="text-brand text-xs font-bold">1</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Joint Public Key</p>
-              <p className="text-sm text-gray-600">Used to encrypt all ballots in this election</p>
+              <p className="text-sm font-medium text-deep">Joint Public Key</p>
+              <p className="text-sm text-dusk">Used to encrypt all ballots in this election</p>
             </div>
           </div>
           <div className="flex items-start">
-            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-3 mt-0.5">
-              <span className="text-blue-600 text-xs font-bold">2</span>
+            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-glacier flex items-center justify-center mr-3 mt-0.5">
+              <span className="text-brand text-xs font-bold">2</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Commitment Hash</p>
-              <p className="text-sm text-gray-600">Cryptographic commitment to the election parameters</p>
+              <p className="text-sm font-medium text-deep">Commitment Hash</p>
+              <p className="text-sm text-dusk">Cryptographic commitment to the election parameters</p>
             </div>
           </div>
           <div className="flex items-start">
-            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-3 mt-0.5">
-              <span className="text-blue-600 text-xs font-bold">3</span>
+            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-glacier flex items-center justify-center mr-3 mt-0.5">
+              <span className="text-brand text-xs font-bold">3</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Guardian Keys</p>
-              <p className="text-sm text-gray-600">Public keys and polynomials used in the threshold cryptography</p>
+              <p className="text-sm font-medium text-deep">Guardian Keys</p>
+              <p className="text-sm text-dusk">Public keys and polynomials used in the threshold cryptography</p>
             </div>
           </div>
           <div className="flex items-start">
-            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-3 mt-0.5">
-              <span className="text-blue-600 text-xs font-bold">4</span>
+            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-glacier flex items-center justify-center mr-3 mt-0.5">
+              <span className="text-brand text-xs font-bold">4</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Encrypted Tally</p>
-              <p className="text-sm text-gray-600">The encrypted sum of all valid ballots</p>
+              <p className="text-sm font-medium text-deep">Encrypted Tally</p>
+              <p className="text-sm text-dusk">The encrypted sum of all valid ballots</p>
             </div>
           </div>
           <div className="flex items-start">
-            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-blue-100 flex items-center justify-center mr-3 mt-0.5">
-              <span className="text-blue-600 text-xs font-bold">5</span>
+            <div className="flex-shrink-0 h-6 w-6 rounded-full bg-glacier flex items-center justify-center mr-3 mt-0.5">
+              <span className="text-brand text-xs font-bold">5</span>
             </div>
             <div>
-              <p className="text-sm font-medium text-gray-900">Proofs</p>
-              <p className="text-sm text-gray-600">Zero-knowledge proofs that the tallying was performed correctly</p>
+              <p className="text-sm font-medium text-deep">Proofs</p>
+              <p className="text-sm text-dusk">Zero-knowledge proofs that the tallying was performed correctly</p>
             </div>
           </div>
         </div>
         
-        <div className="mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
+        <div className="mt-4 p-3 bg-ceremonial-soft border border-yellow-200 rounded-lg">
           <div className="flex items-start">
             <FiAlertCircle className="h-5 w-5 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" />
-            <p className="text-sm text-yellow-800">
+            <p className="text-sm text-ink">
               <strong>Independent Verification:</strong> You can use these artifacts with ElectionGuard verification tools to independently verify that your vote was counted correctly and that the election results are mathematically sound.
             </p>
           </div>
@@ -663,8 +831,8 @@ const ChunksTabContent = ({ electionId }) => {
   if (loading) {
     return (
       <div className="text-center py-12">
-        <FiLoader className="h-12 w-12 text-blue-500 mx-auto mb-4 animate-spin" />
-        <p className="text-gray-600">Loading chunk summaries...</p>
+        <FiLoader className="h-12 w-12 text-brand mx-auto mb-4 animate-spin" />
+        <p className="text-dusk">Loading chunk summaries...</p>
       </div>
     );
   }
@@ -672,8 +840,8 @@ const ChunksTabContent = ({ electionId }) => {
   if (loadError) {
     return (
       <div className="text-center py-12">
-        <FiAlertCircle className="h-12 w-12 text-red-400 mx-auto mb-4" />
-        <p className="text-gray-700">{loadError}</p>
+        <FiAlertCircle className="h-12 w-12 text-ember mx-auto mb-4" />
+        <p className="text-ink">{loadError}</p>
       </div>
     );
   }
@@ -681,9 +849,9 @@ const ChunksTabContent = ({ electionId }) => {
   if (!chunks.length) {
     return (
       <div className="text-center py-12">
-        <FiLayers className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">No Chunk Data Available</h3>
-        <p className="text-gray-600">
+        <FiLayers className="h-16 w-16 text-dusk-soft mx-auto mb-4" />
+        <h3 className="text-lg font-semibold text-deep mb-2">No Chunk Data Available</h3>
+        <p className="text-dusk">
           Chunk tallies and decryptions will appear here once available.
         </p>
       </div>
@@ -700,8 +868,8 @@ const ChunksTabContent = ({ electionId }) => {
       {/* Header with Search */}
       <div className="flex items-center justify-between">
         <div>
-          <h4 className="font-semibold text-gray-900 text-lg">Per-Chunk Tallies and Decryptions</h4>
-          <p className="text-sm text-gray-600 mt-1">
+          <h4 className="font-semibold text-deep text-lg">Per-Chunk Tallies and Decryptions</h4>
+          <p className="text-sm text-dusk mt-1">
             Per-chunk vote counts are shown below. Download encrypted tally ciphertext when needed for verification.
           </p>
         </div>
@@ -712,11 +880,11 @@ const ChunksTabContent = ({ electionId }) => {
               placeholder="Search chunks..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              className="pl-10 pr-4 py-2 border border-ink/10 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
             />
-            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <FiSearch className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-dusk" />
           </div>
-          <span className="text-sm text-gray-600">
+          <span className="text-sm text-dusk">
             {filteredChunks.length} of {chunks.length} chunks
           </span>
         </div>
@@ -727,32 +895,32 @@ const ChunksTabContent = ({ electionId }) => {
         {filteredChunks.map((chunk) => {
           const isDownloading = downloadingTallies[chunk.electionCenterId];
           return (
-            <div key={chunk.electionCenterId} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div key={chunk.electionCenterId} className="bg-paper border border-ink/10 rounded-lg overflow-hidden">
               <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white">
                 <div className="flex items-center space-x-4">
                   <div className="flex-shrink-0">
-                    <div className="h-10 w-10 rounded-full bg-blue-100 flex items-center justify-center">
-                      <FiLayers className="h-5 w-5 text-blue-600" />
+                    <div className="h-10 w-10 rounded-full bg-glacier flex items-center justify-center">
+                      <FiLayers className="h-5 w-5 text-brand" />
                     </div>
                   </div>
                   <div>
-                    <h5 className="font-semibold text-gray-900">
+                    <h5 className="font-semibold text-deep">
                       Chunk {chunk.chunkIndex}
                     </h5>
-                    <p className="text-sm text-gray-600">
+                    <p className="text-sm text-dusk">
                       Election Center ID: {chunk.electionCenterId} • {chunk.ballotCount} ballots
                     </p>
                   </div>
                 </div>
                 <div className="flex items-center space-x-3">
-                  <span className="px-3 py-1 bg-green-100 text-green-800 rounded-full text-sm font-medium">
+                  <span className="px-3 py-1 bg-sage-soft text-aurora-muted rounded-full text-sm font-medium">
                     Processed
                   </span>
                   <button
                     type="button"
                     onClick={() => downloadEncryptedTally(chunk)}
                     disabled={isDownloading}
-                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-paper bg-brand-dark hover:bg-brand disabled:opacity-50 transition-colors"
                   >
                     {isDownloading ? (
                       <FiLoader className="h-4 w-4 animate-spin" />
@@ -764,27 +932,34 @@ const ChunksTabContent = ({ electionId }) => {
                 </div>
               </div>
 
-              <div className="p-4 bg-gray-50 border-t border-gray-200">
+              <div className="p-4 bg-frost border-t border-ink/10">
                 <div className="mb-4">
-                  <h6 className="text-sm font-semibold text-gray-700 mb-3 flex items-center">
-                    <FiBarChart className="h-4 w-4 mr-2 text-blue-600" />
+                  <h6 className="text-sm font-semibold text-ink mb-3 flex items-center">
+                    <FiBarChart className="h-4 w-4 mr-2 text-brand" />
                     Tally Results for this Chunk
                   </h6>
                   <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
                     {Object.entries(chunk.candidateVotes || {}).map(([candidate, votes]) => (
-                      <div key={candidate} className="bg-white rounded-lg px-4 py-3 border border-gray-200 shadow-sm">
-                        <p className="text-xs text-gray-500 mb-1">Candidate</p>
-                        <p className="font-semibold text-gray-900 truncate">{candidate}</p>
-                        <p className="text-2xl font-bold text-blue-600 mt-1">{votes}</p>
+                      <div key={candidate} className="bg-paper rounded-lg px-4 py-3 border border-ink/10 shadow-sm">
+                        <CandidateIdentity
+                          name={candidate}
+                          image={getCandidatePic(electionData?.electionChoices, candidate)}
+                          description={getCandidateDescription(electionData?.electionChoices, candidate)}
+                          partyName={findChoiceByName(electionData?.electionChoices, candidate)?.partyName}
+                          size="sm"
+                          enableProfile
+                          nameClassName="font-semibold text-deep text-sm"
+                        />
+                        <p className="text-2xl font-bold text-brand mt-2">{votes}</p>
                       </div>
                     ))}
                   </div>
                 </div>
 
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+                <div className="bg-glacier border border-brand/20 rounded-lg p-3">
                   <div className="flex items-start">
-                    <FiInfo className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-                    <p className="text-sm text-blue-800">
+                    <FiInfo className="h-5 w-5 text-brand mr-2 mt-0.5 flex-shrink-0" />
+                    <p className="text-sm text-ink">
                       <strong>Threshold Cryptography:</strong> Each guardian submitted a partial decryption for this chunk.
                       The partial decryptions were combined using threshold cryptography to compute the tally shown above.
                     </p>
@@ -798,8 +973,8 @@ const ChunksTabContent = ({ electionId }) => {
 
       {filteredChunks.length === 0 && (
         <div className="text-center py-8">
-          <FiSearch className="h-12 w-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-600">No chunks match your search</p>
+          <FiSearch className="h-12 w-12 text-dusk-soft mx-auto mb-3" />
+          <p className="text-dusk">No chunks match your search</p>
         </div>
       )}
     </div>
@@ -983,13 +1158,13 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
     const status = ballot.verification;
     switch (status) {
       case 'success':
-        return { text: 'Verified', color: 'green', icon: FiCheck, bgColor: 'bg-green-100', textColor: 'text-green-800', borderColor: 'border-green-200' };
+        return { text: 'Verified', color: 'green', icon: FiCheck, bgColor: 'bg-sage-soft', textColor: 'text-aurora-muted', borderColor: 'border-aurora/30' };
       case 'failed':
-        return { text: 'Failed', color: 'red', icon: FiX, bgColor: 'bg-red-100', textColor: 'text-red-800', borderColor: 'border-red-200' };
+        return { text: 'Failed', color: 'red', icon: FiX, bgColor: 'bg-ember-soft', textColor: 'text-ember', borderColor: 'border-ember/30' };
       case 'no_initial_hash':
-        return { text: 'No Hash', color: 'yellow', icon: FiAlertCircle, bgColor: 'bg-yellow-100', textColor: 'text-yellow-800', borderColor: 'border-yellow-200' };
+        return { text: 'No Hash', color: 'yellow', icon: FiAlertCircle, bgColor: 'bg-ceremonial-soft', textColor: 'text-ink', borderColor: 'border-yellow-200' };
       default:
-        return { text: 'Unknown', color: 'gray', icon: FiInfo, bgColor: 'bg-gray-100', textColor: 'text-gray-800', borderColor: 'border-gray-200' };
+        return { text: 'Unknown', color: 'gray', icon: FiInfo, bgColor: 'bg-frost-muted', textColor: 'text-ink', borderColor: 'border-ink/10' };
     }
   };
 
@@ -1003,7 +1178,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
 
         <button
           onClick={downloadAllBallotsCSV}
-          className="flex items-center space-x-2 bg-green-600 text-white px-4 py-2 rounded-lg hover:bg-green-700 transition-colors disabled:opacity-50"
+          className="flex items-center space-x-2 bg-aurora-muted text-paper px-4 py-2 rounded-lg hover:bg-aurora transition-colors disabled:opacity-50"
           disabled={totalBallots === 0 || downloadingCsv}
         >
           {downloadingCsv ? <FiLoader className="h-4 w-4 animate-spin" /> : <FiDownload className="h-4 w-4" />}
@@ -1013,31 +1188,31 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
 
       {loading && ballots.length === 0 ? (
         <div className="text-center py-12">
-          <FiLoader className="h-12 w-12 text-blue-500 mx-auto mb-4 animate-spin" />
-          <p className="text-gray-600">Loading ballot data...</p>
+          <FiLoader className="h-12 w-12 text-brand mx-auto mb-4 animate-spin" />
+          <p className="text-dusk">Loading ballot data...</p>
         </div>
       ) : (
         <>
       <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
-        <div className="bg-green-50 border border-green-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-green-800">{statusCounts.success || 0}</div>
-          <div className="text-sm text-green-600">Verified</div>
+        <div className="bg-sage-soft border border-aurora/30 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-aurora-muted">{statusCounts.success || 0}</div>
+          <div className="text-sm text-sage">Verified</div>
         </div>
-        <div className="bg-red-50 border border-red-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-red-800">{statusCounts.failed || 0}</div>
-          <div className="text-sm text-red-600">Failed</div>
+        <div className="bg-ember-soft border border-ember/30 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-ember">{statusCounts.failed || 0}</div>
+          <div className="text-sm text-ember">Failed</div>
         </div>
-        <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-blue-800">{statusCounts.cast || 0}</div>
-          <div className="text-sm text-blue-600">Cast</div>
+        <div className="bg-glacier border border-brand/20 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-ink">{statusCounts.cast || 0}</div>
+          <div className="text-sm text-brand">Cast</div>
         </div>
-        <div className="bg-orange-50 border border-orange-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-orange-800">{statusCounts.spoiled || 0}</div>
-          <div className="text-sm text-orange-600">Spoiled</div>
+        <div className="bg-ceremonial-soft border border-ceremonial/40 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-ink">{statusCounts.spoiled || 0}</div>
+          <div className="text-sm text-ink">Spoiled</div>
         </div>
-        <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 text-center">
-          <div className="text-2xl font-bold text-purple-800">{totalBallots}</div>
-          <div className="text-sm text-purple-600">Total</div>
+        <div className="bg-glacier border border-brand/20 rounded-lg p-3 text-center">
+          <div className="text-2xl font-bold text-ink">{totalBallots}</div>
+          <div className="text-sm text-brand-dark">Total</div>
         </div>
       </div>
 
@@ -1048,16 +1223,16 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
             placeholder="Search by tracking code, hash code, or verification status..."
             value={searchTerm}
             onChange={(e) => setSearchTerm(e.target.value)}
-            className="w-full px-4 py-2 pl-10 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="w-full px-4 py-2 pl-10 border border-ink/10 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
           />
-          <FiHash className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 h-4 w-4" />
+          <FiHash className="absolute left-3 top-1/2 transform -translate-y-1/2 text-dusk h-4 w-4" />
         </div>
 
         <div className="flex gap-2">
           <select
             value={sortBy}
             onChange={(e) => setSortBy(e.target.value)}
-            className="px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+            className="px-3 py-2 border border-ink/10 rounded-lg focus:ring-2 focus:ring-brand focus:border-brand"
           >
             <option value="ballot_id">Sort by Tracking Code</option>
             <option value="status">Sort by Status</option>
@@ -1066,7 +1241,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
 
           <button
             onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-            className="px-3 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+            className="px-3 py-2 border border-ink/10 rounded-lg hover:bg-frost transition-colors"
             title={`Sort ${sortOrder === 'asc' ? 'Descending' : 'Ascending'}`}
           >
             {sortOrder === 'asc' ? '↑' : '↓'}
@@ -1074,7 +1249,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
         </div>
       </div>
 
-      <p className="text-xs text-gray-500 mb-4">
+      <p className="text-xs text-dusk mb-4">
         Showing {ballots.length} of {totalBallots} ballots.
         {debouncedSearch
           ? ' Search scans the entire tally on the server — not just the rows currently visible.'
@@ -1082,7 +1257,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
       </p>
 
       {debouncedSearch && (
-        <div className="mb-4 text-sm text-gray-600">
+        <div className="mb-4 text-sm text-dusk">
           {totalBallots === 0
             ? 'No ballots match your search.'
             : `Found ${totalBallots} matching ballot${totalBallots === 1 ? '' : 's'}.`}
@@ -1097,7 +1272,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
           return (
             <div
               key={ballot.ballot_id}
-              className={`bg-white border-2 ${statusInfo.borderColor} rounded-lg p-4 hover:shadow-lg transition-all duration-200 hover:scale-[1.02]`}
+              className={`bg-paper border-2 ${statusInfo.borderColor} rounded-lg p-4 hover:shadow-lg transition-all duration-200 hover:scale-[1.02]`}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center">
@@ -1110,7 +1285,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
                       <span className="text-xs font-medium">{statusInfo.text}</span>
                     </div>
                     {ballot.chunkIndex && (
-                      <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-blue-100 text-blue-800 text-xs font-bold">
+                      <span className="inline-flex items-center justify-center px-2 py-0.5 rounded-full bg-glacier text-ink text-xs font-bold">
                         Chunk {ballot.chunkIndex}
                       </span>
                     )}
@@ -1118,7 +1293,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
                 </div>
                 <button
                   onClick={() => downloadBallotInfo(ballot)}
-                  className="text-gray-400 hover:text-blue-600 transition-colors p-1 rounded hover:bg-blue-50"
+                  className="text-dusk hover:text-brand transition-colors p-1 rounded hover:bg-glacier"
                   title="Download encrypted ballot and verification details"
                 >
                   <FiDownload className="h-4 w-4" />
@@ -1127,29 +1302,29 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
 
               <div className="space-y-3 text-xs">
                 <div>
-                  <span className="text-gray-500 font-medium">Tracking Code:</span>
-                  <div className="font-mono text-gray-900 bg-gray-50 px-2 py-1 rounded mt-1 break-all text-xs border">
+                  <span className="text-dusk font-medium">Tracking Code:</span>
+                  <div className="font-mono text-deep bg-frost px-2 py-1 rounded mt-1 break-all text-xs border">
                     {ballot.ballot_id}
                   </div>
                 </div>
                 <div>
-                  <span className="text-gray-500 font-medium">Initial Hash:</span>
-                  <div className="font-mono text-gray-900 bg-gray-50 px-2 py-1 rounded mt-1 break-all text-xs border">
+                  <span className="text-dusk font-medium">Initial Hash:</span>
+                  <div className="font-mono text-deep bg-frost px-2 py-1 rounded mt-1 break-all text-xs border">
                     {ballot.initial_hash || 'N/A'}
                   </div>
                 </div>
                 {ballot.decrypted_hash && ballot.decrypted_hash !== ballot.initial_hash && (
                   <div>
-                    <span className="text-gray-500 font-medium">Decrypted Hash:</span>
-                    <div className="font-mono text-gray-900 bg-gray-50 px-2 py-1 rounded mt-1 break-all text-xs border">
+                    <span className="text-dusk font-medium">Decrypted Hash:</span>
+                    <div className="font-mono text-deep bg-frost px-2 py-1 rounded mt-1 break-all text-xs border">
                       {ballot.decrypted_hash}
                     </div>
                   </div>
                 )}
-                <div className="flex items-center justify-between pt-2 border-t border-gray-100">
+                <div className="flex items-center justify-between pt-2 border-t border-ink/10">
                   <div>
-                    <span className="text-gray-500 font-medium">Status:</span>
-                    <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${ballot.status === 'cast' ? 'bg-blue-100 text-blue-800' : 'bg-orange-100 text-orange-800'
+                    <span className="text-dusk font-medium">Status:</span>
+                    <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${ballot.status === 'cast' ? 'bg-glacier text-ink' : 'bg-ceremonial-soft text-ink'
                       }`}>
                       {ballot.status}
                     </span>
@@ -1171,7 +1346,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
             type="button"
             onClick={loadMore}
             disabled={loadingMore}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-ink/10 text-sm font-medium text-ink hover:bg-frost disabled:opacity-50"
           >
             {loadingMore ? <FiLoader className="h-4 w-4 animate-spin" /> : <FiChevronDown className="h-4 w-4" />}
             <span>{loadingMore ? 'Loading...' : `Load more (${ballots.length} of ${totalBallots})`}</span>
@@ -1181,492 +1356,30 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
 
       {ballots.length === 0 && searchTerm && !loading && (
         <div className="text-center py-12">
-          <FiHash className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Ballots Found</h3>
-          <p className="text-gray-500">No ballots match your search criteria. Try a different search term.</p>
+          <FiHash className="h-16 w-16 text-dusk-soft mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-deep mb-2">No Ballots Found</h3>
+          <p className="text-dusk">No ballots match your search criteria. Try a different search term.</p>
         </div>
       )}
 
       {ballots.length === 0 && !searchTerm && !hasError && !loading && (
         <div className="text-center py-12">
-          <FiDatabase className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-gray-900 mb-2">No Ballots Available</h3>
-          <p className="text-gray-500">Ballot verification data will be available after the election results are computed.</p>
+          <FiDatabase className="h-16 w-16 text-dusk-soft mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-deep mb-2">No Ballots Available</h3>
+          <p className="text-dusk">Ballot verification data will be available after the election results are computed.</p>
         </div>
       )}
 
       {hasError && (
         <div className="text-center py-12">
-          <FiAlertCircle className="h-16 w-16 text-red-500 mx-auto mb-4" />
-          <h3 className="text-lg font-medium text-red-600 mb-2">Error Loading Ballots</h3>
-          <p className="text-gray-700">{errorMessage}</p>
-          <p className="text-gray-500 mt-4">Please refresh the page or contact support if this issue persists.</p>
+          <FiAlertCircle className="h-16 w-16 text-ember mx-auto mb-4" />
+          <h3 className="text-lg font-medium text-ember mb-2">Error Loading Ballots</h3>
+          <p className="text-ink">{errorMessage}</p>
+          <p className="text-dusk mt-4">Please refresh the page or contact support if this issue persists.</p>
         </div>
       )}
         </>
       )}
-    </div>
-  );
-};
-
-// Verify Vote Section Component
-const VerifyVoteSection = ({ electionId }) => {
-  const [verificationFile, setVerificationFile] = useState(null);
-  const [verificationResult, setVerificationResult] = useState(null);
-  const [verifyingVote, setVerifyingVote] = useState(false);
-  const [dragOver, setDragOver] = useState(false);
-  const [manualInput, setManualInput] = useState({ tracking_code: '', hash_code: '' });
-  const [inputMethod, setInputMethod] = useState('file'); // 'file' or 'manual'
-
-  const handleFileUpload = (file) => {
-    if (file && (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.json'))) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        try {
-          const content = e.target.result;
-
-          // First try to parse as JSON in case it's a JSON file
-          try {
-            const jsonData = JSON.parse(content);
-            // Check if this is a valid vote receipt JSON format
-            if (jsonData.tracking_code && jsonData.hash_code) {
-              setVerificationFile(jsonData);
-              verifyVoteData(jsonData);
-              return;
-            }
-            if (jsonData.trackingCode && jsonData.hashCode) {
-              const normalized = {
-                tracking_code: jsonData.trackingCode,
-                hash_code: jsonData.hashCode,
-              };
-              setVerificationFile(normalized);
-              verifyVoteData(normalized);
-              return;
-            }
-            if (jsonData.ballot_id && (jsonData.initial_hash || jsonData.hash || jsonData.hash_code)) {
-              // Alternative format that might be used
-              const data = {
-                tracking_code: jsonData.ballot_id,
-                hash_code: jsonData.initial_hash || jsonData.hash
-              };
-              setVerificationFile(data);
-              verifyVoteData(data);
-              return;
-            }
-          } catch {
-            // Not JSON, continue with text parsing
-          }
-
-          // Parse TXT vote receipt format - try different possible formats
-          const voteHashMatch = content.match(/Vote Hash:\s*([a-f0-9]+)/i) ||
-            content.match(/Hash:\s*([a-f0-9]+)/i) ||
-            content.match(/Hash Code:\s*([a-f0-9]+)/i);
-
-          const trackingCodeMatch = content.match(/Tracking Code:\s*([a-f0-9]+)/i) ||
-            content.match(/Ballot ID:\s*([a-f0-9]+)/i) ||
-            content.match(/Ballot Tracking ID:\s*([a-f0-9]+)/i);
-
-          if (voteHashMatch && trackingCodeMatch) {
-            const data = {
-              tracking_code: trackingCodeMatch[1],
-              hash_code: voteHashMatch[1]
-            };
-            setVerificationFile(data);
-            verifyVoteData(data);
-          } else {
-            toast.error('File must contain both a hash code and tracking code');
-          }
-        } catch (error) {
-          toast.error('Failed to read vote receipt file: ' + error.message);
-        }
-      };
-      reader.readAsText(file);
-    } else {
-      toast.error('Please upload a valid TXT or JSON vote receipt file');
-    }
-  };
-
-  const handleFileDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    const files = e.dataTransfer.files;
-    if (files.length > 0) {
-      handleFileUpload(files[0]);
-    }
-  };
-
-  const handleFileSelect = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      handleFileUpload(file);
-    }
-  };
-
-  const handleManualVerification = () => {
-    if (!manualInput.tracking_code.trim() || !manualInput.hash_code.trim()) {
-      toast.error('Please enter both tracking code and hash code');
-      return;
-    }
-
-    const data = {
-      tracking_code: manualInput.tracking_code.trim(),
-      hash_code: manualInput.hash_code.trim()
-    };
-
-    setVerificationFile(data);
-    verifyVoteData(data);
-  };
-
-  const verifyVoteData = async (data) => {
-    try {
-      setVerifyingVote(true);
-      setVerificationResult(null);
-
-      const result = await electionApi.verifyVote(electionId, data);
-      if (result?.status) {
-        setVerificationResult(result);
-        return;
-      }
-
-      setVerificationResult({
-        status: 'error',
-        message: result?.message || 'Unexpected verification response',
-        found_ballot: false,
-      });
-    } catch (error) {
-      setVerificationResult({
-        status: 'error',
-        message: 'Failed to verify vote: ' + error.message,
-        found_ballot: false,
-      });
-    } finally {
-      setVerifyingVote(false);
-    }
-  };
-
-  const verifyVoteLocally = (data, ballots) => {
-    const { tracking_code, hash_code } = data;
-
-    // Make sure ballots is valid
-    if (!Array.isArray(ballots)) {
-      return {
-        status: 'error',
-        message: 'Error: Ballot data is not available or in incorrect format',
-        found_ballot: false,
-        error_details: 'Ballots is not an array'
-      };
-    }
-
-    // Find ballot by tracking code
-    const foundBallot = ballots.find(ballot => ballot.ballot_id === tracking_code);
-
-    if (!foundBallot) {
-      return {
-        status: 'not_found',
-        message: 'Tracking code not found in the tally',
-        found_ballot: false
-      };
-    }
-
-    // Check hash match
-    const hashMatches = foundBallot.initial_hash === hash_code ||
-      foundBallot.decrypted_hash === hash_code;
-
-    if (hashMatches) {
-      return {
-        status: 'verified',
-        message: 'Vote verified successfully',
-        found_ballot: true,
-        ballot_info: foundBallot
-      };
-    } else {
-      return {
-        status: 'corrupted',
-        message: 'Hash mismatch detected - possible tampering',
-        found_ballot: true,
-        ballot_info: foundBallot,
-        expected_hash: foundBallot.initial_hash,
-        provided_hash: hash_code
-      };
-    }
-  };
-
-  const getVerificationStatusDisplay = () => {
-    if (!verificationResult) return null;
-
-    const { status, message } = verificationResult;
-
-    switch (status) {
-      case 'verified':
-        return {
-          icon: FiCheck,
-          color: 'green',
-          title: 'Vote Verified Successfully! ✅',
-          description: 'Your vote was found and verified in the tally. Both tracking code and hash match perfectly.',
-        };
-      case 'corrupted':
-        return {
-          icon: FiAlertCircle,
-          color: 'yellow',
-          title: 'Vote Found but Hash Mismatch ⚠️',
-          description: 'Your tracking code was found, but the hash doesn\'t match. This may indicate tampering or data corruption.',
-        };
-      case 'not_found':
-        return {
-          icon: FiX,
-          color: 'red',
-          title: 'Vote Not Found ❌',
-          description: 'Your tracking code was not found in the final tally. Your vote may not have been counted.',
-        };
-      case 'error':
-        return {
-          icon: FiAlertCircle,
-          color: 'red',
-          title: 'Verification Error',
-          description: message || 'An error occurred during verification.',
-        };
-      default:
-        return null;
-    }
-  };
-
-  const statusDisplay = getVerificationStatusDisplay();
-
-  return (
-    <div>
-      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-4 sm:mb-6 gap-3">
-        <h3 className="text-base sm:text-lg font-semibold flex items-center">
-          <FiHash className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-          Verify Your Vote
-        </h3>
-
-        <div className="flex space-x-2 w-full sm:w-auto">
-          <button
-            onClick={() => setInputMethod('file')}
-            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-              inputMethod === 'file'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            Upload File
-          </button>
-          <button
-            onClick={() => setInputMethod('manual')}
-            className={`flex-1 sm:flex-none px-3 sm:px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-colors ${
-              inputMethod === 'manual'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
-            }`}
-          >
-            Manual Entry
-          </button>
-        </div>
-      </div>
-
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3 sm:p-4 mb-4 sm:mb-6">
-        <div className="flex items-start">
-          <FiInfo className="h-4 w-4 sm:h-5 sm:w-5 text-blue-500 mr-2 flex-shrink-0 mt-0.5" />
-          <div>
-            <h4 className="font-medium text-blue-900 text-sm sm:text-base">How to Verify Your Vote</h4>
-            <p className="text-xs sm:text-sm text-blue-800 mt-1">
-              Use either method below to verify that your vote was counted correctly in the final tally.
-              You need both your tracking code and hash code from your vote receipt.
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {inputMethod === 'file' ? (
-        /* File Upload Method */
-        <div
-          className={`border-2 border-dashed rounded-lg p-4 sm:p-8 text-center transition-colors mb-4 sm:mb-6 ${
-            dragOver
-              ? 'border-blue-400 bg-blue-50'
-              : 'border-gray-300 hover:border-gray-400'
-          }`}
-          onDragOver={(e) => {
-            e.preventDefault();
-            setDragOver(true);
-          }}
-          onDragLeave={() => setDragOver(false)}
-          onDrop={handleFileDrop}
-        >
-          <input
-            type="file"
-            accept=".txt,.json"
-            onChange={handleFileSelect}
-            className="hidden"
-            id="verification-file"
-          />
-          <label htmlFor="verification-file" className="cursor-pointer">
-            <FiFileText className="h-10 w-10 sm:h-12 sm:w-12 text-gray-400 mx-auto mb-3 sm:mb-4" />
-            <p className="text-base sm:text-lg font-medium text-gray-900 mb-1 sm:mb-2">
-              Upload Your Vote Receipt
-            </p>
-            <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4 px-2">
-              Drag and drop your vote receipt file here (.txt or .json), or click to browse
-            </p>
-            <span className="inline-block px-3 sm:px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors text-sm sm:text-base">
-              Choose File
-            </span>
-          </label>
-        </div>
-      ) : (
-        /* Manual Input Method */
-        <div className="bg-white border rounded-lg p-4 sm:p-6 mb-4 sm:mb-6">
-          <h4 className="font-medium text-gray-900 mb-3 sm:mb-4 text-sm sm:text-base">Enter Verification Details</h4>
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Tracking Code
-              </label>
-              <input
-                type="text"
-                value={manualInput.tracking_code}
-                onChange={(e) => setManualInput(prev => ({ ...prev, tracking_code: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
-                placeholder="Enter your tracking code..."
-              />
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Hash Code
-              </label>
-              <input
-                type="text"
-                value={manualInput.hash_code}
-                onChange={(e) => setManualInput(prev => ({ ...prev, hash_code: e.target.value }))}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 font-mono"
-                placeholder="Enter your hash code..."
-              />
-            </div>
-
-            <button
-              onClick={handleManualVerification}
-              disabled={verifyingVote || !manualInput.tracking_code.trim() || !manualInput.hash_code.trim()}
-              className="w-full bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-            >
-              {verifyingVote ? 'Verifying...' : 'Verify Vote'}
-            </button>
-          </div>
-        </div>
-      )}
-
-      {/* Verification in Progress */}
-      {verifyingVote && (
-        <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-          <div className="flex items-center">
-            <FiLoader className="h-5 w-5 text-yellow-600 mr-2 animate-spin" />
-            <span className="text-yellow-800">Verifying your vote...</span>
-          </div>
-        </div>
-      )}
-
-      {/* Verification Result */}
-      {statusDisplay && (
-        <div className={`mb-6 p-6 bg-${statusDisplay.color}-50 border border-${statusDisplay.color}-200 rounded-lg`}>
-          <div className="flex items-start">
-            <statusDisplay.icon className={`h-6 w-6 text-${statusDisplay.color}-600 mr-3 mt-1 flex-shrink-0`} />
-            <div className="flex-1">
-              <h4 className={`font-medium text-${statusDisplay.color}-900 mb-2`}>
-                {statusDisplay.title}
-              </h4>
-              <p className={`text-${statusDisplay.color}-800 mb-4`}>
-                {statusDisplay.description}
-              </p>
-
-              {verificationFile && (
-                <div className="bg-white rounded-lg p-4 border shadow-sm">
-                  <h5 className="font-medium text-gray-900 mb-3">Verification Details</h5>
-                  <div className="text-sm space-y-2">
-                    <div className="flex flex-col sm:flex-row sm:items-center">
-                      <span className="text-gray-500 font-medium min-w-[120px]">Tracking Code:</span>
-                      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs break-all">
-                        {verificationFile.tracking_code}
-                      </span>
-                    </div>
-                    <div className="flex flex-col sm:flex-row sm:items-center">
-                      <span className="text-gray-500 font-medium min-w-[120px]">Hash Code:</span>
-                      <span className="font-mono bg-gray-100 px-2 py-1 rounded text-xs break-all">
-                        {verificationFile.hash_code}
-                      </span>
-                    </div>
-                    {verificationResult.found_ballot && (
-                      <div className="flex flex-col sm:flex-row sm:items-center">
-                        <span className="text-gray-500 font-medium min-w-[120px]">Found in Tally:</span>
-                        <span className="text-green-600 font-medium">✓ Yes</span>
-                      </div>
-                    )}
-                    {verificationResult.ballot_info && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        <span className="text-gray-500 font-medium">Ballot Status:</span>
-                        <span className={`ml-2 px-2 py-1 rounded text-xs font-medium ${verificationResult.ballot_info.status === 'cast'
-                            ? 'bg-blue-100 text-blue-800'
-                            : 'bg-orange-100 text-orange-800'
-                          }`}>
-                          {verificationResult.ballot_info.status}
-                        </span>
-                      </div>
-                    )}
-                    {verificationResult.expected_hash && verificationResult.provided_hash && (
-                      <div className="mt-3 pt-3 border-t border-gray-200">
-                        <div className="text-xs text-red-600">
-                          <div>Expected: {verificationResult.expected_hash}</div>
-                          <div>Provided: {verificationResult.provided_hash}</div>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Instructions */}
-      <div className="bg-gray-50 rounded-lg p-4">
-        <h4 className="font-medium text-gray-900 mb-3">Understanding Verification Results</h4>
-        <div className="text-sm text-gray-700 space-y-2">
-          <div className="flex items-start">
-            <div className="w-6 h-6 bg-green-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
-              <FiCheck className="h-3 w-3 text-green-600" />
-            </div>
-            <div>
-              <span className="font-medium">Verified:</span>
-              <span className="ml-1">Your vote was found and the hash matches perfectly. Your vote was counted correctly.</span>
-            </div>
-          </div>
-          <div className="flex items-start">
-            <div className="w-6 h-6 bg-yellow-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
-              <FiAlertCircle className="h-3 w-3 text-yellow-600" />
-            </div>
-            <div>
-              <span className="font-medium">Hash Mismatch:</span>
-              <span className="ml-1">Vote found but hash doesn't match. This may indicate tampering or data corruption.</span>
-            </div>
-          </div>
-          <div className="flex items-start">
-            <div className="w-6 h-6 bg-red-100 rounded-full flex items-center justify-center mr-3 flex-shrink-0 mt-0.5">
-              <FiX className="h-3 w-3 text-red-600" />
-            </div>
-            <div>
-              <span className="font-medium">Not Found:</span>
-              <span className="ml-1">Your tracking code was not found in the final tally. Your vote may not have been counted.</span>
-            </div>
-          </div>
-        </div>
-
-        <div className="mt-4 p-3 bg-blue-50 border border-blue-200 rounded">
-          <p className="text-sm text-blue-800">
-            <strong>Note:</strong> This verification system provides cryptographic proof that your vote was counted correctly.
-            The verification is performed against the official election tally and cannot be tampered with.
-          </p>
-        </div>
-      </div>
     </div>
   );
 };
@@ -1678,37 +1391,36 @@ export default function ElectionPage() {
 
   // Extract tab from URL path (e.g., '/election-page/1/voting-booth' -> 'voting-booth')
   const getTabFromPath = useCallback(() => {
-    const pathSegments = location.pathname.split('/');
-    const tabPath = pathSegments[pathSegments.length - 1];
-
-    // If the last segment is just the ID, show default tab (info)
-    if (tabPath === id) {
-      return 'info';
+    const pathSegments = location.pathname.split('/').filter(Boolean);
+    // Bare /election-page/:id — no tab segment yet
+    if (pathSegments.length === 2 && pathSegments[1] === String(id)) {
+      return null;
     }
 
-    // Find the tab that matches the path
+    const tabPath = pathSegments[pathSegments.length - 1];
+    if (tabPath === String(id)) {
+      return null;
+    }
+
     const matchedTab = subMenus.find(tab => tab.path === tabPath);
     return matchedTab ? matchedTab.key : 'info';
   }, [location.pathname, id]);
 
-  const [activeTab, setActiveTab] = useState(getTabFromPath);
+  const [activeTab, setActiveTab] = useState(() => getTabFromPath() || 'info');
 
   // Update URL when tab changes
   const handleTabClick = (tabKey) => {
     setActiveTab(tabKey);
     const selectedTab = subMenus.find(tab => tab.key === tabKey);
     if (selectedTab) {
-      const newPath = selectedTab.path
-        ? `/election-page/${id}/${selectedTab.path}`
-        : `/election-page/${id}`;
-      navigate(newPath);
+      navigate(`/election-page/${id}/${selectedTab.path}`);
     }
   };
 
-  // Update active tab when URL changes (e.g., browser back/forward)
+  // Update active tab when URL changes (e.g., browser back/forward) — skip bare paths
   useEffect(() => {
     const tabFromPath = getTabFromPath();
-    if (tabFromPath !== activeTab) {
+    if (tabFromPath && tabFromPath !== activeTab) {
       setActiveTab(tabFromPath);
     }
   }, [location.pathname]); // Remove activeTab from dependency to prevent infinite loop
@@ -1717,6 +1429,7 @@ export default function ElectionPage() {
   const [electionData, setElectionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const activeElectionIdRef = useRef(id);
 
   // Voting-related state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -1749,6 +1462,10 @@ export default function ElectionPage() {
   // Eligibility state
   const [eligibilityData, setEligibilityData] = useState(null);
   const [checkingEligibility, setCheckingEligibility] = useState(false);
+  const eligibilityFetchInFlightRef = useRef(false);
+  const prevElectionScheduleRef = useRef({ status: null, startingTime: null, endingTime: null });
+  // Live schedule phase from header ElectionTimer (keeps voting booth in sync without refresh)
+  const [liveSchedulePhase, setLiveSchedulePhase] = useState(null);
 
   // Guardian state
   const [guardianKey, setGuardianKey] = useState('');
@@ -1813,19 +1530,32 @@ export default function ElectionPage() {
   const [keyCeremonyBusy, setKeyCeremonyBusy] = useState({
     generatingCredentials: false,
     submittingRound1: false,
+    confirmingRound1: false,
     generatingBackup: false,
     submittingBackup: false,
   });
-
+  // Round 1: encrypt+download first; persist to DB only after download confirmation
+  const [credentialSubmitModal, setCredentialSubmitModal] = useState({
+    open: false,
+    phase: 'warn', // 'warn' | 'downloaded'
+    encryptedCredential: '',
+    credentials: '',
+    publicKey: '',
+    keyBackup: '',
+    error: '',
+  });
   // Combine progress state
   const [isCombineModalOpen, setIsCombineModalOpen] = useState(false);
   const [combineStatus, setCombineStatus] = useState(null);
 
   // Fetch election data function (moved outside useEffect for reusability)
   const fetchElectionData = useCallback(async () => {
+    const requestElectionId = id;
     try {
       setLoading(true);
-      const data = await electionApi.getElectionById(id);
+      const data = await electionApi.getElectionById(requestElectionId);
+      if (activeElectionIdRef.current !== requestElectionId) return;
+
       if (data === null) {
         setError('You are not authorized to view this election or the election does not exist.');
       } else {
@@ -1846,7 +1576,9 @@ export default function ElectionPage() {
             console.log('✅ Quorum met. Checking combine status (results deferred until tab open)...');
             
             try {
-              const combineStatusData = await electionApi.getCombineStatus(id);
+              const combineStatusData = await electionApi.getCombineStatus(requestElectionId);
+              if (activeElectionIdRef.current !== requestElectionId) return;
+
               console.log('🔍 Combine status:', combineStatusData);
               setCombineStatus(combineStatusData);
 
@@ -1863,17 +1595,35 @@ export default function ElectionPage() {
         }
       }
     } catch (err) {
+      if (activeElectionIdRef.current !== requestElectionId) return;
       setError('Failed to load election data: ' + err.message);
     } finally {
-      setLoading(false);
+      if (activeElectionIdRef.current === requestElectionId) {
+        setLoading(false);
+      }
     }
   }, [id]); // Removed processElectionResults from dependencies - it's stable and called directly
 
-  // Load election data and optionally create tally
+  // Load election data when the route election id changes.
+  // React Router reuses this component across /election-page/:id/*, so clear
+  // election-scoped state or the previous election's results stay on screen.
   useEffect(() => {
-    if (id) {
-      fetchElectionData();
-    }
+    if (!id) return;
+
+    activeElectionIdRef.current = id;
+    setError(null);
+    setEligibilityData(null);
+    setResultsData(null);
+    setRawVerificationData(null);
+    setAnimatedResults(null);
+    setCombineStatus(null);
+    setTallyStatus(null);
+    setLoadingResults(false);
+    setSelectedCandidates([]);
+    setVoteResult(null);
+    setVoteError(null);
+
+    fetchElectionData();
   }, [id, fetchElectionData]);
 
   useEffect(() => {
@@ -1897,7 +1647,7 @@ export default function ElectionPage() {
   }, []);
 
   // Guardian tab decryption status — initial + live updates via SSE snapshots (no polling)
-  useElectionProgressStream(id, {
+  const { connected: progressSseConnected } = useElectionProgressStream(id, {
     enabled: Boolean(id) && (activeTab === 'guardian' || activeTab === 'info' || activeTab === 'results'),
     onEvent: (event) => {
       if (!event) return;
@@ -1926,7 +1676,8 @@ export default function ElectionPage() {
 
   useEffect(() => {
     if (!id || !electionData?.endingTime) return;
-    if (new Date(electionData.endingTime) >= new Date()) return;
+    const end = timezoneUtils.parseUtcTimestamp(electionData.endingTime);
+    if (!end || end >= new Date()) return;
     if (!['guardian', 'info', 'results', 'verification'].includes(activeTab)) return;
 
     electionApi.getTallyStatus(id)
@@ -1935,6 +1686,29 @@ export default function ElectionPage() {
       })
       .catch(() => {});
   }, [id, electionData?.endingTime, activeTab]);
+
+  // Keep tally/combine status fresh on guardian tab only if SSE is disconnected
+  useEffect(() => {
+    if (!id || activeTab !== 'guardian' || progressSseConnected) return undefined;
+    const tallyInFlight = tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending';
+    const combineInFlight = combineStatus?.status === 'in_progress' || combineStatus?.status === 'pending';
+    if (!tallyInFlight && !combineInFlight) return undefined;
+
+    const interval = setInterval(() => {
+      if (tallyInFlight) {
+        electionApi.getTallyStatus(id)
+          .then((data) => { if (data?.status) setTallyStatus(data); })
+          .catch(() => {});
+      }
+      if (combineInFlight) {
+        electionApi.getCombineStatus(id)
+          .then((data) => { if (data?.status) setCombineStatus(data); })
+          .catch(() => {});
+      }
+    }, 12000);
+
+    return () => clearInterval(interval);
+  }, [id, activeTab, progressSseConnected, tallyStatus?.status, combineStatus?.status]);
 
   const loadKeyCeremonyProgress = useCallback(async () => {
     if (activeTab !== 'guardian' || !electionData) {
@@ -2054,32 +1828,102 @@ export default function ElectionPage() {
     }
   };
 
-  // Check eligibility when switching to voting tab
+  // Fetch / refresh voting eligibility (tab open, schedule changes, focus, polling)
+  const fetchEligibility = useCallback(async ({ silent = false } = {}) => {
+    if (!id || eligibilityFetchInFlightRef.current) return;
+    eligibilityFetchInFlightRef.current = true;
+    if (!silent) setCheckingEligibility(true);
+    try {
+      const response = await electionApi.checkEligibility(id);
+      setEligibilityData(response);
+    } catch (err) {
+      console.error('Error checking eligibility:', err);
+      setEligibilityData({
+        eligible: false,
+        message: 'Error checking eligibility',
+        reason: 'Unable to verify eligibility status',
+        hasVoted: false,
+        isElectionActive: false,
+        electionStatus: 'Error'
+      });
+    } finally {
+      eligibilityFetchInFlightRef.current = false;
+      if (!silent) setCheckingEligibility(false);
+    }
+  }, [id]);
+
+  // Check eligibility whenever entering the voting tab (including re-entry after schedule opens)
   useEffect(() => {
-    const checkEligibility = async () => {
-      if (activeTab === 'voting' && id && !eligibilityData && !checkingEligibility) {
-        try {
-          setCheckingEligibility(true);
-          const response = await electionApi.checkEligibility(id);
-          setEligibilityData(response);
-        } catch (err) {
-          console.error('Error checking eligibility:', err);
-          setEligibilityData({
-            eligible: false,
-            message: 'Error checking eligibility',
-            reason: 'Unable to verify eligibility status',
-            hasVoted: false,
-            isElectionActive: false,
-            electionStatus: 'Error'
-          });
-        } finally {
-          setCheckingEligibility(false);
-        }
+    if (activeTab === 'voting' && id) {
+      fetchEligibility({ silent: Boolean(eligibilityData) });
+    }
+  }, [activeTab, id, fetchEligibility]);
+
+  // Clear and refetch eligibility when election activation / schedule changes
+  useEffect(() => {
+    if (!electionData) return;
+    const next = {
+      status: electionData.status,
+      startingTime: electionData.startingTime,
+      endingTime: electionData.endingTime,
+    };
+    const prev = prevElectionScheduleRef.current;
+    const changed =
+      prev.status !== next.status ||
+      prev.startingTime !== next.startingTime ||
+      prev.endingTime !== next.endingTime;
+    prevElectionScheduleRef.current = next;
+    if (!changed) return;
+    // Skip the initial seed so we don't double-fetch on first load
+    if (prev.status == null && prev.startingTime == null && prev.endingTime == null) return;
+    setEligibilityData(null);
+    if (activeTab === 'voting') {
+      fetchEligibility();
+    }
+  }, [
+    electionData?.status,
+    electionData?.startingTime,
+    electionData?.endingTime,
+    activeTab,
+    fetchEligibility,
+  ]);
+
+  // Periodic re-check while on voting tab and temporarily ineligible (e.g. waiting for start)
+  useEffect(() => {
+    if (activeTab !== 'voting' || !id) return;
+    if (!isTemporaryIneligibility(eligibilityData)) return;
+
+    const interval = setInterval(() => {
+      fetchEligibility({ silent: true });
+    }, 5000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, id, eligibilityData, fetchEligibility]);
+
+  // Refetch eligibility when the window gains focus while on the voting tab
+  useEffect(() => {
+    if (activeTab !== 'voting' || !id) return;
+
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchEligibility({ silent: true });
       }
     };
 
-    checkEligibility();
-  }, [activeTab, id, eligibilityData, checkingEligibility]);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [activeTab, id, fetchEligibility]);
+
+  const handleElectionTimerPhaseChange = useCallback((phase, previousPhase) => {
+    setLiveSchedulePhase(phase);
+    if (phase === 'ongoing' && previousPhase && previousPhase !== 'ongoing') {
+      fetchEligibility({ silent: true });
+    }
+  }, [fetchEligibility]);
 
   // Define functions first
   const getElectionStatus = useCallback(() => {
@@ -2087,22 +1931,49 @@ export default function ElectionPage() {
     return timezoneUtils.getElectionStatus(electionData.startingTime, electionData.endingTime);
   }, [electionData]);
 
+  const electionStatusLabel = useMemo(() => {
+    if (!electionData) return 'Unknown';
+    return timezoneUtils.getElectionStatusLabel(
+      electionData.status,
+      electionData.startingTime,
+      electionData.endingTime
+    );
+  }, [electionData]);
+
+  const eligibilityCopy = useMemo(
+    () => getFriendlyEligibilityCopy(eligibilityData),
+    [eligibilityData]
+  );
+
   const isElectionFinished = useCallback(() => getElectionStatus() === 'finished', [getElectionStatus]);
   const isKeyCeremonyPending = electionData?.status === 'key_ceremony_pending';
   const isTallyComplete = tallyStatus?.status === 'completed';
   const isCombineComplete = combineStatus?.status === 'completed' || Boolean(resultsData);
-  const combineNavigatedRef = useRef(false);
   const isElectionAdminUser = () => electionData?.userRoles?.includes('admin');
+  const bareElectionPath =
+    location.pathname === `/election-page/${id}` ||
+    location.pathname === `/election-page/${id}/`;
 
+  // Bare /election-page/:id only: default to /results if combine is done, else /info.
+  // Explicit tab URLs (e.g. /info, /verify-vote) must never be redirected away on reload.
   useEffect(() => {
-    if (combineStatus?.status === 'completed' && !combineNavigatedRef.current) {
-      combineNavigatedRef.current = true;
-      handleTabClick('results');
+    if (!bareElectionPath || !electionData || loading) return;
+
+    const targetTab = isCombineComplete ? 'results' : 'info';
+    const targetPath = `/election-page/${id}/${targetTab}`;
+    if (location.pathname !== targetPath) {
+      navigate(targetPath, { replace: true });
     }
-    if (combineStatus?.status !== 'completed') {
-      combineNavigatedRef.current = false;
-    }
-  }, [combineStatus?.status]);
+    setActiveTab(targetTab);
+  }, [
+    bareElectionPath,
+    electionData,
+    loading,
+    isCombineComplete,
+    id,
+    navigate,
+    location.pathname,
+  ]);
 
   const canUserViewResults = useCallback(() => {
     return isCombineComplete;
@@ -2352,19 +2223,20 @@ export default function ElectionPage() {
   }, [id, fetchElectionData, processElectionResults, electionData]);
 
   const loadElectionResults = useCallback(async () => {
+    const requestElectionId = id;
     setLoadingResults(true);
     try {
-      if (!animatedResults) {
-        const animatedResultsData = await electionApi.getElectionResults(id, { includeBallots: false });
-        if (animatedResultsData?.success && animatedResultsData.results) {
-          setAnimatedResults(animatedResultsData);
-          const summaryPayload = buildSummaryPayloadFromCachedResults(animatedResultsData, electionData);
-          const processedResults = processElectionResults(summaryPayload, electionData);
-          if (processedResults) {
-            setResultsData(processedResults);
-          }
-          return;
+      const animatedResultsData = await electionApi.getElectionResults(requestElectionId, { includeBallots: false });
+      if (activeElectionIdRef.current !== requestElectionId) return;
+
+      if (animatedResultsData?.success && animatedResultsData.results) {
+        setAnimatedResults(animatedResultsData);
+        const summaryPayload = buildSummaryPayloadFromCachedResults(animatedResultsData, electionData);
+        const processedResults = processElectionResults(summaryPayload, electionData);
+        if (processedResults) {
+          setResultsData(processedResults);
         }
+        return;
       }
 
       const processedResults = processElectionResults();
@@ -2372,15 +2244,18 @@ export default function ElectionPage() {
         setResultsData(processedResults);
       }
     } catch (err) {
+      if (activeElectionIdRef.current !== requestElectionId) return;
       console.error('Error loading results:', err);
       const processedResults = processElectionResults();
       if (processedResults) {
         setResultsData(processedResults);
       }
     } finally {
-      setLoadingResults(false);
+      if (activeElectionIdRef.current === requestElectionId) {
+        setLoadingResults(false);
+      }
     }
-  }, [id, animatedResults, electionData, processElectionResults]);
+  }, [id, electionData, processElectionResults]);
 
   // Load results when switching to results or verification tabs
   useEffect(() => {
@@ -3010,11 +2885,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
   const getStatusColor = (status) => {
     switch (status) {
-      case 'upcoming': return 'bg-amber-100 text-amber-800';
-      case 'scheduled': return 'bg-blue-100 text-blue-800';
-      case 'ongoing': return 'bg-green-100 text-green-800';
-      case 'finished': return 'bg-red-100 text-red-800';
-      default: return 'bg-gray-100 text-gray-800';
+      case 'upcoming': return 'bg-ceremonial-soft text-ink';
+      case 'scheduled': return 'bg-glacier text-ink';
+      case 'ongoing': return 'bg-sage-soft text-aurora-muted';
+      case 'finished': return 'bg-ember-soft text-ember';
+      default: return 'bg-frost-muted text-ink';
     }
   };
 
@@ -3265,62 +3140,45 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
     return total > 0 ? Math.round((submitted / total) * 100) : 0;
   };
 
-  const triggerAutoCredentialDownload = ({ electionId, encryptedCredential }) => {
-    const normalizedTitle = String(electionData?.electionTitle || 'election')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
+  const sanitizeCredentialFilenamePart = (value) =>
+    String(value || '')
+      .replace(/@/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9._-]+/g, '_')
       .replace(/_+/g, '_')
       .replace(/^_|_$/g, '')
-      .slice(0, 60) || 'election';
+      .slice(0, 80) || 'unknown';
+
+  const downloadGuardianCredentialFile = ({ electionId, encryptedCredential }) => {
+    const guardianEmail =
+      electionData?.guardians?.find((g) => g.isCurrentUser)?.userEmail || 'guardian';
+    const electionTitle = electionData?.electionTitle || 'election';
+    const filename = `guardian_credential_${sanitizeCredentialFilenamePart(guardianEmail)}_${sanitizeCredentialFilenamePart(electionTitle)}_${electionId}.txt`;
 
     const blob = new Blob([String(encryptedCredential || '').trim()], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `guardian_credentials_${normalizedTitle}_election_${electionId}.txt`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
 
-  const generateLocalPassword = () => {
-    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}';
-    const bytes = new Uint8Array(32);
-    window.crypto.getRandomValues(bytes);
-    return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
+  const resetCredentialSubmitModal = () => {
+    setCredentialSubmitModal({
+      open: false,
+      phase: 'warn',
+      encryptedCredential: '',
+      credentials: '',
+      publicKey: '',
+      keyBackup: '',
+      error: '',
+    });
   };
 
-  const handleGenerateLocalPassword = () => {
-    const generated = generateLocalPassword();
-    setGuardianCeremonyForm((prev) => ({ ...prev, localEncryptionPassword: generated }));
-    setKeyCeremonyUiError('');
-    setKeyCeremonyUiMessage('Local AES-256 password generated.');
-  };
-
-  const handleGenerateKeyCeremonyCredentials = async () => {
-    try {
-      setKeyCeremonyUiError('');
-      setKeyCeremonyUiMessage('');
-      setKeyCeremonyBusy((prev) => ({ ...prev, generatingCredentials: true }));
-      const generated = await electionApi.generateGuardianKeyCeremonyCredentials(id);
-
-      setGuardianCeremonyForm((prev) => ({
-        ...prev,
-        privateKey: generated?.guardianPrivateKey || '',
-        publicKey: generated?.guardianPublicKey || '',
-        polynomial: generated?.guardianPolynomial || '',
-        keyBackup: generated?.guardianKeyBackup || '',
-      }));
-      setKeyCeremonyUiMessage('Credentials generated. Review and submit Round 1.');
-    } catch (err) {
-      setKeyCeremonyUiError(err.message || 'Failed to generate credentials');
-    } finally {
-      setKeyCeremonyBusy((prev) => ({ ...prev, generatingCredentials: false }));
-    }
-  };
-
-  const handleSubmitKeyCeremonyRound1 = async () => {
+  const openCredentialSubmitModal = () => {
     if (!guardianCeremonyForm.publicKey?.trim()) {
       setKeyCeremonyUiError('Guardian public key is required');
       return;
@@ -3338,11 +3196,24 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
       return;
     }
 
+    setKeyCeremonyUiError('');
+    setKeyCeremonyUiMessage('');
+    setCredentialSubmitModal({
+      open: true,
+      phase: 'warn',
+      encryptedCredential: '',
+      credentials: '',
+      publicKey: guardianCeremonyForm.publicKey,
+      keyBackup: guardianCeremonyForm.keyBackup || '',
+      error: '',
+    });
+  };
+
+  const handleSubmitAndDownloadCredentials = async () => {
     try {
-      setKeyCeremonyUiError('');
-      setKeyCeremonyUiMessage('');
+      setCredentialSubmitModal((prev) => ({ ...prev, error: '' }));
       setKeyCeremonyBusy((prev) => ({ ...prev, submittingRound1: true }));
-      const response = await electionApi.submitGuardianKeyCeremony(
+      const response = await electionApi.prepareGuardianKeyCeremony(
         id,
         guardianCeremonyForm.privateKey,
         guardianCeremonyForm.publicKey,
@@ -3351,17 +3222,133 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
         guardianCeremonyForm.keyBackup
       );
 
-      if (response?.encryptedCredential) {
-        triggerAutoCredentialDownload({ electionId: id, encryptedCredential: response.encryptedCredential });
+      if (!response?.encryptedCredential || !response?.credentials) {
+        throw new Error('Failed to prepare credential file. Please try again.');
       }
 
-      setKeyCeremonyUiMessage('Round 1 submitted successfully. Guardian credential file downloaded.');
+      downloadGuardianCredentialFile({
+        electionId: id,
+        encryptedCredential: response.encryptedCredential,
+      });
+
+      setCredentialSubmitModal((prev) => ({
+        ...prev,
+        open: true,
+        phase: 'downloaded',
+        encryptedCredential: response.encryptedCredential,
+        credentials: response.credentials,
+        publicKey: guardianCeremonyForm.publicKey,
+        keyBackup: guardianCeremonyForm.keyBackup || '',
+        error: '',
+      }));
+    } catch (err) {
+      setCredentialSubmitModal((prev) => ({
+        ...prev,
+        error: err.message || 'Failed to prepare and download credentials',
+      }));
+    } finally {
+      setKeyCeremonyBusy((prev) => ({ ...prev, submittingRound1: false }));
+    }
+  };
+
+  const handleRedownloadCredentialFile = () => {
+    if (!credentialSubmitModal.encryptedCredential) return;
+    downloadGuardianCredentialFile({
+      electionId: id,
+      encryptedCredential: credentialSubmitModal.encryptedCredential,
+    });
+  };
+
+  const handleConfirmCredentialDownloaded = async () => {
+    if (!credentialSubmitModal.credentials || !credentialSubmitModal.publicKey) {
+      setCredentialSubmitModal((prev) => ({
+        ...prev,
+        error: 'Missing prepared credentials. Please submit and download again.',
+      }));
+      return;
+    }
+
+    try {
+      setCredentialSubmitModal((prev) => ({ ...prev, error: '' }));
+      setKeyCeremonyBusy((prev) => ({ ...prev, confirmingRound1: true }));
+      await electionApi.confirmGuardianKeyCeremony(
+        id,
+        credentialSubmitModal.publicKey,
+        credentialSubmitModal.credentials,
+        credentialSubmitModal.keyBackup
+      );
+
+      setGuardianCeremonyForm({
+        privateKey: '',
+        publicKey: '',
+        polynomial: '',
+        localEncryptionPassword: '',
+        keyBackup: '',
+      });
+      resetCredentialSubmitModal();
+      setKeyCeremonyUiMessage(
+        'Round 1 submitted successfully. Keypair generated and credential file saved.'
+      );
+
       await fetchElectionData();
       await loadKeyCeremonyProgress();
     } catch (err) {
-      setKeyCeremonyUiError(err.message || 'Failed to submit Round 1');
+      setCredentialSubmitModal((prev) => ({
+        ...prev,
+        error: err.message || 'Failed to confirm Round 1 submission',
+      }));
     } finally {
-      setKeyCeremonyBusy((prev) => ({ ...prev, submittingRound1: false }));
+      setKeyCeremonyBusy((prev) => ({ ...prev, confirmingRound1: false }));
+    }
+  };
+
+  // Warn before leaving/reloading once the credential file has been prepared but not confirmed
+  useEffect(() => {
+    if (!credentialSubmitModal.open || credentialSubmitModal.phase !== 'downloaded') {
+      return undefined;
+    }
+
+    const onBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [credentialSubmitModal.open, credentialSubmitModal.phase]);
+
+  const generateLocalPassword = () => {
+    const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}';
+    const bytes = new Uint8Array(32);
+    window.crypto.getRandomValues(bytes);
+    return Array.from(bytes, (b) => alphabet[b % alphabet.length]).join('');
+  };
+
+  const handleGenerateLocalPassword = () => {
+    const generated = generateLocalPassword();
+    setGuardianCeremonyForm((prev) => ({
+      ...prev,
+      localEncryptionPassword: generated,
+      passwordGenerated: true,
+    }));
+  };
+
+  const handleGenerateKeyCeremonyCredentials = async () => {
+    try {
+      setKeyCeremonyBusy((prev) => ({ ...prev, generatingCredentials: true }));
+      const generated = await electionApi.generateGuardianKeyCeremonyCredentials(id);
+
+      setGuardianCeremonyForm((prev) => ({
+        ...prev,
+        privateKey: generated?.guardianPrivateKey || '',
+        publicKey: generated?.guardianPublicKey || '',
+        polynomial: generated?.guardianPolynomial || '',
+        keyBackup: generated?.guardianKeyBackup || '',
+        credentialsGenerated: true,
+      }));
+    } catch (err) {
+      console.error('Failed to generate credentials:', err);
+    } finally {
+      setKeyCeremonyBusy((prev) => ({ ...prev, generatingCredentials: false }));
     }
   };
 
@@ -3582,11 +3569,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
+      <div className="min-h-screen bg-frost-mesh flex items-center justify-center">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-600 mx-auto"></div>
-          <p className="mt-4 text-gray-600">Loading election data...</p>
-          {creatingTally && <p className="text-sm text-blue-600">Creating tally...</p>}
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto"></div>
+          <p className="mt-4 text-dusk">Loading election data...</p>
+          {creatingTally && <p className="text-sm text-brand">Creating tally...</p>}
         </div>
       </div>
     );
@@ -3594,11 +3581,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
   if (error) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
-          <FiAlertCircle className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">Access Denied</h2>
-          <p className="text-gray-600">{error}</p>
+      <div className="min-h-screen bg-frost-mesh flex items-center justify-center">
+        <div className="text-center p-8 glass-panel max-w-md">
+          <FiAlertCircle className="h-12 w-12 text-ember mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-ink mb-2">Access Denied</h2>
+          <p className="text-dusk">{error}</p>
         </div>
       </div>
     );
@@ -3606,18 +3593,18 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
   if (!electionData) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center">
-        <div className="text-center p-8 bg-white rounded-lg shadow-lg max-w-md">
-          <FiInfo className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-          <h2 className="text-xl font-semibold text-gray-800 mb-2">No Data</h2>
-          <p className="text-gray-600">No election data available.</p>
+      <div className="min-h-screen bg-frost-mesh flex items-center justify-center">
+        <div className="text-center p-8 glass-panel max-w-md">
+          <FiInfo className="h-12 w-12 text-dusk mx-auto mb-4" />
+          <h2 className="text-xl font-semibold text-ink mb-2">No Data</h2>
+          <p className="text-dusk">No election data available.</p>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-frost-mesh">
       {/* Tally Creation Modal */}
       <TallyCreationModal
         isOpen={isTallyModalOpen}
@@ -3649,6 +3636,114 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
         onCombineComplete={handleCombineComplete}
       />
 
+      <AppModal
+        isOpen={credentialSubmitModal.open}
+        onClose={() => {
+          if (credentialSubmitModal.phase === 'downloaded') return;
+          if (keyCeremonyBusy.submittingRound1 || keyCeremonyBusy.confirmingRound1) return;
+          resetCredentialSubmitModal();
+        }}
+        dismissible={credentialSubmitModal.phase !== 'downloaded'}
+        title={
+          credentialSubmitModal.phase === 'downloaded'
+            ? 'Confirm credential download'
+            : 'Submit and download credentials'
+        }
+        size="md"
+        footer={
+          credentialSubmitModal.phase === 'warn' ? (
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={resetCredentialSubmitModal}
+                disabled={keyCeremonyBusy.submittingRound1}
+                className="rounded-lg border border-brand/25 bg-paper px-4 py-2 text-sm font-medium text-ink hover:bg-frost disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitAndDownloadCredentials}
+                disabled={keyCeremonyBusy.submittingRound1}
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-dark px-4 py-2 text-sm font-semibold text-paper hover:bg-ink disabled:opacity-60"
+              >
+                <FiDownload className="h-4 w-4" aria-hidden />
+                {keyCeremonyBusy.submittingRound1
+                  ? 'Preparing download...'
+                  : 'Submit and Download the Credentials'}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <button
+                type="button"
+                onClick={handleRedownloadCredentialFile}
+                disabled={keyCeremonyBusy.confirmingRound1}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand/30 bg-paper px-4 py-2 text-sm font-medium text-ink hover:bg-frost disabled:opacity-60"
+              >
+                <FiDownload className="h-4 w-4" aria-hidden />
+                Download credential file again
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCredentialDownloaded}
+                disabled={keyCeremonyBusy.confirmingRound1}
+                className="rounded-lg bg-aurora-muted px-4 py-2 text-sm font-semibold text-paper hover:bg-aurora disabled:opacity-60"
+              >
+                {keyCeremonyBusy.confirmingRound1
+                  ? 'Completing...'
+                  : 'Yes, I downloaded the file — complete submission'}
+              </button>
+            </div>
+          )
+        }
+      >
+        {credentialSubmitModal.phase === 'warn' ? (
+          <div className="space-y-3 text-sm text-ink">
+            <p>
+              When you continue, your guardian credential file will be encrypted and downloaded to
+              this device. You must keep this file safe.
+            </p>
+            <p className="rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-ember">
+              This file cannot be recovered if you lose it. You will need it for Round 2 backup
+              sharing and later decryption. Do not close or reload this page until you have saved
+              the file and confirmed the download.
+            </p>
+            <p>
+              Round 1 is not complete in the system until you confirm the download on the next
+              step. If you leave or reload before confirming, you will need to start keypair
+              generation again.
+            </p>
+            {credentialSubmitModal.error && (
+              <p className="rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-ember">
+                {credentialSubmitModal.error}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3 text-sm text-ink">
+            <p className="rounded-lg border border-aurora/30 bg-sage-soft px-3 py-2 text-aurora-muted">
+              Your credential file download has started. Check your downloads folder and store the
+              file somewhere secure.
+            </p>
+            <p>
+              Are you sure you downloaded and saved the credential file? Before leaving or
+              reloading this page, make sure the file is on your device — it cannot be recovered
+              later.
+            </p>
+            <p className="text-dusk">
+              If the download did not start or the file is missing, use “Download credential file
+              again” below, then confirm only after the file is saved.
+            </p>
+            {credentialSubmitModal.error && (
+              <p className="rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-ember">
+                {credentialSubmitModal.error}
+              </p>
+            )}
+          </div>
+        )}
+      </AppModal>
+
       <BallotWorkflowModal
         isOpen={ballotModalOpen}
         phase={ballotModalPhase}
@@ -3660,6 +3755,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
         castBallotError={castBallotError}
         challengeError={challengeError}
         electionData={electionData}
+        selectedCandidates={selectedCandidates}
         challengeCandidateChoices={challengeCandidateChoices}
         onChallengeCandidateToggle={handleChallengeCandidateToggle}
         onCastVote={handleCastEncryptedBallot}
@@ -3673,38 +3769,54 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
       />
       
       {/* Header */}
-      <header className="bg-white shadow-sm border-b">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-3 sm:py-4 gap-3 sm:gap-0">
+      <header className="border-b border-ink/10 bg-paper/90 backdrop-blur-md shadow-soft">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center py-4 gap-3 sm:gap-4">
             <div className="flex-1 min-w-0 w-full sm:w-auto">
-              <h1 className="text-lg sm:text-xl md:text-2xl font-bold text-gray-900 truncate">{electionData.electionTitle}</h1>
-              <p className="text-xs sm:text-sm text-gray-500 truncate">Election ID: {electionData.electionId}</p>
-              <div className="mt-1 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-gray-500">
+              <p className="section-kicker mb-1">Election</p>
+              <h1 className="font-display text-xl sm:text-2xl md:text-[1.65rem] font-bold text-deep truncate">{electionData.electionTitle}</h1>
+              <p className="mt-0.5 text-xs sm:text-sm text-dusk font-mono truncate">ID {electionData.electionId}</p>
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-dusk">
                 <span className="inline-flex items-center gap-1">
-                  <FiMail className="h-3 w-3 shrink-0" />
-                  <span className="font-medium text-gray-600">Admin:</span>
+                  <FiMail className="h-3 w-3 shrink-0 text-brand" />
+                  <span className="font-medium text-dusk">Admin</span>
                   <span className="truncate">{electionData.adminEmail}</span>
                 </span>
                 {electionData.coAdminEmails?.length > 0 && (
                   <span className="inline-flex items-center gap-1">
-                    <FiUsers className="h-3 w-3 shrink-0" />
-                    <span className="font-medium text-gray-600">Co-Admins:</span>
+                    <FiUsers className="h-3 w-3 shrink-0 text-brand" />
+                    <span className="font-medium text-dusk">Co-Admins</span>
                     <span className="truncate">{electionData.coAdminEmails.join(', ')}</span>
                   </span>
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2 sm:gap-4 flex-wrap w-full sm:w-auto">
-              <span className={`px-2 sm:px-3 py-1 rounded-full text-xs sm:text-sm font-medium capitalize ${getStatusColor(getElectionStatus())}`}>
-                {getElectionStatus()}
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto sm:justify-end">
+              {(electionData.startingTime || electionData.endingTime) && (
+                <div className="w-full min-w-0 sm:w-auto sm:max-w-xs md:max-w-sm">
+                  <ElectionTimer
+                    startTime={electionData.startingTime}
+                    endTime={electionData.endingTime}
+                    onPhaseChange={handleElectionTimerPhaseChange}
+                    variant="compact"
+                  />
+                </div>
+              )}
+              <span className={`status-chip ${
+                (liveSchedulePhase || getElectionStatus()) === 'ongoing' || getElectionStatus() === 'active'
+                  ? 'status-chip-active'
+                  : (liveSchedulePhase || getElectionStatus()) === 'upcoming' || (liveSchedulePhase || getElectionStatus()) === 'scheduled' || electionData.status === 'key_ceremony_pending'
+                    ? 'status-chip-pending'
+                    : 'status-chip-ended'
+              }`}>
+                {electionStatusLabel}
               </span>
-              <div className="flex items-center space-x-1 sm:space-x-2 text-xs sm:text-sm text-gray-600">
-                <FiUser className="h-3 w-3 sm:h-4 sm:w-4" />
-                <span className="truncate max-w-[150px] sm:max-w-none">
+              <div className="inline-flex items-center gap-1.5 rounded-xl bg-frost px-2.5 py-1.5 text-xs sm:text-sm text-dusk">
+                <FiUser className="h-3.5 w-3.5 text-brand" />
+                <span className="truncate max-w-[160px] sm:max-w-none">
                   {
                     (() => {
                       const roles = [...(electionData.userRoles || [])];
-                      // Add voting eligibility info based on new eligibility field
                       if (canUserVoteInElection(electionData) && !roles.includes('voter')) {
                         if (electionData.eligibility === 'unlisted') {
                           roles.push('voter (open voting)');
@@ -3723,54 +3835,23 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
       </header>
 
       {/* Navigation Tabs */}
-      <div className="bg-white border-b">
-        <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-          <div className="overflow-x-auto" style={{ scrollbarWidth: 'thin', scrollbarColor: '#cbd5e1 #f1f5f9' }}>
-            <nav className="flex space-x-2 sm:space-x-4 md:space-x-8 pb-px min-w-max">
-              {subMenus
-                .filter((menu) => {
-                  if (menu.key === 'worker-proceedings' && isKeyCeremonyPending) {
-                    return false;
-                  }
-                  if (menu.adminOnly && !electionData?.userRoles?.includes('admin')) {
-                    return false;
-                  }
-                  if (menu.guardianOnly && !canUserManageGuardian()) {
-                    return false;
-                  }
-                  if (menu.key === 'results' && !isCombineComplete) {
-                    return false;
-                  }
-                  if (menu.key === 'ballots' && !isElectionFinished()) {
-                    return false;
-                  }
-                  return true;
-                })
-                .map((menu) => {
-              const Icon = menu.icon;
-              return (
-                <button
-                  key={menu.key}
-                  onClick={() => handleTabClick(menu.key)}
-                  className={`flex items-center space-x-1 sm:space-x-2 py-3 sm:py-4 px-2 sm:px-3 border-b-2 font-medium text-xs sm:text-sm whitespace-nowrap flex-shrink-0 transition-colors ${
-                    activeTab === menu.key
-                      ? 'border-blue-500 text-blue-600'
-                      : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
-                  }`}
-                >
-                  <Icon className="h-3 w-3 sm:h-4 sm:w-4" />
-                  <span className="hidden xs:inline sm:inline">{menu.name}</span>
-                  <span className="inline xs:hidden sm:hidden">{menu.name.split(' ')[0]}</span>
-                </button>
-              );
-            })}
-            </nav>
-          </div>
-        </div>
-      </div>
+      <ElectionTabNav
+        tabs={subMenus.filter((menu) => {
+          // Role-gated tools stay restricted; process/audit tabs stay visible for everyone.
+          if (menu.adminOnly && !electionData?.userRoles?.includes('admin')) {
+            return false;
+          }
+          if (menu.guardianOnly && !canUserManageGuardian()) {
+            return false;
+          }
+          return true;
+        })}
+        activeKey={activeTab}
+        onSelect={handleTabClick}
+      />
 
       {/* Main Content */}
-      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8">
+      <div className="max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 py-4 sm:py-6 lg:py-8 page-enter">
         {/* Election Info Tab */}
         {activeTab === 'info' && (
           <div className="space-y-6">
@@ -3778,18 +3859,18 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             <ElectionTimer
               startTime={electionData.startingTime}
               endTime={electionData.endingTime}
-              status={getElectionStatus()}
+              onPhaseChange={handleElectionTimerPhaseChange}
             />
 
             {/* Election Details Card */}
-            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
-              <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
-                <FiInfo className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
+            <div className="surface-card p-4 sm:p-6">
+              <h3 className="font-display text-base sm:text-lg font-semibold text-deep mb-3 sm:mb-4 flex items-center">
+                <FiInfo className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-brand" />
                 Election Details
               </h3>
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Basic Information</h4>
+                  <h4 className="font-medium text-deep mb-2">Basic Information</h4>
                   <div className="space-y-2 text-sm">
                     <p><span className="font-medium">Title:</span> {electionData.electionTitle}</p>
                     <div>
@@ -3799,7 +3880,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           <textarea
                             value={descriptionDraft}
                             onChange={(e) => setDescriptionDraft(e.target.value)}
-                            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                            className="w-full rounded-lg border border-ink/10 px-3 py-2 text-sm"
                             rows={3}
                           />
                           <div className="flex gap-2">
@@ -3807,7 +3888,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               type="button"
                               disabled={settingsSaving}
                               onClick={handleSaveDescription}
-                              className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                              className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-paper hover:bg-brand-dark disabled:opacity-50"
                             >
                               Save
                             </button>
@@ -3817,7 +3898,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 setEditingDescription(false);
                                 setDescriptionDraft(electionData.electionDescription || '');
                               }}
-                              className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                              className="rounded-md border border-ink/10 px-3 py-1.5 text-xs font-medium text-ink hover:bg-frost"
                             >
                               Cancel
                             </button>
@@ -3833,7 +3914,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 setDescriptionDraft(electionData.electionDescription || '');
                                 setEditingDescription(true);
                               }}
-                              className="ml-2 text-xs font-medium text-blue-600 hover:underline"
+                              className="ml-2 text-xs font-medium text-brand hover:underline"
                             >
                               Edit
                             </button>
@@ -3883,7 +3964,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               setWinnerNoDraft(String(getWinnerCount(electionData)));
                               setEditingVotingRules(true);
                             }}
-                            className="text-xs font-medium text-blue-600 hover:underline"
+                            className="text-xs font-medium text-brand hover:underline"
                           >
                             Edit
                           </button>
@@ -3894,14 +3975,14 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               type="button"
                               disabled={settingsSaving}
                               onClick={handleSaveVotingRules}
-                              className="text-xs font-medium text-blue-600 hover:underline disabled:opacity-50"
+                              className="text-xs font-medium text-brand hover:underline disabled:opacity-50"
                             >
                               Save
                             </button>
                             <button
                               type="button"
                               onClick={() => setEditingVotingRules(false)}
-                              className="text-xs font-medium text-gray-600 hover:underline"
+                              className="text-xs font-medium text-dusk hover:underline"
                             >
                               Cancel
                             </button>
@@ -3910,7 +3991,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       </div>
                       <div className="mt-1 space-y-1 text-sm">
                         <p>
-                          <span className="text-gray-600">Max choices per voter:</span>{' '}
+                          <span className="text-dusk">Max choices per voter:</span>{' '}
                           {canEditVotingRules() && editingVotingRules ? (
                             <input
                               type="number"
@@ -3918,16 +3999,16 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               max={candidateCountForElection()}
                               value={maxChoicesDraft}
                               onChange={(e) => setMaxChoicesDraft(e.target.value)}
-                              className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                              className="w-20 rounded-md border border-ink/10 px-2 py-1 text-sm"
                             />
                           ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-800">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-glacier text-ink">
                               {electionData.maxChoices || 1} {electionData.maxChoices === 1 ? 'choice' : 'choices'}
                             </span>
                           )}
                         </p>
                         <p>
-                          <span className="text-gray-600">Number of winners:</span>{' '}
+                          <span className="text-dusk">Number of winners:</span>{' '}
                           {canEditVotingRules() && editingVotingRules ? (
                             <input
                               type="number"
@@ -3935,23 +4016,23 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               max={candidateCountForElection()}
                               value={winnerNoDraft}
                               onChange={(e) => setWinnerNoDraft(e.target.value)}
-                              className="w-20 rounded-md border border-gray-300 px-2 py-1 text-sm"
+                              className="w-20 rounded-md border border-ink/10 px-2 py-1 text-sm"
                             />
                           ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-amber-100 text-amber-800">
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold bg-ceremonial-soft text-ink">
                               Top {getWinnerCount(electionData)} candidate{getWinnerCount(electionData) === 1 ? '' : 's'}
                             </span>
                           )}
                         </p>
                         {canEditVotingRules() && (
-                          <p className="text-xs text-gray-500">Editable until the election begins.</p>
+                          <p className="text-xs text-dusk">Editable until the election begins.</p>
                         )}
                       </div>
                     </div>
                     <div>
                       <span className="font-medium">Ballot receipt emails:</span>{' '}
                       {canManageBallotReceiptSetting() ? (
-                        <label className="inline-flex items-center gap-2 ml-1 text-sm">
+                        <label className="av-check-row inline-flex items-center ml-1 text-sm">
                           <input
                             type="checkbox"
                             checked={!!electionData.sendBallotReceipt}
@@ -3959,8 +4040,9 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             onChange={(e) =>
                               handleUpdateElectionSettings({ sendBallotReceipt: e.target.checked })
                             }
+                            className="av-checkbox"
                           />
-                          Send receipt by email after voting
+                          <span>Send receipt by email after voting</span>
                         </label>
                       ) : (
                         electionData.sendBallotReceipt ? 'Enabled' : 'Disabled'
@@ -3976,27 +4058,27 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   </div>
                 </div>
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-2">Timeline</h4>
+                  <h4 className="font-medium text-deep mb-2">Timeline</h4>
                   <div className="space-y-2 text-sm">
                     {canEditElectionSchedule() && editingSchedule ? (
-                      <div className="space-y-3 rounded-lg border border-blue-100 bg-blue-50/50 p-3">
+                      <div className="space-y-3 rounded-lg border border-glacier bg-glacier/50 p-3">
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                           <label className="space-y-1">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Election Start</span>
+                            <span className="text-xs font-semibold uppercase tracking-wide text-dusk">Election Start</span>
                             <input
                               type="datetime-local"
                               value={scheduleDraft.startingTime}
                               onChange={(e) => setScheduleDraft((prev) => ({ ...prev, startingTime: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 outline-none bg-white"
+                              className="w-full px-3 py-2 border border-ink/10 rounded-md focus:border-brand outline-none bg-paper"
                             />
                           </label>
                           <label className="space-y-1">
-                            <span className="text-xs font-semibold uppercase tracking-wide text-gray-600">Election End</span>
+                            <span className="text-xs font-semibold uppercase tracking-wide text-dusk">Election End</span>
                             <input
                               type="datetime-local"
                               value={scheduleDraft.endingTime}
                               onChange={(e) => setScheduleDraft((prev) => ({ ...prev, endingTime: e.target.value }))}
-                              className="w-full px-3 py-2 border border-gray-300 rounded-md focus:border-blue-500 outline-none bg-white"
+                              className="w-full px-3 py-2 border border-ink/10 rounded-md focus:border-brand outline-none bg-paper"
                             />
                           </label>
                         </div>
@@ -4005,14 +4087,14 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             type="button"
                             disabled={settingsSaving}
                             onClick={handleSaveSchedule}
-                            className="rounded-md bg-blue-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-blue-700 disabled:opacity-50"
+                            className="rounded-md bg-brand px-3 py-1.5 text-xs font-medium text-paper hover:bg-brand-dark disabled:opacity-50"
                           >
                             Save
                           </button>
                           <button
                             type="button"
                             onClick={() => setEditingSchedule(false)}
-                            className="rounded-md border border-gray-300 px-3 py-1.5 text-xs font-medium text-gray-700 hover:bg-gray-50"
+                            className="rounded-md border border-ink/10 px-3 py-1.5 text-xs font-medium text-ink hover:bg-frost"
                           >
                             Cancel
                           </button>
@@ -4033,7 +4115,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 });
                                 setEditingSchedule(true);
                               }}
-                              className="ml-2 text-xs font-medium text-blue-600 hover:underline"
+                              className="ml-2 text-xs font-medium text-brand hover:underline"
                             >
                               Edit
                             </button>
@@ -4043,45 +4125,45 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       </>
                     )}
                     <p className="flex items-center flex-wrap gap-1"><FiClock className="h-4 w-4 mr-1" /><span className="font-medium">Created:</span> {formatDate(electionData.createdAt)}</p>
-                    <p className="text-xs text-gray-500">Times shown in your timezone: {timezoneUtils.getTimezoneLabel()}</p>
+                    <p className="text-xs text-dusk">Times shown in your timezone: {timezoneUtils.getTimezoneLabel()}</p>
                   </div>
                 </div>
               </div>
 
-              <div className="mt-6 border-t border-gray-200 pt-4">
-                <h4 className="font-medium text-gray-900 mb-3">Guardian Configuration</h4>
+              <div className="mt-6 border-t border-ink/10 pt-4">
+                <h4 className="font-medium text-deep mb-3">Guardian Configuration</h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                  <div className="rounded-lg border border-green-100 bg-green-50 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-green-700">Guardian Number</p>
+                  <div className="rounded-lg border border-green-100 bg-sage-soft p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-sage">Guardian Number</p>
                     <p className="mt-1 text-lg font-semibold text-green-900">
                       {electionData.totalGuardians || electionData.guardians?.length || 0}
                     </p>
                   </div>
-                  <div className="rounded-lg border border-amber-100 bg-amber-50 p-3">
-                    <p className="text-xs font-semibold uppercase tracking-wide text-amber-700">Quorum Number</p>
-                    <p className="mt-1 text-lg font-semibold text-amber-900">{electionData.electionQuorum || 0}</p>
+                  <div className="rounded-lg border border-amber-100 bg-ceremonial-soft p-3">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-ink">Quorum Number</p>
+                    <p className="mt-1 text-lg font-semibold text-ink">{electionData.electionQuorum || 0}</p>
                   </div>
                 </div>
 
                 <div>
-                  <p className="text-sm font-medium text-gray-700 mb-2">Guardians (Emails)</p>
+                  <p className="text-sm font-medium text-ink mb-2">Guardians (Emails)</p>
                   {electionData.guardians && electionData.guardians.length > 0 ? (
-                    <div className="max-h-44 overflow-y-auto rounded-lg border border-gray-200 bg-gray-50 p-2">
+                    <div className="max-h-44 overflow-y-auto rounded-lg border border-ink/10 bg-frost p-2">
                       <div className="space-y-2">
                         {electionData.guardians.map((guardian, index) => (
                           <div
                             key={guardian.userEmail || `${guardian.userName || 'guardian'}-${index}`}
-                            className="flex items-center justify-between rounded-md border border-gray-100 bg-white px-3 py-2"
+                            className="flex items-center justify-between rounded-md border border-ink/10 bg-paper px-3 py-2"
                           >
-                            <span className="text-sm text-gray-900">{guardian.userName || `Guardian ${index + 1}`}</span>
-                            <span className="text-xs text-gray-600 break-all ml-3">{guardian.userEmail || 'No email available'}</span>
+                            <span className="text-sm text-deep">{guardian.userName || `Guardian ${index + 1}`}</span>
+                            <span className="text-xs text-dusk break-all ml-3">{guardian.userEmail || 'No email available'}</span>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <div className="rounded-lg border border-gray-200 bg-gray-50 p-3 text-sm text-gray-600">
+                    <div className="rounded-lg border border-ink/10 bg-frost p-3 text-sm text-dusk">
                       No guardian emails available.
                     </div>
                   )}
@@ -4101,59 +4183,60 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
             {/* Election Statistics */}
             <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-6">
-              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="surface-card p-4 sm:p-6">
                 <div className="flex items-center">
-                  <FiUsers className="h-6 w-6 sm:h-8 sm:w-8 text-blue-500" />
+                  <FiUsers className="h-6 w-6 sm:h-8 sm:w-8 text-brand" />
                   <div className="ml-3 sm:ml-4">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600">Total Voters</p>
-                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{getTotalVoters(electionData)}</p>
+                    <p className="text-xs sm:text-sm font-medium text-dusk">Total Voters</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-deep">{getTotalVoters(electionData)}</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="surface-card p-4 sm:p-6">
                 <div className="flex items-center">
                   <FiShield className="h-6 w-6 sm:h-8 sm:w-8 text-green-500" />
                   <div className="ml-3 sm:ml-4">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600">Guardians</p>
-                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{electionData.guardians?.length || 0}</p>
+                    <p className="text-xs sm:text-sm font-medium text-dusk">Guardians</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-deep">{electionData.guardians?.length || 0}</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="surface-card p-4 sm:p-6">
                 <div className="flex items-center">
                   <FiKey className="h-6 w-6 sm:h-8 sm:w-8 text-amber-500" />
                   <div className="ml-3 sm:ml-4">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600">Quorum</p>
-                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{electionData.electionQuorum || 0}</p>
+                    <p className="text-xs sm:text-sm font-medium text-dusk">Quorum</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-deep">{electionData.electionQuorum || 0}</p>
                   </div>
                 </div>
               </div>
-              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="surface-card p-4 sm:p-6">
                 <div className="flex items-center">
-                  <FiCheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-purple-500" />
+                  <FiCheckCircle className="h-6 w-6 sm:h-8 sm:w-8 text-brand" />
                   <div className="ml-3 sm:ml-4">
-                    <p className="text-xs sm:text-sm font-medium text-gray-600">Candidates</p>
-                    <p className="text-xl sm:text-2xl font-semibold text-gray-900">{electionData.electionChoices?.length || 0}</p>
+                    <p className="text-xs sm:text-sm font-medium text-dusk">Candidates</p>
+                    <p className="text-xl sm:text-2xl font-semibold text-deep">{electionData.electionChoices?.length || 0}</p>
                   </div>
                 </div>
               </div>
             </div>
 
             {/* Candidates */}
-            <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+            <div className="surface-card p-4 sm:p-6">
               <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4">Candidates</h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
                 {electionData.electionChoices?.map((choice) => (
-                  <div key={choice.choiceId} className="border rounded-lg p-3 sm:p-4">
-                    <div className="flex items-center space-x-2 sm:space-x-3">
-                      {choice.candidatePic && (
-                        <img src={choice.candidatePic} alt={choice.optionTitle} className="h-10 w-10 sm:h-12 sm:w-12 rounded-full object-cover flex-shrink-0" />
-                      )}
-                      <div className="min-w-0 flex-1">
-                        <h4 className="font-medium text-gray-900 text-sm sm:text-base truncate">{choice.optionTitle}</h4>
-                        <p className="text-xs sm:text-sm text-gray-500 line-clamp-2">{choice.optionDescription}</p>
-                      </div>
-                    </div>
+                  <div key={choice.choiceId} className="rounded-xl border border-ink/10 bg-frost/50 p-3 sm:p-4">
+                    <CandidateIdentity
+                      name={choice.optionTitle}
+                      image={choice.candidatePic}
+                      description={choice.optionDescription}
+                      partyName={choice.partyName}
+                      size="xl"
+                      enableProfile
+                      showInlineDescription
+                      nameClassName="font-display text-sm sm:text-base font-semibold text-deep"
+                    />
                   </div>
                 ))}
               </div>
@@ -4161,24 +4244,24 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
             {/* Voter summary — counts visible to all; full email list only for authorized roles */}
             {(canEditVoterList() || getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
-              <div className="bg-white rounded-lg shadow p-4 sm:p-6">
+              <div className="surface-card p-4 sm:p-6">
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-4">
                   <h3 className="text-base sm:text-lg font-semibold flex items-center">
-                    <FiUsers className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-blue-600" />
+                    <FiUsers className="h-4 w-4 sm:h-5 sm:w-5 mr-2 text-brand" />
                     {electionData.eligibility === 'listed' ? 'Eligible Voters' : 'Voters Who Participated'}
                   </h3>
                   <div className="flex items-center gap-2 flex-wrap">
                     {electionData.eligibility === 'listed' ? (
                       <>
-                        <span className="px-2.5 py-1 text-xs font-semibold bg-blue-100 text-blue-700 rounded-full">
+                        <span className="px-2.5 py-1 text-xs font-semibold bg-glacier text-brand-dark rounded-full">
                           {getTotalVoters(electionData)} eligible
                         </span>
-                        <span className="px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                        <span className="px-2.5 py-1 text-xs font-semibold bg-sage-soft text-sage rounded-full">
                           {getVotedCount(electionData)} voted
                         </span>
                       </>
                     ) : (
-                      <span className="px-2.5 py-1 text-xs font-semibold bg-green-100 text-green-700 rounded-full">
+                      <span className="px-2.5 py-1 text-xs font-semibold bg-sage-soft text-sage rounded-full">
                         {getVotedCount(electionData)} participated
                       </span>
                     )}
@@ -4186,7 +4269,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       <button
                         type="button"
                         onClick={handleToggleVoterEditor}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-indigo-600 text-white hover:bg-indigo-700 transition-colors"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-dark text-paper hover:bg-ink transition-colors"
                       >
                         {showVoterEditor ? 'Hide Editor' : 'Edit Voter List'}
                       </button>
@@ -4196,7 +4279,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         type="button"
                         onClick={handleToggleVoterList}
                         disabled={votersLoading}
-                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-blue-600 text-white hover:bg-blue-700 transition-colors disabled:opacity-60"
+                        className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-semibold bg-brand-dark text-paper hover:bg-brand-dark transition-colors disabled:opacity-60"
                       >
                         {votersLoading ? (
                           <>
@@ -4214,21 +4297,21 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 </div>
 
                 {canEditVoterList() && showVoterEditor && (
-                  <div className="mb-6 rounded-xl border border-indigo-200 bg-gradient-to-br from-indigo-50/70 via-white to-sky-50 p-4 sm:p-5">
+                  <div className="mb-6 rounded-xl border border-brand/25 bg-gradient-to-br from-glacier/70 via-white to-sky-50 p-4 sm:p-5">
                     {votersLoading && !electionData.voters?.length ? (
-                      <div className="flex items-center justify-center py-8 text-sm text-indigo-800">
+                      <div className="flex items-center justify-center py-8 text-sm text-ink">
                         <FiLoader className="mr-2 h-4 w-4 animate-spin" />
                         Loading voter list...
                       </div>
                     ) : (
                       <>
                         <div className="mb-4">
-                          <h4 className="text-sm font-semibold text-indigo-900">
+                          <h4 className="text-sm font-semibold text-deep">
                             {canRemoveVoters()
                               ? 'Manage eligible voters'
                               : 'Add voters to this election'}
                           </h4>
-                          <p className="text-xs text-indigo-800 mt-1">
+                          <p className="text-xs text-ink mt-1">
                             {canRemoveVoters()
                               ? 'Add voters individually or import CSV/TXT files. Imports append to the existing list without removing current voters.'
                               : 'The election has started, so voters can only be added — existing emails cannot be removed.'}
@@ -4250,19 +4333,19 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 )}
 
                 {electionData.eligibility === 'listed' && getTotalVoters(electionData) > 0 && (
-                  <div className="mb-4 p-3 bg-blue-50 rounded-lg border border-blue-100">
+                  <div className="mb-4 p-3 bg-glacier rounded-lg border border-glacier">
                     <div className="flex items-center justify-between text-sm mb-2">
-                      <span className="text-blue-700 font-medium">Participation</span>
-                      <span className="text-blue-800 font-bold">
+                      <span className="text-brand-dark font-medium">Participation</span>
+                      <span className="text-ink font-bold">
                         {getVotedCount(electionData)} / {getTotalVoters(electionData)}
                         {' '}({getTotalVoters(electionData) > 0
                           ? ((getVotedCount(electionData) / getTotalVoters(electionData)) * 100).toFixed(1)
                           : 0}%)
                       </span>
                     </div>
-                    <div className="w-full bg-white rounded-full h-2 border border-blue-200">
+                    <div className="w-full bg-paper rounded-full h-2 border border-brand/20">
                       <div
-                        className="h-2 rounded-full bg-gradient-to-r from-blue-500 to-indigo-500 transition-all duration-700"
+                        className="h-2 rounded-full bg-gradient-to-r from-brand to-brand-dark transition-all duration-700"
                         style={{ width: `${getTotalVoters(electionData) > 0 ? (getVotedCount(electionData) / getTotalVoters(electionData)) * 100 : 0}%` }}
                       />
                     </div>
@@ -4270,7 +4353,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 )}
 
                 {canViewVoterList() && !showVoterEditor && !showVoterList && (getTotalVoters(electionData) > 0 || getVotedCount(electionData) > 0) && (
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-dusk">
                     {getTotalVoters(electionData) > 0
                       ? `This election has ${getTotalVoters(electionData).toLocaleString()} registered voter${getTotalVoters(electionData) === 1 ? '' : 's'}. Click "Show Voters" to load the full list.`
                       : `${getVotedCount(electionData).toLocaleString()} voter${getVotedCount(electionData) === 1 ? ' has' : 's have'} participated. Click "Show Voters" to load the list.`}
@@ -4288,30 +4371,30 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         key={voter.userEmail || index}
                         className={`flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all ${
                           voter.hasVoted || electionData.eligibility !== 'listed'
-                            ? 'bg-green-50 border-green-200 hover:border-green-300'
-                            : 'bg-gray-50 border-gray-200 hover:border-gray-300'
+                            ? 'bg-sage-soft border-aurora/30 hover:border-green-300'
+                            : 'bg-frost border-ink/10 hover:border-ink/10'
                         }`}
                       >
                         <div className="flex items-center gap-2 min-w-0">
                           <div className={`w-7 h-7 rounded-full flex items-center justify-center flex-shrink-0 ${
-                            voter.hasVoted || electionData.eligibility !== 'listed' ? 'bg-green-500' : 'bg-gray-300'
+                            voter.hasVoted || electionData.eligibility !== 'listed' ? 'bg-aurora' : 'bg-ink/20'
                           }`}>
-                            <FiUser className="h-3.5 w-3.5 text-white" />
+                            <FiUser className="h-3.5 w-3.5 text-paper" />
                           </div>
-                          <span className="text-xs sm:text-sm text-gray-700 truncate font-medium">{voter.userEmail}</span>
+                          <span className="text-xs sm:text-sm text-ink truncate font-medium">{voter.userEmail}</span>
                         </div>
                         {electionData.eligibility === 'listed' ? (
                           voter.hasVoted ? (
-                            <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
+                            <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-sage-soft text-sage rounded-full border border-aurora/30">
                               <FiCheckCircle className="h-3 w-3" /> Voted
                             </span>
                           ) : (
-                            <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-gray-100 text-gray-500 rounded-full">
+                            <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-medium bg-frost-muted text-dusk rounded-full">
                               <FiClock className="h-3 w-3" /> Pending
                             </span>
                           )
                         ) : (
-                          <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-green-100 text-green-700 rounded-full border border-green-200">
+                          <span className="ml-2 flex-shrink-0 inline-flex items-center gap-1 px-2 py-0.5 text-xs font-semibold bg-sage-soft text-sage rounded-full border border-aurora/30">
                             <FiCheckCircle className="h-3 w-3" /> Voted
                           </span>
                         )}
@@ -4326,54 +4409,61 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Voting Booth Tab */}
         {activeTab === 'voting' && (
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
-              <FiCheckCircle className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-              Voting Booth
-            </h3>
+          <div className="surface-card p-4 sm:p-6">
+            <div className="mb-4 sm:mb-6">
+              <p className="section-kicker">Ballot</p>
+              <h3 className="mt-1 font-display text-xl sm:text-2xl font-bold text-deep flex items-center gap-2">
+                <FiCheckCircle className="h-5 w-5 text-brand" />
+                Voting Booth
+              </h3>
+              <p className="mt-1 text-sm text-dusk">
+                Select candidates, encrypt your ballot, then cast or challenge it.
+              </p>
+            </div>
 
             {/* Eligibility Loading */}
             {checkingEligibility && (
               <div className="text-center py-8">
-                <FiLoader className="h-8 w-8 text-blue-500 mx-auto mb-4 animate-spin" />
-                <p className="text-gray-600">Checking your eligibility to vote...</p>
+                <FiLoader className="h-8 w-8 text-brand mx-auto mb-4 animate-spin" />
+                <p className="text-dusk">Checking your eligibility to vote...</p>
               </div>
             )}
 
             {/* Eligibility Status Display */}
             {!checkingEligibility && eligibilityData && (
               <div className={`border rounded-lg p-4 mb-6 ${eligibilityData.eligible
-                  ? 'bg-green-50 border-green-200'
+                  ? 'bg-sage-soft border-aurora/30'
                   : eligibilityData.hasVoted
-                    ? 'bg-blue-50 border-blue-200'
-                    : 'bg-red-50 border-red-200'
+                    ? 'bg-glacier border-brand/20'
+                    : 'bg-ember-soft border-ember/30'
                 }`}>
                 <div className="flex items-center">
                   {eligibilityData.eligible ? (
                     <FiCheckCircle className="h-6 w-6 text-green-500 mr-3" />
                   ) : eligibilityData.hasVoted ? (
-                    <FiCheckCircle className="h-6 w-6 text-blue-500 mr-3" />
+                    <FiCheckCircle className="h-6 w-6 text-brand mr-3" />
                   ) : (
-                    <FiAlertCircle className="h-6 w-6 text-red-500 mr-3" />
+                    <FiAlertCircle className="h-6 w-6 text-ember mr-3" />
                   )}
                   <div>
                     <h4 className={`font-semibold ${eligibilityData.eligible
                         ? 'text-green-900'
                         : eligibilityData.hasVoted
-                          ? 'text-blue-900'
+                          ? 'text-deep'
                           : 'text-red-900'
                       }`}>
-                      {eligibilityData.message}
+                      {eligibilityCopy.title}
                     </h4>
-                    <p className={`text-sm ${eligibilityData.eligible
-                        ? 'text-green-800'
-                        : eligibilityData.hasVoted
-                          ? 'text-blue-800'
-                          : 'text-red-800'
-                      }`}>
-                      Status: {eligibilityData.electionStatus} |
-                      Reason: {eligibilityData.reason}
-                    </p>
+                    {eligibilityCopy.detail && (
+                      <p className={`text-sm ${eligibilityData.eligible
+                          ? 'text-aurora-muted'
+                          : eligibilityData.hasVoted
+                            ? 'text-ink'
+                            : 'text-ember'
+                        }`}>
+                        {eligibilityCopy.detail}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -4382,26 +4472,26 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             {/* Bot Detection Status */}
             {activeTab === 'voting' && (
               <div className={`border rounded-lg p-4 mb-6 ${botDetection.loading
-                  ? 'bg-gray-50 border-gray-200'
+                  ? 'bg-frost border-ink/10'
                   : botDetection.error
-                    ? 'bg-yellow-50 border-yellow-200'
+                    ? 'bg-ceremonial-soft border-yellow-200'
                     : botDetection.isBot
-                      ? 'bg-red-50 border-red-200'
-                      : 'bg-green-50 border-green-200'
+                      ? 'bg-ember-soft border-ember/30'
+                      : 'bg-sage-soft border-aurora/30'
                 }`}>
                 <div className="flex items-center">
                   {botDetection.loading ? (
-                    <FiLoader className="h-5 w-5 text-gray-500 mr-3 animate-spin" />
+                    <FiLoader className="h-5 w-5 text-dusk mr-3 animate-spin" />
                   ) : botDetection.error ? (
                     <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-3" />
                   ) : botDetection.isBot ? (
-                    <FiX className="h-5 w-5 text-red-500 mr-3" />
+                    <FiX className="h-5 w-5 text-ember mr-3" />
                   ) : (
                     <FiCheckCircle className="h-5 w-5 text-green-500 mr-3" />
                   )}
                   <div>
                     <h4 className={`font-medium ${botDetection.loading
-                        ? 'text-gray-900'
+                        ? 'text-deep'
                         : botDetection.error
                           ? 'text-yellow-900'
                           : botDetection.isBot
@@ -4418,12 +4508,12 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       }
                     </h4>
                     <p className={`text-xs ${botDetection.loading
-                        ? 'text-gray-600'
+                        ? 'text-dusk'
                         : botDetection.error
-                          ? 'text-yellow-800'
+                          ? 'text-ink'
                           : botDetection.isBot
-                            ? 'text-red-800'
-                            : 'text-green-800'
+                            ? 'text-ember'
+                            : 'text-aurora-muted'
                       }`}>
                       {botDetection.loading
                         ? 'Verifying that you are not a bot...'
@@ -4452,7 +4542,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               <div className="mb-6">
                 {(() => {
                   const maxChoices = electionData.maxChoices || 1;
-                  const electionOngoing = getElectionStatus() === 'ongoing';
+                  const electionOngoing = (liveSchedulePhase || getElectionStatus()) === 'ongoing';
                   const canCreateBallot = !!eligibilityData?.eligible
                     && !voteResult
                     && electionOngoing
@@ -4461,12 +4551,12 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                   return (
                     <>
-                      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 mb-6">
+                      <div className="bg-ceremonial-soft border border-yellow-200 rounded-lg p-4 mb-6">
                         <div className="flex items-center">
                           <FiInfo className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0" />
                           <div>
                             <h4 className="font-medium text-yellow-900">Voting Instructions</h4>
-                            <p className="text-sm text-yellow-800 mt-1">
+                            <p className="text-sm text-ink mt-1">
                               {maxChoices > 1
                                 ? `Select up to ${maxChoices} candidates, then create your encrypted ballot.`
                                 : 'Select one candidate, then create your encrypted ballot.'}
@@ -4481,7 +4571,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                       <div className="max-w-2xl">
                         <div className="mb-6">
-                          <label className="block text-sm font-medium text-gray-700 mb-3">
+                          <label className="block text-sm font-medium text-ink mb-3">
                             {maxChoices > 1
                               ? `Select up to ${maxChoices} candidate(s): (${selectedCandidates.length}/${maxChoices} selected)`
                               : 'Select your candidate:'}
@@ -4507,12 +4597,12 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                       handleCandidateToggle(choiceIdStr);
                                     }
                                   }}
-                                  className={`flex items-center gap-3 py-2.5 px-3 rounded-lg border transition-colors ${
+                                  className={`flex items-center gap-3 py-3 px-3.5 rounded-xl border transition-all ${
                                     isDisabled
-                                      ? 'opacity-50 cursor-not-allowed border-gray-200'
+                                      ? 'opacity-50 cursor-not-allowed border-ink/10'
                                       : isSelected
-                                        ? 'cursor-pointer border-blue-500 bg-blue-50'
-                                        : 'cursor-pointer border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                                        ? 'cursor-pointer selected-ballot'
+                                        : 'cursor-pointer border-ink/10 hover:border-brand/40 hover:bg-glacier/40'
                                   }`}
                                 >
                                   <input
@@ -4521,15 +4611,29 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                     readOnly
                                     tabIndex={-1}
                                     aria-hidden
-                                    className="pointer-events-none h-4 w-4 text-blue-600 border-gray-300 rounded flex-shrink-0"
+                                    className="av-checkbox pointer-events-none"
                                   />
-                                  <CandidateThumbnail
-                                    src={choice.candidatePic}
-                                    name={choice.optionTitle}
-                                    size="md"
-                                  />
-                                  <span className="text-sm sm:text-base text-gray-900 leading-snug min-w-0 flex-1">
-                                    <TruncatedCandidateName name={choice.optionTitle} />
+                                  <div
+                                    className="min-w-0 flex-1"
+                                    onClick={(e) => e.stopPropagation()}
+                                    onKeyDown={(e) => e.stopPropagation()}
+                                  >
+                                    <CandidateIdentity
+                                      name={choice.optionTitle}
+                                      image={choice.candidatePic}
+                                      description={choice.optionDescription}
+                                      partyName={choice.partyName}
+                                      size="md"
+                                      enableProfile
+                                      nameClassName="text-sm sm:text-base text-deep leading-snug"
+                                    />
+                                  </div>
+                                  <span
+                                    className={`shrink-0 text-[10px] font-semibold uppercase tracking-wide ${
+                                      isSelected ? 'text-brand-dark' : 'text-dusk'
+                                    }`}
+                                  >
+                                    {isSelected ? 'Selected' : 'Tap to select'}
                                   </span>
                                 </div>
                               );
@@ -4539,24 +4643,24 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                         <div className="flex flex-col items-center gap-3">
                           {!canCreateBallot && (
-                            <p className="text-sm text-gray-600 text-center max-w-md">
+                            <p className="text-sm text-dusk text-center max-w-md">
                               {!electionOngoing
                                 ? (getElectionStatus() === 'finished'
-                                  ? 'Voting has ended for this election.'
-                                  : `Voting opens on ${formatDate(electionData.startingTime)}.`)
+                                  ? 'This election has ended, so ballots can no longer be cast.'
+                                  : `Voting has not started yet. Please check back when the election opens on ${formatDate(electionData.startingTime)}.`)
                                 : eligibilityData?.hasVoted
-                                  ? 'You have already voted in this election.'
-                                  : eligibilityData?.message || 'You are not eligible to vote in this election.'}
+                                  ? 'You have already voted in this election. Your ballot has been recorded.'
+                                  : eligibilityCopy.detail || eligibilityCopy.title || 'You are not eligible to vote in this election.'}
                             </p>
                           )}
                           <button
                             type="button"
                             onClick={() => handleOpenConfirmModal(canCreateBallot)}
                             disabled={!canCreateBallot || !selectedCandidates.length || ballotModalOpen}
-                            className={`px-8 py-3 rounded-lg font-medium text-white transition-colors ${
+                            className={`px-8 py-3 rounded-lg font-medium text-paper transition-colors ${
                               !canCreateBallot || !selectedCandidates.length || ballotModalOpen
-                                ? 'bg-gray-400 cursor-not-allowed'
-                                : 'bg-blue-600 hover:bg-blue-700 active:bg-blue-800'
+                                ? 'bg-ink/30 cursor-not-allowed'
+                                : 'bg-brand-dark hover:bg-brand active:bg-ink'
                             }`}
                           >
                             {botDetection.loading ? (
@@ -4587,49 +4691,73 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Encrypted Ballot Confirmation Modal */}
         {showConfirmModal && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-3 sm:p-4 z-[100]">
-            <div className="bg-white rounded-lg shadow-xl max-w-md w-full p-4 sm:p-6 max-h-[90vh] overflow-y-auto">
-              <div className="flex justify-between items-center mb-3 sm:mb-4">
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900">Confirm Encrypted Ballot</h3>
-                <button
-                  type="button"
-                  onClick={() => setShowConfirmModal(false)}
-                  disabled={isSubmitting}
-                  className="text-gray-400 hover:text-gray-600"
-                >
-                  <FiX className="h-5 w-5 sm:h-6 sm:w-6" />
-                </button>
+          <ModalOverlay onClose={() => setShowConfirmModal(false)} dismissible>
+            <ModalPanel size="md" className="shadow-lift">
+            <div
+              role="dialog"
+              aria-modal="true"
+              aria-labelledby="ballot-confirm-title"
+              className="flex min-h-0 flex-1 flex-col overflow-hidden"
+            >
+              <div className="shrink-0 border-b border-ink/10 px-5 py-4 sm:px-6 sm:py-5">
+                <p className="section-kicker">Before encryption</p>
+                <h3 id="ballot-confirm-title" className="mt-1 font-display text-xl font-bold text-deep sm:text-2xl">
+                  Create encrypted ballot?
+                </h3>
+                <p className="mt-1.5 text-sm text-dusk">
+                  Confirm these are the choice{selectedCandidates.length === 1 ? "" : "s"} you want encrypted.
+                </p>
               </div>
 
-              <div className="mb-4 sm:mb-6">
-                <p className="text-xs sm:text-sm text-gray-600 mb-3 sm:mb-4">
-                  You are about to create an encrypted ballot with the following selection{selectedCandidates.length === 1 ? '' : 's'}:
+              <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 sm:px-6">
+                <p className="mb-3 text-xs font-semibold uppercase tracking-wide text-dusk">
+                  Your selection{selectedCandidates.length === 1 ? "" : "s"}
                 </p>
-                <ul className="space-y-2 list-disc list-inside text-sm text-gray-900">
+                <ul className="space-y-2">
                   {electionData.electionChoices
-                    .filter(choice => selectedCandidates.includes(choice.choiceId.toString()))
+                    ?.filter((choice) => selectedCandidates.includes(String(choice.choiceId)))
                     .map((choice) => (
-                      <li key={choice.choiceId} className="min-w-0">
-                        <TruncatedCandidateName name={choice.optionTitle} />
+                      <li
+                        key={choice.choiceId}
+                        className="flex items-center gap-3 rounded-2xl border border-brand/20 bg-glacier/60 px-3.5 py-3"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <CandidateIdentity
+                            name={choice.optionTitle}
+                            image={choice.candidatePic}
+                            description={choice.optionDescription}
+                            partyName={choice.partyName}
+                            size="md"
+                            enableProfile
+                            nameClassName="font-display text-sm font-semibold text-deep sm:text-base"
+                          />
+                        </div>
+                        <FiCheckCircle className="h-5 w-5 shrink-0 text-brand" />
                       </li>
                     ))}
                 </ul>
-
-                <div className="mt-3 sm:mt-4 p-3 bg-yellow-50 border border-yellow-200 rounded-lg">
-                  <p className="text-xs sm:text-sm text-yellow-800">
-                    <strong>Please confirm:</strong> This will generate your encrypted ballot. Review your choices carefully before proceeding.
+                {(!electionData.electionChoices ||
+                  electionData.electionChoices.filter((c) =>
+                    selectedCandidates.includes(String(c.choiceId))
+                  ).length === 0) && (
+                  <p className="rounded-xl border border-ceremonial/40 bg-ceremonial-soft px-3 py-2 text-sm text-ink">
+                    No choices detected. Go back and select again.
                   </p>
+                )}
+
+                <div className="mt-4 rounded-xl border border-ceremonial/40 bg-ceremonial-soft/70 px-3.5 py-3 text-sm text-ink">
+                  After you confirm, AmarVote encrypts this ballot. You can cast it or challenge it next.
                 </div>
               </div>
 
-              <div className="flex space-x-2 sm:space-x-3">
+              <div className="shrink-0 flex flex-col-reverse gap-2 border-t border-ink/10 bg-paper/90 px-5 py-4 sm:flex-row sm:px-6">
                 <button
                   type="button"
                   onClick={() => setShowConfirmModal(false)}
                   disabled={isSubmitting}
-                  className="flex-1 bg-gray-200 text-gray-800 py-2 px-3 sm:px-4 rounded-lg hover:bg-gray-300 disabled:opacity-50 text-sm sm:text-base"
+                  className="btn-ghost flex-1"
                 >
-                  Cancel
+                  Go back
                 </button>
                 <button
                   type="button"
@@ -4637,121 +4765,128 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     setShowConfirmModal(false);
                     await handleCreateEncryptedBallot();
                   }}
-                  disabled={isSubmitting}
-                  className="flex-1 bg-blue-600 text-white py-2 px-3 sm:px-4 rounded-lg hover:bg-blue-700 disabled:opacity-50 text-sm sm:text-base"
+                  disabled={
+                    isSubmitting ||
+                    !electionData.electionChoices?.some((c) =>
+                      selectedCandidates.includes(String(c.choiceId))
+                    )
+                  }
+                  className="btn-brand flex-1"
                 >
-                  Confirm &amp; Create Ballot
+                  Confirm & encrypt
                 </button>
               </div>
             </div>
-          </div>
+            </ModalPanel>
+          </ModalOverlay>
         )}
 
         {/* Guardian Keys Tab */}
         {activeTab === 'guardian' && (
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
-              <FiShield className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-              Guardian Credential Submission
-            </h3>
+          <div className="surface-card p-4 sm:p-6">
+            <div className="mb-4 sm:mb-6">
+              <p className="section-kicker">Guardians</p>
+              <h3 className="mt-1 font-display text-xl sm:text-2xl font-bold text-deep flex items-center gap-2">
+                <FiShield className="h-5 w-5 text-brand" />
+                Guardian Workflow
+              </h3>
+              <p className="mt-1 text-sm text-dusk">
+                Key ceremony, partial decryption, and threshold combination for this election.
+              </p>
+            </div>
             <div className="space-y-6">
                 {electionData?.status === 'key_ceremony_pending' && (
-                  <div className="rounded-2xl border border-indigo-200 bg-gradient-to-br from-indigo-50 via-white to-sky-50 p-5 sm:p-6 shadow-sm">
-                    <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-4">
+                  <div className="observatory-panel p-5 sm:p-6">
+                    <div className="mb-4 flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                       <div>
-                        <h4 className="text-lg font-semibold text-indigo-900">Key Ceremony</h4>
-                        <p className="text-sm text-indigo-800 mt-1">{getKeyCeremonyProgressMessage()}</p>
+                        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-brand-dark">Authority</p>
+                        <h4 className="mt-1 font-display text-lg font-semibold text-ink">Key ceremony</h4>
+                        <p className="mt-1 text-sm text-dusk">{getKeyCeremonyProgressMessage()}</p>
                       </div>
                       <div className="flex flex-wrap gap-2">
-                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-indigo-100 text-indigo-800">
+                        <span className="inline-flex items-center rounded-lg border border-brand/30 bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand">
                           Guardians: {electionData.numberOfGuardians}
                         </span>
-                        <span className="px-3 py-1 text-xs font-semibold rounded-full bg-amber-100 text-amber-800">
-                          Quorum: {electionData.electionQuorum}
+                        <span className="inline-flex items-center rounded-lg border border-threshold/35 bg-threshold/10 px-2.5 py-1 text-xs font-semibold text-threshold">
+                          Threshold: {electionData.electionQuorum} of {electionData.numberOfGuardians}
                         </span>
                       </div>
                     </div>
 
-                    {/* Guardian completion overview during key ceremony */}
                     {isKeyCeremonyPending && (
-                      <div className="mb-5 grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        <div className="rounded-xl border border-indigo-200 bg-white p-4 flex items-center gap-4">
-                          <div className="h-20 w-20">
-                            <CircularProgressbar
-                              value={getRound1Progress()}
-                              text={`${getRound1Progress()}%`}
-                              styles={buildStyles({ pathColor: '#4f46e5', textColor: '#111827', trailColor: '#e5e7eb' })}
-                            />
-                          </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">Step 1: Key Pairs</p>
-                            <p className="text-sm text-gray-600">
-                              {(adminKeyCeremonyStatus?.submittedGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians completed
+                      <div className="mb-5 grid grid-cols-1 gap-4 lg:grid-cols-2">
+                        <GuardianQuorumViz
+                          mode={getKeyCeremonyStep() >= 2 ? 'ceremony-r2' : 'ceremony'}
+                          title={getKeyCeremonyStep() >= 2 ? 'Backup share exchange' : 'Keypair assembly'}
+                          total={adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0}
+                          threshold={electionData.electionQuorum || electionData.numberOfGuardians || 0}
+                          filled={
+                            getKeyCeremonyStep() >= 2
+                              ? (adminKeyCeremonyStatus?.submittedBackupGuardians ?? 0)
+                              : (adminKeyCeremonyStatus?.submittedGuardians ?? 0)
+                          }
+                          guardians={(electionData.guardians || []).map((g) => ({
+                            id: g.userEmail,
+                            label: g.userName || g.userEmail,
+                            filled: getKeyCeremonyStep() >= 2 ? !!g.backupSharesSubmitted : !!g.guardianKeySubmitted,
+                            secondaryFilled: !!g.backupSharesSubmitted,
+                          }))}
+                          combined={!!(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation)}
+                        />
+                        <div className="space-y-3">
+                          <div className="rounded-xl border border-brand/20 bg-paper p-4">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <p className="font-display text-sm font-semibold text-ink">Step 1 — Key pairs</p>
+                              <span className="font-mono text-xs text-brand-dark">{getRound1Progress()}%</span>
+                            </div>
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-brand-soft">
+                              <div className="h-2 rounded-full bg-brand" style={{ width: `${getRound1Progress()}%` }} />
+                            </div>
+                            <p className="mt-2 text-xs text-dusk">
+                              {(adminKeyCeremonyStatus?.submittedGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians submitted credentials
                             </p>
                           </div>
-                        </div>
-                        <div className="rounded-xl border border-violet-200 bg-white p-4 flex items-center gap-4">
-                          <div className="h-20 w-20">
-                            <CircularProgressbar
-                              value={getRound2Progress()}
-                              text={`${getRound2Progress()}%`}
-                              styles={buildStyles({ pathColor: '#7c3aed', textColor: '#111827', trailColor: '#e5e7eb' })}
-                            />
+                          <div className="rounded-xl border border-brand/20 bg-paper p-4">
+                            <div className="mb-2 flex items-center justify-between gap-2">
+                              <p className="font-display text-sm font-semibold text-ink">Step 2 — Backup shares</p>
+                              <span className="font-mono text-xs text-brand-dark">{getRound2Progress()}%</span>
+                            </div>
+                            <div className="h-2 w-full overflow-hidden rounded-full bg-brand-soft">
+                              <div className="h-2 rounded-full bg-threshold" style={{ width: `${getRound2Progress()}%` }} />
+                            </div>
+                            <p className="mt-2 text-xs text-dusk">
+                              {(adminKeyCeremonyStatus?.submittedBackupGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians shared backups
+                            </p>
                           </div>
-                          <div>
-                            <p className="font-semibold text-gray-900">Step 2: Backup Shares</p>
-                            <p className="text-sm text-gray-600">
-                              {(adminKeyCeremonyStatus?.submittedBackupGuardians ?? 0)} / {(adminKeyCeremonyStatus?.totalGuardians ?? electionData?.numberOfGuardians ?? 0)} guardians completed
+                          <div className={`rounded-xl border p-4 ${(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation) ? 'border-aurora/35 bg-sage-soft' : 'border-brand/20 bg-paper'}`}>
+                            <p className="font-display text-sm font-semibold text-ink">Step 3 — Activation</p>
+                            <p className="mt-1 text-xs text-dusk">
+                              {(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation)
+                                ? 'Quorum formed. Admin can set the schedule and activate voting.'
+                                : 'Waiting for all guardians to finish steps 1–2.'}
                             </p>
                           </div>
                         </div>
                       </div>
                     )}
 
-                    {/* Modern process stepper */}
-                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
-                      <div className={`rounded-xl border p-3 ${getKeyCeremonyStep() >= 1 ? 'border-indigo-300 bg-indigo-50' : 'border-gray-200 bg-gray-50'}`}>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 1</p>
-                        <p className="font-medium text-gray-900">Key Pair Generation</p>
-                        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                          <div className="h-2 rounded-full bg-indigo-600" style={{ width: `${getRound1Progress()}%` }}></div>
-                        </div>
-                      </div>
-                      <div className={`rounded-xl border p-3 ${getKeyCeremonyStep() >= 2 ? 'border-violet-300 bg-violet-50' : 'border-gray-200 bg-gray-50'}`}>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 2</p>
-                        <p className="font-medium text-gray-900">Backup Share Exchange</p>
-                        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                          <div className="h-2 rounded-full bg-violet-600" style={{ width: `${getRound2Progress()}%` }}></div>
-                        </div>
-                      </div>
-                      <div className={`rounded-xl border p-3 ${(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation) ? 'border-emerald-300 bg-emerald-50' : 'border-gray-200 bg-gray-50'}`}>
-                        <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">Step 3</p>
-                        <p className="font-medium text-gray-900">Activation by Admin</p>
-                        <p className="text-xs text-gray-600 mt-2">
-                          {(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation)
-                            ? 'Ready for schedule setup'
-                            : 'Waiting for all guardians to finish steps 1-2'}
-                        </p>
-                      </div>
-                    </div>
-
-                    <div className="mb-5 rounded-xl border border-gray-200 bg-white p-4">
-                      <h5 className="text-sm font-semibold text-gray-900 mb-3">Guardian Ceremony Progress</h5>
+                    <div className="mb-5 rounded-xl border border-brand/20 bg-paper p-4">
+                      <h5 className="mb-3 text-sm font-semibold text-ink">Guardian ceremony progress</h5>
                       <div className="space-y-2">
                         {electionData.guardians?.map((guardian) => (
-                          <div key={guardian.userEmail} className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 p-3 border rounded-lg bg-gray-50">
-                            <div className="flex items-center gap-3 min-w-0">
-                              <FiUser className="h-5 w-5 text-gray-400 flex-shrink-0" />
+                          <div key={guardian.userEmail} className="flex flex-col gap-2 rounded-lg border border-brand/15 bg-glacier/70 p-3 sm:flex-row sm:items-center sm:justify-between">
+                            <div className="flex min-w-0 items-center gap-3">
+                              <FiUser className="h-5 w-5 flex-shrink-0 text-dusk" />
                               <div className="min-w-0">
-                                <p className="font-medium text-gray-900 truncate">{guardian.userName || guardian.userEmail}</p>
-                                <p className="text-xs text-gray-500">Order {guardian.sequenceOrder}</p>
+                                <p className="truncate font-medium text-ink">{guardian.userName || guardian.userEmail}</p>
+                                <p className="text-xs text-dusk">Order {guardian.sequenceOrder}</p>
                               </div>
                             </div>
                             <div className="flex flex-wrap gap-2">
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${guardian.guardianKeySubmitted ? 'bg-indigo-100 text-indigo-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              <span className={`rounded-full px-2 py-1 text-xs font-medium ${guardian.guardianKeySubmitted ? 'bg-brand/15 text-brand-dark' : 'bg-frost text-dusk'}`}>
                                 Step 1: {guardian.guardianKeySubmitted ? 'Keypair submitted' : 'Keypair pending'}
                               </span>
-                              <span className={`px-2 py-1 rounded-full text-xs font-medium ${guardian.backupSharesSubmitted ? 'bg-violet-100 text-violet-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              <span className={`rounded-full px-2 py-1 text-xs font-medium ${guardian.backupSharesSubmitted ? 'bg-brand/15 text-brand-dark' : 'bg-frost text-dusk'}`}>
                                 Step 2: {guardian.backupSharesSubmitted ? 'Backup shared' : 'Backup pending'}
                               </span>
                             </div>
@@ -4761,12 +4896,12 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     </div>
 
                     {keyCeremonyUiMessage && (
-                      <div className="mb-3 rounded-lg border border-green-200 bg-green-50 px-3 py-2 text-sm text-green-800">
+                      <div className="mb-3 rounded-lg border border-aurora/30 bg-sage-soft px-3 py-2 text-sm text-aurora-muted">
                         {keyCeremonyUiMessage}
                       </div>
                     )}
                     {keyCeremonyUiError && (
-                      <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-800">
+                      <div className="mb-3 rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-sm text-ember">
                         {keyCeremonyUiError}
                       </div>
                     )}
@@ -4774,41 +4909,49 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     {/* Guardian full key ceremony actions */}
                     {electionData?.userRoles?.includes('guardian') && (
                       <>
-                        {(guardianKeyCeremonyContext?.currentRound === 'keypair_generation') && (
-                          <div className="rounded-xl border border-indigo-200 bg-white p-4 mb-4">
+                        {guardianKeyCeremonyContext?.currentRound === 'keypair_generation' && (
+                          <div className="rounded-xl border border-brand/25 bg-paper p-4 mb-4">
                             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
-                              <h5 className="font-semibold text-indigo-900">Round 1: Generate + Submit Keypair</h5>
+                              <h5 className="font-semibold text-deep">Round 1: Generate + Submit Keypair</h5>
                               <button
                                 onClick={handleGenerateKeyCeremonyCredentials}
-                                disabled={keyCeremonyBusy.generatingCredentials}
-                                className="px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-60"
+                                disabled={keyCeremonyBusy.generatingCredentials || credentialSubmitModal.open}
+                                className="px-3 py-2 bg-brand-dark text-paper rounded-lg hover:bg-ink disabled:opacity-60"
                               >
                                 {keyCeremonyBusy.generatingCredentials ? 'Generating...' : 'Generate Credentials'}
                               </button>
                             </div>
 
+                            {(() => {
+                              const keysReady = !!guardianCeremonyForm.credentialsGenerated
+                                || !!(guardianCeremonyForm.privateKey && guardianCeremonyForm.publicKey && guardianCeremonyForm.polynomial);
+                              const passwordReady = !!guardianCeremonyForm.passwordGenerated
+                                || !!guardianCeremonyForm.localEncryptionPassword;
+                              const successBorder = 'border-2 border-green-500 ring-1 ring-green-500/30';
+                              return (
+                                <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <textarea
                                 readOnly
-                                className="border rounded-lg px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                                className={`rounded-lg px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                                 placeholder="Private key (generate credentials to fill)"
                                 value={guardianCeremonyForm.privateKey}
                               />
                               <textarea
                                 readOnly
-                                className="border rounded-lg px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                                className={`rounded-lg px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                                 placeholder="Public key (generate credentials to fill)"
                                 value={guardianCeremonyForm.publicKey}
                               />
                               <textarea
                                 readOnly
-                                className="border rounded-lg px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                                className={`rounded-lg px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                                 placeholder="Polynomial (generate credentials to fill)"
                                 value={guardianCeremonyForm.polynomial}
                               />
                               <textarea
                                 readOnly
-                                className="border rounded-lg px-3 py-2 min-h-28 bg-slate-50 text-slate-700 cursor-default resize-none"
+                                className={`rounded-lg px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                                 placeholder="Guardian backup payload (generate credentials to fill)"
                                 value={guardianCeremonyForm.keyBackup}
                               />
@@ -4817,38 +4960,45 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             <div className="mt-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
                               <input
                                 type="text"
-                                className="border rounded-lg px-3 py-2"
+                                className={`rounded-lg px-3 py-2 ${passwordReady ? successBorder : 'border'}`}
                                 placeholder="Local AES-256 password"
                                 value={guardianCeremonyForm.localEncryptionPassword}
-                                onChange={(e) => setGuardianCeremonyForm((prev) => ({ ...prev, localEncryptionPassword: e.target.value }))}
+                                onChange={(e) => setGuardianCeremonyForm((prev) => ({
+                                  ...prev,
+                                  localEncryptionPassword: e.target.value,
+                                  passwordGenerated: false,
+                                }))}
                               />
                               <button
                                 onClick={handleGenerateLocalPassword}
-                                className="px-3 py-2 bg-slate-700 text-white rounded-lg hover:bg-slate-800"
+                                className="px-3 py-2 bg-ink text-paper rounded-lg hover:bg-deep"
                               >
                                 Generate Password
                               </button>
                             </div>
+                                </>
+                              );
+                            })()}
 
                             <button
-                              onClick={handleSubmitKeyCeremonyRound1}
-                              disabled={keyCeremonyBusy.submittingRound1}
-                              className="mt-3 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-60"
+                              onClick={openCredentialSubmitModal}
+                              disabled={keyCeremonyBusy.submittingRound1 || keyCeremonyBusy.confirmingRound1}
+                              className="mt-3 px-4 py-2 bg-brand-dark text-paper rounded-lg hover:bg-brand-dark disabled:opacity-60"
                             >
-                              {keyCeremonyBusy.submittingRound1 ? 'Submitting...' : 'Submit Round 1'}
+                              Submit Round 1
                             </button>
                           </div>
                         )}
 
-                        {(guardianKeyCeremonyContext?.currentRound === 'waiting_for_all_keypairs') && (
-                          <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 mb-4 text-sm text-amber-800">
+                        {guardianKeyCeremonyContext?.currentRound === 'waiting_for_all_keypairs' && (
+                          <div className="rounded-xl border border-ceremonial/40 bg-ceremonial-soft p-4 mb-4 text-sm text-ink">
                             Your Round 1 keypair is submitted. Waiting for all guardians to finish Round 1.
                           </div>
                         )}
 
-                        {(guardianKeyCeremonyContext?.currentRound === 'backup_key_sharing') && (
-                          <div className="rounded-xl border border-violet-200 bg-white p-4 mb-4">
-                            <h5 className="font-semibold text-violet-900 mb-3">Round 2: Backup Share Generation + Submission</h5>
+                        {guardianKeyCeremonyContext?.currentRound === 'backup_key_sharing' && (
+                          <div className="rounded-xl border border-brand/20 bg-paper p-4 mb-4">
+                            <h5 className="font-semibold text-deep mb-3">Round 2: Backup Share Generation + Submission</h5>
                             <input
                               type="file"
                               accept=".txt,.json"
@@ -4857,21 +5007,21 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             />
 
                             {backupCeremonyForm.credentialFileName && (
-                              <p className="mt-2 text-xs text-green-700">Loaded file: {backupCeremonyForm.credentialFileName}</p>
+                              <p className="mt-2 text-xs text-sage">Loaded file: {backupCeremonyForm.credentialFileName}</p>
                             )}
 
                             <div className="flex flex-wrap gap-2 mt-3">
                               <button
                                 onClick={handleGenerateBackupShares}
                                 disabled={keyCeremonyBusy.generatingBackup}
-                                className="px-3 py-2 bg-violet-600 text-white rounded-lg hover:bg-violet-700 disabled:opacity-60"
+                                className="px-3 py-2 bg-brand-dark text-paper rounded-lg hover:bg-brand disabled:opacity-60"
                               >
                                 {keyCeremonyBusy.generatingBackup ? 'Generating...' : 'Generate Backup Shares'}
                               </button>
                               <button
                                 onClick={handleSubmitBackupShares}
                                 disabled={keyCeremonyBusy.submittingBackup}
-                                className="px-3 py-2 bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 disabled:opacity-60"
+                                className="px-3 py-2 bg-aurora-muted text-paper rounded-lg hover:bg-aurora disabled:opacity-60"
                               >
                                 {keyCeremonyBusy.submittingBackup ? 'Submitting...' : 'Submit Round 2'}
                               </button>
@@ -4886,8 +5036,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           </div>
                         )}
 
-                        {(guardianKeyCeremonyContext?.currentRound === 'backup_submitted_waiting_others') && (
-                          <div className="rounded-xl border border-blue-200 bg-blue-50 p-4 mb-4 text-sm text-blue-800">
+                        {guardianKeyCeremonyContext?.currentRound === 'backup_submitted_waiting_others' && (
+                          <div className="rounded-xl border border-brand/20 bg-glacier p-4 mb-4 text-sm text-ink">
                             Your Round 2 backup shares are submitted. Waiting for remaining guardians.
                           </div>
                         )}
@@ -4897,9 +5047,9 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     {/* Admin activation once ceremony is complete */}
                     {(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation) &&
                       electionData?.userRoles?.includes('admin') && (
-                        <div className="mt-1 rounded-xl border border-emerald-200 bg-emerald-50 p-4">
+                        <div className="mt-1 rounded-xl border border-aurora/30 bg-sage-soft p-4">
                           <h5 className="font-medium text-emerald-900 mb-2">Key ceremony finished</h5>
-                          <p className="text-sm text-emerald-800 mb-3">
+                          <p className="text-sm text-aurora-muted mb-3">
                             Set the election schedule now to activate voting. Use the Send Email tab to schedule messages to voters, guardians, or admins.
                           </p>
 
@@ -4910,7 +5060,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 type="datetime-local"
                                 value={activationSchedule.startingTime}
                                 onChange={(e) => setActivationSchedule((prev) => ({ ...prev, startingTime: e.target.value }))}
-                                className="w-full px-3 py-2 border-2 border-emerald-200 focus:border-emerald-500 rounded-md outline-none"
+                                className="w-full px-3 py-2 border-2 border-aurora/30 focus:border-emerald-500 rounded-md outline-none"
                               />
                             </label>
                             <label className="space-y-1">
@@ -4919,7 +5069,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 type="datetime-local"
                                 value={activationSchedule.endingTime}
                                 onChange={(e) => setActivationSchedule((prev) => ({ ...prev, endingTime: e.target.value }))}
-                                className="w-full px-3 py-2 border-2 border-emerald-200 focus:border-emerald-500 rounded-md outline-none"
+                                className="w-full px-3 py-2 border-2 border-aurora/30 focus:border-emerald-500 rounded-md outline-none"
                               />
                             </label>
                           </div>
@@ -4927,7 +5077,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           <button
                             onClick={handleActivateElectionFromGuardianTab}
                             disabled={activatingElection}
-                            className="mt-3 px-4 py-2 bg-emerald-600 text-white rounded hover:bg-emerald-700 disabled:opacity-60"
+                            className="mt-3 px-4 py-2 bg-aurora-muted text-paper rounded hover:bg-aurora disabled:opacity-60"
                           >
                             {activatingElection ? 'Activating...' : 'Activate Election'}
                           </button>
@@ -4936,169 +5086,232 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   </div>
                 )}
 
-                {/* Tally Creation Section - Only show if election has ended */}
+                {/* Stage 1: Tally Creation — only after election ends */}
                 {isElectionFinished() && !isKeyCeremonyPending && (
-                  <div className="border border-blue-200 rounded-lg p-6 bg-blue-50 space-y-4">
-                    <ProcessProgressPanel
-                      title="Tally Creation Progress"
-                      status={tallyStatus}
-                    />
-                    <div className="flex items-center justify-between">
+                  <div className="space-y-4 rounded-2xl border border-brand/20 bg-gradient-to-br from-white to-frost p-6 shadow-soft">
+                    {getVotedCount(electionData) === 0 &&
+                     !(tallyStatus?.status === 'completed' || tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending') ? (
                       <div>
-                        <h4 className="font-medium text-blue-900 mb-2">Step 1: Create Encrypted Tally</h4>
-                        <p className="text-sm text-blue-800">
-                          Before guardians can submit their keys, the encrypted tally must be created from all cast ballots.
+                        <h4 className="font-display font-semibold text-deep mb-2">Create encrypted tally</h4>
+                        <p className="text-sm text-dusk">
+                          A tally cannot be created because no votes were cast in this election.
                         </p>
                       </div>
-                    </div>
-                    {isElectionAdminUser() && (
-                    <button
-                      onClick={() => setIsTallyModalOpen(true)}
-                      disabled={tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending'}
-                      className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
-                        tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending'
-                          ? 'bg-blue-400 text-white cursor-default'
-                          : tallyStatus?.status === 'completed'
-                            ? 'bg-green-600 text-white hover:bg-green-700'
-                            : 'bg-blue-600 text-white hover:bg-blue-700'
-                      }`}
-                    >
-                      {(tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending') ? (
-                        <>
-                          <FiLoader className="h-5 w-5 animate-spin" />
-                          <span>
-                            Tally In Progress
-                            {tallyStatus.totalChunks
-                              ? ` (${tallyStatus.processedChunks || 0}/${tallyStatus.totalChunks})`
-                              : ''}
-                          </span>
-                        </>
-                      ) : tallyStatus?.status === 'completed' ? (
-                        <>
-                          <FiCheckCircle className="h-5 w-5" />
-                          <span>View Tally Status</span>
-                        </>
-                      ) : (
-                        <>
-                          <FiRefreshCw className="h-5 w-5" />
-                          <span>Create Tally</span>
-                        </>
-                      )}
-                    </button>
-                    )}
-                    {isElectionAdminUser() && (
-                      <ProcessControlPanel
-                        electionId={Number(id)}
-                        canControlTally
-                        canControlCombine={false}
-                      />
+                    ) : (
+                      <>
+                        <ProcessProgressPanel
+                          title="Tally creation progress"
+                          status={tallyStatus}
+                        />
+                        {!isTallyComplete && (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-display font-semibold text-deep mb-2">Create encrypted tally</h4>
+                                <p className="text-sm text-dusk">
+                                  Homomorphic product of cast ballots — ciphertext only. Guardians decrypt after this stage completes.
+                                </p>
+                              </div>
+                            </div>
+                            {isElectionAdminUser() && (
+                              <button
+                                onClick={() => setIsTallyModalOpen(true)}
+                                className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
+                                  tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending'
+                                    ? 'bg-brand-soft text-brand-dark'
+                                    : 'bg-brand-dark text-paper hover:bg-brand-dark'
+                                }`}
+                              >
+                                {(tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending') ? (
+                                  <>
+                                    <FiLoader className="h-5 w-5 animate-spin" />
+                                    <span>
+                                      View Tally Progress
+                                      {tallyStatus.totalChunks
+                                        ? ` (${tallyStatus.processedChunks || 0}/${tallyStatus.totalChunks})`
+                                        : ''}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <FiRefreshCw className="h-5 w-5" />
+                                    <span>Create Tally</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </>
+                        )}
+                        {isTallyComplete && (
+                          <p className="text-sm text-aurora-muted">
+                            Encrypted tally is complete for all ballot chunks. Guardians can now submit decryption shares below.
+                          </p>
+                        )}
+                        {isElectionAdminUser() && (
+                          <ProcessControlPanel
+                            electionId={Number(id)}
+                            canControlTally
+                            canControlCombine={false}
+                          />
+                        )}
+                      </>
                     )}
                   </div>
                 )}
 
-                {isElectionFinished() && isTallyComplete && (
-                  <>
-                    <ProcessProgressPanel
-                      title="Combine Decryption Shares Progress"
-                      status={combineStatus}
-                    />
+                {/* Stage 2: Guardian decryption — only after tally is fully complete */}
+                {isElectionFinished() && isTallyComplete && (() => {
+                  const guardiansSubmitted = electionData.guardiansSubmitted || 0;
+                  const electionQuorum = electionData.electionQuorum || electionData.totalGuardians || 0;
+                  const quorumMet = guardiansSubmitted >= electionQuorum && electionQuorum > 0;
+                  const needsDecryption = !isCombineComplete && combineStatus?.status !== 'in_progress' && combineStatus?.status !== 'pending';
 
-                    {(() => {
-                      const guardiansSubmitted = electionData.guardiansSubmitted || 0;
-                      const electionQuorum = electionData.electionQuorum || electionData.totalGuardians || 0;
-                      const quorumMet = guardiansSubmitted >= electionQuorum;
-                      const needsDecryption = !isCombineComplete && combineStatus?.status !== 'in_progress' && combineStatus?.status !== 'pending';
-                      return (
-                        <>
-                          {needsDecryption && !quorumMet && (
-                            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
-                              <div className="flex items-center">
-                                <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
-                                <div>
-                                  <h4 className="font-medium text-yellow-900">Waiting for Guardian Keys</h4>
-                                  <p className="text-sm text-yellow-800">
-                                    Need at least {electionQuorum} guardians to submit keys ({guardiansSubmitted} of {electionQuorum} submitted).
-                                  </p>
-                                </div>
-                              </div>
-                            </div>
-                          )}
+                  return (
+                    <div className="space-y-4">
+                      <GuardianProgressPanel
+                        electionId={Number(id)}
+                        guardians={electionData?.guardians || []}
+                        onElectionRefresh={fetchElectionData}
+                      />
 
-                          {needsDecryption && quorumMet && isElectionAdminUser() && (
-                            <div className="bg-blue-50 border border-blue-200 rounded-lg p-6">
+                      {needsDecryption && !quorumMet && (
+                        <GuardianQuorumViz
+                          mode="decryption"
+                          title="Waiting for partial decryption shares"
+                          total={electionData.totalGuardians || electionData.numberOfGuardians || 0}
+                          threshold={electionQuorum}
+                          filled={guardiansSubmitted}
+                          guardians={(electionData.guardians || []).map((g) => ({
+                            id: g.userEmail,
+                            label: g.userName || g.userEmail,
+                            filled: !!g.decryptedOrNot,
+                          }))}
+                        />
+                      )}
+
+                      {isElectionAdminUser() && (
+                        <ProcessControlPanel
+                          electionId={Number(id)}
+                          guardians={electionData?.guardians || []}
+                          canControlDecryption
+                          canControlCombine={false}
+                        />
+                      )}
+
+                      {/* Stage 3: Combine — only once quorum of guardians have submitted */}
+                      {quorumMet && (
+                        <div className="space-y-4 rounded-2xl border border-threshold/30 bg-gradient-to-br from-white to-frost p-6 shadow-soft">
+                          <ProcessProgressPanel
+                            title="Combine Decryption Shares Progress"
+                            status={combineStatus}
+                          />
+
+                          {needsDecryption && isElectionAdminUser() && (
+                            <div className="observatory-panel space-y-4 p-6">
+                              <GuardianQuorumViz
+                                mode="combine"
+                                title="Threshold met — ready to combine"
+                                total={electionData.totalGuardians || electionData.numberOfGuardians || 0}
+                                threshold={electionQuorum}
+                                filled={guardiansSubmitted}
+                                combined={false}
+                                guardians={(electionData.guardians || []).map((g) => ({
+                                  id: g.userEmail,
+                                  label: g.userName || g.userEmail,
+                                  filled: !!g.decryptedOrNot,
+                                }))}
+                              />
                               <div className="text-center">
-                                <FiKey className="h-12 w-12 text-blue-500 mx-auto mb-4" />
-                                <h4 className="font-medium text-blue-900 mb-2">Step 3: Combine Decryption Shares</h4>
-                                <p className="text-sm text-blue-800 mb-4">
-                                  Quorum met. Combine all guardian partial decryptions to reveal final results.
+                                <h4 className="font-display text-lg font-semibold text-ink mb-2">Combine decryption shares</h4>
+                                <p className="text-sm text-dusk mb-4">
+                                  Quorum met. Combine guardian partial decryptions to reveal the final result.
                                 </p>
                                 <div className="flex flex-wrap justify-center gap-3">
                                   <button
                                     onClick={handleInitiateCombine}
                                     disabled={combiningDecryptions}
-                                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors font-medium"
+                                    className="btn-brand px-6 py-2 disabled:opacity-50"
                                   >
-                                    {combiningDecryptions ? 'Combining...' : 'Combine Partial Decryptions'}
+                                    {combiningDecryptions ? 'Combining...' : 'Combine partial decryptions'}
                                   </button>
                                   <button
                                     onClick={handleCheckCombineStatus}
                                     disabled={combiningDecryptions}
-                                    className="bg-gray-200 text-gray-700 px-6 py-2 rounded-lg hover:bg-gray-300 disabled:opacity-50 transition-colors font-medium"
+                                    className="inline-flex items-center rounded-xl border border-brand/25 px-6 py-2 text-sm font-medium text-dusk hover:text-ink disabled:opacity-50"
                                   >
-                                    <FiRefreshCw className="inline h-4 w-4 mr-2" />
-                                    Check Status
+                                    <FiRefreshCw className="mr-2 inline h-4 w-4" />
+                                    Check status
                                   </button>
                                 </div>
                               </div>
                             </div>
                           )}
 
-                          {isCombineComplete && (
-                            <div className="rounded-lg border border-green-200 bg-green-50 p-4 text-sm text-green-800">
-                              Decryption shares combined successfully. Results are available in the Results tab.
+                          {(combineStatus?.status === 'in_progress' || combineStatus?.status === 'pending') && (
+                            <div className="rounded-2xl border border-threshold/40 bg-threshold/10 p-4">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-start gap-3">
+                                  <FiLoader className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-threshold" />
+                                  <div>
+                                    <p className="font-display font-semibold text-deep">Combine in progress</p>
+                                    <p className="text-sm text-dusk">
+                                      Partial decryption shares are being combined. Open the live status view for detail.
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCombineModalOpen(true)}
+                                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-threshold/40 bg-paper px-4 py-2.5 text-sm font-semibold text-threshold hover:bg-threshold/5"
+                                >
+                                  <FiEye className="h-4 w-4" />
+                                  View progress
+                                </button>
+                              </div>
                             </div>
                           )}
-                        </>
-                      );
-                    })()}
 
-                    <GuardianProgressPanel
-                      electionId={Number(id)}
-                      guardians={electionData?.guardians || []}
-                      onElectionRefresh={fetchElectionData}
-                    />
+                          {isCombineComplete && (
+                            <div className="rounded-xl border border-aurora/35 bg-aurora/10 p-4 text-sm text-aurora">
+                              Decryption shares combined. Results are available in the Results tab.
+                            </div>
+                          )}
 
-                    {isElectionAdminUser() && (
-                      <ProcessControlPanel
-                        electionId={Number(id)}
-                        guardians={electionData?.guardians || []}
-                        canControlDecryption
-                        canControlCombine
-                      />
-                    )}
-                  </>
-                )}
+                          {isElectionAdminUser() && (
+                            <ProcessControlPanel
+                              electionId={Number(id)}
+                              guardians={electionData?.guardians || []}
+                              canControlDecryption={false}
+                              canControlCombine
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Active Decryption Process Banner */}
                 {isElectionFinished() && isTallyComplete && guardianDecryptionStatus &&
                  (guardianDecryptionStatus.status === 'in_progress' || guardianDecryptionStatus.status === 'pending') && (
-                  <div className="bg-gradient-to-r from-blue-500 to-indigo-600 text-white rounded-lg p-4 shadow-lg animate-pulse">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center space-x-3">
-                        <div className="animate-spin rounded-full h-6 w-6 border-b-2 border-white"></div>
+                  <div className="rounded-2xl border border-threshold/40 bg-threshold/10 p-4">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="flex items-start gap-3">
+                        <FiLoader className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-threshold" />
                         <div>
-                          <p className="font-bold text-lg">🔄 Your Decryption is in Progress</p>
-                          <p className="text-sm text-blue-100">
-                            Processing your guardian credentials... Click below to view real-time progress
+                          <p className="font-display font-semibold text-deep">Partial decryption in progress</p>
+                          <p className="text-sm text-dusk">
+                            Your guardian share is being computed. Open the live status view for per-phase detail.
                           </p>
                         </div>
                       </div>
                       <button
+                        type="button"
                         onClick={() => setIsDecryptionModalOpen(true)}
-                        className="px-6 py-3 bg-white text-blue-600 rounded-lg font-bold hover:bg-blue-50 transition-all shadow-md flex items-center space-x-2"
+                        className="inline-flex items-center justify-center gap-2 rounded-xl border border-threshold/40 bg-paper px-4 py-2.5 text-sm font-semibold text-threshold hover:bg-threshold/5"
                       >
-                        <FiEye className="h-5 w-5" />
-                        <span>View Progress</span>
+                        <FiEye className="h-4 w-4" />
+                        View progress
                       </button>
                     </div>
                   </div>
@@ -5110,17 +5323,17 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                   if (submitStatus.canSubmit) {
                     return (
-                      <div className="rounded-2xl border-2 border-indigo-300 bg-gradient-to-br from-indigo-50 via-white to-violet-50 shadow-lg overflow-hidden">
-                        <div className="bg-gradient-to-r from-indigo-600 to-violet-600 px-5 sm:px-6 py-4 text-white">
+                      <div className="rounded-2xl border-2 border-brand/40 bg-gradient-to-br from-glacier via-white to-glacier shadow-lg overflow-hidden">
+                        <div className="bg-gradient-to-r from-brand-dark to-brand px-5 sm:px-6 py-4 text-paper">
                           <div className="flex items-start gap-3">
-                            <div className="rounded-xl bg-white/20 p-3 flex-shrink-0">
+                            <div className="rounded-xl bg-paper/20 p-3 flex-shrink-0">
                               <FiKey className="h-7 w-7" />
                             </div>
                             <div>
-                              <p className="text-xs font-semibold uppercase tracking-wider text-indigo-100">Guardian action required</p>
+                              <p className="text-xs font-semibold uppercase tracking-wider text-paper/80">Guardian action required</p>
                               <h4 className="text-lg sm:text-xl font-bold mt-1">Submit Your Guardian Key for Decryption</h4>
-                              <p className="text-sm text-indigo-100 mt-1 max-w-2xl">
-                                Upload the <strong className="text-white">credentials.txt</strong> file from your guardian key ceremony email. This unlocks your share of the encrypted results.
+                              <p className="text-sm text-dusk-soft mt-1 max-w-2xl">
+                                Upload the <strong className="text-paper">credentials.txt</strong> file from your guardian key ceremony email. This unlocks your share of the encrypted results.
                               </p>
                             </div>
                           </div>
@@ -5128,17 +5341,17 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                         <div className="p-5 sm:p-6 space-y-5">
                           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-sm">
-                            <div className="rounded-xl border border-indigo-100 bg-white p-3">
-                              <p className="text-xs font-bold text-indigo-600 uppercase">Step 1</p>
-                              <p className="mt-1 text-gray-800">Find <span className="font-semibold">credentials.txt</span> in your email</p>
+                            <div className="rounded-xl border border-glacier bg-paper p-3">
+                              <p className="text-xs font-bold text-brand-dark uppercase">Step 1</p>
+                              <p className="mt-1 text-ink">Find <span className="font-semibold">credentials.txt</span> in your email</p>
                             </div>
-                            <div className="rounded-xl border border-indigo-100 bg-white p-3">
-                              <p className="text-xs font-bold text-indigo-600 uppercase">Step 2</p>
-                              <p className="mt-1 text-gray-800">Choose the file below (do not edit it)</p>
+                            <div className="rounded-xl border border-glacier bg-paper p-3">
+                              <p className="text-xs font-bold text-brand-dark uppercase">Step 2</p>
+                              <p className="mt-1 text-ink">Choose the file below (do not edit it)</p>
                             </div>
-                            <div className="rounded-xl border border-indigo-100 bg-white p-3">
-                              <p className="text-xs font-bold text-indigo-600 uppercase">Step 3</p>
-                              <p className="mt-1 text-gray-800">Press the big green submit button</p>
+                            <div className="rounded-xl border border-glacier bg-paper p-3">
+                              <p className="text-xs font-bold text-brand-dark uppercase">Step 3</p>
+                              <p className="mt-1 text-ink">Press the big green submit button</p>
                             </div>
                           </div>
 
@@ -5163,34 +5376,34 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               : 'Click below to check your decryption progress.';
                             
                             const bgColor = guardianDecryptionStatus?.status === 'failed'
-                              ? 'bg-red-50 border-red-200'
+                              ? 'bg-ember-soft border-ember/30'
                               : guardianDecryptionStatus?.status === 'completed'
-                              ? 'bg-green-50 border-green-200'
-                              : 'bg-blue-50 border-blue-200';
+                              ? 'bg-sage-soft border-aurora/30'
+                              : 'bg-glacier border-brand/20';
                             
                             const titleColor = guardianDecryptionStatus?.status === 'failed'
                               ? 'text-red-900'
                               : guardianDecryptionStatus?.status === 'completed'
                               ? 'text-green-900'
-                              : 'text-blue-900';
+                              : 'text-deep';
                             
                             const textColor = guardianDecryptionStatus?.status === 'failed'
-                              ? 'text-red-800'
+                              ? 'text-ember'
                               : guardianDecryptionStatus?.status === 'completed'
-                              ? 'text-green-800'
-                              : 'text-blue-800';
+                              ? 'text-aurora-muted'
+                              : 'text-ink';
                             
                             const buttonColor = guardianDecryptionStatus?.status === 'failed'
-                              ? 'bg-red-600 hover:bg-red-700'
+                              ? 'bg-ember hover:bg-ember'
                               : guardianDecryptionStatus?.status === 'completed'
-                              ? 'bg-green-600 hover:bg-green-700'
-                              : 'bg-blue-600 hover:bg-blue-700';
+                              ? 'bg-aurora-muted hover:bg-aurora'
+                              : 'bg-brand-dark hover:bg-brand';
                             
                             const icon = guardianDecryptionStatus?.status === 'failed'
-                              ? <FiAlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                              ? <FiAlertCircle className="h-5 w-5 text-ember mr-2" />
                               : guardianDecryptionStatus?.status === 'completed'
                               ? <FiCheckCircle className="h-5 w-5 text-green-500 mr-2" />
-                              : <FiRefreshCw className="h-5 w-5 text-blue-500 mr-2" />;
+                              : <FiRefreshCw className="h-5 w-5 text-brand mr-2" />;
                             
                             const title = guardianDecryptionStatus?.status === 'failed'
                               ? 'Decryption Failed - Action Required'
@@ -5213,7 +5426,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                   <button
                                     onClick={handleCheckDecryptionStatus}
                                     disabled={isCheckingStatus}
-                                    className={`px-4 py-2 ${buttonColor} text-white rounded-lg font-medium transition-colors flex items-center space-x-2 disabled:bg-gray-400 ml-4`}
+                                    className={`px-4 py-2 ${buttonColor} text-paper rounded-lg font-medium transition-colors flex items-center space-x-2 disabled:bg-ink/30 ml-4`}
                                   >
                                     {isCheckingStatus ? (
                                       <>
@@ -5241,12 +5454,12 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         })()}
 
                         {keySubmissionResult && (
-                          <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-4">
+                          <div className="bg-sage-soft border border-aurora/30 rounded-lg p-4 mb-4">
                             <div className="flex items-center">
                               <FiCheckCircle className="h-5 w-5 text-green-500 mr-2" />
                               <div>
                                 <h5 className="font-medium text-green-900">Credentials Received!</h5>
-                                <p className="text-sm text-green-800 mt-1">
+                                <p className="text-sm text-aurora-muted mt-1">
                                   {keySubmissionResult.message || "Your credentials have been received. Decryption processing has started. Use the 'Check Progress' button above to monitor status."}
                                 </p>
                               </div>
@@ -5255,37 +5468,37 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         )}
 
                         {keySubmissionError && (
-                          <div className="bg-red-50 border-2 border-red-300 rounded-xl p-4">
+                          <div className="bg-ember-soft border-2 border-ember/40 rounded-xl p-4">
                             <div className="flex items-start gap-3">
-                              <FiAlertCircle className="h-6 w-6 text-red-500 flex-shrink-0 mt-0.5" />
+                              <FiAlertCircle className="h-6 w-6 text-ember flex-shrink-0 mt-0.5" />
                               <div>
                                 <h5 className="font-semibold text-red-900">Could not verify your key</h5>
-                                <p className="text-sm text-red-800 mt-1">{keySubmissionError}</p>
-                                <p className="text-xs text-red-700 mt-2">Double-check that you selected the correct credentials.txt file from your guardian email, then try again.</p>
+                                <p className="text-sm text-ember mt-1">{keySubmissionError}</p>
+                                <p className="text-xs text-ember mt-2">Double-check that you selected the correct credentials.txt file from your guardian email, then try again.</p>
                               </div>
                             </div>
                           </div>
                         )}
 
                         <form onSubmit={handleGuardianKeySubmit} className="space-y-5">
-                          <div className="rounded-xl border-2 border-dashed border-indigo-200 bg-white p-5 sm:p-6">
-                            <label className="block text-base font-semibold text-indigo-900 mb-2">
+                          <div className="rounded-xl border-2 border-dashed border-brand/25 bg-paper p-5 sm:p-6">
+                            <label className="block text-base font-semibold text-deep mb-2">
                               Upload credentials.txt
                             </label>
                             <input
                               type="file"
                               accept=".txt"
                               onChange={handleCredentialFileChange}
-                              className="w-full text-sm file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:bg-indigo-600 file:text-white file:font-semibold hover:file:bg-indigo-700 cursor-pointer"
+                              className="w-full text-sm file:mr-4 file:py-2.5 file:px-4 file:rounded-lg file:border-0 file:bg-brand-dark file:text-paper file:font-semibold hover:file:bg-ink cursor-pointer"
                               required
                             />
-                            <p className="text-sm text-gray-600 mt-3">
+                            <p className="text-sm text-dusk mt-3">
                               Only the plain text file named <span className="font-mono font-semibold">credentials.txt</span> from your guardian ceremony will work.
                             </p>
                             {guardianKey && (
-                              <div className="mt-3 flex items-center gap-2 p-3 bg-green-50 border border-green-200 rounded-lg">
-                                <FiCheckCircle className="h-5 w-5 text-green-600 flex-shrink-0" />
-                                <p className="text-sm font-medium text-green-800">File loaded — ready to submit</p>
+                              <div className="mt-3 flex items-center gap-2 p-3 bg-sage-soft border border-aurora/30 rounded-lg">
+                                <FiCheckCircle className="h-5 w-5 text-sage flex-shrink-0" />
+                                <p className="text-sm font-medium text-aurora-muted">File loaded — ready to submit</p>
                               </div>
                             )}
                           </div>
@@ -5301,16 +5514,16 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 <button
                                   type="submit"
                                   disabled={isDisabled}
-                                  className={`w-full sm:w-auto min-w-[260px] px-8 py-3.5 rounded-xl text-base font-bold text-white shadow-md transition-all ${
+                                  className={`w-full sm:w-auto min-w-[260px] px-8 py-3.5 rounded-xl text-base font-bold text-paper shadow-md transition-all ${
                                     isCompleted
-                                      ? 'bg-green-500 cursor-not-allowed'
+                                      ? 'bg-aurora cursor-not-allowed text-paper'
                                       : isInProgress
-                                      ? 'bg-blue-500 cursor-not-allowed'
+                                      ? 'bg-brand cursor-not-allowed'
                                       : isFailed
-                                      ? 'bg-orange-600 hover:bg-orange-700 hover:shadow-lg'
+                                      ? 'bg-ceremonial hover:bg-orange-700 hover:shadow-lg'
                                       : isDisabled
-                                      ? 'bg-gray-400 cursor-not-allowed'
-                                      : 'bg-gradient-to-r from-emerald-600 to-green-600 hover:from-emerald-700 hover:to-green-700 hover:shadow-lg'
+                                      ? 'bg-ink/30 cursor-not-allowed'
+                                      : 'bg-gradient-to-r from-emerald-600 to-aurora-muted hover:from-emerald-700 hover:to-green-700 hover:shadow-lg'
                                   }`}
                                 >
                                   {isCompleted ? (
@@ -5351,7 +5564,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
                           <h4 className="font-medium text-yellow-900">Key Submission Not Available</h4>
                         </div>
-                        <p className="text-yellow-800 mb-4">{submitStatus.reason}</p>
+                        <p className="text-ink mb-4">{submitStatus.reason}</p>
 
                         {submitStatus.reason === 'Election has not ended yet' && (
                           <p className="text-sm text-yellow-700">
@@ -5360,8 +5573,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         )}
 
                         {submitStatus.reason === 'Partial decryption already submitted' && (
-                          <div className="bg-green-50 border border-green-200 rounded p-3">
-                            <p className="text-sm text-green-800">
+                          <div className="bg-sage-soft border border-aurora/30 rounded p-3">
+                            <p className="text-sm text-aurora-muted">
                               ✅ Your partial decryption has already been successfully submitted.
                             </p>
                           </div>
@@ -5373,77 +5586,49 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                 {/* Guardian List */}
                 <div>
-                  <h4 className="font-medium text-gray-900 mb-3">Guardian Status</h4>
+                  <h4 className="font-medium text-deep mb-3">Guardian Status</h4>
 
                   {getElectionStatus() === 'finished' && (
-                    <>
-                      {/* Guardian Progress Summary */}
-                      <div className="mb-4 p-3 bg-gray-50 rounded-lg">
-                        <div className="flex items-center justify-between">
-                          <span className="text-sm text-gray-600">Partial Decryption Progress:</span>
-                          <span className="font-medium text-gray-900">
-                            {electionData.guardiansSubmitted || 0} of {electionData.totalGuardians || 0} guardians submitted
-                          </span>
-                        </div>
-                        <div className="mt-2 w-full bg-gray-200 rounded-full h-2">
-                          <div
-                            className="bg-blue-600 h-2 rounded-full transition-all duration-300"
-                            style={{
-                              width: `${electionData.totalGuardians > 0 ? ((electionData.guardiansSubmitted || 0) / electionData.totalGuardians) * 100 : 0}%`
-                            }}
-                          ></div>
-                        </div>
-                        {(() => {
-                          const guardiansSubmitted = electionData.guardiansSubmitted || 0;
-                          const totalGuardians = electionData.totalGuardians || 0;
-                          const electionQuorum = electionData.electionQuorum || totalGuardians || 0;
-                          const quorumMet = guardiansSubmitted >= electionQuorum;
-                          const allGuardiansSubmitted = guardiansSubmitted >= totalGuardians && totalGuardians > 0;
-
-                          if (allGuardiansSubmitted) {
-                            return (
-                              <div className="mt-2 flex items-center text-green-600">
-                                <FiCheck className="h-4 w-4 mr-1" />
-                                <span className="text-sm font-medium">All guardians have submitted their keys ({guardiansSubmitted}/{totalGuardians})</span>
-                              </div>
-                            );
-                          } else if (quorumMet) {
-                            return (
-                              <div className="mt-2 flex items-center text-blue-600">
-                                <FiCheck className="h-4 w-4 mr-1" />
-                                <span className="text-sm font-medium">Quorum met! Ready to decrypt ({guardiansSubmitted}/{electionQuorum} required)</span>
-                              </div>
-                            );
-                          }
-                          return null;
-                        })()}
-                      </div>
-                    </>
+                    <div className="mb-4">
+                      <GuardianQuorumViz
+                        mode="decryption"
+                        title="Partial decryption response"
+                        total={electionData.totalGuardians || electionData.numberOfGuardians || 0}
+                        threshold={electionData.electionQuorum || electionData.totalGuardians || 0}
+                        filled={electionData.guardiansSubmitted || 0}
+                        combined={isCombineComplete}
+                        guardians={(electionData.guardians || []).map((g) => ({
+                          id: g.userEmail,
+                          label: g.userName || g.userEmail,
+                          filled: !!g.decryptedOrNot,
+                        }))}
+                      />
+                    </div>
                   )}
 
                   <div className="space-y-2">
                     {electionData.guardians?.map((guardian) => (
                       <div key={guardian.userEmail} className="flex items-center justify-between p-3 border rounded-lg">
                         <div className="flex items-center space-x-3">
-                          <FiUser className="h-5 w-5 text-gray-400" />
+                          <FiUser className="h-5 w-5 text-dusk" />
                           <div>
-                            <p className="font-medium text-gray-900">{guardian.userName}</p>
-                            <p className="text-sm text-gray-600">{guardian.userEmail}</p>
+                            <p className="font-medium text-deep">{guardian.userName}</p>
+                            <p className="text-sm text-dusk">{guardian.userEmail}</p>
                           </div>
                         </div>
                         <div className="flex items-center space-x-2 flex-wrap justify-end gap-1">
-                          <span className="text-sm font-medium text-gray-600">Order: {guardian.sequenceOrder}</span>
+                          <span className="text-sm font-medium text-dusk">Order: {guardian.sequenceOrder}</span>
                           {electionData.status === 'key_ceremony_pending' ? (
                             <>
-                              <span className={`px-2 py-1 rounded-full text-xs ${guardian.guardianKeySubmitted ? 'bg-indigo-100 text-indigo-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              <span className={`px-2 py-1 rounded-full text-xs ${guardian.guardianKeySubmitted ? 'bg-glacier text-ink' : 'bg-ceremonial-soft text-ink'}`}>
                                 {guardian.guardianKeySubmitted ? 'Keypair done' : 'Keypair pending'}
                               </span>
-                              <span className={`px-2 py-1 rounded-full text-xs ${guardian.backupSharesSubmitted ? 'bg-violet-100 text-violet-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                              <span className={`px-2 py-1 rounded-full text-xs ${guardian.backupSharesSubmitted ? 'bg-glacier text-brand-dark' : 'bg-ceremonial-soft text-ink'}`}>
                                 {guardian.backupSharesSubmitted ? 'Backup shared' : 'Backup pending'}
                               </span>
                             </>
                           ) : (
-                            <span className={`px-2 py-1 rounded-full text-xs ${guardian.decryptedOrNot ? 'bg-green-100 text-green-800' : 'bg-yellow-100 text-yellow-800'}`}>
+                            <span className={`px-2 py-1 rounded-full text-xs ${guardian.decryptedOrNot ? 'bg-sage-soft text-aurora-muted' : 'bg-ceremonial-soft text-ink'}`}>
                               {guardian.decryptedOrNot ? 'Key Submitted' : 'Pending'}
                             </span>
                           )}
@@ -5458,16 +5643,19 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Results Tab */}
         {activeTab === 'results' && (
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
-            <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
-              <FiTrendingUp className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
-              Election Results
-            </h3>
+          <div className="surface-card p-4 sm:p-6">
+            <div className="mb-4 sm:mb-6">
+              <p className="section-kicker">Outcome</p>
+              <h3 className="mt-1 font-display text-xl sm:text-2xl font-bold text-deep flex items-center gap-2">
+                <FiTrendingUp className="h-5 w-5 text-brand" />
+                Election Results
+              </h3>
+            </div>
             {!canUserViewResults() ? (
               <div className="text-center py-8">
-                <FiTrendingUp className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                <h4 className="text-lg font-semibold text-gray-700 mb-2">Results Not Available</h4>
-                <p className="text-gray-600">
+                <FiTrendingUp className="h-12 w-12 text-dusk mx-auto mb-4" />
+                <h4 className="text-lg font-semibold text-ink mb-2">Results Not Available</h4>
+                <p className="text-dusk">
                   Results will be available after decryption shares are combined on the Guardian tab.
                 </p>
               </div>
@@ -5475,18 +5663,18 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               <div className="space-y-6">
                 {loadingResults && (
                   <div className="text-center py-8">
-                    <FiLoader className="h-8 w-8 text-blue-500 mx-auto mb-4 animate-spin" />
-                    <p className="text-gray-600">Loading election results...</p>
+                    <FiLoader className="h-8 w-8 text-brand mx-auto mb-4 animate-spin" />
+                    <p className="text-dusk">Loading election results...</p>
                   </div>
                 )}
 
                 {combiningDecryptions && (
-                  <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                  <div className="bg-glacier border border-brand/20 rounded-lg p-4">
                     <div className="flex items-center">
-                      <FiLoader className="h-5 w-5 text-blue-500 mr-2 animate-spin" />
+                      <FiLoader className="h-5 w-5 text-brand mr-2 animate-spin" />
                       <div>
-                        <h4 className="font-medium text-blue-900">Combining Partial Decryptions</h4>
-                        <p className="text-sm text-blue-800">Processing guardian keys to decrypt final results...</p>
+                        <h4 className="font-medium text-deep">Combining Partial Decryptions</h4>
+                        <p className="text-sm text-ink">Processing guardian keys to decrypt final results...</p>
                       </div>
                     </div>
                   </div>
@@ -5550,10 +5738,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   });
 
                   return (
-                    <div ref={resultsExportRef} className="space-y-6 bg-white">
+                    <div ref={resultsExportRef} className="space-y-6 bg-paper">
                       {animatedResults && (
                         <div className="mb-6">
                           <AnimatedResults
+                            key={id}
                             electionResults={animatedResults}
                             electionChoices={electionData.electionChoices}
                             winnerCount={getWinnerCount(electionData)}
@@ -5563,23 +5752,23 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       )}
 
                       {/* Results meta banner for PDF export */}
-                      <div className="rounded-xl border border-indigo-100 bg-gradient-to-r from-indigo-50 via-white to-blue-50 p-4 sm:p-5">
+                      <div className="rounded-xl border border-glacier bg-gradient-to-r from-glacier via-white to-blue-50 p-4 sm:p-5">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">Election</p>
-                            <p className="font-bold text-gray-900 mt-1">{electionData.electionTitle}</p>
+                            <p className="text-xs uppercase tracking-wide text-brand-dark font-semibold">Election</p>
+                            <p className="font-bold text-deep mt-1">{electionData.electionTitle}</p>
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">Max Choices</p>
-                            <p className="font-bold text-gray-900 mt-1">{electionData.maxChoices || 1}</p>
+                            <p className="text-xs uppercase tracking-wide text-brand-dark font-semibold">Max Choices</p>
+                            <p className="font-bold text-deep mt-1">{electionData.maxChoices || 1}</p>
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">Winners</p>
-                            <p className="font-bold text-amber-700 mt-1">Top {getWinnerCount(electionData)} 🏆</p>
+                            <p className="text-xs uppercase tracking-wide text-brand-dark font-semibold">Winners</p>
+                            <p className="font-bold text-ink mt-1">Top {getWinnerCount(electionData)} 🏆</p>
                           </div>
                           <div>
-                            <p className="text-xs uppercase tracking-wide text-indigo-600 font-semibold">Eligible Voters</p>
-                            <p className="font-bold text-gray-900 mt-1">{processedResults.totalEligibleVoters}</p>
+                            <p className="text-xs uppercase tracking-wide text-brand-dark font-semibold">Eligible Voters</p>
+                            <p className="font-bold text-deep mt-1">{processedResults.totalEligibleVoters}</p>
                           </div>
                         </div>
                       </div>
@@ -5591,20 +5780,20 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           <h4 className="font-medium text-teal-700 mb-1 text-xs sm:text-sm">Voters Who Voted</h4>
                           <p className="text-xl sm:text-3xl font-extrabold text-teal-800">{processedResults.totalVotedUsers || 0}</p>
                         </div>
-                        <div className="p-3 sm:p-4 bg-green-50 border border-green-100 rounded-xl text-center">
+                        <div className="p-3 sm:p-4 bg-sage-soft border border-green-100 rounded-xl text-center">
                           <div className="text-2xl mb-1">📋</div>
-                          <h4 className="font-medium text-green-700 mb-1 text-xs sm:text-sm">Eligible Voters</h4>
-                          <p className="text-xl sm:text-3xl font-extrabold text-green-800">{processedResults.totalEligibleVoters}</p>
+                          <h4 className="font-medium text-sage mb-1 text-xs sm:text-sm">Eligible Voters</h4>
+                          <p className="text-xl sm:text-3xl font-extrabold text-aurora-muted">{processedResults.totalEligibleVoters}</p>
                         </div>
-                        <div className="p-3 sm:p-4 bg-purple-50 border border-purple-100 rounded-xl text-center">
+                        <div className="p-3 sm:p-4 bg-glacier border border-brand/15 rounded-xl text-center">
                           <div className="text-2xl mb-1">📊</div>
-                          <h4 className="font-medium text-purple-700 mb-1 text-xs sm:text-sm">Voter Turnout</h4>
-                          <p className="text-xl sm:text-3xl font-extrabold text-purple-800">{processedResults.turnoutRate}%</p>
+                          <h4 className="font-medium text-brand-dark mb-1 text-xs sm:text-sm">Voter Turnout</h4>
+                          <p className="text-xl sm:text-3xl font-extrabold text-ink">{processedResults.turnoutRate}%</p>
                         </div>
-                        <div className="p-3 sm:p-4 bg-orange-50 border border-orange-100 rounded-xl text-center">
+                        <div className="p-3 sm:p-4 bg-ceremonial-soft border border-orange-100 rounded-xl text-center">
                           <div className="text-2xl mb-1">🏆</div>
-                          <h4 className="font-medium text-orange-700 mb-1 text-xs sm:text-sm">Total Candidates</h4>
-                          <p className="text-xl sm:text-3xl font-extrabold text-orange-800">{processedResults.choices.length}</p>
+                          <h4 className="font-medium text-ink mb-1 text-xs sm:text-sm">Total Candidates</h4>
+                          <p className="text-xl sm:text-3xl font-extrabold text-ink">{processedResults.choices.length}</p>
                         </div>
                       </div>
 
@@ -5613,7 +5802,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         <button
                           onClick={downloadResultsPDF}
                           disabled={downloadingPdf}
-                          className="flex items-center space-x-1 sm:space-x-2 bg-red-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-red-700 text-xs sm:text-sm disabled:opacity-60"
+                          className="flex items-center space-x-1 sm:space-x-2 bg-ember text-paper px-3 sm:px-4 py-2 rounded-lg hover:bg-ember text-xs sm:text-sm disabled:opacity-60"
                         >
                           {downloadingPdf ? (
                             <FiLoader className="h-3 w-3 sm:h-4 sm:w-4 animate-spin" />
@@ -5624,7 +5813,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         </button>
                         <button
                           onClick={downloadResultsCSV}
-                          className="flex items-center space-x-1 sm:space-x-2 bg-green-600 text-white px-3 sm:px-4 py-2 rounded-lg hover:bg-green-700 text-xs sm:text-sm"
+                          className="flex items-center space-x-1 sm:space-x-2 bg-aurora-muted text-paper px-3 sm:px-4 py-2 rounded-lg hover:bg-aurora text-xs sm:text-sm"
                         >
                           <FiDownload className="h-3 w-3 sm:h-4 sm:w-4" />
                           <span>CSV</span>
@@ -5634,8 +5823,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       {/* Charts */}
                       <div className="grid grid-cols-1 lg:grid-cols-2 gap-3 sm:gap-6 mb-6">
                         {/* Bar Chart */}
-                        <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-                          <h4 className="font-medium text-gray-900 mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
+                        <div className="bg-frost rounded-lg p-3 sm:p-4">
+                          <h4 className="font-medium text-deep mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
                             <FiBarChart className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                             Vote Distribution
                           </h4>
@@ -5663,8 +5852,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         </div>
 
                         {/* Pie Chart */}
-                        <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-                          <h4 className="font-medium text-gray-900 mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
+                        <div className="bg-frost rounded-lg p-3 sm:p-4">
+                          <h4 className="font-medium text-deep mb-3 sm:mb-4 flex items-center text-sm sm:text-base">
                             <FiPieChart className="h-3 w-3 sm:h-4 sm:w-4 mr-2" />
                             Vote Share
                           </h4>
@@ -5693,17 +5882,17 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       </div>
 
                       {/* Detailed Results Table */}
-                      <div className="bg-gray-50 rounded-lg p-3 sm:p-4">
-                        <h4 className="font-medium text-gray-900 mb-3 sm:mb-4 text-sm sm:text-base">Detailed Results</h4>
+                      <div className="bg-frost rounded-lg p-3 sm:p-4">
+                        <h4 className="font-medium text-deep mb-3 sm:mb-4 text-sm sm:text-base">Detailed Results</h4>
                         <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
                           <table className="w-full border-collapse min-w-[500px]">
                             <thead>
-                              <tr className="border-b-2 border-gray-300">
-                                <th className="text-left p-3 font-medium text-gray-900">Position</th>
-                                <th className="text-left p-3 font-medium text-gray-900">Candidate</th>
-                                <th className="text-left p-3 font-medium text-gray-900">Votes</th>
-                                <th className="text-left p-3 font-medium text-gray-900">Percentage</th>
-                                <th className="text-left p-3 font-medium text-gray-900">Visual</th>
+                              <tr className="border-b-2 border-ink/10">
+                                <th className="text-left p-3 font-medium text-deep">Position</th>
+                                <th className="text-left p-3 font-medium text-deep">Candidate</th>
+                                <th className="text-left p-3 font-medium text-deep">Votes</th>
+                                <th className="text-left p-3 font-medium text-deep">Percentage</th>
+                                <th className="text-left p-3 font-medium text-deep">Visual</th>
                               </tr>
                             </thead>
                             <tbody>
@@ -5712,34 +5901,32 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 const isWinner = isWinnerByRank(candidate.rank, winnerCount);
                                 const positionLabel = formatOrdinal(candidate.rank);
                                 return (
-                                  <tr key={candidate.name} className={`border-b border-gray-200 hover:bg-gray-100 ${isWinner ? 'bg-amber-50/60' : ''}`}>
+                                  <tr key={candidate.name} className={`border-b border-ink/10 hover:bg-frost-muted ${isWinner ? 'bg-ceremonial-soft/60' : ''}`}>
                                     <td className="p-3">
                                       <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium ${
-                                        isWinner ? 'bg-yellow-100 text-yellow-800 border border-yellow-300' : 'bg-gray-100 text-gray-600'
+                                        isWinner ? 'bg-ceremonial-soft text-ink border border-yellow-300' : 'bg-frost-muted text-dusk'
                                       }`}>
                                         {isWinner && <span aria-hidden>🏆</span>}
                                         {positionLabel}
                                       </span>
                                     </td>
-                                    <td className={`p-3 font-medium min-w-0 ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>
-                                      <div className="flex items-center gap-3 min-w-0">
-                                        <CandidateThumbnail
-                                          src={getCandidatePic(electionData.electionChoices, candidate.name)}
-                                          name={candidate.name}
-                                          size="sm"
-                                        />
-                                        <div className="min-w-0">
-                                          <TruncatedCandidateName name={candidate.name} />
-                                          {isWinner && <span className="ml-2 text-xs font-bold text-amber-600">Winner</span>}
-                                        </div>
-                                      </div>
+                                    <td className={`p-3 font-medium min-w-0 ${isWinner ? 'text-ink' : 'text-deep'}`}>
+                                      <CandidateIdentity
+                                        name={candidate.name}
+                                        image={getCandidatePic(electionData.electionChoices, candidate.name)}
+                                        description={getCandidateDescription(electionData.electionChoices, candidate.name)}
+                                        partyName={findChoiceByName(electionData.electionChoices, candidate.name)?.partyName}
+                                        size="sm"
+                                        enableProfile
+                                      />
+                                      {isWinner && <span className="mt-1 block text-xs font-bold text-ink">Winner</span>}
                                     </td>
-                                    <td className="p-3 font-semibold text-gray-900">{candidate.votes}</td>
-                                    <td className="p-3 text-gray-900">{candidate.percentage}%</td>
+                                    <td className="p-3 font-semibold text-deep">{candidate.votes}</td>
+                                    <td className="p-3 text-deep">{candidate.percentage}%</td>
                                     <td className="p-3">
-                                      <div className="w-20 bg-gray-200 rounded-full h-2">
+                                      <div className="w-20 bg-ink/10 rounded-full h-2">
                                         <div
-                                          className={`h-2 rounded-full transition-all duration-1000 ${isWinner ? 'bg-yellow-500' : 'bg-blue-600'}`}
+                                          className={`h-2 rounded-full transition-all duration-1000 ${isWinner ? 'bg-ceremonial' : 'bg-brand'}`}
                                           style={{ width: `${candidate.percentage}%` }}
                                         />
                                       </div>
@@ -5755,8 +5942,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       {/* Rankings Section */}
                       {processedResults.chartData && processedResults.chartData.length > 0 && (
                         <div className="mt-6">
-                          <div className="bg-white rounded-xl border border-blue-100 shadow-sm p-4 sm:p-6">
-                            <h4 className="font-bold text-gray-900 mb-5 flex items-center gap-2 text-base sm:text-lg">
+                          <div className="bg-paper rounded-xl border border-glacier shadow-sm p-4 sm:p-6">
+                            <h4 className="font-bold text-deep mb-5 flex items-center gap-2 text-base sm:text-lg">
                               <span className="text-2xl">🏆</span>
                               Election Rankings
                             </h4>
@@ -5766,8 +5953,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 const isWinner = isWinnerByRank(candidate.rank, winnerCount);
                                 const positionLabel = formatOrdinal(candidate.rank);
                                 const style = isWinner
-                                  ? { bg: 'bg-gradient-to-r from-yellow-50 to-amber-50', border: 'border-yellow-300', badge: 'bg-yellow-100 text-yellow-800 border border-yellow-300', rank: 'text-yellow-600', bar: 'from-yellow-400 to-amber-500' }
-                                  : { bg: 'bg-blue-50', border: 'border-blue-100', badge: 'bg-blue-50 text-blue-700 border border-blue-200', rank: 'text-blue-500', bar: 'from-blue-400 to-indigo-500' };
+                                  ? { bg: 'bg-gradient-to-r from-yellow-50 to-amber-50', border: 'border-yellow-300', badge: 'bg-ceremonial-soft text-ink border border-yellow-300', rank: 'text-yellow-600', bar: 'from-yellow-400 to-amber-500' }
+                                  : { bg: 'bg-glacier', border: 'border-glacier', badge: 'bg-glacier text-brand-dark border border-brand/20', rank: 'text-brand', bar: 'from-brand-light to-brand' };
                                 return (
                                   <div key={candidate.name} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border ${style.bg} ${style.border} transition-all hover:shadow-md`}>
                                     <div className="w-14 text-center flex-shrink-0">
@@ -5781,17 +5968,16 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                       )}
                                     </div>
                                     <div className="flex-1 min-w-0">
-                                      <div className="flex items-center gap-3 min-w-0">
-                                        <CandidateThumbnail
-                                          src={getCandidatePic(electionData.electionChoices, candidate.name)}
-                                          name={candidate.name}
-                                          size="md"
-                                        />
-                                        <p className={`font-bold text-sm sm:text-base min-w-0 ${isWinner ? 'text-amber-800' : 'text-gray-900'}`}>
-                                          <TruncatedCandidateName name={candidate.name} />
-                                        </p>
-                                      </div>
-                                      <div className="mt-1.5 w-full bg-white/70 rounded-full h-1.5 overflow-hidden border border-white">
+                                      <CandidateIdentity
+                                        name={candidate.name}
+                                        image={getCandidatePic(electionData.electionChoices, candidate.name)}
+                                        description={getCandidateDescription(electionData.electionChoices, candidate.name)}
+                                        partyName={findChoiceByName(electionData.electionChoices, candidate.name)?.partyName}
+                                        size="md"
+                                        enableProfile
+                                        nameClassName={`font-bold text-sm sm:text-base ${isWinner ? 'text-ink' : 'text-deep'}`}
+                                      />
+                                      <div className="mt-1.5 w-full bg-paper/70 rounded-full h-1.5 overflow-hidden border border-white">
                                         <div
                                           className={`h-1.5 rounded-full bg-gradient-to-r ${style.bar} transition-all duration-1000`}
                                           style={{ width: `${candidate.percentage}%` }}
@@ -5802,7 +5988,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                       <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${style.badge}`}>
                                         {candidate.votes} votes
                                       </span>
-                                      <span className="text-xs font-semibold text-gray-500">{candidate.percentage}%</span>
+                                      <span className="text-xs font-semibold text-dusk">{candidate.percentage}%</span>
                                     </div>
                                   </div>
                                 );
@@ -5815,20 +6001,20 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       {/* Chunk Breakdown Section - Modern UI */}
                       {animatedResults && animatedResults.results && animatedResults.results.chunks && animatedResults.results.chunks.length > 0 && (
                         <div className="mt-8">
-                          <div className="bg-gradient-to-r from-purple-50 to-blue-50 rounded-lg p-6 border border-purple-200">
+                          <div className="bg-gradient-to-r from-glacier to-frost rounded-lg p-6 border border-brand/20">
                             <div className="flex items-center justify-between mb-6">
                               <div>
-                                <h4 className="text-xl font-bold text-gray-900 flex items-center gap-2">
-                                  <svg className="w-6 h-6 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <h4 className="text-xl font-bold text-deep flex items-center gap-2">
+                                  <svg className="w-6 h-6 text-brand-dark" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                                   </svg>
                                   Processing Chunk Breakdown
                                 </h4>
-                                <p className="text-sm text-gray-600 mt-1">
+                                <p className="text-sm text-dusk mt-1">
                                   Detailed view of vote distribution across {animatedResults.results.chunks.length} processing chunks
                                 </p>
                               </div>
-                              <span className="px-4 py-2 bg-white rounded-full text-sm font-semibold text-purple-600 shadow-sm">
+                              <span className="px-4 py-2 bg-paper rounded-full text-sm font-semibold text-brand-dark shadow-sm">
                                 {animatedResults.results.chunks.length} Chunks
                               </span>
                             </div>
@@ -5837,15 +6023,15 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               {animatedResults.results.chunks.map((chunk, index) => (
                                 <div 
                                   key={chunk.electionCenterId}
-                                  className="bg-white rounded-lg shadow-md hover:shadow-lg transition-shadow duration-300 overflow-hidden border border-gray-200"
+                                  className="surface-card-md hover:shadow-lg transition-shadow duration-300 overflow-hidden border border-ink/10"
                                 >
                                   {/* Chunk Header */}
-                                  <div className="bg-gradient-to-r from-purple-500 to-blue-500 px-4 py-3">
+                                  <div className="bg-gradient-to-r from-brand to-brand-dark px-4 py-3">
                                     <div className="flex items-center justify-between">
-                                      <h5 className="font-bold text-white text-lg">
+                                      <h5 className="font-bold text-paper text-lg">
                                         Chunk #{chunk.chunkIndex}
                                       </h5>
-                                      <span className="px-2 py-1 bg-white bg-opacity-20 rounded-full text-xs font-medium text-white">
+                                      <span className="px-2 py-1 bg-paper bg-opacity-20 rounded-full text-xs font-medium text-paper">
                                         ID: {chunk.electionCenterId}
                                       </span>
                                     </div>
@@ -5854,18 +6040,18 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                   {/* Chunk Body */}
                                   <div className="p-4">
                                     {/* Ballot Count */}
-                                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-gray-200">
-                                      <svg className="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <div className="flex items-center gap-2 mb-4 pb-3 border-b border-ink/10">
+                                      <svg className="w-5 h-5 text-brand" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
                                       </svg>
-                                      <span className="text-sm font-medium text-gray-700">
+                                      <span className="text-sm font-medium text-ink">
                                         {chunk.ballotCount || 0} Ballots Processed
                                       </span>
                                     </div>
 
                                     {/* Vote Distribution */}
                                     <div className="space-y-3">
-                                      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Vote Distribution</p>
+                                      <p className="text-xs font-semibold text-dusk uppercase tracking-wide">Vote Distribution</p>
                                       {Object.entries(chunk.candidateVotes || {}).map(([candidate, voteData]) => {
                                         let votes = 0;
                                         if (typeof voteData === 'number') {
@@ -5886,13 +6072,23 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                                         return (
                                           <div key={candidate} className="space-y-1">
-                                            <div className="flex items-center justify-between text-sm">
-                                              <span className="font-medium text-gray-700 truncate">{candidate}</span>
-                                              <span className="font-bold text-blue-600 ml-2">{votes}</span>
+                                            <div className="flex items-center justify-between text-sm gap-2">
+                                              <div className="min-w-0 flex-1">
+                                                <CandidateIdentity
+                                                  name={candidate}
+                                                  image={getCandidatePic(electionData?.electionChoices, candidate)}
+                                                  description={getCandidateDescription(electionData?.electionChoices, candidate)}
+                                                  partyName={findChoiceByName(electionData?.electionChoices, candidate)?.partyName}
+                                                  size="sm"
+                                                  enableProfile
+                                                  nameClassName="font-medium text-ink text-sm"
+                                                />
+                                              </div>
+                                              <span className="font-bold text-brand ml-2 shrink-0">{votes}</span>
                                             </div>
-                                            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+                                            <div className="w-full bg-ink/10 rounded-full h-2 overflow-hidden">
                                               <div
-                                                className="bg-gradient-to-r from-blue-500 to-purple-500 h-2 rounded-full transition-all duration-500"
+                                                className="bg-gradient-to-r from-brand to-brand-dark h-2 rounded-full transition-all duration-500"
                                                 style={{ width: `${percentage}%` }}
                                               ></div>
                                             </div>
@@ -5903,8 +6099,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                   </div>
 
                                   {/* Chunk Footer */}
-                                  <div className="bg-gray-50 px-4 py-2 border-t border-gray-200">
-                                    <p className="text-xs text-gray-500 text-center">
+                                  <div className="bg-frost px-4 py-2 border-t border-ink/10">
+                                    <p className="text-xs text-dusk text-center">
                                       Chunk {index + 1} of {animatedResults.results.chunks.length}
                                     </p>
                                   </div>
@@ -5925,22 +6121,22 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Ballots in Tally Tab */}
         {activeTab === 'ballots' && (
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
+          <div className="surface-card p-3 sm:p-6">
             {!canUserViewVerification() ? (
               <div className="text-center py-8 sm:py-12 px-4">
-                <FiDatabase className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Ballots Not Available</h3>
-                <p className="text-sm sm:text-base text-gray-600 mb-4">
+                <FiDatabase className="h-12 w-12 sm:h-16 sm:w-16 text-dusk-soft mx-auto mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold text-deep mb-2">Ballots Not Available</h3>
+                <p className="text-sm sm:text-base text-dusk mb-4">
                   Ballot information will be available after the election results have been computed.
                 </p>
               </div>
             ) : combiningDecryptions ? (
               <div className="text-center py-8 sm:py-12 px-4">
-                <FiLoader className="h-12 w-12 sm:h-16 sm:w-16 text-blue-500 mx-auto mb-4 animate-spin" />
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">
+                <FiLoader className="h-12 w-12 sm:h-16 sm:w-16 text-brand mx-auto mb-4 animate-spin" />
+                <h3 className="text-base sm:text-lg font-semibold text-deep mb-2">
                   🔄 Combining Decryptions
                 </h3>
-                <p className="text-sm sm:text-base text-gray-600 mb-4">
+                <p className="text-sm sm:text-base text-dusk mb-4">
                   Combining guardian keys to retrieve ballot hashes and tracking codes...
                 </p>
               </div>
@@ -5953,12 +6149,12 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 return (
                   <div className="text-center py-12">
                     <FiShield className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">⏳ Waiting for Guardians</h3>
-                    <p className="text-gray-600 mb-4">
+                    <h3 className="text-lg font-semibold text-deep mb-2">⏳ Waiting for Guardians</h3>
+                    <p className="text-dusk mb-4">
                       Not enough guardians have submitted their decryption keys yet.
                     </p>
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 inline-block">
-                      <p className="text-sm text-yellow-800">
+                    <div className="bg-ceremonial-soft border border-yellow-200 rounded-lg p-4 inline-block">
+                      <p className="text-sm text-ink">
                         <strong>Status:</strong> {guardiansSubmitted} of {electionQuorum} required guardians have submitted keys.
                       </p>
                     </div>
@@ -5986,7 +6182,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Key Verification Tab (guardians only) */}
         {activeTab === 'key-verification' && (
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
+          <div className="surface-card p-3 sm:p-6">
             <h3 className="text-base sm:text-lg font-semibold mb-3 sm:mb-4 flex items-center">
               <FiKey className="h-4 w-4 sm:h-5 sm:w-5 mr-2" />
               Key Verification
@@ -5995,9 +6191,9 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               <KeyVerificationTab electionId={id} electionData={electionData} />
             ) : (
               <div className="text-center py-8 sm:py-12 px-4">
-                <FiShield className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Guardians Only</h3>
-                <p className="text-sm sm:text-base text-gray-600">
+                <FiShield className="h-12 w-12 sm:h-16 sm:w-16 text-dusk-soft mx-auto mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold text-deep mb-2">Guardians Only</h3>
+                <p className="text-sm sm:text-base text-dusk">
                   Key verification is available only to guardians assigned to this election.
                 </p>
               </div>
@@ -6007,20 +6203,30 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
         {/* Verify Your Vote Tab */}
         {activeTab === 'verify' && (
-          <div className="bg-white rounded-lg shadow p-3 sm:p-6">
+          <div className="surface-card p-4 sm:p-6">
+            <div className="mb-4 sm:mb-6">
+              <p className="section-kicker signal-proof">Individual proof</p>
+              <h3 className="mt-1 font-display text-xl sm:text-2xl font-bold text-deep flex items-center gap-2">
+                <FiHash className="h-5 w-5 text-aurora" />
+                Verify your vote
+              </h3>
+              <p className="mt-1 max-w-2xl text-sm text-dusk">
+                Quiet confirmation that your encrypted ballot is in the tally — without revealing your choice.
+              </p>
+            </div>
             {!canUserViewVerification() ? (
               <div className="text-center py-8 sm:py-12 px-4">
-                <FiHash className="h-12 w-12 sm:h-16 sm:w-16 text-gray-300 mx-auto mb-4" />
-                <h3 className="text-base sm:text-lg font-semibold text-gray-900 mb-2">Vote Verification Not Available</h3>
-                <p className="text-sm sm:text-base text-gray-600 mb-4">
+                <FiHash className="h-12 w-12 sm:h-16 sm:w-16 text-dusk-soft mx-auto mb-4" />
+                <h3 className="text-base sm:text-lg font-semibold text-deep mb-2">Vote Verification Not Available</h3>
+                <p className="text-sm sm:text-base text-dusk mb-4">
                   Vote verification will be available after the election results have been computed.
                 </p>
               </div>
             ) : combiningDecryptions ? (
               <div className="text-center py-8 sm:py-12 px-4">
-                <FiLoader className="h-12 w-12 sm:h-16 sm:w-16 text-blue-500 mx-auto mb-4 animate-spin" />
-                <h3 className="text-base sm:text-lg font-semibold text-blue-900 mb-2">🔄 Combining Decryptions</h3>
-                <p className="text-sm sm:text-base text-gray-600 mb-4">
+                <FiLoader className="h-12 w-12 sm:h-16 sm:w-16 text-brand mx-auto mb-4 animate-spin" />
+                <h3 className="text-base sm:text-lg font-semibold text-deep mb-2">Combining Decryptions</h3>
+                <p className="text-sm sm:text-base text-dusk mb-4">
                   Combining guardian keys to enable vote verification...
                 </p>
               </div>
@@ -6031,17 +6237,22 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
               if (!quorumMet) {
                 return (
-                  <div className="text-center py-12">
-                    <FiShield className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
-                    <h3 className="text-lg font-semibold text-gray-900 mb-2">⏳ Waiting for Guardians</h3>
-                    <p className="text-gray-600 mb-4">
-                      Vote verification requires ballot hashes, but not enough guardians have submitted their decryption keys yet.
+                  <div className="mx-auto max-w-lg space-y-4 py-6">
+                    <GuardianQuorumViz
+                      mode="decryption"
+                      title="Verification waiting on threshold"
+                      total={electionData.totalGuardians || electionData.numberOfGuardians || 0}
+                      threshold={electionQuorum}
+                      filled={guardiansSubmitted}
+                      guardians={(electionData.guardians || []).map((g) => ({
+                        id: g.userEmail,
+                        label: g.userName || g.userEmail,
+                        filled: !!g.decryptedOrNot,
+                      }))}
+                    />
+                    <p className="text-center text-sm text-dusk">
+                      Vote verification opens after enough guardians contribute partial decryption shares.
                     </p>
-                    <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4 inline-block">
-                      <p className="text-sm text-yellow-800">
-                        <strong>Status:</strong> {guardiansSubmitted} of {electionQuorum} required guardians have submitted keys.
-                      </p>
-                    </div>
                   </div>
                 );
               }

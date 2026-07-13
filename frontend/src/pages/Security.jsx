@@ -1,73 +1,50 @@
 import React, { useState } from "react";
 import Layout from "./Layout";
+import MarketingHero, { MarketingTabs } from "../components/MarketingHero";
 
 const Security = () => {
   const [activeTab, setActiveTab] = useState("overview");
 
+  const tabs = [
+    { id: "overview", label: "Overview" },
+    { id: "elgamal", label: "ElGamal E2E" },
+    { id: "postquantum", label: "Post-Quantum" },
+    { id: "zkproofs", label: "ZK Proofs" },
+    { id: "benaloh", label: "Benaloh Challenge" },
+    { id: "auth", label: "Auth & Access" },
+    { id: "transport", label: "Transport" },
+  ];
+
   return (
     <Layout>
-      {/* ── Hero ─────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-slate-900 via-purple-950 to-indigo-950 py-16 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-flex items-center px-4 py-2 bg-purple-500/10 border border-purple-500/30 rounded-full text-purple-300 text-sm font-medium mb-6">
-            <span className="mr-2">🔐</span>Security Deep Dive
-          </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">
-            Cryptographic Security Architecture
-          </h1>
-          <p className="text-purple-200/80 text-lg max-w-3xl mx-auto">
-            AmarVote implements defense-in-depth across every layer — from post-quantum key encapsulation to zero-knowledge proofs to bot detection — ensuring privacy, integrity, and end-to-end verifiability.
-          </p>
-        </div>
-      </div>
+      <MarketingHero
+        kicker="Security"
+        title="Cryptographic security architecture"
+        subtitle="Post-quantum key wrapping, zero-knowledge proofs, and end-to-end ballot privacy."
+      />
 
-      {/* ── Tab bar ───────────────────────────────────── */}
-      <div className="border-b border-gray-200 bg-white sticky top-16 z-20">
-        <div className="max-w-6xl mx-auto px-4 flex overflow-x-auto">
-          {[
-            ["overview", "📋 Overview"],
-            ["elgamal", "🔒 ElGamal E2E"],
-            ["postquantum", "🛡️ Post-Quantum"],
-            ["zkproofs", "✅ ZK Proofs"],
-            ["benaloh", "🔍 Benaloh Challenge"],
-            ["auth", "🪪 Auth & Access"],
-            ["transport", "📦 Transport"],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`px-4 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                activeTab === id
-                  ? "border-purple-600 text-purple-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <MarketingTabs tabs={tabs} active={activeTab} onChange={setActiveTab} />
 
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="marketing-page max-w-6xl mx-auto px-4 py-12 sm:py-16 page-enter">
 
         {/* ═══════════════════════ OVERVIEW ═══════════════════════ */}
         {activeTab === "overview" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Security Layer Overview</h2>
+            <h2 className="section-title text-center mb-8">Security Layer Overview</h2>
 
             {/* Quick reference table */}
-            <div className="bg-gray-900 rounded-2xl p-6 mb-8 overflow-x-auto">
-              <h3 className="text-green-400 font-bold text-lg mb-4 font-mono">// Complete Cryptographic Specification</h3>
+            <div className="code-panel rounded-2xl p-6 mb-8 overflow-x-auto">
+              <h3 className="text-aurora font-bold text-lg mb-4 font-mono">// Complete Cryptographic Specification</h3>
               <table className="w-full text-sm font-mono">
                 <thead>
-                  <tr className="text-gray-400 border-b border-gray-700">
+                  <tr className="text-dusk border-b border-gray-700">
                     <th className="text-left py-2 pr-4">Component</th>
                     <th className="text-left py-2 pr-4">Algorithm / Scheme</th>
                     <th className="text-left py-2 pr-4">Standard</th>
                     <th className="text-left py-2">Purpose</th>
                   </tr>
                 </thead>
-                <tbody className="text-gray-300">
+                <tbody className="text-dusk-soft">
                   {[
                     ["Vote Encryption", "ElGamal 4096-bit (ElectionGuard)", "ElectionGuard Spec 2.1", "End-to-end ballot privacy"],
                     ["Homomorphic Tally", "Multiplicative ElGamal", "ElectionGuard Spec 2.1", "Tally without decryption"],
@@ -85,11 +62,11 @@ const Security = () => {
                     ["Serialization", "msgpack binary", "MessagePack spec", "10–50× vs JSON, 4096-bit ints"],
                     ["Public audit records", "SHA-256 + signed payloads", "Internal verification profile", "Supplementary transparency metadata"],
                   ].map(([comp, algo, std, purpose]) => (
-                    <tr key={comp} className="border-b border-gray-800 hover:bg-white/5">
-                      <td className="py-2 pr-4 text-blue-300 font-semibold">{comp}</td>
-                      <td className="py-2 pr-4 text-yellow-300">{algo}</td>
-                      <td className="py-2 pr-4 text-gray-400">{std}</td>
-                      <td className="py-2 text-gray-300">{purpose}</td>
+                    <tr key={comp} className="border-b border-gray-800 hover:bg-paper/5">
+                      <td className="py-2 pr-4 text-brand-light font-semibold">{comp}</td>
+                      <td className="py-2 pr-4 text-ceremonial">{algo}</td>
+                      <td className="py-2 pr-4 text-dusk">{std}</td>
+                      <td className="py-2 text-dusk-soft">{purpose}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -99,19 +76,18 @@ const Security = () => {
             {/* Defense in depth */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {[
-                { icon: "🔐", title: "Encryption at Rest", items: ["AWS/Neon TLS for cloud DB", "Ballot blobs stored as msgpack binary", "No plaintext votes ever in DB"], color: "purple" },
-                { icon: "🔒", title: "Encryption in Transit", items: ["HTTPS via Nginx TLS termination", "Internal service communication: plaintext on private 172.20.0.0/24", "Redis and RabbitMQ on private network only"], color: "blue" },
-                { icon: "👁️‍🗨️", title: "Vote Privacy", items: ["ElGamal encrypts per-selection", "Homomorphic tally: votes counted encrypted", "No voter↔ballot linkage in DB schema"], color: "green" },
-                { icon: "✅", title: "Integrity Proofs", items: ["Chaum-Pedersen proofs per decryption share", "Schnorr proofs per ballot selection", "All proofs downloadable for independent verification"], color: "teal" },
-                { icon: "🤖", title: "Anti-Fraud", items: ["FingerprintJS BotD 1.9.1 browser-side", "5-minute timestamp freshness check server-side", "OTP rate limiting + 5-min expiry"], color: "red" },
-                { icon: "🏗️", title: "Threshold Security", items: ["k-of-n Shamir-style guardian quorum", "No single guardian can decrypt alone", "Lagrange compensation for absent guardians"], color: "orange" },
+                { title: "Encryption at Rest", items: ["AWS/Neon TLS for cloud DB", "Ballot blobs stored as msgpack binary", "No plaintext votes ever in DB"], color: "blue" },
+                { title: "Encryption in Transit", items: ["HTTPS via Nginx TLS termination", "Internal service communication: plaintext on private 172.20.0.0/24", "Redis and RabbitMQ on private network only"], color: "blue" },
+                { title: "Vote Privacy", items: ["ElGamal encrypts per-selection", "Homomorphic tally: votes counted encrypted", "No voter↔ballot linkage in DB schema"], color: "green" },
+                { title: "Integrity Proofs", items: ["Chaum-Pedersen proofs per decryption share", "Schnorr proofs per ballot selection", "All proofs downloadable for independent verification"], color: "teal" },
+                { title: "Anti-Fraud", items: ["FingerprintJS BotD 1.9.1 browser-side", "5-minute timestamp freshness check server-side", "OTP rate limiting + 5-min expiry"], color: "red" },
+                { title: "Threshold Security", items: ["k-of-n Shamir-style guardian quorum", "No single guardian can decrypt alone", "Lagrange compensation for absent guardians"], color: "orange" },
               ].map(({ icon, title, items, color }) => (
-                <div key={title} className={`bg-white rounded-2xl border p-5 ${color === "purple" ? "border-purple-200" : color === "blue" ? "border-blue-200" : color === "green" ? "border-green-200" : color === "teal" ? "border-teal-200" : color === "red" ? "border-red-200" : "border-orange-200"}`}>
-                  <div className="text-2xl mb-2">{icon}</div>
-                  <h3 className="font-bold text-gray-900 mb-3">{title}</h3>
+                <div key={title} className={`surface-card rounded-2xl border p-5 ${color === "blue" ? "border-brand/20" : color === "green" ? "border-aurora/30" : color === "teal" ? "border-teal-200" : color === "red" ? "border-ember/30" : "border-ceremonial/40"}`}>
+                  <h3 className="font-display font-bold text-deep mb-3">{title}</h3>
                   <ul className="space-y-1.5">
                     {items.map((item) => (
-                      <li key={item} className="flex items-start text-sm text-gray-700"><span className="mr-2 text-gray-400 flex-shrink-0">•</span>{item}</li>
+                      <li key={item} className="flex items-start text-sm text-dusk"><span className="mr-2 text-dusk flex-shrink-0">•</span>{item}</li>
                     ))}
                   </ul>
                 </div>
@@ -123,46 +99,46 @@ const Security = () => {
         {/* ═══════════════════════ ELGAMAL ═══════════════════════ */}
         {activeTab === "elgamal" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">ElGamal End-to-End Verifiable Encryption</h2>
+            <h2 className="text-2xl font-bold text-ink mb-8 text-center">ElGamal End-to-End Verifiable Encryption</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div>
-                <div className="bg-gray-900 rounded-2xl p-6 mb-6 font-mono text-sm">
-                  <div className="text-green-400 font-bold mb-4">// ElGamal Encryption (Twisted / ElectionGuard variant)</div>
-                  <div className="text-gray-300 space-y-2 text-xs leading-relaxed">
-                    <div className="text-gray-500">// Setup: 4096-bit safe prime p, generator g</div>
-                    <div><span className="text-yellow-300">p</span> = 4096-bit safe prime (NIST group)</div>
-                    <div><span className="text-yellow-300">g</span> = generator of cyclic group G of order q</div>
-                    <div><span className="text-yellow-300">q</span> = (p-1)/2 (large Sophie Germain prime)</div>
+                <div className="code-panel rounded-2xl p-6 mb-6 font-mono text-sm">
+                  <div className="text-aurora font-bold mb-4">// ElGamal Encryption (Twisted / ElectionGuard variant)</div>
+                  <div className="text-dusk-soft space-y-2 text-xs leading-relaxed">
+                    <div className="text-dusk">// Setup: 4096-bit safe prime p, generator g</div>
+                    <div><span className="text-ceremonial">p</span> = 4096-bit safe prime (NIST group)</div>
+                    <div><span className="text-ceremonial">g</span> = generator of cyclic group G of order q</div>
+                    <div><span className="text-ceremonial">q</span> = (p-1)/2 (large Sophie Germain prime)</div>
                     <br />
-                    <div className="text-gray-500">// Key generation per guardian i:</div>
-                    <div><span className="text-blue-300">s_i</span> ← random ∈ [2, q-2]  <span className="text-gray-500">// secret key</span></div>
-                    <div><span className="text-blue-300">K_i</span> = g^s_i mod p       <span className="text-gray-500">// public key share</span></div>
-                    <div>K = ∏ K_i mod p          <span className="text-gray-500">// combined public key</span></div>
+                    <div className="text-dusk">// Key generation per guardian i:</div>
+                    <div><span className="text-brand-light">s_i</span> ← random ∈ [2, q-2]  <span className="text-dusk">// secret key</span></div>
+                    <div><span className="text-brand-light">K_i</span> = g^s_i mod p       <span className="text-dusk">// public key share</span></div>
+                    <div>K = ∏ K_i mod p          <span className="text-dusk">// combined public key</span></div>
                     <br />
-                    <div className="text-gray-500">// Ballot encryption per selection m ∈ {"{0, 1}"}:</div>
-                    <div><span className="text-purple-300">ξ</span> ← random nonce ∈ [2, q-2]</div>
+                    <div className="text-dusk">// Ballot encryption per selection m ∈ {"{0, 1}"}:</div>
+                    <div><span className="text-brand-light">ξ</span> ← random nonce ∈ [2, q-2]</div>
                     <div>α = g^ξ mod p</div>
                     <div>β = g^m · K^ξ mod p</div>
-                    <div>ciphertext = (α, β)      <span className="text-gray-500">// transmitted + stored</span></div>
+                    <div>ciphertext = (α, β)      <span className="text-dusk">// transmitted + stored</span></div>
                     <br />
-                    <div className="text-gray-500">// Homomorphic tally of n ballots:</div>
+                    <div className="text-dusk">// Homomorphic tally of n ballots:</div>
                     <div>A = ∏ α_i mod p</div>
-                    <div>B = ∏ β_i mod p          <span className="text-gray-500">// encrypted sum of votes</span></div>
+                    <div>B = ∏ β_i mod p          <span className="text-dusk">// encrypted sum of votes</span></div>
                     <br />
-                    <div className="text-gray-500">// Partial decryption by guardian i:</div>
-                    <div><span className="text-orange-300">M_i</span> = A^s_i mod p     <span className="text-gray-500">// partial decryption</span></div>
+                    <div className="text-dusk">// Partial decryption by guardian i:</div>
+                    <div><span className="text-ceremonial">M_i</span> = A^s_i mod p     <span className="text-dusk">// partial decryption</span></div>
                     <br />
-                    <div className="text-gray-500">// Final tally:</div>
-                    <div>M = ∏ M_i^{"{λ_i}"} mod p <span className="text-gray-500">// Lagrange combine</span></div>
-                    <div>t = log_g(B · M^-1 mod p) <span className="text-gray-500">// discrete log = vote count</span></div>
+                    <div className="text-dusk">// Final tally:</div>
+                    <div>M = ∏ M_i^{"{λ_i}"} mod p <span className="text-dusk">// Lagrange combine</span></div>
+                    <div>t = log_g(B · M^-1 mod p) <span className="text-dusk">// discrete log = vote count</span></div>
                   </div>
                 </div>
               </div>
               <div className="space-y-4">
-                <div className="bg-purple-50 border border-purple-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-purple-900 mb-3">Why 4096-bit?</h3>
-                  <p className="text-purple-800 text-sm mb-3">4096-bit discrete log provides ~200 bits of classical security (comparable to AES-200, far beyond AES-128). NIST recommends ≥2048-bit for elections through 2030+. AmarVote uses 4096-bit for long-term security of encrypted ballots.</p>
-                  <div className="bg-white rounded-lg p-3 font-mono text-xs text-gray-600 border border-purple-100">
+                <div className="bg-glacier border border-brand/25 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-3">Why 4096-bit?</h3>
+                  <p className="text-ink text-sm mb-3">4096-bit discrete log provides ~200 bits of classical security (comparable to AES-200, far beyond AES-128). NIST recommends ≥2048-bit for elections through 2030+. AmarVote uses 4096-bit for long-term security of encrypted ballots.</p>
+                  <div className="bg-paper rounded-lg p-3 font-mono text-xs text-dusk border border-brand/15">
                     <div>Classical security: ~200 bits</div>
                     <div>Best attack: Number Field Sieve</div>
                     <div>Key size: 4096 bits (prime modulus)</div>
@@ -170,21 +146,21 @@ const Security = () => {
                     <div>gmpy2: GMP-accelerated bignum arithmetic</div>
                   </div>
                 </div>
-                <div className="bg-blue-50 border border-blue-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-blue-900 mb-3">Threshold Decryption — Lagrange Interpolation</h3>
-                  <p className="text-blue-800 text-sm mb-3">With k-of-n threshold, guardian i holds polynomial coefficient share. Any k guardians can reconstruct using Lagrange basis polynomials:</p>
-                  <div className="bg-white rounded-lg p-3 font-mono text-xs text-gray-600 border border-blue-100">
+                <div className="bg-glacier border border-brand/20 rounded-2xl p-5">
+                  <h3 className="font-bold text-deep mb-3">Threshold Decryption — Lagrange Interpolation</h3>
+                  <p className="text-ink text-sm mb-3">With k-of-n threshold, guardian i holds polynomial coefficient share. Any k guardians can reconstruct using Lagrange basis polynomials:</p>
+                  <div className="bg-paper rounded-lg p-3 font-mono text-xs text-dusk border border-glacier">
                     <div>λ_i = ∏_j≠i j / (j - i) mod q  // Lagrange coefficient</div>
                     <div>M = ∏_i M_i^λ_i mod p         // combined result</div>
-                    <div className="mt-2 text-gray-400">// Absent guardian compensation:</div>
+                    <div className="mt-2 text-dusk">// Absent guardian compensation:</div>
                     <div>// Present guardian j uses backup polynomial</div>
                     <div>// to generate share on behalf of absent guardian i</div>
                     <div>M_comp_j_for_i = A^(f_j(i) · λ_j(S_i)) mod p</div>
                   </div>
                 </div>
-                <div className="bg-green-50 border border-green-200 rounded-2xl p-5">
+                <div className="bg-sage-soft border border-aurora/30 rounded-2xl p-5">
                   <h3 className="font-bold text-green-900 mb-3">Tracking Code Generation</h3>
-                  <p className="text-green-800 text-sm">Each encrypted ballot receives a unique tracking code = SHA-256(concatenation of all ciphertext pairs). Voters can confirm their code appears on the public bulletin board after election closes.</p>
+                  <p className="text-aurora-muted text-sm">Each encrypted ballot receives a unique tracking code = SHA-256(concatenation of all ciphertext pairs). Voters can confirm their code appears on the public bulletin board after election closes.</p>
                 </div>
               </div>
             </div>
@@ -194,11 +170,11 @@ const Security = () => {
         {/* ═══════════════════════ POST-QUANTUM ═══════════════════════ */}
         {activeTab === "postquantum" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Post-Quantum Cryptography — ML-KEM-1024</h2>
+            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Post-Quantum Cryptography — ML-KEM-1024</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               <div>
-                <div className="bg-gray-900 rounded-2xl p-6 font-mono text-xs text-gray-300 mb-4">
-                  <div className="text-green-400 font-bold mb-4 text-sm">// Guardian Key Protection Stack</div>
+                <div className="code-panel rounded-2xl p-6 font-mono text-xs text-dusk-soft mb-4">
+                  <div className="text-aurora font-bold mb-4 text-sm">// Guardian Key Protection Stack</div>
                   <pre className="whitespace-pre-wrap leading-relaxed">{`// Layer 1: Generate ElGamal secret key
 s_i ← ElectionGuard.generate_guardian_keypair()
 // s_i is a 4096-bit integer (ElGamal private key)
@@ -235,17 +211,17 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 </div>
               </div>
               <div className="space-y-4">
-                <div className="bg-indigo-50 border border-indigo-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-indigo-900 mb-3">Why ML-KEM-1024?</h3>
-                  <div className="space-y-3 text-sm text-indigo-800">
+                <div className="bg-glacier border border-brand/25 rounded-2xl p-5">
+                  <h3 className="font-bold text-deep mb-3">Why ML-KEM-1024?</h3>
+                  <div className="space-y-3 text-sm text-ink">
                     <p><strong>CRYSTALS-Kyber</strong> was selected by NIST in 2022 and standardized as FIPS 203 (ML-KEM) in 2024. It is based on the Module Learning With Errors (MLWE) problem, which is believed to be hard for both classical and quantum computers.</p>
                     <p><strong>Shor's algorithm</strong> breaks RSA and elliptic-curve cryptography in polynomial time on a quantum computer, but has no known efficient attack on MLWE. Guardian keys must remain secret even after a quantum computer is built — hence post-quantum wrapping is essential for long-term election integrity.</p>
                     <p>ML-KEM-1024 provides <strong>≥256-bit post-quantum security</strong> (NIST Category 5).</p>
                   </div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-900 mb-3">Decryption Flow (Guardian side)</h3>
-                  <div className="space-y-2 text-sm text-gray-700">
+                <div className="bg-paper border border-ink/10 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-3">Decryption Flow (Guardian side)</h3>
+                  <div className="space-y-2 text-sm text-dusk">
                     {[
                       "Guardian uploads credential .json file via browser",
                       "Backend verifies HMAC-SHA256 tag (tamper check)",
@@ -256,7 +232,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       "Private key stored in Redis with 6h TTL for worker use",
                     ].map((step, i) => (
                       <div key={i} className="flex items-start">
-                        <div className="w-5 h-5 rounded-full bg-indigo-100 text-indigo-700 text-xs font-bold flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">{i + 1}</div>
+                        <div className="w-5 h-5 rounded-full bg-glacier text-ink text-xs font-bold flex items-center justify-center flex-shrink-0 mr-2 mt-0.5">{i + 1}</div>
                         <span>{step}</span>
                       </div>
                     ))}
@@ -270,32 +246,32 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
         {/* ═══════════════════════ ZK PROOFS ═══════════════════════ */}
         {activeTab === "zkproofs" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Zero-Knowledge Proofs</h2>
+            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Zero-Knowledge Proofs</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Schnorr Proof — Ballot Validity</h3>
-                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 mb-6 text-sm text-gray-700">
+                <h3 className="text-xl font-bold text-ink mb-4">Schnorr Proof — Ballot Validity</h3>
+                <div className="bg-frost border border-ink/10 rounded-2xl p-5 mb-6 text-sm text-dusk">
                   <p className="mb-3">Every ballot selection carries a Schnorr σ-protocol proof that the encrypted value is either 0 or 1 — without revealing which. This ensures voters cannot encrypt values like 5 (stuffing) while preserving ballot secrecy.</p>
-                  <div className="bg-gray-900 text-green-300 rounded-xl p-4 font-mono text-xs">
-                    <div className="text-gray-500 mb-2">// Disjunctive Schnorr proof (OR-composition)</div>
+                  <div className="code-panel text-green-300 rounded-xl p-4 font-mono text-xs">
+                    <div className="text-dusk mb-2">// Disjunctive Schnorr proof (OR-composition)</div>
                     <div>Proves: m ∈ {"{0, 1}"} without revealing m</div>
                     <div className="mt-2">Prover knows: ξ (encryption nonce), m ∈ {"{0, 1}"}</div>
                     <div>Verifier checks: The proof π is valid for ciphertext (α,β)</div>
-                    <div className="mt-2 text-gray-400">Protocol: Non-interactive via Fiat-Shamir heuristic</div>
+                    <div className="mt-2 text-dusk">Protocol: Non-interactive via Fiat-Shamir heuristic</div>
                     <div>Challenge: c = H(α, β, A_0, B_0, A_1, B_1)</div>
                     <div>Response: r = ξ - c·(m selection) mod q</div>
                   </div>
                 </div>
-                <h3 className="text-xl font-bold text-gray-900 mb-4">Chaum-Pedersen Proof — Decryption Correctness</h3>
-                <div className="bg-gray-50 border border-gray-200 rounded-2xl p-5 text-sm text-gray-700">
+                <h3 className="text-xl font-bold text-ink mb-4">Chaum-Pedersen Proof — Decryption Correctness</h3>
+                <div className="bg-frost border border-ink/10 rounded-2xl p-5 text-sm text-dusk">
                   <p className="mb-3">Each guardian's partial decryption M_i = A^s_i comes with a Chaum-Pedersen proof proving they used the correct secret key — without revealing s_i. This is what makes decryption independently verifiable.</p>
-                  <div className="bg-gray-900 text-green-300 rounded-xl p-4 font-mono text-xs">
-                    <div className="text-gray-500 mb-2">// Chaum-Pedersen discrete log equality proof</div>
+                  <div className="code-panel text-green-300 rounded-xl p-4 font-mono text-xs">
+                    <div className="text-dusk mb-2">// Chaum-Pedersen discrete log equality proof</div>
                     <div>Proves: DL_g(K_i) == DL_A(M_i)</div>
                     <div>I.e.: log_g(K_i) == log_A(M_i) == s_i</div>
                     <div className="mt-2">Witness: s_i (guardian secret key)</div>
                     <div>Public: g, A (encrypted tally), K_i (public key), M_i (partial decryption)</div>
-                    <div className="mt-2 text-gray-400">Non-interactive (Fiat-Shamir):</div>
+                    <div className="mt-2 text-dusk">Non-interactive (Fiat-Shamir):</div>
                     <div>u ← random; a = g^u; b = A^u</div>
                     <div>c = H(g, A, K_i, M_i, a, b)  // challenge</div>
                     <div>v = u − c·s_i mod q           // response</div>
@@ -304,7 +280,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 </div>
               </div>
               <div>
-                <div className="bg-green-50 border border-green-200 rounded-2xl p-5 mb-6">
+                <div className="bg-sage-soft border border-aurora/30 rounded-2xl p-5 mb-6">
                   <h3 className="font-bold text-green-900 mb-4">What Voters Can Verify</h3>
                   <div className="space-y-3 text-sm">
                     {[
@@ -315,17 +291,17 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       ["Ballot was valid", "Schnorr proof verifies selection ∈ {0,1}"],
                       ["Result is correct", "Discrete log of final decryption matches announced tally"],
                     ].map(([claim, how]) => (
-                      <div key={claim} className="flex items-start bg-white rounded-lg p-3 border border-green-100">
-                        <span className="text-green-600 mr-2 flex-shrink-0">✓</span>
-                        <div><strong className="text-green-900">{claim}:</strong> <span className="text-green-800">{how}</span></div>
+                      <div key={claim} className="flex items-start bg-paper rounded-lg p-3 border border-green-100">
+                        <span className="text-sage mr-2 flex-shrink-0">✓</span>
+                        <div><strong className="text-green-900">{claim}:</strong> <span className="text-aurora-muted">{how}</span></div>
                       </div>
                     ))}
                   </div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-900 mb-3">Third-Party Verification</h3>
-                  <p className="text-sm text-gray-700 mb-3">All cryptographic material is downloadable:</p>
-                  <ul className="space-y-1 text-sm text-gray-700">
+                <div className="bg-paper border border-ink/10 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-3">Third-Party Verification</h3>
+                  <p className="text-sm text-dusk mb-3">All cryptographic material is downloadable:</p>
+                  <ul className="space-y-1 text-sm text-dusk">
                     {[
                       "Election public key (combined K = ∏ K_i)",
                       "All encrypted ballots with Schnorr proofs",
@@ -334,10 +310,10 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       "All compensated shares with respective proofs",
                       "Final election result JSON",
                     ].map((item) => (
-                      <li key={item} className="flex items-start"><span className="mr-2 text-gray-400">📄</span>{item}</li>
+                      <li key={item} className="flex items-start"><span className="mr-2 text-dusk">📄</span>{item}</li>
                     ))}
                   </ul>
-                  <p className="text-xs text-gray-500 mt-3">Any auditor with the ElectionGuard verifier can re-run verification independently.</p>
+                  <p className="text-xs text-dusk mt-3">Any auditor with the ElectionGuard verifier can re-run verification independently.</p>
                 </div>
               </div>
             </div>
@@ -347,17 +323,17 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
         {/* ═══════════════════════ BENALOH ═══════════════════════ */}
         {activeTab === "benaloh" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Benaloh Challenge — Cast-or-Spoil Protocol</h2>
+            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Benaloh Challenge — Cast-or-Spoil Protocol</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div>
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 mb-6">
-                  <h3 className="font-bold text-amber-900 mb-3">Why Benaloh Challenge?</h3>
-                  <p className="text-amber-800 text-sm mb-3">A malicious client could show a voter an honest-looking ballot while actually encrypting a different choice (software attack). The Benaloh challenge solves this without compromising cast ballot secrecy.</p>
-                  <p className="text-amber-800 text-sm">Key insight: A ciphertext cannot both be correctly opened AND counted as a real vote. So challenging = spoiling = you must re-vote. But you've proven the system encrypts honestly.</p>
+                <div className="bg-ceremonial-soft border border-ceremonial/40 rounded-2xl p-5 mb-6">
+                  <h3 className="font-bold text-ink mb-3">Why Benaloh Challenge?</h3>
+                  <p className="text-ink text-sm mb-3">A malicious client could show a voter an honest-looking ballot while actually encrypting a different choice (software attack). The Benaloh challenge solves this without compromising cast ballot secrecy.</p>
+                  <p className="text-ink text-sm">Key insight: A ciphertext cannot both be correctly opened AND counted as a real vote. So challenging = spoiling = you must re-vote. But you've proven the system encrypts honestly.</p>
                 </div>
 
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-900 mb-4">Protocol Flow</h3>
+                <div className="bg-paper border border-ink/10 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-4">Protocol Flow</h3>
                   <div className="space-y-4">
                     {[
                       { n: "1", label: "Encryption", color: "blue", text: "Voter selects candidate. Frontend calls EG API to encrypt → receives (α, β) ciphertext pairs + Schnorr proof. Tracking code shown." },
@@ -367,10 +343,10 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       { n: "5", label: "If CAST", color: "green", text: "No nonce exposure. Ballot encrypted and counted. Tracking code recorded on public bulletin board. Voter cannot later demand nonce." },
                     ].map(({ n, label, color, text }) => (
                       <div key={n} className="flex items-start">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-white font-bold text-sm flex-shrink-0 mr-3 mt-0.5 ${color === "blue" ? "bg-blue-500" : color === "yellow" ? "bg-yellow-500" : color === "orange" ? "bg-orange-500" : color === "red" ? "bg-red-500" : "bg-green-500"}`}>{n}</div>
+                        <div className={`w-8 h-8 rounded-full flex items-center justify-center text-paper font-bold text-sm flex-shrink-0 mr-3 mt-0.5 ${color === "blue" ? "bg-brand-dark" : color === "yellow" ? "bg-ceremonial" : color === "orange" ? "bg-ceremonial" : color === "red" ? "bg-ember" : "bg-aurora"}`}>{n}</div>
                         <div>
-                          <div className="font-semibold text-gray-900 text-sm">{label}</div>
-                          <p className="text-gray-600 text-sm">{text}</p>
+                          <div className="font-semibold text-ink text-sm">{label}</div>
+                          <p className="text-dusk text-sm">{text}</p>
                         </div>
                       </div>
                     ))}
@@ -378,8 +354,8 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 </div>
               </div>
               <div>
-                <div className="bg-gray-900 rounded-2xl p-6 font-mono text-xs text-gray-300 mb-6">
-                  <div className="text-green-400 font-bold mb-3">// Benaloh Soundness Guarantee</div>
+                <div className="code-panel rounded-2xl p-6 font-mono text-xs text-dusk-soft mb-6">
+                  <div className="text-aurora font-bold mb-3">// Benaloh Soundness Guarantee</div>
                   <pre className="whitespace-pre-wrap leading-relaxed">{`// Any software that encrypts dishonestly faces a dilemma:
 
 // Case 1: Voter challenges every ballot
@@ -402,10 +378,10 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
 // Only available BEFORE cast decision
 // Challenge = automatic spoil; voter must re-encrypt`}</pre>
                 </div>
-                <div className="bg-purple-50 border border-purple-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-purple-900 mb-3">Auditability of Spoiled Ballots</h3>
-                  <p className="text-purple-800 text-sm mb-3">All spoiled (challenged) ballots are recorded on the public bulletin board with their nonces. This creates a public audit trail proving the system encrypted honestly during the election period.</p>
-                  <div className="space-y-2 text-sm text-purple-700">
+                <div className="bg-glacier border border-brand/25 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-3">Auditability of Spoiled Ballots</h3>
+                  <p className="text-ink text-sm mb-3">All spoiled (challenged) ballots are recorded on the public bulletin board with their nonces. This creates a public audit trail proving the system encrypted honestly during the election period.</p>
+                  <div className="space-y-2 text-sm text-brand-dark">
                     <div>• Spoiled ballot: (α, β, ξ, m_actual) all public</div>
                     <div>• Verify: α == g^ξ mod p ✓</div>
                     <div>• Verify: β == g^m_actual · K^ξ mod p ✓</div>
@@ -420,12 +396,12 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
         {/* ═══════════════════════ AUTH ═══════════════════════ */}
         {activeTab === "auth" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Authentication & Access Control</h2>
+            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Authentication & Access Control</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="space-y-5">
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-900 mb-4">OTP Passwordless Authentication</h3>
-                  <div className="space-y-3 text-sm text-gray-700">
+                <div className="bg-paper border border-ink/10 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-4">OTP Passwordless Authentication</h3>
+                  <div className="space-y-3 text-sm text-dusk">
                     {[
                       ["6-digit code", "Generated via Java SecureRandom — cryptographically random"],
                       ["5-minute TTL", "Stored in DB with expiry; server rejects expired OTPs"],
@@ -435,27 +411,27 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       ["No password", "Users never create passwords; eliminates credential stuffing vectors"],
                     ].map(([k, v]) => (
                       <div key={k} className="flex items-start">
-                        <span className="font-semibold text-blue-700 w-28 flex-shrink-0">{k}</span>
+                        <span className="font-semibold text-brand-dark w-28 flex-shrink-0">{k}</span>
                         <span>{v}</span>
                       </div>
                     ))}
                   </div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-900 mb-4">JWT Session Architecture</h3>
-                  <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs text-gray-300 mb-3">
-                    <div className="text-yellow-300">// JWT Payload</div>
+                <div className="bg-paper border border-ink/10 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-4">JWT Session Architecture</h3>
+                  <div className="code-panel rounded-xl p-4 font-mono text-xs text-dusk-soft mb-3">
+                    <div className="text-ceremonial">// JWT Payload</div>
                     <div>{`{`}</div>
-                    <div>  <span className="text-blue-300">"sub"</span>: <span className="text-green-300">"user@example.com"</span>,</div>
-                    <div>  <span className="text-blue-300">"role"</span>: <span className="text-green-300">"VOTER" | "GUARDIAN" | "ADMIN"</span>,</div>
-                    <div>  <span className="text-blue-300">"iat"</span>: <span className="text-orange-300">1704067200</span>,</div>
-                    <div>  <span className="text-blue-300">"exp"</span>: <span className="text-orange-300">1704672000</span> <span className="text-gray-500">// iat + 7 days</span></div>
+                    <div>  <span className="text-brand-light">"sub"</span>: <span className="text-green-300">"user@example.com"</span>,</div>
+                    <div>  <span className="text-brand-light">"role"</span>: <span className="text-green-300">"VOTER" | "GUARDIAN" | "ADMIN"</span>,</div>
+                    <div>  <span className="text-brand-light">"iat"</span>: <span className="text-ceremonial">1704067200</span>,</div>
+                    <div>  <span className="text-brand-light">"exp"</span>: <span className="text-ceremonial">1704672000</span> <span className="text-dusk">// iat + 7 days</span></div>
                     <div>{`}`}</div>
-                    <div className="mt-2 text-gray-500">// Signed with HMAC-SHA256</div>
-                    <div className="text-gray-500">// Stored as HttpOnly cookie (not accessible to JS)</div>
-                    <div className="text-gray-500">// Spring Security validates on every request</div>
+                    <div className="mt-2 text-dusk">// Signed with HMAC-SHA256</div>
+                    <div className="text-dusk">// Stored as HttpOnly cookie (not accessible to JS)</div>
+                    <div className="text-dusk">// Spring Security validates on every request</div>
                   </div>
-                  <div className="space-y-2 text-sm text-gray-700">
+                  <div className="space-y-2 text-sm text-dusk">
                     <div><strong>Library:</strong> JJWT 0.12.6</div>
                     <div><strong>Duration:</strong> 7 days</div>
                     <div><strong>Storage:</strong> HttpOnly cookie (XSS-safe)</div>
@@ -464,21 +440,21 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 </div>
               </div>
               <div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-5 mb-5">
-                  <h3 className="font-bold text-gray-900 mb-4">Role-Based Access Control</h3>
+                <div className="bg-paper border border-ink/10 rounded-2xl p-5 mb-5">
+                  <h3 className="font-bold text-ink mb-4">Role-Based Access Control</h3>
                   <div className="space-y-4">
                     {[
                       { role: "VOTER", perms: ["Browse public elections", "View eligible restricted elections", "Cast ballots (one per election)", "Check ballot tracking code", "View election results"], endpoints: ["/elections/**", "/ballot/cast", "/ballot/track"] },
                       { role: "GUARDIAN", perms: ["All voter permissions", "Submit credential file for decryption", "Marked decrypted_or_not after contribution"], endpoints: ["/guardian/submit-key", "/guardian/decrypt/**"] },
                       { role: "ADMIN", perms: ["All guardian permissions", "Create/edit elections", "Upload images (Cloudinary)", "Manage voter eligibility lists", "Initiate tally and combine operations", "View API audit logs"], endpoints: ["/admin/**", "/election/create", "/election/tally"] },
                     ].map(({ role, perms, endpoints }) => (
-                      <div key={role} className="bg-gray-50 rounded-xl p-4 border border-gray-200">
-                        <div className="font-bold text-gray-900 mb-2 font-mono">{role}</div>
+                      <div key={role} className="bg-frost rounded-xl p-4 border border-ink/10">
+                        <div className="font-bold text-ink mb-2 font-mono">{role}</div>
                         <ul className="space-y-1 mb-2">
-                          {perms.map((p) => <li key={p} className="text-sm text-gray-700 flex items-start"><span className="mr-1.5 text-green-500">✓</span>{p}</li>)}
+                          {perms.map((p) => <li key={p} className="text-sm text-dusk flex items-start"><span className="mr-1.5 text-green-500">✓</span>{p}</li>)}
                         </ul>
                         <div className="flex flex-wrap gap-1">
-                          {endpoints.map((e) => <span key={e} className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded font-mono text-xs">{e}</span>)}
+                          {endpoints.map((e) => <span key={e} className="px-2 py-0.5 bg-glacier text-brand-dark rounded font-mono text-xs">{e}</span>)}
                         </div>
                       </div>
                     ))}
@@ -492,26 +468,26 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
         {/* ═══════════════════════ TRANSPORT ═══════════════════════ */}
         {activeTab === "transport" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Ballot Transport Security</h2>
+            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Ballot Transport Security</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="space-y-6">
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-900 mb-4">PKCS#7 Ballot Padding</h3>
-                  <p className="text-gray-700 text-sm mb-3">All ballot submission HTTP requests are padded to a fixed size using PKCS#7 padding. This prevents traffic-analysis attacks where an adversary monitors request sizes to infer vote distribution.</p>
-                  <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs text-gray-300">
-                    <div className="text-green-400 mb-2">// Without padding (VULNERABLE):</div>
-                    <div className="text-red-400">POST /ballot &#123; size: 1024 &#125;  → "Candidate A" (small)</div>
-                    <div className="text-red-400">POST /ballot &#123; size: 2048 &#125;  → "Candidate B" (large)</div>
-                    <div className="mt-3 text-green-400">// With PKCS#7 padding (SAFE):</div>
+                <div className="bg-paper border border-ink/10 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-4">PKCS#7 Ballot Padding</h3>
+                  <p className="text-dusk text-sm mb-3">All ballot submission HTTP requests are padded to a fixed size using PKCS#7 padding. This prevents traffic-analysis attacks where an adversary monitors request sizes to infer vote distribution.</p>
+                  <div className="code-panel rounded-xl p-4 font-mono text-xs text-dusk-soft">
+                    <div className="text-aurora mb-2">// Without padding (VULNERABLE):</div>
+                    <div className="text-ember">POST /ballot &#123; size: 1024 &#125;  → "Candidate A" (small)</div>
+                    <div className="text-ember">POST /ballot &#123; size: 2048 &#125;  → "Candidate B" (large)</div>
+                    <div className="mt-3 text-aurora">// With PKCS#7 padding (SAFE):</div>
                     <div className="text-green-300">POST /ballot &#123; size: 65536 &#125; → any candidate</div>
                     <div className="text-green-300">POST /ballot &#123; size: 65536 &#125; → any candidate</div>
-                    <div className="mt-2 text-gray-500">// Attacker cannot distinguish between choices</div>
+                    <div className="mt-2 text-dusk">// Attacker cannot distinguish between choices</div>
                   </div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-900 mb-4">Bot Detection — FingerprintJS BotD 1.9.1</h3>
-                  <p className="text-gray-700 text-sm mb-3">The React frontend runs FingerprintJS Bot Detection before rendering the ballot page. The result + a timestamp is included in the ballot submission and validated server-side.</p>
-                  <div className="space-y-2 text-sm text-gray-700">
+                <div className="bg-paper border border-ink/10 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-4">Bot Detection — FingerprintJS BotD 1.9.1</h3>
+                  <p className="text-dusk text-sm mb-3">The React frontend runs FingerprintJS Bot Detection before rendering the ballot page. The result + a timestamp is included in the ballot submission and validated server-side.</p>
+                  <div className="space-y-2 text-sm text-dusk">
                     {[
                       ["BotD signal", "js bot score (0–1) + isBot flag"],
                       ["Server validation", "Spring Boot checks isBot == false"],
@@ -521,7 +497,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       ["Why both?", "Bot flag catches automation; timestamp prevents replay attacks"],
                     ].map(([k, v]) => (
                       <div key={k} className="flex items-start">
-                        <span className="font-semibold text-purple-700 min-w-36 flex-shrink-0">{k}:</span>
+                        <span className="font-semibold text-brand-dark min-w-36 flex-shrink-0">{k}:</span>
                         <span>{v}</span>
                       </div>
                     ))}
@@ -529,22 +505,22 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 </div>
               </div>
               <div className="space-y-5">
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-900 mb-4">msgpack Binary Serialization</h3>
-                  <p className="text-gray-700 text-sm mb-3">4096-bit integers (ElGamal ciphertexts) have extremely large JSON string representations. msgpack stores them as compact binary sequences, providing 10–50× size reduction and faster (de)serialization.</p>
-                  <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs text-gray-300 mb-3">
-                    <div className="text-red-400">JSON: "alpha": "123456...1024_digit_number"</div>
-                    <div className="text-red-400">Size: ~1234 bytes per ciphertext pair</div>
-                    <div className="mt-2 text-green-400">msgpack: \x08\x10\xf9...\x12</div>
-                    <div className="text-green-400">Size: ~514 bytes per ciphertext pair</div>
-                    <div className="mt-2 text-gray-500">Library: jackson-dataformat-msgpack 0.9.8 (Java)</div>
-                    <div className="text-gray-500">         msgpack-python (Python workers)</div>
+                <div className="bg-paper border border-ink/10 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-4">msgpack Binary Serialization</h3>
+                  <p className="text-dusk text-sm mb-3">4096-bit integers (ElGamal ciphertexts) have extremely large JSON string representations. msgpack stores them as compact binary sequences, providing 10–50× size reduction and faster (de)serialization.</p>
+                  <div className="code-panel rounded-xl p-4 font-mono text-xs text-dusk-soft mb-3">
+                    <div className="text-ember">JSON: "alpha": "123456...1024_digit_number"</div>
+                    <div className="text-ember">Size: ~1234 bytes per ciphertext pair</div>
+                    <div className="mt-2 text-aurora">msgpack: \x08\x10\xf9...\x12</div>
+                    <div className="text-aurora">Size: ~514 bytes per ciphertext pair</div>
+                    <div className="mt-2 text-dusk">Library: jackson-dataformat-msgpack 0.9.8 (Java)</div>
+                    <div className="text-dusk">         msgpack-python (Python workers)</div>
                   </div>
                 </div>
-                <div className="bg-white border border-gray-200 rounded-2xl p-5">
-                  <h3 className="font-bold text-gray-900 mb-4">API Audit Logging</h3>
-                  <p className="text-gray-700 text-sm mb-3">API access metadata (method, path, status, IP, user email, timing) is logged to the api_logs table for admin audit. JWTs and request bodies are never stored; logs are purged after 90 days.</p>
-                  <div className="space-y-2 text-sm text-gray-700">
+                <div className="bg-paper border border-ink/10 rounded-2xl p-5">
+                  <h3 className="font-bold text-ink mb-4">API Audit Logging</h3>
+                  <p className="text-dusk text-sm mb-3">API access metadata (method, path, status, IP, user email, timing) is logged to the api_logs table for admin audit. JWTs and request bodies are never stored; logs are purged after 90 days.</p>
+                  <div className="space-y-2 text-sm text-dusk">
                     <div><strong>Table:</strong> api_log</div>
                     <div><strong>Fields:</strong> method, path, status_code, execution_ms, user_email, IP, timestamp</div>
                     <div><strong>Admin view:</strong> /api-logs page in admin dashboard (paginated)</div>

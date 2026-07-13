@@ -326,96 +326,96 @@ const AuthenticatedUsers = () => {
       return (
         <div key={row.authorizedUserId} className="p-4 space-y-3">
           {canManage ? (
-            <label className="inline-flex items-center gap-2 text-sm text-gray-600">
+          <label className="inline-flex items-center gap-2 text-sm text-dusk">
               <input
                 type="checkbox"
                 checked={isSelected}
                 disabled={!rowEditable || busy}
                 onChange={() => toggleUserSelection(row.authorizedUserId)}
-                className="rounded border-gray-300"
+                className="av-checkbox"
               />
               Select
             </label>
           ) : null}
           <div>
-            <p className="text-xs text-gray-500">Email</p>
-            <p className="text-sm font-semibold text-gray-900 break-all">{row.email}</p>
+            <p className="text-xs text-dusk">Email</p>
+            <p className="text-sm font-semibold text-ink break-all">{row.email}</p>
           </div>
           <div className="grid grid-cols-2 gap-3 text-sm">
             <div>
-              <p className="text-xs text-gray-500 mb-1">User Type</p>
+              <p className="text-xs text-dusk mb-1">User Type</p>
               {rowEditable ? (
                 <select
                   disabled={busy}
                   value={row.userType}
                   onChange={(e) => handleRoleChange(row, e.target.value)}
-                  className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm"
+                  className="input-field w-full py-2 text-sm"
                 >
                   <option value="user">user</option>
                   <option value="admin">admin</option>
                   {canAssignOwner ? <option value="owner">owner</option> : null}
                 </select>
               ) : (
-                <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.userType === "owner" ? "bg-purple-100 text-purple-700" : row.userType === "admin" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
+                <span className={`inline-flex text-xs px-2 py-1 rounded-xl ${row.userType === "owner" ? "bg-glacier text-brand-dark" : row.userType === "admin" ? "bg-ceremonial-soft text-ink" : "bg-frost text-ink"}`}>
                   {row.userType}
                 </span>
               )}
             </div>
             <div>
-              <p className="text-xs text-gray-500 mb-1">Registered</p>
-              <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.registeredOrNot ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
+              <p className="text-xs text-dusk mb-1">Registered</p>
+              <span className={`inline-flex text-xs px-2 py-1 rounded-xl ${row.registeredOrNot ? "bg-glacier text-brand-dark" : "bg-frost text-ink"}`}>
                 {row.registeredOrNot ? "Registered" : "Not Registered"}
               </span>
             </div>
           </div>
           <div className="grid grid-cols-1 gap-3 text-sm">
             <div>
-              <p className="text-xs text-gray-500 mb-1">API Log Viewer Allowed</p>
+              <p className="text-xs text-dusk mb-1">API Log Viewer Allowed</p>
               {rowEditable ? (
                 <select
                   disabled={busy}
                   value={row.apiLogViewerAllowed ? "yes" : "no"}
                   onChange={(e) => handleApiLogViewerAllowedChange(row, e.target.value === "yes")}
-                  className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm"
+                  className="input-field w-full py-2 text-sm"
                 >
                   <option value="yes">Yes</option>
                   <option value="no">No</option>
                 </select>
               ) : (
-                <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.apiLogViewerAllowed ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+                <span className={`inline-flex text-xs px-2 py-1 rounded-xl ${row.apiLogViewerAllowed ? "bg-sage-soft text-sage" : "bg-frost text-ink"}`}>
                   {row.apiLogViewerAllowed ? "Yes" : "No"}
                 </span>
               )}
             </div>
             <div>
-              <p className="text-xs text-gray-500 mb-1">Can Create Elections</p>
+              <p className="text-xs text-dusk mb-1">Can Create Elections</p>
               {rowEditable ? (
                 <select
                   disabled={busy}
                   value={row.canCreateElections ? "yes" : "no"}
                   onChange={(e) => handleCanCreateElectionsChange(row, e.target.value === "yes")}
-                  className="w-full rounded-lg border border-gray-300 px-2.5 py-2 text-sm"
+                  className="input-field w-full py-2 text-sm"
                 >
                   <option value="yes">Yes</option>
                   <option value="no">No</option>
                 </select>
               ) : (
-                <span className={`inline-flex text-xs px-2 py-1 rounded-full ${row.canCreateElections ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-700"}`}>
+                <span className={`inline-flex text-xs px-2 py-1 rounded-xl ${row.canCreateElections ? "bg-sage-soft text-sage" : "bg-frost text-ink"}`}>
                   {row.canCreateElections ? "Yes" : "No"}
                 </span>
               )}
             </div>
           </div>
           <div>
-            <p className="text-xs text-gray-500 mb-1">Last Active</p>
-            <p className="text-sm text-gray-700">{row.lastActive ? timezoneUtils.formatDateTime(row.lastActive) : "-"}</p>
+            <p className="text-xs text-dusk mb-1">Last Active</p>
+            <p className="text-sm text-ink">{row.lastActive ? timezoneUtils.formatDateTime(row.lastActive) : "-"}</p>
           </div>
         </div>
       );
     }
 
     return (
-      <tr key={row.authorizedUserId} className="hover:bg-gray-50/60">
+      <tr key={row.authorizedUserId} className="hover:bg-glacier/50 transition-colors">
         {canManage ? (
           <td className="px-4 py-3">
             <input
@@ -423,30 +423,30 @@ const AuthenticatedUsers = () => {
               checked={isSelected}
               disabled={!rowEditable || busy}
               onChange={() => toggleUserSelection(row.authorizedUserId)}
-              className="rounded border-gray-300"
+              className="av-checkbox"
             />
           </td>
         ) : null}
-        <td className="px-4 py-3 text-sm text-gray-900">{row.email}</td>
+        <td className="px-4 py-3 text-sm font-medium text-ink">{row.email}</td>
         <td className="px-4 py-3">
           {rowEditable ? (
             <select
               disabled={busy}
               value={row.apiLogViewerAllowed ? "yes" : "no"}
               onChange={(e) => handleApiLogViewerAllowedChange(row, e.target.value === "yes")}
-              className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm"
+              className="input-field py-1.5 text-sm"
             >
               <option value="yes">Yes</option>
               <option value="no">No</option>
             </select>
           ) : (
-            <span className={`text-xs px-2 py-1 rounded-full ${row.apiLogViewerAllowed ? "bg-green-100 text-green-700" : "bg-gray-100 text-gray-700"}`}>
+            <span className={`text-xs px-2 py-1 rounded-xl ${row.apiLogViewerAllowed ? "bg-sage-soft text-sage" : "bg-frost text-ink"}`}>
               {row.apiLogViewerAllowed ? "Yes" : "No"}
             </span>
           )}
         </td>
         <td className="px-4 py-3">
-          <span className={`text-xs px-2 py-1 rounded-full ${row.registeredOrNot ? "bg-blue-100 text-blue-700" : "bg-gray-100 text-gray-700"}`}>
+          <span className={`text-xs px-2 py-1 rounded-xl ${row.registeredOrNot ? "bg-glacier text-brand-dark" : "bg-frost text-ink"}`}>
             {row.registeredOrNot ? "Registered" : "Not Registered"}
           </span>
         </td>
@@ -456,14 +456,14 @@ const AuthenticatedUsers = () => {
               disabled={busy}
               value={row.userType}
               onChange={(e) => handleRoleChange(row, e.target.value)}
-              className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm"
+              className="input-field py-1.5 text-sm"
             >
               <option value="user">user</option>
               <option value="admin">admin</option>
               {canAssignOwner ? <option value="owner">owner</option> : null}
             </select>
           ) : (
-            <span className={`text-xs px-2 py-1 rounded-full ${row.userType === "owner" ? "bg-purple-100 text-purple-700" : row.userType === "admin" ? "bg-amber-100 text-amber-700" : "bg-gray-100 text-gray-700"}`}>
+            <span className={`text-xs px-2 py-1 rounded-xl ${row.userType === "owner" ? "bg-glacier text-brand-dark" : row.userType === "admin" ? "bg-ceremonial-soft text-ink" : "bg-frost text-ink"}`}>
               {row.userType}
             </span>
           )}
@@ -474,80 +474,87 @@ const AuthenticatedUsers = () => {
               disabled={busy}
               value={row.canCreateElections ? "yes" : "no"}
               onChange={(e) => handleCanCreateElectionsChange(row, e.target.value === "yes")}
-              className="rounded-lg border border-gray-300 px-2.5 py-1.5 text-sm"
+              className="input-field py-1.5 text-sm"
             >
               <option value="yes">Yes</option>
               <option value="no">No</option>
             </select>
           ) : (
-            <span className={`text-xs px-2 py-1 rounded-full ${row.canCreateElections ? "bg-emerald-100 text-emerald-700" : "bg-gray-100 text-gray-700"}`}>
+            <span className={`text-xs px-2 py-1 rounded-xl ${row.canCreateElections ? "bg-sage-soft text-sage" : "bg-frost text-ink"}`}>
               {row.canCreateElections ? "Yes" : "No"}
             </span>
           )}
         </td>
-        <td className="px-4 py-3 text-sm text-gray-700">{row.lastActive ? timezoneUtils.formatDateTime(row.lastActive) : "-"}</td>
+        <td className="px-4 py-3 text-sm text-dusk">{row.lastActive ? timezoneUtils.formatDateTime(row.lastActive) : "-"}</td>
       </tr>
     );
   };
 
   return (
-    <div className="max-w-[1800px] mx-auto py-4 sm:py-8 px-3 sm:px-6 lg:px-8">
+    <div className="min-h-screen bg-frost-mesh">
+    <div className="page-enter max-w-[1800px] mx-auto py-4 sm:py-8 px-3 sm:px-6 lg:px-8">
       {accessDenied || (!loading && !canManage && error) ? (
-        <div className="bg-white rounded-2xl shadow-sm border border-red-200 p-8 text-center max-w-lg mx-auto">
-          <FiShield className="h-12 w-12 text-red-500 mx-auto mb-4" />
-          <h1 className="text-xl font-bold text-gray-900 mb-2">Access Restricted</h1>
-          <p className="text-gray-600 text-sm">
+        <div className="glass-panel p-8 text-center max-w-lg mx-auto">
+          <FiShield className="h-12 w-12 text-ember mx-auto mb-4" />
+          <p className="section-kicker text-ember">Restricted workspace</p>
+          <h1 className="font-display text-2xl font-bold text-ink mb-2">Access Restricted</h1>
+          <p className="text-dusk text-sm">
             The Authenticated Users page is only available to app owners and administrators.
           </p>
         </div>
       ) : (
-      <div className="bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <div className="bg-gradient-to-r from-slate-800 via-blue-800 to-indigo-800 p-6 text-white">
+      <div className="surface-card overflow-hidden">
+        <div className="relative overflow-hidden bg-deep p-6 text-paper">
+          <div className="absolute -right-12 -top-16 h-56 w-56 rounded-full bg-brand/20 blur-3xl" />
+          <div className="absolute bottom-0 left-1/4 h-24 w-80 rounded-full bg-glacier/10 blur-3xl" />
+          <div className="relative">
           <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
             <div>
-              <h1 className="text-2xl font-bold flex items-center gap-2">
-                <FiUsers className="h-6 w-6" />
+              <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Access control</p>
+              <h1 className="font-display text-3xl font-bold flex items-center gap-3">
+                <span className="flex h-11 w-11 items-center justify-center rounded-2xl bg-brand shadow-brand"><FiUsers className="h-5 w-5" /></span>
                 Authenticated Users
               </h1>
-              <p className="text-sm text-blue-100 mt-1">
+              <p className="text-sm text-dusk-soft mt-1">
                 Manage authorized users, roles, and registration settings. Admin and owner only.
               </p>
             </div>
             <button
               type="button"
               onClick={loadAll}
-              className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-3 py-2 bg-white/15 hover:bg-white/25 rounded-xl text-sm font-semibold"
+              className="btn-ghost inline-flex items-center justify-center gap-2 w-full sm:w-auto border-white/20 bg-paper/10 text-paper hover:bg-paper/20"
             >
               <FiRefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} />
               Refresh
             </button>
           </div>
-          <div className="mt-4 text-xs text-blue-100 flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-4">
-            <span>Current role: {currentUserType}</span>
-            <span>Can manage: {canManage ? "Yes" : "No"}</span>
+          <div className="mt-5 flex flex-wrap gap-2 text-xs">
+            <span className="rounded-xl border border-white/15 bg-paper/10 px-3 py-1.5 text-frost">Current role: {currentUserType}</span>
+            <span className="rounded-xl border border-white/15 bg-paper/10 px-3 py-1.5 text-frost">Management access: {canManage ? "Enabled" : "Read only"}</span>
+          </div>
           </div>
         </div>
 
         {canManage ? (
-          <div className="p-5 border-b border-gray-200 space-y-4 bg-gray-50/50">
+          <div className="p-5 border-b border-ink/10 space-y-4 bg-frost/60">
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
               <form onSubmit={handleAddUser} className="flex flex-col sm:flex-row sm:flex-wrap gap-2 items-stretch sm:items-end">
                 <div className="flex-1 min-w-[220px]">
-                  <label className="block text-xs text-gray-600 mb-1">Add User Email</label>
+                  <label className="block text-xs text-dusk mb-1">Add User Email</label>
                   <input
                     type="email"
                     value={newUserEmail}
                     onChange={(e) => setNewUserEmail(e.target.value)}
                     required
-                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                  className="input-field w-full py-2 text-sm"
                   />
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-600 mb-1">Role</label>
+                  <label className="block text-xs text-dusk mb-1">Role</label>
                   <select
                     value={newUserType}
                     onChange={(e) => setNewUserType(e.target.value)}
-                    className="px-3 py-2 border border-gray-300 rounded-lg text-sm bg-white"
+                    className="input-field py-2 text-sm"
                   >
                     <option value="user">user</option>
                     <option value="admin">admin</option>
@@ -556,14 +563,14 @@ const AuthenticatedUsers = () => {
                 </div>
                 <button
                   type="submit"
-                  className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-3 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium hover:bg-blue-700"
+                  className="btn-brand inline-flex items-center justify-center gap-2 w-full sm:w-auto"
                 >
                   <FiUserPlus className="h-4 w-4" /> Add
                 </button>
               </form>
               <div>
-                <label className="block text-xs text-gray-600 mb-1">Bulk Add via CSV</label>
-                <label className="inline-flex items-center justify-center gap-2 w-full sm:w-auto px-3 py-2 border border-blue-300 text-blue-700 rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-50 bg-white">
+                <label className="block text-xs text-dusk mb-1">Bulk Add via CSV</label>
+                <label className="btn-ghost inline-flex cursor-pointer items-center justify-center gap-2 w-full sm:w-auto">
                   <FiUpload className="h-4 w-4" />
                   {uploadingCsv ? "Uploading..." : "Upload CSV"}
                   <input type="file" accept=".csv,text/csv" onChange={handleCsvUpload} className="hidden" />
@@ -571,32 +578,33 @@ const AuthenticatedUsers = () => {
               </div>
             </div>
 
-            <div className="rounded-xl border border-indigo-200 bg-indigo-50 p-3">
-              <h3 className="text-sm font-semibold text-indigo-800 mb-2">Permission Settings</h3>
+            <div className="glass-panel rounded-2xl border-brand/20 p-4">
+              <p className="section-kicker">Policy controls</p>
+              <h3 className="text-sm font-semibold text-ink mb-3">Permission Settings</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
-                  <label className="block text-xs text-indigo-700 mb-1">Permission to Register</label>
+                  <label className="block text-xs text-ink mb-1">Permission to Register</label>
                   <select
                     value={settings.registrationOpenToAll ? "all" : "authenticated"}
                     onChange={(e) => setSettings((prev) => ({
                       ...prev,
                       registrationOpenToAll: e.target.value === "all",
                     }))}
-                    className="w-full rounded-lg border border-indigo-300 px-2.5 py-2 text-sm bg-white"
+                    className="input-field w-full py-2 text-sm"
                   >
                     <option value="all">Allow all emails</option>
                     <option value="authenticated">Allow only authenticated users</option>
                   </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-indigo-700 mb-1">Permission to Create Elections</label>
+                  <label className="block text-xs text-ink mb-1">Permission to Create Elections</label>
                   <select
                     value={settings.electionCreationPermissionScope || "all_admins_owners"}
                     onChange={(e) => setSettings((prev) => ({
                       ...prev,
                       electionCreationPermissionScope: e.target.value,
                     }))}
-                    className="w-full rounded-lg border border-indigo-300 px-2.5 py-2 text-sm bg-white"
+                    className="input-field w-full py-2 text-sm"
                   >
                     <option value="all_users">All users</option>
                     <option value="all_authenticated_users">All authenticated users</option>
@@ -609,7 +617,7 @@ const AuthenticatedUsers = () => {
                 <button
                   type="button"
                   onClick={handlePermissionSettingsSave}
-                  className="w-full sm:w-auto px-3 py-2 rounded-lg bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700"
+                  className="btn-deep w-full sm:w-auto"
                 >
                   Save Permission Settings
                 </button>
@@ -619,28 +627,28 @@ const AuthenticatedUsers = () => {
         ) : null}
 
         {error ? (
-          <div className="m-4 bg-red-50 border border-red-200 rounded-xl px-4 py-3 text-red-700 text-sm flex items-center gap-2">
+          <div className="m-4 bg-ember-soft border border-ember/30 rounded-2xl px-4 py-3 text-ember text-sm flex items-center gap-2">
             <FiAlertCircle className="h-4 w-4" />
             <span>{error}</span>
           </div>
         ) : null}
 
         {success ? (
-          <div className="m-4 bg-green-50 border border-green-200 rounded-xl px-4 py-3 text-green-700 text-sm flex items-center gap-2">
+          <div className="m-4 bg-sage-soft border border-sage/20 rounded-2xl px-4 py-3 text-sage text-sm flex items-center gap-2">
             <FiCheckCircle className="h-4 w-4" />
             <span>{success}</span>
           </div>
         ) : null}
 
-        <div className="border-b border-gray-200 px-5 pt-4">
+        <div className="border-b border-ink/10 bg-paper/60 px-5 pt-4">
           <div className="flex gap-2">
             <button
               type="button"
               onClick={() => setActiveTab("users")}
               className={`px-4 py-2.5 text-sm font-semibold rounded-t-xl border-b-2 transition ${
                 activeTab === "users"
-                  ? "border-blue-600 text-blue-700 bg-blue-50"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-brand text-brand-dark bg-glacier"
+                  : "border-transparent text-dusk hover:text-ink hover:bg-frost"
               }`}
             >
               <span className="inline-flex items-center gap-2">
@@ -652,8 +660,8 @@ const AuthenticatedUsers = () => {
               onClick={() => setActiveTab("logs")}
               className={`px-4 py-2.5 text-sm font-semibold rounded-t-xl border-b-2 transition ${
                 activeTab === "logs"
-                  ? "border-blue-600 text-blue-700 bg-blue-50"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-brand text-brand-dark bg-glacier"
+                  : "border-transparent text-dusk hover:text-dusk"
               }`}
             >
               <span className="inline-flex items-center gap-2">
@@ -667,32 +675,32 @@ const AuthenticatedUsers = () => {
           <div className="p-5 space-y-4">
             <form onSubmit={handleUserSearch} className="flex flex-col sm:flex-row gap-2">
               <div className="relative flex-1">
-                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-dusk h-4 w-4" />
                 <input
                   type="text"
                   value={searchInput}
                   onChange={(e) => setSearchInput(e.target.value)}
                   placeholder="Search by email..."
-                  className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm"
+                  className="input-field w-full py-2.5 pl-10 pr-4 text-sm"
                 />
               </div>
               <button
                 type="submit"
-                className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700"
+                className="btn-brand inline-flex items-center justify-center gap-2 px-4 py-2.5"
               >
                 <FiSearch className="h-4 w-4" /> Search
               </button>
             </form>
 
-            <div className="flex flex-wrap items-center gap-4">
-              <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Filter by role</span>
+            <div className="glass-panel flex flex-wrap items-center gap-3 rounded-2xl p-3">
+              <span className="text-xs font-semibold text-dusk uppercase tracking-wide">Filter by role</span>
               {ROLE_OPTIONS.map(({ id, label }) => (
-                <label key={id} className="inline-flex items-center gap-2 text-sm text-gray-700">
+                <label key={id} className="inline-flex items-center gap-2 rounded-xl bg-frost px-3 py-2 text-sm text-ink">
                   <input
                     type="checkbox"
                     checked={roleFilters[id]}
                     onChange={() => toggleRoleFilter(id)}
-                    className="rounded border-gray-300"
+                    className="av-checkbox"
                   />
                   {label}
                 </label>
@@ -700,14 +708,14 @@ const AuthenticatedUsers = () => {
             </div>
 
             {canManage ? (
-              <div className="flex flex-wrap items-center gap-3 py-2 border-y border-gray-100">
-                <label className="inline-flex items-center gap-2 text-sm text-gray-700">
+              <div className="flex flex-wrap items-center gap-3 rounded-2xl border border-ink/10 bg-frost/50 p-3">
+                <label className="inline-flex items-center gap-2 text-sm text-dusk">
                   <input
                     type="checkbox"
                     checked={allSelectableSelected}
                     onChange={toggleSelectAllUsers}
                     disabled={selectableUsers.length === 0 || deleting}
-                    className="rounded border-gray-300"
+                    className="av-checkbox"
                   />
                   Select all on this page
                 </label>
@@ -715,7 +723,7 @@ const AuthenticatedUsers = () => {
                   type="button"
                   onClick={handleBulkDelete}
                   disabled={selectedUserIds.size === 0 || deleting}
-                  className="inline-flex items-center gap-2 px-3 py-2 rounded-lg bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-50"
+                  className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-ember text-paper text-sm font-medium hover:bg-ember disabled:opacity-50"
                 >
                   <FiTrash2 className="h-4 w-4" />
                   {deleting ? "Deleting..." : `Delete selected (${selectedUserIds.size})`}
@@ -723,11 +731,11 @@ const AuthenticatedUsers = () => {
               </div>
             ) : null}
 
-            <div className="md:hidden divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
+            <div className="surface-card md:hidden divide-y divide-ink/5 overflow-hidden">
               {loading ? (
-                <div className="px-4 py-8 text-sm text-gray-500 text-center">Loading users...</div>
+                <div className="px-4 py-8 text-sm text-dusk text-center">Loading users...</div>
               ) : users.length === 0 ? (
-                <div className="px-4 py-8 text-sm text-gray-500 text-center">
+                <div className="px-4 py-8 text-sm text-dusk text-center">
                   {noRoleFiltersSelected ? "Select at least one role filter." : "No users match your search."}
                 </div>
               ) : (
@@ -735,37 +743,37 @@ const AuthenticatedUsers = () => {
               )}
             </div>
 
-            <div className="hidden md:block overflow-x-auto border border-gray-200 rounded-xl">
-              <table className="min-w-full divide-y divide-gray-200">
-                <thead className="bg-gray-50">
+            <div className="hidden md:block overflow-x-auto rounded-2xl border border-ink/10">
+              <table className="min-w-full divide-y divide-slate-200">
+                <thead className="bg-frost">
                   <tr>
                     {canManage ? (
-                      <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide w-10">
+                      <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide w-10">
                         <input
                           type="checkbox"
                           checked={allSelectableSelected}
                           onChange={toggleSelectAllUsers}
                           disabled={selectableUsers.length === 0 || deleting}
-                          className="rounded border-gray-300"
+                          className="av-checkbox"
                         />
                       </th>
                     ) : null}
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Email</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">API Log Viewer</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Registered</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">User Type</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Can Create Elections</th>
-                    <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Last Active</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide">Email</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide">API Log Viewer</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide">Registered</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide">User Type</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide">Can Create Elections</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide">Last Active</th>
                   </tr>
                 </thead>
-                <tbody className="bg-white divide-y divide-gray-100">
+                <tbody className="bg-paper divide-y divide-ink/5">
                   {loading ? (
                     <tr>
-                      <td colSpan={canManage ? 7 : 6} className="px-4 py-8 text-sm text-gray-500 text-center">Loading users...</td>
+                      <td colSpan={canManage ? 7 : 6} className="px-4 py-8 text-sm text-dusk text-center">Loading users...</td>
                     </tr>
                   ) : users.length === 0 ? (
                     <tr>
-                      <td colSpan={canManage ? 7 : 6} className="px-4 py-8 text-sm text-gray-500 text-center">
+                      <td colSpan={canManage ? 7 : 6} className="px-4 py-8 text-sm text-dusk text-center">
                         {noRoleFiltersSelected ? "Select at least one role filter." : "No users match your search."}
                       </td>
                     </tr>
@@ -777,7 +785,7 @@ const AuthenticatedUsers = () => {
             </div>
 
             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-dusk">
                 Showing {usersRangeStart}–{usersRangeEnd} of {usersTotal}
               </p>
               <div className="flex gap-2">
@@ -785,7 +793,7 @@ const AuthenticatedUsers = () => {
                   type="button"
                   onClick={() => setUsersPage((p) => Math.max(0, p - 1))}
                   disabled={usersPage === 0 || loading}
-                  className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50"
+                  className="btn-ghost inline-flex items-center gap-1 px-4 py-2 disabled:opacity-50"
                 >
                   <FiChevronLeft className="h-4 w-4" /> Previous 50
                 </button>
@@ -793,7 +801,7 @@ const AuthenticatedUsers = () => {
                   type="button"
                   onClick={() => setUsersPage((p) => p + 1)}
                   disabled={!usersHasNext || loading}
-                  className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50"
+                  className="btn-brand inline-flex items-center gap-1 px-4 py-2 disabled:opacity-50"
                 >
                   Next 50 <FiChevronRight className="h-4 w-4" />
                 </button>
@@ -803,76 +811,76 @@ const AuthenticatedUsers = () => {
         ) : (
           <div className="p-5 space-y-4">
             {!canManage ? (
-              <div className="px-4 py-8 text-sm text-gray-500 text-center border border-gray-200 rounded-xl">
+              <div className="glass-panel px-4 py-8 text-sm text-dusk text-center">
                 Only admin and owner can view action history.
               </div>
             ) : (
               <>
                 <form onSubmit={handleLogsSearch} className="flex flex-col sm:flex-row gap-2">
                   <div className="relative flex-1">
-                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 h-4 w-4" />
+                    <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-dusk h-4 w-4" />
                     <input
                       type="text"
                       value={logsSearchInput}
                       onChange={(e) => setLogsSearchInput(e.target.value)}
                       placeholder="Search logs by actor, target, action, or details..."
-                      className="w-full pl-10 pr-4 py-2.5 border border-gray-300 rounded-xl text-sm"
+                      className="input-field w-full py-2.5 pl-10 pr-4 text-sm"
                     />
                   </div>
                   <button
                     type="submit"
-                    className="inline-flex items-center justify-center gap-2 px-4 py-2.5 bg-blue-600 text-white rounded-xl text-sm font-medium hover:bg-blue-700"
+                    className="btn-brand inline-flex items-center justify-center gap-2 px-4 py-2.5"
                   >
                     <FiSearch className="h-4 w-4" /> Search
                   </button>
                 </form>
 
-                <div className="md:hidden divide-y divide-gray-100 border border-gray-200 rounded-xl overflow-hidden">
+                <div className="surface-card md:hidden divide-y divide-ink/5 overflow-hidden">
                   {loading ? (
-                    <div className="px-4 py-8 text-sm text-gray-500 text-center">Loading logs...</div>
+                    <div className="px-4 py-8 text-sm text-dusk text-center">Loading logs...</div>
                   ) : auditLogs.length === 0 ? (
-                    <div className="px-4 py-8 text-sm text-gray-500 text-center">No actions logged yet.</div>
+                    <div className="px-4 py-8 text-sm text-dusk text-center">No actions logged yet.</div>
                   ) : (
                     auditLogs.map((log) => (
                       <div key={log.auditLogId} className="p-4 space-y-2">
-                        <div className="text-xs text-gray-500">{log.createdAt ? timezoneUtils.formatDateTime(log.createdAt) : "-"}</div>
-                        <div className="text-sm font-semibold text-gray-900 break-words">{log.actionType}</div>
-                        <div className="text-sm text-gray-700 break-all">Actor: {log.actorEmail || "-"}</div>
-                        <div className="text-sm text-gray-700 break-all">Target: {log.targetEmail || "-"}</div>
-                        <div className="text-sm text-gray-700">{log.details || "-"}</div>
+                        <div className="text-xs text-dusk">{log.createdAt ? timezoneUtils.formatDateTime(log.createdAt) : "-"}</div>
+                        <div className="text-sm font-semibold text-ink break-words">{log.actionType}</div>
+                        <div className="text-sm text-dusk break-all">Actor: {log.actorEmail || "-"}</div>
+                        <div className="text-sm text-dusk break-all">Target: {log.targetEmail || "-"}</div>
+                        <div className="text-sm text-dusk">{log.details || "-"}</div>
                       </div>
                     ))
                   )}
                 </div>
 
-                <div className="hidden md:block overflow-x-auto border border-gray-200 rounded-xl">
-                  <table className="min-w-full divide-y divide-gray-200">
-                    <thead className="bg-gray-50">
+                <div className="hidden md:block overflow-x-auto rounded-2xl border border-ink/10">
+                  <table className="min-w-full divide-y divide-slate-200">
+                    <thead className="bg-frost">
                       <tr>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Time</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Action</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Actor</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Target</th>
-                        <th className="px-4 py-3 text-left text-xs font-semibold text-gray-600 uppercase tracking-wide">Details</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide">Time</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide">Action</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide">Actor</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide">Target</th>
+                        <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide">Details</th>
                       </tr>
                     </thead>
-                    <tbody className="bg-white divide-y divide-gray-100">
+                    <tbody className="bg-paper divide-y divide-ink/5">
                       {loading ? (
                         <tr>
-                          <td colSpan={5} className="px-4 py-8 text-sm text-gray-500 text-center">Loading logs...</td>
+                          <td colSpan={5} className="px-4 py-8 text-sm text-dusk text-center">Loading logs...</td>
                         </tr>
                       ) : auditLogs.length === 0 ? (
                         <tr>
-                          <td colSpan={5} className="px-4 py-8 text-sm text-gray-500 text-center">No actions logged yet.</td>
+                          <td colSpan={5} className="px-4 py-8 text-sm text-dusk text-center">No actions logged yet.</td>
                         </tr>
                       ) : (
                         auditLogs.map((log) => (
-                          <tr key={log.auditLogId} className="hover:bg-gray-50/60">
-                            <td className="px-4 py-3 text-sm text-gray-700">{log.createdAt ? timezoneUtils.formatDateTime(log.createdAt) : "-"}</td>
-                            <td className="px-4 py-3 text-sm font-semibold text-gray-900">{log.actionType}</td>
-                            <td className="px-4 py-3 text-sm text-gray-700">{log.actorEmail}</td>
-                            <td className="px-4 py-3 text-sm text-gray-700">{log.targetEmail}</td>
-                            <td className="px-4 py-3 text-sm text-gray-700">{log.details || "-"}</td>
+                          <tr key={log.auditLogId} className="hover:bg-glacier/50 transition-colors">
+                            <td className="px-4 py-3 text-sm text-dusk">{log.createdAt ? timezoneUtils.formatDateTime(log.createdAt) : "-"}</td>
+                            <td className="px-4 py-3 text-sm font-semibold text-ink">{log.actionType}</td>
+                            <td className="px-4 py-3 text-sm text-dusk">{log.actorEmail}</td>
+                            <td className="px-4 py-3 text-sm text-dusk">{log.targetEmail}</td>
+                            <td className="px-4 py-3 text-sm text-dusk">{log.details || "-"}</td>
                           </tr>
                         ))
                       )}
@@ -881,7 +889,7 @@ const AuthenticatedUsers = () => {
                 </div>
 
                 <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pt-2">
-                  <p className="text-sm text-gray-600">
+                  <p className="text-sm text-dusk">
                     Showing {logsRangeStart}–{logsRangeEnd} of {logsTotal}
                   </p>
                   <div className="flex gap-2">
@@ -889,7 +897,7 @@ const AuthenticatedUsers = () => {
                       type="button"
                       onClick={() => setLogsPage((p) => Math.max(0, p - 1))}
                       disabled={logsPage === 0 || loading}
-                      className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium border border-gray-300 rounded-xl hover:bg-gray-50 disabled:opacity-50"
+                      className="btn-ghost inline-flex items-center gap-1 px-4 py-2 disabled:opacity-50"
                     >
                       <FiChevronLeft className="h-4 w-4" /> Previous 50
                     </button>
@@ -897,7 +905,7 @@ const AuthenticatedUsers = () => {
                       type="button"
                       onClick={() => setLogsPage((p) => p + 1)}
                       disabled={!logsHasNext || loading}
-                      className="inline-flex items-center gap-1 px-4 py-2 text-sm font-medium bg-blue-600 text-white rounded-xl hover:bg-blue-700 disabled:opacity-50"
+                      className="btn-brand inline-flex items-center gap-1 px-4 py-2 disabled:opacity-50"
                     >
                       Next 50 <FiChevronRight className="h-4 w-4" />
                     </button>
@@ -909,6 +917,7 @@ const AuthenticatedUsers = () => {
         )}
       </div>
       )}
+    </div>
     </div>
   );
 };

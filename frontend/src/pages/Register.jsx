@@ -1,6 +1,7 @@
 import React, { useState } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useNavigate, Link, useSearchParams } from "react-router-dom";
 import Layout from "./Layout";
+import BrandMark from "../components/BrandMark";
 import OtpInput from "../components/OtpInput";
 import PasswordInput from "../components/PasswordInput";
 import TurnstileWidget from "../components/TurnstileWidget";
@@ -8,9 +9,13 @@ import useCaptchaConfig from "../hooks/useCaptchaConfig";
 import { formatPasswordErrors, getPasswordValidationErrors } from "../utils/passwordUtils";
 import { buildEmailCodePayload, getAuthErrorMessage, readAuthResponse, resolveAuthErrorMessage } from "../utils/authApi";
 import { getApiErrorMessage } from "../utils/httpErrors";
+import { buildAuthUrl, consumeReturnPath, readReturnPath } from "../utils/authRedirect";
 
 export default function Register({ setUserEmail }) {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
+  const returnPath = readReturnPath(searchParams);
+  const loginHref = returnPath ? buildAuthUrl(returnPath, "login") : "/login";
   const { loading: captchaLoading, required: captchaRequired } = useCaptchaConfig();
 
   const [step, setStep] = useState(1);
@@ -26,6 +31,10 @@ export default function Register({ setUserEmail }) {
   const [error, setError] = useState("");
   const [info, setInfo] = useState("");
   const [loading, setLoading] = useState(false);
+
+  const goAfterAuth = () => {
+    navigate(consumeReturnPath(searchParams), { replace: true });
+  };
 
   const resetCaptcha = () => {
     setCaptchaToken("");
@@ -157,7 +166,7 @@ export default function Register({ setUserEmail }) {
 
       if (data.status === "REGISTERED_NO_MFA") {
         if (setUserEmail) setUserEmail(email);
-        navigate("/dashboard");
+        goAfterAuth();
         return;
       }
 
@@ -199,7 +208,7 @@ export default function Register({ setUserEmail }) {
       }
 
       if (setUserEmail) setUserEmail(email);
-      navigate("/dashboard");
+      goAfterAuth();
     } catch (err) {
       setError(getApiErrorMessage(err));
     } finally {
@@ -214,29 +223,55 @@ export default function Register({ setUserEmail }) {
 
   return (
     <Layout>
-      <div className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-10">
-        <div className="mx-auto max-w-lg rounded-2xl border border-blue-100 bg-white p-8 shadow-lg">
-          <h1 className="text-2xl font-bold text-gray-900">
-            {step === 1 && "Create your AmarVote account"}
-            {step === 2 && "Verify your email"}
-            {step === 3 && "Set your password"}
-            {step === 4 && "Complete Google Authenticator setup"}
-          </h1>
-          <p className="mt-2 text-sm text-gray-600">
-            {step === 1 && "Enter your email to receive a 6-digit verification code."}
-            {step === 2 && `Enter the 6-digit code sent to ${email}.`}
-            {step === 3 && "Create and confirm your password. 2FA is optional and can be enabled later in Profile."}
-            {step === 4 && "Scan the QR code with Google Authenticator, then enter the 6-digit code."}
-          </p>
+      <div className="relative flex min-h-[calc(100dvh-4rem)] items-center justify-center overflow-hidden bg-frost-mesh px-4 py-10 sm:py-14">
+        <div className="pointer-events-none absolute -left-24 top-20 h-64 w-64 rounded-full bg-brand/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-16 bottom-16 h-72 w-72 rounded-full bg-brand-light/15 blur-3xl" />
+
+        <div className="glass-panel relative z-10 mx-auto w-full max-w-md p-6 sm:p-8 animate-fade-up">
+          <div className="mb-2 text-center">
+            <div className="mb-4 flex justify-center">
+              <BrandMark size="lg" className="shadow-brand" />
+            </div>
+            <p className="section-kicker">Join AmarVote</p>
+            <h1 className="mt-2 font-display text-2xl font-bold text-deep sm:text-3xl">
+              {step === 1 && "Create your account"}
+              {step === 2 && "Verify your email"}
+              {step === 3 && "Set your password"}
+              {step === 4 && "Secure with authenticator"}
+            </h1>
+            <p className="mt-2 text-sm text-dusk">
+              {returnPath
+                ? "Complete registration and we’ll bring you back to the election."
+                : null}
+              {!returnPath && step === 1 && "Enter your email to receive a 6-digit verification code."}
+              {!returnPath && step === 2 && `Enter the 6-digit code sent to ${email}.`}
+              {!returnPath && step === 3 && "Create a strong password. MFA can be enabled later in Profile."}
+              {!returnPath && step === 4 && "Scan the QR code, then enter the 6-digit authenticator code."}
+              {returnPath && step === 1 && " Enter your email to receive a verification code."}
+              {returnPath && step === 2 && ` Enter the code sent to ${email}.`}
+              {returnPath && step === 3 && " Set a password to finish."}
+              {returnPath && step === 4 && " Confirm your authenticator to finish."}
+            </p>
+            <div className="mt-4 flex items-center justify-center gap-1.5" aria-label={`Step ${step} of 4`}>
+              {[1, 2, 3, 4].map((n) => (
+                <span
+                  key={n}
+                  className={`h-1.5 rounded-full transition-all ${
+                    n === step ? "w-6 bg-brand" : n < step ? "w-4 bg-brand/50" : "w-3 bg-ink/10"
+                  }`}
+                />
+              ))}
+            </div>
+          </div>
 
           {error && (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mt-4 rounded-xl border border-ember/30 bg-ember-soft px-4 py-3 text-sm text-ember">
               {error}
             </div>
           )}
 
           {info && (
-            <div className="mt-4 rounded-lg border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">
+            <div className="mt-4 rounded-xl border border-brand/20 bg-glacier px-4 py-3 text-sm text-brand-dark">
               {info}
             </div>
           )}
@@ -249,7 +284,8 @@ export default function Register({ setUserEmail }) {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                className="input-field"
+                autoComplete="email"
               />
 
               <TurnstileWidget
@@ -261,14 +297,14 @@ export default function Register({ setUserEmail }) {
               <button
                 type="submit"
                 disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="btn-brand w-full py-3 shadow-brand"
               >
                 {loading ? "Sending code..." : "Send verification code"}
               </button>
 
-              <p className="text-center text-sm text-gray-600">
+              <p className="text-center text-sm text-dusk">
                 Already registered?{" "}
-                <Link className="font-semibold text-blue-600 hover:underline" to="/login">
+                <Link className="link-brand font-semibold" to={loginHref}>
                   Sign in
                 </Link>
               </p>
@@ -287,7 +323,7 @@ export default function Register({ setUserEmail }) {
               <button
                 type="submit"
                 disabled={loading || emailCode.replace(/\D/g, "").length !== 6}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="btn-brand w-full py-3 shadow-brand"
               >
                 {loading ? "Verifying..." : "Verify email"}
               </button>
@@ -302,7 +338,7 @@ export default function Register({ setUserEmail }) {
                 type="button"
                 onClick={handleSendEmailCode}
                 disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+                className="btn-ghost w-full"
               >
                 Resend code
               </button>
@@ -328,10 +364,10 @@ export default function Register({ setUserEmail }) {
                 showValidation={confirmPassword.length > 0 && password !== confirmPassword}
               />
               {confirmPassword && password !== confirmPassword && (
-                <p className="text-xs text-red-600">Password and confirm password do not match.</p>
+                <p className="text-xs text-ember">Password and confirm password do not match.</p>
               )}
 
-              <div className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-3 text-sm text-blue-900">
+              <div className="rounded-lg border border-brand/20 bg-glacier px-3 py-3 text-sm text-deep">
                 <strong>Why 2FA is important:</strong> it protects your account even if your password is exposed.
                 Create your account first, then go to your profile after login to enable 2FA.
               </div>
@@ -339,7 +375,7 @@ export default function Register({ setUserEmail }) {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="btn-brand w-full py-3 shadow-brand"
               >
                 {loading ? "Creating account..." : "Create account"}
               </button>
@@ -349,17 +385,17 @@ export default function Register({ setUserEmail }) {
           {step === 4 && (
             <form className="mt-6 space-y-6" onSubmit={handleConfirmSetup}>
               {qrCodeDataUri ? (
-                <div className="rounded-xl border border-gray-200 bg-gray-50 p-4">
+                <div className="rounded-xl border border-ink/10 bg-frost p-4">
                   <img src={qrCodeDataUri} alt="AmarVote MFA QR" className="mx-auto h-56 w-56" />
                 </div>
               ) : null}
 
-              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              <div className="rounded-lg border border-ceremonial/40 bg-ceremonial-soft px-4 py-3 text-sm text-ink">
                 Scan this QR code with your Google Authenticator app, then enter the 6-digit code below.
               </div>
 
               {secret ? (
-                <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-xs text-gray-700">
+                <div className="rounded-xl border border-ink/10 bg-frost px-4 py-3 text-xs text-ink">
                   Manual secret: <span className="font-mono font-semibold">{secret}</span>
                 </div>
               ) : null}
@@ -374,7 +410,7 @@ export default function Register({ setUserEmail }) {
               <button
                 type="submit"
                 disabled={loading || otpCode.replace(/\D/g, "").length !== 6}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="btn-brand w-full py-3 shadow-brand"
               >
                 {loading ? "Verifying..." : "Finish registration"}
               </button>

@@ -14,10 +14,12 @@ import {
   FiBell,
   FiUsers,
 } from "react-icons/fi";
+import BrandMark, { BrandWordmark } from "../components/BrandMark";
 import { electionApi } from "../utils/electionApi";
 import { ElectionsProvider, useElections } from "../context/ElectionsContext";
 import { timezoneUtils } from "../utils/timezoneUtils";
 import { HTTP_ERROR_KIND } from "../utils/httpErrors";
+import { buildAuthUrl, pathFromLocation, rememberReturnPath } from "../utils/authRedirect";
 
 const AuthenticatedLayout = ({ userEmail, setUserEmail, sessionError, onRetrySession }) => (
   <ElectionsProvider userEmail={userEmail}>
@@ -54,6 +56,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
   };
 
   const isWidePage = location.pathname === "/api-logs" || location.pathname === "/authenticated-users";
+  const isElectionPage = location.pathname.includes("/election-page");
 
   const closeMobileMenu = () => {
     setMobileMenuOpen(false);
@@ -163,16 +166,16 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
 
   const getElectionStatus = (election) => {
     if (!election?.startingTime || !election?.endingTime) {
-      return { text: 'Key Ceremony', color: 'text-purple-600' };
+      return { text: 'Key Ceremony', color: 'text-brand-dark' };
     }
 
     const now = new Date();
     const startTime = new Date(election.startingTime);
     const endTime = new Date(election.endingTime);
 
-    if (now < startTime) return { text: 'Upcoming', color: 'text-blue-600' };
-    if (now > endTime) return { text: 'Ended', color: 'text-gray-600' };
-    return { text: 'Active', color: 'text-green-600' };
+    if (now < startTime) return { text: 'Upcoming', color: 'text-brand' };
+    if (now > endTime) return { text: 'Ended', color: 'text-dusk' };
+    return { text: 'Active', color: 'text-sage' };
   };
 
   useEffect(() => {
@@ -320,8 +323,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
       localStorage.removeItem("email");
       localStorage.setItem("logout", Date.now());
 
-      // Redirect to OTP login
-      navigate("/otp-login");
+      // Redirect to login
+      navigate("/login");
     } catch (err) {
       console.error("Logout error:", err);
       alert("Failed to logout. Please try again.");
@@ -349,39 +352,53 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
 
   if (!userEmail) {
     const isSessionExpired = !sessionError || sessionError?.kind === HTTP_ERROR_KIND.SESSION_EXPIRED;
-    const title = sessionError?.title || "Session expired";
-    const message = sessionError?.message || "Please sign in again to continue.";
+    const title = sessionError?.title || "Sign in required";
+    const message = sessionError?.message || "Please sign in to continue to this page.";
     const showRetry = sessionError && !isSessionExpired && typeof onRetrySession === "function";
+    const returnPath = pathFromLocation(location);
+    if (returnPath) rememberReturnPath(returnPath);
+    const loginHref = returnPath ? buildAuthUrl(returnPath, "login") : "/login";
+    const registerHref = returnPath ? buildAuthUrl(returnPath, "register") : "/register";
 
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-50">
-        <div className="text-center p-8 bg-white rounded-xl shadow-lg max-w-md w-full mx-4">
-          <div className={`w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 ${
-            isSessionExpired ? "bg-blue-100" : "bg-amber-100"
-          }`}>
-            <FiLogOut className={`text-2xl ${isSessionExpired ? "text-blue-600" : "text-amber-600"}`} />
+      <div className="flex min-h-screen items-center justify-center bg-frost-mesh px-4">
+        <div className="glass-panel w-full max-w-md p-8 text-center animate-fade-up">
+          <div className="mb-5 flex justify-center">
+            <BrandMark size="lg" />
           </div>
-          <h2 className="text-2xl font-bold text-gray-800 mb-2">
+          <div className={`mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full ${
+            isSessionExpired ? "bg-glacier" : "bg-ceremonial-soft"
+          }`}>
+            <FiLogOut className={`text-xl ${isSessionExpired ? "text-brand" : "text-ink"}`} />
+          </div>
+          <h2 className="font-display text-2xl font-bold text-deep">
             {title}
           </h2>
-          <p className="text-gray-600 mb-6">{message}</p>
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+          <p className="mt-2 text-dusk">{message}</p>
+          {returnPath?.includes("/election-page/") && (
+            <p className="mt-3 rounded-xl bg-glacier/70 px-3 py-2 text-sm text-brand-dark">
+              After you sign in or register, we’ll bring you back to this election.
+            </p>
+          )}
+          <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             {showRetry && (
               <button
                 type="button"
                 onClick={() => onRetrySession()}
-                className="inline-flex items-center justify-center px-6 py-3 border border-gray-300 text-base font-medium rounded-full shadow-sm text-gray-700 bg-white hover:bg-gray-50 transition-all duration-200"
+                className="btn-ghost"
               >
                 Try again
               </button>
             )}
             {isSessionExpired && (
-              <Link
-                to="/otp-login"
-                className="inline-flex items-center justify-center px-6 py-3 border border-transparent text-base font-medium rounded-full shadow-sm text-white bg-blue-600 hover:bg-blue-700 transition-all duration-200"
-              >
-                Go to Login
-              </Link>
+              <>
+                <Link to={loginHref} className="btn-brand">
+                  Sign in
+                </Link>
+                <Link to={registerHref} className="btn-ghost">
+                  Create account
+                </Link>
+              </>
             )}
           </div>
         </div>
@@ -390,9 +407,9 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Top Navigation Bar */}
-      <header className="bg-white/95 backdrop-blur-lg shadow-lg border-b border-white/20 sticky top-0 z-40">
+    <div className="app-shell min-h-screen">
+      {/* Top Navigation Bar — Deep Space encrypted header */}
+      <header className="nav-deep sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-3 sm:px-6 lg:px-8">
           <div className="flex justify-between h-12 sm:h-14 md:h-16 items-center gap-2 sm:gap-3">
             <div className="flex-shrink-0">
@@ -406,7 +423,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
 
                   setMobileMenuOpen(true);
                 }}
-                className="inline-flex items-center justify-center p-2 rounded-xl text-gray-500 hover:text-gray-700 hover:bg-gray-100 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all duration-200"
+                className="inline-flex items-center justify-center p-2 rounded-xl text-dusk-soft hover:text-paper hover:bg-paper/10 focus:outline-none focus:ring-2 focus:ring-brand transition-all duration-200"
                 aria-label="Toggle menu"
               >
                 {mobileMenuOpen ? (
@@ -417,13 +434,12 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               </button>
             </div>
 
-            <Link to="/dashboard" className="flex-shrink-0 flex items-center group">
-              <div className="w-7 h-7 sm:w-8 sm:h-8 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-md group-hover:shadow-lg transition-all duration-300 group-hover:scale-105">
-                <span className="text-white text-sm sm:text-base font-bold">🗳️</span>
-              </div>
-              <span className="ml-1.5 sm:ml-2 text-xs sm:text-sm font-bold bg-gradient-to-r from-gray-900 to-blue-800 bg-clip-text text-transparent">
-                AmarVote
-              </span>
+            <Link to="/dashboard" className="group flex flex-shrink-0 items-center gap-1.5 sm:gap-2">
+              <BrandMark
+                size="sm"
+                className="transition duration-300 group-hover:scale-105 group-hover:shadow-brand sm:h-8 sm:w-8"
+              />
+              <BrandWordmark light className="hidden text-sm xs:inline sm:text-base" />
             </Link>
 
             {/* Search Bar */}
@@ -431,14 +447,14 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               <div className="w-full max-w-3xl relative mx-auto" ref={searchRef}>
                 <form onSubmit={handleSearchSubmit} className="relative">
                   <div className="absolute inset-y-0 left-0 pl-2.5 sm:pl-3 flex items-center pointer-events-none">
-                    <FiSearch className="h-4 w-4 sm:h-5 sm:w-5 text-gray-400" />
+                    <FiSearch className="h-4 w-4 sm:h-5 sm:w-5 text-dusk" />
                   </div>
                   <input
                     type="text"
                     placeholder="Search elections..."
                     value={searchQuery}
                     onChange={handleSearchInputChange}
-                    className="block w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2.5 border border-gray-200/80 rounded-xl sm:rounded-2xl leading-5 bg-white/80 backdrop-blur-sm placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 focus:border-blue-400 text-xs sm:text-sm transition-all duration-300 shadow-sm hover:shadow-md"
+                    className="block w-full pl-8 sm:pl-10 pr-3 sm:pr-4 py-1.5 sm:py-2.5 border border-white/15 rounded-xl sm:rounded-2xl leading-5 bg-paper/10 text-paper placeholder:text-dusk-soft focus:outline-none focus:ring-2 focus:ring-brand/50 focus:border-brand/60 focus:bg-paper/15 text-xs sm:text-sm transition-all duration-300"
                   />
                 </form>
 
@@ -446,7 +462,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                 {showSuggestions && searchSuggestions.length > 0 && (
                   <div
                     ref={suggestionsRef}
-                    className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl max-h-80 overflow-y-auto"
+                    className="absolute z-50 w-full mt-2 bg-paper/95 backdrop-blur-lg border border-ink/10/50 rounded-2xl shadow-2xl max-h-80 overflow-y-auto"
                   >
                     {searchSuggestions.map((election) => {
                       const status = getElectionStatus(election);
@@ -454,21 +470,21 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                         <div
                           key={election.electionId}
                           onClick={() => handleElectionSelect(election.electionId)}
-                          className="p-4 hover:bg-gray-50 cursor-pointer border-b border-gray-100 last:border-b-0 transition-colors duration-150"
+                          className="p-4 hover:bg-frost cursor-pointer border-b border-ink/10 last:border-b-0 transition-colors duration-150"
                         >
                           <div className="flex items-start justify-between">
                             <div className="flex-1 min-w-0">
-                              <h4 className="text-sm font-medium text-gray-900 truncate">
+                              <h4 className="text-sm font-medium text-ink truncate">
                                 {election.electionTitle}
                               </h4>
-                              <p className="text-xs text-gray-500 mt-1 overflow-hidden" style={{
+                              <p className="text-xs text-dusk mt-1 overflow-hidden" style={{
                                 display: '-webkit-box',
                                 WebkitLineClamp: 2,
                                 WebkitBoxOrient: 'vertical'
                               }}>
                                 {election.electionDescription}
                               </p>
-                              <div className="flex items-center mt-2 space-x-3 text-xs text-gray-400">
+                              <div className="flex items-center mt-2 space-x-3 text-xs text-dusk">
                                 <div className="flex items-center">
                                   <FiCalendar className="h-3 w-3 mr-1" />
                                   <span>{formatDate(election.startingTime)}</span>
@@ -484,8 +500,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                                 {status.text}
                               </span>
                               <span className={`text-xs px-2 py-1 rounded-full mt-1 ${election.isPublic
-                                ? 'bg-green-100 text-green-700'
-                                : 'bg-orange-100 text-orange-700'
+                                ? 'bg-sage-soft text-sage'
+                                : 'bg-ceremonial-soft text-ink'
                                 }`}>
                                 {election.isPublic ? 'Public' : 'Private'}
                               </span>
@@ -499,8 +515,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
 
                 {/* No Results Message */}
                 {showSuggestions && searchQuery.trim() && searchSuggestions.length === 0 && !isLoadingElections && (
-                  <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl">
-                    <div className="p-4 text-center text-gray-500 text-sm">
+                  <div className="absolute z-50 w-full mt-2 bg-paper/95 backdrop-blur-lg border border-ink/10/50 rounded-2xl shadow-2xl">
+                    <div className="p-4 text-center text-dusk text-sm">
                       No elections found matching "{searchQuery}"
                     </div>
                   </div>
@@ -508,8 +524,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
 
                 {/* Loading Message */}
                 {isLoadingElections && searchQuery.trim() && (
-                  <div className="absolute z-50 w-full mt-2 bg-white/95 backdrop-blur-lg border border-gray-200/50 rounded-2xl shadow-2xl">
-                    <div className="p-4 text-center text-gray-500 text-sm">
+                  <div className="absolute z-50 w-full mt-2 bg-paper/95 backdrop-blur-lg border border-ink/10/50 rounded-2xl shadow-2xl">
+                    <div className="p-4 text-center text-dusk text-sm">
                       <FiSearch className="h-4 w-4 animate-spin mx-auto mb-1" />
                       Searching elections...
                     </div>
@@ -523,13 +539,13 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               <button
                 type="button"
                 onClick={() => navigate('/profile')}
-                className="flex flex-col items-center p-1 sm:p-1.5 rounded-xl sm:rounded-2xl bg-gray-50/80 hover:bg-gray-100/90 transition-all"
+                className="flex flex-col items-center p-1 sm:p-1.5 rounded-xl sm:rounded-2xl hover:bg-paper/10 transition-all"
                 title="Open profile"
               >
-                <div className="w-7 h-7 sm:w-9 sm:h-9 bg-gradient-to-br from-blue-100 to-indigo-200 rounded-xl sm:rounded-2xl flex items-center justify-center shadow-sm">
-                  <FiUser className="text-blue-600 h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
+                <div className="w-7 h-7 sm:w-9 sm:h-9 bg-paper/10 border border-white/15 rounded-xl sm:rounded-2xl flex items-center justify-center">
+                  <FiUser className="text-brand-light h-3.5 w-3.5 sm:h-4.5 sm:w-4.5" />
                 </div>
-                <span className="hidden md:block text-xs font-medium text-gray-700 mt-1 max-w-[100px] truncate">
+                <span className="hidden md:block text-xs font-medium text-dusk-soft mt-1 max-w-[100px] truncate">
                   {userEmail || 'User'}
                 </span>
               </button>
@@ -544,28 +560,26 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
         className="fixed inset-0 z-50 transition-all duration-300 pointer-events-auto"
       >
         <div
-          className="absolute inset-0 bg-slate-900/45 backdrop-blur-[2px] transition-opacity duration-300 opacity-100"
+          className="absolute inset-0 bg-deep/45 backdrop-blur-[2px] transition-opacity duration-300 opacity-100"
           onClick={closeMobileMenu}
         />
         <aside
-          className="absolute left-0 top-0 h-full w-[88vw] max-w-sm sm:max-w-md bg-white/95 backdrop-blur-xl border-r border-blue-100 shadow-2xl transition-transform duration-300 ease-out translate-x-0"
+          className="absolute left-0 top-0 h-full w-[88vw] max-w-sm sm:max-w-md bg-deep text-paper shadow-2xl transition-transform duration-300 ease-out translate-x-0"
           onClick={(e) => e.stopPropagation()}
         >
           <div className="h-full flex flex-col">
-            <div className="px-4 sm:px-5 py-4 border-b border-blue-100 flex items-center justify-between">
+            <div className="px-4 sm:px-5 py-4 border-b border-white/10 flex items-center justify-between">
               <Link to="/dashboard" onClick={closeMobileMenu} className="flex items-center gap-3 group">
-                <div className="w-9 h-9 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-md group-hover:scale-105 transition-transform">
-                  <span className="text-white text-base font-bold">🗳️</span>
-                </div>
+                <BrandMark className="transition duration-300 group-hover:scale-105" />
                 <div>
-                  <p className="text-sm font-semibold text-slate-900">AmarVote</p>
-                  <p className="text-xs text-slate-500">Navigation</p>
+                  <p className="font-display text-sm font-semibold text-paper">AmarVote</p>
+                  <p className="text-xs text-dusk">Menu</p>
                 </div>
               </Link>
               <button
                 type="button"
                 onClick={closeMobileMenu}
-                className="p-2 rounded-xl text-slate-500 hover:text-slate-700 hover:bg-slate-100"
+                className="p-2 rounded-xl text-dusk hover:text-paper hover:bg-paper/10"
                 aria-label="Close menu"
               >
                 <FiX className="h-5 w-5" />
@@ -576,9 +590,9 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
             <Link
               to="/dashboard"
               onClick={closeMobileMenu}
-              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium shadow-sm ${isActiveRoute('/dashboard')
-                  ? 'text-blue-700 bg-blue-50/80'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+              className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/dashboard')
+                  ? 'text-paper bg-brand/15'
+                  : 'text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300'
                 }`}
             >
               <FiHome className="h-5 w-5" />
@@ -589,8 +603,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               to="/all-elections"
               onClick={closeMobileMenu}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/all-elections')
-                  ? 'text-blue-700 bg-blue-50/80'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+                  ? 'text-paper bg-brand/15'
+                  : 'text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300'
                 }`}
             >
               <FiBarChart2 className="h-5 w-5" />
@@ -602,8 +616,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                 to="/create-election"
                 onClick={closeMobileMenu}
                 className={`mt-2 mb-2 flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium shadow-md ${isActiveRoute('/create-election')
-                    ? 'text-white bg-gradient-to-r from-green-600 to-emerald-700'
-                    : 'text-white bg-gradient-to-r from-green-500 to-emerald-600'
+                    ? 'text-paper bg-brand-glow shadow-brand'
+                    : 'text-paper bg-brand-dark hover:bg-brand'
                   }`}
               >
                 <FiPlus className="h-5 w-5" />
@@ -619,8 +633,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                     handleApiLogsAccess();
                   }}
                   className={`flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/api-logs')
-                      ? 'text-blue-700 bg-blue-50/80'
-                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+                      ? 'text-paper bg-brand/15'
+                      : 'text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300'
                     }`}
                 >
                   <FiBarChart2 className="h-5 w-5" />
@@ -631,8 +645,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                   to="/authenticated-users"
                   onClick={closeMobileMenu}
                   className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/authenticated-users')
-                      ? 'text-blue-700 bg-blue-50/80'
-                      : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+                      ? 'text-paper bg-brand/15'
+                      : 'text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300'
                     }`}
                 >
                   <FiUsers className="h-5 w-5" />
@@ -645,8 +659,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               to="/profile"
               onClick={closeMobileMenu}
               className={`flex items-center space-x-3 px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/profile')
-                  ? 'text-blue-700 bg-blue-50/80'
-                  : 'text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300'
+                  ? 'text-paper bg-brand/15'
+                  : 'text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300'
                 }`}
             >
               <FiUser className="h-5 w-5" />
@@ -657,32 +671,32 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               <button
                 type="button"
                 onClick={() => setShowGuardianAttention((prev) => !prev)}
-                className="w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm sm:text-base font-medium text-gray-600 hover:text-gray-800 hover:bg-gray-50/80 transition-all duration-300"
+                className="w-full flex items-center justify-between px-4 py-3 rounded-2xl text-sm sm:text-base font-medium text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300"
               >
                 <span className="flex items-center space-x-3">
                   <FiBell className="h-5 w-5" />
                   <span>Guardian Notifications</span>
                 </span>
                 {guardianAttentionItems.length > 0 ? (
-                  <span className="bg-red-500 text-white text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[22px] text-center">
+                  <span className="bg-ember text-paper text-[10px] font-bold rounded-full px-2 py-0.5 min-w-[22px] text-center">
                     {guardianAttentionItems.length}
                   </span>
                 ) : null}
               </button>
 
               {showGuardianAttention && (
-                <div className="mt-2 mx-1 bg-slate-50 border border-slate-200 rounded-2xl overflow-hidden">
-                  <div className="px-4 py-3 border-b border-slate-200">
-                    <h4 className="text-sm font-semibold text-gray-800">Guardian Notifications</h4>
-                    <p className="text-xs text-gray-500 mt-1">
-                      Guardian in {allElections.filter((e) => e.userRoles?.includes('guardian')).length} election(s) · {guardianAttentionItems.length} need attention
+                <div className="mt-2 mx-1 overflow-hidden rounded-2xl border border-brand/30 bg-brand-dark shadow-brand">
+                  <div className="border-b border-white/10 px-4 py-3">
+                    <h4 className="text-sm font-semibold text-paper">Guardian Notifications</h4>
+                    <p className="mt-1 text-xs text-dusk-soft">
+                      {allElections.filter((e) => e.userRoles?.includes('guardian')).length} election(s) · {guardianAttentionItems.length} need attention
                     </p>
                   </div>
                   <div className="max-h-72 overflow-y-auto">
                     {loadingGuardianAttention ? (
-                      <div className="p-4 text-sm text-gray-500">Loading...</div>
+                      <div className="p-4 text-sm text-dusk-soft">Loading...</div>
                     ) : guardianAttentionItems.length === 0 ? (
-                      <div className="p-4 text-sm text-gray-500">No pending guardian actions.</div>
+                      <div className="p-4 text-sm text-dusk-soft">No pending guardian actions.</div>
                     ) : (
                       guardianAttentionItems.map((item, index) => (
                         <button
@@ -692,10 +706,10 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                             closeMobileMenu();
                             navigate(`/election-page/${item.electionId}/guardian`);
                           }}
-                          className="w-full text-left px-4 py-3 hover:bg-white border-b border-slate-200 last:border-b-0"
+                          className="w-full border-b border-white/10 px-4 py-3 text-left last:border-b-0 hover:bg-brand/40"
                         >
-                          <div className="text-sm font-medium text-gray-900 truncate">{item.electionTitle}</div>
-                          <div className="text-xs text-gray-600 mt-1">{item.detail}</div>
+                          <div className="truncate text-sm font-medium text-paper">{item.electionTitle}</div>
+                          <div className="mt-1 text-xs text-dusk-soft">{item.detail}</div>
                         </button>
                       ))
                     )}
@@ -705,17 +719,17 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
             </div>
             </div>
 
-            <div className="p-3 border-t border-blue-100 bg-white/80 backdrop-blur-sm">
+            <div className="p-3 border-t border-white/10 bg-deep-soft">
               <div className="px-3 pb-3">
-                <p className="text-xs text-slate-500">Signed in as</p>
-                <p className="text-sm font-medium text-slate-700 truncate">{userEmail || 'User'}</p>
+                <p className="text-xs text-dusk">Signed in as</p>
+                <p className="text-sm font-medium text-dusk-soft truncate">{userEmail || 'User'}</p>
               </div>
               <button
                 onClick={() => {
                   handleLogout();
                   closeMobileMenu();
                 }}
-                className="flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium text-red-600 hover:text-red-700 hover:bg-red-50/80 transition-all duration-300"
+                className="flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium text-ember-soft hover:text-ember-soft hover:bg-ember/10 transition-all duration-300"
               >
                 <FiLogOut className="h-5 w-5" />
                 <span>Logout</span>
@@ -728,12 +742,13 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
 
       {/* Main Content */}
       <main className="flex-1 overflow-y-auto focus:outline-none">
-        <div className={`${isWidePage ? "max-w-[min(1920px,99vw)]" : "max-w-7xl"} mx-auto ${isWidePage ? "px-2 sm:px-4 lg:px-5" : "px-3 sm:px-6 lg:px-8"} py-4 sm:py-8 pb-24 md:pb-8`}>
+        <div className={`${isWidePage ? "max-w-[min(1920px,99vw)]" : "max-w-7xl"} mx-auto ${isWidePage ? "px-2 sm:px-4 lg:px-5" : "px-3 sm:px-6 lg:px-8"} py-4 sm:py-8 mobile-bottom-pad`}>
           <Outlet />
         </div>
       </main>
 
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-gray-200 bg-white/95 backdrop-blur-lg shadow-[0_-8px_24px_rgba(15,23,42,0.08)]">
+      {!isElectionPage && (
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-deep/95 backdrop-blur-lg shadow-nav safe-pb">
         <div className="grid grid-cols-4 gap-1 px-2 py-2">
           {mobileNavItems.slice(0, 4).map((item) => {
             const Icon = item.icon;
@@ -745,8 +760,8 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                 onClick={() => navigate(item.path)}
                 className={`flex flex-col items-center justify-center rounded-xl py-2 text-[11px] font-medium transition-colors ${
                   isActive
-                    ? 'bg-blue-50 text-blue-700'
-                    : 'text-gray-600 hover:bg-gray-100'
+                    ? 'bg-brand/20 text-paper'
+                    : 'text-dusk hover:bg-paper/5 hover:text-paper'
                 }`}
               >
                 <Icon className="h-4 w-4 mb-1" />
@@ -756,6 +771,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
           })}
         </div>
       </nav>
+      )}
     </div>
   );
 };

@@ -45,11 +45,10 @@ const LoadingScreen = () => {
         <div className="brand-section">
           <div className="brand-logo">
             <div className="vote-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-                <path d="m9 12 2 2 4-4" />
-                <path d="M21 12c.552 0 1-.448 1-1V8c0-.552-.448-1-1-1s-1 .448-1 1v3c0 .552.448 1 1 1z" />
-                <path d="M3 12c-.552 0-1-.448-1-1V8c0-.552.448-1 1-1s1 .448 1 1v3c0 .552-.448 1-1 1z" />
-                <path d="M21 6H3c-1.1 0-2 .9-2 2v8c0 1.1.9 2 2 2h18c1.1 0 2-.9 2-2V8c0-1.1-.9-2-2-2z" />
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M8 8V7a4 4 0 0 1 8 0v1" />
+                <rect x="4" y="8" width="16" height="12" rx="2" />
+                <path d="m9 14 2 2 4-4" />
               </svg>
             </div>
           </div>
@@ -141,7 +140,7 @@ const LoadingScreen = () => {
           left: 0;
           width: 100%;
           height: 100%;
-          background: linear-gradient(-45deg, #2563eb, #1d4ed8, #3b82f6, #2563eb);
+          background: linear-gradient(-45deg, #12142B, #1A1C38, #12142B, #5C52C4);
           background-size: 400% 400%;
           animation: gradient 12s ease infinite;
         }
@@ -186,12 +185,12 @@ const LoadingScreen = () => {
           width: 60px;
           height: 60px;
           margin: 0 auto;
-          background: linear-gradient(135deg, #2563eb, #1d4ed8);
+          background: linear-gradient(135deg, #8B7FE8, #5C52C4);
           border-radius: 16px;
           display: flex;
           align-items: center;
           justify-content: center;
-          color: white;
+          color: #F7F4EC;
           animation: bounce 2s infinite;
         }
 
@@ -201,12 +200,10 @@ const LoadingScreen = () => {
         }
 
         .brand-name {
+          font-family: "Fraunces", Georgia, serif;
           font-size: 2rem;
           font-weight: 700;
-          background: linear-gradient(135deg, #2563eb, #1d4ed8);
-          -webkit-background-clip: text;
-          -webkit-text-fill-color: transparent;
-          background-clip: text;
+          color: #1B1D2E;
           margin: 0.5rem 0;
         }
 
@@ -311,9 +308,9 @@ const LoadingScreen = () => {
           align-items: center;
           gap: 0.5rem;
           padding: 1rem 0.75rem;
-          background: rgba(37, 99, 235, 0.08);
+          background: rgba(0, 180, 216, 0.08);
           border-radius: 16px;
-          border: 1px solid rgba(37, 99, 235, 0.15);
+          border: 1px solid rgba(0, 180, 216, 0.18);
           min-width: 90px;
           transition: all 0.3s ease;
           animation: fadeIn 1s ease-out;
@@ -321,8 +318,8 @@ const LoadingScreen = () => {
 
         .feature-item:hover {
           transform: translateY(-2px);
-          background: rgba(37, 99, 235, 0.12);
-          box-shadow: 0 8px 25px rgba(37, 99, 235, 0.15);
+          background: rgba(0, 180, 216, 0.12);
+          box-shadow: 0 8px 25px rgba(0, 180, 216, 0.15);
         }
 
         .feature-icon {
@@ -396,8 +393,8 @@ const LoadingScreen = () => {
       <svg width="0" height="0">
         <defs>
           <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
-            <stop offset="0%" stopColor="#2563eb" />
-            <stop offset="100%" stopColor="#1d4ed8" />
+            <stop offset="0%" stopColor="#8B7FE8" />
+            <stop offset="100%" stopColor="#5C52C4" />
           </linearGradient>
         </defs>
       </svg>

@@ -1,4 +1,5 @@
-﻿import React, { useState, useEffect, useRef, useMemo } from "react";
+import { createPortal } from 'react-dom';
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteApiLogs } from "../utils/api";
 import { timezoneUtils } from "../utils/timezoneUtils";
@@ -28,32 +29,32 @@ const ICONS = {
 };
 
 function formatDate(ds) {
-  if (!ds) return "—";
+  if (!ds) return "�";
   return timezoneUtils.formatDateTime(ds);
 }
 
 function methodColor(m) {
-  return m === "GET"    ? "bg-sky-100 text-sky-700 ring-sky-200"
-       : m === "POST"   ? "bg-emerald-100 text-emerald-700 ring-emerald-200"
-       : m === "PUT"    ? "bg-amber-100 text-amber-700 ring-amber-200"
-       : m === "DELETE" ? "bg-rose-100 text-rose-700 ring-rose-200"
-       : m === "PATCH"  ? "bg-violet-100 text-violet-700 ring-violet-200"
-       : "bg-gray-100 text-gray-700 ring-gray-200";
+  return m === "GET"    ? "bg-glacier text-brand-dark ring-brand/20"
+       : m === "POST"   ? "bg-sage-soft text-sage ring-sage/20"
+       : m === "PUT"    ? "bg-ceremonial-soft text-ink ring-amber-200"
+       : m === "DELETE" ? "bg-rose-100 text-ember ring-rose-200"
+       : m === "PATCH"  ? "bg-frost text-ink ring-ink/10"
+       : "bg-frost text-dusk ring-ink/10";
 }
 
 function statusColor(s) {
-  if (!s) return "bg-gray-100 text-gray-500";
-  if (s >= 200 && s < 300) return "bg-emerald-100 text-emerald-700";
-  if (s >= 300 && s < 400) return "bg-amber-100 text-amber-700";
-  if (s >= 400 && s < 500) return "bg-rose-100 text-rose-700";
-  return "bg-red-200 text-red-800";
+  if (!s) return "bg-frost text-dusk";
+  if (s >= 200 && s < 300) return "bg-sage-soft text-aurora-muted";
+  if (s >= 300 && s < 400) return "bg-ceremonial-soft text-ink";
+  if (s >= 400 && s < 500) return "bg-rose-100 text-ember";
+  return "bg-red-200 text-ember";
 }
 
 function responseTimeColor(ms) {
-  if (!ms) return "text-gray-400";
-  if (ms < 100) return "text-emerald-600";
-  if (ms < 500) return "text-amber-600";
-  return "text-rose-600";
+  if (!ms) return "text-dusk";
+  if (ms < 100) return "text-aurora-muted";
+  if (ms < 500) return "text-ink";
+  return "text-ember";
 }
 
 function isInvalidToken(log) {
@@ -201,7 +202,9 @@ export default function ApiLogs() {
     try {
       const res = await fetch("/api/admin/logs/stats", { credentials: "include" });
       if (res.ok) setStats(await res.json());
-    } catch (e) { /* silent */ }
+    } catch {
+      /* silent */
+    }
   }
 
   const authenticatedLogs = useMemo(
@@ -302,7 +305,7 @@ export default function ApiLogs() {
   function getTabCount(tabId) {
     if (SERVER_VIEW_TABS.has(tabId)) {
       if (activeTab === tabId) return totalElements;
-      return tabTotals[tabId] ?? "—";
+      return tabTotals[tabId] ?? "�";
     }
     switch (tabId) {
       case "authenticated": return authenticatedLogs.length;
@@ -364,48 +367,52 @@ export default function ApiLogs() {
     { id: "all",           label: "All Requests",    icon: ICONS.chart,   color: "blue",    desc: "Every API call logged" },
     { id: "authenticated", label: "With Email",       icon: ICONS.mail,    color: "emerald", desc: "Requests from identified users" },
     { id: "anonymous",     label: "Anonymous",        icon: ICONS.user,    color: "amber",   desc: "Requests without user identity" },
-    { id: "invalid",       label: "Invalid / Expired",icon: ICONS.ban,     color: "rose",    desc: "401/403 — token invalid or expired" },
+    { id: "invalid",       label: "Invalid / Expired",icon: ICONS.ban,     color: "rose",    desc: "401/403 � token invalid or expired" },
     { id: "unique-email",  label: "Unique Email",     icon: ICONS.mail,    color: "indigo",  desc: "Latest request per email, paginated across all logs" },
     { id: "unique-ip",     label: "Unique IP",        icon: ICONS.globe,   color: "cyan",    desc: "Latest request per IP, paginated across all logs" },
-    { id: "clusters",      label: "Clusters",         icon: ICONS.shield,  color: "violet",  desc: "Visit sessions grouped by IP + email" },
+    { id: "clusters",      label: "Clusters",         icon: ICONS.shield,  color: "slate",  desc: "Visit sessions grouped by IP + email" },
   ];
 
   const TAB_COLOR_MAP = {
-    blue:    { active: "bg-blue-600 text-white shadow-blue-200",     inactive: "text-blue-600 hover:bg-blue-50",     badge: "bg-blue-100 text-blue-700" },
-    emerald: { active: "bg-emerald-600 text-white shadow-emerald-200",inactive: "text-emerald-700 hover:bg-emerald-50",badge: "bg-emerald-100 text-emerald-700" },
-    amber:   { active: "bg-amber-500 text-white shadow-amber-200",   inactive: "text-amber-700 hover:bg-amber-50",   badge: "bg-amber-100 text-amber-700" },
-    rose:    { active: "bg-rose-600 text-white shadow-rose-200",     inactive: "text-rose-600 hover:bg-rose-50",     badge: "bg-rose-100 text-rose-700" },
-    indigo:  { active: "bg-indigo-600 text-white shadow-indigo-200", inactive: "text-indigo-700 hover:bg-indigo-50", badge: "bg-indigo-100 text-indigo-700" },
-    cyan:    { active: "bg-cyan-600 text-white shadow-cyan-200",     inactive: "text-cyan-700 hover:bg-cyan-50",     badge: "bg-cyan-100 text-cyan-700" },
-    violet:  { active: "bg-violet-600 text-white shadow-violet-200", inactive: "text-violet-700 hover:bg-violet-50", badge: "bg-violet-100 text-violet-700" },
+    blue:    { active: "bg-brand-dark text-paper shadow-brand-200",     inactive: "text-brand hover:bg-glacier",     badge: "bg-glacier text-brand-dark" },
+    emerald: { active: "bg-aurora-muted text-paper shadow-emerald-200",inactive: "text-aurora-muted hover:bg-sage-soft",badge: "bg-sage-soft text-aurora-muted" },
+    amber:   { active: "bg-ceremonial text-ink shadow-amber-200",   inactive: "text-ink hover:bg-ceremonial-soft",   badge: "bg-ceremonial-soft text-ink" },
+    rose:    { active: "bg-ember text-paper shadow-rose-200",     inactive: "text-ember hover:bg-ember-soft",     badge: "bg-rose-100 text-ember" },
+    indigo:  { active: "bg-brand-dark text-paper shadow-indigo-200", inactive: "text-ink hover:bg-glacier", badge: "bg-glacier text-ink" },
+    cyan:    { active: "bg-cyan-600 text-paper shadow-cyan-200",     inactive: "text-aurora-muted hover:bg-sage-soft",     badge: "bg-cyan-100 text-aurora-muted" },
+    slate:   { active: "bg-ink text-paper shadow-soft", inactive: "text-ink hover:bg-frost", badge: "bg-frost text-ink" },
   };
 
   const statCards = [
-    { label: "Total Requests",    value: stats.totalLogs,              icon: ICONS.chart,   border: "border-blue-400",    bg: "bg-blue-50",    iconColor: "text-blue-500" },
-    { label: "Error Requests",    value: stats.errorLogs,              icon: ICONS.warning, border: "border-rose-400",    bg: "bg-rose-50",    iconColor: "text-rose-500" },
-    { label: "With Email",        value: authenticatedLogs.length,     icon: ICONS.mail,    border: "border-emerald-400", bg: "bg-emerald-50", iconColor: "text-emerald-500" },
-    { label: "Anonymous",         value: anonymousLogs.length,         icon: ICONS.user,    border: "border-amber-400",   bg: "bg-amber-50",   iconColor: "text-amber-500" },
-    { label: "Invalid / Expired", value: invalidLogs.length,           icon: ICONS.ban,     border: "border-rose-500",    bg: "bg-rose-50",    iconColor: "text-rose-600" },
+    { label: "Total Requests",    value: stats.totalLogs,              icon: ICONS.chart,   border: "border-brand",    bg: "bg-glacier",    iconColor: "text-brand" },
+    { label: "Error Requests",    value: stats.errorLogs,              icon: ICONS.warning, border: "border-rose-400",    bg: "bg-ember-soft",    iconColor: "text-rose-500" },
+    { label: "With Email",        value: authenticatedLogs.length,     icon: ICONS.mail,    border: "border-emerald-400", bg: "bg-sage-soft", iconColor: "text-emerald-500" },
+    { label: "Anonymous",         value: anonymousLogs.length,         icon: ICONS.user,    border: "border-amber-400",   bg: "bg-ceremonial-soft",   iconColor: "text-amber-500" },
+    { label: "Invalid / Expired", value: invalidLogs.length,           icon: ICONS.ban,     border: "border-rose-500",    bg: "bg-ember-soft",    iconColor: "text-ember" },
     { label: "Success Rate",
-      value: stats.totalLogs > 0 ? `${((stats.totalLogs - stats.errorLogs) / stats.totalLogs * 100).toFixed(1)}%` : "—",
+      value: stats.totalLogs > 0 ? `${((stats.totalLogs - stats.errorLogs) / stats.totalLogs * 100).toFixed(1)}%` : "�",
       icon: ICONS.shield, border: "border-teal-400", bg: "bg-teal-50", iconColor: "text-teal-500" },
   ];
 
   if (!accessChecked) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6 text-gray-600">Checking API logs access...</div>
+      <div className="min-h-screen bg-frost-mesh flex items-center justify-center p-6 text-ink">Checking API logs access...</div>
     );
   }
 
   if (!accessAllowed) {
     return (
-      <div className="min-h-screen flex items-center justify-center p-6">
-        <div className="max-w-md rounded-2xl border border-red-200 bg-red-50 p-6 text-center">
-          <h2 className="text-lg font-bold text-red-700">Access denied</h2>
-          <p className="mt-2 text-sm text-red-600">{error || "You are not allowed to view API logs."}</p>
+      <div className="min-h-screen bg-frost-mesh flex items-center justify-center p-6">
+        <div className="glass-panel max-w-md p-7 text-center">
+          <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-ember-soft text-ember">
+            <Icon d={ICONS.lock} className="h-6 w-6" />
+          </div>
+          <p className="section-kicker">Restricted workspace</p>
+          <h2 className="mt-1 font-display text-2xl font-bold text-ink">Access denied</h2>
+          <p className="mt-2 text-sm text-dusk">{error || "You are not allowed to view API logs."}</p>
           <button
             onClick={() => navigate("/dashboard")}
-            className="mt-4 rounded-xl bg-red-600 px-4 py-2 text-sm font-semibold text-white hover:bg-red-700"
+            className="btn-ghost mt-5"
           >
             Back to dashboard
           </button>
@@ -416,37 +423,41 @@ export default function ApiLogs() {
 
   return (
     <>
-      <div className="min-h-screen bg-gradient-to-br from-slate-50 via-blue-50/30 to-indigo-50/40 py-4 sm:py-6">
-        <div className="w-full mx-auto space-y-6">
+      <div className="min-h-screen bg-frost-mesh py-4 sm:py-6">
+        <div className="page-enter w-full mx-auto space-y-6">
 
           {/* Header */}
-          <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div className="relative overflow-hidden rounded-3xl bg-deep p-5 shadow-lift sm:p-7">
+            <div className="absolute -right-16 -top-20 h-64 w-64 rounded-full bg-brand/20 blur-3xl" />
+            <div className="absolute bottom-0 left-1/3 h-24 w-80 rounded-full bg-glacier/10 blur-3xl" />
+            <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <div className="w-10 h-10 bg-gradient-to-br from-violet-600 to-purple-700 rounded-2xl flex items-center justify-center shadow-lg">
-                  <Icon d={ICONS.lock} className="w-5 h-5 text-white" />
+                <div className="w-11 h-11 bg-brand rounded-2xl flex items-center justify-center shadow-brand">
+                  <Icon d={ICONS.lock} className="w-5 h-5 text-paper" />
                 </div>
-                <h1 className="text-3xl font-extrabold bg-gradient-to-r from-slate-800 via-blue-700 to-indigo-700 bg-clip-text text-transparent">
-                  API Logs Analytics
-                </h1>
+                <div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Security observability</p>
+                  <h1 className="font-display text-3xl font-bold text-paper">API Logs</h1>
+                </div>
               </div>
-              <p className="text-sm text-slate-500 ml-1">Metadata-only access logs · No tokens or request bodies · 90-day retention</p>
+              <p className="ml-14 mt-1 text-sm text-frost/75">Metadata-only access logs � No tokens or request bodies � 90-day retention</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
-              <label className="flex items-center gap-2 bg-white px-3 py-2 rounded-xl shadow-sm border border-gray-200 cursor-pointer select-none text-sm font-medium text-gray-700">
+              <label className="flex items-center gap-2 border border-white/15 bg-paper/10 px-3 py-2 rounded-xl cursor-pointer select-none text-sm font-medium text-frost backdrop-blur">
                 <input
                   type="checkbox"
                   checked={autoRefresh}
                   onChange={e => setAutoRefresh(e.target.checked)}
-                  className="w-4 h-4 text-blue-600 rounded"
+                  className="av-checkbox"
                 />
                 Auto-refresh
                 {autoRefresh && (
                   <select
                     value={refreshInterval}
                     onChange={e => setRefreshInterval(Number(e.target.value))}
-                    className="ml-1 text-xs border border-gray-300 rounded-lg px-1 py-0.5 focus:ring-2 focus:ring-blue-500"
+                    className="ml-1 rounded-lg border border-white/20 bg-deep px-1 py-0.5 text-xs text-paper focus:ring-2 focus:ring-brand"
                   >
                     <option value={5}>5s</option>
                     <option value={10}>10s</option>
@@ -459,39 +470,40 @@ export default function ApiLogs() {
               <button
                 onClick={exportToCSV}
                 disabled={exporting || loading}
-                className="flex items-center gap-2 px-4 py-2 bg-white text-gray-700 rounded-xl shadow-sm border border-gray-200 hover:bg-gray-50 text-sm font-medium transition disabled:opacity-40 disabled:cursor-not-allowed"
+                className="btn-ghost flex items-center gap-2 border-white/20 bg-paper/10 text-paper hover:bg-paper/20 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Icon d={ICONS.download} className={`w-4 h-4 ${exporting ? "animate-pulse" : ""}`} />
-                {exporting ? "Exporting all…" : "Export CSV"}
+                {exporting ? "Exporting all�" : "Export CSV"}
               </button>
 
               <button
                 onClick={() => { fetchLogs(); fetchStats(); }}
-                className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl shadow-md hover:from-blue-700 hover:to-indigo-700 text-sm font-semibold transition"
+                className="btn-brand flex items-center gap-2 shadow-brand"
               >
                 <Icon d={ICONS.refresh} className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
                 Refresh
               </button>
+            </div>
             </div>
           </div>
 
           {/* Stat Cards */}
           <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
             {statCards.map(({ label, value, icon, border, bg, iconColor }) => (
-              <div key={label} className={`bg-white rounded-2xl shadow-sm border-l-4 ${border} p-4 hover:shadow-md transition-shadow`}>
+              <div key={label} className={`surface-card border-l-4 ${border} p-4 hover:shadow-lift transition-shadow`}>
                 <div className="flex items-center justify-between mb-2">
-                  <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide leading-tight">{label}</p>
+                  <p className="text-xs font-semibold text-dusk uppercase tracking-wide leading-tight">{label}</p>
                   <div className={`${bg} rounded-xl p-1.5`}>
                     <Icon d={icon} className={`w-4 h-4 ${iconColor}`} />
                   </div>
                 </div>
-                <p className="text-2xl font-extrabold text-slate-800">{typeof value === "number" ? value.toLocaleString() : value}</p>
+                <p className="font-display text-2xl font-bold text-ink">{typeof value === "number" ? value.toLocaleString() : value}</p>
               </div>
             ))}
           </div>
 
           {/* Tabs */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-1.5 flex flex-wrap gap-1">
+          <div className="glass-panel p-1.5 flex flex-wrap gap-1">
             {TABS.map(tab => {
               const colors = TAB_COLOR_MAP[tab.color];
               const isActive = activeTab === tab.id;
@@ -500,11 +512,11 @@ export default function ApiLogs() {
                   key={tab.id}
                   onClick={() => handleTabChange(tab.id)}
                   className={`flex items-center gap-2 px-4 py-2.5 rounded-xl text-sm font-semibold transition-all duration-200 flex-1 min-w-[130px] justify-center
-                    ${isActive ? `${colors.active} shadow-md` : `text-gray-500 ${colors.inactive}`}`}
+                    ${isActive ? `${colors.active} shadow-md` : `text-dusk ${colors.inactive}`}`}
                 >
                   <Icon d={tab.icon} className="w-4 h-4 flex-shrink-0" />
                   <span className="whitespace-nowrap">{tab.label}</span>
-                  <span className={`px-2 py-0.5 rounded-full text-xs font-bold ml-1 ${isActive ? "bg-white/25 text-white" : colors.badge}`}>
+                  <span className={`px-2 py-0.5 rounded-xl text-xs font-bold ml-1 ${isActive ? "bg-paper/25 text-paper" : colors.badge}`}>
                     {typeof getTabCount(tab.id) === "number" ? getTabCount(tab.id).toLocaleString() : getTabCount(tab.id)}
                   </span>
                 </button>
@@ -514,13 +526,13 @@ export default function ApiLogs() {
 
           {/* Tab contextual banner */}
           {activeTab === "invalid" && (
-            <div className="flex items-start gap-3 bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4">
+            <div className="flex items-start gap-3 bg-ember-soft border border-rose-200 rounded-2xl px-5 py-4">
               <div className="w-8 h-8 bg-rose-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Icon d={ICONS.warning} className="w-4 h-4 text-rose-600" />
+                <Icon d={ICONS.warning} className="w-4 h-4 text-ember" />
               </div>
               <div>
                 <p className="text-sm font-semibold text-rose-800">Invalid / Expired Token Requests</p>
-                <p className="text-xs text-rose-600 mt-0.5">
+                <p className="text-xs text-ember mt-0.5">
                   These requests returned <strong>401 Unauthorized</strong> or <strong>403 Forbidden</strong>.
                   When an email is visible, it means that user&apos;s session token was no longer valid at the time of the request.
                 </p>
@@ -528,39 +540,39 @@ export default function ApiLogs() {
             </div>
           )}
           {activeTab === "authenticated" && (
-            <div className="flex items-start gap-3 bg-emerald-50 border border-emerald-200 rounded-2xl px-5 py-4">
-              <div className="w-8 h-8 bg-emerald-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Icon d={ICONS.mail} className="w-4 h-4 text-emerald-600" />
+            <div className="flex items-start gap-3 bg-sage-soft border border-aurora/30 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-sage-soft rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon d={ICONS.mail} className="w-4 h-4 text-aurora-muted" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-emerald-800">Authenticated Requests</p>
-                <p className="text-xs text-emerald-600 mt-0.5">
+                <p className="text-sm font-semibold text-aurora-muted">Authenticated Requests</p>
+                <p className="text-xs text-aurora-muted mt-0.5">
                   Requests where a user email was successfully extracted from the session or JWT token.
                 </p>
               </div>
             </div>
           )}
           {activeTab === "anonymous" && (
-            <div className="flex items-start gap-3 bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4">
-              <div className="w-8 h-8 bg-amber-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Icon d={ICONS.user} className="w-4 h-4 text-amber-600" />
+            <div className="flex items-start gap-3 bg-ceremonial-soft border border-ceremonial/40 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-ceremonial-soft rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon d={ICONS.user} className="w-4 h-4 text-ink" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-amber-800">Anonymous Requests</p>
-                <p className="text-xs text-amber-600 mt-0.5">
-                  Requests with no user identity — unauthenticated calls, public endpoints, or requests with missing tokens.
+                <p className="text-sm font-semibold text-ink">Anonymous Requests</p>
+                <p className="text-xs text-ink mt-0.5">
+                  Requests with no user identity � unauthenticated calls, public endpoints, or requests with missing tokens.
                 </p>
               </div>
             </div>
           )}
           {activeTab === "unique-email" && (
-            <div className="flex items-start gap-3 bg-indigo-50 border border-indigo-200 rounded-2xl px-5 py-4">
-              <div className="w-8 h-8 bg-indigo-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Icon d={ICONS.mail} className="w-4 h-4 text-indigo-600" />
+            <div className="flex items-start gap-3 bg-glacier border border-brand/25 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-glacier rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon d={ICONS.mail} className="w-4 h-4 text-brand-dark" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-indigo-800">Unique Email View</p>
-                <p className="text-xs text-indigo-600 mt-0.5">
+                <p className="text-sm font-semibold text-ink">Unique Email View</p>
+                <p className="text-xs text-brand-dark mt-0.5">
                   Shows the <strong>latest request per email</strong> across the full log database.
                   Each page contains up to {pageSize} unique emails.
                 </p>
@@ -568,7 +580,7 @@ export default function ApiLogs() {
             </div>
           )}
           {activeTab === "unique-ip" && (
-            <div className="flex items-start gap-3 bg-cyan-50 border border-cyan-200 rounded-2xl px-5 py-4">
+            <div className="flex items-start gap-3 bg-sage-soft border border-cyan-200 rounded-2xl px-5 py-4">
               <div className="w-8 h-8 bg-cyan-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
                 <Icon d={ICONS.globe} className="w-4 h-4 text-cyan-600" />
               </div>
@@ -582,13 +594,13 @@ export default function ApiLogs() {
             </div>
           )}
           {activeTab === "clusters" && (
-            <div className="flex items-start gap-3 bg-violet-50 border border-violet-200 rounded-2xl px-5 py-4">
-              <div className="w-8 h-8 bg-violet-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Icon d={ICONS.shield} className="w-4 h-4 text-violet-600" />
+            <div className="flex items-start gap-3 bg-glacier border border-brand/25 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-paper rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon d={ICONS.shield} className="w-4 h-4 text-brand-dark" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-violet-800">Visit Clusters</p>
-                <p className="text-xs text-violet-600 mt-0.5">
+                <p className="text-sm font-semibold text-ink">Visit Clusters</p>
+                <p className="text-xs text-brand-dark mt-0.5">
                   Groups requests from the same <strong>IP + email</strong> into visit sessions across the full log database.
                   A new cluster starts after 30 minutes of inactivity. Each page contains up to {pageSize} clusters.
                 </p>
@@ -597,22 +609,22 @@ export default function ApiLogs() {
           )}
 
           {/* Filters */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-3.5 bg-gradient-to-r from-slate-700 to-slate-800">
+          <div className="surface-card overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-3.5 bg-deep">
               <div className="flex items-center gap-2">
-                <Icon d={ICONS.filter} className="w-4 h-4 text-slate-300" />
-                <span className="text-sm font-semibold text-white">Filters &amp; Search</span>
+                <Icon d={ICONS.filter} className="w-4 h-4 text-dusk-soft" />
+                <span className="text-sm font-semibold text-paper">Filters &amp; Search</span>
                 {activeFiltersCount > 0 && (
-                  <span className="px-2 py-0.5 bg-blue-500 text-white text-xs font-bold rounded-full">
+                  <span className="px-2 py-0.5 bg-brand-dark text-paper text-xs font-bold rounded-xl">
                     {activeFiltersCount} active
                   </span>
                 )}
               </div>
               <button
                 onClick={() => setShowAdvancedFilters(p => !p)}
-                className="text-slate-300 hover:text-white text-xs font-medium transition"
+                className="text-dusk-soft hover:text-paper text-xs font-medium transition"
               >
-                {showAdvancedFilters ? "Hide advanced ↑" : "Show advanced ↓"}
+                {showAdvancedFilters ? "Hide advanced ?" : "Show advanced ?"}
               </button>
             </div>
 
@@ -621,14 +633,14 @@ export default function ApiLogs() {
                 <select
                   value={searchType}
                   onChange={(e) => setSearchType(e.target.value)}
-                  className="px-3 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 bg-white"
+                  className="input-field py-2.5 text-sm"
                 >
                   <option value="email">Search by Email</option>
                   <option value="ip">Search by IP Address</option>
                   <option value="path">Search by API Call / Path</option>
                 </select>
                 <div className="relative flex-1">
-                  <Icon d={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
+                  <Icon d={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dusk" />
                   <input
                     type="text"
                     value={searchValue}
@@ -638,12 +650,12 @@ export default function ApiLogs() {
                         : searchType === "ip" ? "192.168.x.x"
                           : "/api/auth/login"
                     }
-                    className="w-full pl-10 pr-4 py-2.5 text-sm border-2 border-gray-200 rounded-xl focus:outline-none focus:border-blue-500 transition"
+                    className="input-field w-full py-2.5 pl-10 pr-4 text-sm"
                   />
                 </div>
                 <button
                   type="submit"
-                  className="flex items-center justify-center gap-2 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow hover:from-blue-700 hover:to-indigo-700 transition"
+                  className="btn-brand flex items-center justify-center gap-2 px-5 py-2.5"
                 >
                   <Icon d={ICONS.search} className="w-4 h-4" /> Search
                 </button>
@@ -652,11 +664,11 @@ export default function ApiLogs() {
               {showAdvancedFilters && (
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 pt-2">
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">HTTP Method</label>
+                    <label className="block text-xs font-semibold text-dusk mb-1.5 uppercase tracking-wide">HTTP Method</label>
                     <select
                       value={filters.method}
                       onChange={e => handleFilterChange("method", e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                      className="input-field w-full py-2 text-sm"
                     >
                       <option value="">All Methods</option>
                       {["GET","POST","PUT","DELETE","PATCH"].map(m => <option key={m} value={m}>{m}</option>)}
@@ -664,16 +676,16 @@ export default function ApiLogs() {
                   </div>
 
                   <div>
-                    <label className="block text-xs font-semibold text-gray-600 mb-1.5 uppercase tracking-wide">Status Code</label>
+                    <label className="block text-xs font-semibold text-dusk mb-1.5 uppercase tracking-wide">Status Code</label>
                     <select
                       value={filters.statusCode}
                       onChange={e => handleFilterChange("statusCode", e.target.value)}
-                      className="w-full px-3 py-2 text-sm border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-blue-500 bg-gray-50"
+                      className="input-field w-full py-2 text-sm"
                     >
                       <option value="">All Statuses</option>
-                      {[["200","200 – OK"],["201","201 – Created"],["400","400 – Bad Request"],
-                        ["401","401 – Unauthorized"],["403","403 – Forbidden"],
-                        ["404","404 – Not Found"],["500","500 – Server Error"]
+                      {[["200","200 � OK"],["201","201 � Created"],["400","400 � Bad Request"],
+                        ["401","401 � Unauthorized"],["403","403 � Forbidden"],
+                        ["404","404 � Not Found"],["500","500 � Server Error"]
                       ].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </div>
@@ -683,23 +695,23 @@ export default function ApiLogs() {
               <div className="flex flex-wrap items-center gap-2 pt-1">
                 <button
                   onClick={() => { setPage(0); fetchLogs(); }}
-                  className="flex items-center gap-2 px-5 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 text-white rounded-xl text-sm font-semibold shadow hover:from-blue-700 hover:to-indigo-700 transition"
+                  className="btn-brand flex items-center gap-2 px-5 py-2"
                 >
                   Apply client filters
                 </button>
                 <button
                   onClick={handleClearSearch}
-                  className="flex items-center gap-2 px-5 py-2 bg-gray-100 text-gray-700 rounded-xl text-sm font-medium hover:bg-gray-200 transition"
+                  className="btn-ghost flex items-center gap-2 px-5 py-2"
                 >
                   <Icon d={ICONS.close} className="w-4 h-4" /> Clear search
                 </button>
-                <label className="inline-flex items-center gap-2 text-sm text-gray-700 ml-auto">
+                <label className="inline-flex items-center gap-2 text-sm text-dusk ml-auto">
                   <input
                     type="checkbox"
                     checked={allDisplayedSelected}
                     onChange={toggleSelectAllLogs}
                     disabled={displayedLogs.length === 0 || deleting}
-                    className="rounded border-gray-300"
+                    className="av-checkbox"
                   />
                   Select all on page
                 </label>
@@ -707,7 +719,7 @@ export default function ApiLogs() {
                   type="button"
                   onClick={handleBulkDeleteLogs}
                   disabled={selectedLogIds.size === 0 || deleting}
-                  className="flex items-center gap-2 px-4 py-2 bg-rose-600 text-white rounded-xl text-sm font-semibold hover:bg-rose-700 disabled:opacity-40"
+                  className="flex items-center gap-2 px-4 py-2 bg-ember text-paper rounded-xl text-sm font-semibold hover:bg-rose-700 disabled:opacity-40"
                 >
                   Delete selected ({selectedLogIds.size})
                 </button>
@@ -717,55 +729,55 @@ export default function ApiLogs() {
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-3 bg-rose-50 border border-rose-200 rounded-2xl px-5 py-4">
+            <div className="flex items-center gap-3 bg-ember-soft border border-rose-200 rounded-2xl px-5 py-4">
               <Icon d={ICONS.warning} className="w-5 h-5 text-rose-500 flex-shrink-0" />
-              <p className="text-sm font-medium text-rose-700">{error}</p>
+              <p className="text-sm font-medium text-ember">{error}</p>
             </div>
           )}
 
           {/* View mode + count */}
           <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 bg-white rounded-xl border border-gray-200 shadow-sm p-1">
+            <div className="flex items-center gap-2 bg-paper rounded-xl border border-ink/10 shadow-sm p-1">
               {[["table","Table"],["cards","Cards"],["compact","Compact"]].map(([mode, label]) => (
                 <button
                   key={mode}
                   onClick={() => setViewMode(mode)}
                   className={`px-4 py-1.5 text-sm font-semibold rounded-lg transition-all ${
-                    viewMode === mode ? "bg-blue-600 text-white shadow" : "text-gray-600 hover:bg-gray-100"
+                    viewMode === mode ? "bg-brand-dark text-paper shadow" : "text-dusk hover:bg-frost"
                   }`}
                 >
                   {label}
                 </button>
               ))}
             </div>
-            <p className="text-sm text-gray-500">
-              Showing <span className="font-bold text-slate-800">{displayedLogs.length}</span>
+            <p className="text-sm text-dusk">
+              Showing <span className="font-bold text-ink">{displayedLogs.length}</span>
               {activeTab !== "all" && (
-                <span className="text-xs text-gray-400 ml-1">
+                <span className="text-xs text-dusk ml-1">
                   ({TABS.find(t => t.id === activeTab)?.label})
                 </span>
               )}
-              <span className="text-xs text-gray-400 ml-2">· {pageSize} per page</span>
+              <span className="text-xs text-dusk ml-2">� {pageSize} per page</span>
             </p>
           </div>
 
           {/* Logs */}
-          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div className="surface-card overflow-hidden">
             {loading ? (
               <div className="flex flex-col items-center justify-center py-20 gap-4">
-                <svg className="animate-spin w-12 h-12 text-blue-600" fill="none" viewBox="0 0 24 24">
+                <svg className="animate-spin w-12 h-12 text-brand" fill="none" viewBox="0 0 24 24">
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                <p className="text-gray-500 font-medium">Loading logs…</p>
+                <p className="text-dusk font-medium">Loading logs�</p>
               </div>
             ) : displayedLogs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
-                <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center">
-                  <Icon d={ICONS.info} className="w-8 h-8 text-gray-400" />
+                <div className="w-16 h-16 bg-frost rounded-2xl flex items-center justify-center">
+                  <Icon d={ICONS.info} className="w-8 h-8 text-dusk" />
                 </div>
-                <p className="text-gray-600 font-semibold text-lg">No logs found</p>
-                <p className="text-gray-400 text-sm">Try adjusting your filters or switching tabs</p>
+                <p className="text-dusk font-semibold text-lg">No logs found</p>
+                <p className="text-dusk text-sm">Try adjusting your filters or switching tabs</p>
               </div>
             ) : viewMode === "table" ? (
               <TableView
@@ -793,17 +805,17 @@ export default function ApiLogs() {
             )}
 
             {!loading && displayedLogs.length > 0 && (
-              <div className="border-t border-gray-100 px-5 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-gray-50/60">
+              <div className="border-t border-ink/10 px-5 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-frost/60">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
-                  <p className="text-sm text-gray-600">
-                    Showing {rangeStart}–{rangeEnd} of {totalElements.toLocaleString()}
+                  <p className="text-sm text-dusk">
+                    Showing {rangeStart}�{rangeEnd} of {totalElements.toLocaleString()}
                   </p>
-                  <label className="flex items-center gap-2 text-sm text-gray-700">
-                    <span className="text-xs font-semibold uppercase tracking-wide text-gray-500">Per page</span>
+                  <label className="flex items-center gap-2 text-sm text-dusk">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-dusk">Per page</span>
                     <select
                       value={pageSize}
                       onChange={(e) => handlePageSizeChange(e.target.value)}
-                      className="px-3 py-1.5 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                      className="px-3 py-1.5 text-sm border border-ink/10 rounded-lg bg-paper focus:outline-none focus:ring-2 focus:ring-brand"
                     >
                       {PAGE_SIZE_OPTIONS.map((size) => (
                         <option key={size} value={size}>{size}</option>
@@ -815,16 +827,16 @@ export default function ApiLogs() {
                   <button
                     onClick={() => setPage((p) => Math.max(0, p - 1))}
                     disabled={page === 0 || loading}
-                    className="px-4 py-2 text-sm font-semibold text-gray-700 bg-white border border-gray-200 rounded-xl hover:bg-gray-50 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    className="px-4 py-2 text-sm font-semibold text-dusk bg-paper border border-ink/10 rounded-xl hover:bg-frost disabled:opacity-40 disabled:cursor-not-allowed transition"
                   >
-                    ← Previous {pageSize}
+                    ? Previous {pageSize}
                   </button>
                   <button
                     onClick={() => setPage((p) => p + 1)}
                     disabled={!hasNext || loading}
-                    className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 rounded-xl hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition"
+                    className="px-4 py-2 text-sm font-semibold text-paper bg-brand-dark rounded-xl hover:bg-brand-dark disabled:opacity-40 disabled:cursor-not-allowed transition"
                   >
-                    Next {pageSize} →
+                    Next {pageSize} ?
                   </button>
                 </div>
               </div>
@@ -842,7 +854,7 @@ export default function ApiLogs() {
 function ClusterBadge({ log }) {
   if (!log?.clusterCount || log.clusterCount <= 1) return null;
   return (
-    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 text-violet-700">
+    <span className="inline-flex items-center px-2 py-0.5 rounded-xl text-[10px] font-bold bg-glacier text-brand-dark">
       {log.clusterCount} requests
     </span>
   );
@@ -850,14 +862,14 @@ function ClusterBadge({ log }) {
 
 function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selectedLogIds, onToggleSelect, onToggleSelectAll, allSelected, deleting, showClusterInfo = false }) {
   const SortIcon = ({ field }) => sortBy === field ? (
-    <span className="text-blue-500 font-bold text-base"> {sortOrder === "asc" ? "↑" : "↓"}</span>
+    <span className="text-brand font-bold text-base"> {sortOrder === "asc" ? "?" : "?"}</span>
   ) : null;
 
   const Th = ({ field, children }) => (
     <th
       onClick={() => field && onSort(field)}
-      className={`px-4 py-3.5 text-left text-xs font-bold text-gray-600 uppercase tracking-wide whitespace-nowrap
-        ${field ? "cursor-pointer hover:bg-gray-100 select-none" : ""}`}
+      className={`px-4 py-3.5 text-left text-xs font-bold text-dusk uppercase tracking-wide whitespace-nowrap
+        ${field ? "cursor-pointer hover:bg-frost select-none" : ""}`}
     >
       {children}{field && <SortIcon field={field} />}
     </th>
@@ -866,15 +878,15 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
   return (
     <div className="overflow-x-auto">
       <table className="min-w-[1280px] w-full">
-        <thead className="bg-gradient-to-r from-gray-50 to-slate-50 border-b-2 border-gray-200">
+        <thead className="bg-gradient-to-r from-gray-50 to-slate-50 border-b-2 border-ink/10">
           <tr>
-            <th className="px-4 py-3.5 text-left text-xs font-bold text-gray-600 uppercase tracking-wide w-10">
+            <th className="px-4 py-3.5 text-left text-xs font-bold text-dusk uppercase tracking-wide w-10">
               <input
                 type="checkbox"
                 checked={allSelected}
                 onChange={onToggleSelectAll}
                 disabled={logs.length === 0 || deleting}
-                className="rounded border-gray-300"
+                className="av-checkbox"
               />
             </th>
             <Th field="requestTime">Time</Th>
@@ -891,63 +903,63 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
         </thead>
         <tbody className="divide-y divide-gray-100">
           {logs.map(log => (
-            <tr key={log.logId} className={`hover:bg-blue-50/50 transition-colors ${isInvalidToken(log) ? "bg-rose-50/20" : ""}`}>
+            <tr key={log.logId} className={`hover:bg-glacier/50 transition-colors ${isInvalidToken(log) ? "bg-ember-soft/20" : ""}`}>
               <td className="px-4 py-3">
                 <input
                   type="checkbox"
                   checked={selectedLogIds.has(log.logId)}
                   onChange={() => onToggleSelect(log.logId)}
                   disabled={deleting}
-                  className="rounded border-gray-300"
+                  className="av-checkbox"
                 />
               </td>
-              <td className="px-4 py-3 text-xs text-gray-700 whitespace-nowrap font-medium">{formatDate(log.requestTime)}</td>
+              <td className="px-4 py-3 text-xs text-dusk whitespace-nowrap font-medium">{formatDate(log.requestTime)}</td>
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className={`px-2.5 py-1 text-xs font-bold rounded-full ring-1 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
               </td>
               <td className="px-4 py-3 min-w-[320px] max-w-lg">
-                <span className="text-xs font-mono bg-slate-100 text-slate-700 px-2 py-1 rounded break-all">{log.requestPath}</span>
+                <span className="text-xs font-mono bg-frost text-ink px-2 py-1 rounded break-all">{log.requestPath}</span>
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
-                <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
+                <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-gray-700">{log.requestIp || "—"}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-dusk">{log.requestIp || "�"}</td>
               <td className="px-4 py-3 whitespace-nowrap">
                 {log.extractedEmail ? (
                   <div className="flex items-center gap-1.5">
-                    <div className="w-6 h-6 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-                      <Icon d={ICONS.user} className="w-3 h-3 text-blue-600" />
+                    <div className="w-6 h-6 bg-glacier rounded-full flex items-center justify-center flex-shrink-0">
+                      <Icon d={ICONS.user} className="w-3 h-3 text-brand" />
                     </div>
-                    <span className="text-xs text-slate-800 font-medium max-w-[280px] truncate">{log.extractedEmail}</span>
+                    <span className="text-xs text-ink font-medium max-w-[280px] truncate">{log.extractedEmail}</span>
                   </div>
                 ) : (
-                  <span className="text-xs text-gray-400 italic">Anonymous</span>
+                  <span className="text-xs text-dusk italic">Anonymous</span>
                 )}
               </td>
               {showClusterInfo && (
                 <td className="px-4 py-3 whitespace-nowrap">
                   <ClusterBadge log={log} />
-                  {!log.isCluster && <span className="text-xs text-gray-400">Single</span>}
+                  {!log.isCluster && <span className="text-xs text-dusk">Single</span>}
                 </td>
               )}
               {activeTab === "invalid" && (
                 <td className="px-4 py-3 whitespace-nowrap">
                   {isInvalidToken(log) ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-100 text-rose-700 text-xs font-bold rounded-full">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-100 text-ember text-xs font-bold rounded-full">
                       <Icon d={ICONS.ban} className="w-3 h-3" />
                       {log.responseStatus === 401 ? "Expired/Invalid" : "Forbidden"}
                     </span>
-                  ) : <span className="text-xs text-gray-400">—</span>}
+                  ) : <span className="text-xs text-dusk">�</span>}
                 </td>
               )}
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className={`text-xs font-bold ${responseTimeColor(log.responseTime)}`}>
-                  {log.responseTime ? `${log.responseTime}ms` : "—"}
+                  {log.responseTime ? `${log.responseTime}ms` : "�"}
                 </span>
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
                 <button onClick={() => onSelect(log)}
-                  className="text-xs font-semibold text-blue-600 hover:text-blue-800 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-lg transition">
+                  className="text-xs font-semibold text-brand hover:text-ink bg-glacier hover:bg-glacier px-3 py-1.5 rounded-lg transition">
                   View
                 </button>
               </td>
@@ -964,51 +976,51 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
   return (
     <div
       onClick={() => onSelect(log)}
-      className={`rounded-2xl border-2 p-5 cursor-pointer transition-all hover:shadow-lg hover:-translate-y-0.5
-        ${invalid ? "border-rose-200 bg-rose-50/40 hover:border-rose-400" : "border-gray-100 bg-white hover:border-blue-300"}`}
+      className={`surface-card border-2 p-5 cursor-pointer transition-all hover:shadow-lift hover:-translate-y-0.5
+        ${invalid ? "border-rose-200 bg-ember-soft/40 hover:border-rose-400" : "border-ink/10 hover:border-brand/40"}`}
     >
       <div className="flex items-center justify-between mb-3 gap-2">
         <span className={`px-2.5 py-1 text-xs font-bold rounded-full ring-1 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
         <div className="flex items-center gap-2">
           {showClusterInfo && <ClusterBadge log={log} />}
-          <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
+          <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
         </div>
       </div>
-      <div className="bg-gray-50 rounded-lg px-3 py-2 mb-3">
-        <p className="text-xs font-mono text-slate-700 truncate">{log.requestPath}</p>
+      <div className="bg-frost rounded-lg px-3 py-2 mb-3">
+        <p className="text-xs font-mono text-ink truncate">{log.requestPath}</p>
       </div>
       <div className="space-y-2 text-xs">
         <div className="flex items-center gap-2">
-          <Icon d={ICONS.globe} className="w-3.5 h-3.5 text-gray-400 flex-shrink-0" />
-          <span className="font-mono text-gray-600">{log.requestIp || "—"}</span>
+          <Icon d={ICONS.globe} className="w-3.5 h-3.5 text-dusk flex-shrink-0" />
+          <span className="font-mono text-dusk">{log.requestIp || "�"}</span>
         </div>
         {log.extractedEmail ? (
           <div className="flex items-center gap-2">
-            <div className="w-5 h-5 bg-blue-100 rounded-full flex items-center justify-center flex-shrink-0">
-              <Icon d={ICONS.user} className="w-3 h-3 text-blue-600" />
+            <div className="w-5 h-5 bg-glacier rounded-full flex items-center justify-center flex-shrink-0">
+              <Icon d={ICONS.user} className="w-3 h-3 text-brand" />
             </div>
-            <span className="text-slate-700 font-medium truncate">{log.extractedEmail}</span>
+            <span className="text-ink font-medium truncate">{log.extractedEmail}</span>
           </div>
         ) : (
           <div className="flex items-center gap-2">
-            <Icon d={ICONS.user} className="w-3.5 h-3.5 text-gray-300 flex-shrink-0" />
-            <span className="text-gray-400 italic">Anonymous</span>
+            <Icon d={ICONS.user} className="w-3.5 h-3.5 text-dusk-soft flex-shrink-0" />
+            <span className="text-dusk italic">Anonymous</span>
           </div>
         )}
         {invalid && (
           <div className="flex items-center gap-2 mt-2 pt-2 border-t border-rose-200">
             <Icon d={ICONS.ban} className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
-            <span className="text-rose-600 font-semibold">
+            <span className="text-ember font-semibold">
               {log.responseStatus === 401 ? "Token expired / invalid" : "Access forbidden"}
-              {log.extractedEmail && ` — ${log.extractedEmail}`}
+              {log.extractedEmail && ` � ${log.extractedEmail}`}
             </span>
           </div>
         )}
       </div>
-      <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-        <span className="text-gray-400 text-xs">{formatDate(log.requestTime)}</span>
+      <div className="mt-3 pt-3 border-t border-ink/10 flex items-center justify-between">
+        <span className="text-dusk text-xs">{formatDate(log.requestTime)}</span>
         <span className={`text-xs font-bold ${responseTimeColor(log.responseTime)}`}>
-          {log.responseTime ? `${log.responseTime}ms` : "—"}
+          {log.responseTime ? `${log.responseTime}ms` : "�"}
         </span>
       </div>
     </div>
@@ -1021,60 +1033,60 @@ function CompactRow({ log, onSelect, showClusterInfo = false }) {
     <div
       onClick={() => onSelect(log)}
       className={`flex items-center gap-3 px-5 py-3 cursor-pointer transition-colors
-        ${invalid ? "hover:bg-rose-50 bg-rose-50/30" : "hover:bg-blue-50/50"}`}
+        ${invalid ? "hover:bg-ember-soft bg-ember-soft/30" : "hover:bg-glacier/50"}`}
     >
       <span className={`px-2 py-0.5 text-xs font-bold rounded ring-1 flex-shrink-0 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
-      <span className="text-xs font-mono text-slate-700 flex-1 truncate">{log.requestPath}</span>
+      <span className="text-xs font-mono text-ink flex-1 truncate">{log.requestPath}</span>
       {showClusterInfo && <ClusterBadge log={log} />}
       {log.extractedEmail && (
-        <span className="text-xs text-blue-700 bg-blue-50 px-2 py-0.5 rounded-full hidden sm:block max-w-[180px] truncate">{log.extractedEmail}</span>
+        <span className="text-xs text-brand-dark bg-glacier px-2 py-0.5 rounded-full hidden sm:block max-w-[180px] truncate">{log.extractedEmail}</span>
       )}
       {invalid && (
-        <span className="text-xs font-bold text-rose-600 bg-rose-100 px-2 py-0.5 rounded-full flex-shrink-0">
+        <span className="text-xs font-bold text-ember bg-rose-100 px-2 py-0.5 rounded-full flex-shrink-0">
           {log.responseStatus === 401 ? "EXPIRED" : "FORBIDDEN"}
         </span>
       )}
-      <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full flex-shrink-0 ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
-      <span className="text-gray-400 text-xs flex-shrink-0 hidden md:block">{formatDate(log.requestTime)}</span>
+      <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full flex-shrink-0 ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
+      <span className="text-dusk text-xs flex-shrink-0 hidden md:block">{formatDate(log.requestTime)}</span>
     </div>
   );
 }
 
 function LogDetailModal({ log, onClose }) {
   const invalid = isInvalidToken(log);
-  return (
-    <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4" onClick={onClose}>
-      <div className="bg-white rounded-3xl shadow-2xl w-full max-w-5xl max-h-[92vh] overflow-hidden flex flex-col" onClick={e => e.stopPropagation()}>
-        <div className={`px-6 py-5 flex items-center justify-between flex-shrink-0 ${invalid ? "bg-gradient-to-r from-rose-600 to-red-600" : "bg-gradient-to-r from-blue-600 to-indigo-600"}`}>
+  return createPortal(
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-deep/65 p-4 backdrop-blur-sm" style={{ width: '100vw', height: '100dvh', left: 0, top: 0 }} onClick={onClose}>
+      <div className="glass-panel flex max-h-[min(90dvh,720px)] w-full max-w-5xl flex-col overflow-hidden rounded-3xl shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className={`px-6 py-5 flex items-center justify-between flex-shrink-0 ${invalid ? "bg-gradient-to-r from-ember to-ember" : "bg-gradient-to-r from-brand to-brand-dark"}`}>
           <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-white/20 rounded-xl flex items-center justify-center">
-              <Icon d={invalid ? ICONS.warning : ICONS.info} className="w-5 h-5 text-white" />
+            <div className="w-9 h-9 bg-paper/20 rounded-xl flex items-center justify-center">
+              <Icon d={invalid ? ICONS.warning : ICONS.info} className="w-5 h-5 text-paper" />
             </div>
             <div>
-              <h3 className="text-lg font-bold text-white">Request Details</h3>
-              {invalid && <p className="text-xs text-white/80 mt-0.5">{log.responseStatus === 401 ? "Token expired or invalid" : "Access was forbidden"}</p>}
+              <h3 className="text-lg font-bold text-paper">Request Details</h3>
+              {invalid && <p className="text-xs text-paper/80 mt-0.5">{log.responseStatus === 401 ? "Token expired or invalid" : "Access was forbidden"}</p>}
             </div>
           </div>
-          <button onClick={onClose} className="text-white/70 hover:text-white transition">
+          <button onClick={onClose} className="text-paper/70 hover:text-paper transition">
             <Icon d={ICONS.close} className="w-6 h-6" />
           </button>
         </div>
 
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
           {invalid && (
-            <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4">
+            <div className="bg-ember-soft border border-rose-200 rounded-2xl p-4">
               <div className="flex items-start gap-3">
                 <Icon d={ICONS.ban} className="w-5 h-5 text-rose-500 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-sm font-bold text-rose-800">
-                    {log.responseStatus === 401 ? "Authentication Failed — Invalid or Expired Token" : "Authorization Failed — Access Forbidden"}
+                    {log.responseStatus === 401 ? "Authentication Failed � Invalid or Expired Token" : "Authorization Failed � Access Forbidden"}
                   </p>
                   {log.extractedEmail ? (
-                    <p className="text-xs text-rose-600 mt-1">
-                      Email: <span className="font-bold">{log.extractedEmail}</span> — session token was no longer valid.
+                    <p className="text-xs text-ember mt-1">
+                      Email: <span className="font-bold">{log.extractedEmail}</span> � session token was no longer valid.
                     </p>
                   ) : (
-                    <p className="text-xs text-rose-600 mt-1">No user identity was extracted from this request.</p>
+                    <p className="text-xs text-ember mt-1">No user identity was extracted from this request.</p>
                   )}
                 </div>
               </div>
@@ -1082,44 +1094,44 @@ function LogDetailModal({ log, onClose }) {
           )}
 
           <div className="grid grid-cols-2 gap-4">
-            <div className="bg-slate-50 rounded-2xl p-4">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">HTTP Method</p>
+            <div className="bg-frost rounded-2xl p-4">
+              <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">HTTP Method</p>
               <span className={`px-3 py-1.5 text-sm font-bold rounded-full ring-1 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
             </div>
-            <div className="bg-slate-50 rounded-2xl p-4">
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Status Code</p>
-              <span className={`px-3 py-1.5 text-sm font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
+            <div className="bg-frost rounded-2xl p-4">
+              <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Status Code</p>
+              <span className={`px-3 py-1.5 text-sm font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
             </div>
           </div>
 
           <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Request Path</p>
-            <div className="bg-slate-900 rounded-xl px-4 py-3">
-              <p className="font-mono text-sm text-green-400 break-all">{log.requestPath}</p>
+            <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Request Path</p>
+            <div className="bg-deep rounded-xl px-4 py-3">
+              <p className="font-mono text-sm text-aurora break-all">{log.requestPath}</p>
             </div>
           </div>
 
           <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">User Identity</p>
-            <div className="bg-slate-50 rounded-2xl p-4">
+            <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">User Identity</p>
+            <div className="bg-frost rounded-2xl p-4">
               {log.extractedEmail ? (
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-blue-100 rounded-full flex items-center justify-center">
-                    <Icon d={ICONS.user} className="w-5 h-5 text-blue-600" />
+                  <div className="w-10 h-10 bg-glacier rounded-full flex items-center justify-center">
+                    <Icon d={ICONS.user} className="w-5 h-5 text-brand" />
                   </div>
                   <div>
-                    <p className="text-sm font-bold text-slate-800">{log.extractedEmail}</p>
+                    <p className="text-sm font-bold text-ink">{log.extractedEmail}</p>
                     {invalid && <p className="text-xs text-rose-500 mt-0.5 font-semibold">Token was invalid/expired at request time</p>}
                   </div>
                 </div>
               ) : (
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 bg-gray-100 rounded-full flex items-center justify-center">
-                    <Icon d={ICONS.user} className="w-5 h-5 text-gray-400" />
+                  <div className="w-10 h-10 bg-frost rounded-full flex items-center justify-center">
+                    <Icon d={ICONS.user} className="w-5 h-5 text-dusk" />
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-500">Anonymous</p>
-                    <p className="text-xs text-gray-400 mt-0.5">No user identity extracted</p>
+                    <p className="text-sm font-semibold text-dusk">Anonymous</p>
+                    <p className="text-xs text-dusk mt-0.5">No user identity extracted</p>
                   </div>
                 </div>
               )}
@@ -1128,42 +1140,42 @@ function LogDetailModal({ log, onClose }) {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">IP Address</p>
-              <div className="bg-slate-50 rounded-2xl p-4 flex items-center gap-2">
-                <Icon d={ICONS.globe} className="w-4 h-4 text-gray-400 flex-shrink-0" />
-                <p className="font-mono text-sm text-slate-800">{log.requestIp || "—"}</p>
+              <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">IP Address</p>
+              <div className="bg-frost rounded-2xl p-4 flex items-center gap-2">
+                <Icon d={ICONS.globe} className="w-4 h-4 text-dusk flex-shrink-0" />
+                <p className="font-mono text-sm text-ink">{log.requestIp || "�"}</p>
               </div>
             </div>
             <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Response Time</p>
-              <div className="bg-slate-50 rounded-2xl p-4">
+              <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Response Time</p>
+              <div className="bg-frost rounded-2xl p-4">
                 <p className={`text-2xl font-extrabold ${responseTimeColor(log.responseTime)}`}>
-                  {log.responseTime ? `${log.responseTime}ms` : "—"}
+                  {log.responseTime ? `${log.responseTime}ms` : "�"}
                 </p>
-                {log.responseTime && <p className="text-xs text-gray-400 mt-1">{log.responseTime < 100 ? "Excellent" : log.responseTime < 500 ? "Acceptable" : "Slow"}</p>}
+                {log.responseTime && <p className="text-xs text-dusk mt-1">{log.responseTime < 100 ? "Excellent" : log.responseTime < 500 ? "Acceptable" : "Slow"}</p>}
               </div>
             </div>
           </div>
 
           <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Timestamp</p>
-            <div className="bg-slate-50 rounded-2xl p-4">
-              <p className="text-sm text-slate-700 font-medium">{formatDate(log.requestTime)}</p>
+            <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Timestamp</p>
+            <div className="bg-frost rounded-2xl p-4">
+              <p className="text-sm text-ink font-medium">{formatDate(log.requestTime)}</p>
             </div>
           </div>
 
           {log.clusterCount > 1 && (
             <div>
-              <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Visit Cluster</p>
-              <div className="bg-violet-50 border border-violet-200 rounded-2xl p-4 space-y-2">
-                <p className="text-sm font-bold text-violet-800">{log.clusterCount} requests in this visit</p>
-                <p className="text-xs text-violet-700">
+              <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Visit Cluster</p>
+            <div className="bg-glacier border border-brand/20 rounded-2xl p-4 space-y-2">
+                <p className="text-sm font-bold text-ink">{log.clusterCount} requests in this visit</p>
+                <p className="text-xs text-brand-dark">
                   Started: {formatDate(log.clusterStart)}
                 </p>
-                <p className="text-xs text-violet-700">
+                <p className="text-xs text-brand-dark">
                   Latest: {formatDate(log.clusterEnd || log.requestTime)}
                 </p>
-                <p className="text-xs text-violet-600">
+                <p className="text-xs text-brand">
                   Grouped by matching IP and email with up to 30 minutes between requests.
                 </p>
               </div>
@@ -1171,19 +1183,20 @@ function LogDetailModal({ log, onClose }) {
           )}
 
           <div>
-            <p className="text-xs font-bold text-gray-500 uppercase tracking-widest mb-2">Log ID</p>
-            <div className="bg-slate-50 rounded-2xl p-4">
-              <p className="font-mono text-xs text-gray-500 break-all">{log.logId}</p>
+            <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Log ID</p>
+            <div className="bg-frost rounded-2xl p-4">
+              <p className="font-mono text-xs text-dusk break-all">{log.logId}</p>
             </div>
           </div>
         </div>
 
-        <div className="px-6 py-4 border-t border-gray-100 flex justify-end flex-shrink-0">
-          <button onClick={onClose} className="px-6 py-2.5 bg-slate-800 text-white rounded-xl text-sm font-semibold hover:bg-slate-700 transition">
+        <div className="px-6 py-4 border-t border-ink/10 flex justify-end flex-shrink-0">
+          <button onClick={onClose} className="px-6 py-2.5 bg-deep text-paper rounded-xl text-sm font-semibold hover:bg-ink transition">
             Close
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

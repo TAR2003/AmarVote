@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from 'react';
+import ModalOverlay, { ModalPanel } from './ModalOverlay';
 import toast from 'react-hot-toast';
 import { electionApi } from '../utils/electionApi';
 
@@ -7,37 +8,37 @@ const PROCESS_ACTIONS = {
     title: 'Stop Tally',
     message: 'Stop the in-progress tally for this election? Any partial tally work will be interrupted.',
     confirmLabel: 'Stop Tally',
-    confirmClass: 'bg-amber-600 hover:bg-amber-700',
+    confirmClass: 'bg-ceremonial hover:bg-ceremonial',
   },
   deleteTally: {
     title: 'Delete All Tally Data',
     message: 'Permanently delete all stored tally data for this election? You will need to run tally again from scratch.',
     confirmLabel: 'Delete Tally Data',
-    confirmClass: 'bg-red-600 hover:bg-red-700',
+    confirmClass: 'bg-ember hover:bg-ember',
   },
   stopDec: {
     title: 'Stop Decryption',
     message: 'Stop the in-progress decryption for the selected guardian? Any partial decryption work will be interrupted.',
     confirmLabel: 'Stop Decryption',
-    confirmClass: 'bg-red-600 hover:bg-red-700',
+    confirmClass: 'bg-ember hover:bg-ember',
   },
   deleteDec: {
     title: 'Delete Guardian Decryption',
     message: 'Permanently delete the selected guardian\'s decryption data? They will need to submit decryption again.',
     confirmLabel: 'Delete Decryption',
-    confirmClass: 'bg-red-600 hover:bg-red-700',
+    confirmClass: 'bg-ember hover:bg-ember',
   },
   stopCombine: {
     title: 'Stop Combine',
     message: 'Stop the in-progress combine decryption process? Any partial combine work will be interrupted.',
     confirmLabel: 'Stop Combine',
-    confirmClass: 'bg-purple-600 hover:bg-purple-700',
+    confirmClass: 'bg-deep hover:bg-ink',
   },
   deleteCombine: {
     title: 'Delete Combined Results',
     message: 'Permanently delete the combined decryption results for this election? You will need to run combine again.',
     confirmLabel: 'Delete Combined Results',
-    confirmClass: 'bg-red-600 hover:bg-red-700',
+    confirmClass: 'bg-ember hover:bg-ember',
   },
 };
 
@@ -103,9 +104,9 @@ const ProcessControlPanel = ({
 
   return (
     <>
-    <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-4">
-      <h4 className="text-sm font-semibold text-amber-900">Process Controls</h4>
-      <p className="mb-3 text-xs text-amber-800">
+    <div className="mt-4 rounded-2xl border border-ceremonial/40 bg-ceremonial-soft/80 p-4 shadow-soft">
+      <h4 className="text-sm font-semibold text-ink">Process Controls</h4>
+      <p className="mb-3 text-xs text-ink">
         Stop in-flight work or remove stored results to restart from a clean state. Admin and co-admin only.
       </p>
 
@@ -116,7 +117,7 @@ const ProcessControlPanel = ({
               type="button"
               disabled={!!busy}
               onClick={() => requestAction('stopTally', () => electionApi.stopTallyProcess(electionId), 'Tally stop requested')}
-              className="rounded bg-amber-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-amber-700 disabled:opacity-50"
+              className="rounded-xl bg-ceremonial px-3 py-1.5 text-xs font-medium text-paper shadow-soft hover:bg-ceremonial disabled:opacity-50"
             >
               {busy === 'stopTally' ? 'Stopping…' : 'Stop Tally'}
             </button>
@@ -124,7 +125,7 @@ const ProcessControlPanel = ({
               type="button"
               disabled={!!busy}
               onClick={() => requestAction('deleteTally', () => electionApi.deleteTallyResults(electionId), 'Tally data removed')}
-              className="rounded border border-amber-600 px-3 py-1.5 text-xs font-medium text-amber-800 hover:bg-amber-100 disabled:opacity-50"
+              className="rounded-xl border border-ceremonial px-3 py-1.5 text-xs font-medium text-ink hover:bg-ceremonial-soft disabled:opacity-50"
             >
               {busy === 'deleteTally' ? 'Deleting…' : 'Delete All Tally Data'}
             </button>
@@ -137,7 +138,7 @@ const ProcessControlPanel = ({
               <select
                 value={activeGuardianId}
                 onChange={(e) => setSelectedGuardianId(Number(e.target.value))}
-                className="rounded border border-red-200 bg-white px-2 py-1.5 text-xs text-gray-800"
+                className="rounded border border-ember/30 bg-paper px-2 py-1.5 text-xs text-ink"
               >
                 {guardians.map((g) => (
                   <option key={g.guardianId} value={g.guardianId}>
@@ -150,7 +151,7 @@ const ProcessControlPanel = ({
               type="button"
               disabled={!!busy}
               onClick={() => requestAction('stopDec', () => electionApi.stopGuardianDecryption(electionId, activeGuardianId), 'Decryption stop requested')}
-              className="rounded bg-red-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-red-700 disabled:opacity-50"
+              className="rounded bg-ember px-3 py-1.5 text-xs font-medium text-paper hover:bg-ember disabled:opacity-50"
             >
               {busy === 'stopDec' ? 'Stopping…' : 'Stop Decryption'}
             </button>
@@ -158,7 +159,7 @@ const ProcessControlPanel = ({
               type="button"
               disabled={!!busy}
               onClick={() => requestAction('deleteDec', () => electionApi.deleteGuardianDecryption(electionId, activeGuardianId), 'Decryption data removed')}
-              className="rounded border border-red-600 px-3 py-1.5 text-xs font-medium text-red-800 hover:bg-red-50 disabled:opacity-50"
+              className="rounded-xl border border-red-600 px-3 py-1.5 text-xs font-medium text-ember hover:bg-ember-soft disabled:opacity-50"
             >
               {busy === 'deleteDec' ? 'Deleting…' : 'Delete Guardian Decryption'}
             </button>
@@ -171,7 +172,7 @@ const ProcessControlPanel = ({
               type="button"
               disabled={!!busy}
               onClick={() => requestAction('stopCombine', () => electionApi.stopCombineProcess(electionId), 'Combine stop requested')}
-              className="rounded bg-purple-600 px-3 py-1.5 text-xs font-medium text-white hover:bg-purple-700 disabled:opacity-50"
+              className="rounded-xl bg-deep px-3 py-1.5 text-xs font-medium text-paper shadow-soft hover:bg-ink disabled:opacity-50"
             >
               {busy === 'stopCombine' ? 'Stopping…' : 'Stop Combine'}
             </button>
@@ -179,7 +180,7 @@ const ProcessControlPanel = ({
               type="button"
               disabled={!!busy}
               onClick={() => requestAction('deleteCombine', () => electionApi.deleteCombineResults(electionId), 'Combined results removed')}
-              className="rounded border border-purple-600 px-3 py-1.5 text-xs font-medium text-purple-800 hover:bg-purple-50 disabled:opacity-50"
+              className="rounded-xl border border-brand/40 px-3 py-1.5 text-xs font-medium text-ink hover:bg-glacier disabled:opacity-50"
             >
               {busy === 'deleteCombine' ? 'Deleting…' : 'Delete Combined Results'}
             </button>
@@ -189,16 +190,16 @@ const ProcessControlPanel = ({
     </div>
 
     {pendingConfig && (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-50 px-4">
-        <div className="w-full max-w-md rounded-xl bg-white p-4 shadow-xl sm:p-6">
-          <h3 className="text-lg font-semibold text-gray-900">{pendingConfig.title}</h3>
-          <p className="mt-2 text-sm text-gray-600">{pendingConfig.message}</p>
+      <ModalOverlay onClose={handleCancelAction} dismissible={!busy}>
+        <ModalPanel size="sm" className="p-5 sm:p-6">
+          <h3 className="font-display text-lg font-semibold text-deep">{pendingConfig.title}</h3>
+          <p className="mt-2 text-sm text-dusk">{pendingConfig.message}</p>
           <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
             <button
               type="button"
               onClick={handleCancelAction}
               disabled={!!busy}
-              className="w-full rounded-md border border-gray-300 px-4 py-2 text-gray-700 hover:bg-gray-50 disabled:opacity-60 sm:w-auto"
+              className="btn-ghost w-full sm:w-auto"
             >
               Cancel
             </button>
@@ -206,13 +207,13 @@ const ProcessControlPanel = ({
               type="button"
               onClick={handleConfirmAction}
               disabled={!!busy}
-              className={`w-full rounded-md px-4 py-2 text-white disabled:opacity-60 sm:w-auto ${pendingConfig.confirmClass}`}
+              className={`w-full rounded-xl px-4 py-2 text-paper shadow-soft disabled:opacity-60 sm:w-auto ${pendingConfig.confirmClass}`}
             >
               {busy === pendingAction?.key ? 'Working…' : pendingConfig.confirmLabel}
             </button>
           </div>
-        </div>
-      </div>
+        </ModalPanel>
+      </ModalOverlay>
     )}
     </>
   );

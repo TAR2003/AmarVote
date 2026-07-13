@@ -157,28 +157,28 @@ export default function ForgotPassword() {
 
   return (
     <Layout>
-      <div className="min-h-[calc(100vh-64px)] bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-10">
-        <div className="mx-auto max-w-lg rounded-2xl border border-blue-100 bg-white p-8 shadow-lg">
-          <h1 className="text-2xl font-bold text-gray-900">
+      <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-frost-mesh px-4 py-10 sm:py-14">
+        <div className="glass-panel mx-auto w-full max-w-md p-6 sm:p-8 animate-fade-up">
+          <h1 className="text-2xl font-bold text-ink">
             {step === 1 && "Forgot your password?"}
             {step === 2 && "Verify your email"}
             {step === 3 && "Set a new password"}
           </h1>
 
-          <p className="mt-2 text-sm text-gray-600">
+          <p className="mt-2 text-sm text-dusk">
             {step === 1 && "Enter your email to receive a verification code."}
             {step === 2 && `Enter the 6-digit code sent to ${email}.`}
             {step === 3 && "Create your new password and sign in again."}
           </p>
 
           {error && (
-            <div className="mt-4 rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
+            <div className="mt-4 rounded-lg border border-ember/30 bg-ember-soft px-4 py-3 text-sm text-ember">
               {error}
             </div>
           )}
 
           {success && (
-            <div className="mt-4 rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-sm text-green-700">
+            <div className="mt-4 rounded-lg border border-aurora/30 bg-sage-soft px-4 py-3 text-sm text-sage">
               {success}
             </div>
           )}
@@ -191,7 +191,7 @@ export default function ForgotPassword() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email"
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-200"
+                className="w-full rounded-lg border border-ink/15 px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/25"
               />
 
               <TurnstileWidget
@@ -203,14 +203,14 @@ export default function ForgotPassword() {
               <button
                 type="submit"
                 disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="w-full rounded-lg bg-brand px-4 py-2 font-medium text-paper transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-brand-soft"
               >
                 {loading ? "Sending code..." : "Send verification code"}
               </button>
 
-              <p className="text-center text-sm text-gray-600">
+              <p className="text-center text-sm text-dusk">
                 Remembered your password?{" "}
-                <Link className="font-semibold text-blue-600 hover:underline" to="/login">
+                <Link className="font-semibold text-brand hover:underline" to="/login">
                   Sign in
                 </Link>
               </p>
@@ -235,7 +235,7 @@ export default function ForgotPassword() {
               <button
                 type="submit"
                 disabled={loading || verificationCode.replace(/\D/g, "").length !== 6}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="w-full rounded-lg bg-brand px-4 py-2 font-medium text-paper transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-brand-soft"
               >
                 {loading ? "Verifying..." : "Verify code"}
               </button>
@@ -250,7 +250,7 @@ export default function ForgotPassword() {
                 type="button"
                 onClick={sendResetCode}
                 disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
-                className="w-full rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:cursor-not-allowed disabled:bg-gray-100"
+                className="w-full rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-dusk hover:bg-frost disabled:cursor-not-allowed disabled:bg-frost"
               >
                 Resend code
               </button>
@@ -276,13 +276,13 @@ export default function ForgotPassword() {
                 showRequirements={false}
               />
               {confirmPassword && newPassword !== confirmPassword && (
-                <p className="text-xs text-red-600">Password and confirm password do not match.</p>
+                <p className="text-xs text-ember">Password and confirm password do not match.</p>
               )}
 
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg bg-blue-600 px-4 py-2 font-medium text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-blue-300"
+                className="w-full rounded-lg bg-brand px-4 py-2 font-medium text-paper transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-brand-soft"
               >
                 {loading ? "Updating password..." : "Set new password"}
               </button>

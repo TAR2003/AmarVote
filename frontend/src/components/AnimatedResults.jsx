@@ -1,16 +1,21 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
-import TruncatedCandidateName from './TruncatedCandidateName';
-import CandidateThumbnail from './CandidateThumbnail';
+import CandidateIdentity from './CandidateIdentity';
 import {
   buildCompetitionRankings,
   formatOrdinal,
+  getCandidateDescription,
   getCandidatePic,
   getVoteCountFromTally,
   isWinnerByRank,
 } from '../utils/electionRankings';
 
-const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 1, votersWhoVoted = null }) => {
+const AnimatedResults = ({
+  electionResults,
+  electionChoices = [],
+  winnerCount = 1,
+  votersWhoVoted = null,
+}) => {
   const [animationStep, setAnimationStep] = useState(0);
   const [currentTotals, setCurrentTotals] = useState({});
   const [isAnimating, setIsAnimating] = useState(false);
@@ -66,8 +71,8 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
 
   if (!electionResults || !electionResults.success) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-6 text-center">
-        <p className="text-red-700">{electionResults?.message || 'Failed to load results'}</p>
+      <div className="bg-ember-soft border border-ember/30 rounded-lg p-6 text-center">
+        <p className="text-ember">{electionResults?.message || 'Failed to load results'}</p>
       </div>
     );
   }
@@ -91,13 +96,13 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
 
   return (
     <div className="space-y-8">
-      <div className="bg-gradient-to-r from-blue-600 to-blue-800 text-white rounded-lg p-6 shadow-lg">
-        <h2 className="text-3xl font-bold mb-2">Election Results</h2>
+      <div className="rounded-2xl bg-deep p-5 text-paper shadow-glass sm:p-6">
+        <h2 className="font-display text-3xl font-bold mb-2">Election Results</h2>
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-2">
-          <p className="text-blue-100 text-lg">
-            Voters Who Voted: <span className="font-bold text-white">{votersWhoVotedCount}</span>
+          <p className="text-dusk-soft text-lg">
+            Voters Who Voted: <span className="font-bold text-paper">{votersWhoVotedCount}</span>
           </p>
-          <p className="text-blue-100 text-sm">
+          <p className="text-dusk-soft text-sm">
             Ranked by votes received (highest first). Tied candidates share the same position.
           </p>
         </div>
@@ -116,42 +121,41 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
               initial={{ opacity: 0, y: 20 }}
               animate={{ opacity: 1, y: 0 }}
               transition={{ delay: index * 0.1 }}
-              className={`bg-white rounded-lg shadow-lg p-6 border-2 ${
+              className={`surface-card rounded-2xl p-5 sm:p-6 border-2 ${
                 isWinner && !isAnimating
-                  ? 'border-yellow-400 ring-4 ring-yellow-100 bg-gradient-to-br from-yellow-50 to-white'
-                  : 'border-gray-200'
+                  ? 'border-amber-400 ring-4 ring-amber-100 bg-gradient-to-br from-amber-50 to-white'
+                  : 'border-ink/10'
               }`}
             >
               <div className="flex items-start justify-between gap-2 mb-4">
-                <div className="min-w-0 flex-1 flex items-start gap-3">
-                  <CandidateThumbnail
-                    src={getCandidatePic(electionChoices, candidate.name)}
+                <div className="min-w-0 flex-1">
+                  <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${
+                    isWinner && !isAnimating ? 'text-ink' : 'text-dusk'
+                  }`}>
+                    {positionLabel}
+                  </p>
+                  <CandidateIdentity
                     name={candidate.name}
+                    image={getCandidatePic(electionChoices, candidate.name)}
+                    description={getCandidateDescription(electionChoices, candidate.name)}
+                    partyName={electionChoices.find((c) => c.optionTitle === candidate.name)?.partyName}
                     size="lg"
+                    enableProfile
+                    nameClassName={`text-lg font-bold leading-snug ${
+                      isWinner && !isAnimating ? 'text-ink' : 'text-ink'
+                    }`}
                   />
-                  <div className="min-w-0 flex-1">
-                    <p className={`text-xs font-bold uppercase tracking-wide mb-1 ${
-                      isWinner && !isAnimating ? 'text-amber-600' : 'text-gray-500'
-                    }`}>
-                      {positionLabel}
-                    </p>
-                    <h3 className={`text-lg font-bold leading-snug ${
-                      isWinner && !isAnimating ? 'text-amber-800' : 'text-gray-800'
-                    }`}>
-                      <TruncatedCandidateName name={candidate.name} />
-                    </h3>
-                  </div>
                 </div>
                 {isWinner && !isAnimating && (
                   <span className="flex flex-col items-center flex-shrink-0" title={`${positionLabel} place`}>
-                    <span className="text-2xl leading-none">🏆</span>
-                    <span className="text-[10px] font-bold text-amber-700 mt-0.5">{positionLabel}</span>
+                    <span className="text-2xl leading-none"></span>
+                    <span className="text-[10px] font-bold text-ink mt-0.5">{positionLabel}</span>
                   </span>
                 )}
               </div>
 
               <motion.div
-                className="text-4xl font-extrabold text-blue-600 mb-4"
+                className="text-4xl font-extrabold text-brand mb-4"
                 key={displayVotes}
                 initial={{ scale: 1.2 }}
                 animate={{ scale: 1 }}
@@ -160,18 +164,18 @@ const AnimatedResults = ({ electionResults, electionChoices = [], winnerCount = 
                 {displayVotes}
               </motion.div>
 
-              <div className="relative h-8 bg-gray-200 rounded-full overflow-hidden">
+              <div className="relative h-3 bg-frost-muted rounded-full overflow-hidden">
                 <motion.div
                   className={`h-full ${
                     isWinner && !isAnimating
-                      ? 'bg-gradient-to-r from-yellow-400 to-yellow-500'
-                      : 'bg-gradient-to-r from-blue-500 to-blue-600'
+                      ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                      : 'bg-gradient-to-r from-brand to-brand-dark'
                   }`}
                   initial={{ width: 0 }}
                   animate={{ width: `${percentage}%` }}
                   transition={{ duration: 0.5, ease: 'easeOut' }}
                 />
-                <div className="absolute inset-0 flex items-center justify-center text-sm font-medium text-gray-700">
+                <div className="absolute inset-0 flex items-center justify-center text-xs font-semibold text-ink">
                   {Math.round(percentage)}%
                 </div>
               </div>

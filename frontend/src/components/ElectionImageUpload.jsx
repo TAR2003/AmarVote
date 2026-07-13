@@ -76,7 +76,7 @@ const ElectionImageUpload = ({
             disabled={disabled}
             maxSize={2 * 1024 * 1024} // 2MB for election images
           />
-          <p className="mt-2 text-xs text-gray-500">
+          <p className="mt-2 text-xs text-dusk">
             Image will be uploaded after election is created
           </p>
         </div>
@@ -108,7 +108,7 @@ export const CandidatePartyImageManager = ({
       {candidateNames.map((name, index) => (
         <div key={index} className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="block text-dusk text-sm font-medium mb-2">
               {name || `Candidate ${index + 1}`} Photo
             </label>
             <ElectionImageUpload
@@ -121,7 +121,7 @@ export const CandidatePartyImageManager = ({
             />
           </div>
           <div>
-            <label className="block text-gray-700 text-sm font-medium mb-2">
+            <label className="block text-dusk text-sm font-medium mb-2">
               {partyNames[index] || `Party ${index + 1}`} Logo
             </label>
             <ElectionImageUpload

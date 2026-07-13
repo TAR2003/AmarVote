@@ -3,24 +3,24 @@ import { FiAlertCircle, FiInfo, FiLoader } from 'react-icons/fi';
 
 const VARIANT_STYLES = {
   info: {
-    container: 'border-blue-200 bg-blue-50',
-    icon: 'text-blue-500',
-    title: 'text-blue-900',
-    message: 'text-blue-800',
+    container: 'border-brand/20 bg-glacier',
+    icon: 'text-brand',
+    title: 'text-deep',
+    message: 'text-ink',
     Icon: FiInfo,
   },
   loading: {
-    container: 'border-blue-200 bg-blue-50',
-    icon: 'text-blue-500',
-    title: 'text-blue-900',
-    message: 'text-blue-800',
+    container: 'border-brand/20 bg-glacier',
+    icon: 'text-brand',
+    title: 'text-deep',
+    message: 'text-ink',
     Icon: FiLoader,
   },
   error: {
-    container: 'border-red-200 bg-red-50',
-    icon: 'text-red-500',
+    container: 'border-ember/30 bg-ember-soft',
+    icon: 'text-ember',
     title: 'text-red-900',
-    message: 'text-red-800',
+    message: 'text-ember',
     Icon: FiAlertCircle,
   },
 };

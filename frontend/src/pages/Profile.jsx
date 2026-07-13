@@ -173,16 +173,19 @@ const Profile = () => {
   };
 
   return (
-    <div className="max-w-4xl mx-auto py-4 sm:py-8 px-3 sm:px-6 lg:px-8 space-y-6">
+    <div className="mx-auto max-w-5xl space-y-5 px-4 py-5 page-enter sm:space-y-6 sm:px-6 sm:py-8 lg:px-8">
       {loading ? (
-        <div className="flex justify-center items-center py-14">
-          <div className="animate-spin rounded-full h-12 w-12 border-t-2 border-b-2 border-blue-500" />
+        <div className="glass-panel flex min-h-40 items-center justify-center rounded-3xl">
+          <div className="flex items-center gap-3 text-sm font-medium text-dusk">
+            <div className="h-7 w-7 animate-spin rounded-full border-2 border-glacier border-t-brand" />
+            Loading security settings
+          </div>
         </div>
       ) : null}
 
       {error ? (
-        <div className="bg-red-50 border-l-4 border-red-500 p-4">
-          <div className="flex items-center gap-3 text-red-700 text-sm">
+        <div className="rounded-2xl border border-ember/30 bg-ember-soft/90 p-4 shadow-soft" role="alert">
+          <div className="flex items-center gap-3 text-sm text-ember">
             <FiAlertCircle className="h-5 w-5" />
             <span>{error}</span>
           </div>
@@ -190,38 +193,71 @@ const Profile = () => {
       ) : null}
 
       {success ? (
-        <div className="bg-green-50 border-l-4 border-green-500 p-4">
-          <div className="flex items-center gap-3 text-green-700 text-sm">
+        <div className="rounded-2xl border border-sage/20 bg-sage-soft p-4 shadow-soft">
+          <div className="flex items-center gap-3 text-sm text-sage">
             <FiCheckCircle className="h-5 w-5" />
             <span>{success}</span>
           </div>
         </div>
       ) : null}
 
-      <div className="bg-white shadow rounded-lg overflow-hidden">
-        <div className="bg-gradient-to-r from-blue-600 to-indigo-700 p-6 text-white">
-          <h1 className="text-2xl font-bold">Account Security</h1>
-          <p className="mt-1 text-sm text-blue-100">Manage password and two-step verification settings.</p>
+      <section className="overflow-hidden rounded-3xl bg-deep shadow-lift">
+        <div className="relative overflow-hidden px-5 py-8 text-paper sm:px-8 sm:py-10">
+          <div className="absolute -right-16 -top-20 h-56 w-56 rounded-full bg-brand/15 blur-3xl" />
+          <div className="absolute -bottom-24 left-1/4 h-48 w-72 rounded-full bg-sage/10 blur-3xl" />
+          <div className="relative">
+            <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Account vault</p>
+            <h1 className="mt-2 font-display text-3xl font-bold tracking-tight sm:text-4xl">Account security</h1>
+            <p className="mt-3 max-w-xl text-sm leading-6 text-dusk-soft sm:text-base">
+            Keep your AmarVote account protected with a strong password and two-step verification.
+            </p>
+          </div>
         </div>
+        <div className="border-t border-white/10 bg-paper/5 p-4 sm:p-6">
+          <div className="glass-panel grid gap-4 border border-white/10 p-5 sm:grid-cols-[1fr_auto] sm:items-center sm:p-6">
+            <div className="flex min-w-0 items-center gap-4">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-paper/10 text-brand-light ring-1 ring-white/10">
+                <FiMail className="h-5 w-5" />
+              </div>
+              <div className="min-w-0">
+                <p className="section-kicker text-black">Signed-in account</p>
+                <p className="mt-1 truncate font-display text-lg font-semibold text-black">{profile.email || "-"}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 rounded-xl border border-white/10 bg-deep/20 px-3 py-2 text-sm font-medium text-black">
+              <span className={`h-2 w-2 rounded-full ${profile.mfaEnabled ? "bg-sage" : "bg-brand"}`} />
+              2FA {profile.mfaEnabled ? "enabled" : "not enabled"}
+            </div>
+          </div>
+        </div>
+      </section>
 
-        <div className="p-6 border-b border-gray-200">
-          <div className="flex items-center gap-3 text-gray-700">
-            <FiMail className="h-5 w-5 text-blue-600" />
-            <span className="text-sm font-medium">Email:</span>
-            <span className="text-sm">{profile.email || "-"}</span>
+      <section className="surface-card overflow-hidden border border-glacier/70">
+        <div className="border-b border-glacier/80 bg-frost/55 px-5 py-5 sm:px-6 sm:py-6">
+          <div className="flex items-start gap-3">
+            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-glacier text-brand">
+              <FiShield className="h-5 w-5" />
+            </div>
+            <div>
+              <p className="section-kicker">Two-step verification</p>
+              <h2 className="mt-1 font-display text-xl font-semibold text-deep sm:text-2xl">Secure sign-in</h2>
+              <p className="mt-1 max-w-2xl text-sm leading-6 text-dusk">
+            Use an authenticator app to help keep your account secure, even if your password is compromised.
+              </p>
+            </div>
           </div>
         </div>
 
-        <div className="p-4 sm:p-6 border-b border-gray-200">
+        <div className="p-5 sm:p-6">
           <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-                <FiShield className="h-5 w-5 text-indigo-600" />
-                Two-Step Verification
-              </h2>
-              <p className="text-sm text-gray-600 mt-1">
-                Status: {profile.mfaEnabled ? "Enabled" : "Disabled"}
-              </p>
+            <div className="flex items-start gap-3">
+              <div className={`mt-0.5 h-2.5 w-2.5 shrink-0 rounded-full ${profile.mfaEnabled ? "bg-sage" : "bg-brand"}`} />
+              <div>
+                <p className="font-display text-base font-semibold text-deep">Verification status</p>
+                <p className="mt-1 text-sm text-dusk">
+                  {profile.mfaEnabled ? "Two-step verification is active." : "Two-step verification is currently off."}
+                </p>
+              </div>
             </div>
 
             {profile.mfaEnabled ? (
@@ -233,7 +269,7 @@ const Profile = () => {
                     placeholder="Current password"
                     value={disablePassword}
                     onChange={(e) => setDisablePassword(e.target.value)}
-                    className="w-full rounded-lg border border-gray-300 px-3 py-2 outline-none focus:border-red-500 focus:ring-2 focus:ring-red-200"
+                    className="input-field"
                   />
                   <OtpInput
                     value={disableMfaCode}
@@ -244,7 +280,7 @@ const Profile = () => {
                     <button
                       type="submit"
                       disabled={mfaBusy || disableMfaCode.replace(/\D/g, "").length !== 6}
-                      className="w-full sm:w-auto px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-60"
+                      className="btn-brand w-full bg-ember hover:bg-ember sm:w-auto"
                     >
                       {mfaBusy ? "Disabling..." : "Confirm Disable"}
                     </button>
@@ -256,7 +292,7 @@ const Profile = () => {
                         setDisableMfaCode("");
                       }}
                       disabled={mfaBusy}
-                      className="w-full sm:w-auto px-4 py-2 rounded-md border border-gray-300 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-60"
+                      className="btn-ghost w-full sm:w-auto"
                     >
                       Cancel
                     </button>
@@ -267,7 +303,7 @@ const Profile = () => {
                   type="button"
                   onClick={() => setShowDisableMfaForm(true)}
                   disabled={mfaBusy}
-                  className="w-full sm:w-auto px-4 py-2 rounded-md bg-red-600 text-white text-sm font-medium hover:bg-red-700 disabled:opacity-60"
+                  className="btn-ghost w-full border-ember/30 text-ember hover:border-ember/40 hover:bg-ember-soft sm:w-auto"
                 >
                   Turn Off
                 </button>
@@ -277,7 +313,7 @@ const Profile = () => {
                 type="button"
                 onClick={handleStartMfaSetup}
                 disabled={mfaBusy}
-                className="w-full sm:w-auto px-4 py-2 rounded-md bg-indigo-600 text-white text-sm font-medium hover:bg-indigo-700 disabled:opacity-60"
+                className="btn-brand w-full sm:w-auto"
               >
                 {mfaBusy ? "Preparing..." : "Turn On"}
               </button>
@@ -285,28 +321,29 @@ const Profile = () => {
           </div>
 
           {!profile.mfaEnabled && mfaSetup.qrCodeDataUri ? (
-            <div className="mt-6 rounded-lg border border-indigo-100 bg-indigo-50 p-4">
-              <p className="text-sm text-indigo-900 mb-3">
+            <div className="mt-6 rounded-2xl border border-brand/20 bg-glacier/45 p-4 sm:p-5">
+              <p className="section-kicker">Authenticator setup</p>
+              <p className="mt-1 font-display text-lg font-semibold text-deep">
                 Scan this QR code with Google Authenticator, then confirm with a 6-digit code.
               </p>
 
-              <div className="bg-white rounded-lg p-4 inline-block max-w-full">
+              <div className="mt-4 inline-block max-w-full rounded-2xl bg-paper p-4 shadow-soft">
                 <img src={mfaSetup.qrCodeDataUri} alt="MFA QR" className="h-44 w-44 sm:h-52 sm:w-52" />
               </div>
 
               {mfaSetup.secret ? (
-                <p className="mt-3 text-xs text-indigo-900">
+                <p className="mt-4 text-xs text-deep">
                   Manual secret: <span className="font-mono font-semibold">{mfaSetup.secret}</span>
                 </p>
               ) : null}
 
-              <div className="mt-4 w-full sm:max-w-xs">
+              <div className="mt-5 w-full sm:max-w-xs">
                 <OtpInput value={mfaCode} onChange={setMfaCode} onComplete={handleConfirmMfa} disabled={mfaBusy} />
                 <button
                   type="button"
                   onClick={() => handleConfirmMfa()}
                   disabled={mfaBusy || mfaCode.replace(/\D/g, "").length !== 6}
-                  className="mt-3 w-full rounded-md bg-indigo-700 text-white py-2 text-sm font-medium hover:bg-indigo-800 disabled:opacity-60"
+                  className="btn-brand mt-3 w-full"
                 >
                   {mfaBusy ? "Confirming..." : "Confirm and Enable"}
                 </button>
@@ -314,14 +351,23 @@ const Profile = () => {
             </div>
           ) : null}
         </div>
+      </section>
 
-        <div className="p-4 sm:p-6">
-          <h2 className="text-lg font-semibold text-gray-900 flex items-center gap-2">
-            <FiLock className="h-5 w-5 text-blue-600" />
-            Change Password
-          </h2>
+      <section className="surface-card overflow-hidden border border-glacier/70">
+        <div className="border-b border-glacier/80 bg-frost/55 px-5 py-5 sm:px-6 sm:py-6">
+        <div className="flex items-start gap-3">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-glacier text-brand">
+            <FiLock className="h-5 w-5" />
+          </div>
+          <div>
+            <p className="section-kicker">Password</p>
+            <h2 className="mt-1 font-display text-xl font-semibold text-deep sm:text-2xl">Change your password</h2>
+            <p className="mt-1 text-sm leading-6 text-dusk">Choose a unique password that you do not use elsewhere.</p>
+          </div>
+        </div>
+        </div>
 
-          <form className="mt-4 space-y-4 max-w-lg" onSubmit={handlePasswordChange}>
+        <form className="max-w-lg space-y-4 p-5 sm:p-6" onSubmit={handlePasswordChange}>
             <PasswordInput
               value={passwordForm.currentPassword}
               onChange={(e) => setPasswordForm((prev) => ({ ...prev, currentPassword: e.target.value }))}
@@ -330,6 +376,7 @@ const Profile = () => {
               autoComplete="current-password"
               showRequirements={false}
               showValidation={false}
+              className="input-field"
             />
 
             <PasswordInput
@@ -338,6 +385,7 @@ const Profile = () => {
               placeholder="New password"
               required
               autoComplete="new-password"
+              className="input-field"
             />
 
             <PasswordInput
@@ -347,21 +395,21 @@ const Profile = () => {
               required
               autoComplete="new-password"
               showRequirements={false}
+              className="input-field"
             />
             {passwordForm.confirmPassword && passwordForm.newPassword !== passwordForm.confirmPassword && (
-              <p className="text-xs text-red-600">New password and confirm password do not match.</p>
+              <p className="text-xs text-ember">New password and confirm password do not match.</p>
             )}
 
             <button
               type="submit"
               disabled={passwordBusy}
-              className="w-full sm:w-auto rounded-md bg-blue-600 text-white px-4 py-2 text-sm font-medium hover:bg-blue-700 disabled:opacity-60"
+              className="btn-brand w-full sm:w-auto"
             >
               {passwordBusy ? "Updating..." : "Update Password"}
             </button>
-          </form>
-        </div>
-      </div>
+        </form>
+      </section>
     </div>
   );
 };

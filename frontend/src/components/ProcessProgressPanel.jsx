@@ -27,7 +27,7 @@ export default function ProcessProgressPanel({
     pct = 5;
   }
 
-  const pathColor = isFailed ? '#dc2626' : isCompleted ? '#16a34a' : '#2563eb';
+  const pathColor = isFailed ? '#D9614F' : isCompleted ? '#3FC7B8' : '#5C52C4';
   const statusLabel = isFailed
     ? 'Failed'
     : isCompleted
@@ -37,15 +37,15 @@ export default function ProcessProgressPanel({
         : 'Not started';
 
   return (
-    <div className="rounded-lg border border-gray-200 bg-white p-4 shadow-sm">
+    <div className="rounded-2xl border border-ink/10 bg-paper p-4 shadow-soft sm:p-5">
       <div className="mb-3 flex items-center justify-between gap-2">
-        <h4 className="text-sm font-semibold text-gray-900">{title}</h4>
+        <h4 className="font-display text-sm font-semibold text-deep">{title}</h4>
         {onRefresh && (
           <button
             type="button"
             onClick={onRefresh}
             disabled={isRefreshing}
-            className="inline-flex items-center gap-1.5 rounded-md border border-gray-200 bg-white px-2.5 py-1 text-xs font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 btn-ghost px-2.5 py-1 text-xs"
           >
             <FiRefreshCw className={`h-3.5 w-3.5 ${isRefreshing ? 'animate-spin' : ''}`} />
             Refresh
@@ -61,20 +61,20 @@ export default function ProcessProgressPanel({
             styles={buildStyles({
               textSize: '22px',
               pathColor,
-              textColor: '#111827',
+              textColor: '#1B1D2E',
               trailColor: '#e5e7eb',
             })}
           />
         </div>
         <div className="mt-3 text-center sm:mt-0 sm:text-left">
-          <p className="text-sm font-medium text-gray-900">{statusLabel}</p>
+          <p className="text-sm font-medium text-deep">{statusLabel}</p>
           {totalChunks > 0 && (
-            <p className="mt-1 text-xs text-gray-600">
+            <p className="mt-1 font-mono text-xs text-dusk">
               Chunks: {processedChunks} / {totalChunks}
             </p>
           )}
           {status?.message && (
-            <p className="mt-1 text-xs text-gray-500">{status.message}</p>
+            <p className="mt-1 text-xs text-dusk">{status.message}</p>
           )}
         </div>
       </div>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
+import { FiCheckCircle, FiAlertCircle, FiLoader } from 'react-icons/fi';
 
 function parseFilename(contentDisposition) {
   if (!contentDisposition) {
@@ -80,7 +81,9 @@ export default function ReceiptDownload() {
 
         if (!cancelled) {
           setStatus('success');
-          setMessage('Your receipt download started. You can close this tab.');
+          setMessage(
+            'Your receipt download started. Keep the tracking code to confirm your ballot is in the tally later — without revealing your choice.',
+          );
         }
       } catch (err) {
         if (!cancelled) {
@@ -98,13 +101,26 @@ export default function ReceiptDownload() {
   }, [token]);
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center p-6">
-      <div className="max-w-md w-full bg-white rounded-xl shadow p-8 text-center">
-        <h1 className="text-xl font-semibold text-slate-900 mb-3">AmarVote Receipt</h1>
+    <div className="flex min-h-screen items-center justify-center bg-deep-aurora p-6">
+      <div className="modal-surface w-full max-w-md p-8 text-center">
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-aurora">
+          Vote receipt
+        </p>
+        <h1 className="mt-2 font-display text-2xl font-semibold text-paper">AmarVote</h1>
+        <div className="mt-6 flex justify-center" aria-hidden>
+          {status === 'loading' && <FiLoader className="h-10 w-10 animate-spin text-aurora" />}
+          {status === 'success' && <FiCheckCircle className="h-10 w-10 text-aurora" />}
+          {status === 'error' && <FiAlertCircle className="h-10 w-10 text-ember" />}
+        </div>
         <p
-          className={`text-sm ${
-            status === 'error' ? 'text-red-600' : status === 'success' ? 'text-green-700' : 'text-slate-600'
+          className={`mt-4 text-sm leading-relaxed ${
+            status === 'error'
+              ? 'text-ember'
+              : status === 'success'
+                ? 'text-aurora'
+                : 'text-paper-muted'
           }`}
+          role="status"
         >
           {message}
         </p>

@@ -1,35 +1,30 @@
 import React from "react";
 import Layout from "./Layout";
+import MarketingHero from "../components/MarketingHero";
 
 const SectionCard = ({ title, children }) => (
-  <section className="bg-white border border-gray-200 rounded-2xl shadow-sm p-6">
-    <h2 className="text-xl font-bold text-gray-900 mb-4">{title}</h2>
+  <section className="surface-card glass-panel p-6 sm:p-7">
+    <h2 className="font-display text-xl font-bold text-deep mb-4">{title}</h2>
     {children}
   </section>
 );
 
 const Code = ({ children }) => (
-  <code className="px-2 py-1 rounded bg-gray-100 text-gray-800 text-sm font-mono">{children}</code>
+  <code className="px-2 py-1 rounded-lg bg-glacier text-brand-dark text-sm font-mono">{children}</code>
 );
 
 function Documentation() {
   return (
     <Layout>
-      <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 text-white py-16 px-4">
-        <div className="max-w-6xl mx-auto">
-          <div className="inline-flex items-center px-4 py-2 rounded-full bg-blue-500/10 border border-blue-300/30 text-blue-200 text-sm font-medium mb-6">
-            <span className="mr-2">📘</span>AmarVote Documentation (Partial, Full Documentation will be available soon)
-          </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold mb-4">Platform Documentation</h1>
-          <p className="text-blue-100/90 text-lg max-w-4xl leading-relaxed">
-            The routes and permissions outlined on this page are based on the current implementation of AmarVote as of March 2026. They are subject to change as the platform evolves, but this serves as a snapshot of the core structure and access rules in place at this time.   
-          </p>
-        </div>
-      </div>
+      <MarketingHero
+        kicker="Docs"
+        title="Platform documentation"
+        subtitle="Routes and permissions as implemented today—a living snapshot of AmarVote’s access rules and structure."
+      />
 
-      <div className="max-w-6xl mx-auto px-4 py-10 space-y-6">
+      <div className="marketing-page max-w-5xl mx-auto px-4 py-12 sm:py-16 space-y-6 page-enter">
         <SectionCard title="Authentication and Login Rules">
-          <ul className="space-y-3 text-gray-700 leading-relaxed list-disc pl-5">
+          <ul className="space-y-3 text-dusk leading-relaxed list-disc pl-5">
             <li>Login is restricted to authorized users when registration is not open to all.</li>
             <li>
               Access checks are enforced in backend auth flows via <Code>ensureAllowedForLogin</Code> and
@@ -47,21 +42,21 @@ function Documentation() {
 
         <SectionCard title="Roles and Permission Model">
           <div className="grid md:grid-cols-3 gap-4 mb-4">
-            <div className="rounded-xl border border-gray-200 p-4 bg-gray-50">
-              <h3 className="font-bold text-gray-900 mb-2">User</h3>
-              <p className="text-sm text-gray-700">Can log in if authorized. Cannot manage authorized-users settings by default.</p>
+            <div className="rounded-2xl border border-ink/10 p-4 bg-frost">
+              <h3 className="font-display font-bold text-deep mb-2">User</h3>
+              <p className="text-sm text-dusk">Can log in if authorized. Cannot manage authorized-users settings by default.</p>
             </div>
-            <div className="rounded-xl border border-blue-200 p-4 bg-blue-50">
-              <h3 className="font-bold text-blue-900 mb-2">Admin</h3>
-              <p className="text-sm text-blue-900">Can add/remove/update authorized users (except owner records), and manage permission settings.</p>
+            <div className="rounded-xl border border-brand/20 p-4 bg-glacier">
+              <h3 className="font-display font-bold text-deep mb-2">Admin</h3>
+              <p className="text-sm text-deep">Can add/remove/update authorized users (except owner records), and manage permission settings.</p>
             </div>
-            <div className="rounded-xl border border-indigo-200 p-4 bg-indigo-50">
-              <h3 className="font-bold text-indigo-900 mb-2">Owner</h3>
-              <p className="text-sm text-indigo-900">Full management role. Can promote users to admin and perform all admin operations.</p>
+            <div className="rounded-xl border border-brand/25 p-4 bg-glacier">
+              <h3 className="font-display font-bold text-deep mb-2">Owner</h3>
+              <p className="text-sm text-deep">Full management role. Can promote users to admin and perform all admin operations.</p>
             </div>
           </div>
 
-          <ul className="space-y-3 text-gray-700 leading-relaxed list-disc pl-5">
+          <ul className="space-y-3 text-dusk leading-relaxed list-disc pl-5">
             <li>
               Owner records are immutable in the current backend logic: owners cannot be modified or removed via authorized-users APIs.
             </li>
@@ -78,7 +73,7 @@ function Documentation() {
         </SectionCard>
 
         <SectionCard title="Election Creation Permission">
-          <ul className="space-y-3 text-gray-700 leading-relaxed list-disc pl-5">
+          <ul className="space-y-3 text-dusk leading-relaxed list-disc pl-5">
             <li>
               Election creation is validated server-side at <Code>/api/create-election</Code> using
               <Code> canUserCreateElection</Code>.
@@ -95,9 +90,9 @@ function Documentation() {
 
         <SectionCard title="Main Public and App Routes">
           <div className="grid md:grid-cols-2 gap-4 text-sm">
-            <div className="rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-2">Public Frontend</h3>
-              <ul className="space-y-1 text-gray-700 list-disc pl-5">
+            <div className="rounded-xl border border-ink/10 p-4">
+              <h3 className="font-semibold text-ink mb-2">Public Frontend</h3>
+              <ul className="space-y-1 text-dusk list-disc pl-5">
                 <li>/</li>
                 <li>/features</li>
                 <li>/how-it-works</li>
@@ -109,9 +104,9 @@ function Documentation() {
                 <li>/register</li>
               </ul>
             </div>
-            <div className="rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-2">Authenticated Frontend</h3>
-              <ul className="space-y-1 text-gray-700 list-disc pl-5">
+            <div className="rounded-xl border border-ink/10 p-4">
+              <h3 className="font-semibold text-ink mb-2">Authenticated Frontend</h3>
+              <ul className="space-y-1 text-dusk list-disc pl-5">
                 <li>/dashboard</li>
                 <li>/create-election</li>
                 <li>/election-page/:id</li>
@@ -125,9 +120,9 @@ function Documentation() {
         </SectionCard>
 
         <SectionCard title="Core Backend Endpoints">
-          <div className="grid md:grid-cols-2 gap-4 text-sm text-gray-700">
-            <div className="rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-2">Auth and Session</h3>
+          <div className="grid md:grid-cols-2 gap-4 text-sm text-dusk">
+            <div className="rounded-xl border border-ink/10 p-4">
+              <h3 className="font-semibold text-ink mb-2">Auth and Session</h3>
               <ul className="space-y-1 list-disc pl-5">
                 <li><Code>/api/auth/register/send-email-code</Code></li>
                 <li><Code>/api/auth/register</Code></li>
@@ -137,8 +132,8 @@ function Documentation() {
                 <li><Code>/api/auth/session</Code></li>
               </ul>
             </div>
-            <div className="rounded-xl border border-gray-200 p-4">
-              <h3 className="font-semibold text-gray-900 mb-2">Authorization and Elections</h3>
+            <div className="rounded-xl border border-ink/10 p-4">
+              <h3 className="font-semibold text-ink mb-2">Authorization and Elections</h3>
               <ul className="space-y-1 list-disc pl-5">
                 <li><Code>/api/authorized-users</Code></li>
                 <li><Code>/api/authorized-users/audit-logs</Code></li>
@@ -151,7 +146,7 @@ function Documentation() {
           </div>
         </SectionCard>
 
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-dusk">
           You can find those frontend routes in App.jsx and backend logic in AuthorizedUserService,
           OtpAuthController, MfaAuthService, ElectionController, and SystemSettingService.
         </p>

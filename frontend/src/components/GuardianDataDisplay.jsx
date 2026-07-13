@@ -101,29 +101,29 @@ const GuardianDataDisplay = ({ electionId }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-8">
-        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div>
-        <span className="ml-2 text-gray-600">Loading guardian data...</span>
+        <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-brand"></div>
+        <span className="ml-2 text-dusk">Loading guardian data...</span>
       </div>
     );
   }
 
   if (error) {
     return (
-      <div className="bg-red-50 border border-red-200 rounded-lg p-4">
+      <div className="bg-ember-soft border border-ember/30 rounded-lg p-4">
         <div className="flex items-center">
-          <div className="text-red-600 font-medium">Error loading guardian data</div>
+          <div className="text-ember font-medium">Error loading guardian data</div>
         </div>
-        <div className="mt-2 text-red-700 text-sm">{error}</div>
+        <div className="mt-2 text-ember text-sm">{error}</div>
       </div>
     );
   }
 
   if (guardians.length === 0) {
     return (
-      <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-4">
+      <div className="bg-ceremonial-soft border border-yellow-200 rounded-lg p-4">
         <div className="flex items-center">
           <FiUser className="h-5 w-5 text-yellow-600 mr-2" />
-          <div className="text-yellow-800 font-medium">No Guardian Data Found</div>
+          <div className="text-ink font-medium">No Guardian Data Found</div>
         </div>
         <div className="mt-2 text-yellow-700 text-sm">
           No guardian information is available for this election yet.
@@ -136,31 +136,31 @@ const GuardianDataDisplay = ({ electionId }) => {
     <div className="space-y-4">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h3 className="text-lg font-semibold text-gray-900 flex items-center">
-            <FiShield className="h-5 w-5 mr-2 text-blue-600" />
+          <h3 className="text-lg font-semibold text-deep flex items-center">
+            <FiShield className="h-5 w-5 mr-2 text-brand" />
             Guardian Information
-            <span className="ml-3 bg-blue-100 text-blue-800 text-sm font-medium px-2.5 py-1 rounded-full">
+            <span className="ml-3 bg-glacier text-ink text-sm font-medium px-2.5 py-1 rounded-full">
               {guardians.length} {guardians.length === 1 ? 'Guardian' : 'Guardians'}
             </span>
           </h3>
-          <p className="text-sm text-gray-600 mt-1">
+          <p className="text-sm text-dusk mt-1">
             Download guardian keys, backup data, and chunk decryption artifacts
           </p>
         </div>
         <button
           type="button"
           onClick={downloadAllGuardiansData}
-          className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-all shadow-sm hover:shadow-md"
+          className="btn-brand"
         >
           <FiDownload className="h-4 w-4" />
           <span>Download All</span>
         </button>
       </div>
 
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-3">
+      <div className="rounded-2xl border border-brand/20 bg-glacier/60 p-4">
         <div className="flex items-start">
-          <FiInfo className="h-5 w-5 text-blue-600 mr-2 mt-0.5 flex-shrink-0" />
-          <p className="text-sm text-blue-800">
+          <FiInfo className="h-5 w-5 text-brand mr-2 mt-0.5 flex-shrink-0" />
+          <p className="text-sm text-ink">
             Cryptographic artifacts are not shown inline. Download a guardian package to inspect
             public keys, backup data, and partial decryption shares locally.
           </p>
@@ -173,19 +173,19 @@ const GuardianDataDisplay = ({ electionId }) => {
           return (
             <div
               key={guardian.id}
-              className="flex items-center justify-between p-4 bg-white border border-gray-200 rounded-lg"
+              className="flex items-center justify-between p-4 surface-card"
             >
               <div className="flex items-center space-x-4 flex-1 min-w-0">
                 <div className="flex-shrink-0">
-                  <div className="h-12 w-12 bg-gradient-to-br from-blue-400 to-blue-600 rounded-full flex items-center justify-center shadow-sm">
-                    <FiUser className="h-6 w-6 text-white" />
+                  <div className="h-12 w-12 bg-gradient-to-br from-brand to-brand-dark rounded-full flex items-center justify-center shadow-sm">
+                    <FiUser className="h-6 w-6 text-paper" />
                   </div>
                 </div>
                 <div className="min-w-0">
-                  <h4 className="text-base font-semibold text-gray-900">
+                  <h4 className="text-base font-semibold text-deep">
                     Guardian {guardian.sequenceOrder}
                   </h4>
-                  <p className="text-sm text-gray-600 truncate">
+                  <p className="text-sm text-dusk truncate">
                     {guardian.userEmail}
                     {guardian.chunkDecryptionCount != null
                       ? ` • ${guardian.chunkDecryptionCount} chunk decryption(s)`
@@ -196,8 +196,8 @@ const GuardianDataDisplay = ({ electionId }) => {
               <div className="flex items-center space-x-3 shrink-0">
                 <div className={`px-3 py-1 rounded-full text-sm font-medium ${
                   guardian.decryptedOrNot
-                    ? 'bg-green-100 text-green-800'
-                    : 'bg-yellow-100 text-yellow-800'
+                    ? 'bg-sage-soft text-aurora-muted'
+                    : 'bg-ceremonial-soft text-ink'
                 }`}>
                   {guardian.decryptedOrNot ? 'Decrypted' : 'Pending'}
                 </div>
@@ -205,7 +205,7 @@ const GuardianDataDisplay = ({ electionId }) => {
                   type="button"
                   onClick={() => downloadAllGuardianData(guardian)}
                   disabled={isDownloading}
-                  className="flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                  className="btn-brand"
                 >
                   {isDownloading ? (
                     <FiLoader className="h-4 w-4 animate-spin" />

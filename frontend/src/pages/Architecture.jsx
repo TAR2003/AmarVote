@@ -1,21 +1,21 @@
 import React, { useState } from "react";
 import Layout from "./Layout";
+import MarketingHero, { MarketingTabs } from "../components/MarketingHero";
 
 const SvcBox = ({ icon, name, tech, ip, port, color }) => (
-  <div className={`rounded-xl border-2 ${color} p-4 text-center bg-white shadow-md`}>
-    <div className="text-2xl mb-1">{icon}</div>
-    <div className="font-bold text-gray-900 text-sm">{name}</div>
-    <div className="text-xs text-gray-500 mt-1 font-mono">{tech}</div>
-    {ip && <div className="mt-1 text-xs font-mono text-blue-600">{ip}</div>}
-    {port && <div className="text-xs font-mono text-gray-400">{port}</div>}
+  <div className={`surface-card rounded-2xl border ${color} p-4 text-center`}>
+    <div className="font-display font-bold text-deep text-sm">{name}</div>
+    <div className="text-xs text-dusk mt-1 font-mono">{tech}</div>
+    {ip && <div className="mt-1 text-xs font-mono text-brand">{ip}</div>}
+    {port && <div className="text-xs font-mono text-dusk">{port}</div>}
   </div>
 );
 
 const ArrowLabel = ({ label }) => (
   <div className="flex flex-col items-center my-1">
-    <div className="w-px h-6 bg-gray-300" />
-    <div className="text-xs text-gray-400 px-2 py-0.5 bg-gray-100 rounded font-mono border border-gray-200">{label}</div>
-    <div className="w-px h-6 bg-gray-300" />
+    <div className="w-px h-6 bg-ink/20" />
+    <div className="text-xs text-dusk px-2 py-0.5 bg-frost rounded-lg font-mono border border-ink/10">{label}</div>
+    <div className="w-px h-6 bg-ink/20" />
   </div>
 );
 
@@ -24,68 +24,46 @@ const Architecture = () => {
 
   return (
     <Layout>
-      {/* ── Hero ─────────────────────────────────────── */}
-      <div className="bg-gradient-to-br from-slate-900 via-blue-950 to-indigo-950 py-16 px-4">
-        <div className="max-w-5xl mx-auto text-center">
-          <div className="inline-flex items-center px-4 py-2 bg-blue-500/10 border border-blue-500/30 rounded-full text-blue-300 text-sm font-medium mb-6">
-            <span className="mr-2">🏗️</span>System Architecture
-          </div>
-          <h1 className="text-3xl md:text-5xl font-extrabold text-white mb-4">
-            AmarVote Infrastructure
-          </h1>
-          <p className="text-blue-200/80 text-lg max-w-2xl mx-auto">
-            Six microservices orchestrated via Docker Compose with a private 172.20.0.0/24 overlay network, plus optional AI and observability layers.
-          </p>
-        </div>
-      </div>
+      <MarketingHero
+        kicker="Infrastructure"
+        title="AmarVote architecture"
+        subtitle="Microservices on a private overlay network—ElectionGuard workers, queues, and caches orchestrated for large, verifiable elections."
+      />
 
-      {/* ── Tab bar ───────────────────────────────────── */}
-      <div className="border-b border-gray-200 bg-white sticky top-16 z-20">
-        <div className="max-w-6xl mx-auto px-4 flex overflow-x-auto">
-          {[
-            ["overview", "🗺️ Overview"],
-            ["services", "📦 Services"],
-            ["network", "🌐 Network"],
-            ["dataflow", "🔄 Data Flow"],
-            ["rabbitmq", "🐰 RabbitMQ"],
-            ["redis", "🔴 Redis"],
-          ].map(([id, label]) => (
-            <button
-              key={id}
-              onClick={() => setActiveTab(id)}
-              className={`px-4 py-4 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
-                activeTab === id
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-      </div>
+      <MarketingTabs
+        tabs={[
+          { id: "overview", label: "Overview" },
+          { id: "services", label: "Services" },
+          { id: "network", label: "Network" },
+          { id: "dataflow", label: "Data Flow" },
+          { id: "rabbitmq", label: "RabbitMQ" },
+          { id: "redis", label: "Redis" },
+        ]}
+        active={activeTab}
+        onChange={setActiveTab}
+      />
 
-      <div className="max-w-7xl mx-auto px-4 py-12">
+      <div className="marketing-page max-w-6xl mx-auto px-4 py-12 sm:py-16 page-enter">
 
         {/* ═══════════════════════ OVERVIEW ═══════════════════════ */}
         {activeTab === "overview" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">High-Level Architecture Diagram</h2>
+            <h2 className="section-title text-center mb-8">High-Level Architecture Diagram</h2>
 
             {/* System Map */}
-            <div className="bg-gray-50 rounded-2xl border border-gray-200 p-8 mb-10 overflow-x-auto">
+            <div className="bg-frost rounded-2xl border border-ink/10 p-8 mb-10 overflow-x-auto">
               <div className="min-w-[700px]">
                 {/* Browser / User layer */}
                 <div className="flex justify-center mb-4">
-                  <div className="bg-white border-2 border-gray-300 rounded-xl px-8 py-3 font-semibold text-gray-700 shadow-sm">
-                    🌐 Browser (User / Guardian / Admin)
+                  <div className="bg-paper border-2 border-ink/15 rounded-xl px-8 py-3 font-semibold text-dusk shadow-sm">
+                    Browser (User / Guardian / Admin)
                   </div>
                 </div>
                 <ArrowLabel label="HTTPS :443 (Nginx Proxy)" />
 
                 {/* Frontend */}
                 <div className="flex justify-center mb-2">
-                  <SvcBox icon="⚛️" name="React Frontend" tech="React 19.1 · Vite 6 · Tailwind" ip="172.20.0.40" port="5173 dev / 80 prod" color="border-blue-400" />
+                  <SvcBox icon="⚛️" name="React Frontend" tech="React 19.1 · Vite 6 · Tailwind" ip="172.20.0.40" port="5173 dev / 80 prod" color="border-brand" />
                 </div>
                 <ArrowLabel label="HTTP REST + JSON" />
 
@@ -99,31 +77,31 @@ const Architecture = () => {
                 {/* Fan out */}
                 <div className="flex justify-center gap-2 my-4">
                   <div className="flex flex-col items-end w-40">
-                    <div className="w-px h-6 bg-gray-300 mx-auto" />
-                    <div className="w-full h-px bg-gray-300" />
+                    <div className="w-px h-6 bg-ink/20 mx-auto" />
+                    <div className="w-full h-px bg-ink/20" />
                   </div>
                   <div className="flex flex-col items-center w-40">
-                    <div className="w-px h-6 bg-gray-300" />
-                    <div className="w-full h-px bg-gray-300" />
+                    <div className="w-px h-6 bg-ink/20" />
+                    <div className="w-full h-px bg-ink/20" />
                   </div>
                   <div className="flex flex-col items-start w-40">
-                    <div className="w-px h-6 bg-gray-300 mx-auto" />
-                    <div className="w-full h-px bg-gray-300" />
+                    <div className="w-px h-6 bg-ink/20 mx-auto" />
+                    <div className="w-full h-px bg-ink/20" />
                   </div>
                 </div>
 
                 {/* Downstream row */}
                 <div className="flex justify-center gap-4 mb-4">
                   <div className="flex flex-col items-center gap-2">
-                    <div className="w-px h-6 bg-gray-300" />
+                    <div className="w-px h-6 bg-ink/20" />
                     <SvcBox icon="🗄️" name="PostgreSQL 15" tech="Alpine · Hibernate JPA" ip="172.20.0.20" port="5432" color="border-sky-400" />
                   </div>
                   <div className="flex flex-col items-center gap-2">
-                    <div className="w-px h-6 bg-gray-300" />
+                    <div className="w-px h-6 bg-ink/20" />
                     <SvcBox icon="🐰" name="RabbitMQ 3.13" tech="AMQP · Spring AMQP" ip="172.20.0.60" port="5672 / 15672 UI" color="border-orange-400" />
                   </div>
                   <div className="flex flex-col items-center gap-2">
-                    <div className="w-px h-6 bg-gray-300" />
+                    <div className="w-px h-6 bg-ink/20" />
                     <SvcBox icon="💾" name="Redis 7" tech="Alpine · Lettuce" ip="172.20.0.70" port="6379" color="border-red-400" />
                   </div>
                 </div>
@@ -132,11 +110,11 @@ const Architecture = () => {
                 <div className="flex justify-center gap-4 mt-2">
                   <div className="flex flex-col items-center">
                     <ArrowLabel label="HTTP :5000 (fast API)" />
-                    <SvcBox icon="🔐" name="EG Fast API" tech="Flask · ElectionGuard 2.x" ip="172.20.0.10" port="5000" color="border-purple-400" />
+                    <SvcBox icon="🔐" name="EG Fast API" tech="Flask · ElectionGuard 2.x" ip="172.20.0.10" port="5000" color="border-brand" />
                   </div>
                   <div className="flex flex-col items-center">
                     <ArrowLabel label="RabbitMQ dequeue" />
-                    <SvcBox icon="⚙️" name="EG Worker" tech="RabbitMQ consumer" ip="172.20.0.11" port="5001" color="border-violet-400" />
+                    <SvcBox icon="⚙️" name="EG Worker" tech="RabbitMQ consumer" ip="172.20.0.11" port="5001" color="border-brand-dark" />
                   </div>
                 </div>
 
@@ -145,30 +123,30 @@ const Architecture = () => {
                   <SvcBox icon="🤖" name="RAG Service" tech="LangChain · ChromaDB · DeepSeek" ip="—" port="5001 alt (opt)" color="border-dashed border-teal-400" />
                   <SvcBox icon="📊" name="Prometheus / Grafana" tech="Micrometer scrape 15s" ip="—" port="9090 / 3000 (prod)" color="border-dashed border-gray-400" />
                 </div>
-                <p className="text-center text-xs text-gray-400 mt-2">Dashed services = optional (Docker Compose profiles)</p>
+                <p className="text-center text-xs text-dusk mt-2">Dashed services = optional (Docker Compose profiles)</p>
               </div>
             </div>
 
             {/* Nginx Proxy */}
-            <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
-              <h3 className="font-bold text-gray-900 text-lg mb-4">🔀 Nginx Reverse Proxy (Production)</h3>
+            <div className="bg-paper rounded-2xl border border-ink/10 p-6 mb-6">
+              <h3 className="font-display font-bold text-ink text-lg mb-4">Nginx Reverse Proxy (Production)</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <p className="text-gray-600 text-sm mb-3">The nginx proxy terminates SSL and routes traffic to services based on path prefix:</p>
-                  <div className="bg-gray-900 rounded-xl p-4 font-mono text-xs text-gray-300">
-                    <div className="text-green-400 mb-2"># nginx-proxy.conf routing rules</div>
-                    <div><span className="text-yellow-300">location /api/</span> → Spring Boot :8080</div>
-                    <div><span className="text-yellow-300">location /electionguard/</span> → EG API :5000</div>
-                    <div><span className="text-yellow-300">location /rag/</span> → RAG service :5001</div>
-                    <div><span className="text-yellow-300">location /</span> → React frontend :80</div>
+                  <p className="text-dusk text-sm mb-3">The nginx proxy terminates SSL and routes traffic to services based on path prefix:</p>
+                  <div className="code-panel rounded-xl p-4 font-mono text-xs text-dusk-soft">
+                    <div className="text-aurora mb-2"># nginx-proxy.conf routing rules</div>
+                    <div><span className="text-ceremonial">location /api/</span> → Spring Boot :8080</div>
+                    <div><span className="text-ceremonial">location /electionguard/</span> → EG API :5000</div>
+                    <div><span className="text-ceremonial">location /rag/</span> → RAG service :5001</div>
+                    <div><span className="text-ceremonial">location /</span> → React frontend :80</div>
                   </div>
                 </div>
                 <div>
-                  <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 text-sm">
-                    <h4 className="font-semibold text-blue-800 mb-2">Production vs Development</h4>
-                    <div className="space-y-2 text-gray-700">
-                      <div><strong>Dev:</strong> <code className="bg-white px-1 rounded text-xs">docker-compose.yml</code> + Vite HMR on :5173</div>
-                      <div><strong>Prod:</strong> <code className="bg-white px-1 rounded text-xs">docker-compose.prod.yml</code> + Nginx serving built React on :80, Prometheus + Grafana enabled</div>
+                  <div className="bg-glacier border border-brand/20 rounded-xl p-4 text-sm">
+                    <h4 className="font-semibold text-ink mb-2">Production vs Development</h4>
+                    <div className="space-y-2 text-dusk">
+                      <div><strong>Dev:</strong> <code className="bg-paper px-1 rounded text-xs">docker-compose.yml</code> + Vite HMR on :5173</div>
+                      <div><strong>Prod:</strong> <code className="bg-paper px-1 rounded text-xs">docker-compose.prod.yml</code> + Nginx serving built React on :80, Prometheus + Grafana enabled</div>
                       <div><strong>DB Dev:</strong> Neon Cloud PostgreSQL (remote); Prod: local container :5432</div>
                     </div>
                   </div>
@@ -181,7 +159,7 @@ const Architecture = () => {
         {/* ═══════════════════════ SERVICES ═══════════════════════ */}
         {activeTab === "services" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Service Deep Dives</h2>
+            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Service Deep Dives</h2>
             <div className="space-y-6">
               {[
                 {
@@ -204,7 +182,7 @@ const Architecture = () => {
                   ]
                 },
                 {
-                  icon: "🔐", name: "ElectionGuard Microservice — Fast API Container", color: "purple",
+                  icon: "🔐", name: "ElectionGuard Microservice — Fast API Container", color: "blue",
                   tech: "Python 3.12 · Flask · Microsoft ElectionGuard SDK 2.x · gmpy2 · msgpack",
                   ip: "172.20.0.10:5000",
                   desc: "Handles time-sensitive synchronous operations: guardian key ceremony, ballot encryption, and session-scoped tasks that need low latency.",
@@ -219,7 +197,7 @@ const Architecture = () => {
                   ]
                 },
                 {
-                  icon: "⚙️", name: "ElectionGuard Microservice — Worker Container", color: "violet",
+                  icon: "⚙️", name: "ElectionGuard Microservice — Worker Container", color: "blue",
                   tech: "Python 3.12 · Flask · RabbitMQ consumer (aio-pika) · ElectionGuard SDK 2.x",
                   ip: "172.20.0.11:5001",
                   desc: "Long-running async batch processor for decryption phases. Consumes from RabbitMQ queues, coordinates via Redis, writes results to DB.",
@@ -252,22 +230,21 @@ const Architecture = () => {
                   ]
                 },
               ].map(({ icon, name, color, tech, ip, desc, responsibilities }) => (
-                <div key={name} className="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+                <div key={name} className="surface-card p-6">
                   <div className="flex items-start justify-between mb-3">
                     <div className="flex items-center">
-                      <span className="text-3xl mr-3">{icon}</span>
                       <div>
-                        <h3 className="text-xl font-bold text-gray-900">{name}</h3>
-                        <div className="font-mono text-xs text-gray-500 mt-0.5">{tech}</div>
+                        <h3 className="font-display text-xl font-bold text-deep">{name}</h3>
+                        <div className="font-mono text-xs text-dusk mt-0.5">{tech}</div>
                       </div>
                     </div>
-                    <div className="font-mono text-xs text-blue-600 bg-blue-50 px-3 py-1 rounded-lg border border-blue-200 flex-shrink-0 ml-4">{ip}</div>
+                    <div className="font-mono text-xs text-brand-dark bg-glacier px-3 py-1 rounded-lg border border-brand/20 flex-shrink-0 ml-4">{ip}</div>
                   </div>
-                  <p className="text-gray-600 text-sm mb-4">{desc}</p>
+                  <p className="text-dusk text-sm mb-4">{desc}</p>
                   <ul className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
                     {responsibilities.map((r) => (
-                      <li key={r} className="flex items-start text-sm text-gray-700">
-                        <span className="text-gray-400 mr-2 flex-shrink-0">→</span>{r}
+                      <li key={r} className="flex items-start text-sm text-dusk">
+                        <span className="text-dusk mr-2 flex-shrink-0">→</span>{r}
                       </li>
                     ))}
                   </ul>
@@ -280,17 +257,17 @@ const Architecture = () => {
         {/* ═══════════════════════ NETWORK ═══════════════════════ */}
         {activeTab === "network" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Docker Network Topology</h2>
+            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Docker Network Topology</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-              <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                <h3 className="font-bold text-gray-900 text-lg mb-4">Private Overlay Network</h3>
-                <div className="bg-gray-900 rounded-xl p-5 font-mono text-xs text-gray-300 overflow-x-auto">
-                  <div className="text-green-400 mb-3"># Docker network: amarvote_default</div>
-                  <div className="text-yellow-300 mb-2">Subnet: 172.20.0.0/24</div>
-                  <div className="text-blue-300 mb-4">Driver: bridge</div>
+              <div className="bg-paper rounded-2xl border border-ink/10 p-6">
+                <h3 className="font-bold text-ink text-lg mb-4">Private Overlay Network</h3>
+                <div className="code-panel rounded-xl p-5 font-mono text-xs text-dusk-soft overflow-x-auto">
+                  <div className="text-aurora mb-3"># Docker network: amarvote_default</div>
+                  <div className="text-ceremonial mb-2">Subnet: 172.20.0.0/24</div>
+                  <div className="text-brand-light mb-4">Driver: bridge</div>
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="text-gray-500 border-b border-gray-700">
+                      <tr className="text-dusk border-b border-gray-700">
                         <th className="text-left pb-1">Service</th>
                         <th className="text-left pb-1">IP Address</th>
                         <th className="text-left pb-1">Port(s)</th>
@@ -310,9 +287,9 @@ const Architecture = () => {
                         ["redis-replica", "172.20.0.75", "6379"],
                       ].map(([svc, ip, port]) => (
                         <tr key={svc} className="border-b border-gray-800">
-                          <td className="py-1.5 text-blue-300">{svc}</td>
-                          <td className="py-1.5 text-yellow-300">{ip}</td>
-                          <td className="py-1.5 text-gray-400">{port}</td>
+                          <td className="py-1.5 text-brand-light">{svc}</td>
+                          <td className="py-1.5 text-ceremonial">{ip}</td>
+                          <td className="py-1.5 text-dusk">{port}</td>
                         </tr>
                       ))}
                     </tbody>
@@ -320,8 +297,8 @@ const Architecture = () => {
                 </div>
               </div>
               <div className="space-y-4">
-                <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                  <h3 className="font-bold text-gray-900 mb-3">Communication Protocols</h3>
+                <div className="bg-paper rounded-2xl border border-ink/10 p-6">
+                  <h3 className="font-bold text-ink mb-3">Communication Protocols</h3>
                   <div className="space-y-3 text-sm">
                     {[
                       ["Browser → Frontend", "HTTPS via Nginx reverse proxy"],
@@ -335,15 +312,15 @@ const Architecture = () => {
                       ["Prometheus → Backend", "HTTP scrape /actuator/prometheus every 15s"],
                     ].map(([from, proto]) => (
                       <div key={from} className="flex items-start">
-                        <span className="text-blue-500 mr-2 flex-shrink-0">→</span>
-                        <div><strong className="text-gray-800">{from}:</strong> <span className="text-gray-600">{proto}</span></div>
+                        <span className="text-brand mr-2 flex-shrink-0">→</span>
+                        <div><strong className="text-ink">{from}:</strong> <span className="text-dusk">{proto}</span></div>
                       </div>
                     ))}
                   </div>
                 </div>
-                <div className="bg-amber-50 border border-amber-200 rounded-2xl p-5 text-sm">
-                  <h4 className="font-bold text-amber-800 mb-2">⚠️ Optional Profile Services</h4>
-                  <p className="text-amber-700">RAG service and Prometheus/Grafana are enabled via Docker Compose profile overrides. Core 6-service platform runs without them.</p>
+                <div className="bg-ceremonial-soft border border-ceremonial/40 rounded-2xl p-5 text-sm">
+                  <h4 className="font-bold text-ink mb-2">⚠️ Optional Profile Services</h4>
+                  <p className="text-ink">RAG service and Prometheus/Grafana are enabled via Docker Compose profile overrides. Core 6-service platform runs without them.</p>
                 </div>
               </div>
             </div>
@@ -353,7 +330,7 @@ const Architecture = () => {
         {/* ═══════════════════════ DATA FLOW ═══════════════════════ */}
         {activeTab === "dataflow" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Election Data Flow</h2>
+            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Election Data Flow</h2>
             <div className="space-y-8">
               {[
                 {
@@ -396,7 +373,7 @@ const Architecture = () => {
                 },
                 {
                   phase: "Phase 4 — Guardian Decryption",
-                  color: "purple",
+                  color: "teal",
                   steps: [
                     ["Guardian", "Uploads credential file via React frontend → Backend decrypts ML-KEM-1024 wrap"],
                     ["Spring Boot", "Stores decrypted ElGamal private key in Redis: key guardian:${id}:key, TTL=6h"],
@@ -409,17 +386,17 @@ const Architecture = () => {
                   ]
                 },
               ].map(({ phase, color, steps }) => (
-                <div key={phase} className={`bg-white rounded-2xl border-l-4 ${color === "blue" ? "border-blue-500" : color === "green" ? "border-green-500" : color === "orange" ? "border-orange-500" : "border-purple-500"} border-r border-t border-b border-gray-200 p-6 shadow-sm`}>
-                  <h3 className={`text-xl font-bold mb-5 ${color === "blue" ? "text-blue-800" : color === "green" ? "text-green-800" : color === "orange" ? "text-orange-800" : "text-purple-800"}`}>{phase}</h3>
+                <div key={phase} className={`surface-card border-l-4 ${color === "blue" ? "border-brand" : color === "green" ? "border-green-500" : color === "orange" ? "border-orange-500" : "border-brand-dark"} p-6`}>
+                  <h3 className={`text-xl font-bold mb-5 ${color === "blue" ? "text-ink" : color === "green" ? "text-aurora-muted" : color === "orange" ? "text-ink" : "text-ink"}`}>{phase}</h3>
                   <div className="space-y-3">
                     {steps.map(([actor, action], i) => (
                       <div key={i} className="flex items-start">
                         <div className="flex items-center flex-shrink-0 mr-3">
-                          <div className={`w-6 h-6 rounded-full text-white text-xs font-bold flex items-center justify-center ${color === "blue" ? "bg-blue-500" : color === "green" ? "bg-green-500" : color === "orange" ? "bg-orange-500" : "bg-purple-500"}`}>{i + 1}</div>
+                          <div className={`w-6 h-6 rounded-full text-paper text-xs font-bold flex items-center justify-center ${color === "blue" ? "bg-brand-dark" : color === "green" ? "bg-aurora" : color === "orange" ? "bg-ceremonial" : "bg-brand-dark"}`}>{i + 1}</div>
                         </div>
                         <div>
-                          <span className={`font-semibold text-sm ${color === "blue" ? "text-blue-700" : color === "green" ? "text-green-700" : color === "orange" ? "text-orange-700" : "text-purple-700"}`}>[{actor}]</span>
-                          <span className="text-gray-700 text-sm ml-2">{action}</span>
+                          <span className={`font-semibold text-sm ${color === "blue" ? "text-brand-dark" : color === "green" ? "text-sage" : color === "orange" ? "text-ink" : "text-brand-dark"}`}>[{actor}]</span>
+                          <span className="text-dusk text-sm ml-2">{action}</span>
                         </div>
                       </div>
                     ))}
@@ -433,10 +410,10 @@ const Architecture = () => {
         {/* ═══════════════════════ RABBITMQ ═══════════════════════ */}
         {activeTab === "rabbitmq" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">RabbitMQ Architecture Deep Dive</h2>
+            <h2 className="text-2xl font-bold text-ink mb-8 text-center">RabbitMQ Architecture Deep Dive</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
-              <div className="bg-white rounded-2xl border border-gray-200 p-6">
-                <h3 className="font-bold text-gray-900 mb-4">4 Processing Queues</h3>
+              <div className="bg-paper rounded-2xl border border-ink/10 p-6">
+                <h3 className="font-bold text-ink mb-4">4 Processing Queues</h3>
                 <div className="space-y-4">
                   {[
                     { q: "tally.creation.queue", rk: "task.tally.creation", workers: 4, desc: "Homomorphically multiplies 200 encrypted ballots → 1 encrypted tally chunk per message" },
@@ -444,17 +421,17 @@ const Architecture = () => {
                     { q: "compensated.decryption.queue", rk: "task.compensated.decryption", workers: 4, desc: "Present guardians reconstruct absent guardians' shares via Lagrange interpolation on polynomial backups" },
                     { q: "combine.decryption.queue", rk: "task.combine.decryption", workers: 4, desc: "Assembles all partial + compensated shares → final vote counts + Chaum-Pedersen ZK proofs" },
                   ].map(({ q, rk, workers, desc }) => (
-                    <div key={q} className="bg-orange-50 border border-orange-200 rounded-xl p-4">
-                      <div className="font-mono text-orange-800 font-bold text-sm">{q}</div>
-                      <div className="font-mono text-gray-500 text-xs mb-2">routing key: {rk} · {workers} consumers · prefetch=1</div>
-                      <p className="text-gray-700 text-sm">{desc}</p>
+                    <div key={q} className="bg-ceremonial-soft border border-ceremonial/40 rounded-xl p-4">
+                      <div className="font-mono text-ink font-bold text-sm">{q}</div>
+                      <div className="font-mono text-dusk text-xs mb-2">routing key: {rk} · {workers} consumers · prefetch=1</div>
+                      <p className="text-dusk text-sm">{desc}</p>
                     </div>
                   ))}
                 </div>
               </div>
               <div>
-                <div className="bg-gray-900 rounded-2xl p-5 text-xs font-mono text-gray-300 mb-4">
-                  <div className="text-green-400 font-bold mb-3 text-sm">RoundRobinTaskScheduler</div>
+                <div className="code-panel rounded-2xl p-5 text-xs font-mono text-dusk-soft mb-4">
+                  <div className="text-aurora font-bold mb-3 text-sm">RoundRobinTaskScheduler</div>
                   <pre className="whitespace-pre-wrap leading-relaxed overflow-x-auto">{`// Spring @Scheduled(fixedRate = 100ms)
 // targetChunksPerCycle = 8
 // maxQueuedChunks = 1
@@ -475,20 +452,20 @@ For each 100ms tick:
 // Election A (500 chunks) does NOT starve Election B (50 chunks)
 // Fair interleaving at the 100ms scheduling granularity`}</pre>
                 </div>
-                <div className="bg-white rounded-2xl border border-gray-200 p-5">
-                  <h4 className="font-bold text-gray-900 mb-3">Task ID Format</h4>
-                  <div className="space-y-2 font-mono text-xs text-gray-600 bg-gray-50 rounded-lg p-3">
-                    <div><span className="text-blue-600">TALLY_e42_1704067200000</span></div>
-                    <div><span className="text-purple-600">PARTIAL_DECRYPT_e42_g3_1704067200000</span></div>
-                    <div><span className="text-orange-600">COMPENSATED_DECRYPT_e42_g3_g1_1704067200000</span></div>
-                    <div><span className="text-green-600">COMBINE_e42_1704067200000</span></div>
-                    <div className="text-gray-400 mt-2 font-sans">Format: PHASE_electionId_guardianId?_timestamp</div>
+                <div className="bg-paper rounded-2xl border border-ink/10 p-5">
+                  <h4 className="font-bold text-ink mb-3">Task ID Format</h4>
+                  <div className="space-y-2 font-mono text-xs text-dusk bg-frost rounded-lg p-3">
+                    <div><span className="text-brand">TALLY_e42_1704067200000</span></div>
+                    <div><span className="text-brand-dark">PARTIAL_DECRYPT_e42_g3_1704067200000</span></div>
+                    <div><span className="text-ink">COMPENSATED_DECRYPT_e42_g3_g1_1704067200000</span></div>
+                    <div><span className="text-sage">COMBINE_e42_1704067200000</span></div>
+                    <div className="text-dusk mt-2 font-sans">Format: PHASE_electionId_guardianId?_timestamp</div>
                   </div>
                 </div>
               </div>
             </div>
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-              <h3 className="font-bold text-gray-900 mb-4">Fault Tolerance & Configuration</h3>
+            <div className="bg-paper rounded-2xl border border-ink/10 p-6">
+              <h3 className="font-bold text-ink mb-4">Fault Tolerance & Configuration</h3>
               <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 {[
                   ["Durable Queues", "Messages survive RabbitMQ restarts"],
@@ -501,9 +478,9 @@ For each 100ms tick:
                   ["ConcurrentHashMap", "In-memory set of in-flight task IDs per JVM instance"],
                   ["AMQP exchange", "Topic exchange: all queues bound with their routing key pattern"],
                 ].map(([k, v]) => (
-                  <div key={k} className="bg-gray-50 rounded-xl p-3 border border-gray-200">
-                    <div className="font-mono text-orange-700 text-xs font-bold mb-1">{k}</div>
-                    <div className="text-gray-600 text-xs">{v}</div>
+                  <div key={k} className="bg-frost rounded-xl p-3 border border-ink/10">
+                    <div className="font-mono text-ink text-xs font-bold mb-1">{k}</div>
+                    <div className="text-dusk text-xs">{v}</div>
                   </div>
                 ))}
               </div>
@@ -514,12 +491,12 @@ For each 100ms tick:
         {/* ═══════════════════════ REDIS ═══════════════════════ */}
         {activeTab === "redis" && (
           <div>
-            <h2 className="text-2xl font-bold text-gray-900 mb-8 text-center">Redis Usage Deep Dive</h2>
+            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Redis Usage Deep Dive</h2>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
               {[
                 {
                   icon: "🔑", title: "Guardian Private Key Cache",
-                  color: "bg-purple-50 border-purple-200",
+                  color: "bg-glacier border-brand/25",
                   ttl: "6 hours",
                   pattern: "guardian:{guardianId}:key",
                   type: "STRING (binary, msgpack)",
@@ -529,7 +506,7 @@ For each 100ms tick:
                 },
                 {
                   icon: "🔢", title: "Phase Completion Counters",
-                  color: "bg-red-50 border-red-200",
+                  color: "bg-ember-soft border-ember/30",
                   ttl: "No expiry (deleted after use)",
                   pattern: "tally_complete:{electionId}, partial_complete:{electionId}, etc.",
                   type: "Counter (INCR)",
@@ -539,7 +516,7 @@ For each 100ms tick:
                 },
                 {
                   icon: "🔒", title: "Distributed Processing Locks",
-                  color: "bg-orange-50 border-orange-200",
+                  color: "bg-ceremonial-soft border-ceremonial/40",
                   ttl: "300 seconds",
                   pattern: "lock:chunk:{chunkId}",
                   type: "SET NX with EX",
@@ -550,29 +527,29 @@ For each 100ms tick:
               ].map(({ icon, title, color, ttl, pattern, type, commands, desc, notes }) => (
                 <div key={title} className={`rounded-2xl border p-5 ${color}`}>
                   <div className="text-2xl mb-2">{icon}</div>
-                  <h3 className="font-bold text-gray-900 mb-1">{title}</h3>
-                  <div className="text-xs font-mono text-gray-500 mb-3">TTL: {ttl}</div>
-                  <div className="bg-gray-900 rounded-lg p-3 mb-3">
-                    <div className="text-xs text-gray-500 mb-1">Patterns</div>
-                    <div className="font-mono text-yellow-300 text-xs">{pattern}</div>
-                    <div className="font-mono text-gray-400 text-xs mt-1">Type: {type}</div>
+                  <h3 className="font-bold text-ink mb-1">{title}</h3>
+                  <div className="text-xs font-mono text-dusk mb-3">TTL: {ttl}</div>
+                  <div className="code-panel rounded-lg p-3 mb-3">
+                    <div className="text-xs text-dusk mb-1">Patterns</div>
+                    <div className="font-mono text-ceremonial text-xs">{pattern}</div>
+                    <div className="font-mono text-dusk text-xs mt-1">Type: {type}</div>
                   </div>
-                  <div className="bg-black rounded-lg p-2 mb-3 font-mono text-xs text-green-400">
+                  <div className="code-panel rounded-lg p-2 mb-3 font-mono text-xs text-aurora">
                     {commands.map((c) => <div key={c}>{c}</div>)}
                   </div>
-                  <p className="text-gray-700 text-xs mb-2">{desc}</p>
+                  <p className="text-dusk text-xs mb-2">{desc}</p>
                   <ul className="space-y-1">
-                    {notes.map((n) => <li key={n} className="text-xs text-gray-500 flex items-start"><span className="mr-1">•</span>{n}</li>)}
+                    {notes.map((n) => <li key={n} className="text-xs text-dusk flex items-start"><span className="mr-1">•</span>{n}</li>)}
                   </ul>
                 </div>
               ))}
             </div>
-            <div className="bg-white rounded-2xl border border-gray-200 p-6">
-              <h3 className="font-bold text-gray-900 mb-4">Redis Infrastructure</h3>
+            <div className="bg-paper rounded-2xl border border-ink/10 p-6">
+              <h3 className="font-bold text-ink mb-4">Redis Infrastructure</h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                 <div>
-                  <h4 className="font-semibold text-gray-800 mb-2">Primary Instance</h4>
-                  <div className="space-y-1 text-gray-600">
+                  <h4 className="font-semibold text-ink mb-2">Primary Instance</h4>
+                  <div className="space-y-1 text-dusk">
                     <div><strong>Image:</strong> redis:7-alpine</div>
                     <div><strong>Host:</strong> 172.20.0.70:6379</div>
                     <div><strong>Config:</strong> Custom rabbitmq.conf (maxmemory, eviction policy)</div>
@@ -581,8 +558,8 @@ For each 100ms tick:
                   </div>
                 </div>
                 <div>
-                  <h4 className="font-semibold text-gray-800 mb-2">Replica Instance (optional)</h4>
-                  <div className="space-y-1 text-gray-600">
+                  <h4 className="font-semibold text-ink mb-2">Replica Instance (optional)</h4>
+                  <div className="space-y-1 text-dusk">
                     <div><strong>Host:</strong> 172.20.0.75:6379</div>
                     <div><strong>Role:</strong> Read replica for key-cache reads under high guardian concurrency</div>
                     <div><strong>Sync:</strong> Redis native replication (REPLICAOF)</div>

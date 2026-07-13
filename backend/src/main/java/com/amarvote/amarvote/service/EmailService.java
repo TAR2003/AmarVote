@@ -183,7 +183,9 @@ public class EmailService {
                     voteReceiptMessage(task),
                     task);
             case REMINDER -> {
-                String html = task.getHtmlContent() == null ? "" : task.getHtmlContent().replace("\n", "<br/>");
+                String html = wrapBrandedBody(
+                        "Election Update",
+                        toBrandedBodyHtml(task.getHtmlContent()));
                 emailBatchDispatcher.enqueue(
                         queueType,
                         htmlMessage(task.getToEmail(), task.getSubject(), html),
@@ -229,21 +231,41 @@ public class EmailService {
         String downloadUrl = buildReceiptDownloadUrl(task);
 
         String htmlContent = """
-                <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-                  <h2 style="color: #16a34a;">Your AmarVote Receipt</h2>
-                  <p>Your vote was cast successfully. Please save this receipt for verification.</p>
-                  <pre style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; \
-                white-space: pre-wrap; word-break: break-word; font-size: 14px; line-height: 1.5;">%s</pre>
-                  <p style="margin-top: 24px;">
-                    <a href="%s" style="display: inline-block; background: #2563eb; color: #ffffff; \
-                text-decoration: none; padding: 12px 20px; border-radius: 8px; font-weight: 600;">
-                      Download TXT Receipt
-                    </a>
-                  </p>
-                  <p style="font-size: 12px; color: #64748b; margin-top: 16px;">
-                    This secure link expires in 30 days. Do not share it — anyone with the link can download this receipt.
-                  </p>
-                </div>
+                <!DOCTYPE html>
+                <html lang="en">
+                <head>
+                  <meta charset="UTF-8">
+                  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+                </head>
+                <body style="margin:0;padding:0;background:#efebf8;font-family:Inter,Helvetica,Arial,sans-serif;color:#1b1d2e;">
+                  <div style="width:100%%;background:#efebf8;padding:40px 16px;">
+                    <div style="max-width:560px;margin:0 auto;background:#f7f4ec;border:1px solid rgba(27,29,46,0.12);border-radius:12px;overflow:hidden;">
+                      <div style="height:4px;background:#8b7fe8;"></div>
+                      <div style="padding:28px 32px 8px;text-align:center;">
+                        <p style="font-family:Fraunces,Georgia,'Times New Roman',serif;font-size:28px;font-weight:600;color:#5c52c4;letter-spacing:-0.02em;margin:0;">AmarVote</p>
+                      </div>
+                      <div style="padding:8px 32px 32px;line-height:1.6;font-size:16px;color:#1b1d2e;">
+                        <h2 style="font-family:Fraunces,Georgia,'Times New Roman',serif;font-size:22px;font-weight:500;color:#12142b;text-align:center;margin:16px 0 20px;">Your Vote Receipt</h2>
+                        <p>Your vote was cast successfully. Please save this receipt for verification.</p>
+                        <pre style="background:#ffffff;border:1px solid rgba(27,29,46,0.12);border-radius:8px;padding:16px; \
+                white-space:pre-wrap;word-break:break-word;font-size:13px;line-height:1.5;color:#1b1d2e;font-family:'Courier New',Courier,monospace;">%s</pre>
+                        <p style="margin-top:24px;text-align:center;">
+                          <a href="%s" style="display:inline-block;background:#5c52c4;color:#f7f4ec; \
+                text-decoration:none;padding:14px 24px;border-radius:10px;font-weight:600;font-family:Inter,Helvetica,Arial,sans-serif;">
+                            Download TXT Receipt
+                          </a>
+                        </p>
+                        <p style="font-size:12px;color:#5b5d74;margin-top:16px;text-align:center;">
+                          This secure link expires in 30 days. Do not share it — anyone with the link can download this receipt.
+                        </p>
+                      </div>
+                      <div style="text-align:center;font-size:13px;color:#5b5d74;padding:0 32px 28px;">
+                        &copy; 2026 AmarVote. All rights reserved.
+                      </div>
+                    </div>
+                  </div>
+                </body>
+                </html>
                 """.formatted(escapedPlaintext, HtmlUtils.htmlEscape(downloadUrl));
 
         return EmailMessage.builder()
@@ -275,12 +297,61 @@ public class EmailService {
             return List.of();
         }
 
-        String html = rawContent == null ? "" : rawContent.replace("\n", "<br/>");
+        String html = wrapBrandedBody("Election Update", toBrandedBodyHtml(rawContent));
         List<EmailMessage> messages = new ArrayList<>(toEmails.size());
         for (String toEmail : toEmails) {
             messages.add(htmlMessage(toEmail, subject, html));
         }
         return messages;
+    }
+
+    /**
+     * Admin-authored reminder text → safe HTML paragraphs for the branded shell.
+     * Escapes HTML so operators cannot inject markup; newlines become breaks.
+     */
+    private String toBrandedBodyHtml(String rawContent) {
+        if (rawContent == null || rawContent.isBlank()) {
+            return "<p>You have an update from AmarVote.</p>";
+        }
+        String escaped = HtmlUtils.htmlEscape(rawContent);
+        return "<p style=\"margin:0;white-space:pre-wrap;\">" + escaped.replace("\n", "<br/>") + "</p>";
+    }
+
+    /**
+     * Shared AmarVote email chrome: glacier backdrop, frost card, Fraunces wordmark, brand accent.
+     * Body content is injected as HTML (already escaped for user-authored text).
+     */
+    private String wrapBrandedBody(String title, String bodyHtml) {
+        return "<!DOCTYPE html>" +
+                "<html lang='en'>" +
+                "<head>" +
+                "  <meta charset='UTF-8'>" +
+                "  <meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                "  <link href='https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap' rel='stylesheet'>" +
+                "  <style>" +
+                "    body { margin:0; padding:0; background:#efebf8; font-family:Inter,Helvetica,Arial,sans-serif; color:#1b1d2e; -webkit-font-smoothing:antialiased; }" +
+                "    .outer { width:100%; background:#efebf8; padding:40px 16px; }" +
+                "    .card { max-width:560px; margin:0 auto; background:#f7f4ec; border:1px solid rgba(27,29,46,0.12); border-radius:12px; overflow:hidden; }" +
+                "    .accent { height:4px; background:#8b7fe8; }" +
+                "    .header { padding:28px 32px 8px; text-align:center; }" +
+                "    .wordmark { font-family:Fraunces,Georgia,'Times New Roman',serif; font-size:28px; font-weight:600; color:#5c52c4; letter-spacing:-0.02em; margin:0; }" +
+                "    .content { padding:8px 32px 32px; line-height:1.6; font-size:16px; color:#1b1d2e; }" +
+                "    .content h2 { font-family:Fraunces,Georgia,'Times New Roman',serif; font-size:22px; font-weight:500; color:#12142b; text-align:center; margin:16px 0 20px; }" +
+                "    .footer { text-align:center; font-size:13px; color:#5b5d74; padding:0 32px 28px; }" +
+                "  </style>" +
+                "</head>" +
+                "<body>" +
+                "  <div class='outer'><div class='card'>" +
+                "    <div class='accent'></div>" +
+                "    <div class='header'><p class='wordmark'>AmarVote</p></div>" +
+                "    <div class='content'>" +
+                "      <h2>" + HtmlUtils.htmlEscape(title) + "</h2>" +
+                "      " + bodyHtml +
+                "    </div>" +
+                "    <div class='footer'>&copy; 2026 AmarVote. All rights reserved.</div>" +
+                "  </div></div>" +
+                "</body>" +
+                "</html>";
     }
 
     private String buildGuardianCredentialFilename(String electionTitle, Long electionId) {
@@ -353,69 +424,55 @@ public class EmailService {
     }
 
     private String loadOtpEmailTemplate(String otpCode) {
-        return "<!DOCTYPE html>" +
-                "<html>" +
-                "<head>" +
-                "    <meta charset='UTF-8'>" +
-                "    <style>" +
-                "        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }" +
-                "        .container { max-width: 600px; margin: 50px auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }" +
-                "        .header { text-align: center; margin-bottom: 30px; }" +
-                "        .header h1 { color: #4CAF50; margin: 0; }" +
-                "        .content { text-align: center; }" +
-                "        .otp-code { font-size: 36px; font-weight: bold; color: #4CAF50; letter-spacing: 10px; margin: 30px 0; padding: 20px; background-color: #f9f9f9; border-radius: 8px; }" +
-                "        .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #999999; }" +
-                "    </style>" +
-                "</head>" +
-                "<body>" +
-                "    <div class='container'>" +
-                "        <div class='header'>" +
-                "            <h1>🔐 AmarVote Login</h1>" +
-                "        </div>" +
-                "        <div class='content'>" +
-                "            <p>Your one-time login code is:</p>" +
-                "            <div class='otp-code'>" + otpCode + "</div>" +
-                "            <p>This code will expire in <strong>5 minutes</strong>.</p>" +
-                "            <p>If you did not request this code, please ignore this email.</p>" +
-                "        </div>" +
-                "        <div class='footer'>" +
-                "            <p>© 2026 AmarVote - Secure Online Voting System</p>" +
-                "        </div>" +
-                "    </div>" +
-                "</body>" +
-                "</html>";
+        return brandedCodeEmail(
+                "Login Code",
+                "Your one-time login code is:",
+                otpCode,
+                "This code will expire in <strong>5 minutes</strong>.",
+                "If you did not request this code, please ignore this email.");
     }
 
     private String loadPasswordResetCodeTemplate(String code) {
+        return brandedCodeEmail(
+                "Password Reset",
+                "Use this verification code to reset your password:",
+                code,
+                "This code will expire in <strong>10 minutes</strong>.",
+                "If you did not request a password reset, you can ignore this email.");
+    }
+
+    private String brandedCodeEmail(String title, String lead, String code, String expiryLine, String ignoreLine) {
         return "<!DOCTYPE html>" +
-                "<html>" +
+                "<html lang='en'>" +
                 "<head>" +
-                "    <meta charset='UTF-8'>" +
-                "    <style>" +
-                "        body { font-family: Arial, sans-serif; background-color: #f4f4f4; margin: 0; padding: 0; }" +
-                "        .container { max-width: 600px; margin: 50px auto; background-color: #ffffff; padding: 30px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); }" +
-                "        .header { text-align: center; margin-bottom: 30px; }" +
-                "        .header h1 { color: #2563eb; margin: 0; }" +
-                "        .content { text-align: center; }" +
-                "        .code { font-size: 36px; font-weight: bold; color: #2563eb; letter-spacing: 10px; margin: 30px 0; padding: 20px; background-color: #eff6ff; border-radius: 8px; }" +
-                "        .footer { text-align: center; margin-top: 30px; font-size: 12px; color: #999999; }" +
-                "    </style>" +
+                "  <meta charset='UTF-8'>" +
+                "  <link href='https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap' rel='stylesheet'>" +
+                "  <style>" +
+                "    body { margin:0; padding:0; background:#efebf8; font-family:Inter,Helvetica,Arial,sans-serif; color:#1b1d2e; }" +
+                "    .outer { width:100%; background:#efebf8; padding:40px 16px; }" +
+                "    .card { max-width:560px; margin:0 auto; background:#f7f4ec; border:1px solid rgba(27,29,46,0.12); border-radius:12px; overflow:hidden; }" +
+                "    .accent { height:4px; background:#8b7fe8; }" +
+                "    .header { padding:28px 32px 8px; text-align:center; }" +
+                "    .wordmark { font-family:Fraunces,Georgia,'Times New Roman',serif; font-size:28px; font-weight:600; color:#5c52c4; letter-spacing:-0.02em; margin:0; }" +
+                "    .content { padding:8px 32px 32px; line-height:1.6; font-size:16px; color:#1b1d2e; text-align:center; }" +
+                "    .content h2 { font-family:Fraunces,Georgia,'Times New Roman',serif; font-size:22px; font-weight:500; color:#12142b; margin:16px 0 20px; }" +
+                "    .code { font-size:32px; font-weight:700; color:#5c52c4; letter-spacing:8px; margin:24px 0; padding:20px; background:#efebf8; border-radius:10px; border:1px solid rgba(92,82,196,0.25); }" +
+                "    .footer { text-align:center; font-size:13px; color:#5b5d74; padding:0 32px 28px; }" +
+                "  </style>" +
                 "</head>" +
                 "<body>" +
-                "    <div class='container'>" +
-                "        <div class='header'>" +
-                "            <h1>🔐 AmarVote Password Reset</h1>" +
-                "        </div>" +
-                "        <div class='content'>" +
-                "            <p>Use this verification code to reset your password:</p>" +
-                "            <div class='code'>" + code + "</div>" +
-                "            <p>This code will expire in <strong>10 minutes</strong>.</p>" +
-                "            <p>If you did not request a password reset, you can ignore this email.</p>" +
-                "        </div>" +
-                "        <div class='footer'>" +
-                "            <p>© 2026 AmarVote - Secure Online Voting System</p>" +
-                "        </div>" +
+                "  <div class='outer'><div class='card'>" +
+                "    <div class='accent'></div>" +
+                "    <div class='header'><p class='wordmark'>AmarVote</p></div>" +
+                "    <div class='content'>" +
+                "      <h2>" + title + "</h2>" +
+                "      <p>" + lead + "</p>" +
+                "      <div class='code'>" + code + "</div>" +
+                "      <p>" + expiryLine + "</p>" +
+                "      <p>" + ignoreLine + "</p>" +
                 "    </div>" +
+                "    <div class='footer'>&copy; 2026 AmarVote. All rights reserved.</div>" +
+                "  </div></div>" +
                 "</body>" +
                 "</html>";
     }

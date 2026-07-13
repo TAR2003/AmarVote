@@ -33,7 +33,7 @@ const PHASE_FOR_ITEM = {
 const PHASE_META = {
   setup: { label: 'Setup', color: 'blue', description: 'Election created and guardians prepared keys' },
   voting: { label: 'Voting', color: 'green', description: 'Voters cast encrypted ballots' },
-  tabulation: { label: 'Tabulation', color: 'purple', description: 'Tallying, decryption, and final results' },
+  tabulation: { label: 'Tabulation', color: 'brand', description: 'Tallying, decryption, and final results' },
 };
 
 const toSortTime = (value) => {
@@ -76,15 +76,15 @@ const formatGap = (milliseconds) => {
 
 const getColorClasses = (color) => {
   const colors = {
-    blue: 'bg-blue-50 text-blue-600 border-blue-200',
-    green: 'bg-emerald-50 text-emerald-600 border-emerald-200',
-    orange: 'bg-amber-50 text-amber-600 border-amber-200',
-    purple: 'bg-purple-50 text-purple-600 border-purple-200',
-    indigo: 'bg-indigo-50 text-indigo-600 border-indigo-200',
-    teal: 'bg-teal-50 text-teal-600 border-teal-200',
-    pink: 'bg-pink-50 text-pink-600 border-pink-200',
-    gray: 'bg-slate-50 text-slate-500 border-slate-200',
-    violet: 'bg-violet-50 text-violet-600 border-violet-200',
+    blue: 'bg-glacier text-brand border-brand/20',
+    green: 'bg-sage-soft text-aurora-muted border-aurora/30',
+    orange: 'bg-ceremonial-soft text-ink border-ceremonial/40',
+    brand: 'bg-glacier text-brand-dark border-brand/20',
+    deep: 'bg-glacier text-ink border-brand/25',
+    sage: 'bg-sage-soft text-sage border-sage/20',
+    ink: 'bg-frost text-ink border-ink/10',
+    gray: 'bg-frost text-dusk border-ink/10',
+    brandSoft: 'bg-glacier text-brand-dark border-brand/20',
   };
   return colors[color] || colors.blue;
 };
@@ -94,12 +94,12 @@ const getAccentBorder = (color) => {
     blue: 'border-l-blue-500',
     green: 'border-l-emerald-500',
     orange: 'border-l-amber-500',
-    purple: 'border-l-purple-500',
-    indigo: 'border-l-indigo-500',
-    teal: 'border-l-teal-500',
-    pink: 'border-l-pink-500',
+    brand: 'border-l-brand',
+    deep: 'border-l-ink',
+    sage: 'border-l-sage',
+    ink: 'border-l-ink',
     gray: 'border-l-slate-400',
-    violet: 'border-l-violet-500',
+    brandSoft: 'border-l-brand',
   };
   return colors[color] || colors.blue;
 };
@@ -224,7 +224,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
               title: 'Tally Creation',
               type: 'tally',
               icon: FiBox,
-              color: 'purple',
+              color: 'brand',
               startTime: tallyRange.startTime,
               endTime: tallyRange.endTime,
               chunks: tallyRange.sortedLogs.map((log) => ({
@@ -261,7 +261,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
                 title: `Partial Decryption by ${guardianName}`,
                 type: 'partial-decryption',
                 icon: FiLock,
-                color: 'indigo',
+                color: 'deep',
                 startTime: range.startTime,
                 endTime: range.endTime,
                 chunks: range.sortedLogs.map((log) => ({
@@ -308,7 +308,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
                 title: `Compensated Decryption by ${decryptingName} for ${targetName}`,
                 type: 'compensated-decryption',
                 icon: FiZap,
-                color: 'teal',
+                color: 'sage',
                 startTime: range.startTime,
                 endTime: range.endTime,
                 chunks: range.sortedLogs.map((log) => ({
@@ -332,7 +332,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
               title: 'Combine Decryption Process',
               type: 'combine',
               icon: FiPackage,
-              color: 'pink',
+              color: 'ink',
               startTime: combineRange.startTime,
               endTime: combineRange.endTime,
               chunks: combineRange.sortedLogs.map((log) => ({
@@ -370,7 +370,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
             title: 'Key Ceremony Completed',
             timestamp: estimateMidpointTimestamp(electionData.createdAt, electionData.startingTime),
             icon: FiKey,
-            color: 'violet',
+            color: 'brandSoft',
             description: `Guardians established the joint public key (${electionData.guardiansSubmitted || 0}/${electionData.totalGuardians || electionData.numberOfGuardians || 0} submitted)`,
           }));
         }
@@ -414,7 +414,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
             title: 'Results Available',
             timestamp: resultsTimestamp,
             icon: FiTrendingUp,
-            color: 'purple',
+            color: 'brand',
             description: 'Final tallies were decrypted and are ready for verification',
             status: electionData.status === 'decrypted' ? 'completed' : 'pending',
           }));
@@ -494,15 +494,15 @@ const ElectionTimeline = ({ electionId, electionData }) => {
   if (loading) {
     return (
       <div className="flex items-center justify-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-blue-500" />
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand" />
       </div>
     );
   }
 
   if (sortedTimelineItems.length === 0) {
     return (
-      <div className="text-center py-12 text-gray-500">
-        <FiClock className="h-12 w-12 mx-auto mb-4 text-gray-300" />
+      <div className="text-center py-12 text-dusk">
+        <FiClock className="h-12 w-12 mx-auto mb-4 text-dusk-soft" />
         <p>No timeline data available yet</p>
       </div>
     );
@@ -510,21 +510,21 @@ const ElectionTimeline = ({ electionId, electionData }) => {
 
   return (
     <div className="space-y-6">
-      <div className="rounded-2xl border border-blue-100 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-50 p-6 shadow-sm">
+      <div className="glass-panel border-brand/15 bg-gradient-to-br from-frost via-white to-glacier/50 p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2">
-              <FiClock className="h-5 w-5 text-blue-600" />
+            <h3 className="font-display text-xl font-semibold text-deep flex items-center gap-2">
+              <FiClock className="h-5 w-5 text-brand" />
               Election Process Timeline
             </h3>
-            <p className="text-sm text-slate-600 mt-1 max-w-2xl">
+            <p className="text-sm text-dusk mt-1 max-w-2xl">
               Sorted by time, oldest first. Each step shows when it happened and how long after the previous event.
             </p>
           </div>
-          <div className="rounded-xl border border-blue-200 bg-white/80 px-4 py-3 text-right">
-            <p className="text-[10px] font-semibold uppercase tracking-wider text-blue-600">Sort order</p>
-            <p className="text-sm font-semibold text-slate-800">Oldest → Newest</p>
-            <p className="text-xs text-slate-500 mt-0.5">{sortedTimelineItems.length} events</p>
+          <div className="rounded-xl border border-brand/20 bg-paper/80 px-4 py-3 text-right shadow-soft">
+            <p className="text-[10px] font-semibold uppercase tracking-wider text-brand">Sort order</p>
+            <p className="text-sm font-semibold text-ink">Oldest → Newest</p>
+            <p className="text-xs text-dusk mt-0.5">{sortedTimelineItems.length} events</p>
           </div>
           <div className="flex flex-wrap gap-2 w-full sm:w-auto">
             {Object.entries(PHASE_META).map(([key, meta]) => (
@@ -540,7 +540,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
       </div>
 
       <div className="relative pl-0 sm:pl-4">
-        <div className="absolute left-[4.5rem] sm:left-[7.5rem] top-4 bottom-4 w-px bg-gradient-to-b from-blue-200 via-indigo-200 to-purple-200" />
+        <div className="absolute left-[4.5rem] sm:left-[7.5rem] top-4 bottom-4 w-px bg-gradient-to-b from-glacier via-brand/50 to-sage/40" />
 
         <div className="space-y-5">
           {renderedTimeline.map(({
@@ -566,10 +566,10 @@ const ElectionTimeline = ({ electionId, electionData }) => {
               <React.Fragment key={item.id}>
                 {showDateHeader && (
                   <div className="relative flex items-center gap-3 pl-[4.5rem] sm:pl-28">
-                    <div className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white border border-indigo-200 text-indigo-600 shadow-sm">
+                    <div className="relative z-10 flex h-9 w-9 items-center justify-center rounded-full bg-paper border border-brand/25 text-brand-dark shadow-sm">
                       <FiCalendar className="h-4 w-4" />
                     </div>
-                    <span className="text-xs font-semibold uppercase tracking-wider text-indigo-700">
+                    <span className="text-xs font-semibold uppercase tracking-wider text-ink">
                       {dateLabel}
                     </span>
                   </div>
@@ -577,7 +577,7 @@ const ElectionTimeline = ({ electionId, electionData }) => {
 
                 {gapLabel && index > 0 && (
                   <div className="relative ml-[4.5rem] sm:ml-[7.5rem] pl-4">
-                    <span className="inline-flex items-center rounded-full bg-white border border-slate-200 px-3 py-1 text-[11px] font-medium text-slate-500 shadow-sm">
+                    <span className="inline-flex items-center rounded-full bg-paper border border-ink/10 px-3 py-1 text-[11px] font-medium text-dusk shadow-sm">
                       {gapLabel}
                     </span>
                   </div>
@@ -585,11 +585,11 @@ const ElectionTimeline = ({ electionId, electionData }) => {
 
                 <div className="relative flex items-start gap-3 sm:gap-4">
                   <div className="w-[4.5rem] sm:w-28 shrink-0 pt-3 text-right">
-                    <p className="text-[11px] font-semibold text-slate-700 leading-tight">
+                    <p className="text-[11px] font-semibold text-ink leading-tight">
                       {timeParts.primary}
                     </p>
                     {timeParts.secondary && (
-                      <p className="text-[10px] text-slate-400 mt-0.5 hidden sm:block">
+                      <p className="text-[10px] text-dusk mt-0.5 hidden sm:block">
                         {timeParts.secondary}
                       </p>
                     )}
@@ -601,32 +601,32 @@ const ElectionTimeline = ({ electionId, electionData }) => {
 
                   <div className="flex-1 min-w-0">
                     {item.itemType === 'event' ? (
-                      <div className={`rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-shadow border-l-4 ${accentBorder}`}>
+                      <div className={`surface-card rounded-2xl hover:shadow-lift border-l-4 ${accentBorder}`}>
                         <div className="p-4">
                           <div className="flex items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
                               <div className="flex flex-wrap items-center gap-2 mb-1">
-                                <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                <span className="text-[10px] font-semibold uppercase tracking-wide text-dusk">
                                   Step {index + 1}
                                 </span>
                                 <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${getColorClasses(phaseMeta.color)}`}>
                                   {phaseMeta.label}
                                 </span>
                               </div>
-                              <h4 className="text-base font-semibold text-slate-900">{item.title}</h4>
-                              <p className="text-sm text-slate-600 mt-1">{item.description}</p>
-                              <div className="flex items-center gap-1.5 text-xs text-slate-500 mt-3">
+                              <h4 className="text-base font-semibold text-ink">{item.title}</h4>
+                              <p className="text-sm text-dusk mt-1">{item.description}</p>
+                              <div className="flex items-center gap-1.5 text-xs text-dusk mt-3">
                                 <FiClock className="h-3.5 w-3.5" />
                                 {formatTimestamp(item.timestamp)}
                               </div>
                             </div>
                             {item.status === 'completed' && (
-                              <div className="rounded-full bg-emerald-100 p-1.5 text-emerald-600">
+                              <div className="rounded-full bg-sage-soft p-1.5 text-aurora-muted">
                                 <FiCheck className="h-4 w-4" />
                               </div>
                             )}
                             {item.status === 'pending' && (
-                              <div className="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-amber-700">
+                              <div className="rounded-full bg-ceremonial-soft px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-ink">
                                 Pending
                               </div>
                             )}
@@ -638,42 +638,42 @@ const ElectionTimeline = ({ electionId, electionData }) => {
                         <button
                           type="button"
                           onClick={() => toggleTaskExpansion(item.id)}
-                          className={`w-full text-left rounded-xl border border-slate-200 bg-white shadow-sm hover:shadow-md transition-all border-l-4 ${accentBorder}`}
+                          className={`surface-card w-full rounded-2xl text-left hover:shadow-lift border-l-4 ${accentBorder}`}
                         >
                           <div className="p-4">
                             <div className="flex items-start justify-between gap-3">
                               <div className="min-w-0 flex-1">
                                 <div className="flex flex-wrap items-center gap-2 mb-1">
-                                  <span className="text-[10px] font-semibold uppercase tracking-wide text-slate-500">
+                                  <span className="text-[10px] font-semibold uppercase tracking-wide text-dusk">
                                     Step {index + 1}
                                   </span>
                                   <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${getColorClasses(phaseMeta.color)}`}>
                                     Worker task
                                   </span>
-                                  <span className="text-[10px] font-medium text-slate-400">
+                                  <span className="text-[10px] font-medium text-dusk">
                                     {item.chunks?.length || 0} chunks
                                   </span>
                                   {isExpanded ? (
-                                    <FiChevronDown className="h-4 w-4 text-slate-400" />
+                                    <FiChevronDown className="h-4 w-4 text-dusk" />
                                   ) : (
-                                    <FiChevronRight className="h-4 w-4 text-slate-400" />
+                                    <FiChevronRight className="h-4 w-4 text-dusk" />
                                   )}
                                 </div>
-                                <h4 className="text-base font-semibold text-slate-900">{item.title}</h4>
-                                <p className="text-sm text-slate-600 mt-1">{item.description}</p>
-                                <div className="flex flex-wrap items-center gap-3 text-xs text-slate-500 mt-3">
+                                <h4 className="text-base font-semibold text-ink">{item.title}</h4>
+                                <p className="text-sm text-dusk mt-1">{item.description}</p>
+                                <div className="flex flex-wrap items-center gap-3 text-xs text-dusk mt-3">
                                   <span className="inline-flex items-center gap-1">
                                     <FiClock className="h-3.5 w-3.5" />
                                     {formatTimestamp(item.startTime)}
                                   </span>
-                                  <span className="text-slate-300">to</span>
+                                  <span className="text-dusk-soft">to</span>
                                   <span>{formatTimestamp(item.endTime)}</span>
-                                  <span className="rounded-md bg-blue-50 px-2 py-1 font-medium text-blue-700">
+                                  <span className="rounded-md bg-glacier px-2 py-1 font-medium text-brand-dark">
                                     {formatDuration(durationMs)}
                                   </span>
                                 </div>
                               </div>
-                              <div className="rounded-full bg-emerald-100 p-1.5 text-emerald-600">
+                              <div className="rounded-full bg-sage-soft p-1.5 text-aurora-muted">
                                 <FiCheck className="h-4 w-4" />
                               </div>
                             </div>
@@ -681,36 +681,36 @@ const ElectionTimeline = ({ electionId, electionData }) => {
                         </button>
 
                         {isExpanded && item.chunks?.length > 0 && (
-                          <div className="mt-3 ml-3 space-y-2 border-l-2 border-dashed border-slate-200 pl-4">
+                          <div className="mt-3 ml-3 space-y-2 border-l-2 border-dashed border-ink/10 pl-4">
                             {[...item.chunks]
                               .sort((a, b) => toSortTime(a.startTime) - toSortTime(b.startTime))
                               .map((chunk, chunkIdx) => (
                               <div
                                 key={`${item.id}-chunk-${chunk.chunkNumber ?? chunkIdx}`}
-                                className="rounded-lg border border-slate-200 bg-slate-50/80 p-3"
+                                className="rounded-lg border border-ink/10 bg-frost/80 p-3"
                               >
                                 <div className="flex items-start justify-between gap-3">
                                   <div className="min-w-0">
                                     <div className="flex flex-wrap items-center gap-2 mb-1">
-                                      <span className="text-sm font-medium text-slate-700">
+                                      <span className="text-sm font-medium text-ink">
                                         Chunk {chunk.chunkNumber}
                                       </span>
                                       <span className={`text-[10px] font-semibold uppercase px-2 py-0.5 rounded-full ${
                                         chunk.status === 'COMPLETED'
-                                          ? 'bg-emerald-100 text-emerald-700'
-                                          : 'bg-red-100 text-red-700'
+                                          ? 'bg-sage-soft text-aurora-muted'
+                                          : 'bg-ember-soft text-ember'
                                       }`}
                                       >
                                         {chunk.status}
                                       </span>
                                     </div>
-                                    <div className="flex flex-wrap items-center gap-2 text-xs text-slate-500">
+                                    <div className="flex flex-wrap items-center gap-2 text-xs text-dusk">
                                       <span>{formatTimestamp(chunk.startTime)}</span>
-                                      <span className="text-slate-300">to</span>
+                                      <span className="text-dusk-soft">to</span>
                                       <span>{formatTimestamp(chunk.endTime)}</span>
                                     </div>
                                   </div>
-                                  <span className="shrink-0 rounded-md bg-white border border-blue-100 px-2 py-1 text-xs font-medium text-blue-700">
+                                  <span className="shrink-0 rounded-md bg-paper border border-glacier px-2 py-1 text-xs font-medium text-brand-dark">
                                     {formatDuration(chunk.duration)}
                                   </span>
                                 </div>
@@ -728,24 +728,24 @@ const ElectionTimeline = ({ electionId, electionData }) => {
         </div>
       </div>
 
-      <div className="rounded-2xl border border-slate-200 bg-slate-50/80 p-5">
-        <h4 className="font-semibold text-slate-900 mb-3">Timeline Summary</h4>
+      <div className="surface-card bg-frost/80 p-5">
+        <h4 className="font-semibold text-ink mb-3">Timeline Summary</h4>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
-          <div className="rounded-xl bg-white border border-slate-200 p-3">
-            <p className="text-slate-500">Milestones</p>
-            <p className="text-2xl font-bold text-slate-900">{eventCount}</p>
+          <div className="rounded-xl bg-paper border border-ink/10 p-3">
+            <p className="text-dusk">Milestones</p>
+            <p className="text-2xl font-bold text-ink">{eventCount}</p>
           </div>
-          <div className="rounded-xl bg-white border border-slate-200 p-3">
-            <p className="text-slate-500">Worker Tasks</p>
-            <p className="text-2xl font-bold text-purple-600">{taskCount}</p>
+          <div className="rounded-xl bg-paper border border-ink/10 p-3">
+            <p className="text-dusk">Worker Tasks</p>
+            <p className="text-2xl font-bold text-brand-dark">{taskCount}</p>
           </div>
-          <div className="rounded-xl bg-white border border-slate-200 p-3">
-            <p className="text-slate-500">Total Chunks</p>
-            <p className="text-2xl font-bold text-blue-600">{totalChunks}</p>
+          <div className="rounded-xl bg-paper border border-ink/10 p-3">
+            <p className="text-dusk">Total Chunks</p>
+            <p className="text-2xl font-bold text-brand">{totalChunks}</p>
           </div>
-          <div className="rounded-xl bg-white border border-slate-200 p-3">
-            <p className="text-slate-500">Guardians</p>
-            <p className="text-2xl font-bold text-indigo-600">
+          <div className="rounded-xl bg-paper border border-ink/10 p-3">
+            <p className="text-dusk">Guardians</p>
+            <p className="text-2xl font-bold text-brand-dark">
               {electionData.guardians?.length || electionData.numberOfGuardians || 0}
             </p>
           </div>

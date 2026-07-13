@@ -5,6 +5,7 @@ import {
   getHttpErrorMessage,
   HTTP_ERROR_KIND,
 } from './httpErrors.js';
+import { redirectToLogin } from './authRedirect.js';
 
 const API_BASE_URL = '/api';
 
@@ -39,7 +40,7 @@ function handleAuthError(response) {
     console.warn(`${response.status} - Session expired or access denied. Redirecting to login...`);
     localStorage.removeItem('email');
     localStorage.setItem('logout', Date.now());
-    window.location.href = '/otp-login';
+    redirectToLogin();
     return true;
   }
   return false;

@@ -1,217 +1,169 @@
-import React from "react";
+import React, { useState, useEffect } from "react";
 import { Link, useLocation } from "react-router-dom";
+import { FiMenu, FiX } from "react-icons/fi";
+import BrandMark, { BrandWordmark } from "../components/BrandMark";
+
+const NAV_LINKS = [
+  { path: "/features", label: "Features" },
+  { path: "/how-it-works", label: "How It Works" },
+  { path: "/architecture", label: "Architecture" },
+  { path: "/security", label: "Security" },
+  { path: "/about", label: "About" },
+];
 
 const Layout = ({ children }) => {
   const location = useLocation();
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [scrolled, setScrolled] = useState(false);
 
-  const isActiveRoute = (path) => {
-    return location.pathname === path;
-  };
+  const isActiveRoute = (path) => location.pathname === path;
+
+  useEffect(() => {
+    setMobileOpen(false);
+  }, [location.pathname]);
+
+  useEffect(() => {
+    const onScroll = () => setScrolled(window.scrollY > 8);
+    onScroll();
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
 
   return (
-    <div className="min-h-screen flex flex-col bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      {/* Top Navigation Bar */}
-      <nav className="fixed w-full bg-white/95 backdrop-blur-lg shadow-lg border-b border-white/20 z-50">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex justify-between h-16 items-center">
-            <div className="flex items-center">
-              <Link to="/" className="flex-shrink-0 flex items-center group">
-                <div className="w-10 h-10 bg-gradient-to-br from-blue-600 to-indigo-700 rounded-2xl flex items-center justify-center shadow-lg group-hover:shadow-xl transition-all duration-300 group-hover:scale-105">
-                  <span className="text-white text-xl font-bold">🗳️</span>
-                </div>
-                <span className="ml-3 text-xl font-bold bg-gradient-to-r from-gray-900 to-blue-800 bg-clip-text text-transparent">
-                  AmarVote
-                </span>
+    <div className="app-shell flex min-h-screen flex-col">
+      <nav
+        className={`nav-deep sticky top-0 z-50 transition-shadow duration-300 ${
+          scrolled ? "shadow-nav" : "shadow-none"
+        }`}
+      >
+        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6 lg:px-8">
+          <Link
+            to="/"
+            className="group flex items-center gap-2.5"
+            onClick={() => setMobileOpen(false)}
+          >
+            <BrandMark className="transition duration-300 group-hover:scale-105 group-hover:shadow-brand" />
+            <BrandWordmark light />
+          </Link>
+
+          <div className="hidden items-center gap-0.5 md:flex">
+            {NAV_LINKS.map(({ path, label }) => (
+              <Link
+                key={path}
+                to={path}
+                className={`relative rounded-lg px-3 py-2 text-base font-medium transition duration-200 ${
+                  isActiveRoute(path)
+                    ? "text-paper"
+                    : "text-dusk-soft hover:bg-paper/5 hover:text-paper"
+                }`}
+              >
+                {label}
+                {isActiveRoute(path) && (
+                  <span className="absolute inset-x-3 -bottom-0.5 h-0.5 rounded-full bg-brand" />
+                )}
               </Link>
-            </div>
-            <div className="hidden md:block">
-              <div className="ml-10 flex items-center space-x-1">
-                <Link
-                  to="/features"
-                  className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${isActiveRoute('/features')
-                      ? 'text-blue-600 bg-blue-50/80'
-                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/80'
-                    }`}
-                >
-                  Features
-                </Link>
-                <Link
-                  to="/how-it-works"
-                  className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${isActiveRoute('/how-it-works')
-                      ? 'text-blue-600 bg-blue-50/80'
-                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/80'
-                    }`}
-                >
-                  How It Works
-                </Link>
-                <Link
-                  to="/architecture"
-                  className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${isActiveRoute('/architecture')
-                      ? 'text-blue-600 bg-blue-50/80'
-                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/80'
-                    }`}
-                >
-                  Architecture
-                </Link>
-                <Link
-                  to="/security"
-                  className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${isActiveRoute('/security')
-                      ? 'text-blue-600 bg-blue-50/80'
-                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/80'
-                    }`}
-                >
-                  Security
-                </Link>
-                <Link
-                  to="/about"
-                  className={`px-3 py-2 rounded-2xl text-sm font-medium transition-all duration-300 ${isActiveRoute('/about')
-                      ? 'text-blue-600 bg-blue-50/80'
-                      : 'text-gray-700 hover:text-blue-600 hover:bg-blue-50/80'
-                    }`}
-                >
-                  About
-                </Link>
-              </div>
-            </div>
-            <div className="flex items-center space-x-3">
-              <Link to="/login">
-                <button className="px-4 py-2 text-blue-600 border border-blue-600 rounded-2xl hover:bg-blue-50/80 transition-all duration-300 shadow-sm hover:shadow-md">
-                  Log in
-                </button>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2">
+            <Link to="/login" className="btn-ghost-light hidden px-3.5 py-2 sm:inline-flex">
+              Log in
+            </Link>
+            <Link to="/register" className="btn-brand hidden px-4 py-2 sm:inline-flex">
+              Register
+            </Link>
+            <button
+              type="button"
+              className="inline-flex rounded-xl p-2 text-dusk-soft transition hover:bg-paper/10 hover:text-paper md:hidden"
+              aria-label={mobileOpen ? "Close menu" : "Open menu"}
+              aria-expanded={mobileOpen}
+              onClick={() => setMobileOpen((v) => !v)}
+            >
+              {mobileOpen ? <FiX className="h-6 w-6" /> : <FiMenu className="h-6 w-6" />}
+            </button>
+          </div>
+        </div>
+
+        <div
+          className={`overflow-hidden border-t border-white/10 bg-deep-soft transition-all duration-300 md:hidden ${
+            mobileOpen ? "max-h-96 opacity-100" : "max-h-0 border-transparent opacity-0"
+          }`}
+        >
+          <div className="space-y-1 px-4 py-3 safe-pb">
+            {NAV_LINKS.map(({ path, label }) => (
+              <Link
+                key={path}
+                to={path}
+                onClick={() => setMobileOpen(false)}
+                className={`block rounded-xl px-3 py-3 text-base font-medium transition ${
+                  isActiveRoute(path)
+                    ? "bg-brand/15 text-paper"
+                    : "text-dusk-soft hover:bg-paper/5 hover:text-paper"
+                }`}
+              >
+                {label}
               </Link>
-              <Link to="/register">
-                <button className="px-4 py-2 text-white bg-blue-600 border border-blue-600 rounded-2xl hover:bg-blue-700 transition-all duration-300 shadow-sm hover:shadow-md">
-                  Register
-                </button>
+            ))}
+            <div className="mt-3 grid grid-cols-2 gap-2 border-t border-white/10 pt-3">
+              <Link
+                to="/login"
+                onClick={() => setMobileOpen(false)}
+                className="rounded-xl border border-white/20 py-2.5 text-center text-sm font-semibold text-paper"
+              >
+                Log in
+              </Link>
+              <Link
+                to="/register"
+                onClick={() => setMobileOpen(false)}
+                className="btn-brand py-2.5 text-center"
+              >
+                Register
               </Link>
             </div>
           </div>
         </div>
       </nav>
 
-      {/* Main Content - this will be your page content */}
-      <main className="flex-grow pt-16">{children}</main>
+      <main className="flex-grow page-enter">{children}</main>
 
-      {/* Footer */}
-      <footer className="bg-gradient-to-r from-blue-950 to-indigo-950">
-        <div className="max-w-7xl mx-auto py-12 px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <footer className="relative overflow-hidden bg-deep text-dusk-soft">
+        <div className="pointer-events-none absolute -right-20 top-0 h-64 w-64 rounded-full bg-brand/10 blur-3xl" />
+        <div className="relative mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:px-8">
+          <div className="grid grid-cols-2 gap-8 md:grid-cols-4">
             <div>
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">
-                Product
-              </h3>
-              <ul className="mt-4 space-y-4">
-                <li>
-                  <Link
-                    to="/features"
-                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
-                  >
-                    Features
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/security"
-                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
-                  >
-                    Security
-                  </Link>
-                </li>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-dusk">Product</h3>
+              <ul className="mt-4 space-y-3">
+                <li><Link to="/features" className="transition hover:text-paper">Features</Link></li>
+                <li><Link to="/security" className="transition hover:text-paper">Security</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">
-                Resources
-              </h3>
-              <ul className="mt-4 space-y-4">
-                <li>
-                  <Link
-                    to="/documentation"
-                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
-                  >
-                    Documentation
-                  </Link>
-                </li>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-dusk">Resources</h3>
+              <ul className="mt-4 space-y-3">
+                <li><Link to="/documentation" className="transition hover:text-paper">Documentation</Link></li>
+                <li><Link to="/how-it-works" className="transition hover:text-paper">How It Works</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">
-                Company
-              </h3>
-              <ul className="mt-4 space-y-4">
-                <li>
-                  <Link
-                    to="/about"
-                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
-                  >
-                    About
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/contact"
-                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
-                  >
-                    Contact
-                  </Link>
-                </li>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-dusk">Company</h3>
+              <ul className="mt-4 space-y-3">
+                <li><Link to="/about" className="transition hover:text-paper">About</Link></li>
               </ul>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-400 tracking-wider uppercase">
-                Platform
-              </h3>
-              <ul className="mt-4 space-y-4">
-                <li>
-                  <Link
-                    to="/architecture"
-                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
-                  >
-                    Architecture
-                  </Link>
-                </li>
-                <li>
-                  <Link
-                    to="/security"
-                    className="text-base text-gray-300 hover:text-white transition-colors duration-300"
-                  >
-                    Security
-                  </Link>
-                </li>
+              <h3 className="text-xs font-semibold uppercase tracking-wider text-dusk">Platform</h3>
+              <ul className="mt-4 space-y-3">
+                <li><Link to="/architecture" className="transition hover:text-paper">Architecture</Link></li>
               </ul>
             </div>
           </div>
-          <div className="mt-8 border-t border-gray-700 pt-8 md:flex md:items-center md:justify-between">
-            <div className="flex space-x-6 md:order-2">
-              <a href="#" className="text-gray-400 hover:text-gray-300">
-                <span className="sr-only">Facebook</span>
-                <svg
-                  className="h-6 w-6"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path
-                    fillRule="evenodd"
-                    d="M22 12c0-5.523-4.477-10-10-10S2 6.477 2 12c0 4.991 3.657 9.128 8.438 9.878v-6.987h-2.54V12h2.54V9.797c0-2.506 1.492-3.89 3.777-3.89 1.094 0 2.238.195 2.238.195v2.46h-1.26c-1.243 0-1.63.771-1.63 1.562V12h2.773l-.443 2.89h-2.33v6.988C18.343 21.128 22 16.991 22 12z"
-                    clipRule="evenodd"
-                  />
-                </svg>
-              </a>
-              <a href="#" className="text-gray-400 hover:text-gray-300">
-                <span className="sr-only">Twitter</span>
-                <svg
-                  className="h-6 w-6"
-                  fill="currentColor"
-                  viewBox="0 0 24 24"
-                  aria-hidden="true"
-                >
-                  <path d="M8.29 20.251c7.547 0 11.675-6.253 11.675-11.675 0-.178 0-.355-.012-.53A8.348 8.348 0 0022 5.92a8.19 8.19 0 01-2.357.646 4.118 4.118 0 001.804-2.27 8.224 8.224 0 01-2.605.996 4.107 4.107 0 00-6.993 3.743 11.65 11.65 0 01-8.457-4.287 4.106 4.106 0 001.27 5.477A4.072 4.072 0 012.8 9.713v.052a4.105 4.105 0 003.292 4.022 4.095 4.095 0 01-1.853.07 4.108 4.108 0 003.834 2.85A8.233 8.233 0 012 18.407a11.616 11.616 0 006.29 1.84" />
-                </svg>
-              </a>
+          <div className="mt-12 flex flex-col gap-4 border-t border-white/10 pt-8 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2.5">
+              <BrandMark size="sm" />
+              <span className="font-display font-semibold text-paper">AmarVote</span>
             </div>
-            <p className="mt-8 text-base text-gray-400 md:mt-0 md:order-1">
-              &copy; {new Date().getFullYear()} AmarVote. All rights reserved.
+            <p className="text-base text-dusk">
+              &copy; {new Date().getFullYear()} AmarVote. Secure, verifiable digital democracy.
             </p>
           </div>
         </div>
