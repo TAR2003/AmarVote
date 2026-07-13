@@ -67,8 +67,8 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
     }
   };
 
-  const refreshStatus = async () => {
-    setIsRefreshing(true);
+  const refreshStatus = async ({ silent = false } = {}) => {
+    if (!silent) setIsRefreshing(true);
     try {
       const statusData = await electionApi.getTallyStatus(electionId);
       updateStatus(statusData);
@@ -78,7 +78,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
       console.error('Error refreshing tally status:', err);
       return null;
     } finally {
-      setIsRefreshing(false);
+      if (!silent) setIsRefreshing(false);
     }
   };
 
@@ -102,6 +102,19 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
       cancelled = true;
     };
   }, [isOpen, electionId]);
+
+  // Polling fallback while in progress if SSE is silent
+  useEffect(() => {
+    if (!isOpen || !electionId) return;
+    const inFlight = status?.status === 'in_progress' || status?.status === 'pending';
+    if (!inFlight) return;
+
+    const interval = setInterval(() => {
+      refreshStatus({ silent: true });
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, electionId, status?.status]);
 
   useElectionProgressStream(electionId, {
     enabled: isOpen && Boolean(electionId),

@@ -46,6 +46,9 @@ export default function VoterListEditor({
   emptyMessage = "No voter emails added yet",
   entityLabel = "voter",
   enableUserSuggestions = true,
+  /** Emails that must not be added (e.g. the election creator cannot be a co-admin). */
+  excludedEmails = [],
+  excludedEmailMessage = "This email cannot be added.",
 }) {
   const fileInputRef = useRef(null);
   const suggestionsRef = useRef(null);
@@ -62,26 +65,44 @@ export default function VoterListEditor({
     setTimeout(() => setFeedback(null), 4000);
   };
 
+  const excludedSet = new Set(
+    (excludedEmails || []).map((email) => String(email).trim().toLowerCase()).filter(Boolean)
+  );
+
   const mergeEmails = (incoming) => {
     if (!incoming.length) {
       showFeedback("error", "No new valid email addresses found in the file.");
       return;
     }
 
-    const existing = new Set(emails);
-    const added = incoming.filter((email) => !existing.has(email));
+    const existing = new Set(emails.map((email) => email.toLowerCase()));
+    const blocked = incoming.filter((email) => excludedSet.has(email.toLowerCase()));
+    const added = incoming.filter(
+      (email) => !existing.has(email.toLowerCase()) && !excludedSet.has(email.toLowerCase())
+    );
+
+    if (blocked.length > 0 && added.length === 0 && incoming.length === blocked.length) {
+      showFeedback("error", excludedEmailMessage);
+      return;
+    }
 
     if (!added.length) {
-      showFeedback("info", "All emails from the file are already in the list.");
+      showFeedback(
+        "info",
+        blocked.length > 0
+          ? excludedEmailMessage
+          : "All emails from the file are already in the list."
+      );
       return;
     }
 
     onChange([...emails, ...added]);
+    const skipped = incoming.length - added.length;
     showFeedback(
       "success",
       `Added ${added.length} ${entityLabel}${added.length === 1 ? "" : "s"}${
-        incoming.length > added.length
-          ? ` (${incoming.length - added.length} duplicate${incoming.length - added.length === 1 ? "" : "s"} skipped)`
+        skipped > 0
+          ? ` (${skipped} skipped${blocked.length > 0 ? ", including excluded emails" : ""})`
           : ""
       }.`
     );
@@ -125,7 +146,12 @@ export default function VoterListEditor({
       return;
     }
 
-    if (emails.includes(email)) {
+    if (excludedSet.has(email)) {
+      showFeedback("error", excludedEmailMessage);
+      return;
+    }
+
+    if (emails.some((existing) => existing.toLowerCase() === email)) {
       showFeedback("info", "This email is already in the list.");
       return;
     }
@@ -147,17 +173,27 @@ export default function VoterListEditor({
       return;
     }
 
+    const blocked = new Set(
+      (excludedEmails || []).map((email) => String(email).trim().toLowerCase()).filter(Boolean)
+    );
+
     setSearching(true);
     try {
       const results = await userApi.searchUsers(query.trim());
-      const filtered = (results || []).filter((user) => !emails.includes(user.email));
+      const filtered = (results || []).filter((user) => {
+        const candidate = String(user.email || "").toLowerCase();
+        return (
+          !emails.some((existing) => existing.toLowerCase() === candidate) &&
+          !blocked.has(candidate)
+        );
+      });
       setSuggestions(filtered.slice(0, 8));
     } catch {
       setSuggestions([]);
     } finally {
       setSearching(false);
     }
-  }, [emails, enableUserSuggestions]);
+  }, [emails, enableUserSuggestions, excludedEmails]);
 
   useEffect(() => {
     if (!enableUserSuggestions) return undefined;

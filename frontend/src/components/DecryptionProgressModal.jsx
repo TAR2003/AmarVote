@@ -161,17 +161,19 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
     setError(null);
   };
 
-  const refreshStatus = async () => {
-    setIsRefreshing(true);
+  const refreshStatus = async ({ silent = false } = {}) => {
+    if (!silent) setIsRefreshing(true);
     try {
       const data = await electionApi.getDecryptionStatus(electionId);
       setStatus(data);
       setError(null);
+      return data;
     } catch (err) {
       console.error('Error refreshing decryption status:', err);
-      setError(err.message);
+      if (!silent) setError(err.message);
+      return null;
     } finally {
-      setIsRefreshing(false);
+      if (!silent) setIsRefreshing(false);
     }
   };
 
@@ -179,8 +181,31 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
     if (!isOpen) {
       setStatus(null);
       setError(null);
+      return;
     }
-  }, [isOpen]);
+
+    let cancelled = false;
+    refreshStatus().finally(() => {
+      if (cancelled) return;
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, electionId]);
+
+  // Polling fallback while in progress if SSE is silent
+  useEffect(() => {
+    if (!isOpen || !electionId) return;
+    const inFlight = status?.status === 'in_progress' || status?.status === 'pending';
+    if (!inFlight) return;
+
+    const interval = setInterval(() => {
+      refreshStatus({ silent: true });
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, electionId, status?.status]);
 
   useElectionProgressStream(electionId, {
     enabled: isOpen && Boolean(electionId),
@@ -300,7 +325,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
           {!status && !error && (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto"></div>
-              <p className="text-dusk mt-4">Connecting to live progress…</p>
+              <p className="text-dusk mt-4">Loading decryption status…</p>
             </div>
           )}
 

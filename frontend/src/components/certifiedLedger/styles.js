@@ -185,12 +185,21 @@ export const styles = StyleSheet.create({
     alignItems: 'flex-start',
     gap: 12,
   },
+  heroIdentity: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    maxWidth: '72%',
+    flex: 1,
+  },
+  heroAvatar: {
+    flexShrink: 0,
+  },
   heroName: {
     fontFamily: 'Fraunces',
     fontSize: 26,
     fontWeight: 500,
     color: tokens.ink,
-    maxWidth: '65%',
     lineHeight: 1.15,
   },
   heroShare: {
@@ -218,6 +227,10 @@ export const styles = StyleSheet.create({
     borderBottomColor: tokens.hairlineOnIvory,
     paddingVertical: 7,
     gap: 8,
+  },
+  compactAvatar: {
+    flexShrink: 0,
+    marginRight: 2,
   },
   compactRank: {
     width: 42,
@@ -380,10 +393,16 @@ export const styles = StyleSheet.create({
     paddingBottom: 14,
     borderBottomWidth: 1,
     borderBottomColor: tokens.hairlineOnIvory,
+    alignItems: 'flex-start',
   },
   standingRankCol: {
     width: 52,
-    marginRight: 14,
+    marginRight: 10,
+  },
+  standingAvatar: {
+    marginRight: 12,
+    marginTop: 2,
+    flexShrink: 0,
   },
   standingRank: {
     fontFamily: 'Fraunces',

@@ -4,6 +4,7 @@ import {
   getCandidateDescription,
   isWinnerByRank,
 } from '../electionRankings';
+import { resolveChoiceImageUrl } from './images';
 import {
   CHART_INNER_WIDTH_PT,
   GOLD_DEEP,
@@ -279,6 +280,7 @@ export function buildElectionResult({
       sharePct = (r.votes / totalVotesTallied) * 100;
     }
     const party = isRealParty(choice.partyName) ? String(choice.partyName).trim() : '';
+    const imageUrl = resolveChoiceImageUrl(choice);
 
     return {
       name: String(r.name || ''),
@@ -291,6 +293,9 @@ export function buildElectionResult({
       sharePct: Math.round(sharePct * 10) / 10,
       rank: r.rank,
       isWinner: isWinnerByRank(r.rank, winnerCount) && r.votes > 0,
+      imageUrl: imageUrl || '',
+      candidatePic: imageUrl || '',
+      imageDataUrl: null,
     };
   });
 

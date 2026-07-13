@@ -74,29 +74,54 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
     handleCombineCompleted(combine);
   }, [handleCombineCompleted]);
 
-  const refreshStatus = useCallback(async () => {
-    setIsRefreshing(true);
+  const refreshStatus = useCallback(async ({ silent = false } = {}) => {
+    if (!silent) setIsRefreshing(true);
     try {
       const data = await electionApi.getCombineStatus(electionId);
       setStatus(data);
       setError(null);
       handleCombineCompleted(data);
+      return data;
     } catch (err) {
       console.error('Error refreshing combine status:', err);
-      setError(err.message);
+      if (!silent) setError(err.message);
+      return null;
     } finally {
-      setIsRefreshing(false);
+      if (!silent) setIsRefreshing(false);
     }
   }, [electionId, handleCombineCompleted]);
 
   useEffect(() => {
-    if (isOpen && electionId) {
-      completionHandledRef.current = false;
-    } else if (!isOpen) {
+    if (!isOpen) {
       setStatus(null);
       setError(null);
+      return;
     }
-  }, [isOpen, electionId]);
+    if (!electionId) return;
+
+    completionHandledRef.current = false;
+    let cancelled = false;
+    refreshStatus().finally(() => {
+      if (cancelled) return;
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isOpen, electionId, refreshStatus]);
+
+  // Polling fallback while in progress if SSE is silent
+  useEffect(() => {
+    if (!isOpen || !electionId) return;
+    const inFlight = status?.status === 'in_progress' || status?.status === 'pending';
+    if (!inFlight) return;
+
+    const interval = setInterval(() => {
+      refreshStatus({ silent: true });
+    }, 8000);
+
+    return () => clearInterval(interval);
+  }, [isOpen, electionId, status?.status, refreshStatus]);
 
   useElectionProgressStream(electionId, {
     enabled: isOpen && Boolean(electionId),
@@ -205,7 +230,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
           {!status && !error && (
             <div className="text-center py-8">
               <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-brand mx-auto"></div>
-              <p className="text-dusk mt-4">Connecting to live progress…</p>
+              <p className="text-dusk mt-4">Loading combine status…</p>
             </div>
           )}
 

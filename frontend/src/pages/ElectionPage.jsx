@@ -88,6 +88,7 @@ import WorkerProceedings from '../components/WorkerProceedings';
 import VoterStatusSlot from '../components/VoterStatusSlot';
 import BallotWorkflowModal from '../components/BallotWorkflowModal';
 import ModalOverlay, { ModalPanel } from '../components/ModalOverlay';
+import AppModal from '../components/AppModal';
 import GuardianQuorumViz from '../components/GuardianQuorumViz';
 import VerifyVoteSection from '../components/VerifyVoteSection';
 import GuardianProgressPanel from '../components/GuardianProgressPanel';
@@ -113,12 +114,119 @@ const getTotalVoters = (data) => {
 const getVotedCount = (data) => {
   if (!data) return 0;
   if (data.votedCount != null) return data.votedCount;
+  if (data.totalVoted != null) return data.totalVoted;
+  if (data.ballotsCast != null) return data.ballotsCast;
+  if (data.votersWhoVoted != null) return data.votersWhoVoted;
   return (data.voters || []).filter((v) => v.hasVoted).length;
 };
 
 const getWinnerCount = (electionData) => {
   if (!electionData) return 1;
   return electionData.winnerNo || electionData.maxChoices || 1;
+};
+
+/** Map API eligibility fields to a single professional sentence for the voting booth. */
+const getFriendlyEligibilityCopy = (eligibility) => {
+  if (!eligibility) {
+    return {
+      title: 'Checking eligibility',
+      detail: 'Please wait while we verify whether you can vote in this election.',
+    };
+  }
+
+  if (eligibility.eligible) {
+    return {
+      title: 'You are eligible to vote',
+      detail: 'You may create and cast your encrypted ballot while voting is open.',
+    };
+  }
+
+  if (eligibility.hasVoted) {
+    return {
+      title: 'You have already voted',
+      detail: 'Your ballot has been recorded for this election. You cannot cast another vote.',
+    };
+  }
+
+  const status = String(eligibility.electionStatus || '').toLowerCase();
+  const reason = String(eligibility.reason || '').toLowerCase();
+  const message = String(eligibility.message || '').toLowerCase();
+  const combined = `${status} ${reason} ${message}`;
+
+  if (
+    combined.includes('not activated') ||
+    combined.includes('key ceremony') ||
+    combined.includes('not scheduled') ||
+    combined.includes('schedule is not set')
+  ) {
+    return {
+      title: 'Voting is not available yet',
+      detail:
+        'Voting is not available yet. The election must complete its key ceremony and be activated first.',
+    };
+  }
+
+  if (
+    combined.includes('not started') ||
+    (combined.includes('not active') && !combined.includes('ended'))
+  ) {
+    return {
+      title: 'Voting has not started',
+      detail: 'Voting has not started yet. Please check back when the election opens.',
+    };
+  }
+
+  if (combined.includes('ended') || combined.includes('finished') || combined.includes('has ended')) {
+    return {
+      title: 'Voting has ended',
+      detail: 'This election has ended, so ballots can no longer be cast.',
+    };
+  }
+
+  if (
+    combined.includes('not in voter list') ||
+    combined.includes('not eligible') ||
+    combined.includes('allowed voters')
+  ) {
+    return {
+      title: 'You are not eligible to vote',
+      detail:
+        'You are not on the eligible voter list for this election, so you cannot cast a ballot.',
+    };
+  }
+
+  if (combined.includes('error') || combined.includes('unable to verify')) {
+    return {
+      title: 'Unable to verify eligibility',
+      detail: 'We could not verify your voting eligibility right now. Please try again in a moment.',
+    };
+  }
+
+  const cleanMessage = eligibility.message && !/status:\s*|reason:/i.test(eligibility.message)
+    ? eligibility.message
+    : 'You are not eligible to vote in this election at this time.';
+
+  return {
+    title: cleanMessage,
+    detail: null,
+  };
+};
+
+/** True when ineligibility is likely temporary (schedule / activation) and worth re-checking. */
+const isTemporaryIneligibility = (eligibility) => {
+  if (!eligibility || eligibility.eligible || eligibility.hasVoted) return false;
+  const status = String(eligibility.electionStatus || '').toLowerCase();
+  const reason = String(eligibility.reason || '').toLowerCase();
+  const message = String(eligibility.message || '').toLowerCase();
+  const combined = `${status} ${reason} ${message}`;
+  return (
+    combined.includes('not activated') ||
+    combined.includes('key ceremony') ||
+    combined.includes('not scheduled') ||
+    combined.includes('not started') ||
+    combined.includes('not active') ||
+    combined.includes('schedule is not set')
+  );
 };
 
 const buildSummaryPayloadFromCachedResults = (animatedResultsData, electionData) => ({
@@ -155,12 +263,13 @@ const subMenus = [
 ];
 
 // Timer Component
-const ElectionTimer = ({ startTime, endTime }) => {
+const ElectionTimer = ({ startTime, endTime, onPhaseChange }) => {
   const [timeInfo, setTimeInfo] = useState({
     timeLeft: '',
     progress: 0,
     phase: 'calculating'
   });
+  const lastPhaseRef = useRef(null);
 
   useEffect(() => {
     const updateTimer = () => {
@@ -220,6 +329,14 @@ const ElectionTimer = ({ startTime, endTime }) => {
     return () => clearInterval(interval);
   }, [startTime, endTime]);
 
+  useEffect(() => {
+    if (!onPhaseChange || !timeInfo.phase || timeInfo.phase === 'calculating') return;
+    if (lastPhaseRef.current === timeInfo.phase) return;
+    const previous = lastPhaseRef.current;
+    lastPhaseRef.current = timeInfo.phase;
+    onPhaseChange(timeInfo.phase, previous);
+  }, [timeInfo.phase, onPhaseChange]);
+
   const getProgressColor = () => {
     switch (timeInfo.phase) {
       case 'upcoming': return '#f59e0b';
@@ -229,6 +346,8 @@ const ElectionTimer = ({ startTime, endTime }) => {
       default: return '#6b7280';
     }
   };
+
+  const phaseLabel = timezoneUtils.getElectionStatusLabel(timeInfo.phase, startTime, endTime);
 
   return (
     <div className="surface-card p-5 sm:p-6">
@@ -250,7 +369,7 @@ const ElectionTimer = ({ startTime, endTime }) => {
         </div>
         <div className="flex-1 min-w-0">
           <p className="font-display text-xl sm:text-2xl font-bold text-deep">{timeInfo.timeLeft}</p>
-          <p className="text-sm text-dusk capitalize">Status: {timeInfo.phase}</p>
+          <p className="text-sm text-dusk">Status: {phaseLabel}</p>
           <div className="w-full bg-ink/10 rounded-full h-2 mt-2">
             <div
               className="h-2 rounded-full transition-all duration-1000"
@@ -1304,6 +1423,8 @@ export default function ElectionPage() {
   // Eligibility state
   const [eligibilityData, setEligibilityData] = useState(null);
   const [checkingEligibility, setCheckingEligibility] = useState(false);
+  const eligibilityFetchInFlightRef = useRef(false);
+  const prevElectionScheduleRef = useRef({ status: null, startingTime: null, endingTime: null });
 
   // Guardian state
   const [guardianKey, setGuardianKey] = useState('');
@@ -1368,10 +1489,20 @@ export default function ElectionPage() {
   const [keyCeremonyBusy, setKeyCeremonyBusy] = useState({
     generatingCredentials: false,
     submittingRound1: false,
+    confirmingRound1: false,
     generatingBackup: false,
     submittingBackup: false,
   });
-
+  // Round 1: encrypt+download first; persist to DB only after download confirmation
+  const [credentialSubmitModal, setCredentialSubmitModal] = useState({
+    open: false,
+    phase: 'warn', // 'warn' | 'downloaded'
+    encryptedCredential: '',
+    credentials: '',
+    publicKey: '',
+    keyBackup: '',
+    error: '',
+  });
   // Combine progress state
   const [isCombineModalOpen, setIsCombineModalOpen] = useState(false);
   const [combineStatus, setCombineStatus] = useState(null);
@@ -1632,38 +1763,121 @@ export default function ElectionPage() {
     }
   };
 
+  // Fetch / refresh voting eligibility (tab open, schedule changes, focus, polling)
+  const fetchEligibility = useCallback(async ({ silent = false } = {}) => {
+    if (!id || eligibilityFetchInFlightRef.current) return;
+    eligibilityFetchInFlightRef.current = true;
+    if (!silent) setCheckingEligibility(true);
+    try {
+      const response = await electionApi.checkEligibility(id);
+      setEligibilityData(response);
+    } catch (err) {
+      console.error('Error checking eligibility:', err);
+      setEligibilityData({
+        eligible: false,
+        message: 'Error checking eligibility',
+        reason: 'Unable to verify eligibility status',
+        hasVoted: false,
+        isElectionActive: false,
+        electionStatus: 'Error'
+      });
+    } finally {
+      eligibilityFetchInFlightRef.current = false;
+      if (!silent) setCheckingEligibility(false);
+    }
+  }, [id]);
+
   // Check eligibility when switching to voting tab
   useEffect(() => {
-    const checkEligibility = async () => {
-      if (activeTab === 'voting' && id && !eligibilityData && !checkingEligibility) {
-        try {
-          setCheckingEligibility(true);
-          const response = await electionApi.checkEligibility(id);
-          setEligibilityData(response);
-        } catch (err) {
-          console.error('Error checking eligibility:', err);
-          setEligibilityData({
-            eligible: false,
-            message: 'Error checking eligibility',
-            reason: 'Unable to verify eligibility status',
-            hasVoted: false,
-            isElectionActive: false,
-            electionStatus: 'Error'
-          });
-        } finally {
-          setCheckingEligibility(false);
-        }
+    if (activeTab === 'voting' && id && !eligibilityData && !checkingEligibility) {
+      fetchEligibility();
+    }
+  }, [activeTab, id, eligibilityData, checkingEligibility, fetchEligibility]);
+
+  // Clear and refetch eligibility when election activation / schedule changes
+  useEffect(() => {
+    if (!electionData) return;
+    const next = {
+      status: electionData.status,
+      startingTime: electionData.startingTime,
+      endingTime: electionData.endingTime,
+    };
+    const prev = prevElectionScheduleRef.current;
+    const changed =
+      prev.status !== next.status ||
+      prev.startingTime !== next.startingTime ||
+      prev.endingTime !== next.endingTime;
+    prevElectionScheduleRef.current = next;
+    if (!changed) return;
+    // Skip the initial seed so we don't double-fetch on first load
+    if (prev.status == null && prev.startingTime == null && prev.endingTime == null) return;
+    setEligibilityData(null);
+    if (activeTab === 'voting') {
+      fetchEligibility();
+    }
+  }, [
+    electionData?.status,
+    electionData?.startingTime,
+    electionData?.endingTime,
+    activeTab,
+    fetchEligibility,
+  ]);
+
+  // Periodic re-check while on voting tab and temporarily ineligible
+  useEffect(() => {
+    if (activeTab !== 'voting' || !id) return;
+    if (!isTemporaryIneligibility(eligibilityData)) return;
+
+    const interval = setInterval(() => {
+      fetchEligibility({ silent: true });
+    }, 20000);
+
+    return () => clearInterval(interval);
+  }, [activeTab, id, eligibilityData, fetchEligibility]);
+
+  // Refetch eligibility when the window gains focus while on the voting tab
+  useEffect(() => {
+    if (activeTab !== 'voting' || !id) return;
+
+    const onFocus = () => {
+      if (document.visibilityState === 'visible') {
+        fetchEligibility({ silent: true });
       }
     };
 
-    checkEligibility();
-  }, [activeTab, id, eligibilityData, checkingEligibility]);
+    window.addEventListener('focus', onFocus);
+    document.addEventListener('visibilitychange', onFocus);
+    return () => {
+      window.removeEventListener('focus', onFocus);
+      document.removeEventListener('visibilitychange', onFocus);
+    };
+  }, [activeTab, id, fetchEligibility]);
+
+  const handleElectionTimerPhaseChange = useCallback((phase, previousPhase) => {
+    if (phase === 'ongoing' && previousPhase && previousPhase !== 'ongoing' && activeTab === 'voting') {
+      fetchEligibility({ silent: true });
+    }
+  }, [activeTab, fetchEligibility]);
 
   // Define functions first
   const getElectionStatus = useCallback(() => {
     if (!electionData) return 'unknown';
     return timezoneUtils.getElectionStatus(electionData.startingTime, electionData.endingTime);
   }, [electionData]);
+
+  const electionStatusLabel = useMemo(() => {
+    if (!electionData) return 'Unknown';
+    return timezoneUtils.getElectionStatusLabel(
+      electionData.status,
+      electionData.startingTime,
+      electionData.endingTime
+    );
+  }, [electionData]);
+
+  const eligibilityCopy = useMemo(
+    () => getFriendlyEligibilityCopy(eligibilityData),
+    [eligibilityData]
+  );
 
   const isElectionFinished = useCallback(() => getElectionStatus() === 'finished', [getElectionStatus]);
   const isKeyCeremonyPending = electionData?.status === 'key_ceremony_pending';
@@ -2851,24 +3065,181 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
     return total > 0 ? Math.round((submitted / total) * 100) : 0;
   };
 
-  const triggerAutoCredentialDownload = ({ electionId, encryptedCredential }) => {
-    const normalizedTitle = String(electionData?.electionTitle || 'election')
-      .toLowerCase()
-      .replace(/[^a-z0-9]+/g, '_')
+  const sanitizeCredentialFilenamePart = (value) =>
+    String(value || '')
+      .replace(/@/g, '_')
+      .replace(/\s+/g, '_')
+      .replace(/[^a-zA-Z0-9._-]+/g, '_')
       .replace(/_+/g, '_')
       .replace(/^_|_$/g, '')
-      .slice(0, 60) || 'election';
+      .slice(0, 80) || 'unknown';
+
+  const downloadGuardianCredentialFile = ({ electionId, encryptedCredential }) => {
+    const guardianEmail =
+      electionData?.guardians?.find((g) => g.isCurrentUser)?.userEmail || 'guardian';
+    const electionTitle = electionData?.electionTitle || 'election';
+    const filename = `guardian_credential_${sanitizeCredentialFilenamePart(guardianEmail)}_${sanitizeCredentialFilenamePart(electionTitle)}_${electionId}.txt`;
 
     const blob = new Blob([String(encryptedCredential || '').trim()], { type: 'text/plain' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `guardian_credentials_${normalizedTitle}_election_${electionId}.txt`;
+    a.download = filename;
     document.body.appendChild(a);
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   };
+
+  const resetCredentialSubmitModal = () => {
+    setCredentialSubmitModal({
+      open: false,
+      phase: 'warn',
+      encryptedCredential: '',
+      credentials: '',
+      publicKey: '',
+      keyBackup: '',
+      error: '',
+    });
+  };
+
+  const openCredentialSubmitModal = () => {
+    if (!guardianCeremonyForm.publicKey?.trim()) {
+      setKeyCeremonyUiError('Guardian public key is required');
+      return;
+    }
+    if (!guardianCeremonyForm.privateKey?.trim()) {
+      setKeyCeremonyUiError('Guardian private key is required');
+      return;
+    }
+    if (!guardianCeremonyForm.polynomial?.trim()) {
+      setKeyCeremonyUiError('Guardian polynomial is required');
+      return;
+    }
+    if (!guardianCeremonyForm.localEncryptionPassword?.trim()) {
+      setKeyCeremonyUiError('Local encryption password is required');
+      return;
+    }
+
+    setKeyCeremonyUiError('');
+    setKeyCeremonyUiMessage('');
+    setCredentialSubmitModal({
+      open: true,
+      phase: 'warn',
+      encryptedCredential: '',
+      credentials: '',
+      publicKey: guardianCeremonyForm.publicKey,
+      keyBackup: guardianCeremonyForm.keyBackup || '',
+      error: '',
+    });
+  };
+
+  const handleSubmitAndDownloadCredentials = async () => {
+    try {
+      setCredentialSubmitModal((prev) => ({ ...prev, error: '' }));
+      setKeyCeremonyBusy((prev) => ({ ...prev, submittingRound1: true }));
+      const response = await electionApi.prepareGuardianKeyCeremony(
+        id,
+        guardianCeremonyForm.privateKey,
+        guardianCeremonyForm.publicKey,
+        guardianCeremonyForm.polynomial,
+        guardianCeremonyForm.localEncryptionPassword,
+        guardianCeremonyForm.keyBackup
+      );
+
+      if (!response?.encryptedCredential || !response?.credentials) {
+        throw new Error('Failed to prepare credential file. Please try again.');
+      }
+
+      downloadGuardianCredentialFile({
+        electionId: id,
+        encryptedCredential: response.encryptedCredential,
+      });
+
+      setCredentialSubmitModal((prev) => ({
+        ...prev,
+        open: true,
+        phase: 'downloaded',
+        encryptedCredential: response.encryptedCredential,
+        credentials: response.credentials,
+        publicKey: guardianCeremonyForm.publicKey,
+        keyBackup: guardianCeremonyForm.keyBackup || '',
+        error: '',
+      }));
+    } catch (err) {
+      setCredentialSubmitModal((prev) => ({
+        ...prev,
+        error: err.message || 'Failed to prepare and download credentials',
+      }));
+    } finally {
+      setKeyCeremonyBusy((prev) => ({ ...prev, submittingRound1: false }));
+    }
+  };
+
+  const handleRedownloadCredentialFile = () => {
+    if (!credentialSubmitModal.encryptedCredential) return;
+    downloadGuardianCredentialFile({
+      electionId: id,
+      encryptedCredential: credentialSubmitModal.encryptedCredential,
+    });
+  };
+
+  const handleConfirmCredentialDownloaded = async () => {
+    if (!credentialSubmitModal.credentials || !credentialSubmitModal.publicKey) {
+      setCredentialSubmitModal((prev) => ({
+        ...prev,
+        error: 'Missing prepared credentials. Please submit and download again.',
+      }));
+      return;
+    }
+
+    try {
+      setCredentialSubmitModal((prev) => ({ ...prev, error: '' }));
+      setKeyCeremonyBusy((prev) => ({ ...prev, confirmingRound1: true }));
+      await electionApi.confirmGuardianKeyCeremony(
+        id,
+        credentialSubmitModal.publicKey,
+        credentialSubmitModal.credentials,
+        credentialSubmitModal.keyBackup
+      );
+
+      setGuardianCeremonyForm({
+        privateKey: '',
+        publicKey: '',
+        polynomial: '',
+        localEncryptionPassword: '',
+        keyBackup: '',
+      });
+      resetCredentialSubmitModal();
+      setKeyCeremonyUiMessage(
+        'Round 1 submitted successfully. Keypair generated and credential file saved.'
+      );
+
+      await fetchElectionData();
+      await loadKeyCeremonyProgress();
+    } catch (err) {
+      setCredentialSubmitModal((prev) => ({
+        ...prev,
+        error: err.message || 'Failed to confirm Round 1 submission',
+      }));
+    } finally {
+      setKeyCeremonyBusy((prev) => ({ ...prev, confirmingRound1: false }));
+    }
+  };
+
+  // Warn before leaving/reloading once the credential file has been prepared but not confirmed
+  useEffect(() => {
+    if (!credentialSubmitModal.open || credentialSubmitModal.phase !== 'downloaded') {
+      return undefined;
+    }
+
+    const onBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [credentialSubmitModal.open, credentialSubmitModal.phase]);
 
   const generateLocalPassword = () => {
     const alphabet = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$%^&*()-_=+[]{}';
@@ -2903,51 +3274,6 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
       setKeyCeremonyUiError(err.message || 'Failed to generate credentials');
     } finally {
       setKeyCeremonyBusy((prev) => ({ ...prev, generatingCredentials: false }));
-    }
-  };
-
-  const handleSubmitKeyCeremonyRound1 = async () => {
-    if (!guardianCeremonyForm.publicKey?.trim()) {
-      setKeyCeremonyUiError('Guardian public key is required');
-      return;
-    }
-    if (!guardianCeremonyForm.privateKey?.trim()) {
-      setKeyCeremonyUiError('Guardian private key is required');
-      return;
-    }
-    if (!guardianCeremonyForm.polynomial?.trim()) {
-      setKeyCeremonyUiError('Guardian polynomial is required');
-      return;
-    }
-    if (!guardianCeremonyForm.localEncryptionPassword?.trim()) {
-      setKeyCeremonyUiError('Local encryption password is required');
-      return;
-    }
-
-    try {
-      setKeyCeremonyUiError('');
-      setKeyCeremonyUiMessage('');
-      setKeyCeremonyBusy((prev) => ({ ...prev, submittingRound1: true }));
-      const response = await electionApi.submitGuardianKeyCeremony(
-        id,
-        guardianCeremonyForm.privateKey,
-        guardianCeremonyForm.publicKey,
-        guardianCeremonyForm.polynomial,
-        guardianCeremonyForm.localEncryptionPassword,
-        guardianCeremonyForm.keyBackup
-      );
-
-      if (response?.encryptedCredential) {
-        triggerAutoCredentialDownload({ electionId: id, encryptedCredential: response.encryptedCredential });
-      }
-
-      setKeyCeremonyUiMessage('Round 1 submitted successfully. Guardian credential file downloaded.');
-      await fetchElectionData();
-      await loadKeyCeremonyProgress();
-    } catch (err) {
-      setKeyCeremonyUiError(err.message || 'Failed to submit Round 1');
-    } finally {
-      setKeyCeremonyBusy((prev) => ({ ...prev, submittingRound1: false }));
     }
   };
 
@@ -3235,6 +3561,114 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
         onCombineComplete={handleCombineComplete}
       />
 
+      <AppModal
+        isOpen={credentialSubmitModal.open}
+        onClose={() => {
+          if (credentialSubmitModal.phase === 'downloaded') return;
+          if (keyCeremonyBusy.submittingRound1 || keyCeremonyBusy.confirmingRound1) return;
+          resetCredentialSubmitModal();
+        }}
+        dismissible={credentialSubmitModal.phase !== 'downloaded'}
+        title={
+          credentialSubmitModal.phase === 'downloaded'
+            ? 'Confirm credential download'
+            : 'Submit and download credentials'
+        }
+        size="md"
+        footer={
+          credentialSubmitModal.phase === 'warn' ? (
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={resetCredentialSubmitModal}
+                disabled={keyCeremonyBusy.submittingRound1}
+                className="rounded-lg border border-brand/25 bg-paper px-4 py-2 text-sm font-medium text-ink hover:bg-frost disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitAndDownloadCredentials}
+                disabled={keyCeremonyBusy.submittingRound1}
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-dark px-4 py-2 text-sm font-semibold text-paper hover:bg-ink disabled:opacity-60"
+              >
+                <FiDownload className="h-4 w-4" aria-hidden />
+                {keyCeremonyBusy.submittingRound1
+                  ? 'Preparing download...'
+                  : 'Submit and Download the Credentials'}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <button
+                type="button"
+                onClick={handleRedownloadCredentialFile}
+                disabled={keyCeremonyBusy.confirmingRound1}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand/30 bg-paper px-4 py-2 text-sm font-medium text-ink hover:bg-frost disabled:opacity-60"
+              >
+                <FiDownload className="h-4 w-4" aria-hidden />
+                Download credential file again
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCredentialDownloaded}
+                disabled={keyCeremonyBusy.confirmingRound1}
+                className="rounded-lg bg-aurora-muted px-4 py-2 text-sm font-semibold text-paper hover:bg-aurora disabled:opacity-60"
+              >
+                {keyCeremonyBusy.confirmingRound1
+                  ? 'Completing...'
+                  : 'Yes, I downloaded the file — complete submission'}
+              </button>
+            </div>
+          )
+        }
+      >
+        {credentialSubmitModal.phase === 'warn' ? (
+          <div className="space-y-3 text-sm text-ink">
+            <p>
+              When you continue, your guardian credential file will be encrypted and downloaded to
+              this device. You must keep this file safe.
+            </p>
+            <p className="rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-ember">
+              This file cannot be recovered if you lose it. You will need it for Round 2 backup
+              sharing and later decryption. Do not close or reload this page until you have saved
+              the file and confirmed the download.
+            </p>
+            <p>
+              Round 1 is not complete in the system until you confirm the download on the next
+              step. If you leave or reload before confirming, you will need to start keypair
+              generation again.
+            </p>
+            {credentialSubmitModal.error && (
+              <p className="rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-ember">
+                {credentialSubmitModal.error}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3 text-sm text-ink">
+            <p className="rounded-lg border border-aurora/30 bg-sage-soft px-3 py-2 text-aurora-muted">
+              Your credential file download has started. Check your downloads folder and store the
+              file somewhere secure.
+            </p>
+            <p>
+              Are you sure you downloaded and saved the credential file? Before leaving or
+              reloading this page, make sure the file is on your device — it cannot be recovered
+              later.
+            </p>
+            <p className="text-dusk">
+              If the download did not start or the file is missing, use “Download credential file
+              again” below, then confirm only after the file is saved.
+            </p>
+            {credentialSubmitModal.error && (
+              <p className="rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-ember">
+                {credentialSubmitModal.error}
+              </p>
+            )}
+          </div>
+        )}
+      </AppModal>
+
       <BallotWorkflowModal
         isOpen={ballotModalOpen}
         phase={ballotModalPhase}
@@ -3283,14 +3717,14 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               </div>
             </div>
             <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
-              <span className={`status-chip capitalize ${
+              <span className={`status-chip ${
                 getElectionStatus() === 'ongoing' || getElectionStatus() === 'active'
                   ? 'status-chip-active'
-                  : getElectionStatus() === 'upcoming' || getElectionStatus() === 'scheduled' || getElectionStatus() === 'key_ceremony_pending'
+                  : getElectionStatus() === 'upcoming' || getElectionStatus() === 'scheduled' || electionData.status === 'key_ceremony_pending'
                     ? 'status-chip-pending'
                     : 'status-chip-ended'
               }`}>
-                {getElectionStatus()?.replace(/_/g, ' ')}
+                {electionStatusLabel}
               </span>
               <div className="inline-flex items-center gap-1.5 rounded-xl bg-frost px-2.5 py-1.5 text-xs sm:text-sm text-dusk">
                 <FiUser className="h-3.5 w-3.5 text-brand" />
@@ -3340,7 +3774,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
             <ElectionTimer
               startTime={electionData.startingTime}
               endTime={electionData.endingTime}
-              status={getElectionStatus()}
+              onPhaseChange={handleElectionTimerPhaseChange}
             />
 
             {/* Election Details Card */}
@@ -3932,17 +4366,18 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           ? 'text-deep'
                           : 'text-red-900'
                       }`}>
-                      {eligibilityData.message}
+                      {eligibilityCopy.title}
                     </h4>
-                    <p className={`text-sm ${eligibilityData.eligible
-                        ? 'text-aurora-muted'
-                        : eligibilityData.hasVoted
-                          ? 'text-ink'
-                          : 'text-ember'
-                      }`}>
-                      Status: {eligibilityData.electionStatus} |
-                      Reason: {eligibilityData.reason}
-                    </p>
+                    {eligibilityCopy.detail && (
+                      <p className={`text-sm ${eligibilityData.eligible
+                          ? 'text-aurora-muted'
+                          : eligibilityData.hasVoted
+                            ? 'text-ink'
+                            : 'text-ember'
+                        }`}>
+                        {eligibilityCopy.detail}
+                      </p>
+                    )}
                   </div>
                 </div>
               </div>
@@ -4118,11 +4553,11 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             <p className="text-sm text-dusk text-center max-w-md">
                               {!electionOngoing
                                 ? (getElectionStatus() === 'finished'
-                                  ? 'Voting has ended for this election.'
-                                  : `Voting opens on ${formatDate(electionData.startingTime)}.`)
+                                  ? 'This election has ended, so ballots can no longer be cast.'
+                                  : `Voting has not started yet. Please check back when the election opens on ${formatDate(electionData.startingTime)}.`)
                                 : eligibilityData?.hasVoted
-                                  ? 'You have already voted in this election.'
-                                  : eligibilityData?.message || 'You are not eligible to vote in this election.'}
+                                  ? 'You have already voted in this election. Your ballot has been recorded.'
+                                  : eligibilityCopy.detail || eligibilityCopy.title || 'You are not eligible to vote in this election.'}
                             </p>
                           )}
                           <button
@@ -4381,13 +4816,13 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     {/* Guardian full key ceremony actions */}
                     {electionData?.userRoles?.includes('guardian') && (
                       <>
-                        {(guardianKeyCeremonyContext?.currentRound === 'keypair_generation') && (
+                        {guardianKeyCeremonyContext?.currentRound === 'keypair_generation' && (
                           <div className="rounded-xl border border-brand/25 bg-paper p-4 mb-4">
                             <div className="flex flex-wrap items-center justify-between gap-2 mb-3">
                               <h5 className="font-semibold text-deep">Round 1: Generate + Submit Keypair</h5>
                               <button
                                 onClick={handleGenerateKeyCeremonyCredentials}
-                                disabled={keyCeremonyBusy.generatingCredentials}
+                                disabled={keyCeremonyBusy.generatingCredentials || credentialSubmitModal.open}
                                 className="px-3 py-2 bg-brand-dark text-paper rounded-lg hover:bg-ink disabled:opacity-60"
                               >
                                 {keyCeremonyBusy.generatingCredentials ? 'Generating...' : 'Generate Credentials'}
@@ -4438,22 +4873,22 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             </div>
 
                             <button
-                              onClick={handleSubmitKeyCeremonyRound1}
-                              disabled={keyCeremonyBusy.submittingRound1}
+                              onClick={openCredentialSubmitModal}
+                              disabled={keyCeremonyBusy.submittingRound1 || keyCeremonyBusy.confirmingRound1}
                               className="mt-3 px-4 py-2 bg-brand-dark text-paper rounded-lg hover:bg-brand-dark disabled:opacity-60"
                             >
-                              {keyCeremonyBusy.submittingRound1 ? 'Submitting...' : 'Submit Round 1'}
+                              Submit Round 1
                             </button>
                           </div>
                         )}
 
-                        {(guardianKeyCeremonyContext?.currentRound === 'waiting_for_all_keypairs') && (
+                        {guardianKeyCeremonyContext?.currentRound === 'waiting_for_all_keypairs' && (
                           <div className="rounded-xl border border-ceremonial/40 bg-ceremonial-soft p-4 mb-4 text-sm text-ink">
                             Your Round 1 keypair is submitted. Waiting for all guardians to finish Round 1.
                           </div>
                         )}
 
-                        {(guardianKeyCeremonyContext?.currentRound === 'backup_key_sharing') && (
+                        {guardianKeyCeremonyContext?.currentRound === 'backup_key_sharing' && (
                           <div className="rounded-xl border border-brand/20 bg-paper p-4 mb-4">
                             <h5 className="font-semibold text-deep mb-3">Round 2: Backup Share Generation + Submission</h5>
                             <input
@@ -4493,7 +4928,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           </div>
                         )}
 
-                        {(guardianKeyCeremonyContext?.currentRound === 'backup_submitted_waiting_others') && (
+                        {guardianKeyCeremonyContext?.currentRound === 'backup_submitted_waiting_others' && (
                           <div className="rounded-xl border border-brand/20 bg-glacier p-4 mb-4 text-sm text-ink">
                             Your Round 2 backup shares are submitted. Waiting for remaining guardians.
                           </div>
@@ -4546,6 +4981,18 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 {/* Tally Creation Section - Only show if election has ended */}
                 {isElectionFinished() && !isKeyCeremonyPending && (
                   <div className="space-y-4 rounded-2xl border border-brand/20 bg-gradient-to-br from-white to-frost p-6 shadow-soft">
+                    {getVotedCount(electionData) === 0 &&
+                     !(tallyStatus?.status === 'completed' || tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending') ? (
+                      <>
+                        <div>
+                          <h4 className="font-display font-semibold text-deep mb-2">Create encrypted tally</h4>
+                          <p className="text-sm text-dusk">
+                            A tally cannot be created because no votes were cast in this election.
+                          </p>
+                        </div>
+                      </>
+                    ) : (
+                      <>
                     <ProcessProgressPanel
                       title="Tally creation progress"
                       status={tallyStatus}
@@ -4599,6 +5046,8 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         canControlTally
                         canControlCombine={false}
                       />
+                    )}
+                      </>
                     )}
                   </div>
                 )}

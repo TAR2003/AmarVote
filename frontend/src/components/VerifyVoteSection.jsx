@@ -189,6 +189,7 @@ export default function VerifyVoteSection({ electionId }) {
 
   const statusDisplay = getVerificationStatusDisplay();
   const Icon = statusDisplay?.icon;
+  const isVerifiedSuccess = verificationResult?.status === 'verified';
 
   const toneBox = {
     aurora: 'border-aurora/35 bg-aurora/10',
@@ -203,25 +204,25 @@ export default function VerifyVoteSection({ electionId }) {
 
   return (
     <div className="space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-aurora">
-            Public verification
-          </p>
-          <h3 className="mt-1 flex items-center gap-2 font-display text-lg font-semibold text-deep sm:text-xl">
-            <FiHash className="h-5 w-5 text-aurora" aria-hidden />
-            Confirm your ballot was counted
-          </h3>
-        </div>
+      <div>
+        <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-aurora">
+          Public verification
+        </p>
+        <h3 className="mt-1 flex items-center gap-2 font-display text-lg font-semibold text-deep sm:text-xl">
+          <FiHash className="h-5 w-5 text-aurora" aria-hidden />
+          Confirm your ballot was counted
+        </h3>
+      </div>
 
-        <div className="flex w-full gap-2 sm:w-auto">
+      <div className="mt-2 flex justify-center pt-2 sm:mt-3 sm:pt-3">
+        <div className="inline-flex gap-2 rounded-2xl bg-frost/80 p-1.5">
           <button
             type="button"
             onClick={() => setInputMethod('file')}
-            className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition sm:flex-none sm:px-4 sm:text-sm ${
+            className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition sm:px-5 sm:text-sm ${
               inputMethod === 'file'
                 ? 'bg-brand text-deep shadow-brand'
-                : 'bg-frost text-dusk hover:bg-glacier'
+                : 'text-dusk hover:bg-glacier'
             }`}
           >
             Upload receipt
@@ -229,10 +230,10 @@ export default function VerifyVoteSection({ electionId }) {
           <button
             type="button"
             onClick={() => setInputMethod('manual')}
-            className={`flex-1 rounded-xl px-3 py-2 text-xs font-semibold transition sm:flex-none sm:px-4 sm:text-sm ${
+            className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition sm:px-5 sm:text-sm ${
               inputMethod === 'manual'
                 ? 'bg-brand text-deep shadow-brand'
-                : 'bg-frost text-dusk hover:bg-glacier'
+                : 'text-dusk hover:bg-glacier'
             }`}
           >
             Paste codes
@@ -272,15 +273,21 @@ export default function VerifyVoteSection({ electionId }) {
             className="hidden"
             id="verification-file"
           />
-          <label htmlFor="verification-file" className="cursor-pointer">
-            <FiFileText className="mx-auto mb-3 h-10 w-10 text-dusk sm:h-12 sm:w-12" aria-hidden />
+          <label
+            htmlFor="verification-file"
+            className="mx-auto flex max-w-md cursor-pointer flex-col items-center text-center"
+          >
+            <FiFileText className="mb-3 h-10 w-10 text-dusk sm:h-12 sm:w-12" aria-hidden />
             <p className="font-display text-base font-semibold text-deep sm:text-lg">
               Upload your vote receipt
             </p>
-            <p className="mt-1 text-xs text-dusk sm:text-sm">
-              .txt or .json — drag and drop, or browse
+            <p className="mt-2 text-xs leading-relaxed text-dusk sm:text-sm">
+              Drag and drop a <span className="font-medium text-ink">.txt</span> or{' '}
+              <span className="font-medium text-ink">.json</span> receipt here,
+              <br className="hidden sm:block" />
+              or browse to choose a file
             </p>
-            <span className="btn-brand mt-4 inline-flex">Choose file</span>
+            <span className="btn-brand mt-5 inline-flex">Choose file</span>
           </label>
         </div>
       ) : (
@@ -347,22 +354,50 @@ export default function VerifyVoteSection({ electionId }) {
 
       {statusDisplay && (
         <div
-          className={`rounded-2xl border p-5 sm:p-6 ${toneBox[statusDisplay.tone]}`}
+          className={
+            isVerifiedSuccess
+              ? 'rounded-2xl border-2 border-aurora bg-sage-soft p-6 shadow-aurora sm:p-8'
+              : `rounded-2xl border p-5 sm:p-6 ${toneBox[statusDisplay.tone]}`
+          }
           role="status"
           aria-live="polite"
         >
-          <div className="flex items-start gap-3">
+          <div className={`flex items-start gap-3 ${isVerifiedSuccess ? 'sm:gap-5' : ''}`}>
             {Icon && (
-              <Icon className={`mt-0.5 h-6 w-6 shrink-0 ${toneText[statusDisplay.tone]}`} aria-hidden />
+              isVerifiedSuccess ? (
+                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-aurora bg-aurora text-paper shadow-aurora sm:h-16 sm:w-16">
+                  <Icon className="h-8 w-8 sm:h-9 sm:w-9" strokeWidth={3} aria-hidden />
+                </div>
+              ) : (
+                <Icon className={`mt-0.5 h-6 w-6 shrink-0 ${toneText[statusDisplay.tone]}`} aria-hidden />
+              )
             )}
             <div className="min-w-0 flex-1">
-              <h4 className={`font-display text-base font-semibold ${toneText[statusDisplay.tone]}`}>
+              <h4
+                className={
+                  isVerifiedSuccess
+                    ? 'font-display text-xl font-bold text-aurora-muted sm:text-2xl'
+                    : `font-display text-base font-semibold ${toneText[statusDisplay.tone]}`
+                }
+              >
                 {statusDisplay.title}
               </h4>
-              <p className="mt-1 text-sm leading-relaxed text-ink">{statusDisplay.description}</p>
+              <p
+                className={`mt-1 leading-relaxed ${
+                  isVerifiedSuccess ? 'text-base font-medium text-deep' : 'text-sm text-ink'
+                }`}
+              >
+                {statusDisplay.description}
+              </p>
 
               {verificationFile && (
-                <div className="mt-4 space-y-2 rounded-xl border border-ink/10 bg-paper/90 p-4 text-sm">
+                <div
+                  className={`mt-4 space-y-2 rounded-xl border p-4 text-sm ${
+                    isVerifiedSuccess
+                      ? 'border-aurora/40 bg-paper'
+                      : 'border-ink/10 bg-paper/90'
+                  }`}
+                >
                   <div>
                     <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-dusk">
                       Tracking code
@@ -378,7 +413,15 @@ export default function VerifyVoteSection({ electionId }) {
                     </p>
                   </div>
                   {verificationResult.found_ballot && (
-                    <p className="text-sm font-medium text-aurora">Found in tally: yes</p>
+                    <p
+                      className={
+                        isVerifiedSuccess
+                          ? 'mt-1 text-base font-bold text-aurora-muted'
+                          : 'text-sm font-medium text-aurora'
+                      }
+                    >
+                      Found in tally: yes
+                    </p>
                   )}
                   {verificationResult.expected_hash && verificationResult.provided_hash && (
                     <div className="border-t border-ink/10 pt-2 font-mono text-xs text-ember">

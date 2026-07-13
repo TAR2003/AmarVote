@@ -2,6 +2,7 @@ import React from 'react';
 import { Page, Text, View } from '@react-pdf/renderer';
 import { formatOrdinal } from '../../utils/electionRankings';
 import { truncate } from '../../utils/certifiedLedger/data';
+import { CandidateAvatar } from './CandidateAvatar';
 import { IvoryPageFooter } from './PageFooter';
 import { styles } from './styles';
 
@@ -16,6 +17,7 @@ function StandingBlock({ candidate, tieGroup }) {
         <Text style={styles.standingRank}>{formatOrdinal(candidate.rank)}</Text>
         {isTied ? <Text style={styles.tieBadge}>TIED</Text> : null}
       </View>
+      <CandidateAvatar candidate={candidate} size={44} style={styles.standingAvatar} />
       <View style={styles.standingBody}>
         <View style={styles.standingNameRow}>
           <Text style={styles.standingName}>{displayName}</Text>

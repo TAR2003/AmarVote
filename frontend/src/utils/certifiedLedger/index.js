@@ -13,6 +13,13 @@ export {
   splitBalanced,
 } from './data';
 
+export {
+  attachCandidateImageData,
+  candidateInitials,
+  fetchImageAsDataUrl,
+  resolveChoiceImageUrl,
+} from './images';
+
 export { downloadCertifiedLedger } from './download';
 export { registerLedgerFonts } from './fonts';
 export { assertFixedPageSize } from './assertPageSize';

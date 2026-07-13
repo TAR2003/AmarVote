@@ -3,6 +3,7 @@ import { Page, Text, View } from '@react-pdf/renderer';
 import { formatOrdinal } from '../../utils/electionRankings';
 import { truncate } from '../../utils/certifiedLedger/data';
 import { tokens } from '../../utils/certifiedLedger/tokens';
+import { CandidateAvatar } from './CandidateAvatar';
 import { IvoryPageFooter } from './PageFooter';
 import { styles } from './styles';
 
@@ -12,12 +13,15 @@ function HeroWinners({ winnerGroups }) {
       {group.members.map((w) => (
         <View key={w.name} style={styles.heroWinnerBlock} wrap={false}>
           <View style={styles.heroNameRow}>
-            <View style={{ maxWidth: '65%' }}>
-              <Text style={{ fontSize: 9, color: tokens.duskOnLight, marginBottom: 4 }}>
-                {formatOrdinal(w.rank)}
-                {group.isTied ? ' · TIED' : ''}
-              </Text>
-              <Text style={styles.heroName}>{w.name}</Text>
+            <View style={styles.heroIdentity}>
+              <CandidateAvatar candidate={w} size={56} style={styles.heroAvatar} />
+              <View style={{ maxWidth: '72%', flex: 1 }}>
+                <Text style={{ fontSize: 9, color: tokens.duskOnLight, marginBottom: 4 }}>
+                  {formatOrdinal(w.rank)}
+                  {group.isTied ? ' · TIED' : ''}
+                </Text>
+                <Text style={styles.heroName}>{w.name}</Text>
+              </View>
             </View>
             <Text style={styles.heroShare}>{w.sharePct.toFixed(1)}%</Text>
           </View>
@@ -46,6 +50,7 @@ function CompactWinnerList({ winnerGroups, winners }) {
               <Text style={styles.tieBadge}>TIED</Text>
             ) : null}
           </View>
+          <CandidateAvatar candidate={w} size={28} style={styles.compactAvatar} />
           <Text style={[styles.compactName, { fontSize }]}>
             {truncate(w.name, 48)}
           </Text>

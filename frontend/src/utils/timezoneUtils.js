@@ -230,15 +230,25 @@ export const timezoneUtils = {
 
   // Human-readable status label combining workflow and schedule
   getElectionStatusLabel(workflowStatus, startTime, endTime) {
-    if (workflowStatus === 'key_ceremony_pending') return 'Key Ceremony';
-    if (workflowStatus === 'decrypted') return 'Decrypted';
+    const normalized = String(workflowStatus || '').toLowerCase().trim();
 
+    if (normalized === 'key_ceremony_pending') return 'Waiting for key ceremony';
+    if (normalized === 'decrypted') return 'Results decrypted';
+    if (normalized === 'draft') return 'Draft';
+    if (normalized === 'completed' || normalized === 'finished') return 'Voting ended';
+    if (normalized === 'active' || normalized === 'ongoing') return 'Voting in progress';
+    if (normalized === 'scheduled') return 'Scheduled';
+
+    // Fall back to schedule-based status when workflow is open/activated or unknown
     const timeStatus = this.getElectionStatus(startTime, endTime);
     switch (timeStatus) {
-      case 'finished': return 'Finished';
-      case 'ongoing': return 'Ongoing';
+      case 'finished': return 'Voting ended';
+      case 'ongoing': return 'Voting in progress';
       case 'scheduled': return 'Scheduled';
-      default: return workflowStatus || 'Unknown';
+      default:
+        if (!normalized) return 'Unknown';
+        // Avoid showing raw underscored status strings in the UI
+        return normalized.replace(/_/g, ' ').replace(/\b\w/g, (c) => c.toUpperCase());
     }
   }
 };

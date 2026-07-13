@@ -61,6 +61,54 @@ export const electionApi = {
     }
   },
 
+  async prepareGuardianKeyCeremony(
+    electionId,
+    guardianPrivateKey,
+    guardianPublicKey,
+    guardianPolynomial,
+    localEncryptionPassword,
+    guardianKeyBackup
+  ) {
+    try {
+      return await apiRequest('/guardian/key-ceremony/prepare', {
+        method: 'POST',
+        body: JSON.stringify({
+          electionId,
+          guardianPrivateKey,
+          guardianPublicKey,
+          guardianPolynomial,
+          localEncryptionPassword,
+          guardianKeyBackup,
+        }),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error preparing key ceremony credentials:', error);
+      throw error;
+    }
+  },
+
+  async confirmGuardianKeyCeremony(
+    electionId,
+    guardianPublicKey,
+    credentials,
+    guardianKeyBackup
+  ) {
+    try {
+      return await apiRequest('/guardian/key-ceremony/confirm', {
+        method: 'POST',
+        body: JSON.stringify({
+          electionId,
+          guardianPublicKey,
+          credentials,
+          guardianKeyBackup,
+        }),
+      }, EXTENDED_TIMEOUT);
+    } catch (error) {
+      console.error('Error confirming key ceremony submission:', error);
+      throw error;
+    }
+  },
+
   async submitGuardianKeyCeremony(
     electionId,
     guardianPrivateKey,

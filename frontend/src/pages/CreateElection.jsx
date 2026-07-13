@@ -1,8 +1,8 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { FiUpload, FiUser, FiArrowLeft, FiArrowRight, FiCheck } from "react-icons/fi";
 import { electionApi } from "../utils/electionApi";
-import { uploadCandidateImage } from "../utils/api";
+import { uploadCandidateImage, getProfileSettings } from "../utils/api";
 import { userApi } from "../utils/userApi";
 import CandidatePhotoField from "../components/CandidatePhotoField";
 import TruncatedCandidateName from "../components/TruncatedCandidateName";
@@ -26,6 +26,8 @@ const CreateElection = () => {
     const [canCreateElections, setCanCreateElections] = useState(false);
     const [checkingPermission, setCheckingPermission] = useState(true);
     const [wizardStep, setWizardStep] = useState(0);
+    const [attemptedContinue, setAttemptedContinue] = useState(false);
+    const [currentUserEmail, setCurrentUserEmail] = useState("");
     const suggestionsRef = useRef(null);
     const candidateFileInputRef = useRef(null);
     const wizardTopRef = useRef(null);
@@ -98,6 +100,18 @@ const CreateElection = () => {
 
         checkCreatePermission();
 
+        const loadCurrentUser = async () => {
+            try {
+                const profile = await getProfileSettings();
+                if (isMounted && profile?.email) {
+                    setCurrentUserEmail(String(profile.email).trim().toLowerCase());
+                }
+            } catch {
+                // Co-admin self-check will be skipped if profile cannot be loaded.
+            }
+        };
+        loadCurrentUser();
+
         return () => {
             isMounted = false;
         };
@@ -160,29 +174,22 @@ const CreateElection = () => {
     const handleChange = (e) => {
         const { name, value } = e.target;
 
-        // If guardian number changes, auto-adjust quorum to default (more than half)
         if (name === 'guardianNumber') {
-            const guardianCount = parseInt(value) || 0;
-            
-            // Calculate default quorum as more than half
-            const defaultQuorum = guardianCount > 0 ? Math.floor(guardianCount / 2) + 1 : 0;
-
+            // Guardian count is driven by the email list; keep typed value only when empty list.
             setForm((prev) => ({
                 ...prev,
                 [name]: value,
-                // Set quorum to default value
-                quorumNumber: guardianCount === 0 ? "" : defaultQuorum.toString()
             }));
         } else if (name === 'quorumNumber') {
-            // Validate quorum number
-            const quorumCount = parseInt(value) || 0;
-            const guardianCount = parseInt(form.guardianNumber) || 0;
-
-            // Only allow valid quorum values
-            if (value === "" || (quorumCount > 0 && quorumCount <= guardianCount)) {
-                setForm((prev) => ({ ...prev, [name]: value }));
-            }
-            // If invalid, don't update the form
+            // Allow any input so invalid values can show validation UI.
+            setForm((prev) => ({ ...prev, [name]: value }));
+        } else if (name === 'electionPrivacy') {
+            setForm((prev) => ({
+                ...prev,
+                electionPrivacy: value,
+                // Private elections always require a listed voter roll.
+                electionEligibility: value === 'private' ? 'listed' : prev.electionEligibility,
+            }));
         } else {
             setForm((prev) => ({ ...prev, [name]: value }));
         }
@@ -194,7 +201,11 @@ const CreateElection = () => {
     };
 
     const setCoAdminEmails = (coAdminEmails) => {
-        setForm((prev) => ({ ...prev, coAdminEmails }));
+        const creator = currentUserEmail.toLowerCase();
+        const filtered = creator
+            ? coAdminEmails.filter((email) => String(email).trim().toLowerCase() !== creator)
+            : coAdminEmails;
+        setForm((prev) => ({ ...prev, coAdminEmails: filtered }));
     };
 
     const removeCoAdminEmail = (email) => {
@@ -253,14 +264,11 @@ const CreateElection = () => {
                     return;
                 }
 
-                // Calculate minimum quorum (more than half)
-                const minQuorum = Math.floor(uniqueEmails.length / 2) + 1;
-
                 setForm((prev) => ({ 
                     ...prev, 
                     guardianEmails: uniqueEmails,
                     guardianNumber: uniqueEmails.length.toString(),
-                    quorumNumber: minQuorum.toString()
+                    // Keep existing quorum; do not auto-rewrite it.
                 }));
 
                 // Show success message
@@ -268,7 +276,6 @@ const CreateElection = () => {
                 if (invalidCount > 0) {
                     message += ` (${invalidCount} invalid email(s) skipped)`;
                 }
-                message += `. Quorum set to ${minQuorum}.`;
                 setSuccess(message);
 
                 // Clear success message after 5 seconds
@@ -343,14 +350,10 @@ const CreateElection = () => {
                 return;
             }
             
-            // Calculate default quorum (more than half)
-            const defaultQuorum = Math.floor(newGuardianCount / 2) + 1;
-            
             setForm(prev => ({
                 ...prev,
                 guardianEmails: newGuardianEmails,
                 guardianNumber: newGuardianCount.toString(),
-                quorumNumber: defaultQuorum.toString()
             }));
         }
         setSearchQuery("");
@@ -361,14 +364,10 @@ const CreateElection = () => {
         const newGuardianEmails = form.guardianEmails.filter(e => e !== email);
         const newGuardianCount = newGuardianEmails.length;
         
-        // Calculate default quorum (more than half)
-        const defaultQuorum = newGuardianCount > 0 ? Math.floor(newGuardianCount / 2) + 1 : 0;
-        
         setForm(prev => ({
             ...prev,
             guardianEmails: newGuardianEmails,
             guardianNumber: newGuardianCount > 0 ? newGuardianCount.toString() : "",
-            quorumNumber: newGuardianCount > 0 ? defaultQuorum.toString() : ""
         }));
     };
 
@@ -552,88 +551,109 @@ const CreateElection = () => {
             && !hasDuplicateNames();
     };
 
-    const validateWizardStep = (stepIndex = wizardStep) => {
-        const stepId = WIZARD_STEPS[stepIndex]?.id;
+    const guardianCountValue = parseInt(form.guardianNumber, 10) || form.guardianEmails.length || 0;
+    const quorumCountValue = form.quorumNumber === "" ? NaN : parseInt(form.quorumNumber, 10);
+    const isQuorumBlank = form.quorumNumber === "" || form.quorumNumber === null || form.quorumNumber === undefined;
+    const isQuorumOutOfRange =
+        !isQuorumBlank &&
+        (Number.isNaN(quorumCountValue) ||
+            quorumCountValue < 1 ||
+            (guardianCountValue > 0 && quorumCountValue > guardianCountValue));
+
+    const stepFieldErrors = useMemo(() => {
+        const errors = {};
+        const stepId = WIZARD_STEPS[wizardStep]?.id;
 
         if (stepId === "basics") {
             if (!form.electionTitle.trim()) {
-                setError("Election title is required.");
-                return false;
+                errors.electionTitle = "Please enter an election title.";
             }
-            return true;
         }
 
         if (stepId === "privacy") {
             if (form.electionPrivacy === "private" && form.voterEmails.length === 0) {
-                setError("Add at least one voter email for private elections.");
-                return false;
+                errors.voterEmails = "Add at least one voter email for a private election.";
+            } else if (form.electionEligibility === "listed" && form.voterEmails.length === 0) {
+                errors.voterEmails = "Add the voter list for listed-eligibility elections.";
             }
-            if (form.electionEligibility === "listed" && form.voterEmails.length === 0) {
-                setError("Add the voter list for listed-eligibility elections.");
-                return false;
-            }
-            return true;
         }
 
         if (stepId === "guardians") {
-            const guardianCount = parseInt(form.guardianNumber, 10) || 0;
-            const quorumCount = parseInt(form.quorumNumber, 10) || 0;
-            if (guardianCount <= 0) {
-                setError("Number of guardians must be at least 1.");
-                return false;
+            if (guardianCountValue <= 0) {
+                errors.guardianNumber = "Add at least one guardian email.";
+            } else if (guardianCountValue > 20) {
+                errors.guardianNumber = "Number of guardians cannot exceed 20.";
             }
-            if (guardianCount > 20) {
-                setError("Number of guardians cannot exceed 20.");
-                return false;
+            if (form.guardianEmails.length < guardianCountValue) {
+                errors.guardianEmails = `Add ${guardianCountValue} guardian email${guardianCountValue === 1 ? "" : "s"}.`;
             }
-            if (quorumCount <= 0) {
-                setError("Quorum must be at least 1.");
-                return false;
+            if (isQuorumBlank) {
+                errors.quorumNumber = "Enter a quorum between 1 and the number of guardians.";
+            } else if (Number.isNaN(quorumCountValue) || quorumCountValue < 1) {
+                errors.quorumNumber = "Quorum must be at least 1.";
+            } else if (guardianCountValue > 0 && quorumCountValue > guardianCountValue) {
+                errors.quorumNumber = `Quorum (${quorumCountValue}) cannot exceed the number of guardians (${guardianCountValue}).`;
             }
-            if (quorumCount > guardianCount) {
-                setError(`Quorum (${quorumCount}) cannot exceed guardians (${guardianCount}).`);
-                return false;
-            }
-            if (form.guardianEmails.length < guardianCount) {
-                setError(`Add ${guardianCount} guardian email${guardianCount === 1 ? "" : "s"}.`);
-                return false;
-            }
-            return true;
         }
 
         if (stepId === "candidates") {
             if (isTotalCandidatesInvalid(form.totalCandidates)) {
-                setError("Total candidates must be at least 2.");
-                return false;
+                errors.totalCandidates = "Total candidates must be at least 2.";
             }
             if (form.candidateNames.some((name) => !name || !name.trim())) {
-                setError("Every candidate needs a name.");
-                return false;
-            }
-            if (form.candidateNames.filter((name) => name.trim()).length < 2) {
-                setError("At least 2 candidates are required.");
-                return false;
-            }
-            if (hasDuplicateNames()) {
-                setError("Candidate names must be unique.");
-                return false;
+                errors.candidateNames = "Every candidate needs a name.";
+            } else if (hasDuplicateNames()) {
+                errors.candidateNames = "Candidate names must be unique.";
             }
             if (isMaxChoicesInvalid(form.maxChoices, form.totalCandidates)) {
-                setError("Max choices must be at least 1 and cannot exceed total candidates.");
-                return false;
+                errors.maxChoices = "Max choices must be at least 1 and cannot exceed total candidates.";
             }
             if (isMaxChoicesInvalid(form.winnerNo, form.totalCandidates)) {
-                setError("Number of winners must be at least 1 and cannot exceed total candidates.");
-                return false;
+                errors.winnerNo = "Number of winners must be at least 1 and cannot exceed total candidates.";
             }
-            return true;
         }
 
+        return errors;
+    }, [
+        wizardStep,
+        form.electionTitle,
+        form.electionPrivacy,
+        form.electionEligibility,
+        form.voterEmails.length,
+        form.guardianNumber,
+        form.guardianEmails.length,
+        form.quorumNumber,
+        form.totalCandidates,
+        form.candidateNames,
+        form.maxChoices,
+        form.winnerNo,
+        guardianCountValue,
+        isQuorumBlank,
+        quorumCountValue,
+    ]);
+
+    const isCurrentStepComplete = Object.keys(stepFieldErrors).length === 0;
+
+    const validateWizardStep = (stepIndex = wizardStep) => {
+        // Force field-level messages to appear when Continue is pressed.
+        setAttemptedContinue(true);
+        const previousStep = wizardStep;
+        // Recompute against requested step by temporarily using stepFieldErrors for current only.
+        // For navigation we validate the current step before advancing.
+        if (stepIndex !== previousStep) {
+            // Caller uses default current step in practice.
+        }
+        if (!isCurrentStepComplete) {
+            const firstError = Object.values(stepFieldErrors)[0];
+            if (firstError) setError(firstError);
+            return false;
+        }
         return true;
     };
 
     const goToStep = (nextIndex) => {
         setError("");
+        setAttemptedContinue(false);
         setWizardStep(nextIndex);
         requestAnimationFrame(() => {
             wizardTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
@@ -653,7 +673,12 @@ const CreateElection = () => {
             setError("You are not allowed to create elections.");
             return;
         }
-        if (!validateWizardStep(wizardStep)) return;
+        setAttemptedContinue(true);
+        if (!isCurrentStepComplete) {
+            const firstError = Object.values(stepFieldErrors)[0];
+            if (firstError) setError(firstError);
+            return;
+        }
         if (wizardStep >= WIZARD_STEPS.length - 1) {
             if (!validateForm()) return;
             setError("");
@@ -934,9 +959,16 @@ const CreateElection = () => {
                             name="electionTitle"
                             value={form.electionTitle}
                             onChange={handleChange}
-                            className="input-field"
+                            className={`input-field ${
+                                stepFieldErrors.electionTitle
+                                    ? "border-ember bg-ember-soft focus:ring-ember"
+                                    : ""
+                            }`}
                             required
                         />
+                        {stepFieldErrors.electionTitle && (
+                            <p className="mt-1 text-xs text-ember">{stepFieldErrors.electionTitle}</p>
+                        )}
                     </div>
 
                     <div className="mb-4">
@@ -971,6 +1003,8 @@ const CreateElection = () => {
                         onRemoveAll={removeAllCoAdminEmails}
                         emptyMessage="No co-admin emails added yet"
                         entityLabel="co-admin"
+                        excludedEmails={currentUserEmail ? [currentUserEmail] : []}
+                        excludedEmailMessage="You are already the election administrator, so you cannot add yourself as a co-admin."
                     />
                 </section>
                 </>
@@ -1029,18 +1063,25 @@ const CreateElection = () => {
                                 <span className="ml-2">Listed voters only</span>
                             </label>
 
-                            <label className="flex min-h-11 items-center rounded-xl border border-ink/10 bg-frost px-3 text-sm font-medium text-ink">
-                                <input
-                                    type="radio"
-                                    name="electionEligibility"
-                                    value="unlisted"
-                                    checked={form.electionEligibility === "unlisted"}
-                                    onChange={handleChange}
-                                    className="form-radio h-5 w-5 text-brand"
-                                />
-                                <span className="ml-2">Anyone can vote</span>
-                            </label>
+                            {form.electionPrivacy !== "private" && (
+                                <label className="flex min-h-11 items-center rounded-xl border border-ink/10 bg-frost px-3 text-sm font-medium text-ink">
+                                    <input
+                                        type="radio"
+                                        name="electionEligibility"
+                                        value="unlisted"
+                                        checked={form.electionEligibility === "unlisted"}
+                                        onChange={handleChange}
+                                        className="form-radio h-5 w-5 text-brand"
+                                    />
+                                    <span className="ml-2">Anyone can vote</span>
+                                </label>
+                            )}
                         </div>
+                        {form.electionPrivacy === "private" && (
+                            <p className="mt-2 text-sm text-dusk">
+                                Private elections require a listed voter roll, so open voting is not available.
+                            </p>
+                        )}
                     </div>
 
                     <div className="mb-4">
@@ -1065,14 +1106,27 @@ const CreateElection = () => {
                         <div className="mb-4">
                             <label className="mb-3 block text-sm font-semibold text-ink">
                                 Voter Emails
-                                {form.electionPrivacy === "private" && <span className="text-ember">*</span>}
+                                {(form.electionPrivacy === "private" || form.electionEligibility === "listed") && (
+                                    <span className="text-ember">*</span>
+                                )}
                             </label>
-                            <VoterListEditor
-                                emails={form.voterEmails}
-                                onChange={setVoterEmails}
-                                onRemove={removeVoterEmail}
-                                onRemoveAll={removeAllVoterEmails}
-                            />
+                            <div
+                                className={
+                                    stepFieldErrors.voterEmails
+                                        ? "rounded-xl border-2 border-ember p-1"
+                                        : ""
+                                }
+                            >
+                                <VoterListEditor
+                                    emails={form.voterEmails}
+                                    onChange={setVoterEmails}
+                                    onRemove={removeVoterEmail}
+                                    onRemoveAll={removeAllVoterEmails}
+                                />
+                            </div>
+                            {stepFieldErrors.voterEmails && (
+                                <p className="mt-2 text-xs text-ember">{stepFieldErrors.voterEmails}</p>
+                            )}
                         </div>
                     )}
                 </section>
@@ -1089,89 +1143,15 @@ const CreateElection = () => {
 
                     <div className="mb-4">
                         <label className="mb-2 block text-sm font-semibold text-ink">
-                            Number of Guardians <span className="text-ember">*</span>
-                        </label>
-                        <input
-                            type="number"
-                            name="guardianNumber"
-                            value={form.guardianNumber}
-                            onChange={handleChange}
-                            min="1"
-                            max="20"
-                            className="input-field"
-                            placeholder="Enter number of guardians (1-20)"
-                        />
-                        <p className="mt-1 text-sm text-dusk">
-                            Choose any number of guardians between 1 and 20. More guardians provide better security through distributed key management.
-                        </p>
-                    </div>
-
-                    <div className="mb-4">
-                        <label className="mb-2 block text-sm font-semibold text-ink">
-                            Quorum Threshold <span className="text-ember">*</span>
-                        </label>
-                        <input
-                            type="number"
-                            name="quorumNumber"
-                            value={form.quorumNumber}
-                            onChange={handleChange}
-                            min="1"
-                            max={form.guardianNumber}
-                            className="input-field"
-                            placeholder={form.guardianNumber ? `Enter quorum (1-${form.guardianNumber})` : 'Set guardian count first'}
-                        />
-                        <p className="mt-1 text-sm text-dusk">
-                            Minimum number of guardians needed to decrypt the election results (must be ≤ {form.guardianNumber || 0}).
-                            Default is set to more than half ({form.guardianNumber ? Math.floor(parseInt(form.guardianNumber) / 2) + 1 : 0}). 
-                            This enables fault tolerance - if some guardians are unavailable, the election can still be decrypted.
-                        </p>
-                        {/* Validation message */}
-                        {(() => {
-                            const guardianCount = parseInt(form.guardianNumber) || 0;
-                            const quorumCount = parseInt(form.quorumNumber) || 0;
-
-                            if (quorumCount > guardianCount && guardianCount > 0) {
-                                return (
-                                    <div className="mt-2 rounded-xl border border-ember/30 bg-ember-soft p-3 text-sm text-ember">
-                                        Quorum cannot be greater than the number of guardians ({guardianCount})
-                                    </div>
-                                );
-                            }
-
-                            if (quorumCount <= 0 && guardianCount > 0) {
-                                return (
-                                    <div className="mt-2 rounded-xl border border-ceremonial/40 bg-ceremonial-soft p-3 text-sm text-ink">
-                                        Quorum must be at least 1
-                                    </div>
-                                );
-                            }
-
-                            if (quorumCount > 0 && guardianCount > 0 && quorumCount <= guardianCount) {
-                                const isDefault = quorumCount === Math.floor(guardianCount / 2) + 1;
-                                return (
-                                    <div className="mt-2 rounded-xl border border-sage/25 bg-sage-soft p-3 text-sm text-sage">
-                                        Valid quorum: {quorumCount} out of {guardianCount} guardians required
-                                        {isDefault && ' (default recommended value)'}
-                                    </div>
-                                );
-                            }
-
-                            return null;
-                        })()}
-                    </div>
-
-                    <div className="mb-4">
-                        <label className="mb-2 block text-sm font-semibold text-ink">
                             Guardian Emails <span className="text-ember">*</span>
                         </label>
 
-                        {/* File Upload for Guardian Emails */}
                         <div className="mb-3 rounded-xl border border-brand/20 bg-glacier/70 p-4">
                             <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 mb-2">
                                 <div>
                                     <p className="text-sm font-semibold text-ink">Upload guardian emails (CSV/TXT)</p>
                                     <p className="mt-1 text-xs text-dusk">
-                                        Upload a file with one email per line or comma-separated. This will automatically set the guardian count and quorum.
+                                        Upload a file with one email per line or comma-separated. The guardian count updates automatically from the list.
                                     </p>
                                 </div>
                                 <label className="btn-brand w-full cursor-pointer sm:w-auto">
@@ -1189,7 +1169,6 @@ const CreateElection = () => {
                             </div>
                         </div>
 
-                        {/* Manual Email Input */}
                         <div className="mb-2">
                             <p className="mb-2 text-sm font-semibold text-ink">Or add emails manually</p>
                             <div className="relative">
@@ -1200,24 +1179,32 @@ const CreateElection = () => {
                                     onKeyDown={(e) => {
                                         if (e.key === 'Enter' && searchQuery.trim()) {
                                             e.preventDefault();
-                                            // If there are suggestions, add the first one
                                             if (emailSuggestions.length > 0) {
                                                 addGuardianEmail(emailSuggestions[0].email);
                                             } else if (isValidEmail(searchQuery.trim())) {
-                                                // Otherwise, if the typed email is valid, add it
                                                 addGuardianEmail(searchQuery.trim());
                                             }
                                         }
                                     }}
                                     placeholder="Type email address (e.g., user@gmail.com)..."
-                                    className="input-field"
+                                    className={`input-field ${
+                                        stepFieldErrors.guardianEmails
+                                            ? "border-ember bg-ember-soft focus:ring-ember"
+                                            : ""
+                                    }`}
                                 />
 
                                 {emailSuggestions.length > 0 && renderEmailSuggestions()}
                             </div>
                         </div>
 
-                        <div className="min-h-[100px] rounded-xl border border-ink/10 bg-frost/60 p-3">
+                        <div
+                            className={`min-h-[100px] rounded-xl border bg-frost/60 p-3 ${
+                                stepFieldErrors.guardianEmails || stepFieldErrors.guardianNumber
+                                    ? "border-2 border-ember"
+                                    : "border-ink/10"
+                            }`}
+                        >
                             <div className="flex flex-wrap">
                                 {form.guardianEmails.length > 0 ? (
                                     form.guardianEmails.map(email => renderEmailTag(email, removeGuardianEmail))
@@ -1228,9 +1215,57 @@ const CreateElection = () => {
                         </div>
 
                         <div className="mt-2 text-sm text-dusk">
-                            <div>{form.guardianEmails.length} of {form.guardianNumber || 0} guardians added</div>
+                            <div>{form.guardianEmails.length} guardian{form.guardianEmails.length === 1 ? "" : "s"} added</div>
                             <div className="mt-1 text-xs">Upload a file for bulk import or press Enter to add an email manually.</div>
                         </div>
+                        {(stepFieldErrors.guardianEmails || stepFieldErrors.guardianNumber) && (
+                            <p className="mt-2 text-xs text-ember">
+                                {stepFieldErrors.guardianEmails || stepFieldErrors.guardianNumber}
+                            </p>
+                        )}
+                    </div>
+
+                    <div className="mb-4">
+                        <label className="mb-2 block text-sm font-semibold text-ink">
+                            Quorum Threshold <span className="text-ember">*</span>
+                        </label>
+                        <input
+                            type="number"
+                            name="quorumNumber"
+                            value={form.quorumNumber}
+                            onChange={handleChange}
+                            min="1"
+                            max={guardianCountValue || undefined}
+                            className={`input-field ${
+                                isQuorumBlank || isQuorumOutOfRange || stepFieldErrors.quorumNumber
+                                    ? "border-2 border-ember bg-ember-soft focus:ring-ember"
+                                    : ""
+                            }`}
+                            placeholder={
+                                guardianCountValue > 0
+                                    ? `Enter quorum (1-${guardianCountValue})`
+                                    : "Add guardians first, then enter quorum"
+                            }
+                        />
+                        <p className="mt-1 text-sm text-dusk">
+                            Minimum number of guardians needed to decrypt results
+                            {guardianCountValue > 0 ? ` (must be between 1 and ${guardianCountValue})` : ""}.
+                            Leave this blank until you choose a value — it will not be filled automatically.
+                        </p>
+                        {(isQuorumBlank || isQuorumOutOfRange || stepFieldErrors.quorumNumber) && (
+                            <div className="mt-2 rounded-xl border border-ember/30 bg-ember-soft p-3 text-sm text-ember">
+                                {isQuorumBlank
+                                    ? "Enter a quorum between 1 and the number of guardians."
+                                    : isQuorumOutOfRange && guardianCountValue > 0 && quorumCountValue > guardianCountValue
+                                    ? `Quorum (${quorumCountValue}) is higher than the current guardian count (${guardianCountValue}). Lower the quorum or add more guardians.`
+                                    : stepFieldErrors.quorumNumber || "Quorum must be a whole number of at least 1."}
+                            </div>
+                        )}
+                        {!isQuorumBlank && !isQuorumOutOfRange && guardianCountValue > 0 && (
+                            <div className="mt-2 rounded-xl border border-sage/25 bg-sage-soft p-3 text-sm text-sage">
+                                Valid quorum: {quorumCountValue} out of {guardianCountValue} guardians required
+                            </div>
+                        )}
                     </div>
                 </section>
                 )}
@@ -1586,7 +1621,13 @@ const CreateElection = () => {
                         </p>
                         <button
                             type="submit"
-                            disabled={checkingPermission || !canCreateElections || (wizardStep === 4 && !isFormReadyForSubmit())}
+                            disabled={
+                                checkingPermission ||
+                                !canCreateElections ||
+                                isSubmitting ||
+                                (wizardStep < 4 && !isCurrentStepComplete) ||
+                                (wizardStep === 4 && !isFormReadyForSubmit())
+                            }
                             className="btn-brand w-full sm:w-auto"
                         >
                             {wizardStep === 4 ? (

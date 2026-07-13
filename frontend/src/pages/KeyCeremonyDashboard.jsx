@@ -1,7 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { FiKey, FiClock, FiCheckCircle } from 'react-icons/fi';
+import { FiKey, FiClock, FiCheckCircle, FiDownload } from 'react-icons/fi';
 import { electionApi } from '../utils/electionApi';
 import { getGuardianKeyFriendlyError } from '../utils/voterMessages';
+import AppModal from '../components/AppModal';
 
 const triggerAutoCredentialDownload = ({ electionId, encryptedCredential }) => {
   const blob = new Blob([String(encryptedCredential || '').trim()], { type: 'text/plain' });
@@ -25,6 +26,17 @@ export default function KeyCeremonyDashboard() {
   const [backupForm, setBackupForm] = useState({});
   const [message, setMessage] = useState('');
   const [error, setError] = useState('');
+  const [credentialModal, setCredentialModal] = useState({
+    open: false,
+    electionId: null,
+    phase: 'warn',
+    encryptedCredential: '',
+    credentials: '',
+    publicKey: '',
+    keyBackup: '',
+    error: '',
+    busy: false,
+  });
 
   const loadData = async () => {
     setLoading(true);
@@ -89,7 +101,21 @@ export default function KeyCeremonyDashboard() {
     setMessage('Local AES-256 password generated in browser. It will be sent to backend for ML-KEM protected credential storage.');
   };
 
-  const handleGuardianSubmit = async (electionId) => {
+  const resetCredentialModal = () => {
+    setCredentialModal({
+      open: false,
+      electionId: null,
+      phase: 'warn',
+      encryptedCredential: '',
+      credentials: '',
+      publicKey: '',
+      keyBackup: '',
+      error: '',
+      busy: false,
+    });
+  };
+
+  const openCredentialModal = (electionId) => {
     setError('');
     setMessage('');
     const data = guardianForm[electionId] || {};
@@ -98,24 +124,39 @@ export default function KeyCeremonyDashboard() {
       setError('Guardian public key is required');
       return;
     }
-
     if (!data.privateKey || !String(data.privateKey).trim()) {
       setError('Guardian private key is required');
       return;
     }
-
     if (!data.polynomial || !String(data.polynomial).trim()) {
       setError('Guardian polynomial is required');
       return;
     }
-
     if (!data.localEncryptionPassword || !String(data.localEncryptionPassword).trim()) {
       setError('Local encryption password is required');
       return;
     }
 
+    setCredentialModal({
+      open: true,
+      electionId,
+      phase: 'warn',
+      encryptedCredential: '',
+      credentials: '',
+      publicKey: data.publicKey,
+      keyBackup: data.keyBackup || '',
+      error: '',
+      busy: false,
+    });
+  };
+
+  const handleSubmitAndDownloadCredentials = async () => {
+    const electionId = credentialModal.electionId;
+    const data = guardianForm[electionId] || {};
+    setCredentialModal((prev) => ({ ...prev, busy: true, error: '' }));
+
     try {
-      const response = await electionApi.submitGuardianKeyCeremony(
+      const response = await electionApi.prepareGuardianKeyCeremony(
         electionId,
         data.privateKey,
         data.publicKey,
@@ -124,19 +165,74 @@ export default function KeyCeremonyDashboard() {
         data.keyBackup
       );
 
-      if (response?.encryptedCredential) {
-        triggerAutoCredentialDownload({
-          electionId,
-          encryptedCredential: response.encryptedCredential,
-        });
+      if (!response?.encryptedCredential || !response?.credentials) {
+        throw new Error('Failed to prepare credential file. Please try again.');
       }
 
-      setMessage('Guardian key submitted successfully. Credentials were encrypted using your local password and credentials.txt was downloaded automatically.');
-      await loadData();
+      triggerAutoCredentialDownload({
+        electionId,
+        encryptedCredential: response.encryptedCredential,
+      });
+
+      setCredentialModal((prev) => ({
+        ...prev,
+        phase: 'downloaded',
+        encryptedCredential: response.encryptedCredential,
+        credentials: response.credentials,
+        publicKey: data.publicKey,
+        keyBackup: data.keyBackup || '',
+        busy: false,
+        error: '',
+      }));
     } catch (e) {
-      setError(getGuardianKeyFriendlyError(e));
+      setCredentialModal((prev) => ({
+        ...prev,
+        busy: false,
+        error: getGuardianKeyFriendlyError(e),
+      }));
     }
   };
+
+  const handleConfirmCredentialDownloaded = async () => {
+    if (!credentialModal.credentials || !credentialModal.publicKey || !credentialModal.electionId) {
+      setCredentialModal((prev) => ({
+        ...prev,
+        error: 'Missing prepared credentials. Please submit and download again.',
+      }));
+      return;
+    }
+
+    setCredentialModal((prev) => ({ ...prev, busy: true, error: '' }));
+    try {
+      await electionApi.confirmGuardianKeyCeremony(
+        credentialModal.electionId,
+        credentialModal.publicKey,
+        credentialModal.credentials,
+        credentialModal.keyBackup
+      );
+      resetCredentialModal();
+      setMessage('Round 1 submitted successfully. Credential file downloaded and confirmed.');
+      await loadData();
+    } catch (e) {
+      setCredentialModal((prev) => ({
+        ...prev,
+        busy: false,
+        error: getGuardianKeyFriendlyError(e),
+      }));
+    }
+  };
+
+  useEffect(() => {
+    if (!credentialModal.open || credentialModal.phase !== 'downloaded') {
+      return undefined;
+    }
+    const onBeforeUnload = (event) => {
+      event.preventDefault();
+      event.returnValue = '';
+    };
+    window.addEventListener('beforeunload', onBeforeUnload);
+    return () => window.removeEventListener('beforeunload', onBeforeUnload);
+  }, [credentialModal.open, credentialModal.phase]);
 
   const handleGenerateBackupShares = async (item) => {
     setError('');
@@ -254,6 +350,100 @@ export default function KeyCeremonyDashboard() {
 
   return (
     <div className="space-y-6 p-4 sm:p-6">
+      <AppModal
+        isOpen={credentialModal.open}
+        onClose={() => {
+          if (credentialModal.phase === 'downloaded' || credentialModal.busy) return;
+          resetCredentialModal();
+        }}
+        dismissible={credentialModal.phase !== 'downloaded'}
+        title={
+          credentialModal.phase === 'downloaded'
+            ? 'Confirm credential download'
+            : 'Submit and download credentials'
+        }
+        footer={
+          credentialModal.phase === 'warn' ? (
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={resetCredentialModal}
+                disabled={credentialModal.busy}
+                className="rounded-lg border border-brand/25 bg-paper px-4 py-2 text-sm font-medium text-ink hover:bg-frost disabled:opacity-60"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleSubmitAndDownloadCredentials}
+                disabled={credentialModal.busy}
+                className="inline-flex items-center gap-2 rounded-lg bg-brand-dark px-4 py-2 text-sm font-semibold text-paper hover:bg-ink disabled:opacity-60"
+              >
+                <FiDownload className="h-4 w-4" aria-hidden />
+                {credentialModal.busy ? 'Preparing download...' : 'Submit and Download the Credentials'}
+              </button>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:justify-end">
+              <button
+                type="button"
+                onClick={() =>
+                  triggerAutoCredentialDownload({
+                    electionId: credentialModal.electionId,
+                    encryptedCredential: credentialModal.encryptedCredential,
+                  })
+                }
+                disabled={credentialModal.busy}
+                className="inline-flex items-center justify-center gap-2 rounded-lg border border-brand/30 bg-paper px-4 py-2 text-sm font-medium text-ink hover:bg-frost disabled:opacity-60"
+              >
+                <FiDownload className="h-4 w-4" aria-hidden />
+                Download credential file again
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmCredentialDownloaded}
+                disabled={credentialModal.busy}
+                className="rounded-lg bg-aurora-muted px-4 py-2 text-sm font-semibold text-paper hover:bg-aurora disabled:opacity-60"
+              >
+                {credentialModal.busy
+                  ? 'Completing...'
+                  : 'Yes, I downloaded the file — complete submission'}
+              </button>
+            </div>
+          )
+        }
+      >
+        {credentialModal.phase === 'warn' ? (
+          <div className="space-y-3 text-sm text-ink">
+            <p>
+              When you continue, your guardian credential file will be encrypted and downloaded.
+              You must keep this file safe.
+            </p>
+            <p className="rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-ember">
+              This file cannot be recovered if lost. Round 1 is not saved until you confirm the
+              download. Reloading before confirmation means starting keypair generation again.
+            </p>
+            {credentialModal.error && (
+              <p className="rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-ember">
+                {credentialModal.error}
+              </p>
+            )}
+          </div>
+        ) : (
+          <div className="space-y-3 text-sm text-ink">
+            <p>
+              Are you sure you downloaded and saved the credential file? Before leaving or
+              reloading, make sure the file is on your device — it cannot be recovered later.
+            </p>
+            {credentialModal.error && (
+              <p className="rounded-lg border border-ember/30 bg-ember-soft px-3 py-2 text-ember">
+                {credentialModal.error}
+              </p>
+            )}
+          </div>
+        )}
+      </AppModal>
+
       <div className="bg-paper rounded-lg shadow p-4">
         <h2 className="text-xl font-semibold flex items-center gap-2">
           <FiKey /> Key Ceremony Dashboard
@@ -341,7 +531,7 @@ export default function KeyCeremonyDashboard() {
                       </button>
                     </div>
                     <button
-                      onClick={() => handleGuardianSubmit(item.electionId)}
+                      onClick={() => openCredentialModal(item.electionId)}
                       className="mt-3 px-4 py-2 bg-brand-dark text-paper rounded"
                     >
                       Submit Key Ceremony Data (Round 1)
