@@ -1,6 +1,7 @@
 import React from 'react';
 import { pdf } from '@react-pdf/renderer';
 import { LedgerDocument } from '../../components/certifiedLedger/LedgerDocument';
+import { assertFixedPageSize } from './assertPageSize';
 import { buildElectionResult, deriveLayoutParams } from './data';
 import { registerLedgerFonts } from './fonts';
 
@@ -12,6 +13,17 @@ export async function downloadCertifiedLedger(pdfArgs) {
   const result = buildElectionResult(pdfArgs);
   const layout = deriveLayoutParams(result);
   const blob = await pdf(<LedgerDocument result={result} layout={layout} />).toBlob();
+
+  // Guardrail: never ship shrink-to-content pages (react-pdf yoga quirk).
+  try {
+    await assertFixedPageSize(blob);
+  } catch (err) {
+    console.error(err);
+    throw new Error(
+      `Certified Ledger page geometry invalid: ${err.message}. Export aborted.`,
+    );
+  }
+
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;

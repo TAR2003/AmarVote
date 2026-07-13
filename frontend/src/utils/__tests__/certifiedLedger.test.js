@@ -3,11 +3,14 @@ import {
   buildElectionResult,
   chooseVerdictMode,
   deriveLayoutParams,
+  getDonutSliceColors,
+  getDonutSliceColorsByWinnerPriority,
   groupByRank,
   parseDescription,
   truncate,
   violetRamp,
 } from '../certifiedLedger';
+import { VIOLET_FAINT, tokens } from '../certifiedLedger/tokens';
 
 describe('truncate', () => {
   it('leaves short strings alone', () => {
@@ -133,13 +136,43 @@ describe('groupByRank', () => {
   });
 });
 
-describe('violetRamp', () => {
-  it('interpolates unique tones from violet to violetSoft', () => {
-    const colors = violetRamp(5);
+describe('donut color ramp', () => {
+  it('interpolates unique tones from violet to faint lavender', () => {
+    const colors = getDonutSliceColors(5);
     expect(colors).toHaveLength(5);
     expect(new Set(colors).size).toBe(5);
-    expect(colors[0].toUpperCase()).toBe('#8B7FE8');
-    expect(colors[4].toUpperCase()).toBe('#C9C3F5');
+    expect(colors[0].toUpperCase()).toBe(tokens.violet.toUpperCase());
+    expect(colors[4].toUpperCase()).toBe(VIOLET_FAINT.toUpperCase());
+  });
+
+  it('gives winners the strongest tones regardless of rank order', () => {
+    const candidates = [
+      { name: 'Low', votes: 1, isWinner: false },
+      { name: 'Win', votes: 10, isWinner: true },
+      { name: 'Mid', votes: 5, isWinner: false },
+    ];
+    const colors = getDonutSliceColorsByWinnerPriority(candidates);
+    expect(colors[1].toUpperCase()).toBe(tokens.violet.toUpperCase());
+    expect(new Set(colors).size).toBe(3);
+  });
+
+  it('keeps violetRamp as an alias of getDonutSliceColors', () => {
+    expect(violetRamp(3)).toEqual(getDonutSliceColors(3));
+  });
+
+  it('shares the same colors array between chart layout and legend', () => {
+    const result = {
+      candidates: [
+        { name: 'A', votes: 3, sharePct: 30, rank: 2, isWinner: false },
+        { name: 'B', votes: 7, sharePct: 70, rank: 1, isWinner: true },
+      ],
+      guardians: [],
+    };
+    const layout = deriveLayoutParams(result);
+    expect(layout.colors).toHaveLength(2);
+    expect(layout.legendCols[0][0].color).toBe(layout.colors[0]);
+    expect(layout.legendCols[0][1].color).toBe(layout.colors[1]);
+    expect(layout.colors[1].toUpperCase()).toBe(tokens.violet.toUpperCase());
   });
 });
 

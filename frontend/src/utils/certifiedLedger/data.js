@@ -8,6 +8,7 @@ import {
   CHART_INNER_WIDTH_PT,
   LEGEND_TARGET_ROWS,
   LONG_NAME_CHARS,
+  VIOLET_FAINT,
   tokens,
 } from './tokens';
 
@@ -118,21 +119,61 @@ function lerpChannel(a, b, t) {
   return Math.round(a + (b - a) * t);
 }
 
-/** Interpolate violet → violetSoft for N slices. */
+function hexToRgb(hex) {
+  const h = String(hex).replace('#', '');
+  return {
+    r: parseInt(h.slice(0, 2), 16),
+    g: parseInt(h.slice(2, 4), 16),
+    b: parseInt(h.slice(4, 6), 16),
+  };
+}
+
+function rgbToHex({ r, g, b }) {
+  return `#${[r, g, b].map((n) => n.toString(16).padStart(2, '0')).join('')}`.toUpperCase();
+}
+
+function lerpRgb(c1, c2, t) {
+  return {
+    r: lerpChannel(c1.r, c2.r, t),
+    g: lerpChannel(c1.g, c2.g, t),
+    b: lerpChannel(c1.b, c2.b, t),
+  };
+}
+
+/**
+ * Evenly spaced violet → near-ivory-lavender ramp (visibly distinct tones).
+ * End color is intentionally lighter than tokens.violetSoft so slices separate.
+ */
+export function getDonutSliceColors(count) {
+  if (count <= 0) return [];
+  const start = hexToRgb(tokens.violet);
+  const end = hexToRgb(VIOLET_FAINT);
+  if (count === 1) return [tokens.violet];
+  return Array.from({ length: count }, (_, i) => {
+    const t = i / (count - 1);
+    return rgbToHex(lerpRgb(start, end, t));
+  });
+}
+
+/** @deprecated Prefer getDonutSliceColors — kept for legend/bar tonal helpers. */
 export function violetRamp(n) {
-  if (n <= 0) return [];
-  const from = [0x8b, 0x7f, 0xe8];
-  const to = [0xc9, 0xc3, 0xf5];
-  if (n === 1) return [tokens.violet];
-  const colors = [];
-  for (let i = 0; i < n; i += 1) {
-    const t = i / (n - 1);
-    const r = lerpChannel(from[0], to[0], t);
-    const g = lerpChannel(from[1], to[1], t);
-    const b = lerpChannel(from[2], to[2], t);
-    colors.push(`#${r.toString(16).padStart(2, '0')}${g.toString(16).padStart(2, '0')}${b.toString(16).padStart(2, '0')}`.toUpperCase());
-  }
-  return colors;
+  return getDonutSliceColors(n);
+}
+
+/**
+ * Strongest tones go to winners first (then by votes), mapped back to rank order
+ * so chart + legend stay aligned with the candidates array.
+ */
+export function getDonutSliceColorsByWinnerPriority(candidates) {
+  const list = candidates || [];
+  const palette = getDonutSliceColors(list.length);
+  const sorted = [...list].sort((a, b) => {
+    const win = Number(Boolean(b.isWinner)) - Number(Boolean(a.isWinner));
+    if (win !== 0) return win;
+    return (b.votes || 0) - (a.votes || 0);
+  });
+  const colorMap = new Map(sorted.map((c, i) => [c.name, palette[i]]));
+  return list.map((c) => colorMap.get(c.name) || tokens.violet);
 }
 
 export function deriveLayoutParams(result) {
@@ -159,7 +200,7 @@ export function deriveLayoutParams(result) {
   const guardianColumns = guardianCount > 8 ? 2 : 1;
   const guardianWrap = guardianCount > 24;
 
-  const colors = violetRamp(result.candidates.length);
+  const colors = getDonutSliceColorsByWinnerPriority(result.candidates);
   const legendEntries = result.candidates.map((c, i) => ({
     ...c,
     color: colors[i] || tokens.violet,

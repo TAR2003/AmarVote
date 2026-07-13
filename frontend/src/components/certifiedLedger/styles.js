@@ -1,23 +1,43 @@
 import { StyleSheet } from '@react-pdf/renderer';
-import { tokens } from '../../utils/certifiedLedger/tokens';
+import {
+  LETTER_HEIGHT_PT,
+  LETTER_WIDTH_PT,
+  tokens,
+} from '../../utils/certifiedLedger/tokens';
 
-const PAGE_PAD = 54;
+/** 0.85in — generous margin; never set `height` on pages (size="LETTER" owns that). */
+const PAGE_PAD = 61;
+
+/**
+ * Yoga ignores style.height for Page nodes (uses box.height, which is unset on first
+ * layout), so pages would shrink-to-content without these min/max clamps.
+ * width/min/maxWidth reinforce Letter width the same way.
+ */
+const letterGeometry = {
+  width: LETTER_WIDTH_PT,
+  minWidth: LETTER_WIDTH_PT,
+  maxWidth: LETTER_WIDTH_PT,
+  minHeight: LETTER_HEIGHT_PT,
+  maxHeight: LETTER_HEIGHT_PT,
+};
 
 export const styles = StyleSheet.create({
   ivoryPage: {
+    ...letterGeometry,
     backgroundColor: tokens.ivory,
     color: tokens.ink,
     paddingTop: PAGE_PAD,
-    paddingBottom: 64,
+    paddingBottom: PAGE_PAD,
     paddingHorizontal: PAGE_PAD,
     fontFamily: 'Inter',
     fontSize: 10,
   },
   indigoPage: {
+    ...letterGeometry,
     backgroundColor: tokens.indigo,
     color: tokens.ivory,
     paddingTop: PAGE_PAD,
-    paddingBottom: 64,
+    paddingBottom: PAGE_PAD,
     paddingHorizontal: PAGE_PAD,
     fontFamily: 'Inter',
     fontSize: 10,
