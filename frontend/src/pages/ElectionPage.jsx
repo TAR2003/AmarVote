@@ -1271,6 +1271,7 @@ export default function ElectionPage() {
   const [electionData, setElectionData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const activeElectionIdRef = useRef(id);
 
   // Voting-related state
   const [showConfirmModal, setShowConfirmModal] = useState(false);
@@ -1377,9 +1378,12 @@ export default function ElectionPage() {
 
   // Fetch election data function (moved outside useEffect for reusability)
   const fetchElectionData = useCallback(async () => {
+    const requestElectionId = id;
     try {
       setLoading(true);
-      const data = await electionApi.getElectionById(id);
+      const data = await electionApi.getElectionById(requestElectionId);
+      if (activeElectionIdRef.current !== requestElectionId) return;
+
       if (data === null) {
         setError('You are not authorized to view this election or the election does not exist.');
       } else {
@@ -1400,7 +1404,9 @@ export default function ElectionPage() {
             console.log('✅ Quorum met. Checking combine status (results deferred until tab open)...');
             
             try {
-              const combineStatusData = await electionApi.getCombineStatus(id);
+              const combineStatusData = await electionApi.getCombineStatus(requestElectionId);
+              if (activeElectionIdRef.current !== requestElectionId) return;
+
               console.log('🔍 Combine status:', combineStatusData);
               setCombineStatus(combineStatusData);
 
@@ -1417,17 +1423,35 @@ export default function ElectionPage() {
         }
       }
     } catch (err) {
+      if (activeElectionIdRef.current !== requestElectionId) return;
       setError('Failed to load election data: ' + err.message);
     } finally {
-      setLoading(false);
+      if (activeElectionIdRef.current === requestElectionId) {
+        setLoading(false);
+      }
     }
   }, [id]); // Removed processElectionResults from dependencies - it's stable and called directly
 
-  // Load election data and optionally create tally
+  // Load election data when the route election id changes.
+  // React Router reuses this component across /election-page/:id/*, so clear
+  // election-scoped state or the previous election's results stay on screen.
   useEffect(() => {
-    if (id) {
-      fetchElectionData();
-    }
+    if (!id) return;
+
+    activeElectionIdRef.current = id;
+    setError(null);
+    setEligibilityData(null);
+    setResultsData(null);
+    setRawVerificationData(null);
+    setAnimatedResults(null);
+    setCombineStatus(null);
+    setTallyStatus(null);
+    setLoadingResults(false);
+    setSelectedCandidates([]);
+    setVoteResult(null);
+    setVoteError(null);
+
+    fetchElectionData();
   }, [id, fetchElectionData]);
 
   useEffect(() => {
@@ -1647,6 +1671,10 @@ export default function ElectionPage() {
   const isCombineComplete = combineStatus?.status === 'completed' || Boolean(resultsData);
   const combineNavigatedRef = useRef(false);
   const isElectionAdminUser = () => electionData?.userRoles?.includes('admin');
+
+  useEffect(() => {
+    combineNavigatedRef.current = false;
+  }, [id]);
 
   useEffect(() => {
     if (combineStatus?.status === 'completed' && !combineNavigatedRef.current) {
@@ -1906,19 +1934,20 @@ export default function ElectionPage() {
   }, [id, fetchElectionData, processElectionResults, electionData]);
 
   const loadElectionResults = useCallback(async () => {
+    const requestElectionId = id;
     setLoadingResults(true);
     try {
-      if (!animatedResults) {
-        const animatedResultsData = await electionApi.getElectionResults(id, { includeBallots: false });
-        if (animatedResultsData?.success && animatedResultsData.results) {
-          setAnimatedResults(animatedResultsData);
-          const summaryPayload = buildSummaryPayloadFromCachedResults(animatedResultsData, electionData);
-          const processedResults = processElectionResults(summaryPayload, electionData);
-          if (processedResults) {
-            setResultsData(processedResults);
-          }
-          return;
+      const animatedResultsData = await electionApi.getElectionResults(requestElectionId, { includeBallots: false });
+      if (activeElectionIdRef.current !== requestElectionId) return;
+
+      if (animatedResultsData?.success && animatedResultsData.results) {
+        setAnimatedResults(animatedResultsData);
+        const summaryPayload = buildSummaryPayloadFromCachedResults(animatedResultsData, electionData);
+        const processedResults = processElectionResults(summaryPayload, electionData);
+        if (processedResults) {
+          setResultsData(processedResults);
         }
+        return;
       }
 
       const processedResults = processElectionResults();
@@ -1926,15 +1955,18 @@ export default function ElectionPage() {
         setResultsData(processedResults);
       }
     } catch (err) {
+      if (activeElectionIdRef.current !== requestElectionId) return;
       console.error('Error loading results:', err);
       const processedResults = processElectionResults();
       if (processedResults) {
         setResultsData(processedResults);
       }
     } finally {
-      setLoadingResults(false);
+      if (activeElectionIdRef.current === requestElectionId) {
+        setLoadingResults(false);
+      }
     }
-  }, [id, animatedResults, electionData, processElectionResults]);
+  }, [id, electionData, processElectionResults]);
 
   // Load results when switching to results or verification tabs
   useEffect(() => {
@@ -5118,6 +5150,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       {animatedResults && (
                         <div className="mb-6">
                           <AnimatedResults
+                            key={id}
                             electionResults={animatedResults}
                             electionChoices={electionData.electionChoices}
                             winnerCount={getWinnerCount(electionData)}
