@@ -54,7 +54,9 @@ export function avatarBorderColor(isWinner) {
 }
 
 /**
- * Fetch a remote image as a data URL for react-pdf (avoids CORS at render time).
+ * Load a remote image as a data URL for react-pdf.
+ * Prefer <img> + canvas (img-src — Cloudinary is already allowed) so PDF export
+ * works even when connect-src still blocks fetch. Fall back to fetch afterward.
  * Returns null on failure so callers can fall back to initials.
  */
 export async function fetchImageAsDataUrl(url) {
@@ -63,8 +65,12 @@ export async function fetchImageAsDataUrl(url) {
   if (!trimmed) return null;
   if (trimmed.startsWith('data:')) return trimmed;
 
+  const absolute = toAbsoluteUrl(trimmed);
+
+  const viaElement = await loadImageViaElement(absolute);
+  if (viaElement) return viaElement;
+
   try {
-    const absolute = toAbsoluteUrl(trimmed);
     const response = await fetch(absolute, { mode: 'cors', credentials: 'omit' });
     if (!response.ok) return null;
     const blob = await response.blob();
@@ -73,6 +79,47 @@ export async function fetchImageAsDataUrl(url) {
   } catch {
     return null;
   }
+}
+
+/**
+ * CSP-safe path: image loads use img-src (Cloudinary is already allowed there).
+ * Requires the host to send CORS headers so the canvas is not tainted.
+ */
+function loadImageViaElement(absoluteUrl) {
+  if (typeof Image === 'undefined' || typeof document === 'undefined') {
+    return Promise.resolve(null);
+  }
+
+  return new Promise((resolve) => {
+    const img = new Image();
+    img.crossOrigin = 'anonymous';
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas');
+        const width = img.naturalWidth || img.width;
+        const height = img.naturalHeight || img.height;
+        if (!width || !height) {
+          resolve(null);
+          return;
+        }
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) {
+          resolve(null);
+          return;
+        }
+        ctx.drawImage(img, 0, 0);
+        resolve(canvas.toDataURL('image/png'));
+      } catch {
+        resolve(null);
+      }
+    };
+    img.onerror = () => resolve(null);
+    // Bust cache so a prior non-CORS <img> load cannot taint the canvas.
+    const sep = absoluteUrl.includes('?') ? '&' : '?';
+    img.src = `${absoluteUrl}${sep}_av=1`;
+  });
 }
 
 function toAbsoluteUrl(url) {

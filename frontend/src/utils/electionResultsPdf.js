@@ -1,6 +1,7 @@
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
 import { formatOrdinal, isWinnerByRank } from './electionRankings';
+import { fetchImageAsDataUrl as fetchRemoteImageAsDataUrl } from './certifiedLedger/images';
 
 /**
  * AmarVote — Official Election Results report (Ink & Indigo design system).
@@ -284,19 +285,7 @@ export function enrichRankedWithMeta(ranked, electionData) {
 
 async function fetchImageAsDataUrl(url) {
   if (!url) return null;
-  try {
-    const response = await fetch(url, { mode: 'cors' });
-    if (!response.ok) return null;
-    const blob = await response.blob();
-    return await new Promise((resolve) => {
-      const reader = new FileReader();
-      reader.onloadend = () => resolve(typeof reader.result === 'string' ? reader.result : null);
-      reader.onerror = () => resolve(null);
-      reader.readAsDataURL(blob);
-    });
-  } catch {
-    return null;
-  }
+  return fetchRemoteImageAsDataUrl(url);
 }
 
 async function loadImageElement(dataUrl) {
