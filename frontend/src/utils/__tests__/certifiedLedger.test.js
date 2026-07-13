@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import {
+  assignChartColors,
   buildElectionResult,
   chooseVerdictMode,
   deriveLayoutParams,
   getDonutSliceColors,
-  getDonutSliceColorsByWinnerPriority,
   groupByRank,
   parseDescription,
   truncate,
   violetRamp,
 } from '../certifiedLedger';
-import { VIOLET_FAINT, tokens } from '../certifiedLedger/tokens';
+import { GOLD_DEEP, GOLD_LIGHT, VIOLET_DEEP, VIOLET_FAINT } from '../certifiedLedger/tokens';
 
 describe('truncate', () => {
   it('leaves short strings alone', () => {
@@ -136,24 +136,27 @@ describe('groupByRank', () => {
   });
 });
 
-describe('donut color ramp', () => {
-  it('interpolates unique tones from violet to faint lavender', () => {
+describe('chart color assignment', () => {
+  it('interpolates unique violet tones deep → faint', () => {
     const colors = getDonutSliceColors(5);
     expect(colors).toHaveLength(5);
     expect(new Set(colors).size).toBe(5);
-    expect(colors[0].toUpperCase()).toBe(tokens.violet.toUpperCase());
+    expect(colors[0].toUpperCase()).toBe(VIOLET_DEEP.toUpperCase());
     expect(colors[4].toUpperCase()).toBe(VIOLET_FAINT.toUpperCase());
   });
 
-  it('gives winners the strongest tones regardless of rank order', () => {
+  it('gives winners gold by vote depth and others violet by vote depth', () => {
     const candidates = [
-      { name: 'Low', votes: 1, isWinner: false },
-      { name: 'Win', votes: 10, isWinner: true },
-      { name: 'Mid', votes: 5, isWinner: false },
+      { name: 'LowOther', votes: 1, isWinner: false },
+      { name: 'TopWinner', votes: 10, isWinner: true },
+      { name: 'SecondWinner', votes: 8, isWinner: true },
+      { name: 'HighOther', votes: 5, isWinner: false },
     ];
-    const colors = getDonutSliceColorsByWinnerPriority(candidates);
-    expect(colors[1].toUpperCase()).toBe(tokens.violet.toUpperCase());
-    expect(new Set(colors).size).toBe(3);
+    const colors = assignChartColors(candidates);
+    expect(colors[1].toUpperCase()).toBe(GOLD_DEEP.toUpperCase());
+    expect(colors[2].toUpperCase()).toBe(GOLD_LIGHT.toUpperCase());
+    expect(colors[3].toUpperCase()).toBe(VIOLET_DEEP.toUpperCase());
+    expect(colors[0].toUpperCase()).toBe(VIOLET_FAINT.toUpperCase());
   });
 
   it('keeps violetRamp as an alias of getDonutSliceColors', () => {
@@ -172,7 +175,8 @@ describe('donut color ramp', () => {
     expect(layout.colors).toHaveLength(2);
     expect(layout.legendCols[0][0].color).toBe(layout.colors[0]);
     expect(layout.legendCols[0][1].color).toBe(layout.colors[1]);
-    expect(layout.colors[1].toUpperCase()).toBe(tokens.violet.toUpperCase());
+    expect(layout.colors[1].toUpperCase()).toBe(GOLD_DEEP.toUpperCase());
+    expect(layout.colors[0].toUpperCase()).toBe(VIOLET_DEEP.toUpperCase());
   });
 });
 

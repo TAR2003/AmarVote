@@ -6,8 +6,11 @@ import {
 } from '../electionRankings';
 import {
   CHART_INNER_WIDTH_PT,
+  GOLD_DEEP,
+  GOLD_LIGHT,
   LEGEND_TARGET_ROWS,
   LONG_NAME_CHARS,
+  VIOLET_DEEP,
   VIOLET_FAINT,
   tokens,
 } from './tokens';
@@ -140,40 +143,54 @@ function lerpRgb(c1, c2, t) {
   };
 }
 
-/**
- * Evenly spaced violet → near-ivory-lavender ramp (visibly distinct tones).
- * End color is intentionally lighter than tokens.violetSoft so slices separate.
- */
-export function getDonutSliceColors(count) {
+/** Evenly spaced ramp from deep → light. Index 0 = deepest. */
+export function colorRamp(deepHex, lightHex, count) {
   if (count <= 0) return [];
-  const start = hexToRgb(tokens.violet);
-  const end = hexToRgb(VIOLET_FAINT);
-  if (count === 1) return [tokens.violet];
+  if (count === 1) return [String(deepHex).toUpperCase()];
+  const start = hexToRgb(deepHex);
+  const end = hexToRgb(lightHex);
   return Array.from({ length: count }, (_, i) => {
     const t = i / (count - 1);
     return rgbToHex(lerpRgb(start, end, t));
   });
 }
 
-/** @deprecated Prefer getDonutSliceColors — kept for legend/bar tonal helpers. */
+/** Violet-only ramp (non-winner family). */
+export function getDonutSliceColors(count) {
+  return colorRamp(VIOLET_DEEP, VIOLET_FAINT, count);
+}
+
 export function violetRamp(n) {
   return getDonutSliceColors(n);
 }
 
 /**
- * Strongest tones go to winners first (then by votes), mapped back to rank order
- * so chart + legend stay aligned with the candidates array.
+ * Chart colors in candidate-array order:
+ * - winners → gold depth by votes (most votes = deepest gold)
+ * - non-winners → violet depth by votes (most votes = deepest violet)
  */
-export function getDonutSliceColorsByWinnerPriority(candidates) {
+export function assignChartColors(candidates) {
   const list = candidates || [];
-  const palette = getDonutSliceColors(list.length);
-  const sorted = [...list].sort((a, b) => {
-    const win = Number(Boolean(b.isWinner)) - Number(Boolean(a.isWinner));
-    if (win !== 0) return win;
-    return (b.votes || 0) - (a.votes || 0);
-  });
-  const colorMap = new Map(sorted.map((c, i) => [c.name, palette[i]]));
+  const winners = list
+    .filter((c) => c.isWinner)
+    .sort((a, b) => (b.votes || 0) - (a.votes || 0) || String(a.name).localeCompare(String(b.name)));
+  const others = list
+    .filter((c) => !c.isWinner)
+    .sort((a, b) => (b.votes || 0) - (a.votes || 0) || String(a.name).localeCompare(String(b.name)));
+
+  const golds = colorRamp(GOLD_DEEP, GOLD_LIGHT, winners.length);
+  const violets = colorRamp(VIOLET_DEEP, VIOLET_FAINT, others.length);
+
+  const colorMap = new Map();
+  winners.forEach((c, i) => colorMap.set(c.name, golds[i]));
+  others.forEach((c, i) => colorMap.set(c.name, violets[i]));
+
   return list.map((c) => colorMap.get(c.name) || tokens.violet);
+}
+
+/** @deprecated Use assignChartColors — gold winners + violet others. */
+export function getDonutSliceColorsByWinnerPriority(candidates) {
+  return assignChartColors(candidates);
 }
 
 export function deriveLayoutParams(result) {
@@ -200,7 +217,7 @@ export function deriveLayoutParams(result) {
   const guardianColumns = guardianCount > 8 ? 2 : 1;
   const guardianWrap = guardianCount > 24;
 
-  const colors = getDonutSliceColorsByWinnerPriority(result.candidates);
+  const colors = assignChartColors(result.candidates);
   const legendEntries = result.candidates.map((c, i) => ({
     ...c,
     color: colors[i] || tokens.violet,

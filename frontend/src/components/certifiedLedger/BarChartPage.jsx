@@ -13,7 +13,11 @@ export function BarChartPage({ result, layout }) {
         Votes received per candidate, ordered by competition rank.
       </Text>
       <View style={styles.chartFrame}>
-        <BarChart candidates={result.candidates} maxLabelChars={layout.maxLabelChars} />
+        <BarChart
+          candidates={result.candidates}
+          colors={layout.colors}
+          maxLabelChars={layout.maxLabelChars}
+        />
       </View>
       <IvoryPageFooter electionId={result.electionId} />
     </Page>
