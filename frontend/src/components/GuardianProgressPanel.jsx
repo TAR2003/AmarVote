@@ -42,7 +42,7 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
     }
   };
 
-  useElectionProgressStream(electionId, {
+  const { connected: sseConnected } = useElectionProgressStream(electionId, {
     enabled: Boolean(electionId),
     onEvent: applyGuardiansFromEvent,
   });
@@ -59,9 +59,9 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
     return () => { cancelled = true; };
   }, [electionId]);
 
-  // Fallback HTTP poll while panel is mounted (SSE can miss or lag completion)
+  // Fallback poll only while SSE is down
   useEffect(() => {
-    if (!electionId) return undefined;
+    if (!electionId || sseConnected) return undefined;
     let cancelled = false;
 
     const tick = async () => {
@@ -73,12 +73,12 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
       }
     };
 
-    const interval = setInterval(tick, 4000);
+    const interval = setInterval(tick, 15000);
     return () => {
       cancelled = true;
       clearInterval(interval);
     };
-  }, [electionId]);
+  }, [electionId, sseConnected]);
 
   const merged = (guardians.length ? guardians : progressList).map((g) => {
     const match = progressList.find((p) => p.guardianId === g.guardianId || p.guardianEmail === g.userEmail);

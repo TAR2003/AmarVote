@@ -232,6 +232,37 @@
     @apply border-brand-dark bg-brand-soft/50 shadow-soft ring-1 ring-brand/40;
   }
 
+  /* Large, branded selection controls — voting booth, challenge modal, settings */
+  .av-checkbox,
+  .av-radio {
+    @apply h-7 w-7 shrink-0 cursor-pointer rounded-md border-2 border-brand-dark/45 bg-paper
+      text-brand-dark accent-brand-dark
+      focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-2;
+  }
+
+  .av-radio {
+    @apply rounded-full;
+  }
+
+  .av-checkbox:checked,
+  .av-radio:checked {
+    @apply border-brand-dark bg-brand-dark;
+  }
+
+  .av-checkbox:disabled,
+  .av-radio:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+
+  .av-check-row {
+    @apply flex cursor-pointer items-start gap-3 rounded-xl border border-ink/10 bg-frost/60 p-3
+      transition hover:border-brand/35 hover:bg-brand-soft/30;
+  }
+
+  .av-check-row:has(input:checked) {
+    @apply border-brand-dark/50 bg-brand-soft/40 ring-1 ring-brand/30;
+  }
+
   .mobile-bottom-pad {
     padding-bottom: calc(var(--bottom-nav-height) + 1rem);
   }

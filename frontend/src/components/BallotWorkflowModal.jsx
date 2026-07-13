@@ -551,8 +551,9 @@ const BallotWorkflowModal = ({
         {phase === 'challenge-pick' && electionData?.electionChoices && (
           <div className="space-y-4">
             <p className="text-sm leading-relaxed text-dusk">
-              Re-select the candidate(s) you chose. The system opens this ballot&apos;s encryption
-              randomness so you can confirm the ciphertext matches — then this ballot is spoiled.
+              Re-select the candidate(s) you chose using the checkbox on each row. The system opens
+              this ballot&apos;s encryption randomness so you can confirm the ciphertext matches —
+              then this ballot is spoiled.
             </p>
 
             <div className="max-h-60 space-y-2 overflow-y-auto">
@@ -563,11 +564,11 @@ const BallotWorkflowModal = ({
                 return (
                   <div
                     key={choice.choiceId}
-                    className={`flex cursor-pointer items-center rounded-lg border-2 p-3 transition-all ${
+                    className={`flex cursor-pointer items-center gap-3 rounded-xl border-2 p-3.5 transition-all ${
                       isDisabled
                         ? 'cursor-not-allowed border-ink/10 opacity-50'
                         : isChecked
-                          ? 'border-brand bg-brand/10 ring-1 ring-brand/40'
+                          ? 'border-brand-dark bg-brand/10 ring-1 ring-brand/40'
                           : 'border-ink/10 hover:border-brand/40'
                     }`}
                     onClick={() => !isDisabled && onChallengeCandidateToggle(idStr)}
@@ -577,7 +578,9 @@ const BallotWorkflowModal = ({
                       checked={isChecked}
                       disabled={isDisabled}
                       onChange={() => {}}
-                      className="pointer-events-none mr-3"
+                      tabIndex={-1}
+                      aria-hidden
+                      className={`pointer-events-none ${maxChoices > 1 ? 'av-checkbox' : 'av-radio'}`}
                     />
                     <div className="min-w-0 flex-1" onClick={(e) => e.stopPropagation()}>
                       <CandidateIdentity
@@ -590,6 +593,13 @@ const BallotWorkflowModal = ({
                         nameClassName="font-display text-sm font-medium text-ink"
                       />
                     </div>
+                    <span
+                      className={`shrink-0 text-[10px] font-semibold uppercase tracking-wide ${
+                        isChecked ? 'text-brand-dark' : 'text-dusk'
+                      }`}
+                    >
+                      {isChecked ? 'Selected' : 'Tap to select'}
+                    </span>
                   </div>
                 );
               })}

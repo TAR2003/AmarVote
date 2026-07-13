@@ -124,23 +124,23 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
     };
   }, [isOpen, electionId, refreshStatus]);
 
-  // Aggressive polling fallback — SSE can lag or miss completion events
+  const { connected: sseConnected } = useElectionProgressStream(electionId, {
+    enabled: isOpen && Boolean(electionId),
+    onEvent: applyCombineFromEvent,
+  });
+
+  // Fallback poll only while SSE is down — avoid hammering status APIs every 2s
   useEffect(() => {
-    if (!isOpen || !electionId) return;
+    if (!isOpen || !electionId || sseConnected) return;
     const terminal = status?.status === 'completed' || status?.status === 'failed' || status?.status === 'stopped';
     if (terminal) return;
 
     const interval = setInterval(() => {
       refreshStatus({ silent: true });
-    }, 2000);
+    }, 12000);
 
     return () => clearInterval(interval);
-  }, [isOpen, electionId, status?.status, refreshStatus]);
-
-  useElectionProgressStream(electionId, {
-    enabled: isOpen && Boolean(electionId),
-    onEvent: applyCombineFromEvent,
-  });
+  }, [isOpen, electionId, sseConnected, status?.status, refreshStatus]);
 
   if (!isOpen) return null;
 

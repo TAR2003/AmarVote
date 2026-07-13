@@ -1085,13 +1085,13 @@ const CreateElection = () => {
                     </div>
 
                     <div className="mb-4">
-                        <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-ink/10 bg-frost p-3">
+                        <label className="av-check-row">
                             <input
                                 type="checkbox"
                                 name="sendBallotReceipt"
                                 checked={form.sendBallotReceipt}
                                 onChange={(e) => setForm((prev) => ({ ...prev, sendBallotReceipt: e.target.checked }))}
-                                className="form-checkbox h-5 w-5 text-brand mt-0.5"
+                                className="av-checkbox mt-0.5"
                             />
                             <span>
                                 <span className="block text-sm font-semibold text-ink">Send ballot receipts by email</span>
@@ -1358,7 +1358,7 @@ const CreateElection = () => {
 
                     <div className="mb-4 rounded-xl border border-ink/10 bg-frost/70 p-4">
                         <p className="section-kicker">Candidate information</p>
-                        <label className="mt-3 flex cursor-pointer items-start gap-3">
+                        <label className="av-check-row mt-3">
                             <input
                                 type="checkbox"
                                 checked={form.enableCandidateProfiles}
@@ -1368,7 +1368,7 @@ const CreateElection = () => {
                                         enableCandidateProfiles: e.target.checked,
                                     }))
                                 }
-                                className="mt-1 h-4 w-4 rounded border-ink/20 text-brand-dark focus:ring-brand/30"
+                                className="av-checkbox mt-0.5"
                             />
                             <span>
                                 <span className="block text-sm font-semibold text-ink">

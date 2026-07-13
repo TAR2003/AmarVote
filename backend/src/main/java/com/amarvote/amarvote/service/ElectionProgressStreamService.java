@@ -154,9 +154,31 @@ public class ElectionProgressStreamService {
             if (emitters.isEmpty()) {
                 return;
             }
+
+            String snapshotJson = null;
+            try {
+                Map<String, Object> snapshot = snapshotService.buildFullSnapshot(electionId, null);
+                ElectionProgressEvent event = ElectionProgressEvent.builder()
+                    .electionId(electionId)
+                    .eventType("snapshot")
+                    .payload(Map.of("snapshot", snapshot))
+                    .build();
+                snapshotJson = objectMapper.writeValueAsString(event);
+            } catch (Exception e) {
+                log.warn("Failed to build SSE heartbeat snapshot for election {}", electionId, e);
+            }
+
             for (SseEmitter emitter : emitters) {
                 try {
+                    // Comment keeps the connection alive through proxies
                     emitter.send(SseEmitter.event().comment("heartbeat"));
+                    // Periodic snapshot so clients recover if a progress event was missed
+                    // without needing aggressive HTTP polling
+                    if (snapshotJson != null) {
+                        emitter.send(SseEmitter.event()
+                            .name("snapshot")
+                            .data(snapshotJson));
+                    }
                 } catch (Exception e) {
                     removeEmitter(electionId, emitter);
                     emitter.completeWithError(e);

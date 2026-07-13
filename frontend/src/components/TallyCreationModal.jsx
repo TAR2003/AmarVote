@@ -113,23 +113,23 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
     };
   }, [isOpen, electionId]);
 
-  // Aggressive polling fallback — SSE can lag or miss completion events
+  const { connected: sseConnected } = useElectionProgressStream(electionId, {
+    enabled: isOpen && Boolean(electionId),
+    onEvent: applyTallyFromEvent,
+  });
+
+  // Fallback poll only while SSE is down — avoid hammering status APIs every 2s
   useEffect(() => {
-    if (!isOpen || !electionId) return;
+    if (!isOpen || !electionId || sseConnected) return;
     const terminal = status?.status === 'completed' || status?.status === 'failed' || status?.status === 'stopped';
     if (terminal) return;
 
     const interval = setInterval(() => {
       refreshStatus({ silent: true });
-    }, 2000);
+    }, 12000);
 
     return () => clearInterval(interval);
-  }, [isOpen, electionId, status?.status]);
-
-  useElectionProgressStream(electionId, {
-    enabled: isOpen && Boolean(electionId),
-    onEvent: applyTallyFromEvent,
-  });
+  }, [isOpen, electionId, sseConnected, status?.status]);
 
   const handleCreateTally = async () => {
     setIsLoading(true);

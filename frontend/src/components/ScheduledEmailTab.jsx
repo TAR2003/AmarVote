@@ -266,6 +266,10 @@ export default function ScheduledEmailTab({ electionId, electionData }) {
               className="w-full px-3 py-2 border border-ink/15 rounded-md min-h-40"
               required
             />
+            <p className="mt-1.5 text-xs text-dusk">
+              You write the message text. AmarVote wraps every email in the branded template
+              (colors, fonts, and layout) before sending.
+            </p>
           </div>
 
           <div>

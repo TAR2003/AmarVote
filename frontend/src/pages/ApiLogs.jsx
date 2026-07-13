@@ -450,7 +450,7 @@ export default function ApiLogs() {
                   type="checkbox"
                   checked={autoRefresh}
                   onChange={e => setAutoRefresh(e.target.checked)}
-                  className="w-4 h-4 text-brand rounded"
+                  className="av-checkbox"
                 />
                 Auto-refresh
                 {autoRefresh && (
@@ -711,7 +711,7 @@ export default function ApiLogs() {
                     checked={allDisplayedSelected}
                     onChange={toggleSelectAllLogs}
                     disabled={displayedLogs.length === 0 || deleting}
-                    className="rounded border-ink/15"
+                    className="av-checkbox"
                   />
                   Select all on page
                 </label>
@@ -886,7 +886,7 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
                 checked={allSelected}
                 onChange={onToggleSelectAll}
                 disabled={logs.length === 0 || deleting}
-                className="rounded border-ink/15"
+                className="av-checkbox"
               />
             </th>
             <Th field="requestTime">Time</Th>
@@ -910,7 +910,7 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
                   checked={selectedLogIds.has(log.logId)}
                   onChange={() => onToggleSelect(log.logId)}
                   disabled={deleting}
-                  className="rounded border-ink/15"
+                  className="av-checkbox"
                 />
               </td>
               <td className="px-4 py-3 text-xs text-dusk whitespace-nowrap font-medium">{formatDate(log.requestTime)}</td>

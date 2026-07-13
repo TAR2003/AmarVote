@@ -250,7 +250,7 @@ const sortVotersVotedFirst = (voters) => {
 };
 
 const subMenus = [
-  { name: 'Election Info', shortName: 'Info', key: 'info', path: '', icon: FiInfo, hint: 'Schedule, candidates, and election details' },
+  { name: 'Election Info', shortName: 'Info', key: 'info', path: 'info', icon: FiInfo, hint: 'Schedule, candidates, and election details' },
   { name: 'Voting Booth', shortName: 'Vote', key: 'voting', path: 'voting-booth', icon: FiCheckCircle, hint: 'Cast your encrypted ballot' },
   { name: 'Guardian', shortName: 'Guardian', key: 'guardian', path: 'guardian', icon: FiShield, hint: 'Key ceremony, decryption, and combination' },
   { name: 'Key Verification', shortName: 'Keys', key: 'key-verification', path: 'key-verification', icon: FiKey, guardianOnly: true, hint: 'Verify your guardian credentials' },
@@ -1391,37 +1391,36 @@ export default function ElectionPage() {
 
   // Extract tab from URL path (e.g., '/election-page/1/voting-booth' -> 'voting-booth')
   const getTabFromPath = useCallback(() => {
-    const pathSegments = location.pathname.split('/');
-    const tabPath = pathSegments[pathSegments.length - 1];
-
-    // If the last segment is just the ID, show default tab (info)
-    if (tabPath === id) {
-      return 'info';
+    const pathSegments = location.pathname.split('/').filter(Boolean);
+    // Bare /election-page/:id — no tab segment yet
+    if (pathSegments.length === 2 && pathSegments[1] === String(id)) {
+      return null;
     }
 
-    // Find the tab that matches the path
+    const tabPath = pathSegments[pathSegments.length - 1];
+    if (tabPath === String(id)) {
+      return null;
+    }
+
     const matchedTab = subMenus.find(tab => tab.path === tabPath);
     return matchedTab ? matchedTab.key : 'info';
   }, [location.pathname, id]);
 
-  const [activeTab, setActiveTab] = useState(getTabFromPath);
+  const [activeTab, setActiveTab] = useState(() => getTabFromPath() || 'info');
 
   // Update URL when tab changes
   const handleTabClick = (tabKey) => {
     setActiveTab(tabKey);
     const selectedTab = subMenus.find(tab => tab.key === tabKey);
     if (selectedTab) {
-      const newPath = selectedTab.path
-        ? `/election-page/${id}/${selectedTab.path}`
-        : `/election-page/${id}`;
-      navigate(newPath);
+      navigate(`/election-page/${id}/${selectedTab.path}`);
     }
   };
 
-  // Update active tab when URL changes (e.g., browser back/forward)
+  // Update active tab when URL changes (e.g., browser back/forward) — skip bare paths
   useEffect(() => {
     const tabFromPath = getTabFromPath();
-    if (tabFromPath !== activeTab) {
+    if (tabFromPath && tabFromPath !== activeTab) {
       setActiveTab(tabFromPath);
     }
   }, [location.pathname]); // Remove activeTab from dependency to prevent infinite loop
@@ -1648,7 +1647,7 @@ export default function ElectionPage() {
   }, []);
 
   // Guardian tab decryption status — initial + live updates via SSE snapshots (no polling)
-  useElectionProgressStream(id, {
+  const { connected: progressSseConnected } = useElectionProgressStream(id, {
     enabled: Boolean(id) && (activeTab === 'guardian' || activeTab === 'info' || activeTab === 'results'),
     onEvent: (event) => {
       if (!event) return;
@@ -1688,9 +1687,9 @@ export default function ElectionPage() {
       .catch(() => {});
   }, [id, electionData?.endingTime, activeTab]);
 
-  // Keep tally/combine status fresh on guardian tab even if SSE lags
+  // Keep tally/combine status fresh on guardian tab only if SSE is disconnected
   useEffect(() => {
-    if (!id || activeTab !== 'guardian') return undefined;
+    if (!id || activeTab !== 'guardian' || progressSseConnected) return undefined;
     const tallyInFlight = tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending';
     const combineInFlight = combineStatus?.status === 'in_progress' || combineStatus?.status === 'pending';
     if (!tallyInFlight && !combineInFlight) return undefined;
@@ -1706,10 +1705,10 @@ export default function ElectionPage() {
           .then((data) => { if (data?.status) setCombineStatus(data); })
           .catch(() => {});
       }
-    }, 3000);
+    }, 12000);
 
     return () => clearInterval(interval);
-  }, [id, activeTab, tallyStatus?.status, combineStatus?.status]);
+  }, [id, activeTab, progressSseConnected, tallyStatus?.status, combineStatus?.status]);
 
   const loadKeyCeremonyProgress = useCallback(async () => {
     if (activeTab !== 'guardian' || !electionData) {
@@ -1950,22 +1949,31 @@ export default function ElectionPage() {
   const isKeyCeremonyPending = electionData?.status === 'key_ceremony_pending';
   const isTallyComplete = tallyStatus?.status === 'completed';
   const isCombineComplete = combineStatus?.status === 'completed' || Boolean(resultsData);
-  const combineNavigatedRef = useRef(false);
   const isElectionAdminUser = () => electionData?.userRoles?.includes('admin');
+  const bareElectionPath =
+    location.pathname === `/election-page/${id}` ||
+    location.pathname === `/election-page/${id}/`;
 
+  // Bare /election-page/:id only: default to /results if combine is done, else /info.
+  // Explicit tab URLs (e.g. /info, /verify-vote) must never be redirected away on reload.
   useEffect(() => {
-    combineNavigatedRef.current = false;
-  }, [id]);
+    if (!bareElectionPath || !electionData || loading) return;
 
-  useEffect(() => {
-    if (combineStatus?.status === 'completed' && !combineNavigatedRef.current) {
-      combineNavigatedRef.current = true;
-      handleTabClick('results');
+    const targetTab = isCombineComplete ? 'results' : 'info';
+    const targetPath = `/election-page/${id}/${targetTab}`;
+    if (location.pathname !== targetPath) {
+      navigate(targetPath, { replace: true });
     }
-    if (combineStatus?.status !== 'completed') {
-      combineNavigatedRef.current = false;
-    }
-  }, [combineStatus?.status]);
+    setActiveTab(targetTab);
+  }, [
+    bareElectionPath,
+    electionData,
+    loading,
+    isCombineComplete,
+    id,
+    navigate,
+    location.pathname,
+  ]);
 
   const canUserViewResults = useCallback(() => {
     return isCombineComplete;
@@ -4024,7 +4032,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     <div>
                       <span className="font-medium">Ballot receipt emails:</span>{' '}
                       {canManageBallotReceiptSetting() ? (
-                        <label className="inline-flex items-center gap-2 ml-1 text-sm">
+                        <label className="av-check-row inline-flex items-center ml-1 text-sm">
                           <input
                             type="checkbox"
                             checked={!!electionData.sendBallotReceipt}
@@ -4032,8 +4040,9 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             onChange={(e) =>
                               handleUpdateElectionSettings({ sendBallotReceipt: e.target.checked })
                             }
+                            className="av-checkbox"
                           />
-                          Send receipt by email after voting
+                          <span>Send receipt by email after voting</span>
                         </label>
                       ) : (
                         electionData.sendBallotReceipt ? 'Enabled' : 'Disabled'
@@ -4602,7 +4611,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                     readOnly
                                     tabIndex={-1}
                                     aria-hidden
-                                    className="pointer-events-none h-4 w-4 text-brand border-ink/10 rounded flex-shrink-0"
+                                    className="av-checkbox pointer-events-none"
                                   />
                                   <div
                                     className="min-w-0 flex-1"
@@ -4619,6 +4628,13 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                       nameClassName="text-sm sm:text-base text-deep leading-snug"
                                     />
                                   </div>
+                                  <span
+                                    className={`shrink-0 text-[10px] font-semibold uppercase tracking-wide ${
+                                      isSelected ? 'text-brand-dark' : 'text-dusk'
+                                    }`}
+                                  >
+                                    {isSelected ? 'Selected' : 'Tap to select'}
+                                  </span>
                                 </div>
                               );
                             })}

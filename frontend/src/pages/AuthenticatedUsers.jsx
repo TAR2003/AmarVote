@@ -332,7 +332,7 @@ const AuthenticatedUsers = () => {
                 checked={isSelected}
                 disabled={!rowEditable || busy}
                 onChange={() => toggleUserSelection(row.authorizedUserId)}
-                className="rounded border-ink/15"
+                className="av-checkbox"
               />
               Select
             </label>
@@ -423,7 +423,7 @@ const AuthenticatedUsers = () => {
               checked={isSelected}
               disabled={!rowEditable || busy}
               onChange={() => toggleUserSelection(row.authorizedUserId)}
-              className="rounded border-ink/15"
+              className="av-checkbox"
             />
           </td>
         ) : null}
@@ -700,7 +700,7 @@ const AuthenticatedUsers = () => {
                     type="checkbox"
                     checked={roleFilters[id]}
                     onChange={() => toggleRoleFilter(id)}
-                    className="rounded border-ink/15"
+                    className="av-checkbox"
                   />
                   {label}
                 </label>
@@ -715,7 +715,7 @@ const AuthenticatedUsers = () => {
                     checked={allSelectableSelected}
                     onChange={toggleSelectAllUsers}
                     disabled={selectableUsers.length === 0 || deleting}
-                    className="rounded border-ink/15"
+                    className="av-checkbox"
                   />
                   Select all on this page
                 </label>
@@ -754,7 +754,7 @@ const AuthenticatedUsers = () => {
                           checked={allSelectableSelected}
                           onChange={toggleSelectAllUsers}
                           disabled={selectableUsers.length === 0 || deleting}
-                          className="rounded border-ink/15"
+                          className="av-checkbox"
                         />
                       </th>
                     ) : null}

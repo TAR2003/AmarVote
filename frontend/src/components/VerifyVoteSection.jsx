@@ -76,7 +76,10 @@ export default function VerifyVoteSection({ electionId }) {
             setVerificationFile(data);
             verifyVoteData(data);
           } else {
-            toast.error('File must contain both a hash code and tracking code');
+            toast.error(
+              'The file you submitted is not a ballot receipt. Please upload the actual vote receipt — it must include a tracking code and vote hash section.',
+              { duration: 6000 }
+            );
           }
         } catch (error) {
           toast.error('Failed to read vote receipt file: ' + error.message);

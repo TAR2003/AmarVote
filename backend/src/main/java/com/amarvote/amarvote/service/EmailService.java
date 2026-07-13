@@ -183,7 +183,9 @@ public class EmailService {
                     voteReceiptMessage(task),
                     task);
             case REMINDER -> {
-                String html = task.getHtmlContent() == null ? "" : task.getHtmlContent().replace("\n", "<br/>");
+                String html = wrapBrandedBody(
+                        "Election Update",
+                        toBrandedBodyHtml(task.getHtmlContent()));
                 emailBatchDispatcher.enqueue(
                         queueType,
                         htmlMessage(task.getToEmail(), task.getSubject(), html),
@@ -295,12 +297,61 @@ public class EmailService {
             return List.of();
         }
 
-        String html = rawContent == null ? "" : rawContent.replace("\n", "<br/>");
+        String html = wrapBrandedBody("Election Update", toBrandedBodyHtml(rawContent));
         List<EmailMessage> messages = new ArrayList<>(toEmails.size());
         for (String toEmail : toEmails) {
             messages.add(htmlMessage(toEmail, subject, html));
         }
         return messages;
+    }
+
+    /**
+     * Admin-authored reminder text → safe HTML paragraphs for the branded shell.
+     * Escapes HTML so operators cannot inject markup; newlines become breaks.
+     */
+    private String toBrandedBodyHtml(String rawContent) {
+        if (rawContent == null || rawContent.isBlank()) {
+            return "<p>You have an update from AmarVote.</p>";
+        }
+        String escaped = HtmlUtils.htmlEscape(rawContent);
+        return "<p style=\"margin:0;white-space:pre-wrap;\">" + escaped.replace("\n", "<br/>") + "</p>";
+    }
+
+    /**
+     * Shared AmarVote email chrome: glacier backdrop, frost card, Fraunces wordmark, brand accent.
+     * Body content is injected as HTML (already escaped for user-authored text).
+     */
+    private String wrapBrandedBody(String title, String bodyHtml) {
+        return "<!DOCTYPE html>" +
+                "<html lang='en'>" +
+                "<head>" +
+                "  <meta charset='UTF-8'>" +
+                "  <meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+                "  <link href='https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&family=Inter:wght@400;500;600;700&display=swap' rel='stylesheet'>" +
+                "  <style>" +
+                "    body { margin:0; padding:0; background:#efebf8; font-family:Inter,Helvetica,Arial,sans-serif; color:#1b1d2e; -webkit-font-smoothing:antialiased; }" +
+                "    .outer { width:100%; background:#efebf8; padding:40px 16px; }" +
+                "    .card { max-width:560px; margin:0 auto; background:#f7f4ec; border:1px solid rgba(27,29,46,0.12); border-radius:12px; overflow:hidden; }" +
+                "    .accent { height:4px; background:#8b7fe8; }" +
+                "    .header { padding:28px 32px 8px; text-align:center; }" +
+                "    .wordmark { font-family:Fraunces,Georgia,'Times New Roman',serif; font-size:28px; font-weight:600; color:#5c52c4; letter-spacing:-0.02em; margin:0; }" +
+                "    .content { padding:8px 32px 32px; line-height:1.6; font-size:16px; color:#1b1d2e; }" +
+                "    .content h2 { font-family:Fraunces,Georgia,'Times New Roman',serif; font-size:22px; font-weight:500; color:#12142b; text-align:center; margin:16px 0 20px; }" +
+                "    .footer { text-align:center; font-size:13px; color:#5b5d74; padding:0 32px 28px; }" +
+                "  </style>" +
+                "</head>" +
+                "<body>" +
+                "  <div class='outer'><div class='card'>" +
+                "    <div class='accent'></div>" +
+                "    <div class='header'><p class='wordmark'>AmarVote</p></div>" +
+                "    <div class='content'>" +
+                "      <h2>" + HtmlUtils.htmlEscape(title) + "</h2>" +
+                "      " + bodyHtml +
+                "    </div>" +
+                "    <div class='footer'>&copy; 2026 AmarVote. All rights reserved.</div>" +
+                "  </div></div>" +
+                "</body>" +
+                "</html>";
     }
 
     private String buildGuardianCredentialFilename(String electionTitle, Long electionId) {
