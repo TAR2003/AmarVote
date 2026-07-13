@@ -33,14 +33,13 @@ const RouterWrapper = ({ children }) => (
 );
 
 describe("CreateElection Component", () => {
-  it("should render the basic form elements", () => {
+  it("should render the wizard basics step", () => {
     render(<CreateElection />, { wrapper: RouterWrapper });
 
-    // Verify basic elements are present
-    expect(screen.getByText("Create New Election")).toBeInTheDocument();
+    expect(screen.getByText("Create election")).toBeInTheDocument();
+    expect(screen.getByText("Build in clear steps")).toBeInTheDocument();
     expect(screen.getByText("Election Title")).toBeInTheDocument();
     expect(screen.getByText("Election Description")).toBeInTheDocument();
-    expect(screen.getByText("Basic Information")).toBeInTheDocument();
-    expect(screen.getByText("Create Election")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Basics" })).toBeInTheDocument();
   });
 });

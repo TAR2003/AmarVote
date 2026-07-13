@@ -86,13 +86,14 @@ export default function ElectionTabNav({ tabs = [], activeKey, onSelect }) {
 
   useEffect(() => {
     const el = listRef.current;
-    if (el && activeKey) {
-      el.querySelector(`[data-tab-key="${activeKey}"]`)?.scrollIntoView({
-        inline: "center",
-        block: "nearest",
-        behavior: "smooth",
-      });
-    }
+    if (!el || !activeKey) return;
+    const tabEl = el.querySelector(`[data-tab-key="${activeKey}"]`);
+    // jsdom does not implement scrollIntoView; guard so tests/SSR don't crash.
+    tabEl?.scrollIntoView?.({
+      inline: "center",
+      block: "nearest",
+      behavior: "smooth",
+    });
   }, [activeKey]);
 
   const select = (key) => {
