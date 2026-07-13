@@ -131,12 +131,12 @@ const CompensatedDecryptionDisplay = ({ electionId }) => {
 
   if (compensatedDecryptions.length === 0) {
     return (
-      <div className="bg-ceremonial-soft border border-yellow-200 rounded-lg p-4">
+      <div className="bg-ceremonial-soft border border-ceremonial/40 rounded-lg p-4">
         <div className="flex items-center">
-          <FiRefreshCw className="h-5 w-5 text-yellow-600 mr-2" />
+          <FiRefreshCw className="h-5 w-5 text-ceremonial mr-2" />
           <div className="text-ink font-medium">No Compensated Decryptions Found</div>
         </div>
-        <div className="mt-2 text-yellow-700 text-sm">
+        <div className="mt-2 text-ink text-sm">
           No compensated decryption shares have been generated for this election yet.
           These are created when guardians submit their keys to help compensate for missing guardians.
         </div>

@@ -123,7 +123,7 @@ const AnimatedResults = ({
               transition={{ delay: index * 0.1 }}
               className={`surface-card rounded-2xl p-5 sm:p-6 border-2 ${
                 isWinner && !isAnimating
-                  ? 'border-amber-400 ring-4 ring-amber-100 bg-gradient-to-br from-amber-50 to-white'
+                  ? 'border-ceremonial ring-4 ring-ceremonial/25 bg-gradient-to-br from-ceremonial-soft to-paper'
                   : 'border-ink/10'
               }`}
             >
@@ -168,7 +168,7 @@ const AnimatedResults = ({
                 <motion.div
                   className={`h-full ${
                     isWinner && !isAnimating
-                      ? 'bg-gradient-to-r from-amber-400 to-amber-500'
+                      ? 'bg-gradient-to-r from-ceremonial to-ceremonial'
                       : 'bg-gradient-to-r from-brand to-brand-dark'
                   }`}
                   initial={{ width: 0 }}

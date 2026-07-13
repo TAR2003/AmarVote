@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "./Layout";
+import BrandMark from "../components/BrandMark";
 import TurnstileWidget from "../components/TurnstileWidget";
 import useCaptchaConfig from "../hooks/useCaptchaConfig";
 import { buildEmailCodePayload, getAuthErrorMessage, readAuthResponse, resolveAuthErrorMessage } from "../utils/authApi";
@@ -130,145 +131,152 @@ export default function OtpLogin({ setUserEmail }) {
 
   return (
     <Layout>
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-frost to-brand-soft py-12 px-4 sm:px-6 lg:px-8">
-        <div className="w-full max-w-md space-y-8">
-          <div className="text-center">
-            <span className="text-5xl">🔐</span>
-            <h2 className="mt-6 text-3xl font-extrabold text-ink">
-              {step === 1 ? "Sign in to AmarVote" : "Enter Verification Code"}
-            </h2>
+      <div className="relative flex min-h-[calc(100dvh-4rem)] items-center justify-center overflow-hidden bg-frost-mesh px-4 py-10 sm:py-14">
+        <div className="pointer-events-none absolute -left-24 top-20 h-64 w-64 rounded-full bg-brand/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-16 bottom-16 h-72 w-72 rounded-full bg-brand-light/15 blur-3xl" />
+
+        <div className="glass-panel relative z-10 mx-auto w-full max-w-md p-6 sm:p-8 animate-fade-up">
+          <div className="mb-7 text-center">
+            <div className="mb-4 flex justify-center">
+              <BrandMark size="lg" className="shadow-brand" />
+            </div>
+            <p className="section-kicker">Email code</p>
+            <h1 className="mt-2 font-display text-2xl font-bold text-deep sm:text-3xl">
+              {step === 1 ? "Sign in to AmarVote" : "Enter verification code"}
+            </h1>
             <p className="mt-2 text-sm text-dusk">
               {step === 1
-                ? "We'll send a verification code to your email"
+                ? "We'll send a verification code to your email."
                 : `Code sent to ${email}`}
             </p>
           </div>
 
           {error && (
-            <div className="rounded-md bg-ember-soft p-4 border-l-4 border-red-500">
-              <p className="text-sm text-ember">{error}</p>
+            <div
+              className="mb-4 rounded-xl border border-ember/30 bg-ember-soft px-4 py-3 text-sm text-ember"
+              role="alert"
+            >
+              {error}
             </div>
           )}
 
           {info && (
-            <div className="rounded-md bg-glacier p-4 border-l-4 border-brand">
-              <p className="text-sm text-brand-dark">{info}</p>
+            <div className="mb-4 rounded-xl border border-brand/25 bg-glacier px-4 py-3 text-sm text-brand-dark">
+              {info}
             </div>
           )}
 
-          <div className="bg-paper py-8 px-6 shadow rounded-lg sm:px-10 border border-ink/10">
-            {step === 1 ? (
-              <form className="space-y-6" onSubmit={handleRequestOTP}>
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium text-dusk">
-                    Email address
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="email"
-                      name="email"
-                      type="email"
-                      autoComplete="email"
-                      required
-                      value={email}
-                      onChange={(e) => setEmail(e.target.value)}
-                      className="appearance-none block w-full px-3 py-2 border border-ink/15 rounded-md shadow-sm placeholder:text-dusk focus:outline-none focus:ring-brand focus:border-brand sm:text-sm"
-                      placeholder="you@example.com"
-                    />
-                  </div>
-                </div>
-
-                <TurnstileWidget
-                  onVerify={setCaptchaToken}
-                  resetKey={turnstileReset}
-                  className="flex justify-center"
-                />
-
-                <button
-                  type="submit"
-                  disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-paper bg-brand-dark hover:bg-brand focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand disabled:bg-brand-soft disabled:text-dusk disabled:cursor-not-allowed"
+          {step === 1 ? (
+            <form className="space-y-4" onSubmit={handleRequestOTP}>
+              <div>
+                <label
+                  htmlFor="email"
+                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-dusk"
                 >
-                  {loading ? "Sending..." : "Continue"}
-                </button>
-              </form>
-            ) : (
-              <form className="space-y-6" onSubmit={handleVerifyOTP}>
-                <div>
-                  <label htmlFor="otpCode" className="block text-sm font-medium text-dusk">
-                    Verification Code
-                  </label>
-                  <div className="mt-1">
-                    <input
-                      id="otpCode"
-                      name="otpCode"
-                      type="text"
-                      maxLength="6"
-                      pattern="[0-9]{6}"
-                      required
-                      value={otpCode}
-                      onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
-                      className="appearance-none block w-full px-3 py-2 border border-ink/15 rounded-md shadow-sm placeholder:text-dusk focus:outline-none focus:ring-brand focus:border-brand text-center text-2xl tracking-widest font-mono"
-                      placeholder="000000"
-                      autoComplete="off"
-                    />
-                  </div>
-                  <p className="mt-2 text-sm text-dusk text-center">
-                    {timeLeft > 0 ? (
-                      <>
-                        Code expires in{" "}
-                        <span className="font-semibold text-brand">{formatTime(timeLeft)}</span>
-                      </>
-                    ) : (
-                      <span className="text-ember font-semibold">Code expired</span>
-                    )}
-                  </p>
-                </div>
+                  Email address
+                </label>
+                <input
+                  id="email"
+                  name="email"
+                  type="email"
+                  autoComplete="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  className="input-field"
+                  placeholder="you@example.com"
+                />
+              </div>
 
-                <div className="flex flex-col space-y-3">
-                  <button
-                    type="submit"
-                    disabled={loading || timeLeft === 0 || otpCode.length !== 6}
-                    className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-paper bg-brand-dark hover:bg-brand focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand disabled:bg-brand-soft disabled:text-dusk disabled:cursor-not-allowed"
-                  >
-                    {loading ? "Verifying..." : "Sign In"}
-                  </button>
+              <TurnstileWidget
+                onVerify={setCaptchaToken}
+                resetKey={turnstileReset}
+                className="flex justify-center"
+              />
 
-                  <TurnstileWidget
-                    onVerify={setCaptchaToken}
-                    resetKey={turnstileReset}
-                    className="flex justify-center"
-                  />
+              <button
+                type="submit"
+                disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
+                className="btn-brand w-full"
+              >
+                {loading ? "Sending…" : "Continue"}
+              </button>
+            </form>
+          ) : (
+            <form className="space-y-4" onSubmit={handleVerifyOTP}>
+              <div>
+                <label
+                  htmlFor="otpCode"
+                  className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-dusk"
+                >
+                  Verification code
+                </label>
+                <input
+                  id="otpCode"
+                  name="otpCode"
+                  type="text"
+                  maxLength="6"
+                  pattern="[0-9]{6}"
+                  required
+                  value={otpCode}
+                  onChange={(e) => setOtpCode(e.target.value.replace(/\D/g, ""))}
+                  className="input-field text-center font-mono text-2xl tracking-widest"
+                  placeholder="000000"
+                  autoComplete="one-time-code"
+                />
+                <p className="mt-2 text-center text-sm text-dusk">
+                  {timeLeft > 0 ? (
+                    <>
+                      Code expires in{" "}
+                      <span className="font-semibold text-brand-dark">{formatTime(timeLeft)}</span>
+                    </>
+                  ) : (
+                    <span className="font-semibold text-ember">Code expired</span>
+                  )}
+                </p>
+              </div>
 
-                  <button
-                    type="button"
-                    onClick={handleResendOTP}
-                    disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
-                    className="w-full py-2 px-4 border border-ink/15 rounded-md shadow-sm text-sm font-medium text-dusk bg-paper hover:bg-frost focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand disabled:bg-frost disabled:cursor-not-allowed"
-                  >
-                    Resend Code
-                  </button>
+              <button
+                type="submit"
+                disabled={loading || timeLeft === 0 || otpCode.length !== 6}
+                className="btn-brand w-full"
+              >
+                {loading ? "Verifying…" : "Sign in"}
+              </button>
 
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setStep(1);
-                      setOtpCode("");
-                      setError(null);
-                      setInfo(null);
-                      resetCaptcha();
-                    }}
-                    className="text-sm text-brand hover:text-ink"
-                  >
-                    ← Change email address
-                  </button>
-                </div>
-              </form>
-            )}
-          </div>
+              <TurnstileWidget
+                onVerify={setCaptchaToken}
+                resetKey={turnstileReset}
+                className="flex justify-center"
+              />
 
-          <p className="text-center text-xs text-dusk">
-            By signing in, you agree to AmarVote's secure voting protocols
+              <button
+                type="button"
+                onClick={handleResendOTP}
+                disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
+                className="btn-ghost w-full"
+              >
+                Resend code
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setStep(1);
+                  setOtpCode("");
+                  setError(null);
+                  setInfo(null);
+                  resetCaptcha();
+                }}
+                className="w-full text-sm link-brand"
+              >
+                ← Change email address
+              </button>
+            </form>
+          )}
+
+          <p className="mt-6 text-center text-xs text-dusk">
+            By signing in, you agree to AmarVote&apos;s secure voting protocols.
           </p>
         </div>
       </div>

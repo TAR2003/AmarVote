@@ -347,7 +347,7 @@ const ElectionTimer = ({ startTime, endTime, onPhaseChange, variant = 'full' }) 
   const getProgressColor = () => {
     switch (timeInfo.phase) {
       case 'upcoming': return '#f59e0b';
-      case 'scheduled': return '#3b82f6';
+      case 'scheduled': return '#8B7FE8';
       case 'ongoing': return '#10b981';
       case 'finished': return '#ef4444';
       default: return '#6b7280';
@@ -709,7 +709,7 @@ const OverviewTabContent = ({ electionData, id }) => {
       </div>
 
       {/* Verification Instructions */}
-      <div className="bg-gradient-to-br from-gray-50 to-gray-100 border border-ink/10 rounded-lg p-5">
+      <div className="bg-gradient-to-br from-frost to-glacier border border-ink/10 rounded-lg p-5">
         <h4 className="font-semibold text-deep mb-3 flex items-center">
           <FiInfo className="h-5 w-5 mr-2 text-dusk" />
           Verification Instructions
@@ -762,9 +762,9 @@ const OverviewTabContent = ({ electionData, id }) => {
           </div>
         </div>
         
-        <div className="mt-4 p-3 bg-ceremonial-soft border border-yellow-200 rounded-lg">
+        <div className="mt-4 p-3 bg-ceremonial-soft border border-ceremonial/40 rounded-lg">
           <div className="flex items-start">
-            <FiAlertCircle className="h-5 w-5 text-yellow-600 mr-2 mt-0.5 flex-shrink-0" />
+            <FiAlertCircle className="h-5 w-5 text-ceremonial mr-2 mt-0.5 flex-shrink-0" />
             <p className="text-sm text-ink">
               <strong>Independent Verification:</strong> You can use these artifacts with ElectionGuard verification tools to independently verify that your vote was counted correctly and that the election results are mathematically sound.
             </p>
@@ -895,7 +895,7 @@ const ChunksTabContent = ({ electionId }) => {
           const isDownloading = downloadingTallies[chunk.electionCenterId];
           return (
             <div key={chunk.electionCenterId} className="bg-paper border border-ink/10 rounded-lg overflow-hidden">
-              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-gray-50 to-white">
+              <div className="flex items-center justify-between p-4 bg-gradient-to-r from-frost to-paper">
                 <div className="flex items-center space-x-4">
                   <div className="flex-shrink-0">
                     <div className="h-10 w-10 rounded-full bg-glacier flex items-center justify-center">
@@ -1161,7 +1161,7 @@ const BallotsInTallySection = ({ electionId, pageSize = 30 }) => {
       case 'failed':
         return { text: 'Failed', color: 'red', icon: FiX, bgColor: 'bg-ember-soft', textColor: 'text-ember', borderColor: 'border-ember/30' };
       case 'no_initial_hash':
-        return { text: 'No Hash', color: 'yellow', icon: FiAlertCircle, bgColor: 'bg-ceremonial-soft', textColor: 'text-ink', borderColor: 'border-yellow-200' };
+        return { text: 'No Hash', color: 'yellow', icon: FiAlertCircle, bgColor: 'bg-ceremonial-soft', textColor: 'text-ink', borderColor: 'border-ceremonial/40' };
       default:
         return { text: 'Unknown', color: 'gray', icon: FiInfo, bgColor: 'bg-frost-muted', textColor: 'text-ink', borderColor: 'border-ink/10' };
     }
@@ -4133,13 +4133,13 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 <h4 className="font-medium text-deep mb-3">Guardian Configuration</h4>
 
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
-                  <div className="rounded-lg border border-green-100 bg-sage-soft p-3">
+                  <div className="rounded-lg border border-aurora/25 bg-sage-soft p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-sage">Guardian Number</p>
-                    <p className="mt-1 text-lg font-semibold text-green-900">
+                    <p className="mt-1 text-lg font-semibold text-aurora-muted">
                       {electionData.totalGuardians || electionData.guardians?.length || 0}
                     </p>
                   </div>
-                  <div className="rounded-lg border border-amber-100 bg-ceremonial-soft p-3">
+                  <div className="rounded-lg border border-ceremonial/30 bg-ceremonial-soft p-3">
                     <p className="text-xs font-semibold uppercase tracking-wide text-ink">Quorum Number</p>
                     <p className="mt-1 text-lg font-semibold text-ink">{electionData.electionQuorum || 0}</p>
                   </div>
@@ -4193,7 +4193,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               </div>
               <div className="surface-card p-4 sm:p-6">
                 <div className="flex items-center">
-                  <FiShield className="h-6 w-6 sm:h-8 sm:w-8 text-green-500" />
+                  <FiShield className="h-6 w-6 sm:h-8 sm:w-8 text-aurora" />
                   <div className="ml-3 sm:ml-4">
                     <p className="text-xs sm:text-sm font-medium text-dusk">Guardians</p>
                     <p className="text-xl sm:text-2xl font-semibold text-deep">{electionData.guardians?.length || 0}</p>
@@ -4202,7 +4202,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               </div>
               <div className="surface-card p-4 sm:p-6">
                 <div className="flex items-center">
-                  <FiKey className="h-6 w-6 sm:h-8 sm:w-8 text-amber-500" />
+                  <FiKey className="h-6 w-6 sm:h-8 sm:w-8 text-ceremonial" />
                   <div className="ml-3 sm:ml-4">
                     <p className="text-xs sm:text-sm font-medium text-dusk">Quorum</p>
                     <p className="text-xl sm:text-2xl font-semibold text-deep">{electionData.electionQuorum || 0}</p>
@@ -4296,7 +4296,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 </div>
 
                 {canEditVoterList() && showVoterEditor && (
-                  <div className="mb-6 rounded-xl border border-brand/25 bg-gradient-to-br from-glacier/70 via-white to-sky-50 p-4 sm:p-5">
+                  <div className="mb-6 rounded-xl border border-brand/25 bg-gradient-to-br from-glacier/70 via-white to-glacier p-4 sm:p-5">
                     {votersLoading && !electionData.voters?.length ? (
                       <div className="flex items-center justify-center py-8 text-sm text-ink">
                         <FiLoader className="mr-2 h-4 w-4 animate-spin" />
@@ -4370,7 +4370,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         key={voter.userEmail || index}
                         className={`flex items-center justify-between px-3 py-2.5 rounded-lg border transition-all ${
                           voter.hasVoted || electionData.eligibility !== 'listed'
-                            ? 'bg-sage-soft border-aurora/30 hover:border-green-300'
+                            ? 'bg-sage-soft border-aurora/30 hover:border-aurora/40'
                             : 'bg-frost border-ink/10 hover:border-ink/10'
                         }`}
                       >
@@ -4438,7 +4438,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 }`}>
                 <div className="flex items-center">
                   {eligibilityData.eligible ? (
-                    <FiCheckCircle className="h-6 w-6 text-green-500 mr-3" />
+                    <FiCheckCircle className="h-6 w-6 text-aurora mr-3" />
                   ) : eligibilityData.hasVoted ? (
                     <FiCheckCircle className="h-6 w-6 text-brand mr-3" />
                   ) : (
@@ -4446,10 +4446,10 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   )}
                   <div>
                     <h4 className={`font-semibold ${eligibilityData.eligible
-                        ? 'text-green-900'
+                        ? 'text-aurora-muted'
                         : eligibilityData.hasVoted
                           ? 'text-deep'
-                          : 'text-red-900'
+                          : 'text-ember'
                       }`}>
                       {eligibilityCopy.title}
                     </h4>
@@ -4473,7 +4473,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               <div className={`border rounded-lg p-4 mb-6 ${botDetection.loading
                   ? 'bg-frost border-ink/10'
                   : botDetection.error
-                    ? 'bg-ceremonial-soft border-yellow-200'
+                    ? 'bg-ceremonial-soft border-ceremonial/40'
                     : botDetection.isBot
                       ? 'bg-ember-soft border-ember/30'
                       : 'bg-sage-soft border-aurora/30'
@@ -4482,20 +4482,20 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   {botDetection.loading ? (
                     <FiLoader className="h-5 w-5 text-dusk mr-3 animate-spin" />
                   ) : botDetection.error ? (
-                    <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-3" />
+                    <FiAlertCircle className="h-5 w-5 text-ceremonial mr-3" />
                   ) : botDetection.isBot ? (
                     <FiX className="h-5 w-5 text-ember mr-3" />
                   ) : (
-                    <FiCheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                    <FiCheckCircle className="h-5 w-5 text-aurora mr-3" />
                   )}
                   <div>
                     <h4 className={`font-medium ${botDetection.loading
                         ? 'text-deep'
                         : botDetection.error
-                          ? 'text-yellow-900'
+                          ? 'text-ink'
                           : botDetection.isBot
-                            ? 'text-red-900'
-                            : 'text-green-900'
+                            ? 'text-ember'
+                            : 'text-aurora-muted'
                       }`}>
                       {botDetection.loading
                         ? 'Running Security Check...'
@@ -4550,18 +4550,18 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                   return (
                     <>
-                      <div className="bg-ceremonial-soft border border-yellow-200 rounded-lg p-4 mb-6">
+                      <div className="bg-ceremonial-soft border border-ceremonial/40 rounded-lg p-4 mb-6">
                         <div className="flex items-center">
-                          <FiInfo className="h-5 w-5 text-yellow-600 mr-2 flex-shrink-0" />
+                          <FiInfo className="h-5 w-5 text-ceremonial mr-2 flex-shrink-0" />
                           <div>
-                            <h4 className="font-medium text-yellow-900">Voting Instructions</h4>
+                            <h4 className="font-medium text-ink">Voting Instructions</h4>
                             <p className="text-sm text-ink mt-1">
                               {maxChoices > 1
                                 ? `Select up to ${maxChoices} candidates, then create your encrypted ballot.`
                                 : 'Select one candidate, then create your encrypted ballot.'}
                               {' '}You may vote only once in this election.
                             </p>
-                            <p className="text-xs text-yellow-700 mt-2 font-medium">
+                            <p className="text-xs text-ink mt-2 font-medium">
                               Max choices allowed: {maxChoices} · Winners declared: top {getWinnerCount(electionData)}
                             </p>
                           </div>
@@ -4926,7 +4926,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 || !!(guardianCeremonyForm.privateKey && guardianCeremonyForm.publicKey && guardianCeremonyForm.polynomial);
                               const passwordReady = !!guardianCeremonyForm.passwordGenerated
                                 || !!guardianCeremonyForm.localEncryptionPassword;
-                              const successBorder = 'border-2 border-green-500 ring-1 ring-green-500/30';
+                              const successBorder = 'border-2 border-aurora ring-1 ring-aurora/30';
                               return (
                                 <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -5047,28 +5047,28 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     {(guardianKeyCeremonyContext?.readyForActivation || adminKeyCeremonyStatus?.readyForActivation) &&
                       electionData?.userRoles?.includes('admin') && (
                         <div className="mt-1 rounded-xl border border-aurora/30 bg-sage-soft p-4">
-                          <h5 className="font-medium text-emerald-900 mb-2">Key ceremony finished</h5>
+                          <h5 className="font-medium text-aurora-muted mb-2">Key ceremony finished</h5>
                           <p className="text-sm text-aurora-muted mb-3">
                             Set the election schedule now to activate voting. Use the Send Email tab to schedule messages to voters, guardians, or admins.
                           </p>
 
                           <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                             <label className="space-y-1">
-                              <span className="text-xs font-semibold uppercase tracking-wide text-emerald-900">Election Start</span>
+                              <span className="text-xs font-semibold uppercase tracking-wide text-aurora-muted">Election Start</span>
                               <input
                                 type="datetime-local"
                                 value={activationSchedule.startingTime}
                                 onChange={(e) => setActivationSchedule((prev) => ({ ...prev, startingTime: e.target.value }))}
-                                className="w-full px-3 py-2 border-2 border-aurora/30 focus:border-emerald-500 rounded-md outline-none"
+                                className="w-full px-3 py-2 border-2 border-aurora/30 focus:border-aurora rounded-md outline-none"
                               />
                             </label>
                             <label className="space-y-1">
-                              <span className="text-xs font-semibold uppercase tracking-wide text-emerald-900">Election End</span>
+                              <span className="text-xs font-semibold uppercase tracking-wide text-aurora-muted">Election End</span>
                               <input
                                 type="datetime-local"
                                 value={activationSchedule.endingTime}
                                 onChange={(e) => setActivationSchedule((prev) => ({ ...prev, endingTime: e.target.value }))}
-                                className="w-full px-3 py-2 border-2 border-aurora/30 focus:border-emerald-500 rounded-md outline-none"
+                                className="w-full px-3 py-2 border-2 border-aurora/30 focus:border-aurora rounded-md outline-none"
                               />
                             </label>
                           </div>
@@ -5381,9 +5381,9 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               : 'bg-glacier border-brand/20';
                             
                             const titleColor = guardianDecryptionStatus?.status === 'failed'
-                              ? 'text-red-900'
+                              ? 'text-ember'
                               : guardianDecryptionStatus?.status === 'completed'
-                              ? 'text-green-900'
+                              ? 'text-aurora-muted'
                               : 'text-deep';
                             
                             const textColor = guardianDecryptionStatus?.status === 'failed'
@@ -5401,7 +5401,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             const icon = guardianDecryptionStatus?.status === 'failed'
                               ? <FiAlertCircle className="h-5 w-5 text-ember mr-2" />
                               : guardianDecryptionStatus?.status === 'completed'
-                              ? <FiCheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                              ? <FiCheckCircle className="h-5 w-5 text-aurora mr-2" />
                               : <FiRefreshCw className="h-5 w-5 text-brand mr-2" />;
                             
                             const title = guardianDecryptionStatus?.status === 'failed'
@@ -5455,9 +5455,9 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         {keySubmissionResult && (
                           <div className="bg-sage-soft border border-aurora/30 rounded-lg p-4 mb-4">
                             <div className="flex items-center">
-                              <FiCheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                              <FiCheckCircle className="h-5 w-5 text-aurora mr-2" />
                               <div>
-                                <h5 className="font-medium text-green-900">Credentials Received!</h5>
+                                <h5 className="font-medium text-aurora-muted">Credentials Received!</h5>
                                 <p className="text-sm text-aurora-muted mt-1">
                                   {keySubmissionResult.message || "Your credentials have been received. Decryption processing has started. Use the 'Check Progress' button above to monitor status."}
                                 </p>
@@ -5471,7 +5471,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             <div className="flex items-start gap-3">
                               <FiAlertCircle className="h-6 w-6 text-ember flex-shrink-0 mt-0.5" />
                               <div>
-                                <h5 className="font-semibold text-red-900">Could not verify your key</h5>
+                                <h5 className="font-semibold text-ember">Could not verify your key</h5>
                                 <p className="text-sm text-ember mt-1">{keySubmissionError}</p>
                                 <p className="text-xs text-ember mt-2">Double-check that you selected the correct credentials.txt file from your guardian email, then try again.</p>
                               </div>
@@ -5519,10 +5519,10 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                       : isInProgress
                                       ? 'bg-brand cursor-not-allowed'
                                       : isFailed
-                                      ? 'bg-ceremonial hover:bg-orange-700 hover:shadow-lg'
+                                      ? 'bg-ceremonial hover:bg-ceremonial hover:shadow-lg'
                                       : isDisabled
                                       ? 'bg-ink/30 cursor-not-allowed'
-                                      : 'bg-gradient-to-r from-emerald-600 to-aurora-muted hover:from-emerald-700 hover:to-green-700 hover:shadow-lg'
+                                      : 'bg-gradient-to-r from-aurora to-aurora-muted hover:from-aurora-muted hover:to-aurora hover:shadow-lg'
                                   }`}
                                 >
                                   {isCompleted ? (
@@ -5558,15 +5558,15 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                     );
                   } else {
                     return (
-                      <div className="border border-yellow-200 rounded-lg p-6">
+                      <div className="border border-ceremonial/40 rounded-lg p-6">
                         <div className="flex items-center mb-4">
-                          <FiAlertCircle className="h-5 w-5 text-yellow-500 mr-2" />
-                          <h4 className="font-medium text-yellow-900">Key Submission Not Available</h4>
+                          <FiAlertCircle className="h-5 w-5 text-ceremonial mr-2" />
+                          <h4 className="font-medium text-ink">Key Submission Not Available</h4>
                         </div>
                         <p className="text-ink mb-4">{submitStatus.reason}</p>
 
                         {submitStatus.reason === 'Election has not ended yet' && (
-                          <p className="text-sm text-yellow-700">
+                          <p className="text-sm text-ink">
                             You will be able to submit your guardian key after the election ends on {formatDate(electionData.endingTime)}.
                           </p>
                         )}
@@ -5751,7 +5751,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                       )}
 
                       {/* Results meta banner for PDF export */}
-                      <div className="rounded-xl border border-glacier bg-gradient-to-r from-glacier via-white to-blue-50 p-4 sm:p-5">
+                      <div className="rounded-xl border border-glacier bg-gradient-to-r from-glacier via-white to-glacier p-4 sm:p-5">
                         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 text-sm">
                           <div>
                             <p className="text-xs uppercase tracking-wide text-brand-dark font-semibold">Election</p>
@@ -5774,12 +5774,12 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
                       {/* Results Summary */}
                       <div className="grid grid-cols-2 sm:grid-cols-2 lg:grid-cols-4 gap-2 sm:gap-4 mb-6">
-                        <div className="p-3 sm:p-4 bg-teal-50 border border-teal-100 rounded-xl text-center">
+                        <div className="p-3 sm:p-4 bg-sage-soft border border-aurora/25 rounded-xl text-center">
                           <div className="text-2xl mb-1">👥</div>
-                          <h4 className="font-medium text-teal-700 mb-1 text-xs sm:text-sm">Voters Who Voted</h4>
-                          <p className="text-xl sm:text-3xl font-extrabold text-teal-800">{processedResults.totalVotedUsers || 0}</p>
+                          <h4 className="font-medium text-aurora-muted mb-1 text-xs sm:text-sm">Voters Who Voted</h4>
+                          <p className="text-xl sm:text-3xl font-extrabold text-aurora-muted">{processedResults.totalVotedUsers || 0}</p>
                         </div>
-                        <div className="p-3 sm:p-4 bg-sage-soft border border-green-100 rounded-xl text-center">
+                        <div className="p-3 sm:p-4 bg-sage-soft border border-aurora/25 rounded-xl text-center">
                           <div className="text-2xl mb-1">📋</div>
                           <h4 className="font-medium text-sage mb-1 text-xs sm:text-sm">Eligible Voters</h4>
                           <p className="text-xl sm:text-3xl font-extrabold text-aurora-muted">{processedResults.totalEligibleVoters}</p>
@@ -5789,7 +5789,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                           <h4 className="font-medium text-brand-dark mb-1 text-xs sm:text-sm">Voter Turnout</h4>
                           <p className="text-xl sm:text-3xl font-extrabold text-ink">{processedResults.turnoutRate}%</p>
                         </div>
-                        <div className="p-3 sm:p-4 bg-ceremonial-soft border border-orange-100 rounded-xl text-center">
+                        <div className="p-3 sm:p-4 bg-ceremonial-soft border border-ceremonial/30 rounded-xl text-center">
                           <div className="text-2xl mb-1">🏆</div>
                           <h4 className="font-medium text-ink mb-1 text-xs sm:text-sm">Total Candidates</h4>
                           <p className="text-xl sm:text-3xl font-extrabold text-ink">{processedResults.choices.length}</p>
@@ -5845,7 +5845,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 labelFormatter={(label) => label}
                               />
                               <Legend formatter={(value) => truncateChartLabel(value, 18)} />
-                              <Bar dataKey="votes" fill="#3B82F6" name="Votes" />
+                              <Bar dataKey="votes" fill="#8B7FE8" name="Votes" />
                             </BarChart>
                           </ResponsiveContainer>
                         </div>
@@ -6040,12 +6040,12 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               if (!quorumMet) {
                 return (
                   <div className="text-center py-12">
-                    <FiShield className="h-16 w-16 text-yellow-500 mx-auto mb-4" />
+                    <FiShield className="h-16 w-16 text-ceremonial mx-auto mb-4" />
                     <h3 className="text-lg font-semibold text-deep mb-2">⏳ Waiting for Guardians</h3>
                     <p className="text-dusk mb-4">
                       Not enough guardians have submitted their decryption keys yet.
                     </p>
-                    <div className="bg-ceremonial-soft border border-yellow-200 rounded-lg p-4 inline-block">
+                    <div className="bg-ceremonial-soft border border-ceremonial/40 rounded-lg p-4 inline-block">
                       <p className="text-sm text-ink">
                         <strong>Status:</strong> {guardiansSubmitted} of {electionQuorum} required guardians have submitted keys.
                       </p>

@@ -1292,7 +1292,7 @@ const CreateElection = () => {
                                 onChange={handleTotalCandidatesChange}
                                 className={`input-field ${
                                     isTotalCandidatesInvalid(form.totalCandidates)
-                                        ? "border-red-500 bg-ember-soft focus:ring-red-500"
+                                        ? "border-ember bg-ember-soft focus:ring-ember"
                                         : ""
                                 }`}
                             />
@@ -1313,7 +1313,7 @@ const CreateElection = () => {
                                 onChange={handleChange}
                                 className={`input-field ${
                                     isMaxChoicesInvalid(form.maxChoices, form.totalCandidates)
-                                        ? "border-red-500 bg-ember-soft focus:ring-red-500"
+                                        ? "border-ember bg-ember-soft focus:ring-ember"
                                         : ""
                                 }`}
                             />
@@ -1339,7 +1339,7 @@ const CreateElection = () => {
                                 onChange={handleChange}
                                 className={`input-field ${
                                     isMaxChoicesInvalid(form.winnerNo, form.totalCandidates)
-                                        ? "border-red-500 bg-ember-soft focus:ring-red-500"
+                                        ? "border-ember bg-ember-soft focus:ring-ember"
                                         : ""
                                 }`}
                             />
@@ -1417,9 +1417,9 @@ const CreateElection = () => {
                                                 onChange={(e) => handleCandidateChange(index, 'candidateNames', e.target.value)}
                                                 className={`input-field ${
                                                     !candidateValidation.isValid
-                                                        ? 'border-red-500 bg-ember-soft focus:ring-red-500'
+                                                        ? 'border-ember bg-ember-soft focus:ring-ember'
                                                         : isNameBlank
-                                                        ? 'border-red-500 bg-ember-soft focus:ring-red-500'
+                                                        ? 'border-ember bg-ember-soft focus:ring-ember'
                                                         : 'bg-paper'
                                                 }`}
                                             />
@@ -1537,7 +1537,7 @@ const CreateElection = () => {
                     )}
 
                     {(form.candidateNames.filter(name => name.trim() !== '').length < 2 || hasDuplicateNames()) && (
-                        <div className="mt-4 p-3 bg-ceremonial-soft border border-yellow-200 rounded-md text-sm text-ink">
+                        <div className="mt-4 p-3 bg-ceremonial-soft border border-ceremonial/40 rounded-md text-sm text-ink">
                             {form.candidateNames.filter(name => name.trim() !== '').length < 2 && (
                                 <p>• At least 2 candidates are required</p>
                             )}

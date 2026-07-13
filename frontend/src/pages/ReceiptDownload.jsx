@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { FiCheckCircle, FiAlertCircle, FiLoader } from 'react-icons/fi';
+import BrandMark from '../components/BrandMark';
 
 function parseFilename(contentDisposition) {
   if (!contentDisposition) {
@@ -103,6 +104,9 @@ export default function ReceiptDownload() {
   return (
     <div className="flex min-h-screen items-center justify-center bg-deep-aurora p-6">
       <div className="modal-surface w-full max-w-md p-8 text-center">
+        <div className="mb-4 flex justify-center">
+          <BrandMark size="lg" light className="shadow-brand" />
+        </div>
         <p className="text-[10px] font-semibold uppercase tracking-[0.2em] text-aurora">
           Vote receipt
         </p>

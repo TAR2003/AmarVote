@@ -148,7 +148,7 @@ export default function KeyVerificationTab({ electionId, electionData }) {
             <FiAlertCircle className="h-5 w-5 text-ember flex-shrink-0 mt-0.5" />
           )}
           <div>
-            <p className={`text-sm font-semibold ${result.verified ? 'text-emerald-900' : 'text-red-900'}`}>
+            <p className={`text-sm font-semibold ${result.verified ? 'text-aurora-muted' : 'text-ember'}`}>
               {result.verified ? 'Verification passed' : 'Verification failed'}
             </p>
             <p className={`text-sm mt-1 whitespace-pre-wrap ${result.verified ? 'text-aurora-muted' : 'text-ember'}`}>

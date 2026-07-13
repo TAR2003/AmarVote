@@ -37,7 +37,7 @@ const Security = () => {
               <h3 className="text-aurora font-bold text-lg mb-4 font-mono">// Complete Cryptographic Specification</h3>
               <table className="w-full text-sm font-mono">
                 <thead>
-                  <tr className="text-dusk border-b border-gray-700">
+                  <tr className="text-dusk border-b border-white/15">
                     <th className="text-left py-2 pr-4">Component</th>
                     <th className="text-left py-2 pr-4">Algorithm / Scheme</th>
                     <th className="text-left py-2 pr-4">Standard</th>
@@ -62,7 +62,7 @@ const Security = () => {
                     ["Serialization", "msgpack binary", "MessagePack spec", "10–50× vs JSON, 4096-bit ints"],
                     ["Public audit records", "SHA-256 + signed payloads", "Internal verification profile", "Supplementary transparency metadata"],
                   ].map(([comp, algo, std, purpose]) => (
-                    <tr key={comp} className="border-b border-gray-800 hover:bg-paper/5">
+                    <tr key={comp} className="border-b border-white/10 hover:bg-paper/5">
                       <td className="py-2 pr-4 text-brand-light font-semibold">{comp}</td>
                       <td className="py-2 pr-4 text-ceremonial">{algo}</td>
                       <td className="py-2 pr-4 text-dusk">{std}</td>
@@ -83,7 +83,7 @@ const Security = () => {
                 { title: "Anti-Fraud", items: ["FingerprintJS BotD 1.9.1 browser-side", "5-minute timestamp freshness check server-side", "OTP rate limiting + 5-min expiry"], color: "red" },
                 { title: "Threshold Security", items: ["k-of-n Shamir-style guardian quorum", "No single guardian can decrypt alone", "Lagrange compensation for absent guardians"], color: "orange" },
               ].map(({ icon, title, items, color }) => (
-                <div key={title} className={`surface-card rounded-2xl border p-5 ${color === "blue" ? "border-brand/20" : color === "green" ? "border-aurora/30" : color === "teal" ? "border-teal-200" : color === "red" ? "border-ember/30" : "border-ceremonial/40"}`}>
+                <div key={title} className={`surface-card rounded-2xl border p-5 ${color === "blue" ? "border-brand/20" : color === "green" ? "border-aurora/30" : color === "teal" ? "border-aurora/30" : color === "red" ? "border-ember/30" : "border-ceremonial/40"}`}>
                   <h3 className="font-display font-bold text-deep mb-3">{title}</h3>
                   <ul className="space-y-1.5">
                     {items.map((item) => (
@@ -99,7 +99,7 @@ const Security = () => {
         {/* ═══════════════════════ ELGAMAL ═══════════════════════ */}
         {activeTab === "elgamal" && (
           <div>
-            <h2 className="text-2xl font-bold text-ink mb-8 text-center">ElGamal End-to-End Verifiable Encryption</h2>
+            <h2 className="font-display text-2xl font-bold text-ink mb-8 text-center">ElGamal End-to-End Verifiable Encryption</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div>
                 <div className="code-panel rounded-2xl p-6 mb-6 font-mono text-sm">
@@ -159,7 +159,7 @@ const Security = () => {
                   </div>
                 </div>
                 <div className="bg-sage-soft border border-aurora/30 rounded-2xl p-5">
-                  <h3 className="font-bold text-green-900 mb-3">Tracking Code Generation</h3>
+                  <h3 className="font-bold text-aurora-muted mb-3">Tracking Code Generation</h3>
                   <p className="text-aurora-muted text-sm">Each encrypted ballot receives a unique tracking code = SHA-256(concatenation of all ciphertext pairs). Voters can confirm their code appears on the public bulletin board after election closes.</p>
                 </div>
               </div>
@@ -170,7 +170,7 @@ const Security = () => {
         {/* ═══════════════════════ POST-QUANTUM ═══════════════════════ */}
         {activeTab === "postquantum" && (
           <div>
-            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Post-Quantum Cryptography — ML-KEM-1024</h2>
+            <h2 className="font-display text-2xl font-bold text-ink mb-8 text-center">Post-Quantum Cryptography — ML-KEM-1024</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-8">
               <div>
                 <div className="code-panel rounded-2xl p-6 font-mono text-xs text-dusk-soft mb-4">
@@ -246,13 +246,13 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
         {/* ═══════════════════════ ZK PROOFS ═══════════════════════ */}
         {activeTab === "zkproofs" && (
           <div>
-            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Zero-Knowledge Proofs</h2>
+            <h2 className="font-display text-2xl font-bold text-ink mb-8 text-center">Zero-Knowledge Proofs</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div>
                 <h3 className="text-xl font-bold text-ink mb-4">Schnorr Proof — Ballot Validity</h3>
                 <div className="bg-frost border border-ink/10 rounded-2xl p-5 mb-6 text-sm text-dusk">
                   <p className="mb-3">Every ballot selection carries a Schnorr σ-protocol proof that the encrypted value is either 0 or 1 — without revealing which. This ensures voters cannot encrypt values like 5 (stuffing) while preserving ballot secrecy.</p>
-                  <div className="code-panel text-green-300 rounded-xl p-4 font-mono text-xs">
+                  <div className="code-panel text-aurora rounded-xl p-4 font-mono text-xs">
                     <div className="text-dusk mb-2">// Disjunctive Schnorr proof (OR-composition)</div>
                     <div>Proves: m ∈ {"{0, 1}"} without revealing m</div>
                     <div className="mt-2">Prover knows: ξ (encryption nonce), m ∈ {"{0, 1}"}</div>
@@ -265,7 +265,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                 <h3 className="text-xl font-bold text-ink mb-4">Chaum-Pedersen Proof — Decryption Correctness</h3>
                 <div className="bg-frost border border-ink/10 rounded-2xl p-5 text-sm text-dusk">
                   <p className="mb-3">Each guardian's partial decryption M_i = A^s_i comes with a Chaum-Pedersen proof proving they used the correct secret key — without revealing s_i. This is what makes decryption independently verifiable.</p>
-                  <div className="code-panel text-green-300 rounded-xl p-4 font-mono text-xs">
+                  <div className="code-panel text-aurora rounded-xl p-4 font-mono text-xs">
                     <div className="text-dusk mb-2">// Chaum-Pedersen discrete log equality proof</div>
                     <div>Proves: DL_g(K_i) == DL_A(M_i)</div>
                     <div>I.e.: log_g(K_i) == log_A(M_i) == s_i</div>
@@ -281,7 +281,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
               </div>
               <div>
                 <div className="bg-sage-soft border border-aurora/30 rounded-2xl p-5 mb-6">
-                  <h3 className="font-bold text-green-900 mb-4">What Voters Can Verify</h3>
+                  <h3 className="font-bold text-aurora-muted mb-4">What Voters Can Verify</h3>
                   <div className="space-y-3 text-sm">
                     {[
                       ["Ballot was recorded", "Tracking code appears on public bulletin board"],
@@ -291,9 +291,9 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       ["Ballot was valid", "Schnorr proof verifies selection ∈ {0,1}"],
                       ["Result is correct", "Discrete log of final decryption matches announced tally"],
                     ].map(([claim, how]) => (
-                      <div key={claim} className="flex items-start bg-paper rounded-lg p-3 border border-green-100">
+                      <div key={claim} className="flex items-start bg-paper rounded-lg p-3 border border-aurora/25">
                         <span className="text-sage mr-2 flex-shrink-0">✓</span>
-                        <div><strong className="text-green-900">{claim}:</strong> <span className="text-aurora-muted">{how}</span></div>
+                        <div><strong className="text-aurora-muted">{claim}:</strong> <span className="text-aurora-muted">{how}</span></div>
                       </div>
                     ))}
                   </div>
@@ -323,7 +323,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
         {/* ═══════════════════════ BENALOH ═══════════════════════ */}
         {activeTab === "benaloh" && (
           <div>
-            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Benaloh Challenge — Cast-or-Spoil Protocol</h2>
+            <h2 className="font-display text-2xl font-bold text-ink mb-8 text-center">Benaloh Challenge — Cast-or-Spoil Protocol</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div>
                 <div className="bg-ceremonial-soft border border-ceremonial/40 rounded-2xl p-5 mb-6">
@@ -396,7 +396,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
         {/* ═══════════════════════ AUTH ═══════════════════════ */}
         {activeTab === "auth" && (
           <div>
-            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Authentication & Access Control</h2>
+            <h2 className="font-display text-2xl font-bold text-ink mb-8 text-center">Authentication & Access Control</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="space-y-5">
                 <div className="bg-paper border border-ink/10 rounded-2xl p-5">
@@ -422,8 +422,8 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                   <div className="code-panel rounded-xl p-4 font-mono text-xs text-dusk-soft mb-3">
                     <div className="text-ceremonial">// JWT Payload</div>
                     <div>{`{`}</div>
-                    <div>  <span className="text-brand-light">"sub"</span>: <span className="text-green-300">"user@example.com"</span>,</div>
-                    <div>  <span className="text-brand-light">"role"</span>: <span className="text-green-300">"VOTER" | "GUARDIAN" | "ADMIN"</span>,</div>
+                    <div>  <span className="text-brand-light">"sub"</span>: <span className="text-aurora">"user@example.com"</span>,</div>
+                    <div>  <span className="text-brand-light">"role"</span>: <span className="text-aurora">"VOTER" | "GUARDIAN" | "ADMIN"</span>,</div>
                     <div>  <span className="text-brand-light">"iat"</span>: <span className="text-ceremonial">1704067200</span>,</div>
                     <div>  <span className="text-brand-light">"exp"</span>: <span className="text-ceremonial">1704672000</span> <span className="text-dusk">// iat + 7 days</span></div>
                     <div>{`}`}</div>
@@ -451,7 +451,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                       <div key={role} className="bg-frost rounded-xl p-4 border border-ink/10">
                         <div className="font-bold text-ink mb-2 font-mono">{role}</div>
                         <ul className="space-y-1 mb-2">
-                          {perms.map((p) => <li key={p} className="text-sm text-dusk flex items-start"><span className="mr-1.5 text-green-500">✓</span>{p}</li>)}
+                          {perms.map((p) => <li key={p} className="text-sm text-dusk flex items-start"><span className="mr-1.5 text-aurora">✓</span>{p}</li>)}
                         </ul>
                         <div className="flex flex-wrap gap-1">
                           {endpoints.map((e) => <span key={e} className="px-2 py-0.5 bg-glacier text-brand-dark rounded font-mono text-xs">{e}</span>)}
@@ -468,7 +468,7 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
         {/* ═══════════════════════ TRANSPORT ═══════════════════════ */}
         {activeTab === "transport" && (
           <div>
-            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Ballot Transport Security</h2>
+            <h2 className="font-display text-2xl font-bold text-ink mb-8 text-center">Ballot Transport Security</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
               <div className="space-y-6">
                 <div className="bg-paper border border-ink/10 rounded-2xl p-5">
@@ -479,8 +479,8 @@ tag = HMAC_SHA256(aes_key, ciphertext_kem + iv
                     <div className="text-ember">POST /ballot &#123; size: 1024 &#125;  → "Candidate A" (small)</div>
                     <div className="text-ember">POST /ballot &#123; size: 2048 &#125;  → "Candidate B" (large)</div>
                     <div className="mt-3 text-aurora">// With PKCS#7 padding (SAFE):</div>
-                    <div className="text-green-300">POST /ballot &#123; size: 65536 &#125; → any candidate</div>
-                    <div className="text-green-300">POST /ballot &#123; size: 65536 &#125; → any candidate</div>
+                    <div className="text-aurora">POST /ballot &#123; size: 65536 &#125; → any candidate</div>
+                    <div className="text-aurora">POST /ballot &#123; size: 65536 &#125; → any candidate</div>
                     <div className="mt-2 text-dusk">// Attacker cannot distinguish between choices</div>
                   </div>
                 </div>

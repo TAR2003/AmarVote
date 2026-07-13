@@ -744,7 +744,7 @@ const AuthenticatedUsers = () => {
             </div>
 
             <div className="hidden md:block overflow-x-auto rounded-2xl border border-ink/10">
-              <table className="min-w-full divide-y divide-slate-200">
+              <table className="min-w-full divide-y divide-ink/10">
                 <thead className="bg-frost">
                   <tr>
                     {canManage ? (
@@ -854,7 +854,7 @@ const AuthenticatedUsers = () => {
                 </div>
 
                 <div className="hidden md:block overflow-x-auto rounded-2xl border border-ink/10">
-                  <table className="min-w-full divide-y divide-slate-200">
+                  <table className="min-w-full divide-y divide-ink/10">
                     <thead className="bg-frost">
                       <tr>
                         <th className="px-4 py-3 text-left text-xs font-semibold text-dusk uppercase tracking-wide">Time</th>

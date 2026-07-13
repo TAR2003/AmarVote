@@ -1,6 +1,8 @@
 import React, { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Layout from "./Layout";
+import BrandMark from "../components/BrandMark";
+import PasswordInput from "../components/PasswordInput";
 import { readAuthResponse, resolveAuthErrorMessage } from "../utils/authApi";
 import { getApiErrorMessage } from "../utils/httpErrors";
 
@@ -33,7 +35,6 @@ export default function AdminLogin({ setUserEmail }) {
         );
       }
 
-      // Success - set user email as "admin" and navigate to logs
       if (setUserEmail) setUserEmail("admin");
       navigate("/api-logs");
     } catch (err) {
@@ -45,119 +46,81 @@ export default function AdminLogin({ setUserEmail }) {
 
   return (
     <Layout>
-      <div className="min-h-[calc(100vh-64px)] flex items-center justify-center bg-gradient-to-br from-gray-50 to-gray-100 py-12 px-4 sm:px-6 lg:px-8">
-        <div className="w-full max-w-md space-y-8">
-          {/* Header */}
-          <div className="text-center">
-            <span className="text-5xl">🔒</span>
-            <h2 className="mt-6 text-3xl font-extrabold text-ink">
-              Admin Access
-            </h2>
+      <div className="relative flex min-h-[calc(100dvh-4rem)] items-center justify-center overflow-hidden bg-frost-mesh px-4 py-10 sm:py-14">
+        <div className="pointer-events-none absolute -left-24 top-20 h-64 w-64 rounded-full bg-brand/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-16 bottom-16 h-72 w-72 rounded-full bg-brand-light/15 blur-3xl" />
+
+        <div className="glass-panel relative z-10 mx-auto w-full max-w-md p-6 sm:p-8 animate-fade-up">
+          <div className="mb-7 text-center">
+            <div className="mb-4 flex justify-center">
+              <BrandMark size="lg" className="shadow-brand" />
+            </div>
+            <p className="section-kicker">Operations</p>
+            <h1 className="mt-2 font-display text-2xl font-bold text-deep sm:text-3xl">
+              Admin access
+            </h1>
             <p className="mt-2 text-sm text-dusk">
-              Login to view API logs and system analytics
+              Sign in to view API logs and system analytics.
             </p>
           </div>
 
-          {/* Error Message */}
           {error && (
-            <div className="rounded-md bg-ember-soft p-4 border-l-4 border-red-500">
-              <div className="flex">
-                <div className="flex-shrink-0">
-                  <span className="text-ember">✗</span>
-                </div>
-                <div className="ml-3">
-                  <p className="text-sm text-ember">{error}</p>
-                </div>
-              </div>
+            <div
+              className="mb-4 rounded-xl border border-ember/30 bg-ember-soft px-4 py-3 text-sm text-ember"
+              role="alert"
+            >
+              {error}
             </div>
           )}
 
-          {/* Login Form */}
-          <div className="bg-paper py-8 px-6 shadow rounded-lg sm:px-10 border border-ink/10">
-            <form className="space-y-6" onSubmit={handleLogin}>
-              <div>
-                <label
-                  htmlFor="username"
-                  className="block text-sm font-medium text-dusk"
-                >
-                  Username
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="username"
-                    name="username"
-                    type="text"
-                    required
-                    value={username}
-                    onChange={(e) => setUsername(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-ink/15 rounded-md shadow-sm placeholder:text-dusk focus:outline-none focus:ring-brand focus:border-brand sm:text-sm"
-                    placeholder="admin"
-                  />
-                </div>
-              </div>
+          <form className="space-y-4" onSubmit={handleLogin}>
+            <div>
+              <label
+                htmlFor="username"
+                className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-dusk"
+              >
+                Username
+              </label>
+              <input
+                id="username"
+                name="username"
+                type="text"
+                required
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                className="input-field"
+                placeholder="admin"
+                autoComplete="username"
+              />
+            </div>
 
-              <div>
-                <label
-                  htmlFor="password"
-                  className="block text-sm font-medium text-dusk"
-                >
-                  Password
-                </label>
-                <div className="mt-1">
-                  <input
-                    id="password"
-                    name="password"
-                    type="password"
-                    required
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="appearance-none block w-full px-3 py-2 border border-ink/15 rounded-md shadow-sm placeholder:text-dusk focus:outline-none focus:ring-brand focus:border-brand sm:text-sm"
-                    placeholder="Enter admin password"
-                  />
-                </div>
-              </div>
+            <div>
+              <label
+                htmlFor="admin-password"
+                className="mb-1.5 block text-xs font-semibold uppercase tracking-wide text-dusk"
+              >
+                Password
+              </label>
+              <PasswordInput
+                id="admin-password"
+                name="password"
+                required
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter admin password"
+                autoComplete="current-password"
+                showRequirements={false}
+                showValidation={false}
+              />
+            </div>
 
-              <div>
-                <button
-                  type="submit"
-                  disabled={loading}
-                  className="w-full flex justify-center py-2 px-4 border border-transparent rounded-md shadow-sm text-sm font-medium text-paper bg-brand-dark hover:bg-brand focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-brand disabled:bg-brand-soft disabled:text-dusk disabled:cursor-not-allowed"
-                >
-                  {loading ? (
-                    <span className="flex items-center">
-                      <svg
-                        className="animate-spin -ml-1 mr-3 h-5 w-5 text-paper"
-                        xmlns="http://www.w3.org/2000/svg"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                      >
-                        <circle
-                          className="opacity-25"
-                          cx="12"
-                          cy="12"
-                          r="10"
-                          stroke="currentColor"
-                          strokeWidth="4"
-                        ></circle>
-                        <path
-                          className="opacity-75"
-                          fill="currentColor"
-                          d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                        ></path>
-                      </svg>
-                      Signing in...
-                    </span>
-                  ) : (
-                    "Sign In"
-                  )}
-                </button>
-              </div>
-            </form>
-          </div>
+            <button type="submit" disabled={loading} className="btn-brand w-full">
+              {loading ? "Signing in…" : "Sign in"}
+            </button>
+          </form>
 
-          {/* Help text */}
-          <p className="text-center text-xs text-dusk">
-            Only authorized administrators can access this area
+          <p className="mt-6 text-center text-xs text-dusk">
+            Only authorized administrators can access this area.
           </p>
         </div>
       </div>

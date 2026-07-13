@@ -211,7 +211,7 @@ const ImageUpload = ({
             ? 'border-brand bg-glacier' 
             : preview 
               ? 'border-ink/10 bg-frost' 
-              : 'border-ink/15 hover:border-gray-400'
+              : 'border-ink/15 hover:border-dusk-soft'
           }
           ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}
           ${uploading ? 'pointer-events-none' : ''}

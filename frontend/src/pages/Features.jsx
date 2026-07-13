@@ -10,13 +10,13 @@ const FeatureCard = ({ icon, title, items, color }) => {
     orange: "bg-ceremonial-soft border-ceremonial/40",
     red: "bg-ember-soft border-ember/30",
     indigo: "bg-glacier border-brand/25",
-    teal: "bg-teal-50 border-teal-200",
+    teal: "bg-sage-soft border-aurora/30",
     amber: "bg-ceremonial-soft border-ceremonial/40",
   };
   const headColors = {
     blue: "text-ink", green: "text-aurora-muted",
     orange: "text-ink", red: "text-ember", indigo: "text-ink",
-    teal: "text-teal-800", amber: "text-ink",
+    teal: "text-aurora-muted", amber: "text-ink",
   };
   return (
     <div className={`rounded-2xl border p-5 ${colors[color]}`}>
@@ -121,7 +121,7 @@ function Features() {
               <h3 className="text-aurora font-bold font-mono mb-4">// Full Cryptographic Specification</h3>
               <table className="w-full font-mono text-xs text-dusk-soft">
                 <thead>
-                  <tr className="text-dusk border-b border-gray-700">
+                  <tr className="text-dusk border-b border-white/15">
                     <th className="text-left pb-2">Algorithm</th>
                     <th className="text-left pb-2">Key Size / Params</th>
                     <th className="text-left pb-2">Standard</th>
@@ -143,7 +143,7 @@ function Features() {
                     ["msgpack", "binary encoding", "MessagePack spec", "10–50× compact vs JSON"],
                     ["Audit metadata signatures", "SHA-256 + signed payload", "Internal verification profile", "Supplementary transparency records"],
                   ].map(([algo, key, std, purpose]) => (
-                    <tr key={algo} className="border-b border-gray-800">
+                    <tr key={algo} className="border-b border-white/10">
                       <td className="py-1.5 pr-4 text-brand-light font-bold">{algo}</td>
                       <td className="py-1.5 pr-4 text-ceremonial">{key}</td>
                       <td className="py-1.5 pr-4 text-dusk">{std}</td>

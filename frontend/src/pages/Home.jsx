@@ -74,7 +74,7 @@ const Home = () => {
 
         <div className="relative z-10 mx-auto flex max-w-5xl flex-col items-center text-center">
           <div className="mb-8 animate-float">
-            <BrandMark size="xl" className="shadow-brand ring-4 ring-white/10" />
+            <BrandMark size="xl" className="shadow-brand ring-4 ring-paper/10" />
           </div>
 
           <p className="font-display text-5xl font-extrabold tracking-tight text-paper animate-fade-up sm:text-7xl lg:text-8xl">

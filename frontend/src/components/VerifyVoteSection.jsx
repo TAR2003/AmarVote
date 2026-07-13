@@ -368,25 +368,25 @@ export default function VerifyVoteSection({ electionId }) {
 
       {fileParseError && (
         <div
-          className="rounded-2xl border-4 border-amber-500 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 p-5 shadow-[0_0_0_4px_rgba(245,158,11,0.2)] sm:p-6"
+          className="rounded-2xl border-4 border-ceremonial bg-gradient-to-br from-ceremonial-soft via-frost to-ceremonial-soft p-5 shadow-[0_0_0_4px_rgba(212,165,72,0.25)] sm:p-6"
           role="alert"
           aria-live="assertive"
         >
           <div className="flex items-start gap-4">
-            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/40">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-ceremonial text-paper shadow-lg shadow-ceremonial/40">
               <FiAlertCircle className="h-8 w-8" strokeWidth={2.5} aria-hidden />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-800">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-ink">
                 Could not detect receipt
               </p>
-              <h4 className="mt-1 font-display text-xl font-bold text-amber-900 sm:text-2xl">
+              <h4 className="mt-1 font-display text-xl font-bold text-ink sm:text-2xl">
                 This file is not a ballot receipt
               </h4>
-              <p className="mt-2 text-base font-medium leading-relaxed text-amber-950">
+              <p className="mt-2 text-base font-medium leading-relaxed text-ink">
                 {fileParseError}
               </p>
-              <p className="mt-3 text-sm text-amber-900/80">
+              <p className="mt-3 text-sm text-ink/80">
                 Look for a receipt that includes both a <strong>Tracking Code</strong> and a{' '}
                 <strong>Vote Hash</strong> section, then upload that file instead.
               </p>
@@ -409,11 +409,11 @@ export default function VerifyVoteSection({ electionId }) {
         <div
           className={
             isVerifiedSuccess
-              ? 'rounded-2xl border-4 border-green-500 bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 p-6 shadow-[0_0_0_4px_rgba(34,197,94,0.2)] sm:p-8'
+              ? 'rounded-2xl border-4 border-aurora bg-gradient-to-br from-sage-soft via-frost to-aurora-soft p-6 shadow-[0_0_0_4px_rgba(63,199,184,0.25)] sm:p-8'
               : isMismatch
-                ? 'rounded-2xl border-4 border-amber-500 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 p-6 shadow-[0_0_0_4px_rgba(245,158,11,0.2)] sm:p-8'
+                ? 'rounded-2xl border-4 border-ceremonial bg-gradient-to-br from-ceremonial-soft via-frost to-ceremonial-soft p-6 shadow-[0_0_0_4px_rgba(212,165,72,0.25)] sm:p-8'
                 : isNotFoundOrError
-                  ? 'rounded-2xl border-4 border-red-500 bg-gradient-to-br from-red-50 via-rose-50 to-red-100 p-6 shadow-[0_0_0_4px_rgba(239,68,68,0.2)] sm:p-8'
+                  ? 'rounded-2xl border-4 border-ember bg-gradient-to-br from-ember-soft via-frost to-ember-soft p-6 shadow-[0_0_0_4px_rgba(217,97,79,0.25)] sm:p-8'
                   : 'rounded-2xl border p-5 sm:p-6 border-ink/20 bg-frost'
           }
           role="status"
@@ -422,15 +422,15 @@ export default function VerifyVoteSection({ electionId }) {
           <div className="flex items-start gap-4 sm:gap-5">
             {Icon && (
               isVerifiedSuccess ? (
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-green-500 text-white shadow-lg shadow-green-500/40 sm:h-20 sm:w-20">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-aurora text-paper shadow-lg shadow-aurora/40 sm:h-20 sm:w-20">
                   <Icon className="h-9 w-9 sm:h-10 sm:w-10" strokeWidth={3} aria-hidden />
                 </div>
               ) : isMismatch ? (
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/40 sm:h-20 sm:w-20">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-ceremonial text-paper shadow-lg shadow-ceremonial/40 sm:h-20 sm:w-20">
                   <Icon className="h-9 w-9 sm:h-10 sm:w-10" strokeWidth={3} aria-hidden />
                 </div>
               ) : (
-                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-red-500 text-white shadow-lg shadow-red-500/40 sm:h-20 sm:w-20">
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-ember text-paper shadow-lg shadow-ember/40 sm:h-20 sm:w-20">
                   <Icon className="h-9 w-9 sm:h-10 sm:w-10" strokeWidth={3} aria-hidden />
                 </div>
               )
@@ -438,7 +438,7 @@ export default function VerifyVoteSection({ electionId }) {
             <div className="min-w-0 flex-1">
               <p
                 className={`text-[11px] font-bold uppercase tracking-[0.2em] ${
-                  isVerifiedSuccess ? 'text-green-700' : isMismatch ? 'text-amber-800' : 'text-red-700'
+                  isVerifiedSuccess ? 'text-aurora-muted' : isMismatch ? 'text-ink' : 'text-ember'
                 }`}
               >
                 {isVerifiedSuccess ? 'Verification passed' : isMismatch ? 'Hash mismatch' : 'Verification failed'}
@@ -446,17 +446,17 @@ export default function VerifyVoteSection({ electionId }) {
               <h4
                 className={
                   isVerifiedSuccess
-                    ? 'mt-1 font-display text-2xl font-bold text-green-800 sm:text-3xl'
+                    ? 'mt-1 font-display text-2xl font-bold text-aurora-muted sm:text-3xl'
                     : isMismatch
-                      ? 'mt-1 font-display text-2xl font-bold text-amber-900 sm:text-3xl'
-                      : 'mt-1 font-display text-2xl font-bold text-red-800 sm:text-3xl'
+                      ? 'mt-1 font-display text-2xl font-bold text-ink sm:text-3xl'
+                      : 'mt-1 font-display text-2xl font-bold text-ember sm:text-3xl'
                 }
               >
                 {statusDisplay.title}
               </h4>
               <p
                 className={`mt-2 text-base leading-relaxed ${
-                  isVerifiedSuccess ? 'font-medium text-green-900' : isMismatch ? 'font-medium text-amber-950' : 'font-medium text-red-900'
+                  isVerifiedSuccess ? 'font-medium text-aurora-muted' : isMismatch ? 'font-medium text-ink' : 'font-medium text-ember'
                 }`}
               >
                 {statusDisplay.description}
@@ -466,8 +466,8 @@ export default function VerifyVoteSection({ electionId }) {
                 <div
                   className={`mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-base font-bold ${
                     isVerifiedSuccess
-                      ? 'bg-green-500 text-white shadow-md shadow-green-500/30'
-                      : 'bg-amber-500 text-white shadow-md'
+                      ? 'bg-aurora text-paper shadow-md shadow-aurora/30'
+                      : 'bg-ceremonial text-paper shadow-md'
                   }`}
                 >
                   <FiCheck className="h-5 w-5" strokeWidth={3} aria-hidden />
@@ -479,10 +479,10 @@ export default function VerifyVoteSection({ electionId }) {
                 <div
                   className={`mt-4 space-y-2 rounded-xl border-2 p-4 text-sm ${
                     isVerifiedSuccess
-                      ? 'border-green-400 bg-white/80'
+                      ? 'border-aurora bg-paper/80'
                       : isMismatch
-                        ? 'border-amber-400 bg-white/80'
-                        : 'border-red-300 bg-white/80'
+                        ? 'border-ceremonial bg-paper/80'
+                        : 'border-ember/40 bg-paper/80'
                   }`}
                 >
                   <div>
@@ -516,20 +516,20 @@ export default function VerifyVoteSection({ electionId }) {
         <p className="font-display font-semibold text-deep">Result meanings</p>
         <ul className="mt-2 space-y-2">
           <li className="flex gap-2">
-            <FiCheck className="mt-0.5 h-4 w-4 shrink-0 text-green-600" aria-hidden />
+            <FiCheck className="mt-0.5 h-4 w-4 shrink-0 text-aurora" aria-hidden />
             <span>
               <strong className="text-deep">Included:</strong> tracking code and hash match the
               published tally.
             </span>
           </li>
           <li className="flex gap-2">
-            <FiAlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
+            <FiAlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-ceremonial" aria-hidden />
             <span>
               <strong className="text-deep">Hash mismatch:</strong> code found, hash does not match.
             </span>
           </li>
           <li className="flex gap-2">
-            <FiX className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden />
+            <FiX className="mt-0.5 h-4 w-4 shrink-0 text-ember" aria-hidden />
             <span>
               <strong className="text-deep">Not found:</strong> tracking code absent from the tally.
             </span>

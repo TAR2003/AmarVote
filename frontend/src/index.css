@@ -188,12 +188,13 @@
     @apply font-medium text-brand-dark transition hover:text-brand;
   }
 
+  /* Official SVG already paints the violet tile — keep size + soft edge only */
   .brand-mark {
-    @apply flex shrink-0 items-center justify-center rounded-xl bg-brand-glow text-paper shadow-soft;
+    @apply shrink-0 rounded-[22%] object-contain shadow-soft;
   }
 
   .brand-mark-light {
-    @apply bg-paper/15 text-paper ring-1 ring-white/20;
+    @apply ring-1 ring-white/25 shadow-brand;
   }
 
   .brand-wordmark {

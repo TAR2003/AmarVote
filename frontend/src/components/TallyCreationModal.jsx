@@ -260,7 +260,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
         <div className="text-center py-8">
           {/* Lock Metadata Display */}
           {status.isLocked && status.lockHeldBy && (
-            <div className="bg-ceremonial-soft border-l-4 border-amber-500 rounded-2xl p-4 mb-6 text-left shadow-sm">
+            <div className="bg-ceremonial-soft border-l-4 border-ceremonial rounded-2xl p-4 mb-6 text-left shadow-sm">
               <div className="flex items-start gap-3">
                 <div className="text-2xl"></div>
                 <div className="flex-1">
@@ -360,7 +360,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
       return (
         <div className="text-center py-8">
           <div className="mb-6">
-            <FiAlertCircle className="h-16 w-16 text-amber-500 mx-auto" />
+            <FiAlertCircle className="h-16 w-16 text-ceremonial mx-auto" />
           </div>
           <h3 className="text-xl font-semibold text-deep mb-4">
             Tally Creation Stopped
@@ -399,7 +399,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
       return (
         <div className="text-center py-8">
           <div className="mb-6 flex justify-center">
-            <FiCheckCircle className="h-16 w-16 text-green-500" />
+            <FiCheckCircle className="h-16 w-16 text-aurora" />
           </div>
           <h3 className="text-xl font-semibold text-deep mb-4 text-center">
             Tally Created Successfully!

@@ -16,7 +16,7 @@ const ServiceCard = ({ icon, name, color, tags, description }) => {
     blue: "border-brand/20 bg-glacier",
     green: "border-aurora/30 bg-sage-soft",
     orange: "border-ceremonial/40 bg-ceremonial-soft",
-    teal: "border-teal-200 bg-teal-50",
+    teal: "border-aurora/30 bg-sage-soft",
     indigo: "border-brand/25 bg-glacier",
     red: "border-ember/30 bg-ember-soft",
     gray: "border-ink/10 bg-frost",
@@ -25,7 +25,7 @@ const ServiceCard = ({ icon, name, color, tags, description }) => {
     blue: "bg-glacier text-brand-dark",
     green: "bg-sage-soft text-sage",
     orange: "bg-ceremonial-soft text-ink",
-    teal: "bg-teal-100 text-teal-700",
+    teal: "bg-sage-soft text-aurora-muted",
     indigo: "bg-glacier text-ink",
     red: "bg-ember-soft text-ember",
     gray: "bg-frost text-dusk",
@@ -89,7 +89,7 @@ function About() {
         {tab === "overview" && (
           <div className="space-y-10">
             <div className="text-center max-w-3xl mx-auto">
-              <h2 className="text-2xl font-bold text-ink mb-3">What is AmarVote?</h2>
+              <h2 className="font-display text-2xl font-bold text-ink mb-3">What is AmarVote?</h2>
               <p className="text-dusk leading-relaxed">
                 AmarVote is a fully self-hosted, end-to-end verifiable e-voting platform. Every ballot is encrypted by
                 ElectionGuard&apos;s ElGamal scheme under the election&apos;s joint public key before it is recorded as a cast
@@ -229,7 +229,7 @@ function About() {
                     <TRow label="Prometheus" value="latest" sub="Metrics scraping (optional monitoring)" />
                     <TRow label="Grafana" value="latest" sub="Dashboard visualization (optional monitoring)" />
 
-                    <tr className="bg-teal-50"><td colSpan={3} className="px-4 py-2 text-xs font-bold text-teal-700 uppercase tracking-wider">Optional Services</td></tr>
+                    <tr className="bg-sage-soft"><td colSpan={3} className="px-4 py-2 text-xs font-bold text-aurora-muted uppercase tracking-wider">Optional Services</td></tr>
                     <TRow label="LangChain" value="0.3.x" sub="RAG chatbot orchestration" />
                     <TRow label="ChromaDB" value="0.6.x" sub="Vector store for documentation search" />
                     <TRow label="DeepSeek" value="API" sub="LLM for RAG chatbot responses" />
@@ -377,7 +377,7 @@ function About() {
         {tab === "team" && (
           <div className="space-y-8">
             <div className="text-center max-w-2xl mx-auto">
-              <h2 className="text-2xl font-bold text-ink mb-3">Project Context</h2>
+              <h2 className="font-display text-2xl font-bold text-ink mb-3">Project Context</h2>
               <p className="text-dusk">AmarVote was built as a comprehensive demonstration of end-to-end verifiable voting using open-source cryptographic standards. The implementation follows the ElectionGuard 2.x specification published by Microsoft Research.</p>
             </div>
 
@@ -440,7 +440,7 @@ function About() {
         )}
 
         {/* Bottom CTA */}
-        <div className="mt-12 bg-gradient-to-r from-gray-900 to-deep rounded-2xl p-8">
+        <div className="mt-12 bg-gradient-to-r from-deep to-deep-soft rounded-2xl p-8">
           <div className="flex flex-col md:flex-row items-center justify-between gap-6">
             <div>
               <h2 className="text-xl font-bold text-paper mb-2">Explore the full platform</h2>

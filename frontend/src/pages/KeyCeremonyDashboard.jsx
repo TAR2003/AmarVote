@@ -484,7 +484,7 @@ export default function KeyCeremonyDashboard() {
                       const form = guardianForm[item.electionId] || {};
                       const keysReady = !!form.credentialsGenerated || !!(form.privateKey && form.publicKey && form.polynomial);
                       const passwordReady = !!form.passwordGenerated || !!form.localEncryptionPassword;
-                      const successBorder = 'border-2 border-green-500 ring-1 ring-green-500/30';
+                      const successBorder = 'border-2 border-aurora ring-1 ring-aurora/30';
                       return (
                     <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
@@ -628,7 +628,7 @@ export default function KeyCeremonyDashboard() {
             {adminPendingElections.map((e) => {
               const status = adminStatus[e.electionId];
               return (
-                <div key={e.electionId} className="border rounded-xl p-4 space-y-4 bg-gradient-to-br from-white to-slate-50">
+                <div key={e.electionId} className="border rounded-xl p-4 space-y-4 bg-gradient-to-br from-paper to-glacier">
                   <div className="font-medium">{e.electionTitle}</div>
                   <div className="text-sm text-dusk mb-2">
                     {status ? `${status.submittedGuardians}/${status.totalGuardians} submitted` : 'Loading status...'}

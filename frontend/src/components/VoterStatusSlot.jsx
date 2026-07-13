@@ -19,7 +19,7 @@ const VARIANT_STYLES = {
   error: {
     container: 'border-ember/30 bg-ember-soft',
     icon: 'text-ember',
-    title: 'text-red-900',
+    title: 'text-ember',
     message: 'text-ember',
     Icon: FiAlertCircle,
   },

@@ -159,7 +159,7 @@ const ProcessControlPanel = ({
               type="button"
               disabled={!!busy}
               onClick={() => requestAction('deleteDec', () => electionApi.deleteGuardianDecryption(electionId, activeGuardianId), 'Decryption data removed')}
-              className="rounded-xl border border-red-600 px-3 py-1.5 text-xs font-medium text-ember hover:bg-ember-soft disabled:opacity-50"
+              className="rounded-xl border border-ember px-3 py-1.5 text-xs font-medium text-ember hover:bg-ember-soft disabled:opacity-50"
             >
               {busy === 'deleteDec' ? 'Deleting…' : 'Delete Guardian Decryption'}
             </button>

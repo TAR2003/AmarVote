@@ -13,7 +13,6 @@ describe.skip("Home Component", () => {
     render(<Home />, { wrapper: RouterWrapper });
     
     expect(screen.getByText("AmarVote")).toBeInTheDocument();
-    expect(screen.getByText("🗳️")).toBeInTheDocument();
   });
 
   it("renders navigation links", () => {
@@ -39,9 +38,8 @@ describe.skip("Home Component", () => {
   it("renders with proper styling classes", () => {
     const { container } = render(<Home />, { wrapper: RouterWrapper });
     
-    // Check if main container has the expected classes
     const mainDiv = container.firstChild;
-    expect(mainDiv).toHaveClass("min-h-screen", "bg-gradient-to-br", "from-gray-50", "to-blue-50");
+    expect(mainDiv).toHaveClass("app-shell");
   });
 
   it("has accessible navigation structure", () => {
@@ -49,6 +47,5 @@ describe.skip("Home Component", () => {
     
     const nav = screen.getByRole("navigation");
     expect(nav).toBeInTheDocument();
-    expect(nav).toHaveClass("fixed", "w-full", "bg-paper", "shadow-sm", "z-50");
   });
 });

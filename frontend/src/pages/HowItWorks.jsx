@@ -376,7 +376,7 @@ A^v · M_ic^challenge == commitment_b // ✓?
                   color === "green" ? "border-aurora/30 text-sage hover:bg-sage-soft" :
                   color === "orange" ? "border-ceremonial/40 text-ink hover:bg-ceremonial-soft" :
                   color === "indigo" ? "border-brand/25 text-ink hover:bg-glacier" :
-                  "border-teal-200 text-teal-700 hover:bg-teal-50"
+                  "border-aurora/30 text-aurora-muted hover:bg-sage-soft"
                 }`}>
                 {label}
               </button>

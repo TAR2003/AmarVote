@@ -3,6 +3,7 @@ import React, { useState, useEffect, useRef, useMemo } from "react";
 import { useNavigate } from "react-router-dom";
 import { deleteApiLogs } from "../utils/api";
 import { timezoneUtils } from "../utils/timezoneUtils";
+import BrandMark from "../components/BrandMark";
 
 // icons
 const Icon = ({ d, className = "w-5 h-5" }) => (
@@ -29,15 +30,15 @@ const ICONS = {
 };
 
 function formatDate(ds) {
-  if (!ds) return "�";
+  if (!ds) return "—";
   return timezoneUtils.formatDateTime(ds);
 }
 
 function methodColor(m) {
   return m === "GET"    ? "bg-glacier text-brand-dark ring-brand/20"
        : m === "POST"   ? "bg-sage-soft text-sage ring-sage/20"
-       : m === "PUT"    ? "bg-ceremonial-soft text-ink ring-amber-200"
-       : m === "DELETE" ? "bg-rose-100 text-ember ring-rose-200"
+       : m === "PUT"    ? "bg-ceremonial-soft text-ink ring-ceremonial/30"
+       : m === "DELETE" ? "bg-ember-soft text-ember ring-ember/30"
        : m === "PATCH"  ? "bg-frost text-ink ring-ink/10"
        : "bg-frost text-dusk ring-ink/10";
 }
@@ -46,8 +47,8 @@ function statusColor(s) {
   if (!s) return "bg-frost text-dusk";
   if (s >= 200 && s < 300) return "bg-sage-soft text-aurora-muted";
   if (s >= 300 && s < 400) return "bg-ceremonial-soft text-ink";
-  if (s >= 400 && s < 500) return "bg-rose-100 text-ember";
-  return "bg-red-200 text-ember";
+  if (s >= 400 && s < 500) return "bg-ember-soft text-ember";
+  return "bg-ember-soft text-ember";
 }
 
 function responseTimeColor(ms) {
@@ -305,7 +306,7 @@ export default function ApiLogs() {
   function getTabCount(tabId) {
     if (SERVER_VIEW_TABS.has(tabId)) {
       if (activeTab === tabId) return totalElements;
-      return tabTotals[tabId] ?? "�";
+      return tabTotals[tabId] ?? "—";
     }
     switch (tabId) {
       case "authenticated": return authenticatedLogs.length;
@@ -367,7 +368,7 @@ export default function ApiLogs() {
     { id: "all",           label: "All Requests",    icon: ICONS.chart,   color: "blue",    desc: "Every API call logged" },
     { id: "authenticated", label: "With Email",       icon: ICONS.mail,    color: "emerald", desc: "Requests from identified users" },
     { id: "anonymous",     label: "Anonymous",        icon: ICONS.user,    color: "amber",   desc: "Requests without user identity" },
-    { id: "invalid",       label: "Invalid / Expired",icon: ICONS.ban,     color: "rose",    desc: "401/403 � token invalid or expired" },
+    { id: "invalid",       label: "Invalid / Expired",icon: ICONS.ban,     color: "rose",    desc: "401/403 — token invalid or expired" },
     { id: "unique-email",  label: "Unique Email",     icon: ICONS.mail,    color: "indigo",  desc: "Latest request per email, paginated across all logs" },
     { id: "unique-ip",     label: "Unique IP",        icon: ICONS.globe,   color: "cyan",    desc: "Latest request per IP, paginated across all logs" },
     { id: "clusters",      label: "Clusters",         icon: ICONS.shield,  color: "slate",  desc: "Visit sessions grouped by IP + email" },
@@ -375,23 +376,23 @@ export default function ApiLogs() {
 
   const TAB_COLOR_MAP = {
     blue:    { active: "bg-brand-dark text-paper shadow-brand-200",     inactive: "text-brand hover:bg-glacier",     badge: "bg-glacier text-brand-dark" },
-    emerald: { active: "bg-aurora-muted text-paper shadow-emerald-200",inactive: "text-aurora-muted hover:bg-sage-soft",badge: "bg-sage-soft text-aurora-muted" },
-    amber:   { active: "bg-ceremonial text-ink shadow-amber-200",   inactive: "text-ink hover:bg-ceremonial-soft",   badge: "bg-ceremonial-soft text-ink" },
-    rose:    { active: "bg-ember text-paper shadow-rose-200",     inactive: "text-ember hover:bg-ember-soft",     badge: "bg-rose-100 text-ember" },
-    indigo:  { active: "bg-brand-dark text-paper shadow-indigo-200", inactive: "text-ink hover:bg-glacier", badge: "bg-glacier text-ink" },
-    cyan:    { active: "bg-cyan-600 text-paper shadow-cyan-200",     inactive: "text-aurora-muted hover:bg-sage-soft",     badge: "bg-cyan-100 text-aurora-muted" },
+    emerald: { active: "bg-aurora-muted text-paper shadow-aurora",inactive: "text-aurora-muted hover:bg-sage-soft",badge: "bg-sage-soft text-aurora-muted" },
+    amber:   { active: "bg-ceremonial text-ink shadow-soft",   inactive: "text-ink hover:bg-ceremonial-soft",   badge: "bg-ceremonial-soft text-ink" },
+    rose:    { active: "bg-ember text-paper shadow-soft",     inactive: "text-ember hover:bg-ember-soft",     badge: "bg-ember-soft text-ember" },
+    indigo:  { active: "bg-brand-dark text-paper shadow-brand", inactive: "text-ink hover:bg-glacier", badge: "bg-glacier text-ink" },
+    cyan:    { active: "bg-aurora-muted text-paper shadow-aurora",     inactive: "text-aurora-muted hover:bg-sage-soft",     badge: "bg-sage-soft text-aurora-muted" },
     slate:   { active: "bg-ink text-paper shadow-soft", inactive: "text-ink hover:bg-frost", badge: "bg-frost text-ink" },
   };
 
   const statCards = [
     { label: "Total Requests",    value: stats.totalLogs,              icon: ICONS.chart,   border: "border-brand",    bg: "bg-glacier",    iconColor: "text-brand" },
-    { label: "Error Requests",    value: stats.errorLogs,              icon: ICONS.warning, border: "border-rose-400",    bg: "bg-ember-soft",    iconColor: "text-rose-500" },
-    { label: "With Email",        value: authenticatedLogs.length,     icon: ICONS.mail,    border: "border-emerald-400", bg: "bg-sage-soft", iconColor: "text-emerald-500" },
-    { label: "Anonymous",         value: anonymousLogs.length,         icon: ICONS.user,    border: "border-amber-400",   bg: "bg-ceremonial-soft",   iconColor: "text-amber-500" },
-    { label: "Invalid / Expired", value: invalidLogs.length,           icon: ICONS.ban,     border: "border-rose-500",    bg: "bg-ember-soft",    iconColor: "text-ember" },
+    { label: "Error Requests",    value: stats.errorLogs,              icon: ICONS.warning, border: "border-ember",    bg: "bg-ember-soft",    iconColor: "text-ember" },
+    { label: "With Email",        value: authenticatedLogs.length,     icon: ICONS.mail,    border: "border-aurora", bg: "bg-sage-soft", iconColor: "text-aurora" },
+    { label: "Anonymous",         value: anonymousLogs.length,         icon: ICONS.user,    border: "border-ceremonial",   bg: "bg-ceremonial-soft",   iconColor: "text-ceremonial" },
+    { label: "Invalid / Expired", value: invalidLogs.length,           icon: ICONS.ban,     border: "border-ember",    bg: "bg-ember-soft",    iconColor: "text-ember" },
     { label: "Success Rate",
-      value: stats.totalLogs > 0 ? `${((stats.totalLogs - stats.errorLogs) / stats.totalLogs * 100).toFixed(1)}%` : "�",
-      icon: ICONS.shield, border: "border-teal-400", bg: "bg-teal-50", iconColor: "text-teal-500" },
+      value: stats.totalLogs > 0 ? `${((stats.totalLogs - stats.errorLogs) / stats.totalLogs * 100).toFixed(1)}%` : "—",
+      icon: ICONS.shield, border: "border-aurora", bg: "bg-sage-soft", iconColor: "text-aurora" },
   ];
 
   if (!accessChecked) {
@@ -433,15 +434,13 @@ export default function ApiLogs() {
             <div className="relative flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
             <div>
               <div className="flex items-center gap-3 mb-1">
-                <div className="w-11 h-11 bg-brand rounded-2xl flex items-center justify-center shadow-brand">
-                  <Icon d={ICONS.lock} className="w-5 h-5 text-paper" />
-                </div>
+                <BrandMark size="lg" className="shadow-brand" />
                 <div>
                   <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">Security observability</p>
                   <h1 className="font-display text-3xl font-bold text-paper">API Logs</h1>
                 </div>
               </div>
-              <p className="ml-14 mt-1 text-sm text-frost/75">Metadata-only access logs � No tokens or request bodies � 90-day retention</p>
+              <p className="ml-14 mt-1 text-sm text-frost/75">Metadata-only access logs — No tokens or request bodies — 90-day retention</p>
             </div>
 
             <div className="flex flex-wrap items-center gap-2">
@@ -473,7 +472,7 @@ export default function ApiLogs() {
                 className="btn-ghost flex items-center gap-2 border-white/20 bg-paper/10 text-paper hover:bg-paper/20 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 <Icon d={ICONS.download} className={`w-4 h-4 ${exporting ? "animate-pulse" : ""}`} />
-                {exporting ? "Exporting all�" : "Export CSV"}
+                {exporting ? "Exporting all…" : "Export CSV"}
               </button>
 
               <button
@@ -526,12 +525,12 @@ export default function ApiLogs() {
 
           {/* Tab contextual banner */}
           {activeTab === "invalid" && (
-            <div className="flex items-start gap-3 bg-ember-soft border border-rose-200 rounded-2xl px-5 py-4">
-              <div className="w-8 h-8 bg-rose-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+            <div className="flex items-start gap-3 bg-ember-soft border border-ember/30 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-ember-soft rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
                 <Icon d={ICONS.warning} className="w-4 h-4 text-ember" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-rose-800">Invalid / Expired Token Requests</p>
+                <p className="text-sm font-semibold text-ember">Invalid / Expired Token Requests</p>
                 <p className="text-xs text-ember mt-0.5">
                   These requests returned <strong>401 Unauthorized</strong> or <strong>403 Forbidden</strong>.
                   When an email is visible, it means that user&apos;s session token was no longer valid at the time of the request.
@@ -560,7 +559,7 @@ export default function ApiLogs() {
               <div>
                 <p className="text-sm font-semibold text-ink">Anonymous Requests</p>
                 <p className="text-xs text-ink mt-0.5">
-                  Requests with no user identity � unauthenticated calls, public endpoints, or requests with missing tokens.
+                  Requests with no user identity — unauthenticated calls, public endpoints, or requests with missing tokens.
                 </p>
               </div>
             </div>
@@ -580,13 +579,13 @@ export default function ApiLogs() {
             </div>
           )}
           {activeTab === "unique-ip" && (
-            <div className="flex items-start gap-3 bg-sage-soft border border-cyan-200 rounded-2xl px-5 py-4">
-              <div className="w-8 h-8 bg-cyan-100 rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
-                <Icon d={ICONS.globe} className="w-4 h-4 text-cyan-600" />
+            <div className="flex items-start gap-3 bg-sage-soft border border-aurora/30 rounded-2xl px-5 py-4">
+              <div className="w-8 h-8 bg-sage-soft rounded-xl flex items-center justify-center flex-shrink-0 mt-0.5">
+                <Icon d={ICONS.globe} className="w-4 h-4 text-aurora" />
               </div>
               <div>
-                <p className="text-sm font-semibold text-cyan-800">Unique IP View</p>
-                <p className="text-xs text-cyan-600 mt-0.5">
+                <p className="text-sm font-semibold text-aurora-muted">Unique IP View</p>
+                <p className="text-xs text-aurora mt-0.5">
                   Shows the <strong>latest request per IP address</strong> across the full log database.
                   Each page contains up to {pageSize} unique IPs.
                 </p>
@@ -683,9 +682,9 @@ export default function ApiLogs() {
                       className="input-field w-full py-2 text-sm"
                     >
                       <option value="">All Statuses</option>
-                      {[["200","200 � OK"],["201","201 � Created"],["400","400 � Bad Request"],
-                        ["401","401 � Unauthorized"],["403","403 � Forbidden"],
-                        ["404","404 � Not Found"],["500","500 � Server Error"]
+                      {[["200","200 — OK"],["201","201 — Created"],["400","400 — Bad Request"],
+                        ["401","401 — Unauthorized"],["403","403 — Forbidden"],
+                        ["404","404 — Not Found"],["500","500 — Server Error"]
                       ].map(([v,l]) => <option key={v} value={v}>{l}</option>)}
                     </select>
                   </div>
@@ -719,7 +718,7 @@ export default function ApiLogs() {
                   type="button"
                   onClick={handleBulkDeleteLogs}
                   disabled={selectedLogIds.size === 0 || deleting}
-                  className="flex items-center gap-2 px-4 py-2 bg-ember text-paper rounded-xl text-sm font-semibold hover:bg-rose-700 disabled:opacity-40"
+                  className="flex items-center gap-2 px-4 py-2 bg-ember text-paper rounded-xl text-sm font-semibold hover:bg-ember disabled:opacity-40"
                 >
                   Delete selected ({selectedLogIds.size})
                 </button>
@@ -729,8 +728,8 @@ export default function ApiLogs() {
 
           {/* Error */}
           {error && (
-            <div className="flex items-center gap-3 bg-ember-soft border border-rose-200 rounded-2xl px-5 py-4">
-              <Icon d={ICONS.warning} className="w-5 h-5 text-rose-500 flex-shrink-0" />
+            <div className="flex items-center gap-3 bg-ember-soft border border-ember/30 rounded-2xl px-5 py-4">
+              <Icon d={ICONS.warning} className="w-5 h-5 text-ember flex-shrink-0" />
               <p className="text-sm font-medium text-ember">{error}</p>
             </div>
           )}
@@ -757,7 +756,7 @@ export default function ApiLogs() {
                   ({TABS.find(t => t.id === activeTab)?.label})
                 </span>
               )}
-              <span className="text-xs text-dusk ml-2">� {pageSize} per page</span>
+              <span className="text-xs text-dusk ml-2">· {pageSize} per page</span>
             </p>
           </div>
 
@@ -769,7 +768,7 @@ export default function ApiLogs() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
                 </svg>
-                <p className="text-dusk font-medium">Loading logs�</p>
+                <p className="text-dusk font-medium">Loading logs…</p>
               </div>
             ) : displayedLogs.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-20 gap-3">
@@ -799,7 +798,7 @@ export default function ApiLogs() {
                 {displayedLogs.map(log => <LogCard key={log.logId} log={log} onSelect={setSelectedLog} showClusterInfo={activeTab === "clusters"} />)}
               </div>
             ) : (
-              <div className="divide-y divide-gray-100">
+              <div className="divide-y divide-ink/10">
                 {displayedLogs.map(log => <CompactRow key={log.logId} log={log} onSelect={setSelectedLog} showClusterInfo={activeTab === "clusters"} />)}
               </div>
             )}
@@ -808,7 +807,7 @@ export default function ApiLogs() {
               <div className="border-t border-ink/10 px-5 py-4 flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 bg-frost/60">
                 <div className="flex flex-col sm:flex-row sm:items-center gap-3">
                   <p className="text-sm text-dusk">
-                    Showing {rangeStart}�{rangeEnd} of {totalElements.toLocaleString()}
+                    Showing {rangeStart}–{rangeEnd} of {totalElements.toLocaleString()}
                   </p>
                   <label className="flex items-center gap-2 text-sm text-dusk">
                     <span className="text-xs font-semibold uppercase tracking-wide text-dusk">Per page</span>
@@ -878,7 +877,7 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
   return (
     <div className="overflow-x-auto">
       <table className="min-w-[1280px] w-full">
-        <thead className="bg-gradient-to-r from-gray-50 to-slate-50 border-b-2 border-ink/10">
+        <thead className="bg-gradient-to-r from-frost to-glacier border-b-2 border-ink/10">
           <tr>
             <th className="px-4 py-3.5 text-left text-xs font-bold text-dusk uppercase tracking-wide w-10">
               <input
@@ -901,7 +900,7 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
             <Th>Details</Th>
           </tr>
         </thead>
-        <tbody className="divide-y divide-gray-100">
+        <tbody className="divide-y divide-ink/10">
           {logs.map(log => (
             <tr key={log.logId} className={`hover:bg-glacier/50 transition-colors ${isInvalidToken(log) ? "bg-ember-soft/20" : ""}`}>
               <td className="px-4 py-3">
@@ -921,9 +920,9 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
                 <span className="text-xs font-mono bg-frost text-ink px-2 py-1 rounded break-all">{log.requestPath}</span>
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
-                <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
+                <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
               </td>
-              <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-dusk">{log.requestIp || "�"}</td>
+              <td className="px-4 py-3 whitespace-nowrap text-xs font-mono text-dusk">{log.requestIp || "—"}</td>
               <td className="px-4 py-3 whitespace-nowrap">
                 {log.extractedEmail ? (
                   <div className="flex items-center gap-1.5">
@@ -945,16 +944,16 @@ function TableView({ logs, sortBy, sortOrder, onSort, onSelect, activeTab, selec
               {activeTab === "invalid" && (
                 <td className="px-4 py-3 whitespace-nowrap">
                   {isInvalidToken(log) ? (
-                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-rose-100 text-ember text-xs font-bold rounded-full">
+                    <span className="inline-flex items-center gap-1 px-2.5 py-1 bg-ember-soft text-ember text-xs font-bold rounded-full">
                       <Icon d={ICONS.ban} className="w-3 h-3" />
                       {log.responseStatus === 401 ? "Expired/Invalid" : "Forbidden"}
                     </span>
-                  ) : <span className="text-xs text-dusk">�</span>}
+                  ) : <span className="text-xs text-dusk">—</span>}
                 </td>
               )}
               <td className="px-4 py-3 whitespace-nowrap">
                 <span className={`text-xs font-bold ${responseTimeColor(log.responseTime)}`}>
-                  {log.responseTime ? `${log.responseTime}ms` : "�"}
+                  {log.responseTime ? `${log.responseTime}ms` : "—"}
                 </span>
               </td>
               <td className="px-4 py-3 whitespace-nowrap">
@@ -977,13 +976,13 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
     <div
       onClick={() => onSelect(log)}
       className={`surface-card border-2 p-5 cursor-pointer transition-all hover:shadow-lift hover:-translate-y-0.5
-        ${invalid ? "border-rose-200 bg-ember-soft/40 hover:border-rose-400" : "border-ink/10 hover:border-brand/40"}`}
+        ${invalid ? "border-ember/30 bg-ember-soft/40 hover:border-ember" : "border-ink/10 hover:border-brand/40"}`}
     >
       <div className="flex items-center justify-between mb-3 gap-2">
         <span className={`px-2.5 py-1 text-xs font-bold rounded-full ring-1 ${methodColor(log.requestMethod)}`}>{log.requestMethod}</span>
         <div className="flex items-center gap-2">
           {showClusterInfo && <ClusterBadge log={log} />}
-          <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
+          <span className={`px-2.5 py-1 text-xs font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
         </div>
       </div>
       <div className="bg-frost rounded-lg px-3 py-2 mb-3">
@@ -992,7 +991,7 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
       <div className="space-y-2 text-xs">
         <div className="flex items-center gap-2">
           <Icon d={ICONS.globe} className="w-3.5 h-3.5 text-dusk flex-shrink-0" />
-          <span className="font-mono text-dusk">{log.requestIp || "�"}</span>
+          <span className="font-mono text-dusk">{log.requestIp || "—"}</span>
         </div>
         {log.extractedEmail ? (
           <div className="flex items-center gap-2">
@@ -1008,11 +1007,11 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
           </div>
         )}
         {invalid && (
-          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-rose-200">
-            <Icon d={ICONS.ban} className="w-3.5 h-3.5 text-rose-500 flex-shrink-0" />
+          <div className="flex items-center gap-2 mt-2 pt-2 border-t border-ember/30">
+            <Icon d={ICONS.ban} className="w-3.5 h-3.5 text-ember flex-shrink-0" />
             <span className="text-ember font-semibold">
               {log.responseStatus === 401 ? "Token expired / invalid" : "Access forbidden"}
-              {log.extractedEmail && ` � ${log.extractedEmail}`}
+              {log.extractedEmail && ` — ${log.extractedEmail}`}
             </span>
           </div>
         )}
@@ -1020,7 +1019,7 @@ function LogCard({ log, onSelect, showClusterInfo = false }) {
       <div className="mt-3 pt-3 border-t border-ink/10 flex items-center justify-between">
         <span className="text-dusk text-xs">{formatDate(log.requestTime)}</span>
         <span className={`text-xs font-bold ${responseTimeColor(log.responseTime)}`}>
-          {log.responseTime ? `${log.responseTime}ms` : "�"}
+          {log.responseTime ? `${log.responseTime}ms` : "—"}
         </span>
       </div>
     </div>
@@ -1042,11 +1041,11 @@ function CompactRow({ log, onSelect, showClusterInfo = false }) {
         <span className="text-xs text-brand-dark bg-glacier px-2 py-0.5 rounded-full hidden sm:block max-w-[180px] truncate">{log.extractedEmail}</span>
       )}
       {invalid && (
-        <span className="text-xs font-bold text-ember bg-rose-100 px-2 py-0.5 rounded-full flex-shrink-0">
+        <span className="text-xs font-bold text-ember bg-ember-soft px-2 py-0.5 rounded-full flex-shrink-0">
           {log.responseStatus === 401 ? "EXPIRED" : "FORBIDDEN"}
         </span>
       )}
-      <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full flex-shrink-0 ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
+      <span className={`px-2.5 py-0.5 text-xs font-bold rounded-full flex-shrink-0 ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
       <span className="text-dusk text-xs flex-shrink-0 hidden md:block">{formatDate(log.requestTime)}</span>
     </div>
   );
@@ -1074,16 +1073,16 @@ function LogDetailModal({ log, onClose }) {
 
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
           {invalid && (
-            <div className="bg-ember-soft border border-rose-200 rounded-2xl p-4">
+            <div className="bg-ember-soft border border-ember/30 rounded-2xl p-4">
               <div className="flex items-start gap-3">
-                <Icon d={ICONS.ban} className="w-5 h-5 text-rose-500 flex-shrink-0 mt-0.5" />
+                <Icon d={ICONS.ban} className="w-5 h-5 text-ember flex-shrink-0 mt-0.5" />
                 <div>
-                  <p className="text-sm font-bold text-rose-800">
-                    {log.responseStatus === 401 ? "Authentication Failed � Invalid or Expired Token" : "Authorization Failed � Access Forbidden"}
+                  <p className="text-sm font-bold text-ember">
+                    {log.responseStatus === 401 ? "Authentication Failed — Invalid or Expired Token" : "Authorization Failed — Access Forbidden"}
                   </p>
                   {log.extractedEmail ? (
                     <p className="text-xs text-ember mt-1">
-                      Email: <span className="font-bold">{log.extractedEmail}</span> � session token was no longer valid.
+                      Email: <span className="font-bold">{log.extractedEmail}</span> — session token was no longer valid.
                     </p>
                   ) : (
                     <p className="text-xs text-ember mt-1">No user identity was extracted from this request.</p>
@@ -1100,7 +1099,7 @@ function LogDetailModal({ log, onClose }) {
             </div>
             <div className="bg-frost rounded-2xl p-4">
               <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Status Code</p>
-              <span className={`px-3 py-1.5 text-sm font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "�"}</span>
+              <span className={`px-3 py-1.5 text-sm font-bold rounded-full ${statusColor(log.responseStatus)}`}>{log.responseStatus || "—"}</span>
             </div>
           </div>
 
@@ -1121,7 +1120,7 @@ function LogDetailModal({ log, onClose }) {
                   </div>
                   <div>
                     <p className="text-sm font-bold text-ink">{log.extractedEmail}</p>
-                    {invalid && <p className="text-xs text-rose-500 mt-0.5 font-semibold">Token was invalid/expired at request time</p>}
+                    {invalid && <p className="text-xs text-ember mt-0.5 font-semibold">Token was invalid/expired at request time</p>}
                   </div>
                 </div>
               ) : (
@@ -1143,14 +1142,14 @@ function LogDetailModal({ log, onClose }) {
               <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">IP Address</p>
               <div className="bg-frost rounded-2xl p-4 flex items-center gap-2">
                 <Icon d={ICONS.globe} className="w-4 h-4 text-dusk flex-shrink-0" />
-                <p className="font-mono text-sm text-ink">{log.requestIp || "�"}</p>
+                <p className="font-mono text-sm text-ink">{log.requestIp || "—"}</p>
               </div>
             </div>
             <div>
               <p className="text-xs font-bold text-dusk uppercase tracking-widest mb-2">Response Time</p>
               <div className="bg-frost rounded-2xl p-4">
                 <p className={`text-2xl font-extrabold ${responseTimeColor(log.responseTime)}`}>
-                  {log.responseTime ? `${log.responseTime}ms` : "�"}
+                  {log.responseTime ? `${log.responseTime}ms` : "—"}
                 </p>
                 {log.responseTime && <p className="text-xs text-dusk mt-1">{log.responseTime < 100 ? "Excellent" : log.responseTime < 500 ? "Acceptable" : "Slow"}</p>}
               </div>

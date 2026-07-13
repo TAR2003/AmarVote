@@ -148,7 +148,7 @@ const ElectionCard = memo(({ election, onElectionClick, getElectionStatus, getSt
                               ? 'cursor-not-allowed bg-frost text-dusk'
                               : (canUserVoteInElection(election) 
                                   ? 'text-paper bg-brand-dark hover:bg-brand focus:ring-brand' 
-                                  : 'bg-frost text-ink hover:bg-ink/10 focus:ring-slate-400')
+                                  : 'bg-frost text-ink hover:bg-ink/10 focus:ring-brand')
                           }`}
                           onClick={handleActionClick}
                           disabled={election.hasVoted && canUserVoteInElection(election)}
@@ -395,7 +395,7 @@ const AllElections = () => {
                   setError(null);
                   refreshElections(true).catch((err) => setError(getApiErrorMessage(err)));
                 }}
-                className="mt-5 inline-flex items-center rounded-xl border border-amber-300 bg-paper px-4 py-2.5 text-sm font-semibold text-ink shadow-soft transition-colors hover:bg-ceremonial-soft"
+                className="mt-5 inline-flex items-center rounded-xl border border-ceremonial/50 bg-paper px-4 py-2.5 text-sm font-semibold text-ink shadow-soft transition-colors hover:bg-ceremonial-soft"
               >
                 Try again
               </button>
@@ -481,7 +481,7 @@ const AllElections = () => {
                   actionDisabled={status === "ongoing" && election.hasVoted && canVote}
                   secondaryAction={canDeleteElection(election) ? (
                         <button
-                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-ember/30 bg-paper px-4 py-2.5 text-sm font-semibold text-ember shadow-soft transition-colors hover:bg-ember-soft focus:outline-none focus:ring-2 focus:ring-red-500 focus:ring-offset-2"
+                          className="inline-flex w-full items-center justify-center gap-2 rounded-xl border border-ember/30 bg-paper px-4 py-2.5 text-sm font-semibold text-ember shadow-soft transition-colors hover:bg-ember-soft focus:outline-none focus:ring-2 focus:ring-ember focus:ring-offset-2"
                           onClick={(e) => handleRequestDelete(election, e)}
                           disabled={deletingElectionId === election.electionId}
                         >

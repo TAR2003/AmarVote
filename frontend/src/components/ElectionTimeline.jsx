@@ -91,14 +91,14 @@ const getColorClasses = (color) => {
 
 const getAccentBorder = (color) => {
   const colors = {
-    blue: 'border-l-blue-500',
-    green: 'border-l-emerald-500',
-    orange: 'border-l-amber-500',
+    blue: 'border-l-brand',
+    green: 'border-l-aurora',
+    orange: 'border-l-ceremonial',
     brand: 'border-l-brand',
     deep: 'border-l-ink',
     sage: 'border-l-sage',
     ink: 'border-l-ink',
-    gray: 'border-l-slate-400',
+    gray: 'border-l-dusk-soft',
     brandSoft: 'border-l-brand',
   };
   return colors[color] || colors.blue;

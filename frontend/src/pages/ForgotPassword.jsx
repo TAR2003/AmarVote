@@ -1,6 +1,7 @@
 import React, { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Layout from "./Layout";
+import BrandMark from "../components/BrandMark";
 import OtpInput from "../components/OtpInput";
 import PasswordInput from "../components/PasswordInput";
 import TurnstileWidget from "../components/TurnstileWidget";
@@ -157,15 +158,24 @@ export default function ForgotPassword() {
 
   return (
     <Layout>
-      <div className="flex min-h-[calc(100dvh-4rem)] items-center justify-center bg-frost-mesh px-4 py-10 sm:py-14">
-        <div className="glass-panel mx-auto w-full max-w-md p-6 sm:p-8 animate-fade-up">
-          <h1 className="text-2xl font-bold text-ink">
-            {step === 1 && "Forgot your password?"}
-            {step === 2 && "Verify your email"}
-            {step === 3 && "Set a new password"}
-          </h1>
+      <div className="relative flex min-h-[calc(100dvh-4rem)] items-center justify-center overflow-hidden bg-frost-mesh px-4 py-10 sm:py-14">
+        <div className="pointer-events-none absolute -left-24 top-20 h-64 w-64 rounded-full bg-brand/10 blur-3xl" />
+        <div className="pointer-events-none absolute -right-16 bottom-16 h-72 w-72 rounded-full bg-brand-light/15 blur-3xl" />
 
-          <p className="mt-2 text-sm text-dusk">
+        <div className="glass-panel relative z-10 mx-auto w-full max-w-md p-6 sm:p-8 animate-fade-up">
+          <div className="mb-2 text-center">
+            <div className="mb-4 flex justify-center">
+              <BrandMark size="lg" className="shadow-brand" />
+            </div>
+            <p className="section-kicker">Account recovery</p>
+            <h1 className="mt-2 font-display text-2xl font-bold text-deep sm:text-3xl">
+              {step === 1 && "Forgot your password?"}
+              {step === 2 && "Verify your email"}
+              {step === 3 && "Set a new password"}
+            </h1>
+          </div>
+
+          <p className="mt-2 text-center text-sm text-dusk">
             {step === 1 && "Enter your email to receive a verification code."}
             {step === 2 && `Enter the 6-digit code sent to ${email}.`}
             {step === 3 && "Create your new password and sign in again."}
@@ -191,7 +201,7 @@ export default function ForgotPassword() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder="Email"
-                className="w-full rounded-lg border border-ink/15 px-3 py-2 outline-none focus:border-brand focus:ring-2 focus:ring-brand/25"
+                className="input-field"
               />
 
               <TurnstileWidget
@@ -203,14 +213,14 @@ export default function ForgotPassword() {
               <button
                 type="submit"
                 disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
-                className="w-full rounded-lg bg-brand px-4 py-2 font-medium text-paper transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-brand-soft"
+                className="btn-brand w-full"
               >
-                {loading ? "Sending code..." : "Send verification code"}
+                {loading ? "Sending code…" : "Send verification code"}
               </button>
 
               <p className="text-center text-sm text-dusk">
                 Remembered your password?{" "}
-                <Link className="font-semibold text-brand hover:underline" to="/login">
+                <Link className="link-brand" to="/login">
                   Sign in
                 </Link>
               </p>
@@ -235,9 +245,9 @@ export default function ForgotPassword() {
               <button
                 type="submit"
                 disabled={loading || verificationCode.replace(/\D/g, "").length !== 6}
-                className="w-full rounded-lg bg-brand px-4 py-2 font-medium text-paper transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-brand-soft"
+                className="btn-brand w-full"
               >
-                {loading ? "Verifying..." : "Verify code"}
+                {loading ? "Verifying…" : "Verify code"}
               </button>
 
               <TurnstileWidget
@@ -250,7 +260,7 @@ export default function ForgotPassword() {
                 type="button"
                 onClick={sendResetCode}
                 disabled={loading || captchaLoading || (captchaRequired && !captchaToken)}
-                className="w-full rounded-lg border border-ink/15 px-4 py-2 text-sm font-medium text-dusk hover:bg-frost disabled:cursor-not-allowed disabled:bg-frost"
+                className="btn-ghost w-full"
               >
                 Resend code
               </button>
@@ -282,9 +292,9 @@ export default function ForgotPassword() {
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full rounded-lg bg-brand px-4 py-2 font-medium text-paper transition hover:bg-brand-dark disabled:cursor-not-allowed disabled:bg-brand-soft"
+                className="btn-brand w-full"
               >
-                {loading ? "Updating password..." : "Set new password"}
+                {loading ? "Updating password…" : "Set new password"}
               </button>
             </form>
           )}

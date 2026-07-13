@@ -2,18 +2,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkHtml from 'remark-html';
 import { 
-  FiMessageCircle, 
   FiSend, 
   FiX, 
   FiMaximize2, 
   FiMinimize2,
-  FiMessageSquare,
   FiUser,
   FiLoader,
   FiRefreshCw,
   FiMoreVertical
 } from 'react-icons/fi';
 import { timezoneUtils } from '../utils/timezoneUtils';
+import BrandMark from './BrandMark';
 
 const Chatbot = () => {
   const [isOpen, setIsOpen] = useState(false);
@@ -175,9 +174,7 @@ const Chatbot = () => {
     <div className={`flex gap-3 mb-4 ${message.type === 'user' ? 'justify-end' : 'justify-start'}`}>
       {message.type === 'bot' && (
         <div className="flex-shrink-0">
-          <div className="w-8 h-8 bg-brand rounded-full flex items-center justify-center">
-            <FiMessageSquare className="w-4 h-4 text-paper" />
-          </div>
+          <BrandMark size="sm" className="shadow-soft" />
         </div>
       )}
       
@@ -266,11 +263,17 @@ const Chatbot = () => {
       <div className="fixed bottom-20 md:bottom-6 right-4 md:right-6 z-50">
         <button
           onClick={() => setIsOpen(true)}
-          className="w-14 h-14 md:w-16 md:h-16 bg-gradient-to-r from-brand-dark to-brand hover:from-brand hover:to-blue-700 text-paper rounded-full shadow-xl transition-all duration-300 hover:scale-110 relative group"
+          className="relative flex h-14 w-14 items-center justify-center overflow-hidden rounded-2xl shadow-brand transition-all duration-300 hover:scale-110 group md:h-16 md:w-16"
           aria-label="Open chatbot"
           style={{ position: 'fixed', bottom: '24px', right: '16px', zIndex: 9999 }}
         >
-          <FiMessageCircle className="w-7 h-7 mx-auto" />
+          <img
+            src="/amarvote-icon.svg"
+            alt=""
+            aria-hidden="true"
+            className="h-full w-full object-cover"
+            draggable={false}
+          />
           {hasNewMessage && (
             <div className="absolute -top-1 -right-1 w-5 h-5 bg-ember rounded-full flex items-center justify-center animate-pulse">
               <div className="w-2.5 h-2.5 bg-paper rounded-full"></div>
@@ -297,11 +300,9 @@ const Chatbot = () => {
         {/* Header */}
         <div className="bg-gradient-to-r from-brand-dark to-brand text-paper p-4 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 bg-paper/20 rounded-full flex items-center justify-center">
-              <FiMessageSquare className="w-4 h-4" />
-            </div>
+            <BrandMark size="sm" light />
             <div>
-              <h3 className="font-semibold">AmarVote AI Assistant</h3>
+              <h3 className="font-display font-semibold">AmarVote AI Assistant</h3>
               <p className="text-dusk-soft text-xs">
                 {messages.length > 1 ? 'Conversation Active' : 'Online'}
                 {sessionId && messages.length > 1 && (
@@ -381,9 +382,7 @@ const Chatbot = () => {
           {isLoading && (
             <div className="flex gap-3 mb-4 justify-start">
               <div className="flex-shrink-0">
-                <div className="w-8 h-8 bg-brand rounded-full flex items-center justify-center">
-                  <FiMessageSquare className="w-4 h-4 text-paper" />
-                </div>
+                <BrandMark size="sm" className="shadow-soft" />
               </div>
               <div className="max-w-xs lg:max-w-md">
                 <div className="p-3 rounded-lg bg-frost text-ink rounded-bl-sm">

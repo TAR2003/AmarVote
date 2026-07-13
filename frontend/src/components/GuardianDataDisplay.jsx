@@ -120,12 +120,12 @@ const GuardianDataDisplay = ({ electionId }) => {
 
   if (guardians.length === 0) {
     return (
-      <div className="bg-ceremonial-soft border border-yellow-200 rounded-lg p-4">
+      <div className="bg-ceremonial-soft border border-ceremonial/40 rounded-lg p-4">
         <div className="flex items-center">
-          <FiUser className="h-5 w-5 text-yellow-600 mr-2" />
+          <FiUser className="h-5 w-5 text-ceremonial mr-2" />
           <div className="text-ink font-medium">No Guardian Data Found</div>
         </div>
-        <div className="mt-2 text-yellow-700 text-sm">
+        <div className="mt-2 text-ink text-sm">
           No guardian information is available for this election yet.
         </div>
       </div>

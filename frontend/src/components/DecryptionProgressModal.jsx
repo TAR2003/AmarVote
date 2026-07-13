@@ -352,7 +352,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
             <>
               {/* Lock Metadata Display */}
               {status.isLocked && status.lockHeldBy && (
-                <div className="bg-ceremonial-soft border-l-4 border-amber-500 rounded-2xl p-4 mb-4 shadow-sm">
+                <div className="bg-ceremonial-soft border-l-4 border-ceremonial rounded-2xl p-4 mb-4 shadow-sm">
                   <div className="flex items-start gap-3">
                     <div className="text-2xl"></div>
                     <div className="flex-1">
@@ -524,7 +524,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                       <p className="text-xs text-brand mb-2">
                         Phase 1 progress:
                       </p>
-                      <div className="h-2 bg-blue-200 rounded-full overflow-hidden">
+                      <div className="h-2 bg-brand-soft rounded-full overflow-hidden">
                         <div
                           className="h-full bg-brand transition-all duration-500"
                           style={{ 
@@ -614,21 +614,21 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
               )}
 
               {status.status === 'completed' && (
-                <div className="bg-gradient-to-r from-green-50 to-emerald-50 border-2 border-green-300 rounded-2xl p-5 mb-4 shadow-md">
+                <div className="bg-gradient-to-r from-sage-soft to-aurora-soft border-2 border-aurora/40 rounded-2xl p-5 mb-4 shadow-md">
                   <div className="flex items-start gap-4">
                     <div className="text-5xl animate-bounce"></div>
                     <div className="flex-1">
-                      <h4 className="font-bold text-green-900 mb-2 text-xl flex items-center gap-2">
+                      <h4 className="font-bold text-aurora-muted mb-2 text-xl flex items-center gap-2">
                          Decryption Successfully Completed!
                       </h4>
-                      <div className="bg-paper rounded-2xl p-4 mb-3 border-l-4 border-green-500 shadow-sm">
+                      <div className="bg-paper rounded-2xl p-4 mb-3 border-l-4 border-aurora shadow-sm">
                         <p className="text-sm text-aurora-muted font-medium mb-2">
                           Your guardian credentials have been verified and processed successfully.
                         </p>
                         <div className="grid grid-cols-2 gap-3 mt-3 text-xs">
                           <div className="bg-sage-soft rounded p-2">
                             <p className="text-sage font-semibold">Total Operations</p>
-                            <p className="text-green-900 text-lg font-bold">
+                            <p className="text-aurora-muted text-lg font-bold">
                               {(() => {
                                 const { total } = calculateTotalOperations(status);
                                 return total;
@@ -646,7 +646,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                           </div>
                           <div className="bg-sage-soft rounded p-2">
                             <p className="text-sage font-semibold">Backup Shares</p>
-                            <p className="text-green-900 text-lg font-bold">{status.totalCompensatedGuardians || 0}</p>
+                            <p className="text-aurora-muted text-lg font-bold">{status.totalCompensatedGuardians || 0}</p>
                             <p className="text-sage text-xs">
                               {status.totalCompensatedGuardians === 0
                                 ? 'none needed (single guardian)'
@@ -661,7 +661,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                           <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                         </svg>
                         <div className="flex-1">
-                          <p className="text-xs text-green-900 font-semibold">Your contribution to the election decryption is complete</p>
+                          <p className="text-xs text-aurora-muted font-semibold">Your contribution to the election decryption is complete</p>
                           {status.completedAt && (
                             <p className="text-xs text-sage">
                               Completed at: {timezoneUtils.formatDateTime(status.completedAt)}
@@ -679,16 +679,16 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
                   <div className="flex items-start gap-4">
                     <div className="text-4xl"></div>
                     <div className="flex-1">
-                      <h4 className="font-bold text-red-900 mb-2 text-lg">
+                      <h4 className="font-bold text-ember mb-2 text-lg">
                          Decryption Failed
                       </h4>
-                      <div className="bg-paper rounded p-3 mb-3 border-l-4 border-red-500">
+                      <div className="bg-paper rounded p-3 mb-3 border-l-4 border-ember">
                         <p className="text-sm text-ember font-medium mb-2">
                           {status.errorMessage || 'An error occurred during the decryption process.'}
                         </p>
                       </div>
                       <div className="bg-ember-soft rounded p-3 mb-3">
-                        <p className="text-xs font-semibold text-red-900 mb-1">What to do next:</p>
+                        <p className="text-xs font-semibold text-ember mb-1">What to do next:</p>
                         <ul className="text-xs text-ember list-disc list-inside space-y-1">
                           <li>Verify you uploaded the correct <strong>credentials.txt</strong> file</li>
                           <li>The file should be the one provided after guardian assignment</li>
@@ -794,7 +794,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
             {status && status.status === 'completed' && (
               <button
                 onClick={onClose}
-                className="px-6 py-2 bg-gradient-to-r from-green-600 to-aurora-muted text-paper rounded-lg font-semibold hover:from-green-700 hover:to-emerald-700 transition-all shadow-md"
+                className="px-6 py-2 bg-gradient-to-r from-aurora to-aurora-muted text-paper rounded-lg font-semibold hover:from-aurora-muted hover:to-aurora transition-all shadow-md"
               >
                 ✓ Done
               </button>

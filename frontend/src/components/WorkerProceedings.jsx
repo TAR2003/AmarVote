@@ -362,7 +362,7 @@ const WorkerProceedings = ({ electionId }) => {
         </section>
       ) : !currentData ? (
         <div className="glass-panel flex min-h-64 items-center justify-center p-8 text-center">
-          <div><FiAlertTriangle className="mx-auto mb-3 text-2xl text-amber-500" /><p className="font-display text-lg font-semibold text-deep">No data available</p></div>
+          <div><FiAlertTriangle className="mx-auto mb-3 text-2xl text-ceremonial" /><p className="font-display text-lg font-semibold text-deep">No data available</p></div>
         </div>
       ) : logs.length === 0 ? (
         <section className="surface-card mx-auto max-w-3xl p-8 text-center">
@@ -450,7 +450,7 @@ const WorkerProceedings = ({ electionId }) => {
             </div>
 
             {/* Completion Status */}
-            <div className="surface-card border-t-4 border-amber-400 p-5">
+            <div className="surface-card border-t-4 border-ceremonial p-5">
                 <div className="flex items-center justify-between">
                   <div className="rounded-lg bg-ceremonial-soft p-3 text-ink"><FiCheckCircle className="text-xl" /></div>
                   <span className="text-xs font-bold uppercase tracking-wider text-dusk">Status</span>
@@ -625,7 +625,7 @@ const WorkerProceedings = ({ electionId }) => {
                             const entry = payload[0]?.payload;
                             if (!entry) return null;
                             return (
-                              <div className="bg-deep/98 text-paper p-4 rounded-2xl shadow-2xl border border-gray-700 min-w-[180px]">
+                              <div className="bg-deep/98 text-paper p-4 rounded-2xl shadow-2xl border border-white/15 min-w-[180px]">
                                 <p className="font-bold text-lg mb-2 text-brand">Chunk #{entry.chunkNumber}</p>
                                 <p className="text-sm mb-1"><span className="text-dusk">Starts at:</span> <span className="text-paper font-semibold">{entry.spacer.toFixed(3)}s</span></p>
                                 <p className="text-sm mb-1"><span className="text-dusk">Duration:</span> <span className="text-paper font-semibold">{entry.duration.toFixed(3)}s</span></p>
@@ -778,7 +778,7 @@ const WorkerProceedings = ({ electionId }) => {
                           const entry = payload[0]?.payload;
                           if (!entry) return null;
                           return (
-                            <div className="bg-deep/98 text-paper p-4 rounded-2xl shadow-2xl border border-gray-700">
+                            <div className="bg-deep/98 text-paper p-4 rounded-2xl shadow-2xl border border-white/15">
                               <p className="mb-1 text-base font-bold text-brand">Chunk #{entry.chunkNumber}</p>
                               <p className="text-sm mb-1"><span className="text-dusk">Completion order:</span> <span className="text-paper font-semibold">{getOrdinal(entry.completionRank)} to finish</span></p>
                               <p className="text-sm"><span className="text-dusk">Duration:</span> <span className="text-paper font-semibold">{formatDuration(entry.duration)}</span></p>
@@ -881,7 +881,7 @@ const WorkerProceedings = ({ electionId }) => {
 
           {/* Error Messages Section - Modernized */}
           {logs.some(log => log.errorMessage) && (
-            <div className="surface-card mt-6 border-l-4 border-l-red-500 p-5 sm:p-6">
+            <div className="surface-card mt-6 border-l-4 border-l-ember p-5 sm:p-6">
               <h3 className="font-display mb-5 flex items-center gap-2 text-xl font-semibold text-deep">
                 <div className="rounded-lg bg-ember-soft p-2 text-ember">
                   <FiAlertTriangle className="text-lg" />
@@ -890,7 +890,7 @@ const WorkerProceedings = ({ electionId }) => {
               </h3>
               <div className="space-y-4">
                 {logs.filter(log => log.errorMessage).map(log => (
-                  <div key={log.id} className="rounded-xl border border-red-100 bg-ember-soft/30 p-5">
+                  <div key={log.id} className="rounded-xl border border-ember/25 bg-ember-soft/30 p-5">
                     <div className="flex items-center gap-3 mb-3">
                       <span className="rounded-lg bg-ember px-3 py-2 text-sm font-semibold text-paper">
                         Chunk {log.chunkNumber}

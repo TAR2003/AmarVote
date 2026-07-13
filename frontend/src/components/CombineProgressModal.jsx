@@ -252,7 +252,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
             <>
               {/* Lock Metadata Display */}
               {status.isLocked && status.lockHeldBy && (
-                <div className="bg-ceremonial-soft border-l-4 border-amber-500 rounded-2xl p-4 mb-4 shadow-sm">
+                <div className="bg-ceremonial-soft border-l-4 border-ceremonial rounded-2xl p-4 mb-4 shadow-sm">
                   <div className="flex items-start gap-3">
                     <div className="text-2xl"></div>
                     <div className="flex-1">

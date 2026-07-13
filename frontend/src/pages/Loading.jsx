@@ -1,5 +1,6 @@
 // src/pages/Loading.jsx
 import React, { useEffect, useState } from "react";
+import BrandMark from "../components/BrandMark";
 
 const LoadingScreen = () => {
   const [progress, setProgress] = useState(0);
@@ -12,7 +13,7 @@ const LoadingScreen = () => {
           clearInterval(interval);
           return 100;
         }
-        return prev + (100 - prev) * 0.1; // Easing function
+        return prev + (100 - prev) * 0.1;
       });
     }, 100);
 
@@ -36,37 +37,22 @@ const LoadingScreen = () => {
 
   return (
     <div className="loading-screen">
-      {/* Background with animated gradient */}
-      <div className="loading-background"></div>
-      
-      {/* Main loading content */}
+      <div className="loading-background" />
+
       <div className="loading-content">
-        {/* Logo/Brand section */}
         <div className="brand-section">
           <div className="brand-logo">
-            <div className="vote-icon">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                <path d="M8 8V7a4 4 0 0 1 8 0v1" />
-                <rect x="4" y="8" width="16" height="12" rx="2" />
-                <path d="m9 14 2 2 4-4" />
-              </svg>
-            </div>
+            <BrandMark size="xl" className="shadow-brand loading-mark" />
           </div>
           <h1 className="brand-name">AmarVote</h1>
-          <p className="brand-tagline">Secure Digital Voting Platform</p>
+          <p className="brand-tagline">Secure digital voting</p>
         </div>
 
-        {/* Progress section */}
         <div className="progress-section">
           <div className="progress-container">
             <div className="progress-circle">
               <svg className="progress-ring" viewBox="0 0 120 120">
-                <circle
-                  className="progress-ring-circle-bg"
-                  cx="60"
-                  cy="60"
-                  r="50"
-                />
+                <circle className="progress-ring-circle-bg" cx="60" cy="60" r="50" />
                 <circle
                   className="progress-ring-circle"
                   cx="60"
@@ -83,39 +69,28 @@ const LoadingScreen = () => {
               </div>
             </div>
           </div>
-          
+
           <div className="loading-message">
             <span className="loading-text">{loadingText}</span>
             <div className="loading-dots">
-              <span className="dot"></span>
-              <span className="dot"></span>
-              <span className="dot"></span>
+              <span className="dot" />
+              <span className="dot" />
+              <span className="dot" />
             </div>
           </div>
         </div>
 
-        {/* Features preview */}
         <div className="features-preview">
-          <div className="feature-item">
-            <div className="feature-icon">🔒</div>
-            <span>End-to-End Encryption</span>
-          </div>
-          <div className="feature-item">
-            <div className="feature-icon">✅</div>
-            <span>Cryptographic Verification</span>
-          </div>
-          <div className="feature-item">
-            <div className="feature-icon">🛡️</div>
-            <span>Zero-Knowledge Proofs</span>
-          </div>
-          <div className="feature-item">
-            <div className="feature-icon">🚀</div>
-            <span>Real-time Results</span>
-          </div>
-          <div className="feature-item">
-            <div className="feature-icon">📊</div>
-            <span>Transparent Audit</span>
-          </div>
+          {[
+            "End-to-end encryption",
+            "Cryptographic verification",
+            "Zero-knowledge proofs",
+            "Transparent audit",
+          ].map((label) => (
+            <div key={label} className="feature-item">
+              <span>{label}</span>
+            </div>
+          ))}
         </div>
       </div>
 
@@ -123,10 +98,7 @@ const LoadingScreen = () => {
         {`
         .loading-screen {
           position: fixed;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
+          inset: 0;
           display: flex;
           justify-content: center;
           align-items: center;
@@ -136,10 +108,7 @@ const LoadingScreen = () => {
 
         .loading-background {
           position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
+          inset: 0;
           background: linear-gradient(-45deg, #12142B, #1A1C38, #12142B, #5C52C4);
           background-size: 400% 400%;
           animation: gradient 12s ease infinite;
@@ -148,12 +117,8 @@ const LoadingScreen = () => {
         .loading-background::before {
           content: '';
           position: absolute;
-          top: 0;
-          left: 0;
-          width: 100%;
-          height: 100%;
-          background: rgba(0, 0, 0, 0.1);
-          backdrop-filter: blur(1px);
+          inset: 0;
+          background: rgba(18, 20, 43, 0.12);
         }
 
         .loading-content {
@@ -162,11 +127,10 @@ const LoadingScreen = () => {
           flex-direction: column;
           align-items: center;
           padding: 2.5rem;
-          background: rgba(255, 255, 255, 0.98);
+          background: rgba(247, 244, 236, 0.96);
           border-radius: 28px;
-          box-shadow: 0 30px 60px rgba(0, 0, 0, 0.12);
-          backdrop-filter: blur(15px);
-          border: 1px solid rgba(255, 255, 255, 0.3);
+          box-shadow: 0 30px 60px rgba(18, 20, 43, 0.22);
+          border: 1px solid rgba(139, 127, 232, 0.2);
           max-width: 420px;
           width: 90%;
           animation: fadeInUp 0.8s ease-out;
@@ -179,24 +143,12 @@ const LoadingScreen = () => {
 
         .brand-logo {
           margin-bottom: 1rem;
-        }
-
-        .vote-icon {
-          width: 60px;
-          height: 60px;
-          margin: 0 auto;
-          background: linear-gradient(135deg, #8B7FE8, #5C52C4);
-          border-radius: 16px;
           display: flex;
-          align-items: center;
           justify-content: center;
-          color: #F7F4EC;
-          animation: bounce 2s infinite;
         }
 
-        .vote-icon svg {
-          width: 32px;
-          height: 32px;
+        .loading-mark {
+          animation: bounce 2s infinite;
         }
 
         .brand-name {
@@ -208,7 +160,7 @@ const LoadingScreen = () => {
         }
 
         .brand-tagline {
-          color: #6b7280;
+          color: #5B5D74;
           font-size: 0.875rem;
           margin: 0;
         }
@@ -237,13 +189,13 @@ const LoadingScreen = () => {
 
         .progress-ring-circle-bg {
           fill: none;
-          stroke: #e5e7eb;
+          stroke: #E8E5FA;
           stroke-width: 4;
         }
 
         .progress-ring-circle {
           fill: none;
-          stroke: url(#gradient);
+          stroke: url(#av-loading-gradient);
           stroke-width: 4;
           stroke-linecap: round;
           transition: stroke-dashoffset 0.3s ease;
@@ -254,15 +206,13 @@ const LoadingScreen = () => {
           top: 50%;
           left: 50%;
           transform: translate(-50%, -50%);
-          display: flex;
-          flex-direction: column;
-          align-items: center;
         }
 
         .progress-percentage {
+          font-family: "Fraunces", Georgia, serif;
           font-size: 1.5rem;
           font-weight: 700;
-          color: #374151;
+          color: #1B1D2E;
         }
 
         .loading-message {
@@ -272,7 +222,7 @@ const LoadingScreen = () => {
         }
 
         .loading-text {
-          color: #6b7280;
+          color: #5B5D74;
           font-size: 0.875rem;
           font-weight: 500;
         }
@@ -285,7 +235,7 @@ const LoadingScreen = () => {
         .dot {
           width: 4px;
           height: 4px;
-          background: #9ca3af;
+          background: #8B7FE8;
           border-radius: 50%;
           animation: blink 1.4s infinite;
         }
@@ -299,40 +249,32 @@ const LoadingScreen = () => {
           gap: 0.75rem;
           flex-wrap: wrap;
           justify-content: center;
-          margin-top: 1rem;
+          margin-top: 0.5rem;
         }
 
         .feature-item {
           display: flex;
-          flex-direction: column;
           align-items: center;
-          gap: 0.5rem;
-          padding: 1rem 0.75rem;
-          background: rgba(0, 180, 216, 0.08);
-          border-radius: 16px;
-          border: 1px solid rgba(0, 180, 216, 0.18);
-          min-width: 90px;
-          transition: all 0.3s ease;
-          animation: fadeIn 1s ease-out;
+          justify-content: center;
+          padding: 0.65rem 0.85rem;
+          background: rgba(139, 127, 232, 0.1);
+          border-radius: 14px;
+          border: 1px solid rgba(139, 127, 232, 0.22);
+          min-width: 0;
+          transition: transform 0.3s ease, background 0.3s ease;
         }
 
         .feature-item:hover {
           transform: translateY(-2px);
-          background: rgba(0, 180, 216, 0.12);
-          box-shadow: 0 8px 25px rgba(0, 180, 216, 0.15);
-        }
-
-        .feature-icon {
-          font-size: 1.5rem;
-          margin-bottom: 0.25rem;
+          background: rgba(139, 127, 232, 0.16);
         }
 
         .feature-item span {
           font-size: 0.75rem;
-          color: #4b5563;
+          color: #5C52C4;
           text-align: center;
           font-weight: 600;
-          line-height: 1.2;
+          line-height: 1.25;
         }
 
         @keyframes gradient {
@@ -342,24 +284,13 @@ const LoadingScreen = () => {
         }
 
         @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(20px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
-
-        @keyframes fadeIn {
-          from { opacity: 0; }
-          to { opacity: 1; }
+          from { opacity: 0; transform: translateY(20px); }
+          to { opacity: 1; transform: translateY(0); }
         }
 
         @keyframes bounce {
           0%, 100% { transform: translateY(0); }
-          50% { transform: translateY(-10px); }
+          50% { transform: translateY(-8px); }
         }
 
         @keyframes blink {
@@ -368,31 +299,19 @@ const LoadingScreen = () => {
         }
 
         @media (max-width: 480px) {
-          .loading-content {
-            padding: 1.5rem;
-            margin: 1rem;
-          }
+          .loading-content { padding: 1.5rem; margin: 1rem; }
+          .brand-name { font-size: 1.75rem; }
+        }
 
-          .brand-name {
-            font-size: 1.75rem;
-          }
-
-          .features-preview {
-            gap: 0.5rem;
-          }
-
-          .feature-item {
-            min-width: 80px;
-            padding: 0.5rem;
-          }
+        @media (prefers-reduced-motion: reduce) {
+          .loading-background, .loading-mark, .dot { animation: none !important; }
         }
         `}
       </style>
 
-      {/* SVG Gradient Definition */}
-      <svg width="0" height="0">
+      <svg width="0" height="0" aria-hidden="true">
         <defs>
-          <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="0%">
+          <linearGradient id="av-loading-gradient" x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor="#8B7FE8" />
             <stop offset="100%" stopColor="#5C52C4" />
           </linearGradient>

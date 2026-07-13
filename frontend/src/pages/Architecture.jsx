@@ -70,7 +70,7 @@ const Architecture = () => {
                 {/* Backend */}
                 <div className="flex justify-center mb-2">
                   <div className="w-80">
-                    <SvcBox icon="☕" name="Spring Boot Backend" tech="Java 21 · Spring Boot 3.5.0" ip="172.20.0.30" port="8080" color="border-green-500" />
+                    <SvcBox icon="☕" name="Spring Boot Backend" tech="Java 21 · Spring Boot 3.5.0" ip="172.20.0.30" port="8080" color="border-aurora" />
                   </div>
                 </div>
 
@@ -94,15 +94,15 @@ const Architecture = () => {
                 <div className="flex justify-center gap-4 mb-4">
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-px h-6 bg-ink/20" />
-                    <SvcBox icon="🗄️" name="PostgreSQL 15" tech="Alpine · Hibernate JPA" ip="172.20.0.20" port="5432" color="border-sky-400" />
+                    <SvcBox icon="🗄️" name="PostgreSQL 15" tech="Alpine · Hibernate JPA" ip="172.20.0.20" port="5432" color="border-brand" />
                   </div>
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-px h-6 bg-ink/20" />
-                    <SvcBox icon="🐰" name="RabbitMQ 3.13" tech="AMQP · Spring AMQP" ip="172.20.0.60" port="5672 / 15672 UI" color="border-orange-400" />
+                    <SvcBox icon="🐰" name="RabbitMQ 3.13" tech="AMQP · Spring AMQP" ip="172.20.0.60" port="5672 / 15672 UI" color="border-ceremonial" />
                   </div>
                   <div className="flex flex-col items-center gap-2">
                     <div className="w-px h-6 bg-ink/20" />
-                    <SvcBox icon="💾" name="Redis 7" tech="Alpine · Lettuce" ip="172.20.0.70" port="6379" color="border-red-400" />
+                    <SvcBox icon="💾" name="Redis 7" tech="Alpine · Lettuce" ip="172.20.0.70" port="6379" color="border-ember" />
                   </div>
                 </div>
 
@@ -120,8 +120,8 @@ const Architecture = () => {
 
                 {/* Optional row */}
                 <div className="flex justify-center gap-4 mt-6 opacity-70">
-                  <SvcBox icon="🤖" name="RAG Service" tech="LangChain · ChromaDB · DeepSeek" ip="—" port="5001 alt (opt)" color="border-dashed border-teal-400" />
-                  <SvcBox icon="📊" name="Prometheus / Grafana" tech="Micrometer scrape 15s" ip="—" port="9090 / 3000 (prod)" color="border-dashed border-gray-400" />
+                  <SvcBox icon="🤖" name="RAG Service" tech="LangChain · ChromaDB · DeepSeek" ip="—" port="5001 alt (opt)" color="border-dashed border-aurora" />
+                  <SvcBox icon="📊" name="Prometheus / Grafana" tech="Micrometer scrape 15s" ip="—" port="9090 / 3000 (prod)" color="border-dashed border-dusk-soft" />
                 </div>
                 <p className="text-center text-xs text-dusk mt-2">Dashed services = optional (Docker Compose profiles)</p>
               </div>
@@ -159,7 +159,7 @@ const Architecture = () => {
         {/* ═══════════════════════ SERVICES ═══════════════════════ */}
         {activeTab === "services" && (
           <div>
-            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Service Deep Dives</h2>
+            <h2 className="font-display text-2xl font-bold text-ink mb-8 text-center">Service Deep Dives</h2>
             <div className="space-y-6">
               {[
                 {
@@ -257,7 +257,7 @@ const Architecture = () => {
         {/* ═══════════════════════ NETWORK ═══════════════════════ */}
         {activeTab === "network" && (
           <div>
-            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Docker Network Topology</h2>
+            <h2 className="font-display text-2xl font-bold text-ink mb-8 text-center">Docker Network Topology</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div className="bg-paper rounded-2xl border border-ink/10 p-6">
                 <h3 className="font-bold text-ink text-lg mb-4">Private Overlay Network</h3>
@@ -267,7 +267,7 @@ const Architecture = () => {
                   <div className="text-brand-light mb-4">Driver: bridge</div>
                   <table className="w-full text-xs">
                     <thead>
-                      <tr className="text-dusk border-b border-gray-700">
+                      <tr className="text-dusk border-b border-white/15">
                         <th className="text-left pb-1">Service</th>
                         <th className="text-left pb-1">IP Address</th>
                         <th className="text-left pb-1">Port(s)</th>
@@ -286,7 +286,7 @@ const Architecture = () => {
                         ["redis", "172.20.0.70", "6379"],
                         ["redis-replica", "172.20.0.75", "6379"],
                       ].map(([svc, ip, port]) => (
-                        <tr key={svc} className="border-b border-gray-800">
+                        <tr key={svc} className="border-b border-white/10">
                           <td className="py-1.5 text-brand-light">{svc}</td>
                           <td className="py-1.5 text-ceremonial">{ip}</td>
                           <td className="py-1.5 text-dusk">{port}</td>
@@ -330,7 +330,7 @@ const Architecture = () => {
         {/* ═══════════════════════ DATA FLOW ═══════════════════════ */}
         {activeTab === "dataflow" && (
           <div>
-            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Election Data Flow</h2>
+            <h2 className="font-display text-2xl font-bold text-ink mb-8 text-center">Election Data Flow</h2>
             <div className="space-y-8">
               {[
                 {
@@ -386,7 +386,7 @@ const Architecture = () => {
                   ]
                 },
               ].map(({ phase, color, steps }) => (
-                <div key={phase} className={`surface-card border-l-4 ${color === "blue" ? "border-brand" : color === "green" ? "border-green-500" : color === "orange" ? "border-orange-500" : "border-brand-dark"} p-6`}>
+                <div key={phase} className={`surface-card border-l-4 ${color === "blue" ? "border-brand" : color === "green" ? "border-aurora" : color === "orange" ? "border-ceremonial" : "border-brand-dark"} p-6`}>
                   <h3 className={`text-xl font-bold mb-5 ${color === "blue" ? "text-ink" : color === "green" ? "text-aurora-muted" : color === "orange" ? "text-ink" : "text-ink"}`}>{phase}</h3>
                   <div className="space-y-3">
                     {steps.map(([actor, action], i) => (
@@ -410,7 +410,7 @@ const Architecture = () => {
         {/* ═══════════════════════ RABBITMQ ═══════════════════════ */}
         {activeTab === "rabbitmq" && (
           <div>
-            <h2 className="text-2xl font-bold text-ink mb-8 text-center">RabbitMQ Architecture Deep Dive</h2>
+            <h2 className="font-display text-2xl font-bold text-ink mb-8 text-center">RabbitMQ Architecture Deep Dive</h2>
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-8">
               <div className="bg-paper rounded-2xl border border-ink/10 p-6">
                 <h3 className="font-bold text-ink mb-4">4 Processing Queues</h3>
@@ -491,7 +491,7 @@ For each 100ms tick:
         {/* ═══════════════════════ REDIS ═══════════════════════ */}
         {activeTab === "redis" && (
           <div>
-            <h2 className="text-2xl font-bold text-ink mb-8 text-center">Redis Usage Deep Dive</h2>
+            <h2 className="font-display text-2xl font-bold text-ink mb-8 text-center">Redis Usage Deep Dive</h2>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-8">
               {[
                 {

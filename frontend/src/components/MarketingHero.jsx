@@ -1,4 +1,5 @@
 import React from "react";
+import BrandMark from "./BrandMark";
 
 /**
  * Shared full-bleed marketing hero — brand atmosphere, one title, one supporting line.
@@ -11,6 +12,9 @@ export default function MarketingHero({ kicker, title, subtitle, children }) {
         <div className="absolute -bottom-24 -left-16 h-72 w-72 rounded-full bg-brand-light/10 blur-3xl" />
       </div>
       <div className="relative z-10 mx-auto max-w-3xl text-center animate-fade-up">
+        <div className="mb-5 flex justify-center">
+          <BrandMark size="lg" light className="shadow-brand" />
+        </div>
         {kicker && (
           <p className="text-xs font-semibold uppercase tracking-[0.2em] text-dusk-soft">
             {kicker}
