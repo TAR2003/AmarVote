@@ -68,12 +68,11 @@ import CompensatedDecryptionDisplay from '../components/CompensatedDecryptionDis
 import AnimatedResults from '../components/AnimatedResults';
 import CandidateIdentity from '../components/CandidateIdentity';
 import TruncatedCandidateName from '../components/TruncatedCandidateName';
+import ElectionRankings from '../components/ElectionRankings';
 import {
   buildCompetitionRankings,
-  formatOrdinal,
   getCandidateDescription,
   getCandidatePic,
-  isWinnerByRank,
 } from '../utils/electionRankings';
 
 const findChoiceByName = (choices, name) =>
@@ -5881,121 +5880,14 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                         </div>
                       </div>
 
-                      {/* Detailed Results Table */}
-                      <div className="bg-frost rounded-lg p-3 sm:p-4">
-                        <h4 className="font-medium text-deep mb-3 sm:mb-4 text-sm sm:text-base">Detailed Results</h4>
-                        <div className="overflow-x-auto -mx-3 sm:mx-0 px-3 sm:px-0">
-                          <table className="w-full border-collapse min-w-[500px]">
-                            <thead>
-                              <tr className="border-b-2 border-ink/10">
-                                <th className="text-left p-3 font-medium text-deep">Position</th>
-                                <th className="text-left p-3 font-medium text-deep">Candidate</th>
-                                <th className="text-left p-3 font-medium text-deep">Votes</th>
-                                <th className="text-left p-3 font-medium text-deep">Percentage</th>
-                                <th className="text-left p-3 font-medium text-deep">Visual</th>
-                              </tr>
-                            </thead>
-                            <tbody>
-                              {buildCompetitionRankings([...processedResults.chartData]).map((candidate) => {
-                                const winnerCount = getWinnerCount(electionData);
-                                const isWinner = isWinnerByRank(candidate.rank, winnerCount);
-                                const positionLabel = formatOrdinal(candidate.rank);
-                                return (
-                                  <tr key={candidate.name} className={`border-b border-ink/10 hover:bg-frost-muted ${isWinner ? 'bg-ceremonial-soft/60' : ''}`}>
-                                    <td className="p-3">
-                                      <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-sm font-medium ${
-                                        isWinner ? 'bg-ceremonial-soft text-ink border border-yellow-300' : 'bg-frost-muted text-dusk'
-                                      }`}>
-                                        {isWinner && <span aria-hidden>🏆</span>}
-                                        {positionLabel}
-                                      </span>
-                                    </td>
-                                    <td className={`p-3 font-medium min-w-0 ${isWinner ? 'text-ink' : 'text-deep'}`}>
-                                      <CandidateIdentity
-                                        name={candidate.name}
-                                        image={getCandidatePic(electionData.electionChoices, candidate.name)}
-                                        description={getCandidateDescription(electionData.electionChoices, candidate.name)}
-                                        partyName={findChoiceByName(electionData.electionChoices, candidate.name)?.partyName}
-                                        size="sm"
-                                        enableProfile
-                                      />
-                                      {isWinner && <span className="mt-1 block text-xs font-bold text-ink">Winner</span>}
-                                    </td>
-                                    <td className="p-3 font-semibold text-deep">{candidate.votes}</td>
-                                    <td className="p-3 text-deep">{candidate.percentage}%</td>
-                                    <td className="p-3">
-                                      <div className="w-20 bg-ink/10 rounded-full h-2">
-                                        <div
-                                          className={`h-2 rounded-full transition-all duration-1000 ${isWinner ? 'bg-ceremonial' : 'bg-brand'}`}
-                                          style={{ width: `${candidate.percentage}%` }}
-                                        />
-                                      </div>
-                                    </td>
-                                  </tr>
-                                );
-                              })}
-                            </tbody>
-                          </table>
-                        </div>
-                      </div>
-
-                      {/* Rankings Section */}
+                      {/* Election Rankings */}
                       {processedResults.chartData && processedResults.chartData.length > 0 && (
-                        <div className="mt-6">
-                          <div className="bg-paper rounded-xl border border-glacier shadow-sm p-4 sm:p-6">
-                            <h4 className="font-bold text-deep mb-5 flex items-center gap-2 text-base sm:text-lg">
-                              <span className="text-2xl">🏆</span>
-                              Election Rankings
-                            </h4>
-                            <div className="space-y-3">
-                              {buildCompetitionRankings([...processedResults.chartData]).map((candidate) => {
-                                const winnerCount = getWinnerCount(electionData);
-                                const isWinner = isWinnerByRank(candidate.rank, winnerCount);
-                                const positionLabel = formatOrdinal(candidate.rank);
-                                const style = isWinner
-                                  ? { bg: 'bg-gradient-to-r from-yellow-50 to-amber-50', border: 'border-yellow-300', badge: 'bg-ceremonial-soft text-ink border border-yellow-300', rank: 'text-yellow-600', bar: 'from-yellow-400 to-amber-500' }
-                                  : { bg: 'bg-glacier', border: 'border-glacier', badge: 'bg-glacier text-brand-dark border border-brand/20', rank: 'text-brand', bar: 'from-brand-light to-brand' };
-                                return (
-                                  <div key={candidate.name} className={`flex items-center gap-3 sm:gap-4 p-3 sm:p-4 rounded-xl border ${style.bg} ${style.border} transition-all hover:shadow-md`}>
-                                    <div className="w-14 text-center flex-shrink-0">
-                                      {isWinner ? (
-                                        <div className="flex flex-col items-center">
-                                          <span className="text-2xl leading-none">🏆</span>
-                                          <span className={`text-xs font-extrabold mt-1 ${style.rank}`}>{positionLabel}</span>
-                                        </div>
-                                      ) : (
-                                        <span className={`text-sm font-extrabold ${style.rank}`}>{positionLabel}</span>
-                                      )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                      <CandidateIdentity
-                                        name={candidate.name}
-                                        image={getCandidatePic(electionData.electionChoices, candidate.name)}
-                                        description={getCandidateDescription(electionData.electionChoices, candidate.name)}
-                                        partyName={findChoiceByName(electionData.electionChoices, candidate.name)?.partyName}
-                                        size="md"
-                                        enableProfile
-                                        nameClassName={`font-bold text-sm sm:text-base ${isWinner ? 'text-ink' : 'text-deep'}`}
-                                      />
-                                      <div className="mt-1.5 w-full bg-paper/70 rounded-full h-1.5 overflow-hidden border border-white">
-                                        <div
-                                          className={`h-1.5 rounded-full bg-gradient-to-r ${style.bar} transition-all duration-1000`}
-                                          style={{ width: `${candidate.percentage}%` }}
-                                        />
-                                      </div>
-                                    </div>
-                                    <div className="flex flex-col items-end gap-1 flex-shrink-0">
-                                      <span className={`px-2.5 py-1 rounded-full text-xs font-bold ${style.badge}`}>
-                                        {candidate.votes} votes
-                                      </span>
-                                      <span className="text-xs font-semibold text-dusk">{candidate.percentage}%</span>
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                          </div>
-                        </div>
+                        <ElectionRankings
+                          chartData={processedResults.chartData}
+                          electionChoices={electionData.electionChoices}
+                          winnerCount={getWinnerCount(electionData)}
+                          findChoiceByName={findChoiceByName}
+                        />
                       )}
 
                       {/* Chunk Breakdown Section - Modern UI */}

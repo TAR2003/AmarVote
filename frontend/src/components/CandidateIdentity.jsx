@@ -29,6 +29,7 @@ const CandidateIdentity = ({
   enableProfile = true,
   className = '',
   nameClassName = '',
+  imageRingClassName = '',
   layout = 'row', // 'row' | 'stack'
   interactive = true,
   showInlineDescription = false,
@@ -119,7 +120,7 @@ const CandidateIdentity = ({
         {showImage && (
           <button
             type="button"
-            className={`shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${canInteract ? 'cursor-pointer transition hover:brightness-105' : 'cursor-default'}`}
+            className={`shrink-0 rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40 ${imageRingClassName} ${canInteract ? 'cursor-pointer transition hover:brightness-105' : 'cursor-default'}`}
             onClick={canInteract ? openModal : undefined}
             aria-label={canInteract ? `View profile for ${name}` : name}
             tabIndex={canInteract ? 0 : -1}
@@ -144,19 +145,25 @@ const CandidateIdentity = ({
             <div
               role="button"
               tabIndex={0}
-              className={`w-full cursor-pointer text-left ${isStack ? 'text-center' : ''} ${nameClassName}`}
+              className={`w-full cursor-pointer text-left ${isStack ? 'text-center' : ''}`}
               onClick={openModal}
               onKeyDown={(e) => {
                 if (e.key === 'Enter' || e.key === ' ') openModal(e);
               }}
               aria-describedby={hoverOpen ? cardId : undefined}
             >
-              <TruncatedCandidateName name={name} lines={1} className="font-medium text-ink" />
+              <TruncatedCandidateName
+                name={name}
+                lines={1}
+                className={`font-medium text-ink ${nameClassName}`}
+              />
             </div>
           ) : (
-            <div className={nameClassName}>
-              <TruncatedCandidateName name={name} lines={1} className="font-medium text-ink" />
-            </div>
+            <TruncatedCandidateName
+              name={name}
+              lines={1}
+              className={`font-medium text-ink ${nameClassName}`}
+            />
           )}
           {hasDescription && enableProfile && showInlineDescription && (
             <p className={`mt-0.5 text-xs text-dusk line-clamp-2 whitespace-pre-line ${isStack ? 'text-center' : ''}`}>
