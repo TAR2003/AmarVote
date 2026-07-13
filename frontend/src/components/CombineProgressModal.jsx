@@ -69,7 +69,14 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
     if (!shouldApplyCombineEvent(event)) return;
     const combine = pickCombine(getSnapshotFromEvent(event));
     if (!combine) return;
-    setStatus(combine);
+    setStatus((prev) => {
+      if (prev?.status === 'completed' || prev?.status === 'failed') {
+        if (combine.status !== 'completed' && combine.status !== 'failed' && combine.status !== 'stopped' && combine.status !== 'deleted') {
+          return prev;
+        }
+      }
+      return combine;
+    });
     setError(null);
     handleCombineCompleted(combine);
   }, [handleCombineCompleted]);
@@ -78,7 +85,14 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
     if (!silent) setIsRefreshing(true);
     try {
       const data = await electionApi.getCombineStatus(electionId);
-      setStatus(data);
+      setStatus((prev) => {
+        if (prev?.status === 'completed' || prev?.status === 'failed') {
+          if (data?.status !== 'completed' && data?.status !== 'failed' && data?.status !== 'stopped') {
+            return prev;
+          }
+        }
+        return data;
+      });
       setError(null);
       handleCombineCompleted(data);
       return data;
@@ -110,15 +124,15 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
     };
   }, [isOpen, electionId, refreshStatus]);
 
-  // Polling fallback while in progress if SSE is silent
+  // Aggressive polling fallback — SSE can lag or miss completion events
   useEffect(() => {
     if (!isOpen || !electionId) return;
-    const inFlight = status?.status === 'in_progress' || status?.status === 'pending';
-    if (!inFlight) return;
+    const terminal = status?.status === 'completed' || status?.status === 'failed' || status?.status === 'stopped';
+    if (terminal) return;
 
     const interval = setInterval(() => {
       refreshStatus({ silent: true });
-    }, 8000);
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [isOpen, electionId, status?.status, refreshStatus]);
@@ -187,7 +201,7 @@ const CombineProgressModal = ({ isOpen, onClose, electionId, onCombineComplete }
 
   return (
     <ModalOverlay onClose={onClose} dismissible>
-      <ModalPanel size="lg" surface="deep">
+      <ModalPanel size="xl" surface="deep">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
         {/* Header */}
         <div className="rounded-t-3xl border-b border-white/10 bg-ink/80 px-5 py-4 text-paper sm:rounded-t-2xl sm:px-6">

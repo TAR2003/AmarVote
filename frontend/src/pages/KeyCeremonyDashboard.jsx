@@ -96,9 +96,9 @@ export default function KeyCeremonyDashboard() {
       [electionId]: {
         ...(prev[electionId] || {}),
         localEncryptionPassword: generated,
+        passwordGenerated: true,
       },
     }));
-    setMessage('Local AES-256 password generated in browser. It will be sent to backend for ML-KEM protected credential storage.');
   };
 
   const resetCredentialModal = () => {
@@ -300,8 +300,6 @@ export default function KeyCeremonyDashboard() {
   };
 
   const handleGenerateCredentials = async (item) => {
-    setError('');
-    setMessage('');
     try {
       const generated = await electionApi.generateGuardianKeyCeremonyCredentials(item.electionId);
 
@@ -313,12 +311,11 @@ export default function KeyCeremonyDashboard() {
           publicKey: generated?.guardianPublicKey || '',
           polynomial: generated?.guardianPolynomial || '',
           keyBackup: generated?.guardianKeyBackup || '',
+          credentialsGenerated: true,
         },
       }));
-
-      setMessage('ElectionGuard-compatible credentials generated. Submit Round 1 to download credentials.txt.');
     } catch (e) {
-      setError(e.message || 'Failed to generate credentials');
+      console.error('Failed to generate credentials:', e);
     }
   };
 
@@ -483,26 +480,33 @@ export default function KeyCeremonyDashboard() {
                       </button>
                     </div>
 
+                    {(() => {
+                      const form = guardianForm[item.electionId] || {};
+                      const keysReady = !!form.credentialsGenerated || !!(form.privateKey && form.publicKey && form.polynomial);
+                      const passwordReady = !!form.passwordGenerated || !!form.localEncryptionPassword;
+                      const successBorder = 'border-2 border-green-500 ring-1 ring-green-500/30';
+                      return (
+                    <>
                     <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <textarea
                         readOnly
-                        className="border rounded px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none"
+                        className={`rounded px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                         placeholder="Private key (generate credentials to fill)"
-                        value={guardianForm[item.electionId]?.privateKey || ''}
+                        value={form.privateKey || ''}
                       />
 
                       <textarea
                         readOnly
-                        className="border rounded px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none"
+                        className={`rounded px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                         placeholder="Public key JSON (generate credentials to fill)"
-                        value={guardianForm[item.electionId]?.publicKey || ''}
+                        value={form.publicKey || ''}
                       />
 
                       <textarea
                         readOnly
-                        className="border rounded px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none"
+                        className={`rounded px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                         placeholder="Polynomial (generate credentials to fill)"
-                        value={guardianForm[item.electionId]?.polynomial || ''}
+                        value={form.polynomial || ''}
                       />
 
                     </div>
@@ -510,15 +514,16 @@ export default function KeyCeremonyDashboard() {
                     <div className="mt-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
                       <input
                         type="text"
-                        className="border rounded px-3 py-2"
+                        className={`rounded px-3 py-2 ${passwordReady ? successBorder : 'border'}`}
                         placeholder="Local AES-256 password (allowed to send to backend)"
-                        value={guardianForm[item.electionId]?.localEncryptionPassword || ''}
+                        value={form.localEncryptionPassword || ''}
                         onChange={(e) =>
                           setGuardianForm((prev) => ({
                             ...prev,
                             [item.electionId]: {
                               ...(prev[item.electionId] || {}),
                               localEncryptionPassword: e.target.value,
+                              passwordGenerated: false,
                             },
                           }))
                         }
@@ -530,6 +535,9 @@ export default function KeyCeremonyDashboard() {
                         Generate Random AES-256 Password
                       </button>
                     </div>
+                    </>
+                      );
+                    })()}
                     <button
                       onClick={() => openCredentialModal(item.electionId)}
                       className="mt-3 px-4 py-2 bg-brand-dark text-paper rounded"

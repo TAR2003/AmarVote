@@ -61,10 +61,19 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
   const applyTallyFromEvent = (event) => {
     if (!shouldApplyTallyEvent(event)) return;
     const tally = pickTally(getSnapshotFromEvent(event));
-    if (tally) {
-      updateStatus(tally);
-      setError(null);
-    }
+    if (!tally) return;
+    setStatus((prev) => {
+      // Never let a stale in-progress snapshot overwrite a completed/failed terminal state
+      if (prev?.status === 'completed' || prev?.status === 'failed') {
+        if (tally.status !== 'completed' && tally.status !== 'failed' && tally.status !== 'stopped' && tally.status !== 'deleted') {
+          return prev;
+        }
+      }
+      const next = tally;
+      onStatusChange?.(next);
+      return next;
+    });
+    setError(null);
   };
 
   const refreshStatus = async ({ silent = false } = {}) => {
@@ -76,6 +85,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
       return statusData;
     } catch (err) {
       console.error('Error refreshing tally status:', err);
+      if (!silent) setError(err.message || 'Failed to load tally status');
       return null;
     } finally {
       if (!silent) setIsRefreshing(false);
@@ -103,15 +113,15 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
     };
   }, [isOpen, electionId]);
 
-  // Polling fallback while in progress if SSE is silent
+  // Aggressive polling fallback — SSE can lag or miss completion events
   useEffect(() => {
     if (!isOpen || !electionId) return;
-    const inFlight = status?.status === 'in_progress' || status?.status === 'pending';
-    if (!inFlight) return;
+    const terminal = status?.status === 'completed' || status?.status === 'failed' || status?.status === 'stopped';
+    if (terminal) return;
 
     const interval = setInterval(() => {
       refreshStatus({ silent: true });
-    }, 8000);
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [isOpen, electionId, status?.status]);
@@ -173,7 +183,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
   if (!status) {
     return (
       <ModalOverlay onClose={handleClose} dismissible>
-        <ModalPanel size="md" className="relative">
+        <ModalPanel size="xl" className="relative">
         <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
           <div className="border-b border-ink/10 p-5 sm:p-6">
             <div className="flex justify-between items-center">
@@ -188,6 +198,9 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
             <p className="text-dusk mt-4">
               {isConnecting ? 'Loading tally status…' : 'Connecting to live progress…'}
             </p>
+            {error && (
+              <p className="text-ember text-sm mt-3">{error}</p>
+            )}
           </div>
         </div>
       </ModalPanel>
@@ -443,7 +456,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
 
   return (
     <ModalOverlay onClose={handleClose} dismissible>
-      <ModalPanel size="md" className="relative">
+      <ModalPanel size="xl" className="relative">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
         {/* Header */}
         <div className="border-b border-ink/10 p-5 sm:p-6">

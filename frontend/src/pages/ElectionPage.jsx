@@ -263,7 +263,7 @@ const subMenus = [
 ];
 
 // Timer Component
-const ElectionTimer = ({ startTime, endTime, onPhaseChange }) => {
+const ElectionTimer = ({ startTime, endTime, onPhaseChange, variant = 'full' }) => {
   const [timeInfo, setTimeInfo] = useState({
     timeLeft: '',
     progress: 0,
@@ -283,8 +283,16 @@ const ElectionTimer = ({ startTime, endTime, onPhaseChange }) => {
       }
 
       const now = new Date();
-      const start = new Date(startTime);
-      const end = new Date(endTime);
+      const start = timezoneUtils.parseUtcTimestamp(startTime);
+      const end = timezoneUtils.parseUtcTimestamp(endTime);
+      if (!start || !end) {
+        setTimeInfo({
+          timeLeft: 'Election schedule not set yet',
+          progress: 0,
+          phase: 'upcoming'
+        });
+        return;
+      }
       const totalDuration = end - start;
 
       if (now < start) {
@@ -308,7 +316,7 @@ const ElectionTimer = ({ startTime, endTime, onPhaseChange }) => {
       } else {
         const elapsed = now - start;
         const remaining = end - now;
-        const progressPercent = (elapsed / totalDuration) * 100;
+        const progressPercent = totalDuration > 0 ? (elapsed / totalDuration) * 100 : 0;
 
         const days = Math.floor(remaining / (1000 * 60 * 60 * 24));
         const hours = Math.floor((remaining % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
@@ -348,6 +356,38 @@ const ElectionTimer = ({ startTime, endTime, onPhaseChange }) => {
   };
 
   const phaseLabel = timezoneUtils.getElectionStatusLabel(timeInfo.phase, startTime, endTime);
+
+  if (variant === 'compact') {
+    return (
+      <div className="flex min-w-0 max-w-full items-center gap-2.5 rounded-xl border border-ink/10 bg-frost/90 px-2.5 py-1.5 sm:gap-3 sm:px-3 sm:py-2">
+        <div className="h-10 w-10 shrink-0 sm:h-12 sm:w-12">
+          <CircularProgressbar
+            value={timeInfo.progress}
+            text={`${Math.round(timeInfo.progress)}%`}
+            styles={buildStyles({
+              textSize: '28px',
+              textColor: getProgressColor(),
+              pathColor: getProgressColor(),
+              trailColor: '#e2e8f0',
+            })}
+          />
+        </div>
+        <div className="min-w-0 flex-1">
+          <p className="truncate font-display text-xs font-bold text-deep sm:text-sm">{timeInfo.timeLeft}</p>
+          <p className="truncate text-[10px] text-dusk sm:text-xs">Status: {phaseLabel}</p>
+          <div className="mt-1 h-1 w-full rounded-full bg-ink/10">
+            <div
+              className="h-1 rounded-full transition-all duration-1000"
+              style={{
+                width: `${timeInfo.progress}%`,
+                backgroundColor: getProgressColor()
+              }}
+            />
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="surface-card p-5 sm:p-6">
@@ -1425,6 +1465,8 @@ export default function ElectionPage() {
   const [checkingEligibility, setCheckingEligibility] = useState(false);
   const eligibilityFetchInFlightRef = useRef(false);
   const prevElectionScheduleRef = useRef({ status: null, startingTime: null, endingTime: null });
+  // Live schedule phase from header ElectionTimer (keeps voting booth in sync without refresh)
+  const [liveSchedulePhase, setLiveSchedulePhase] = useState(null);
 
   // Guardian state
   const [guardianKey, setGuardianKey] = useState('');
@@ -1635,7 +1677,8 @@ export default function ElectionPage() {
 
   useEffect(() => {
     if (!id || !electionData?.endingTime) return;
-    if (new Date(electionData.endingTime) >= new Date()) return;
+    const end = timezoneUtils.parseUtcTimestamp(electionData.endingTime);
+    if (!end || end >= new Date()) return;
     if (!['guardian', 'info', 'results', 'verification'].includes(activeTab)) return;
 
     electionApi.getTallyStatus(id)
@@ -1644,6 +1687,29 @@ export default function ElectionPage() {
       })
       .catch(() => {});
   }, [id, electionData?.endingTime, activeTab]);
+
+  // Keep tally/combine status fresh on guardian tab even if SSE lags
+  useEffect(() => {
+    if (!id || activeTab !== 'guardian') return undefined;
+    const tallyInFlight = tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending';
+    const combineInFlight = combineStatus?.status === 'in_progress' || combineStatus?.status === 'pending';
+    if (!tallyInFlight && !combineInFlight) return undefined;
+
+    const interval = setInterval(() => {
+      if (tallyInFlight) {
+        electionApi.getTallyStatus(id)
+          .then((data) => { if (data?.status) setTallyStatus(data); })
+          .catch(() => {});
+      }
+      if (combineInFlight) {
+        electionApi.getCombineStatus(id)
+          .then((data) => { if (data?.status) setCombineStatus(data); })
+          .catch(() => {});
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [id, activeTab, tallyStatus?.status, combineStatus?.status]);
 
   const loadKeyCeremonyProgress = useCallback(async () => {
     if (activeTab !== 'guardian' || !electionData) {
@@ -1787,12 +1853,12 @@ export default function ElectionPage() {
     }
   }, [id]);
 
-  // Check eligibility when switching to voting tab
+  // Check eligibility whenever entering the voting tab (including re-entry after schedule opens)
   useEffect(() => {
-    if (activeTab === 'voting' && id && !eligibilityData && !checkingEligibility) {
-      fetchEligibility();
+    if (activeTab === 'voting' && id) {
+      fetchEligibility({ silent: Boolean(eligibilityData) });
     }
-  }, [activeTab, id, eligibilityData, checkingEligibility, fetchEligibility]);
+  }, [activeTab, id, fetchEligibility]);
 
   // Clear and refetch eligibility when election activation / schedule changes
   useEffect(() => {
@@ -1823,14 +1889,14 @@ export default function ElectionPage() {
     fetchEligibility,
   ]);
 
-  // Periodic re-check while on voting tab and temporarily ineligible
+  // Periodic re-check while on voting tab and temporarily ineligible (e.g. waiting for start)
   useEffect(() => {
     if (activeTab !== 'voting' || !id) return;
     if (!isTemporaryIneligibility(eligibilityData)) return;
 
     const interval = setInterval(() => {
       fetchEligibility({ silent: true });
-    }, 20000);
+    }, 5000);
 
     return () => clearInterval(interval);
   }, [activeTab, id, eligibilityData, fetchEligibility]);
@@ -1854,10 +1920,11 @@ export default function ElectionPage() {
   }, [activeTab, id, fetchEligibility]);
 
   const handleElectionTimerPhaseChange = useCallback((phase, previousPhase) => {
-    if (phase === 'ongoing' && previousPhase && previousPhase !== 'ongoing' && activeTab === 'voting') {
+    setLiveSchedulePhase(phase);
+    if (phase === 'ongoing' && previousPhase && previousPhase !== 'ongoing') {
       fetchEligibility({ silent: true });
     }
-  }, [activeTab, fetchEligibility]);
+  }, [fetchEligibility]);
 
   // Define functions first
   const getElectionStatus = useCallback(() => {
@@ -3250,15 +3317,15 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
 
   const handleGenerateLocalPassword = () => {
     const generated = generateLocalPassword();
-    setGuardianCeremonyForm((prev) => ({ ...prev, localEncryptionPassword: generated }));
-    setKeyCeremonyUiError('');
-    setKeyCeremonyUiMessage('Local AES-256 password generated.');
+    setGuardianCeremonyForm((prev) => ({
+      ...prev,
+      localEncryptionPassword: generated,
+      passwordGenerated: true,
+    }));
   };
 
   const handleGenerateKeyCeremonyCredentials = async () => {
     try {
-      setKeyCeremonyUiError('');
-      setKeyCeremonyUiMessage('');
       setKeyCeremonyBusy((prev) => ({ ...prev, generatingCredentials: true }));
       const generated = await electionApi.generateGuardianKeyCeremonyCredentials(id);
 
@@ -3268,10 +3335,10 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
         publicKey: generated?.guardianPublicKey || '',
         polynomial: generated?.guardianPolynomial || '',
         keyBackup: generated?.guardianKeyBackup || '',
+        credentialsGenerated: true,
       }));
-      setKeyCeremonyUiMessage('Credentials generated. Review and submit Round 1.');
     } catch (err) {
-      setKeyCeremonyUiError(err.message || 'Failed to generate credentials');
+      console.error('Failed to generate credentials:', err);
     } finally {
       setKeyCeremonyBusy((prev) => ({ ...prev, generatingCredentials: false }));
     }
@@ -3716,11 +3783,21 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                 )}
               </div>
             </div>
-            <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto">
+            <div className="flex items-center gap-2 sm:gap-3 flex-wrap w-full sm:w-auto sm:justify-end">
+              {(electionData.startingTime || electionData.endingTime) && (
+                <div className="w-full min-w-0 sm:w-auto sm:max-w-xs md:max-w-sm">
+                  <ElectionTimer
+                    startTime={electionData.startingTime}
+                    endTime={electionData.endingTime}
+                    onPhaseChange={handleElectionTimerPhaseChange}
+                    variant="compact"
+                  />
+                </div>
+              )}
               <span className={`status-chip ${
-                getElectionStatus() === 'ongoing' || getElectionStatus() === 'active'
+                (liveSchedulePhase || getElectionStatus()) === 'ongoing' || getElectionStatus() === 'active'
                   ? 'status-chip-active'
-                  : getElectionStatus() === 'upcoming' || getElectionStatus() === 'scheduled' || electionData.status === 'key_ceremony_pending'
+                  : (liveSchedulePhase || getElectionStatus()) === 'upcoming' || (liveSchedulePhase || getElectionStatus()) === 'scheduled' || electionData.status === 'key_ceremony_pending'
                     ? 'status-chip-pending'
                     : 'status-chip-ended'
               }`}>
@@ -4456,7 +4533,7 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
               <div className="mb-6">
                 {(() => {
                   const maxChoices = electionData.maxChoices || 1;
-                  const electionOngoing = getElectionStatus() === 'ongoing';
+                  const electionOngoing = (liveSchedulePhase || getElectionStatus()) === 'ongoing';
                   const canCreateBallot = !!eligibilityData?.eligible
                     && !voteResult
                     && electionOngoing
@@ -4829,28 +4906,36 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                               </button>
                             </div>
 
+                            {(() => {
+                              const keysReady = !!guardianCeremonyForm.credentialsGenerated
+                                || !!(guardianCeremonyForm.privateKey && guardianCeremonyForm.publicKey && guardianCeremonyForm.polynomial);
+                              const passwordReady = !!guardianCeremonyForm.passwordGenerated
+                                || !!guardianCeremonyForm.localEncryptionPassword;
+                              const successBorder = 'border-2 border-green-500 ring-1 ring-green-500/30';
+                              return (
+                                <>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                               <textarea
                                 readOnly
-                                className="border rounded-lg px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none"
+                                className={`rounded-lg px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                                 placeholder="Private key (generate credentials to fill)"
                                 value={guardianCeremonyForm.privateKey}
                               />
                               <textarea
                                 readOnly
-                                className="border rounded-lg px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none"
+                                className={`rounded-lg px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                                 placeholder="Public key (generate credentials to fill)"
                                 value={guardianCeremonyForm.publicKey}
                               />
                               <textarea
                                 readOnly
-                                className="border rounded-lg px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none"
+                                className={`rounded-lg px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                                 placeholder="Polynomial (generate credentials to fill)"
                                 value={guardianCeremonyForm.polynomial}
                               />
                               <textarea
                                 readOnly
-                                className="border rounded-lg px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none"
+                                className={`rounded-lg px-3 py-2 min-h-28 bg-frost text-ink cursor-default resize-none ${keysReady ? successBorder : 'border'}`}
                                 placeholder="Guardian backup payload (generate credentials to fill)"
                                 value={guardianCeremonyForm.keyBackup}
                               />
@@ -4859,10 +4944,14 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             <div className="mt-3 grid grid-cols-1 md:grid-cols-[1fr_auto] gap-2">
                               <input
                                 type="text"
-                                className="border rounded-lg px-3 py-2"
+                                className={`rounded-lg px-3 py-2 ${passwordReady ? successBorder : 'border'}`}
                                 placeholder="Local AES-256 password"
                                 value={guardianCeremonyForm.localEncryptionPassword}
-                                onChange={(e) => setGuardianCeremonyForm((prev) => ({ ...prev, localEncryptionPassword: e.target.value }))}
+                                onChange={(e) => setGuardianCeremonyForm((prev) => ({
+                                  ...prev,
+                                  localEncryptionPassword: e.target.value,
+                                  passwordGenerated: false,
+                                }))}
                               />
                               <button
                                 onClick={handleGenerateLocalPassword}
@@ -4871,6 +4960,9 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                                 Generate Password
                               </button>
                             </div>
+                                </>
+                              );
+                            })()}
 
                             <button
                               onClick={openCredentialSubmitModal}
@@ -4978,110 +5070,127 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                   </div>
                 )}
 
-                {/* Tally Creation Section - Only show if election has ended */}
+                {/* Stage 1: Tally Creation — only after election ends */}
                 {isElectionFinished() && !isKeyCeremonyPending && (
                   <div className="space-y-4 rounded-2xl border border-brand/20 bg-gradient-to-br from-white to-frost p-6 shadow-soft">
                     {getVotedCount(electionData) === 0 &&
                      !(tallyStatus?.status === 'completed' || tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending') ? (
-                      <>
-                        <div>
-                          <h4 className="font-display font-semibold text-deep mb-2">Create encrypted tally</h4>
-                          <p className="text-sm text-dusk">
-                            A tally cannot be created because no votes were cast in this election.
-                          </p>
-                        </div>
-                      </>
-                    ) : (
-                      <>
-                    <ProcessProgressPanel
-                      title="Tally creation progress"
-                      status={tallyStatus}
-                    />
-                    <div className="flex items-center justify-between">
                       <div>
                         <h4 className="font-display font-semibold text-deep mb-2">Create encrypted tally</h4>
                         <p className="text-sm text-dusk">
-                          Homomorphic product of cast ballots — ciphertext only. Guardians decrypt after this stage completes.
+                          A tally cannot be created because no votes were cast in this election.
                         </p>
                       </div>
-                    </div>
-                    {isElectionAdminUser() && (
-                    <button
-                      onClick={() => setIsTallyModalOpen(true)}
-                      disabled={tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending'}
-                      className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
-                        tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending'
-                          ? 'bg-brand-soft text-brand-dark cursor-default'
-                          : tallyStatus?.status === 'completed'
-                            ? 'bg-aurora-muted text-paper hover:bg-aurora'
-                            : 'bg-brand-dark text-paper hover:bg-brand-dark'
-                      }`}
-                    >
-                      {(tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending') ? (
-                        <>
-                          <FiLoader className="h-5 w-5 animate-spin" />
-                          <span>
-                            Tally In Progress
-                            {tallyStatus.totalChunks
-                              ? ` (${tallyStatus.processedChunks || 0}/${tallyStatus.totalChunks})`
-                              : ''}
-                          </span>
-                        </>
-                      ) : tallyStatus?.status === 'completed' ? (
-                        <>
-                          <FiCheckCircle className="h-5 w-5" />
-                          <span>View Tally Status</span>
-                        </>
-                      ) : (
-                        <>
-                          <FiRefreshCw className="h-5 w-5" />
-                          <span>Create Tally</span>
-                        </>
-                      )}
-                    </button>
-                    )}
-                    {isElectionAdminUser() && (
-                      <ProcessControlPanel
-                        electionId={Number(id)}
-                        canControlTally
-                        canControlCombine={false}
-                      />
-                    )}
+                    ) : (
+                      <>
+                        <ProcessProgressPanel
+                          title="Tally creation progress"
+                          status={tallyStatus}
+                        />
+                        {!isTallyComplete && (
+                          <>
+                            <div className="flex items-center justify-between">
+                              <div>
+                                <h4 className="font-display font-semibold text-deep mb-2">Create encrypted tally</h4>
+                                <p className="text-sm text-dusk">
+                                  Homomorphic product of cast ballots — ciphertext only. Guardians decrypt after this stage completes.
+                                </p>
+                              </div>
+                            </div>
+                            {isElectionAdminUser() && (
+                              <button
+                                onClick={() => setIsTallyModalOpen(true)}
+                                className={`px-6 py-3 rounded-lg font-medium transition-colors flex items-center space-x-2 ${
+                                  tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending'
+                                    ? 'bg-brand-soft text-brand-dark'
+                                    : 'bg-brand-dark text-paper hover:bg-brand-dark'
+                                }`}
+                              >
+                                {(tallyStatus?.status === 'in_progress' || tallyStatus?.status === 'pending') ? (
+                                  <>
+                                    <FiLoader className="h-5 w-5 animate-spin" />
+                                    <span>
+                                      View Tally Progress
+                                      {tallyStatus.totalChunks
+                                        ? ` (${tallyStatus.processedChunks || 0}/${tallyStatus.totalChunks})`
+                                        : ''}
+                                    </span>
+                                  </>
+                                ) : (
+                                  <>
+                                    <FiRefreshCw className="h-5 w-5" />
+                                    <span>Create Tally</span>
+                                  </>
+                                )}
+                              </button>
+                            )}
+                          </>
+                        )}
+                        {isTallyComplete && (
+                          <p className="text-sm text-aurora-muted">
+                            Encrypted tally is complete for all ballot chunks. Guardians can now submit decryption shares below.
+                          </p>
+                        )}
+                        {isElectionAdminUser() && (
+                          <ProcessControlPanel
+                            electionId={Number(id)}
+                            canControlTally
+                            canControlCombine={false}
+                          />
+                        )}
                       </>
                     )}
                   </div>
                 )}
 
-                {isElectionFinished() && isTallyComplete && (
-                  <>
-                    <ProcessProgressPanel
-                      title="Combine Decryption Shares Progress"
-                      status={combineStatus}
-                    />
+                {/* Stage 2: Guardian decryption — only after tally is fully complete */}
+                {isElectionFinished() && isTallyComplete && (() => {
+                  const guardiansSubmitted = electionData.guardiansSubmitted || 0;
+                  const electionQuorum = electionData.electionQuorum || electionData.totalGuardians || 0;
+                  const quorumMet = guardiansSubmitted >= electionQuorum && electionQuorum > 0;
+                  const needsDecryption = !isCombineComplete && combineStatus?.status !== 'in_progress' && combineStatus?.status !== 'pending';
 
-                    {(() => {
-                      const guardiansSubmitted = electionData.guardiansSubmitted || 0;
-                      const electionQuorum = electionData.electionQuorum || electionData.totalGuardians || 0;
-                      const quorumMet = guardiansSubmitted >= electionQuorum;
-                      const needsDecryption = !isCombineComplete && combineStatus?.status !== 'in_progress' && combineStatus?.status !== 'pending';
-                      return (
-                        <>
-                          {needsDecryption && !quorumMet && (
-                            <GuardianQuorumViz
-                              mode="decryption"
-                              title="Waiting for partial decryption shares"
-                              total={electionData.totalGuardians || electionData.numberOfGuardians || 0}
-                              threshold={electionQuorum}
-                              filled={guardiansSubmitted}
-                              guardians={(electionData.guardians || []).map((g) => ({
-                                id: g.userEmail,
-                                label: g.userName || g.userEmail,
-                                filled: !!g.decryptedOrNot,
-                              }))}
-                            />
-                          )}
+                  return (
+                    <div className="space-y-4">
+                      <GuardianProgressPanel
+                        electionId={Number(id)}
+                        guardians={electionData?.guardians || []}
+                        onElectionRefresh={fetchElectionData}
+                      />
 
-                          {needsDecryption && quorumMet && isElectionAdminUser() && (
+                      {needsDecryption && !quorumMet && (
+                        <GuardianQuorumViz
+                          mode="decryption"
+                          title="Waiting for partial decryption shares"
+                          total={electionData.totalGuardians || electionData.numberOfGuardians || 0}
+                          threshold={electionQuorum}
+                          filled={guardiansSubmitted}
+                          guardians={(electionData.guardians || []).map((g) => ({
+                            id: g.userEmail,
+                            label: g.userName || g.userEmail,
+                            filled: !!g.decryptedOrNot,
+                          }))}
+                        />
+                      )}
+
+                      {isElectionAdminUser() && (
+                        <ProcessControlPanel
+                          electionId={Number(id)}
+                          guardians={electionData?.guardians || []}
+                          canControlDecryption
+                          canControlCombine={false}
+                        />
+                      )}
+
+                      {/* Stage 3: Combine — only once quorum of guardians have submitted */}
+                      {quorumMet && (
+                        <div className="space-y-4 rounded-2xl border border-threshold/30 bg-gradient-to-br from-white to-frost p-6 shadow-soft">
+                          <ProcessProgressPanel
+                            title="Combine Decryption Shares Progress"
+                            status={combineStatus}
+                          />
+
+                          {needsDecryption && isElectionAdminUser() && (
                             <div className="observatory-panel space-y-4 p-6">
                               <GuardianQuorumViz
                                 mode="combine"
@@ -5122,31 +5231,49 @@ Candidate: ${voteResult.votedCandidate?.optionTitle || 'Unknown'}
                             </div>
                           )}
 
+                          {(combineStatus?.status === 'in_progress' || combineStatus?.status === 'pending') && (
+                            <div className="rounded-2xl border border-threshold/40 bg-threshold/10 p-4">
+                              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                                <div className="flex items-start gap-3">
+                                  <FiLoader className="mt-0.5 h-5 w-5 shrink-0 animate-spin text-threshold" />
+                                  <div>
+                                    <p className="font-display font-semibold text-deep">Combine in progress</p>
+                                    <p className="text-sm text-dusk">
+                                      Partial decryption shares are being combined. Open the live status view for detail.
+                                    </p>
+                                  </div>
+                                </div>
+                                <button
+                                  type="button"
+                                  onClick={() => setIsCombineModalOpen(true)}
+                                  className="inline-flex items-center justify-center gap-2 rounded-xl border border-threshold/40 bg-paper px-4 py-2.5 text-sm font-semibold text-threshold hover:bg-threshold/5"
+                                >
+                                  <FiEye className="h-4 w-4" />
+                                  View progress
+                                </button>
+                              </div>
+                            </div>
+                          )}
+
                           {isCombineComplete && (
                             <div className="rounded-xl border border-aurora/35 bg-aurora/10 p-4 text-sm text-aurora">
                               Decryption shares combined. Results are available in the Results tab.
                             </div>
                           )}
-                        </>
-                      );
-                    })()}
 
-                    <GuardianProgressPanel
-                      electionId={Number(id)}
-                      guardians={electionData?.guardians || []}
-                      onElectionRefresh={fetchElectionData}
-                    />
-
-                    {isElectionAdminUser() && (
-                      <ProcessControlPanel
-                        electionId={Number(id)}
-                        guardians={electionData?.guardians || []}
-                        canControlDecryption
-                        canControlCombine
-                      />
-                    )}
-                  </>
-                )}
+                          {isElectionAdminUser() && (
+                            <ProcessControlPanel
+                              electionId={Number(id)}
+                              guardians={electionData?.guardians || []}
+                              canControlDecryption={false}
+                              canControlCombine
+                            />
+                          )}
+                        </div>
+                      )}
+                    </div>
+                  );
+                })()}
 
                 {/* Active Decryption Process Banner */}
                 {isElectionFinished() && isTallyComplete && guardianDecryptionStatus &&

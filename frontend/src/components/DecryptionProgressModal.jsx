@@ -143,7 +143,14 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
 
     const myDecryption = pickMyDecryption(snapshot);
     if (myDecryption) {
-      setStatus(myDecryption);
+      setStatus((prev) => {
+        if (prev?.status === 'completed' || prev?.status === 'failed') {
+          if (myDecryption.status !== 'completed' && myDecryption.status !== 'failed' && myDecryption.status !== 'stopped') {
+            return prev;
+          }
+        }
+        return myDecryption;
+      });
       setError(null);
       return;
     }
@@ -156,6 +163,11 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
       if (detail.guardianEmail && detail.guardianEmail !== prev.guardianEmail) {
         return prev;
       }
+      if (prev?.status === 'completed' || prev?.status === 'failed') {
+        if (detail.status !== 'completed' && detail.status !== 'failed' && detail.status !== 'stopped') {
+          return prev;
+        }
+      }
       return detail;
     });
     setError(null);
@@ -165,7 +177,14 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
     if (!silent) setIsRefreshing(true);
     try {
       const data = await electionApi.getDecryptionStatus(electionId);
-      setStatus(data);
+      setStatus((prev) => {
+        if (prev?.status === 'completed' || prev?.status === 'failed') {
+          if (data?.status !== 'completed' && data?.status !== 'failed' && data?.status !== 'stopped') {
+            return prev;
+          }
+        }
+        return data;
+      });
       setError(null);
       return data;
     } catch (err) {
@@ -194,15 +213,15 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
     };
   }, [isOpen, electionId]);
 
-  // Polling fallback while in progress if SSE is silent
+  // Aggressive polling fallback — SSE can lag or miss completion events
   useEffect(() => {
     if (!isOpen || !electionId) return;
-    const inFlight = status?.status === 'in_progress' || status?.status === 'pending';
-    if (!inFlight) return;
+    const terminal = status?.status === 'completed' || status?.status === 'failed' || status?.status === 'stopped';
+    if (terminal) return;
 
     const interval = setInterval(() => {
       refreshStatus({ silent: true });
-    }, 8000);
+    }, 2000);
 
     return () => clearInterval(interval);
   }, [isOpen, electionId, status?.status]);
@@ -282,7 +301,7 @@ const DecryptionProgressModal = ({ isOpen, onClose, electionId, guardianName }) 
 
   return (
     <ModalOverlay onClose={onClose} dismissible>
-      <ModalPanel size="lg" surface="deep">
+      <ModalPanel size="xl" surface="deep">
       <div className="flex min-h-0 flex-1 flex-col overflow-y-auto overscroll-contain">
         {/* Header */}
         <div className="rounded-t-3xl border-b border-white/10 bg-ink/80 px-5 py-4 text-paper sm:rounded-t-2xl sm:px-6">

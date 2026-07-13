@@ -49,6 +49,35 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
 
   useEffect(() => {
     setSelectedGuardian(null);
+    if (!electionId) return;
+    let cancelled = false;
+    electionApi.getAllGuardiansDecryptionProgress(electionId)
+      .then((data) => {
+        if (!cancelled) setProgressList(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {});
+    return () => { cancelled = true; };
+  }, [electionId]);
+
+  // Fallback HTTP poll while panel is mounted (SSE can miss or lag completion)
+  useEffect(() => {
+    if (!electionId) return undefined;
+    let cancelled = false;
+
+    const tick = async () => {
+      try {
+        const data = await electionApi.getAllGuardiansDecryptionProgress(electionId);
+        if (!cancelled) setProgressList(Array.isArray(data) ? data : []);
+      } catch {
+        /* ignore poll errors */
+      }
+    };
+
+    const interval = setInterval(tick, 4000);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [electionId]);
 
   const merged = (guardians.length ? guardians : progressList).map((g) => {
@@ -84,7 +113,8 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
       ) : (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
           {merged.map((guardian) => {
-            const pct = Math.round(guardian.progressPercentage || 0);
+            const submitted = !!guardian.decryptedOrNot || guardian.status === 'completed';
+            const pct = submitted ? 100 : Math.round(guardian.progressPercentage || 0);
             const label = guardian.guardianName || guardian.userEmail || `Guardian ${guardian.sequenceOrder || ''}`;
             return (
               <button
@@ -99,14 +129,16 @@ const GuardianProgressPanel = ({ electionId, guardians = [], onElectionRefresh =
                     text={`${pct}%`}
                     styles={buildStyles({
                       textSize: '22px',
-                      pathColor: guardian.decryptedOrNot ? '#3FC7B8' : '#8B7FE8',
+                      pathColor: submitted ? '#10b981' : '#8B7FE8',
                       textColor: '#1B1D2E',
                       trailColor: 'rgba(92, 82, 196, 0.15)',
                     })}
                   />
                 </div>
                 <p className="mt-2 line-clamp-2 text-center text-xs font-medium text-ink">{label}</p>
-                <p className="text-[10px] uppercase tracking-wide text-dusk">{guardian.status || 'idle'}</p>
+                <p className="text-[10px] uppercase tracking-wide text-dusk">
+                  {submitted ? 'submitted' : (guardian.status || 'idle')}
+                </p>
               </button>
             );
           })}

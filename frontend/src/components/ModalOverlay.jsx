@@ -57,17 +57,17 @@ export function ModalPanel({
     size === 'sm'
       ? 'max-w-md'
       : size === 'lg'
-        ? 'max-w-2xl'
+        ? 'max-w-3xl'
         : size === 'xl'
-          ? 'max-w-3xl'
+          ? 'max-w-4xl'
           : size === 'full'
-            ? 'max-w-4xl'
-            : 'max-w-lg';
+            ? 'max-w-5xl'
+            : 'max-w-xl';
 
   const maxHeight =
     size === 'xl' || size === 'full'
-      ? 'max-h-[min(92dvh,760px)]'
-      : 'max-h-[min(88dvh,680px)]';
+      ? 'max-h-[min(94dvh,900px)]'
+      : 'max-h-[min(90dvh,820px)]';
 
   const surfaceClass =
     surface === 'deep'

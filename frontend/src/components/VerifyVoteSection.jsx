@@ -190,17 +190,8 @@ export default function VerifyVoteSection({ electionId }) {
   const statusDisplay = getVerificationStatusDisplay();
   const Icon = statusDisplay?.icon;
   const isVerifiedSuccess = verificationResult?.status === 'verified';
-
-  const toneBox = {
-    aurora: 'border-aurora/35 bg-aurora/10',
-    brand: 'border-brand/35 bg-brand/10',
-    ember: 'border-ember/40 bg-ember/10',
-  };
-  const toneText = {
-    aurora: 'text-aurora',
-    brand: 'text-brand',
-    ember: 'text-ember',
-  };
+  const isMismatch = verificationResult?.status === 'corrupted';
+  const isNotFoundOrError = verificationResult?.status === 'not_found' || verificationResult?.status === 'error';
 
   return (
     <div className="space-y-5">
@@ -356,46 +347,80 @@ export default function VerifyVoteSection({ electionId }) {
         <div
           className={
             isVerifiedSuccess
-              ? 'rounded-2xl border-2 border-aurora bg-sage-soft p-6 shadow-aurora sm:p-8'
-              : `rounded-2xl border p-5 sm:p-6 ${toneBox[statusDisplay.tone]}`
+              ? 'rounded-2xl border-4 border-green-500 bg-gradient-to-br from-green-50 via-emerald-50 to-green-100 p-6 shadow-[0_0_0_4px_rgba(34,197,94,0.2)] sm:p-8'
+              : isMismatch
+                ? 'rounded-2xl border-4 border-amber-500 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 p-6 shadow-[0_0_0_4px_rgba(245,158,11,0.2)] sm:p-8'
+                : isNotFoundOrError
+                  ? 'rounded-2xl border-4 border-red-500 bg-gradient-to-br from-red-50 via-rose-50 to-red-100 p-6 shadow-[0_0_0_4px_rgba(239,68,68,0.2)] sm:p-8'
+                  : 'rounded-2xl border p-5 sm:p-6 border-ink/20 bg-frost'
           }
           role="status"
           aria-live="polite"
         >
-          <div className={`flex items-start gap-3 ${isVerifiedSuccess ? 'sm:gap-5' : ''}`}>
+          <div className="flex items-start gap-4 sm:gap-5">
             {Icon && (
               isVerifiedSuccess ? (
-                <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full border-2 border-aurora bg-aurora text-paper shadow-aurora sm:h-16 sm:w-16">
-                  <Icon className="h-8 w-8 sm:h-9 sm:w-9" strokeWidth={3} aria-hidden />
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-green-500 text-white shadow-lg shadow-green-500/40 sm:h-20 sm:w-20">
+                  <Icon className="h-9 w-9 sm:h-10 sm:w-10" strokeWidth={3} aria-hidden />
+                </div>
+              ) : isMismatch ? (
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/40 sm:h-20 sm:w-20">
+                  <Icon className="h-9 w-9 sm:h-10 sm:w-10" strokeWidth={3} aria-hidden />
                 </div>
               ) : (
-                <Icon className={`mt-0.5 h-6 w-6 shrink-0 ${toneText[statusDisplay.tone]}`} aria-hidden />
+                <div className="flex h-16 w-16 shrink-0 items-center justify-center rounded-full bg-red-500 text-white shadow-lg shadow-red-500/40 sm:h-20 sm:w-20">
+                  <Icon className="h-9 w-9 sm:h-10 sm:w-10" strokeWidth={3} aria-hidden />
+                </div>
               )
             )}
             <div className="min-w-0 flex-1">
+              <p
+                className={`text-[11px] font-bold uppercase tracking-[0.2em] ${
+                  isVerifiedSuccess ? 'text-green-700' : isMismatch ? 'text-amber-800' : 'text-red-700'
+                }`}
+              >
+                {isVerifiedSuccess ? 'Verification passed' : isMismatch ? 'Hash mismatch' : 'Verification failed'}
+              </p>
               <h4
                 className={
                   isVerifiedSuccess
-                    ? 'font-display text-xl font-bold text-aurora-muted sm:text-2xl'
-                    : `font-display text-base font-semibold ${toneText[statusDisplay.tone]}`
+                    ? 'mt-1 font-display text-2xl font-bold text-green-800 sm:text-3xl'
+                    : isMismatch
+                      ? 'mt-1 font-display text-2xl font-bold text-amber-900 sm:text-3xl'
+                      : 'mt-1 font-display text-2xl font-bold text-red-800 sm:text-3xl'
                 }
               >
                 {statusDisplay.title}
               </h4>
               <p
-                className={`mt-1 leading-relaxed ${
-                  isVerifiedSuccess ? 'text-base font-medium text-deep' : 'text-sm text-ink'
+                className={`mt-2 text-base leading-relaxed ${
+                  isVerifiedSuccess ? 'font-medium text-green-900' : isMismatch ? 'font-medium text-amber-950' : 'font-medium text-red-900'
                 }`}
               >
                 {statusDisplay.description}
               </p>
 
+              {(isVerifiedSuccess || verificationResult?.found_ballot) && (
+                <div
+                  className={`mt-4 inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-base font-bold ${
+                    isVerifiedSuccess
+                      ? 'bg-green-500 text-white shadow-md shadow-green-500/30'
+                      : 'bg-amber-500 text-white shadow-md'
+                  }`}
+                >
+                  <FiCheck className="h-5 w-5" strokeWidth={3} aria-hidden />
+                  Found in tally: Yes
+                </div>
+              )}
+
               {verificationFile && (
                 <div
-                  className={`mt-4 space-y-2 rounded-xl border p-4 text-sm ${
+                  className={`mt-4 space-y-2 rounded-xl border-2 p-4 text-sm ${
                     isVerifiedSuccess
-                      ? 'border-aurora/40 bg-paper'
-                      : 'border-ink/10 bg-paper/90'
+                      ? 'border-green-400 bg-white/80'
+                      : isMismatch
+                        ? 'border-amber-400 bg-white/80'
+                        : 'border-red-300 bg-white/80'
                   }`}
                 >
                   <div>
@@ -412,17 +437,6 @@ export default function VerifyVoteSection({ electionId }) {
                       {verificationFile.hash_code}
                     </p>
                   </div>
-                  {verificationResult.found_ballot && (
-                    <p
-                      className={
-                        isVerifiedSuccess
-                          ? 'mt-1 text-base font-bold text-aurora-muted'
-                          : 'text-sm font-medium text-aurora'
-                      }
-                    >
-                      Found in tally: yes
-                    </p>
-                  )}
                   {verificationResult.expected_hash && verificationResult.provided_hash && (
                     <div className="border-t border-ink/10 pt-2 font-mono text-xs text-ember">
                       <div>Expected: {verificationResult.expected_hash}</div>
@@ -440,20 +454,20 @@ export default function VerifyVoteSection({ electionId }) {
         <p className="font-display font-semibold text-deep">Result meanings</p>
         <ul className="mt-2 space-y-2">
           <li className="flex gap-2">
-            <FiCheck className="mt-0.5 h-4 w-4 shrink-0 text-aurora" aria-hidden />
+            <FiCheck className="mt-0.5 h-4 w-4 shrink-0 text-green-600" aria-hidden />
             <span>
               <strong className="text-deep">Included:</strong> tracking code and hash match the
               published tally.
             </span>
           </li>
           <li className="flex gap-2">
-            <FiAlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-brand" aria-hidden />
+            <FiAlertCircle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" aria-hidden />
             <span>
               <strong className="text-deep">Hash mismatch:</strong> code found, hash does not match.
             </span>
           </li>
           <li className="flex gap-2">
-            <FiX className="mt-0.5 h-4 w-4 shrink-0 text-ember" aria-hidden />
+            <FiX className="mt-0.5 h-4 w-4 shrink-0 text-red-600" aria-hidden />
             <span>
               <strong className="text-deep">Not found:</strong> tracking code absent from the tally.
             </span>
