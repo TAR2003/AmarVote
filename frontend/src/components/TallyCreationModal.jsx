@@ -212,20 +212,20 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
     if (!status || status.status === 'not_started') {
       return (
         <div className="text-center py-8">
-          <div className="mb-6">
-            <FiRefreshCw className="h-16 w-16 text-brand mx-auto" />
+          <div className="mb-6 flex justify-center">
+            <FiRefreshCw className="h-16 w-16 text-brand" />
           </div>
-          <h3 className="text-xl font-semibold text-deep mb-4">
+          <h3 className="text-xl font-semibold text-deep mb-4 text-center">
             Ready to Create Tally
           </h3>
-          <p className="text-dusk mb-6">
+          <p className="text-dusk mb-6 text-center mx-auto max-w-md">
             Click the button below to start creating the encrypted tally for this election.
             This process may take a few minutes depending on the number of votes.
           </p>
           {error && (
-            <div className="bg-ember-soft border border-ember/30 rounded-2xl p-4 mb-4">
-              <div className="flex items-center text-ember">
-                <FiAlertCircle className="h-5 w-5 mr-2 flex-shrink-0" />
+            <div className="bg-ember-soft border border-ember/30 rounded-2xl p-4 mb-4 text-center">
+              <div className="flex items-center justify-center gap-2 text-ember">
+                <FiAlertCircle className="h-5 w-5 flex-shrink-0" />
                 <span className="text-sm">{error}</span>
               </div>
             </div>
@@ -233,7 +233,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
           <button
             onClick={handleCreateTally}
             disabled={isLoading}
-            className={`btn-brand px-6 py-3 ${
+            className={`btn-brand mx-auto inline-flex px-6 py-3 ${
               isLoading
                 ? 'bg-ink/30 cursor-not-allowed'
                 : 'bg-brand-dark hover:bg-brand'
@@ -305,10 +305,10 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
               />
             </div>
           </div>
-          <h3 className="text-xl font-semibold text-deep mb-4">
+          <h3 className="text-xl font-semibold text-deep mb-4 text-center">
             Creating Encrypted Tally...
           </h3>
-          <div className="space-y-2 mb-6">
+          <div className="space-y-2 mb-6 text-center">
             <p className="text-dusk">
               Processing chunks: {status.processedChunks || 0} / {status.totalChunks || 0}
             </p>
@@ -319,7 +319,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
             )}
             {/* Task Metadata */}
             {(status.createdBy || status.lockHeldBy) && (
-              <div className="mt-3 pt-3 border-t border-ink/10">
+              <div className="mt-3 pt-3 border-t border-ink/10 text-center">
                 <p className="text-sm text-dusk">
                   <span className="font-medium">Initiated by:</span>{' '}
                   <span className="text-deep font-semibold">
@@ -336,7 +336,7 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
                 )}
               </div>
             )}
-            <div className="w-full bg-ink/10 rounded-full h-2 mt-2">
+            <div className="mx-auto w-full max-w-md bg-ink/10 rounded-full h-2 mt-2">
               <div
                 className="bg-brand h-2 rounded-full transition-all duration-300"
                 style={{ width: `${progress}%` }}
@@ -344,9 +344,9 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
             </div>
           </div>
           <div className="bg-glacier border border-brand/20 rounded-2xl p-4">
-            <div className="flex items-center text-ink">
-              <FiLoader className="h-5 w-5 mr-2 animate-spin flex-shrink-0" />
-              <span className="text-sm">
+            <div className="flex items-center justify-center gap-2 text-ink">
+              <FiLoader className="h-5 w-5 animate-spin flex-shrink-0" />
+              <span className="text-sm text-center">
                 Tally creation in progress. Please wait...
               </span>
             </div>
@@ -398,20 +398,20 @@ const TallyCreationModal = ({ isOpen, onClose, electionId, electionApi, onStatus
     if (status.status === 'completed') {
       return (
         <div className="text-center py-8">
-          <div className="mb-6">
-            <FiCheckCircle className="h-16 w-16 text-green-500 mx-auto" />
+          <div className="mb-6 flex justify-center">
+            <FiCheckCircle className="h-16 w-16 text-green-500" />
           </div>
-          <h3 className="text-xl font-semibold text-deep mb-4">
+          <h3 className="text-xl font-semibold text-deep mb-4 text-center">
             Tally Created Successfully!
           </h3>
-          <p className="text-dusk mb-4">
+          <p className="text-dusk mb-4 text-center mx-auto max-w-md">
             The encrypted tally has been successfully created.
           </p>
-          <p className="text-sm text-dusk mb-6">
+          <p className="text-sm text-dusk mb-6 text-center">
             Processed {status.processedChunks || status.totalChunks} of {status.totalChunks} chunk{status.totalChunks !== 1 ? 's' : ''}
           </p>
-          <div className="bg-sage-soft border border-aurora/30 rounded-2xl p-4">
-            <p className="text-sm text-aurora-muted">
+          <div className="bg-sage-soft border border-aurora/30 rounded-2xl p-4 text-center">
+            <p className="text-sm text-aurora-muted text-center">
               ✓ Guardians can now submit their keys to decrypt the results
             </p>
           </div>

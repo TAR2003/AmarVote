@@ -11,6 +11,9 @@ import {
 import toast from 'react-hot-toast';
 import { electionApi } from '../utils/electionApi';
 
+const NOT_A_RECEIPT_MESSAGE =
+  'Could not detect a ballot receipt in this file. No tracking code or vote hash was found. The file you submitted is not a ballot receipt — please upload the actual vote receipt. You may have chosen the wrong file.';
+
 /**
  * Forensic, quiet verification lookup — paste or upload tracking code + hash.
  */
@@ -21,13 +24,30 @@ export default function VerifyVoteSection({ electionId }) {
   const [dragOver, setDragOver] = useState(false);
   const [manualInput, setManualInput] = useState({ tracking_code: '', hash_code: '' });
   const [inputMethod, setInputMethod] = useState('file');
+  const [fileParseError, setFileParseError] = useState(null);
+
+  const notifyNotAReceipt = () => {
+    setVerificationFile(null);
+    setVerificationResult(null);
+    setFileParseError(NOT_A_RECEIPT_MESSAGE);
+    toast.error(NOT_A_RECEIPT_MESSAGE, { duration: 7000 });
+    const input = document.getElementById('verification-file');
+    if (input) input.value = '';
+  };
 
   const handleFileUpload = (file) => {
+    setFileParseError(null);
+    setVerificationResult(null);
+
     if (file && (file.type === 'text/plain' || file.name.endsWith('.txt') || file.name.endsWith('.json'))) {
       const reader = new FileReader();
       reader.onload = (e) => {
         try {
           const content = e.target.result;
+          if (!content || !String(content).trim()) {
+            notifyNotAReceipt();
+            return;
+          }
 
           try {
             const jsonData = JSON.parse(content);
@@ -54,8 +74,11 @@ export default function VerifyVoteSection({ electionId }) {
               verifyVoteData(data);
               return;
             }
+            // Valid JSON but missing receipt fields — not a ballot receipt
+            notifyNotAReceipt();
+            return;
           } catch {
-            /* not JSON */
+            /* not JSON — try plain-text receipt format */
           }
 
           const voteHashMatch =
@@ -76,17 +99,16 @@ export default function VerifyVoteSection({ electionId }) {
             setVerificationFile(data);
             verifyVoteData(data);
           } else {
-            toast.error(
-              'The file you submitted is not a ballot receipt. Please upload the actual vote receipt — it must include a tracking code and vote hash section.',
-              { duration: 6000 }
-            );
+            notifyNotAReceipt();
           }
         } catch (error) {
+          setFileParseError('Failed to read vote receipt file: ' + error.message);
           toast.error('Failed to read vote receipt file: ' + error.message);
         }
       };
       reader.readAsText(file);
     } else {
+      setFileParseError('Please upload a valid TXT or JSON vote receipt file.');
       toast.error('Please upload a valid TXT or JSON vote receipt file');
     }
   };
@@ -113,6 +135,7 @@ export default function VerifyVoteSection({ electionId }) {
       return;
     }
 
+    setFileParseError(null);
     const data = {
       tracking_code: manualInput.tracking_code.trim(),
       hash_code: manualInput.hash_code.trim(),
@@ -124,6 +147,7 @@ export default function VerifyVoteSection({ electionId }) {
 
   const verifyVoteData = async (data) => {
     try {
+      setFileParseError(null);
       setVerifyingVote(true);
       setVerificationResult(null);
 
@@ -212,7 +236,10 @@ export default function VerifyVoteSection({ electionId }) {
         <div className="inline-flex gap-2 rounded-2xl bg-frost/80 p-1.5">
           <button
             type="button"
-            onClick={() => setInputMethod('file')}
+            onClick={() => {
+              setInputMethod('file');
+              setFileParseError(null);
+            }}
             className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition sm:px-5 sm:text-sm ${
               inputMethod === 'file'
                 ? 'bg-brand text-deep shadow-brand'
@@ -223,7 +250,10 @@ export default function VerifyVoteSection({ electionId }) {
           </button>
           <button
             type="button"
-            onClick={() => setInputMethod('manual')}
+            onClick={() => {
+              setInputMethod('manual');
+              setFileParseError(null);
+            }}
             className={`rounded-xl px-4 py-2.5 text-xs font-semibold transition sm:px-5 sm:text-sm ${
               inputMethod === 'manual'
                 ? 'bg-brand text-deep shadow-brand'
@@ -332,6 +362,35 @@ export default function VerifyVoteSection({ electionId }) {
             >
               {verifyingVote ? 'Verifying…' : 'Verify inclusion'}
             </button>
+          </div>
+        </div>
+      )}
+
+      {fileParseError && (
+        <div
+          className="rounded-2xl border-4 border-amber-500 bg-gradient-to-br from-amber-50 via-orange-50 to-amber-100 p-5 shadow-[0_0_0_4px_rgba(245,158,11,0.2)] sm:p-6"
+          role="alert"
+          aria-live="assertive"
+        >
+          <div className="flex items-start gap-4">
+            <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-amber-500 text-white shadow-lg shadow-amber-500/40">
+              <FiAlertCircle className="h-8 w-8" strokeWidth={2.5} aria-hidden />
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] font-bold uppercase tracking-[0.2em] text-amber-800">
+                Could not detect receipt
+              </p>
+              <h4 className="mt-1 font-display text-xl font-bold text-amber-900 sm:text-2xl">
+                This file is not a ballot receipt
+              </h4>
+              <p className="mt-2 text-base font-medium leading-relaxed text-amber-950">
+                {fileParseError}
+              </p>
+              <p className="mt-3 text-sm text-amber-900/80">
+                Look for a receipt that includes both a <strong>Tracking Code</strong> and a{' '}
+                <strong>Vote Hash</strong> section, then upload that file instead.
+              </p>
+            </div>
           </div>
         </div>
       )}
