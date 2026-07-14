@@ -97,16 +97,25 @@ public class ApiLogService {
 
     private Page<?> getDefaultLogsPage(
             String emailFilter, String ipFilter, String pathFilter, int page, int size) {
-        if (emailFilter != null && !emailFilter.isBlank()) {
-            return getLogsByEmail(emailFilter, page, size);
+        boolean hasFilter = isPresent(emailFilter) || isPresent(ipFilter) || isPresent(pathFilter);
+        if (!hasFilter) {
+            return getAllLogs(page, size);
         }
-        if (ipFilter != null && !ipFilter.isBlank()) {
-            return getLogsByIp(ipFilter, page, size);
-        }
-        if (pathFilter != null && !pathFilter.isBlank()) {
-            return getLogsByPath(pathFilter, page, size);
-        }
-        return getAllLogs(page, size);
+
+        // AND-combine email / IP / path (same semantics as unique/cluster views + CSV export)
+        int offset = page * size;
+        long total = apiLogViewRepository.countAllLogs(
+                emailFilter, ipFilter, pathFilter, "all", null, null);
+        List<ApiLogViewResponse> content = apiLogViewRepository
+                .findAllLogs(emailFilter, ipFilter, pathFilter, "all", null, null, size, offset)
+                .stream()
+                .map(this::mapRow)
+                .toList();
+        return new PageImpl<>(content, PageRequest.of(page, size), total);
+    }
+
+    private boolean isPresent(String value) {
+        return value != null && !value.isBlank();
     }
 
     private Page<ApiLogViewResponse> getUniqueEmailPage(

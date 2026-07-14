@@ -85,9 +85,8 @@ export default function ApiLogs() {
     clusters: null,
   });
 
-  const [searchType, setSearchType] = useState("email");
-  const [searchValue, setSearchValue] = useState("");
-  const [appliedSearch, setAppliedSearch] = useState({ type: "email", value: "" });
+  const [searchFields, setSearchFields] = useState({ email: "", ip: "", path: "" });
+  const [appliedSearch, setAppliedSearch] = useState({ email: "", ip: "", path: "" });
   const [selectedLogIds, setSelectedLogIds] = useState(new Set());
   const [deleting, setDeleting] = useState(false);
   const [exporting, setExporting] = useState(false);
@@ -162,12 +161,9 @@ export default function ApiLogs() {
     try {
       const apiView = getApiViewForTab(activeTab);
       let url = `/api/admin/logs?page=${page}&size=${pageSize}&view=${encodeURIComponent(apiView)}`;
-      const value = appliedSearch.value?.trim();
-      if (value) {
-        if (appliedSearch.type === "email") url += `&email=${encodeURIComponent(value)}`;
-        else if (appliedSearch.type === "ip") url += `&ip=${encodeURIComponent(value)}`;
-        else if (appliedSearch.type === "path") url += `&path=${encodeURIComponent(value)}`;
-      }
+      if (appliedSearch.email?.trim()) url += `&email=${encodeURIComponent(appliedSearch.email.trim())}`;
+      if (appliedSearch.ip?.trim()) url += `&ip=${encodeURIComponent(appliedSearch.ip.trim())}`;
+      if (appliedSearch.path?.trim()) url += `&path=${encodeURIComponent(appliedSearch.path.trim())}`;
       url += `&sortBy=${sortBy}&sortOrder=${sortOrder}`;
 
       const res = await fetch(url, { credentials: "include" });
@@ -244,15 +240,22 @@ export default function ApiLogs() {
   }
 
   function handleFilterChange(f, v) { setFilters(p => ({ ...p, [f]: v })); }
+  function handleSearchFieldChange(field, value) {
+    setSearchFields((prev) => ({ ...prev, [field]: value }));
+  }
   function handleApplySearch(e) {
     e?.preventDefault();
     setPage(0);
-    setAppliedSearch({ type: searchType, value: searchValue.trim() });
+    setAppliedSearch({
+      email: searchFields.email.trim(),
+      ip: searchFields.ip.trim(),
+      path: searchFields.path.trim(),
+    });
   }
   function handleClearSearch() {
-    setSearchValue("");
+    setSearchFields({ email: "", ip: "", path: "" });
     setPage(0);
-    setAppliedSearch({ type: searchType, value: "" });
+    setAppliedSearch({ email: "", ip: "", path: "" });
   }
   function handleSort(f) {
     if (sortBy === f) setSortOrder(o => o === "asc" ? "desc" : "asc");
@@ -333,12 +336,9 @@ export default function ApiLogs() {
       const tab = getExportTab();
       let url = `/api/admin/logs/export?view=${encodeURIComponent(view)}&tab=${encodeURIComponent(tab)}`;
 
-      const value = appliedSearch.value?.trim();
-      if (value) {
-        if (appliedSearch.type === "email") url += `&email=${encodeURIComponent(value)}`;
-        else if (appliedSearch.type === "ip") url += `&ip=${encodeURIComponent(value)}`;
-        else if (appliedSearch.type === "path") url += `&path=${encodeURIComponent(value)}`;
-      }
+      if (appliedSearch.email?.trim()) url += `&email=${encodeURIComponent(appliedSearch.email.trim())}`;
+      if (appliedSearch.ip?.trim()) url += `&ip=${encodeURIComponent(appliedSearch.ip.trim())}`;
+      if (appliedSearch.path?.trim()) url += `&path=${encodeURIComponent(appliedSearch.path.trim())}`;
       if (filters.method) url += `&method=${encodeURIComponent(filters.method)}`;
       if (filters.statusCode) url += `&statusCode=${encodeURIComponent(filters.statusCode)}`;
 
@@ -362,7 +362,7 @@ export default function ApiLogs() {
   }
 
   const activeFiltersCount = Object.values(filters).filter(Boolean).length
-    + (appliedSearch.value ? 1 : 0);
+    + Object.values(appliedSearch).filter(Boolean).length;
 
   const TABS = [
     { id: "all",           label: "All Requests",    icon: ICONS.chart,   color: "blue",    desc: "Every API call logged" },
@@ -623,41 +623,58 @@ export default function ApiLogs() {
                 onClick={() => setShowAdvancedFilters(p => !p)}
                 className="text-dusk-soft hover:text-paper text-xs font-medium transition"
               >
-                {showAdvancedFilters ? "Hide advanced ?" : "Show advanced ?"}
+                {showAdvancedFilters ? "Hide advanced" : "Show advanced"}
               </button>
             </div>
 
             <div className="p-5 space-y-4">
-              <form onSubmit={handleApplySearch} className="flex flex-col lg:flex-row gap-2">
-                <select
-                  value={searchType}
-                  onChange={(e) => setSearchType(e.target.value)}
-                  className="input-field py-2.5 text-sm"
-                >
-                  <option value="email">Search by Email</option>
-                  <option value="ip">Search by IP Address</option>
-                  <option value="path">Search by API Call / Path</option>
-                </select>
-                <div className="relative flex-1">
-                  <Icon d={ICONS.search} className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dusk" />
-                  <input
-                    type="text"
-                    value={searchValue}
-                    onChange={(e) => setSearchValue(e.target.value)}
-                    placeholder={
-                      searchType === "email" ? "user@example.com"
-                        : searchType === "ip" ? "192.168.x.x"
-                          : "/api/auth/login"
-                    }
-                    className="input-field w-full py-2.5 pl-10 pr-4 text-sm"
-                  />
+              <form onSubmit={handleApplySearch} className="space-y-3">
+                <p className="text-xs text-dusk">
+                  Use any combination of fields — filled filters are applied together (AND).
+                </p>
+                <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-dusk">Email</span>
+                    <input
+                      type="text"
+                      value={searchFields.email}
+                      onChange={(e) => handleSearchFieldChange("email", e.target.value)}
+                      placeholder="user@example.com"
+                      className="input-field w-full py-2.5 text-sm"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-dusk">IP address</span>
+                    <input
+                      type="text"
+                      value={searchFields.ip}
+                      onChange={(e) => handleSearchFieldChange("ip", e.target.value)}
+                      placeholder="192.168.x.x"
+                      className="input-field w-full py-2.5 text-sm"
+                      autoComplete="off"
+                    />
+                  </label>
+                  <label className="flex flex-col gap-1.5">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-dusk">Endpoint / path</span>
+                    <input
+                      type="text"
+                      value={searchFields.path}
+                      onChange={(e) => handleSearchFieldChange("path", e.target.value)}
+                      placeholder="/api/auth/login"
+                      className="input-field w-full py-2.5 text-sm"
+                      autoComplete="off"
+                    />
+                  </label>
                 </div>
-                <button
-                  type="submit"
-                  className="btn-brand flex items-center justify-center gap-2 px-5 py-2.5"
-                >
-                  <Icon d={ICONS.search} className="w-4 h-4" /> Search
-                </button>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    type="submit"
+                    className="btn-brand flex items-center justify-center gap-2 px-5 py-2.5"
+                  >
+                    <Icon d={ICONS.search} className="w-4 h-4" /> Search
+                  </button>
+                </div>
               </form>
 
               {showAdvancedFilters && (
