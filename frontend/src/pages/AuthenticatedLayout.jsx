@@ -402,6 +402,11 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
               After you sign in or register, we’ll bring you back to this election.
             </p>
           )}
+          {returnPath && !returnPath.includes("/election-page/") && (
+            <p className="mt-3 rounded-xl bg-glacier/70 px-3 py-2 text-sm text-brand-dark">
+              After you sign in or register, we’ll bring you back here.
+            </p>
+          )}
           <div className="mt-6 flex flex-col justify-center gap-3 sm:flex-row">
             {showRetry && (
               <button

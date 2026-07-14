@@ -13,6 +13,7 @@ const SAFE_PATH_PREFIXES = [
   "/profile",
   "/authenticated-users",
   "/api-logs",
+  "/user-analytics",
 ];
 
 const AUTH_PATHS = new Set([
