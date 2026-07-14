@@ -404,6 +404,7 @@ public class EmailService {
             html = html.replace("{{ELECTION_DESCRIPTION}}", electionDescription != null ? electionDescription : "");
             html = html.replace("{{PRIVATE_KEY}}", privateKey);
             html = html.replace("{{ELECTION_ID}}", electionId.toString());
+            html = html.replace("{{SITE_BASE_URL}}", resolveSiteBaseUrl());
             return html;
         } catch (IOException e) {
             throw new RuntimeException("Failed to load guardian private key email template", e);
@@ -417,10 +418,20 @@ public class EmailService {
             html = html.replace("{{ELECTION_TITLE}}", electionTitle);
             html = html.replace("{{ELECTION_DESCRIPTION}}", electionDescription != null ? electionDescription : "");
             html = html.replace("{{ELECTION_ID}}", electionId.toString());
+            html = html.replace("{{SITE_BASE_URL}}", resolveSiteBaseUrl());
             return html;
         } catch (IOException e) {
             throw new RuntimeException("Failed to load guardian credential email template", e);
         }
+    }
+
+    private String resolveSiteBaseUrl() {
+        String base = siteUrlResolver.getConfiguredBaseUrl();
+        if (base == null || base.isBlank()) {
+            // Match production host when PUBLIC_BASE_URL is unset (local / legacy deploys)
+            return "https://amarvote2026.me";
+        }
+        return base;
     }
 
     private String loadOtpEmailTemplate(String otpCode) {

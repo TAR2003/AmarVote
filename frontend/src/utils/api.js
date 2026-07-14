@@ -12,6 +12,18 @@ const API_BASE_URL = '/api';
 // Default timeout for API requests (5 minutes)
 const DEFAULT_TIMEOUT = 5 * 60 * 1000; // 300,000ms = 5 minutes
 
+/** Avoid ngrok free-tier browser interstitial breaking credentialed API calls. */
+function ngrokSkipBrowserWarningHeaders() {
+  if (typeof window === 'undefined') {
+    return {};
+  }
+  const host = window.location.hostname || '';
+  if (!/\.ngrok(-free)?\.(app|dev)$/i.test(host) && host !== 'ngrok.io' && !host.endsWith('.ngrok.io')) {
+    return {};
+  }
+  return { 'ngrok-skip-browser-warning': 'true' };
+}
+
 // Get CSRF token from cookie
 export function getCsrfToken() {
   const cookies = document.cookie.split('; ');
@@ -73,6 +85,7 @@ export async function apiRequest(endpoint, options = {}, timeout = DEFAULT_TIMEO
   // Include CSRF token for non-GET requests
   const headers = {
     'Content-Type': 'application/json',
+    ...ngrokSkipBrowserWarningHeaders(),
     ...options.headers,
   };
   
@@ -136,6 +149,7 @@ export async function apiBinaryRequest(endpoint, binaryData, contentType = 'appl
   // Include CSRF token and authentication headers
   const headers = {
     'Content-Type': contentType,
+    ...ngrokSkipBrowserWarningHeaders(),
   };
   
   const csrfToken = getCsrfToken();
@@ -346,7 +360,7 @@ export async function uploadProfilePicture(file) {
     formData.append('file', file);
 
     const csrfToken = getCsrfToken();
-    const headers = {};
+    const headers = { ...ngrokSkipBrowserWarningHeaders() };
     if (csrfToken) {
       headers['X-XSRF-TOKEN'] = csrfToken;
     }
@@ -383,7 +397,7 @@ export async function uploadCandidateImage(file, candidateName) {
     formData.append('candidateName', candidateName);
 
     const csrfToken = getCsrfToken();
-    const headers = {};
+    const headers = { ...ngrokSkipBrowserWarningHeaders() };
     if (csrfToken) {
       headers['X-XSRF-TOKEN'] = csrfToken;
     }
@@ -420,7 +434,7 @@ export async function uploadPartyImage(file, partyName) {
     formData.append('partyName', partyName);
 
     const csrfToken = getCsrfToken();
-    const headers = {};
+    const headers = { ...ngrokSkipBrowserWarningHeaders() };
     if (csrfToken) {
       headers['X-XSRF-TOKEN'] = csrfToken;
     }
@@ -457,7 +471,7 @@ export async function uploadElectionPicture(file, electionId) {
     formData.append('electionId', electionId.toString());
 
     const csrfToken = getCsrfToken();
-    const headers = {};
+    const headers = { ...ngrokSkipBrowserWarningHeaders() };
     if (csrfToken) {
       headers['X-XSRF-TOKEN'] = csrfToken;
     }
@@ -494,7 +508,7 @@ export async function uploadCandidatePicture(file, choiceId) {
     formData.append('choiceId', choiceId.toString());
 
     const csrfToken = getCsrfToken();
-    const headers = {};
+    const headers = { ...ngrokSkipBrowserWarningHeaders() };
     if (csrfToken) {
       headers['X-XSRF-TOKEN'] = csrfToken;
     }
@@ -531,7 +545,7 @@ export async function uploadPartyPicture(file, choiceId) {
     formData.append('choiceId', choiceId.toString());
 
     const csrfToken = getCsrfToken();
-    const headers = {};
+    const headers = { ...ngrokSkipBrowserWarningHeaders() };
     if (csrfToken) {
       headers['X-XSRF-TOKEN'] = csrfToken;
     }
@@ -705,7 +719,7 @@ export async function uploadAuthorizedUsersCsv(file) {
   formData.append('file', file);
 
   const csrfToken = getCsrfToken();
-  const headers = {};
+  const headers = { ...ngrokSkipBrowserWarningHeaders() };
   if (csrfToken) {
     headers['X-XSRF-TOKEN'] = csrfToken;
   }

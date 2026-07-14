@@ -1,0 +1,342 @@
+# Ngrok compose — same stack as docker-compose.local.yml, tuned for public HTTPS via ngrok.
+#
+# Prerequisites:
+#   1. Set in .env (use your current ngrok HTTPS URL, no trailing slash):
+#        PUBLIC_BASE_URL=https://YOUR_SUBDOMAIN.ngrok-free.app
+#        CORS_ALLOWED_ORIGINS=https://YOUR_SUBDOMAIN.ngrok-free.app
+#   2. Add that hostname to Cloudflare Turnstile allowed hostnames (if captcha enabled).
+#   3. Start this stack, then tunnel port 80:
+#        docker compose -f docker-compose.ngrok.yml up -d --build
+#        ngrok http 80
+#
+# Differences vs local:
+#   - nginx: nginx-proxy.ngrok.conf + nginx-ngrok-realip.conf (preserve HTTPS proto + real client IP)
+#   - backend: COOKIE_SECURE=true (browser uses ngrok HTTPS)
+#   - PUBLIC_BASE_URL / CORS_ALLOWED_ORIGINS required for email links (receipts, guardian emails, etc.)
+#
+# Memory budget (matches local/prod):
+#   backend 1536M | electionguard-api 512M (2 workers) | electionguard-worker 512M (1 worker)
+#   rabbitmq 420M (lazy queues) | postgres 400M | redis 96M | frontend 64M | nginx 56M
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: amarvote_postgres
+    restart: unless-stopped
+    oom_score_adj: -500
+    env_file:
+      - .env
+    environment:
+      - POSTGRES_DB=amarvote_db
+      - POSTGRES_USER=amarvote_user
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./Database/creation/:/docker-entrypoint-initdb.d/:ro
+    # No public port — only reachable inside election_net
+    expose:
+      - "5432"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.20
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U amarvote_user -d amarvote_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    command: >
+      postgres
+      -c max_connections=60
+      -c shared_buffers=100MB
+      -c effective_cache_size=300MB
+      -c work_mem=3MB
+      -c maintenance_work_mem=64MB
+      -c statement_timeout=30000
+      -c max_wal_size=1GB
+      -c min_wal_size=256MB
+      -c checkpoint_completion_target=0.9
+      -c wal_buffers=16MB
+      -c random_page_cost=1.1
+      -c effective_io_concurrency=200
+      -c max_parallel_workers_per_gather=2
+      -c max_parallel_workers=4
+    deploy:
+      resources:
+        limits:
+          cpus: '0.35'
+          memory: 400M
+
+  redis:
+    image: redis:7-alpine
+    container_name: amarvote_redis
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - REDIS_PASSWORD=${REDIS_PASSWORD}
+    # maxmemory (80mb, set in redis.prod.conf) must stay below container limit (96M)
+    command:
+      - sh
+      - -c
+      - redis-server /usr/local/etc/redis/redis.prod.conf --requirepass "$$REDIS_PASSWORD"
+    ports:
+      - "127.0.0.1:6379:6379"   # Bound to localhost only — use SSH tunnel to access
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.75
+    healthcheck:
+      test: ["CMD-SHELL", "redis-cli -a \"$$REDIS_PASSWORD\" ping | grep -q PONG"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 10s
+    volumes:
+      - redis_data:/data
+      - ./redis.prod.conf:/usr/local/etc/redis/redis.prod.conf:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 96M
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: amarvote_rabbitmq
+    restart: unless-stopped
+    env_file:
+      - .env
+    environment:
+      - RABBITMQ_DEFAULT_USER=amarvote_user
+      - RABBITMQ_DEFAULT_PASS=${RABBITMQ_PASSWORD}
+    # No public AMQP port — only reachable inside election_net
+    expose:
+      - "5672"
+    ports:
+      - "127.0.0.1:15672:15672"        # Management UI — localhost only, use SSH tunnel
+    volumes:
+      - rabbitmq_data:/var/lib/rabbitmq
+      - ./rabbitmq.conf:/etc/rabbitmq/rabbitmq.conf:ro
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.25
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 10s
+      retries: 12
+      start_period: 120s
+    # Lazy queues + paging configured in rabbitmq.conf so RAM stays flat under deep queues.
+    # Run once after boot: rabbitmqctl set_policy lazy-queues "^(email|chunk).*" '{"queue-mode":"lazy"}' --apply-to queues
+    deploy:
+      resources:
+        limits:
+          cpus: '0.25'
+          memory: 420M
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: amarvote_backend
+    restart: unless-stopped
+    env_file:
+      - .env
+    # No public port — nginx proxies to this internally
+    expose:
+      - "8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://postgres:5432/amarvote_db
+      - SPRING_DATASOURCE_USERNAME=amarvote_user
+      - SPRING_DATASOURCE_PASSWORD=${POSTGRES_PASSWORD}
+      - SPRING_JPA_HIBERNATE_DDL_AUTO=validate
+      - SPRING_JPA_OPEN_IN_VIEW=false
+      - SPRING_DEVTOOLS_RESTART_ENABLED=false
+      - SPRING_DEVTOOLS_LIVERELOAD_ENABLED=false
+      - RAG_SERVICE_URL=http://rag-service:5001
+      - BLOCKCHAIN_SERVICE_URL=${VOTING_API_URL}
+      - BLOCKCHAIN_ENABLED=false
+      - MASTER_KEY_PQ=${MASTER_KEY_PQ}
+      - DEEPSEEK_API_KEY=${DEEPSEEK_API_KEY}
+      - JWT_SECRET=${JWT_SECRET}
+      - JWT_TEMP_SECRET=${JWT_TEMP_SECRET}
+      - ELECTIONGUARD_INTERNAL_API_KEY=${ELECTIONGUARD_INTERNAL_API_KEY}
+      # HTTPS via ngrok — Secure cookies required for auth/CSRF in the browser
+      - COOKIE_SECURE=true
+      - AMARVOTE_CHATBOT_ENABLED=false
+      - RESEND_API_KEY=${RESEND_API_KEY}
+      - EMAIL_PROVIDER=${EMAIL_PROVIDER:-smtp}
+      - VITE_TURNSTILE_SITE_KEY=${VITE_TURNSTILE_SITE_KEY:-}
+      - TURNSTILE_SECRET=${TURNSTILE_SECRET:-}
+      - TURNSTILE_ENABLED=${TURNSTILE_ENABLED:-true}
+      - MAIL_PASSWORD=${MAIL_PASSWORD}
+      - CLOUDINARY_NAME=${CLOUDINARY_NAME}
+      - CLOUDINARY_KEY=${CLOUDINARY_KEY}
+      - CLOUDINARY_SECRET=${CLOUDINARY_SECRET}
+      - LOG_PASSWORD=${LOG_PASSWORD}
+      - ADMIN_EMAILS=${ADMIN_EMAILS}
+      - CREDENTIALS_DIRECTORY=/app/data/credentials
+      # RabbitMQ Configuration
+      - SPRING_RABBITMQ_HOST=rabbitmq
+      - SPRING_RABBITMQ_PORT=5672
+      - SPRING_RABBITMQ_USERNAME=amarvote_user
+      - SPRING_RABBITMQ_PASSWORD=${RABBITMQ_PASSWORD}
+      # Redis Configuration
+      - SPRING_REDIS_HOST=redis
+      - SPRING_REDIS_PORT=6379
+      - SPRING_REDIS_PASSWORD=${REDIS_PASSWORD}
+      # ElectionGuard Service URLs + per-container throughput (must match GUNICORN_WORKERS below)
+      - ELECTIONGUARD_API_URL=http://electionguard-api:5000
+      - ELECTIONGUARD_WORKER_URL=http://electionguard-worker:5001
+      - ELECTIONGUARD_API_GUNICORN_WORKERS=2
+      - ELECTIONGUARD_WORKER_GUNICORN_WORKERS=1
+      - ELECTIONGUARD_WORKER_SCHEDULER_QUEUE_DEPTH=4
+      # Required: public HTTPS origin from ngrok (receipt / guardian / reminder links)
+      - PUBLIC_BASE_URL=${PUBLIC_BASE_URL:?Set PUBLIC_BASE_URL in .env to your ngrok https URL}
+      # CORS defaults remain; PUBLIC_BASE_URL is also added automatically in CorsConfig
+      - CORS_ALLOWED_ORIGINS=${CORS_ALLOWED_ORIGINS:-https://amarvote2026.me,http://localhost:5173,http://localhost:3000}
+      # 4 GB host: 1536M container — Xmx768m + 320m metaspace + 192m direct memory
+      - JAVA_OPTS=-Xms384m -Xmx768m -XX:+UseG1GC -XX:MaxGCPauseMillis=200 -XX:+ExitOnOutOfMemoryError -XX:+UseStringDeduplication -XX:MetaspaceSize=128m -XX:MaxMetaspaceSize=320m -XX:MaxDirectMemorySize=192m
+    volumes:
+      - credentials_data:/app/data/credentials
+      - ./backend/src/main/resources/templates:/app/templates:ro
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.30
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          cpus: '0.75'
+          memory: 1536M
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: amarvote_frontend
+    restart: unless-stopped
+    oom_score_adj: 500
+    env_file:
+      - .env
+    # No public port — nginx proxies to this internally
+    expose:
+      - "80"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.40
+    depends_on:
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.05'
+          memory: 64M
+
+  nginx:
+    image: nginx:alpine
+    container_name: amarvote_nginx
+    restart: unless-stopped
+    env_file:
+      - .env
+    ports:
+      - "80:80"   # ngrok http 80 → this gateway (no TLS here; ngrok terminates HTTPS)
+    volumes:
+      - ./nginx-proxy.ngrok.conf:/etc/nginx/conf.d/default.conf:ro
+      - ./nginx-ngrok-realip.conf:/etc/nginx/ngrok-realip.conf:ro
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.45
+    depends_on:
+      - frontend
+      - backend
+    deploy:
+      resources:
+        limits:
+          cpus: '0.1'
+          memory: 56M
+
+  electionguard-api:
+    build:
+      context: ./Microservice
+      dockerfile: Dockerfile.api
+    container_name: electionguard_api
+    restart: unless-stopped
+    env_file:
+      - .env
+    expose:
+      - "5000"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.10
+    environment:
+      - FLASK_DEBUG=0
+      - MASTER_KEY_PQ=${MASTER_KEY_PQ}
+      - ELECTIONGUARD_INTERNAL_API_KEY=${ELECTIONGUARD_INTERNAL_API_KEY}
+      # 2 vCPU host: 2 sync workers (CPU-bound crypto). Worker recycle limits heap growth.
+      # Keep in sync with backend ELECTIONGUARD_API_GUNICORN_WORKERS above.
+      - GUNICORN_WORKERS=2
+      - GUNICORN_THREADS=1
+      - GUNICORN_MAX_REQUESTS=300
+      - GUNICORN_MAX_REQUESTS_JITTER=50
+      - MANIFEST_CACHE_MAX=16
+      - CONTEXT_CACHE_MAX=32
+      - AUDITED_BALLOT_CACHE_MAX=32
+    volumes:
+      - ./Microservice/io:/app/io:rw
+    deploy:
+      resources:
+        limits:
+          cpus: '0.7'
+          memory: 512M
+
+  electionguard-worker:
+    build:
+      context: ./Microservice
+      dockerfile: Dockerfile.worker
+    container_name: electionguard_worker
+    restart: unless-stopped
+    env_file:
+      - .env
+    expose:
+      - "5001"
+    networks:
+      election_net:
+        ipv4_address: 172.20.0.11
+    environment:
+      - FLASK_DEBUG=0
+      - MASTER_KEY_PQ=${MASTER_KEY_PQ}
+      - ELECTIONGUARD_INTERNAL_API_KEY=${ELECTIONGUARD_INTERNAL_API_KEY}
+      # 1 worker — keep in sync with backend ELECTIONGUARD_WORKER_GUNICORN_WORKERS above.
+      - GUNICORN_WORKERS=1
+      - GUNICORN_THREADS=1
+      - GUNICORN_MAX_REQUESTS=5000
+      - GUNICORN_MAX_REQUESTS_JITTER=40
+    volumes:
+      - ./Microservice/io:/app/io:rw
+    deploy:
+      resources:
+        limits:
+          cpus: '0.5'
+          memory: 512M
+
+volumes:
+  postgres_data:
+  rag_vectorstore:
+  credentials_data:
+  rabbitmq_data:
+  redis_data:
+
+networks:
+  election_net:
+    driver: bridge
+    ipam:
+      driver: default
+      config:
+        - subnet: 172.20.0.0/24
+          gateway: 172.20.0.1

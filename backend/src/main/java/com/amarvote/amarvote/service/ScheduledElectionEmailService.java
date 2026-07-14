@@ -29,6 +29,7 @@ import com.amarvote.amarvote.repository.ElectionCoAdminRepository;
 import com.amarvote.amarvote.repository.ElectionRepository;
 import com.amarvote.amarvote.repository.GuardianRepository;
 import com.amarvote.amarvote.repository.ScheduledElectionEmailRepository;
+import com.amarvote.amarvote.util.SiteUrlResolver;
 
 @Service
 public class ScheduledElectionEmailService {
@@ -40,6 +41,7 @@ public class ScheduledElectionEmailService {
     private final ElectionCoAdminRepository electionCoAdminRepository;
     private final EmailService emailService;
     private final EmailAddressValidator emailAddressValidator;
+    private final SiteUrlResolver siteUrlResolver;
     private final TransactionTemplate transactionTemplate;
 
     public ScheduledElectionEmailService(
@@ -50,6 +52,7 @@ public class ScheduledElectionEmailService {
             ElectionCoAdminRepository electionCoAdminRepository,
             EmailService emailService,
             EmailAddressValidator emailAddressValidator,
+            SiteUrlResolver siteUrlResolver,
             PlatformTransactionManager transactionManager) {
         this.scheduledEmailRepository = scheduledEmailRepository;
         this.electionRepository = electionRepository;
@@ -58,6 +61,7 @@ public class ScheduledElectionEmailService {
         this.electionCoAdminRepository = electionCoAdminRepository;
         this.emailService = emailService;
         this.emailAddressValidator = emailAddressValidator;
+        this.siteUrlResolver = siteUrlResolver;
         this.transactionTemplate = new TransactionTemplate(transactionManager);
     }
 
@@ -187,7 +191,7 @@ public class ScheduledElectionEmailService {
     public String buildDefaultTemplate(Election election, String recipientGroup) {
         String title = election.getElectionTitle() == null ? "Election" : election.getElectionTitle();
         String description = election.getElectionDescription() == null ? "" : election.getElectionDescription();
-        String electionLink = "/election-page/" + election.getElectionId();
+        String electionLink = resolveElectionPageUrl(election.getElectionId());
 
         return switch (normalizeGroup(recipientGroup)) {
             case ScheduledElectionEmail.GROUP_VOTERS -> "Dear voter,\n\n"
@@ -210,6 +214,15 @@ public class ScheduledElectionEmailService {
                     + "Regards,\nAmarVote Team";
             default -> throw new IllegalArgumentException("Unsupported recipient group: " + recipientGroup);
         };
+    }
+
+    private String resolveElectionPageUrl(Long electionId) {
+        String base = siteUrlResolver.getConfiguredBaseUrl();
+        String path = "/election-page/" + electionId;
+        if (base == null || base.isBlank()) {
+            return path;
+        }
+        return base + path;
     }
 
     List<String> resolveRecipients(Election election, String recipientGroup, String voterFilter) {
