@@ -12,10 +12,10 @@ const REF_ALTITUDE = 2.5;
 const GLOBE_RADIUS = 100;
 
 function relativeRadius(requests, maxRequests) {
-  if (!requests || requests <= 0) return 0.22;
+  if (!requests || requests <= 0) return 0.45;
   const logMax = Math.log10(Math.max(maxRequests, 2));
   const logVal = Math.log10(requests + 1);
-  return 0.22 + (logVal / logMax) * 1.2;
+  return 0.45 + (logVal / logMax) * 1.85;
 }
 
 /** Zoom in → smaller markers; zoom out → larger; ratios between cities kept. */
@@ -229,7 +229,8 @@ export default function AnalyticsGlobe({
           ...loc,
           color: colorForLocation(loc),
           size: base * zScale * (flaring ? 1.35 : selected ? 1.22 : 1),
-          pointAlt: flaring ? 0.025 : selected ? 0.015 : 0.006,
+          // Keep altitude tiny so markers read as flat circles, not tall columns
+          pointAlt: flaring ? 0.002 : selected ? 0.0015 : 0.0008,
         };
       }),
     [plottable, maxRequests, flaringIps, selectedIp, zScale]
