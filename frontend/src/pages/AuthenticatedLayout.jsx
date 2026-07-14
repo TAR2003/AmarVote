@@ -13,6 +13,7 @@ import {
   FiPlus,
   FiBell,
   FiUsers,
+  FiGlobe,
 } from "react-icons/fi";
 import BrandMark, { BrandWordmark } from "../components/BrandMark";
 import { electionApi } from "../utils/electionApi";
@@ -55,7 +56,10 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
     return location.pathname === path;
   };
 
-  const isWidePage = location.pathname === "/api-logs" || location.pathname === "/authenticated-users";
+  const isWidePage =
+    location.pathname === "/api-logs" ||
+    location.pathname === "/authenticated-users" ||
+    location.pathname === "/user-analytics";
   const isElectionPage = location.pathname.includes("/election-page");
 
   const closeMobileMenu = () => {
@@ -350,6 +354,23 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
     }
   };
 
+  const handleUserAnalyticsAccess = async () => {
+    try {
+      const res = await fetch("/api/admin/access-check", {
+        method: "GET",
+        credentials: "include",
+      });
+      const data = await res.json().catch(() => ({}));
+      if (res.ok && data.allowed) {
+        navigate("/user-analytics");
+        return;
+      }
+      alert(data.message || "Not allowed to view User Analytics.");
+    } catch {
+      alert("Failed to verify User Analytics access.");
+    }
+  };
+
   if (!userEmail) {
     const isSessionExpired = !sessionError || sessionError?.kind === HTTP_ERROR_KIND.SESSION_EXPIRED;
     const title = sessionError?.title || "Sign in required";
@@ -639,6 +660,20 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
                 >
                   <FiBarChart2 className="h-5 w-5" />
                   <span>API Logs</span>
+                </button>
+
+                <button
+                  onClick={() => {
+                    closeMobileMenu();
+                    handleUserAnalyticsAccess();
+                  }}
+                  className={`flex items-center space-x-3 w-full px-4 py-3 rounded-2xl text-sm sm:text-base font-medium ${isActiveRoute('/user-analytics')
+                      ? 'text-paper bg-brand/15'
+                      : 'text-dusk-soft hover:text-paper hover:bg-paper/5 transition-all duration-300'
+                    }`}
+                >
+                  <FiGlobe className="h-5 w-5" />
+                  <span>User Analytics</span>
                 </button>
 
                 <Link

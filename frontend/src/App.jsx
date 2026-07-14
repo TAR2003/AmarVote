@@ -23,6 +23,7 @@ import LoadingScreen from "./pages/Loading";
 import About from "./pages/About";
 import Features from "./pages/Features";
 import ApiLogs from "./pages/ApiLogs";
+import UserAnalytics from "./pages/UserAnalytics";
 import Architecture from "./pages/Architecture";
 import Security from "./pages/Security";
 import Profile from "./pages/Profile";
@@ -205,6 +206,7 @@ function App() {
           <Route path="/profile" element={<Profile />} />
           <Route path="/authenticated-users" element={<AuthenticatedUsers />} />
           <Route path="/api-logs" element={<ApiLogs />} />
+          <Route path="/user-analytics" element={<UserAnalytics />} />
           {/* Add other authenticated routes here */}
         </Route>
       </Routes>
