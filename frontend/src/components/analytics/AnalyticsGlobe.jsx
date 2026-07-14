@@ -1,6 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Globe from "react-globe.gl";
-import { feature } from "topojson-client";
 import { colorForLocation } from "./markerColors";
 
 const INDIGO = "#12142B";
@@ -9,39 +8,42 @@ const PAPER = "#F7F4EC";
 
 const RECENT_MS = 5 * 60 * 1000;
 const FLARE_DURATION_MS = 1800;
-const REF_ALTITUDE = 2.4;
+const REF_ALTITUDE = 2.5;
+const GLOBE_RADIUS = 100;
 
 function relativeRadius(requests, maxRequests) {
-  if (!requests || requests <= 0) return 0.2;
+  if (!requests || requests <= 0) return 0.22;
   const logMax = Math.log10(Math.max(maxRequests, 2));
   const logVal = Math.log10(requests + 1);
-  return 0.2 + (logVal / logMax) * 1.05;
+  return 0.22 + (logVal / logMax) * 1.2;
 }
 
+/** Zoom in → smaller markers; zoom out → larger; ratios between cities kept. */
 function zoomScale(altitude) {
-  const a = Number.isFinite(altitude) ? altitude : REF_ALTITUDE;
-  return Math.min(1.35, Math.max(0.07, a / REF_ALTITUDE));
+  const a = Number.isFinite(altitude) && altitude > 0 ? altitude : REF_ALTITUDE;
+  const scaled = Math.pow(a / REF_ALTITUDE, 1.15);
+  return Math.min(1.5, Math.max(0.045, scaled));
 }
 
-function roughCentroid(feat) {
-  const coords = [];
-  const walk = (c) => {
-    if (!c) return;
-    if (typeof c[0] === "number") {
-      coords.push(c);
-      return;
+function readAltitude(globe) {
+  if (!globe) return REF_ALTITUDE;
+  try {
+    const pov = typeof globe.pointOfView === "function" ? globe.pointOfView() : null;
+    if (pov?.altitude != null && Number.isFinite(pov.altitude) && pov.altitude > 0) {
+      return pov.altitude;
     }
-    c.forEach(walk);
-  };
-  walk(feat?.geometry?.coordinates);
-  if (!coords.length) return { lat: 0, lng: 0 };
-  let lon = 0;
-  let lat = 0;
-  for (const [x, y] of coords) {
-    lon += x;
-    lat += y;
+  } catch {
+    /* ignore */
   }
-  return { lat: lat / coords.length, lng: lon / coords.length };
+  try {
+    const cam = typeof globe.camera === "function" ? globe.camera() : null;
+    if (cam?.position) {
+      return Math.max(0.05, cam.position.length() / GLOBE_RADIUS - 1);
+    }
+  } catch {
+    /* ignore */
+  }
+  return REF_ALTITUDE;
 }
 
 function usePrefersReducedMotion() {
@@ -61,8 +63,8 @@ function usePrefersReducedMotion() {
 }
 
 /**
- * Immersive traffic globe — political borders, named countries, multi-color markers.
- * Auto-rotation stops as soon as the user interacts (Maps-like explore mode).
+ * Traffic globe — night earth (no political borders/labels).
+ * Marker radius scales with camera zoom. Click pans to the point without resetting zoom.
  */
 export default function AnalyticsGlobe({
   locations = [],
@@ -75,14 +77,13 @@ export default function AnalyticsGlobe({
 }) {
   const globeRef = useRef(null);
   const containerRef = useRef(null);
-  const altitudeRafRef = useRef(null);
   const interactedRef = useRef(false);
   const [dims, setDims] = useState({ w: 800, h: 600 });
   const [hover, setHover] = useState(null);
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
   const [altitude, setAltitude] = useState(REF_ALTITUDE);
-  const [countries, setCountries] = useState([]);
   const [flaringIps, setFlaringIps] = useState(() => new Set());
+  const [globeReady, setGlobeReady] = useState(false);
   const seenKeysRef = useRef(new Set());
   const prefersReduced = usePrefersReducedMotion();
 
@@ -100,23 +101,12 @@ export default function AnalyticsGlobe({
   );
 
   const zScale = zoomScale(altitude);
-  const showCountryLabels = altitude < 1.55;
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      try {
-        const res = await fetch("/globe/countries-110m.json");
-        const topo = await res.json();
-        const geo = feature(topo, topo.objects.countries);
-        if (!cancelled) setCountries(geo.features || []);
-      } catch {
-        if (!cancelled) setCountries([]);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
+  const syncAltitude = useCallback(() => {
+    const globe = globeRef.current;
+    if (!globe) return;
+    const next = readAltitude(globe);
+    setAltitude((prev) => (Math.abs(prev - next) > 0.01 ? next : prev));
   }, []);
 
   useEffect(() => {
@@ -166,56 +156,68 @@ export default function AnalyticsGlobe({
   }, [onUserInteract]);
 
   useEffect(() => {
+    if (!globeReady) return undefined;
     const globe = globeRef.current;
-    if (!globe) return undefined;
-    const controls = globe.controls?.();
+    if (!globe || typeof globe.controls !== "function") return undefined;
+    const controls = globe.controls();
     if (!controls) return undefined;
 
     controls.autoRotate = !!spinEnabled && !prefersReduced;
     controls.autoRotateSpeed = 0.32;
     controls.enableZoom = true;
-    controls.minDistance = 110;
-    controls.maxDistance = 900;
+    controls.minDistance = 105;
+    controls.maxDistance = 800;
 
+    let ticking = false;
     const onChange = () => {
       markInteracted();
-      if (altitudeRafRef.current != null) return;
-      altitudeRafRef.current = requestAnimationFrame(() => {
-        altitudeRafRef.current = null;
-        const pov = globe.pointOfView?.();
-        if (pov?.altitude != null && Number.isFinite(pov.altitude)) {
-          setAltitude((prev) => (Math.abs(prev - pov.altitude) > 0.008 ? pov.altitude : prev));
-        }
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => {
+        ticking = false;
+        syncAltitude();
       });
     };
 
     controls.addEventListener("change", onChange);
     controls.addEventListener("start", markInteracted);
-    onChange();
+    syncAltitude();
+
     return () => {
       controls.removeEventListener("change", onChange);
       controls.removeEventListener("start", markInteracted);
-      if (altitudeRafRef.current != null) cancelAnimationFrame(altitudeRafRef.current);
     };
-  }, [spinEnabled, prefersReduced, dims, markInteracted]);
+  }, [globeReady, spinEnabled, prefersReduced, dims, markInteracted, syncAltitude]);
 
-  // Keep controls.autoRotate in sync when spinEnabled flips
   useEffect(() => {
+    if (!globeReady) return;
     const globe = globeRef.current;
-    const controls = globe?.controls?.();
-    if (!controls) return;
-    controls.autoRotate = !!spinEnabled && !prefersReduced;
-  }, [spinEnabled, prefersReduced]);
+    if (!globe || typeof globe.controls !== "function") return;
+    const controls = globe.controls();
+    if (controls) controls.autoRotate = !!spinEnabled && !prefersReduced;
+  }, [globeReady, spinEnabled, prefersReduced]);
 
-  // Fly to selected location (Maps-like)
+  // Pan to selected location — keep the user's current zoom (never reset to world view)
   useEffect(() => {
+    if (!globeReady || !selectedIp) return;
     const globe = globeRef.current;
-    if (!globe || !selectedIp) return;
+    if (!globe || typeof globe.pointOfView !== "function") return;
     const loc = plottable.find((l) => l.ip === selectedIp);
     if (!loc) return;
     markInteracted();
-    globe.pointOfView({ lat: loc.lat, lng: loc.lon, altitude: Math.min(altitude, 0.85) }, 900);
-  }, [selectedIp]); // eslint-disable-line react-hooks/exhaustive-deps
+
+    const currentAlt = readAltitude(globe);
+    // Only nudge zoom in if the user is still at a far world view; otherwise preserve zoom
+    const targetAlt = currentAlt > 1.4 ? 0.7 : currentAlt;
+
+    globe.pointOfView({ lat: loc.lat, lng: loc.lon, altitude: targetAlt }, 700);
+    const start = performance.now();
+    const tick = () => {
+      syncAltitude();
+      if (performance.now() - start < 900) requestAnimationFrame(tick);
+    };
+    requestAnimationFrame(tick);
+  }, [selectedIp, globeReady]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const pointsData = useMemo(
     () =>
@@ -226,8 +228,8 @@ export default function AnalyticsGlobe({
         return {
           ...loc,
           color: colorForLocation(loc),
-          size: base * zScale * (flaring ? 1.4 : selected ? 1.25 : 1),
-          altitude: flaring ? 0.03 : selected ? 0.018 : 0.008,
+          size: base * zScale * (flaring ? 1.35 : selected ? 1.22 : 1),
+          pointAlt: flaring ? 0.025 : selected ? 0.015 : 0.006,
         };
       }),
     [plottable, maxRequests, flaringIps, selectedIp, zScale]
@@ -240,7 +242,7 @@ export default function AnalyticsGlobe({
         .map((l) => ({
           lat: l.lat,
           lon: l.lon,
-          maxR: Math.max(0.3, 1.6 * zScale),
+          maxR: Math.max(0.25, 1.55 * zScale),
           propagationSpeed: prefersReduced ? 0 : 1.1,
           repeatPeriod: prefersReduced ? 0 : 1500,
         })),
@@ -259,18 +261,6 @@ export default function AnalyticsGlobe({
         color: [colorForLocation(l), TEAL],
       }));
   }, [plottable, flaringIps, scope, prefersReduced]);
-
-  const labelsData = useMemo(() => {
-    if (!showCountryLabels || !countries.length) return [];
-    return countries
-      .map((f) => {
-        const name = f.properties?.name;
-        if (!name) return null;
-        const c = roughCentroid(f);
-        return { ...c, name };
-      })
-      .filter(Boolean);
-  }, [countries, showCountryLabels]);
 
   if (prefersReduced && reducedMotionFallbackList) {
     return (
@@ -313,29 +303,15 @@ export default function AnalyticsGlobe({
         width={dims.w}
         height={dims.h}
         backgroundColor={INDIGO}
-        globeImageUrl="/globe/earth-blue-marble.jpg"
+        globeImageUrl="/globe/earth-night.jpg"
         bumpImageUrl="/globe/earth-topology.png"
         atmosphereColor="#8B7FE8"
         atmosphereAltitude={0.16}
-        polygonsData={countries}
-        polygonAltitude={0.004}
-        polygonCapColor={() => "rgba(18, 20, 43, 0.05)"}
-        polygonSideColor={() => "rgba(18, 20, 43, 0.15)"}
-        polygonStrokeColor={() => "rgba(247, 244, 236, 0.45)"}
-        polygonsTransitionDuration={0}
-        labelsData={labelsData}
-        labelLat="lat"
-        labelLng="lng"
-        labelText="name"
-        labelSize={() => Math.max(0.35, 0.9 * zScale)}
-        labelDotRadius={0}
-        labelColor={() => "rgba(247, 244, 236, 0.88)"}
-        labelAltitude={0.012}
-        labelResolution={2}
+        onGlobeReady={() => setGlobeReady(true)}
         pointsData={pointsData}
         pointLat="lat"
         pointLng="lon"
-        pointAltitude="altitude"
+        pointAltitude="pointAlt"
         pointRadius="size"
         pointColor="color"
         pointLabel={() => null}
@@ -361,7 +337,7 @@ export default function AnalyticsGlobe({
         arcDashLength={0.4}
         arcDashGap={0.2}
         arcDashAnimateTime={FLARE_DURATION_MS}
-        arcAltitude={0.18}
+        arcAltitude={0.16}
         arcStroke={1.1}
       />
 
