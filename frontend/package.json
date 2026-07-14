@@ -39,7 +39,8 @@
     "recharts": "^2.8.0",
     "rehype-raw": "^7.0.0",
     "remark-html": "^16.0.1",
-    "three": "^0.185.1"
+    "three": "^0.185.1",
+    "topojson-client": "^3.1.0"
   },
   "devDependencies": {
     "@eslint/js": "^9.25.0",

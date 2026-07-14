@@ -60,6 +60,7 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
     location.pathname === "/api-logs" ||
     location.pathname === "/authenticated-users" ||
     location.pathname === "/user-analytics";
+  const isAnalyticsImmersive = location.pathname === "/user-analytics";
   const isElectionPage = location.pathname.includes("/election-page");
 
   const closeMobileMenu = () => {
@@ -776,13 +777,19 @@ const AuthenticatedLayoutContent = ({ userEmail, setUserEmail, sessionError, onR
       )}
 
       {/* Main Content */}
-      <main className="flex-1 overflow-y-auto focus:outline-none">
-        <div className={`${isWidePage ? "max-w-[min(1920px,99vw)]" : "max-w-7xl"} mx-auto ${isWidePage ? "px-2 sm:px-4 lg:px-5" : "px-3 sm:px-6 lg:px-8"} py-4 sm:py-8 mobile-bottom-pad`}>
+      <main className={`flex-1 focus:outline-none ${isAnalyticsImmersive ? "overflow-hidden" : "overflow-y-auto"}`}>
+        <div
+          className={
+            isAnalyticsImmersive
+              ? "h-[calc(100dvh-4.25rem)] md:h-[calc(100dvh-4.75rem)] w-full max-w-none p-0"
+              : `${isWidePage ? "max-w-[min(1920px,99vw)]" : "max-w-7xl"} mx-auto ${isWidePage ? "px-2 sm:px-4 lg:px-5" : "px-3 sm:px-6 lg:px-8"} py-4 sm:py-8 mobile-bottom-pad`
+          }
+        >
           <Outlet />
         </div>
       </main>
 
-      {!isElectionPage && (
+      {!isElectionPage && !isAnalyticsImmersive && (
       <nav className="md:hidden fixed bottom-0 left-0 right-0 z-40 border-t border-white/10 bg-deep/95 backdrop-blur-lg shadow-nav safe-pb">
         <div className="grid grid-cols-4 gap-1 px-2 py-2">
           {mobileNavItems.slice(0, 4).map((item) => {

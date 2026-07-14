@@ -14,9 +14,13 @@ import {
   FiActivity,
   FiAlertTriangle,
   FiCheckCircle,
+  FiChevronDown,
+  FiChevronUp,
   FiClock,
   FiGlobe,
   FiLayers,
+  FiMaximize2,
+  FiMinimize2,
   FiRefreshCw,
   FiSearch,
   FiServer,
@@ -25,6 +29,7 @@ import {
 } from "react-icons/fi";
 import { fetchAllAnalytics, fetchAnalyticsTimeseries } from "../utils/analyticsApi";
 import { timezoneUtils } from "../utils/timezoneUtils";
+import { colorForLocation } from "../components/analytics/markerColors";
 
 const AnalyticsGlobe = lazy(() => import("../components/analytics/AnalyticsGlobe"));
 
@@ -480,9 +485,16 @@ function LocationBreakdownTable({
                         </span>
                       ) : (
                         <span className="flex flex-col gap-0.5">
-                          <span>{row.locationLabel}</span>
+                          <span className="inline-flex items-center gap-2">
+                            <span
+                              className="h-2.5 w-2.5 shrink-0 rounded-full"
+                              style={{ background: colorForLocation(row) }}
+                              aria-hidden
+                            />
+                            {row.locationLabel}
+                          </span>
                           {(row.region || row.isp) ? (
-                            <span className="text-sm text-dusk">
+                            <span className="pl-4 text-sm text-dusk">
                               {[row.region, row.isp].filter(Boolean).join(" · ")}
                             </span>
                           ) : null}
@@ -559,6 +571,8 @@ export default function UserAnalytics() {
   const [textFilter, setTextFilter] = useState("");
   const [sortKey, setSortKey] = useState("success");
   const [sortDir, setSortDir] = useState("desc");
+  const [insightsOpen, setInsightsOpen] = useState(false);
+  const [spinEnabled, setSpinEnabled] = useState(true);
 
   const queryOpts = useMemo(() => {
     if (scope === "range" && appliedRange?.from && appliedRange?.to) {
@@ -661,8 +675,13 @@ export default function UserAnalytics() {
       setSelectedLocation(null);
       return;
     }
-    setSelectedLocation((prev) => (prev?.ip === loc.ip ? null : loc));
+    // Maps-style: click always opens the place card (does not toggle closed)
+    setSelectedLocation(loc);
   };
+
+  const handleUserInteract = useCallback(() => {
+    setSpinEnabled(false);
+  }, []);
 
   const handleSort = (field) => {
     if (sortKey === field) {
@@ -722,152 +741,275 @@ export default function UserAnalytics() {
   }
 
   return (
-    <div className="page-enter min-h-screen bg-deep pb-16 text-paper">
-      <div className="mx-auto max-w-7xl px-3 pt-4 sm:px-6 sm:pt-6 lg:px-8">
-        {/* Header + scope */}
-        <header className="mb-4 flex flex-wrap items-center justify-between gap-4 sm:mb-6">
-          <div>
-            <p className="section-kicker text-dusk-soft">Observatory</p>
-            <h1 className="font-display text-3xl font-bold text-paper sm:text-4xl">User Analytics</h1>
-            <p className="mt-1 max-w-prose text-base text-dusk-soft">
-              Live traffic from API logs on a globe — {locationsData?.scope_label || "…"}
-            </p>
+    <div className="relative h-full w-full overflow-hidden bg-deep text-paper">
+      {/* Full-bleed globe */}
+      <div className="absolute inset-0">
+        {loading && !locationsData ? (
+          <div className="flex h-full items-center justify-center">
+            <FiRefreshCw className="h-8 w-8 animate-spin text-brand" aria-hidden />
+            <span className="sr-only">Loading map</span>
           </div>
-          <div className="flex flex-wrap items-center gap-3">
-            <ScopeToggle
+        ) : (
+          <Suspense
+            fallback={
+              <div className="flex h-full items-center justify-center">
+                <FiRefreshCw className="h-8 w-8 animate-spin text-brand" aria-hidden />
+              </div>
+            }
+          >
+            <AnalyticsGlobe
+              locations={locations}
               scope={scope}
-              onChange={handleScopeChange}
-              disabled={loading}
-              rangeFrom={rangeFrom}
-              rangeTo={rangeTo}
-              onRangeChange={({ from, to }) => {
-                setRangeFrom(from);
-                setRangeTo(to);
-              }}
-              onApplyRange={handleApplyRange}
+              selectedIp={selectedLocation?.ip || null}
+              onSelectLocation={handleSelectLocation}
+              onUserInteract={handleUserInteract}
+              spinEnabled={spinEnabled}
             />
-            <button
-              type="button"
-              onClick={() => load(queryOpts)}
-              className="inline-flex items-center gap-2 rounded-xl border border-paper/20 bg-deep-soft px-4 py-2.5 text-base font-medium text-paper outline-none ring-brand transition hover:bg-paper/10 focus-visible:ring-2"
-              aria-label="Refresh analytics"
-            >
-              <FiRefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
-              Refresh
-            </button>
-          </div>
-        </header>
+          </Suspense>
+        )}
+      </div>
 
-        {selectedLocation ? (
-          <div className="mb-4">
+      {/* Top chrome — Maps-like floating controls */}
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-30 p-3 sm:p-4">
+        <div className="pointer-events-auto flex flex-wrap items-start justify-between gap-3">
+          <div className="max-w-md rounded-2xl border border-paper/15 bg-deep/90 px-4 py-3 shadow-lift backdrop-blur-md">
+            <p className="section-kicker text-dusk-soft">Observatory</p>
+            <h1 className="font-display text-2xl font-bold text-paper sm:text-3xl">User Analytics</h1>
+            <p className="mt-0.5 text-base text-dusk-soft">{locationsData?.scope_label || "Loading…"}</p>
+          </div>
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <div className="rounded-2xl border border-paper/15 bg-deep/90 p-2 shadow-lift backdrop-blur-md">
+              <ScopeToggle
+                scope={scope}
+                onChange={handleScopeChange}
+                disabled={loading}
+                rangeFrom={rangeFrom}
+                rangeTo={rangeTo}
+                onRangeChange={({ from, to }) => {
+                  setRangeFrom(from);
+                  setRangeTo(to);
+                }}
+                onApplyRange={handleApplyRange}
+              />
+            </div>
+            <div className="flex flex-wrap justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setSpinEnabled((v) => !v)}
+                className="rounded-xl border border-paper/20 bg-deep/90 px-3 py-2 text-base text-paper outline-none ring-brand backdrop-blur-md focus-visible:ring-2"
+                aria-pressed={spinEnabled}
+              >
+                {spinEnabled ? "Pause spin" : "Spin globe"}
+              </button>
+              <button
+                type="button"
+                onClick={() => load(queryOpts)}
+                className="inline-flex items-center gap-2 rounded-xl border border-paper/20 bg-deep/90 px-3 py-2 text-base text-paper outline-none ring-brand backdrop-blur-md focus-visible:ring-2"
+                aria-label="Refresh analytics"
+              >
+                <FiRefreshCw className={`h-4 w-4 ${loading ? "animate-spin" : ""}`} aria-hidden />
+                Refresh
+              </button>
+              <button
+                type="button"
+                onClick={() => setInsightsOpen((v) => !v)}
+                className="inline-flex items-center gap-2 rounded-xl bg-brand-dark px-3 py-2 text-base font-semibold text-paper outline-none ring-brand focus-visible:ring-2"
+                aria-expanded={insightsOpen}
+              >
+                {insightsOpen ? <FiMinimize2 className="h-4 w-4" aria-hidden /> : <FiMaximize2 className="h-4 w-4" aria-hidden />}
+                Insights
+                {insightsOpen ? <FiChevronDown className="h-4 w-4" aria-hidden /> : <FiChevronUp className="h-4 w-4" aria-hidden />}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        {error ? (
+          <div className="pointer-events-auto mt-3 max-w-lg rounded-2xl border border-ember/40 bg-ember-soft/90 p-3 text-ink shadow-lift">
+            <p className="font-semibold">Could not load analytics</p>
+            <p className="mt-1 text-base text-dusk">{error}</p>
+          </div>
+        ) : null}
+
+        {localBucket && localBucket.requests > 0 ? (
+          <div className="pointer-events-auto mt-3 inline-flex items-center gap-2 rounded-xl border border-ceremonial/40 bg-deep/90 px-3 py-2 text-base text-paper shadow-soft backdrop-blur-md">
+            <FiServer className="h-4 w-4 text-ceremonial" aria-hidden />
+            Local / Internal · {localBucket.requests} requests
+            {localBucket.unique_emails > 0 ? ` · ${localBucket.unique_emails} users` : ""}
+          </div>
+        ) : null}
+      </div>
+
+      {/* Place card — Google Maps style */}
+      {selectedLocation ? (
+        <aside
+          className="absolute right-3 top-28 z-40 w-[min(100%-1.5rem,22rem)] overflow-hidden rounded-2xl border border-ink/10 bg-paper text-ink shadow-lift sm:right-4 sm:top-32"
+          aria-label="Selected location"
+        >
+          <div className="flex items-start justify-between gap-2 border-b border-ink/10 px-4 py-3">
+            <div className="min-w-0">
+              <p className="flex items-center gap-2 font-display text-lg font-semibold">
+                <span
+                  className="h-3 w-3 shrink-0 rounded-full"
+                  style={{ background: colorForLocation(selectedLocation) }}
+                  aria-hidden
+                />
+                <span className="truncate">
+                  {selectedLocation.city}, {selectedLocation.country}
+                </span>
+              </p>
+              {(selectedLocation.region || selectedLocation.isp) ? (
+                <p className="mt-0.5 truncate text-sm text-dusk">
+                  {[selectedLocation.region, selectedLocation.isp].filter(Boolean).join(" · ")}
+                </p>
+              ) : null}
+            </div>
             <button
               type="button"
               onClick={() => setSelectedLocation(null)}
-              className="inline-flex items-center gap-2 rounded-full border border-brand/40 bg-brand/15 px-4 py-2 text-base text-paper outline-none ring-brand focus-visible:ring-2"
+              className="rounded-lg p-1.5 text-dusk outline-none ring-brand hover:bg-frost hover:text-ink focus-visible:ring-2"
+              aria-label="Close location card"
             >
-              Filtered: {filteredLabel}
-              <FiX className="h-4 w-4" aria-hidden />
-              <span className="sr-only">Clear location filter</span>
+              <FiX className="h-5 w-5" />
             </button>
           </div>
-        ) : null}
-
-        {error ? (
-          <div className="mb-4 flex items-start gap-3 rounded-2xl border border-ember/40 bg-ember-soft/20 p-4 text-paper">
-            <FiAlertTriangle className="mt-0.5 h-5 w-5 text-ember" aria-hidden />
-            <div>
-              <p className="font-semibold">Could not load analytics</p>
-              <p className="mt-1 text-base text-dusk-soft">{error}</p>
+          <div className="space-y-3 px-4 py-3 text-base">
+            <div className="flex justify-between gap-3">
+              <span className="text-dusk">IP</span>
+              <span className="rounded-md bg-frost px-2 py-0.5 font-mono text-sm">{selectedLocation.ip}</span>
             </div>
-          </div>
-        ) : null}
-
-        {/* Globe hero — full-bleed indigo, not a boxed card */}
-        <section className="relative -mx-3 overflow-hidden sm:-mx-6 lg:-mx-8" aria-label="Traffic globe">
-          {localBucket && localBucket.requests > 0 ? (
-            <div className="absolute left-4 top-4 z-20 sm:left-8">
-              <div className="inline-flex items-center gap-2 rounded-xl border border-ceremonial/40 bg-deep-soft/95 px-3 py-2 text-base text-paper shadow-soft">
-                <FiServer className="h-4 w-4 text-ceremonial" aria-hidden />
-                <span>
-                  Local / Internal · {localBucket.requests} requests
-                  {localBucket.unique_emails > 0 ? ` · ${localBucket.unique_emails} users` : ""}
-                </span>
-              </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-dusk">Requests</span>
+              <span className="font-semibold">{(selectedLocation.requests || 0).toLocaleString()}</span>
             </div>
-          ) : null}
-          {loading && !locationsData ? (
-            <div className="flex min-h-[420px] items-center justify-center bg-deep">
-              <FiRefreshCw className="h-8 w-8 animate-spin text-brand" aria-hidden />
-              <span className="sr-only">Loading globe</span>
+            <div className="flex justify-between gap-3">
+              <span className="inline-flex items-center gap-1.5 text-dusk">
+                <FiCheckCircle className="h-4 w-4 text-brand" aria-hidden />
+                Successful
+              </span>
+              <span>
+                {(
+                  selectedLocation.success_count ??
+                  Math.max((selectedLocation.requests || 0) - (selectedLocation.failed_auth_count || 0), 0)
+                ).toLocaleString()}
+              </span>
             </div>
-          ) : (
-            <Suspense
-              fallback={
-                <div className="flex min-h-[420px] items-center justify-center bg-deep">
-                  <FiRefreshCw className="h-8 w-8 animate-spin text-brand" aria-hidden />
-                </div>
-              }
+            <div className="flex justify-between gap-3">
+              <span className="inline-flex items-center gap-1.5 text-dusk">
+                <FiShield className="h-4 w-4 text-ember" aria-hidden />
+                Failed auth
+              </span>
+              <span className={selectedLocation.failed_auth_count > 0 ? "font-semibold text-ember" : ""}>
+                {(selectedLocation.failed_auth_count || 0).toLocaleString()}
+              </span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="inline-flex items-center gap-1.5 text-dusk">
+                <span className="h-2.5 w-2.5 rounded-full bg-aurora" aria-hidden />
+                Verified
+              </span>
+              <span>{(selectedLocation.verified_events || 0).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between gap-3">
+              <span className="text-dusk">Unique users</span>
+              <span>{(selectedLocation.unique_emails || 0).toLocaleString()}</span>
+            </div>
+            <div className="flex justify-between gap-3 border-t border-ink/10 pt-3">
+              <span className="text-dusk">Last seen</span>
+              <span className="text-right text-sm">
+                {selectedLocation.last_seen
+                  ? timezoneUtils.formatDateTime(selectedLocation.last_seen)
+                  : "—"}
+              </span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setInsightsOpen(true)}
+              className="btn-brand mt-1 w-full"
             >
-              <AnalyticsGlobe
+              Open insights for this location
+            </button>
+          </div>
+        </aside>
+      ) : null}
+
+      {/* Insights drawer — minimized by default */}
+      <div
+        className={`absolute inset-x-0 bottom-0 z-40 transition-transform duration-200 ease-out ${
+          insightsOpen ? "translate-y-0" : "translate-y-[calc(100%-3.25rem)]"
+        }`}
+      >
+        <div className="mx-auto max-h-[min(72vh,760px)] overflow-hidden rounded-t-3xl border border-ink/10 bg-frost-mesh shadow-lift">
+          <button
+            type="button"
+            onClick={() => setInsightsOpen((v) => !v)}
+            className="flex w-full items-center justify-between gap-3 border-b border-ink/10 bg-paper px-4 py-3 text-left outline-none ring-brand focus-visible:ring-2"
+            aria-expanded={insightsOpen}
+          >
+            <span className="font-display text-lg font-semibold text-ink">
+              Insights
+              {filteredLabel ? (
+                <span className="ml-2 text-base font-sans font-normal text-dusk">· {filteredLabel}</span>
+              ) : null}
+            </span>
+            <span className="inline-flex items-center gap-2 text-base text-dusk">
+              {insightsOpen ? "Minimize" : "Expand"}
+              {insightsOpen ? <FiChevronDown className="h-5 w-5" /> : <FiChevronUp className="h-5 w-5" />}
+            </span>
+          </button>
+
+          {insightsOpen ? (
+            <div className="max-h-[min(64vh,680px)] space-y-4 overflow-y-auto p-3 sm:p-4">
+              <section aria-label="Summary statistics" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+                <StatCard
+                  label="Total Locations"
+                  value={filteredStats.totalLocations.toLocaleString()}
+                  icon={FiGlobe}
+                />
+                <StatCard
+                  label="Total Requests"
+                  value={filteredStats.totalRequests.toLocaleString()}
+                  icon={FiActivity}
+                />
+                <StatCard
+                  label={filteredStats.thirdLabel || "Active Clusters"}
+                  value={filteredStats.activeClusters.toLocaleString()}
+                  icon={FiLayers}
+                />
+                <StatCard
+                  label="Failed-Auth Rate"
+                  value={formatRate(filteredStats.failedAuthRate)}
+                  icon={FiShield}
+                  emberValue
+                  hint="401 / 403 responses"
+                />
+                <StatCard
+                  label="Avg Response Time"
+                  value={`${filteredStats.avgResponseTimeMs} ms`}
+                  icon={FiClock}
+                />
+              </section>
+
+              <TimeseriesChart
+                buckets={timeseriesData?.buckets || []}
+                filterIp={selectedLocation?.ip}
+                filteredLabel={filteredLabel}
+              />
+
+              <LocationBreakdownTable
                 locations={locations}
-                scope={scope}
-                selectedIp={selectedLocation?.ip || null}
+                localBucket={localBucket}
+                filterIp={selectedLocation?.ip}
+                textFilter={textFilter}
+                onTextFilterChange={setTextFilter}
+                sortKey={sortKey}
+                sortDir={sortDir}
+                onSort={handleSort}
+                selectedIp={selectedLocation?.ip}
                 onSelectLocation={handleSelectLocation}
               />
-            </Suspense>
-          )}
-        </section>
-
-        {/* Ivory content band */}
-        <div className="relative z-10 -mt-2 space-y-5 rounded-t-3xl bg-frost-mesh px-1 pt-6 sm:px-2">
-          <section aria-label="Summary statistics" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-            <StatCard
-              label="Total Locations"
-              value={filteredStats.totalLocations.toLocaleString()}
-              icon={FiGlobe}
-            />
-            <StatCard
-              label="Total Requests"
-              value={filteredStats.totalRequests.toLocaleString()}
-              icon={FiActivity}
-            />
-            <StatCard
-              label={filteredStats.thirdLabel || "Active Clusters"}
-              value={filteredStats.activeClusters.toLocaleString()}
-              icon={FiLayers}
-            />
-            <StatCard
-              label="Failed-Auth Rate"
-              value={formatRate(filteredStats.failedAuthRate)}
-              icon={FiShield}
-              emberValue
-              hint="401 / 403 responses"
-            />
-            <StatCard
-              label="Avg Response Time"
-              value={`${filteredStats.avgResponseTimeMs} ms`}
-              icon={FiClock}
-            />
-          </section>
-
-          <TimeseriesChart
-            buckets={timeseriesData?.buckets || []}
-            filterIp={selectedLocation?.ip}
-            filteredLabel={filteredLabel}
-          />
-
-          <LocationBreakdownTable
-            locations={locations}
-            localBucket={localBucket}
-            filterIp={selectedLocation?.ip}
-            textFilter={textFilter}
-            onTextFilterChange={setTextFilter}
-            sortKey={sortKey}
-            sortDir={sortDir}
-            onSort={handleSort}
-            selectedIp={selectedLocation?.ip}
-            onSelectLocation={handleSelectLocation}
-          />
+            </div>
+          ) : null}
         </div>
       </div>
     </div>
