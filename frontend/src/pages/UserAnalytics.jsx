@@ -30,50 +30,97 @@ const AnalyticsGlobe = lazy(() => import("../components/analytics/AnalyticsGlobe
 
 const POLL_MS = 60_000;
 
-function formatDuration(seconds) {
-  if (seconds == null || seconds < 0) return "—";
-  if (seconds < 60) return `${seconds}s`;
-  if (seconds < 3600) return `${Math.floor(seconds / 60)}m ${seconds % 60}s`;
-  const h = Math.floor(seconds / 3600);
-  const m = Math.floor((seconds % 3600) / 60);
-  return `${h}h ${m}m`;
-}
-
 function formatRate(rate) {
   if (rate == null) return "0%";
   return `${(rate * 100).toFixed(1)}%`;
 }
 
-function ScopeToggle({ scope, onChange, disabled }) {
+function isoToday() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function isoDaysAgo(days) {
+  const d = new Date();
+  d.setDate(d.getDate() - days);
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function ScopeToggle({ scope, onChange, disabled, rangeFrom, rangeTo, onRangeChange, onApplyRange }) {
   return (
-    <div
-      className="inline-flex rounded-full bg-deep p-1 shadow-soft"
-      role="tablist"
-      aria-label="Time scope"
-    >
-      {[
-        { id: "today", label: "Today" },
-        { id: "all", label: "All Time" },
-      ].map((opt) => {
-        const active = scope === opt.id;
-        return (
+    <div className="flex flex-col items-stretch gap-3 sm:items-end">
+      <div
+        className="inline-flex flex-wrap rounded-full bg-deep p-1 shadow-soft"
+        role="tablist"
+        aria-label="Time scope"
+      >
+        {[
+          { id: "today", label: "Today" },
+          { id: "all", label: "All Time" },
+          { id: "range", label: "Custom" },
+        ].map((opt) => {
+          const active = scope === opt.id;
+          return (
+            <button
+              key={opt.id}
+              type="button"
+              role="tab"
+              aria-selected={active}
+              disabled={disabled}
+              onClick={() => onChange(opt.id)}
+              className={`rounded-full px-4 py-2.5 text-base font-semibold outline-none transition-colors duration-200 ring-brand focus-visible:ring-2 disabled:opacity-50 sm:px-5 ${
+                active
+                  ? "bg-brand text-paper"
+                  : "bg-paper text-ink hover:bg-paper/90"
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
+
+      {scope === "range" ? (
+        <div className="flex flex-wrap items-end gap-2 rounded-2xl border border-paper/15 bg-deep-soft/90 p-3">
+          <label className="flex flex-col gap-1 text-sm text-dusk-soft">
+            From
+            <input
+              type="date"
+              value={rangeFrom}
+              max={rangeTo || isoToday()}
+              onChange={(e) => onRangeChange({ from: e.target.value, to: rangeTo })}
+              className="rounded-xl border border-ink/10 bg-paper px-3 py-2 text-base text-ink outline-none ring-brand focus-visible:ring-2"
+              disabled={disabled}
+            />
+          </label>
+          <label className="flex flex-col gap-1 text-sm text-dusk-soft">
+            To
+            <input
+              type="date"
+              value={rangeTo}
+              min={rangeFrom || undefined}
+              max={isoToday()}
+              onChange={(e) => onRangeChange({ from: rangeFrom, to: e.target.value })}
+              className="rounded-xl border border-ink/10 bg-paper px-3 py-2 text-base text-ink outline-none ring-brand focus-visible:ring-2"
+              disabled={disabled}
+            />
+          </label>
           <button
-            key={opt.id}
             type="button"
-            role="tab"
-            aria-selected={active}
-            disabled={disabled}
-            onClick={() => onChange(opt.id)}
-            className={`rounded-full px-5 py-2.5 text-base font-semibold outline-none transition-colors duration-200 ring-brand focus-visible:ring-2 disabled:opacity-50 ${
-              active
-                ? "bg-brand text-paper"
-                : "bg-paper text-ink hover:bg-paper/90"
-            }`}
+            onClick={onApplyRange}
+            disabled={disabled || !rangeFrom || !rangeTo}
+            className="rounded-xl bg-brand-dark px-4 py-2.5 text-base font-semibold text-paper outline-none ring-brand transition hover:bg-brand disabled:opacity-50 focus-visible:ring-2"
           >
-            {opt.label}
+            Apply range
           </button>
-        );
-      })}
+        </div>
+      ) : null}
     </div>
   );
 }
@@ -229,39 +276,84 @@ function TimeseriesChart({ buckets = [], filterIp, filteredLabel }) {
   );
 }
 
-function SessionsTable({
-  sessions = [],
+function LocationBreakdownTable({
+  locations = [],
+  localBucket = null,
   filterIp,
   textFilter,
   onTextFilterChange,
   sortKey,
   sortDir,
   onSort,
+  selectedIp,
+  onSelectLocation,
 }) {
-  const filtered = useMemo(() => {
-    let rows = sessions;
+  const rows = useMemo(() => {
+    const mapped = (locations || []).map((loc) => {
+      const success = loc.success_count ?? Math.max((loc.requests || 0) - (loc.failed_auth_count || 0), 0);
+      const failed = loc.failed_auth_count || 0;
+      const verified = loc.verified_events || 0;
+      const unverified = Math.max(success - verified, 0);
+      return {
+        ...loc,
+        success,
+        failed,
+        verified,
+        unverified,
+        locationLabel: `${loc.city || "Unknown"}, ${loc.country || "Unknown"}`,
+        isLocal: false,
+      };
+    });
+
+    if (localBucket && localBucket.requests > 0) {
+      const success =
+        localBucket.success_count ??
+        Math.max((localBucket.requests || 0) - (localBucket.failed_auth_count || 0), 0);
+      const failed = localBucket.failed_auth_count || 0;
+      const verified = localBucket.verified_events || 0;
+      mapped.push({
+        ip: "local",
+        city: "Local / Internal",
+        country: "—",
+        requests: localBucket.requests || 0,
+        unique_emails: localBucket.unique_emails || 0,
+        emails: localBucket.emails || [],
+        last_seen: localBucket.last_seen,
+        success,
+        failed,
+        verified,
+        unverified: Math.max(success - verified, 0),
+        locationLabel: "Local / Internal",
+        isLocal: true,
+        lat: null,
+        lon: null,
+      });
+    }
+
+    let filtered = mapped;
     if (filterIp) {
-      rows = rows.filter((s) => s.ip === filterIp);
+      filtered = filtered.filter((r) => r.ip === filterIp);
     }
     const q = (textFilter || "").trim().toLowerCase();
     if (q) {
-      rows = rows.filter((s) => {
-        const loc = `${s.city || ""} ${s.country || ""}`.toLowerCase();
+      filtered = filtered.filter((r) => {
+        const emails = (r.emails || []).join(" ").toLowerCase();
         return (
-          (s.ip || "").toLowerCase().includes(q) ||
-          (s.email || "").toLowerCase().includes(q) ||
-          loc.includes(q)
+          (r.ip || "").toLowerCase().includes(q) ||
+          (r.locationLabel || "").toLowerCase().includes(q) ||
+          emails.includes(q)
         );
       });
     }
+
     const dir = sortDir === "asc" ? 1 : -1;
-    return [...rows].sort((a, b) => {
+    return [...filtered].sort((a, b) => {
       const av = a[sortKey];
       const bv = b[sortKey];
       if (typeof av === "number" && typeof bv === "number") return (av - bv) * dir;
       return String(av ?? "").localeCompare(String(bv ?? "")) * dir;
     });
-  }, [sessions, filterIp, textFilter, sortKey, sortDir]);
+  }, [locations, localBucket, filterIp, textFilter, sortKey, sortDir]);
 
   const SortTh = ({ field, children }) => {
     const active = sortKey === field;
@@ -282,15 +374,18 @@ function SessionsTable({
   };
 
   return (
-    <section className="dash-panel overflow-hidden" aria-labelledby="sessions-heading">
+    <section className="dash-panel overflow-hidden" aria-labelledby="locations-breakdown-heading">
       <div className="flex flex-wrap items-end justify-between gap-3 border-b border-ink/10 p-4 sm:p-6">
         <div>
-          <p className="section-kicker">Sessions</p>
-          <h2 id="sessions-heading" className="font-display text-xl font-semibold text-ink sm:text-2xl">
-            Cluster activity
+          <p className="section-kicker">Locations</p>
+          <h2
+            id="locations-breakdown-heading"
+            className="font-display text-xl font-semibold text-ink sm:text-2xl"
+          >
+            Location breakdown
           </h2>
           <p className="mt-1 max-w-prose text-base text-dusk">
-            One row per IP + email visit cluster (30-minute idle gap). Status mix uses icons and labels — not color alone.
+            Per-IP success, failed auth, and verified crypto/auth activity. Sort by any column; click a row to filter the globe and chart.
           </p>
         </div>
         <div className="relative w-full max-w-sm">
@@ -299,25 +394,32 @@ function SessionsTable({
             type="search"
             value={textFilter}
             onChange={(e) => onTextFilterChange(e.target.value)}
-            placeholder="Filter by email, IP, or location"
+            placeholder="Filter by city, country, IP, or email"
             className="w-full rounded-xl border border-ink/15 bg-paper py-2.5 pl-10 pr-3 text-base text-ink placeholder:text-dusk outline-none ring-brand focus-visible:ring-2"
-            aria-label="Filter sessions"
+            aria-label="Filter locations"
           />
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-4 border-b border-ink/10 px-4 py-3 text-base text-dusk sm:px-6" aria-label="Status legend">
+      <div
+        className="flex flex-wrap gap-4 border-b border-ink/10 px-4 py-3 text-base text-dusk sm:px-6"
+        aria-label="Metric legend"
+      >
         <span className="inline-flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-brand" aria-hidden />
-          Violet = OK
+          <FiCheckCircle className="h-4 w-4 text-brand" aria-hidden />
+          Successful = non–failed-auth requests
         </span>
         <span className="inline-flex items-center gap-2">
-          <span className="h-2.5 w-2.5 rounded-full bg-ember" aria-hidden />
-          Ember = failed auth
+          <FiShield className="h-4 w-4 text-ember" aria-hidden />
+          Failed = 401 / 403 auth failures
         </span>
         <span className="inline-flex items-center gap-2">
           <span className="h-2.5 w-2.5 rounded-full bg-aurora" aria-hidden />
-          Teal = verified crypto/auth
+          Verified = cast ballot / key ceremony / MFA
+        </span>
+        <span className="inline-flex items-center gap-2">
+          <span className="h-2.5 w-2.5 rounded-full bg-brand" aria-hidden />
+          Other success = successful but not verified
         </span>
       </div>
 
@@ -325,77 +427,104 @@ function SessionsTable({
         <table className="min-w-full divide-y divide-ink/10 text-base">
           <thead className="bg-frost/60">
             <tr>
-              <SortTh field="city">Location</SortTh>
+              <SortTh field="locationLabel">Location</SortTh>
               <SortTh field="ip">IP</SortTh>
-              <SortTh field="email">User</SortTh>
-              <SortTh field="cluster_requests">Cluster Requests</SortTh>
-              <SortTh field="cluster_started">Started</SortTh>
-              <SortTh field="cluster_duration_seconds">Duration</SortTh>
-              <th scope="col" className="px-3 py-3 text-left text-base font-semibold text-ink">
-                Status mix
-              </th>
+              <SortTh field="requests">Total</SortTh>
+              <SortTh field="success">Successful</SortTh>
+              <SortTh field="failed">Failed auth</SortTh>
+              <SortTh field="verified">Verified</SortTh>
+              <SortTh field="unverified">Other success</SortTh>
+              <SortTh field="unique_emails">Users</SortTh>
+              <SortTh field="last_seen">Last seen</SortTh>
             </tr>
           </thead>
           <tbody className="divide-y divide-ink/10">
-            {filtered.length === 0 ? (
+            {rows.length === 0 ? (
               <tr>
-                <td colSpan={7} className="px-4 py-10 text-center text-dusk">
-                  No sessions match this filter.
+                <td colSpan={9} className="px-4 py-10 text-center text-dusk">
+                  No locations match this filter.
                 </td>
               </tr>
             ) : (
-              filtered.map((row, idx) => (
-                <tr key={`${row.ip}-${row.email}-${row.cluster_started}-${idx}`} className="hover:bg-frost/40">
-                  <td className="px-3 py-3 text-ink">
-                    {row.local ? (
+              rows.map((row) => {
+                const selected = selectedIp === row.ip;
+                return (
+                  <tr
+                    key={row.ip}
+                    className={`cursor-pointer transition-colors duration-150 ${
+                      selected ? "bg-brand/10" : "hover:bg-frost/40"
+                    }`}
+                    onClick={() => {
+                      if (row.isLocal) return;
+                      onSelectLocation?.(row);
+                    }}
+                    onKeyDown={(e) => {
+                      if (row.isLocal) return;
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onSelectLocation?.(row);
+                      }
+                    }}
+                    tabIndex={row.isLocal ? undefined : 0}
+                    aria-selected={selected}
+                  >
+                    <td className="px-3 py-3 text-ink">
+                      {row.isLocal ? (
+                        <span className="inline-flex items-center gap-1.5">
+                          <FiServer className="h-4 w-4 text-ceremonial" aria-hidden />
+                          Local / Internal
+                        </span>
+                      ) : (
+                        row.locationLabel
+                      )}
+                    </td>
+                    <td className="px-3 py-3">
+                      {row.isLocal ? (
+                        <span className="text-dusk">—</span>
+                      ) : (
+                        <span className="inline-block rounded-md bg-frost px-2 py-1 font-mono text-sm text-ink">
+                          {row.ip}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-3 py-3 font-semibold text-ink">{row.requests.toLocaleString()}</td>
+                    <td className="px-3 py-3 text-ink">
                       <span className="inline-flex items-center gap-1.5">
-                        <FiServer className="h-4 w-4 text-ceremonial" aria-hidden />
-                        Local / Internal
+                        <FiCheckCircle className="h-4 w-4 text-brand" aria-hidden />
+                        {row.success.toLocaleString()}
+                        <span className="sr-only">successful</span>
                       </span>
-                    ) : (
-                      `${row.city || "Unknown"}, ${row.country || "Unknown"}`
-                    )}
-                  </td>
-                  <td className="px-3 py-3">
-                    <span className="inline-block rounded-md bg-frost px-2 py-1 font-mono text-sm text-ink">
-                      {row.ip}
-                    </span>
-                  </td>
-                  <td className="px-3 py-3">
-                    {row.email === "Anonymous" || !row.email ? (
-                      <span className="text-dusk">Anonymous</span>
-                    ) : (
-                      <span className="text-ink">{row.email}</span>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 text-ink">{row.cluster_requests}</td>
-                  <td className="px-3 py-3 text-ink whitespace-nowrap">
-                    {row.cluster_started ? timezoneUtils.formatDateTime(row.cluster_started) : "—"}
-                  </td>
-                  <td className="px-3 py-3 text-ink">
-                    {formatDuration(row.cluster_duration_seconds)}
-                  </td>
-                  <td className="px-3 py-3">
-                    <span className="inline-flex flex-wrap items-center gap-2" aria-label={`OK ${row.violet_count}, failed ${row.ember_count}, verified ${row.teal_count}`}>
-                      <span className="inline-flex items-center gap-1 text-sm text-ink" title="OK">
-                        <span className="h-2 w-2 rounded-full bg-brand" aria-hidden />
-                        {row.violet_count}
-                        <span className="sr-only">OK</span>
-                      </span>
-                      <span className="inline-flex items-center gap-1 text-sm text-ink" title="Failed auth">
-                        <span className="h-2 w-2 rounded-full bg-ember" aria-hidden />
-                        {row.ember_count}
+                    </td>
+                    <td className="px-3 py-3 text-ink">
+                      <span className="inline-flex items-center gap-1.5">
+                        <FiShield className="h-4 w-4 text-ember" aria-hidden />
+                        <span className={row.failed > 0 ? "text-ember font-semibold" : ""}>
+                          {row.failed.toLocaleString()}
+                        </span>
                         <span className="sr-only">failed auth</span>
                       </span>
-                      <span className="inline-flex items-center gap-1 text-sm text-ink" title="Verified">
-                        <span className="h-2 w-2 rounded-full bg-aurora" aria-hidden />
-                        {row.teal_count}
+                    </td>
+                    <td className="px-3 py-3 text-ink">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-full bg-aurora" aria-hidden />
+                        {row.verified.toLocaleString()}
                         <span className="sr-only">verified</span>
                       </span>
-                    </span>
-                  </td>
-                </tr>
-              ))
+                    </td>
+                    <td className="px-3 py-3 text-ink">
+                      <span className="inline-flex items-center gap-1.5">
+                        <span className="h-2.5 w-2.5 rounded-full bg-brand" aria-hidden />
+                        {row.unverified.toLocaleString()}
+                        <span className="sr-only">other successful</span>
+                      </span>
+                    </td>
+                    <td className="px-3 py-3 text-ink">{(row.unique_emails || 0).toLocaleString()}</td>
+                    <td className="px-3 py-3 text-ink whitespace-nowrap">
+                      {row.last_seen ? timezoneUtils.formatDateTime(row.last_seen) : "—"}
+                    </td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -407,18 +536,27 @@ function SessionsTable({
 export default function UserAnalytics() {
   const navigate = useNavigate();
   const [scope, setScope] = useState("today");
+  const [rangeFrom, setRangeFrom] = useState(() => isoDaysAgo(7));
+  const [rangeTo, setRangeTo] = useState(() => isoToday());
+  const [appliedRange, setAppliedRange] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [accessDenied, setAccessDenied] = useState(false);
   const [locationsData, setLocationsData] = useState(null);
   const [timeseriesData, setTimeseriesData] = useState(null);
-  const [sessionsData, setSessionsData] = useState(null);
   const [selectedLocation, setSelectedLocation] = useState(null);
   const [textFilter, setTextFilter] = useState("");
-  const [sortKey, setSortKey] = useState("cluster_started");
+  const [sortKey, setSortKey] = useState("success");
   const [sortDir, setSortDir] = useState("desc");
 
-  const load = useCallback(async (nextScope, { quiet, ip } = {}) => {
+  const queryOpts = useMemo(() => {
+    if (scope === "range" && appliedRange?.from && appliedRange?.to) {
+      return { scope: "range", from: appliedRange.from, to: appliedRange.to };
+    }
+    return { scope: scope === "range" ? "today" : scope };
+  }, [scope, appliedRange]);
+
+  const load = useCallback(async (opts, { quiet, ip } = {}) => {
     if (!quiet) setLoading(true);
     setError(null);
     try {
@@ -433,10 +571,9 @@ export default function UserAnalytics() {
         return;
       }
       setAccessDenied(false);
-      const data = await fetchAllAnalytics(nextScope, ip || null);
+      const data = await fetchAllAnalytics({ ...opts, ip: ip || null });
       setLocationsData(data.locations);
       setTimeseriesData(data.timeseries);
-      setSessionsData(data.sessions);
     } catch (err) {
       setError(err.message || "Failed to load analytics");
     } finally {
@@ -445,10 +582,10 @@ export default function UserAnalytics() {
   }, []);
 
   useEffect(() => {
-    load(scope, { ip: selectedLocation?.ip });
-    // Scope changes reload everything; location filter handled separately for timeseries
+    if (scope === "range" && !appliedRange) return;
+    load(queryOpts, { ip: selectedLocation?.ip });
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [scope, load]);
+  }, [queryOpts, load]);
 
   // When globe filter changes, refetch timeseries for that IP only (keep locations/sessions)
   useEffect(() => {
@@ -456,7 +593,10 @@ export default function UserAnalytics() {
     (async () => {
       if (!locationsData) return;
       try {
-        const ts = await fetchAnalyticsTimeseries(scope, selectedLocation?.ip || null);
+        const ts = await fetchAnalyticsTimeseries({
+          ...queryOpts,
+          ip: selectedLocation?.ip || null,
+        });
         if (!cancelled) setTimeseriesData(ts);
       } catch {
         /* keep previous chart on soft failure */
@@ -472,7 +612,7 @@ export default function UserAnalytics() {
   useEffect(() => {
     if (scope !== "today") return undefined;
     const id = setInterval(
-      () => load("today", { quiet: true, ip: selectedLocation?.ip }),
+      () => load({ scope: "today" }, { quiet: true, ip: selectedLocation?.ip }),
       POLL_MS
     );
     return () => clearInterval(id);
@@ -481,6 +621,28 @@ export default function UserAnalytics() {
   const handleScopeChange = (next) => {
     setSelectedLocation(null);
     setScope(next);
+    if (next === "range" && !appliedRange) {
+      // Wait for Apply — do not auto-fetch until user confirms dates
+      return;
+    }
+    if (next !== "range") {
+      setAppliedRange(null);
+    }
+  };
+
+  const handleApplyRange = () => {
+    if (!rangeFrom || !rangeTo) return;
+    let from = rangeFrom;
+    let to = rangeTo;
+    if (from > to) {
+      from = rangeTo;
+      to = rangeFrom;
+      setRangeFrom(from);
+      setRangeTo(to);
+    }
+    setSelectedLocation(null);
+    setAppliedRange({ from, to });
+    setScope("range");
   };
 
   const handleSelectLocation = (loc) => {
@@ -496,7 +658,7 @@ export default function UserAnalytics() {
       setSortDir((d) => (d === "asc" ? "desc" : "asc"));
     } else {
       setSortKey(field);
-      setSortDir(field === "cluster_started" ? "desc" : "asc");
+      setSortDir("desc");
     }
   };
 
@@ -504,7 +666,7 @@ export default function UserAnalytics() {
   const localBucket = locationsData?.local;
   const locations = locationsData?.locations || [];
 
-    const filteredStats = useMemo(() => {
+  const filteredStats = useMemo(() => {
     if (!selectedLocation) {
       return {
         totalLocations: summary?.total_locations ?? 0,
@@ -512,29 +674,24 @@ export default function UserAnalytics() {
         activeClusters: summary?.active_clusters ?? 0,
         failedAuthRate: summary?.failed_auth_rate ?? 0,
         avgResponseTimeMs: summary?.avg_response_time_ms ?? 0,
+        thirdLabel: "Active Clusters",
       };
     }
-    const sessionsForIp = (sessionsData?.sessions || []).filter((s) => s.ip === selectedLocation.ip);
     const failed = selectedLocation.failed_auth_count || 0;
     const reqs = selectedLocation.requests || 0;
     return {
       totalLocations: 1,
       totalRequests: reqs,
-      activeClusters: sessionsForIp.length,
+      activeClusters: selectedLocation.unique_emails || 0,
       failedAuthRate: reqs === 0 ? 0 : failed / reqs,
       avgResponseTimeMs: selectedLocation.avg_response_time_ms ?? summary?.avg_response_time_ms ?? 0,
+      thirdLabel: "Unique Users",
     };
-  }, [selectedLocation, summary, sessionsData]);
+  }, [selectedLocation, summary]);
 
   const filteredLabel = selectedLocation
     ? `${selectedLocation.city}, ${selectedLocation.country}`
     : "";
-
-  // Chart: when filtered, we keep full timeseries (server has no per-IP series) but note the filter;
-  // table and stats update. Spec: "filters the stat cards, chart, and table" — for chart we
-  // approximate by scaling isn't honest; better show full series with a note, OR empty when
-  // filtered. Spec says they stay in sync — I'll show sessions-derived bucket if we can't.
-  // Simplest honest approach: keep global timeseries, filter chip explains location filter on table/stats.
 
   if (accessDenied) {
     return (
@@ -566,10 +723,21 @@ export default function UserAnalytics() {
             </p>
           </div>
           <div className="flex flex-wrap items-center gap-3">
-            <ScopeToggle scope={scope} onChange={handleScopeChange} disabled={loading} />
+            <ScopeToggle
+              scope={scope}
+              onChange={handleScopeChange}
+              disabled={loading}
+              rangeFrom={rangeFrom}
+              rangeTo={rangeTo}
+              onRangeChange={({ from, to }) => {
+                setRangeFrom(from);
+                setRangeTo(to);
+              }}
+              onApplyRange={handleApplyRange}
+            />
             <button
               type="button"
-              onClick={() => load(scope)}
+              onClick={() => load(queryOpts)}
               className="inline-flex items-center gap-2 rounded-xl border border-paper/20 bg-deep-soft px-4 py-2.5 text-base font-medium text-paper outline-none ring-brand transition hover:bg-paper/10 focus-visible:ring-2"
               aria-label="Refresh analytics"
             >
@@ -653,7 +821,7 @@ export default function UserAnalytics() {
               icon={FiActivity}
             />
             <StatCard
-              label="Active Clusters"
+              label={filteredStats.thirdLabel || "Active Clusters"}
               value={filteredStats.activeClusters.toLocaleString()}
               icon={FiLayers}
             />
@@ -677,14 +845,17 @@ export default function UserAnalytics() {
             filteredLabel={filteredLabel}
           />
 
-          <SessionsTable
-            sessions={sessionsData?.sessions || []}
+          <LocationBreakdownTable
+            locations={locations}
+            localBucket={localBucket}
             filterIp={selectedLocation?.ip}
             textFilter={textFilter}
             onTextFilterChange={setTextFilter}
             sortKey={sortKey}
             sortDir={sortDir}
             onSort={handleSort}
+            selectedIp={selectedLocation?.ip}
+            onSelectLocation={handleSelectLocation}
           />
         </div>
       </div>

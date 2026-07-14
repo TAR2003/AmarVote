@@ -251,8 +251,8 @@ export default function AnalyticsGlobe({
         width={dims.w}
         height={dims.h}
         backgroundColor={INDIGO}
-        globeImageUrl="//cdn.jsdelivr.net/npm/three-globe/example/img/earth-night.jpg"
-        bumpImageUrl="//cdn.jsdelivr.net/npm/three-globe/example/img/earth-topology.png"
+        globeImageUrl="/globe/earth-night.jpg"
+        bumpImageUrl="/globe/earth-topology.png"
         atmosphereColor={VIOLET}
         atmosphereAltitude={0.18}
         pointsData={pointsData}

@@ -6,6 +6,8 @@ import java.time.Instant;
 import java.time.LocalDate;
 import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
+import java.time.format.DateTimeParseException;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
@@ -15,7 +17,9 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
+import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import com.amarvote.amarvote.dto.analytics.AnalyticsLocationsResponse;
 import com.amarvote.amarvote.dto.analytics.AnalyticsLocationsResponse.LocalBucket;
@@ -37,16 +41,18 @@ import lombok.RequiredArgsConstructor;
 public class AnalyticsService {
 
     private static final DateTimeFormatter ISO_INSTANT = DateTimeFormatter.ISO_INSTANT;
+    private static final DateTimeFormatter ISO_DATE = DateTimeFormatter.ISO_LOCAL_DATE;
     private static final ZoneId ANALYTICS_ZONE = ZoneId.systemDefault();
+    private static final int MAX_RANGE_DAYS = 366;
 
     private final AnalyticsRepository analyticsRepository;
     private final IpGeoResolver ipGeoResolver;
 
-    public AnalyticsLocationsResponse getLocations(String scope) {
-        ScopeContext ctx = resolveScope(scope);
-        List<Map<String, Object>> rows = analyticsRepository.aggregateByIp(ctx.since());
-        Map<String, Object> totals = analyticsRepository.summaryTotals(ctx.since());
-        long activeClusters = analyticsRepository.countActiveClusters(ctx.since());
+    public AnalyticsLocationsResponse getLocations(String scope, String from, String to) {
+        ScopeContext ctx = resolveScope(scope, from, to);
+        List<Map<String, Object>> rows = analyticsRepository.aggregateByIp(ctx.since(), ctx.until());
+        Map<String, Object> totals = analyticsRepository.summaryTotals(ctx.since(), ctx.until());
+        long activeClusters = analyticsRepository.countActiveClusters(ctx.since(), ctx.until());
 
         Set<String> publicIps = rows.stream()
                 .map(r -> asString(r.get("ip")))
@@ -145,10 +151,10 @@ public class AnalyticsService {
                 summary);
     }
 
-    public AnalyticsTimeseriesResponse getTimeseries(String scope, String ipFilter) {
-        ScopeContext ctx = resolveScope(scope);
-        boolean hourly = "today".equals(ctx.scope());
-        List<Map<String, Object>> rows = analyticsRepository.timeseries(ctx.since(), hourly, ipFilter);
+    public AnalyticsTimeseriesResponse getTimeseries(String scope, String from, String to, String ipFilter) {
+        ScopeContext ctx = resolveScope(scope, from, to);
+        List<Map<String, Object>> rows = analyticsRepository.timeseries(
+                ctx.since(), ctx.until(), ctx.hourly(), ipFilter);
 
         List<Bucket> buckets = rows.stream()
                 .map(row -> new Bucket(
@@ -164,9 +170,9 @@ public class AnalyticsService {
                 buckets);
     }
 
-    public AnalyticsSessionsResponse getSessions(String scope) {
-        ScopeContext ctx = resolveScope(scope);
-        List<Map<String, Object>> rows = analyticsRepository.findSessions(ctx.since());
+    public AnalyticsSessionsResponse getSessions(String scope, String from, String to) {
+        ScopeContext ctx = resolveScope(scope, from, to);
+        List<Map<String, Object>> rows = analyticsRepository.findSessions(ctx.since(), ctx.until());
 
         Set<String> publicIps = rows.stream()
                 .map(r -> asString(r.get("ip")))
@@ -211,19 +217,54 @@ public class AnalyticsService {
                 sessions);
     }
 
-    private ScopeContext resolveScope(String scopeRaw) {
+    private ScopeContext resolveScope(String scopeRaw, String fromRaw, String toRaw) {
         String scope = scopeRaw == null ? "today" : scopeRaw.trim().toLowerCase();
-        if (!"all".equals(scope)) {
-            scope = "today";
+
+        if ("range".equals(scope) || (fromRaw != null && !fromRaw.isBlank() && toRaw != null && !toRaw.isBlank())) {
+            LocalDate fromDate = parseDate(fromRaw, "from");
+            LocalDate toDate = parseDate(toRaw, "to");
+            if (toDate.isBefore(fromDate)) {
+                LocalDate tmp = fromDate;
+                fromDate = toDate;
+                toDate = tmp;
+            }
+            long days = ChronoUnit.DAYS.between(fromDate, toDate) + 1;
+            if (days > MAX_RANGE_DAYS) {
+                throw new ResponseStatusException(
+                        HttpStatus.BAD_REQUEST,
+                        "Date range cannot exceed " + MAX_RANGE_DAYS + " days.");
+            }
+            Instant since = fromDate.atStartOfDay(ANALYTICS_ZONE).toInstant();
+            Instant until = toDate.plusDays(1).atStartOfDay(ANALYTICS_ZONE).toInstant();
+            boolean hourly = days <= 2;
+            String label = "Custom (" + fromDate + " → " + toDate + ", " + ANALYTICS_ZONE.getId() + ")";
+            return new ScopeContext("range", label, since, until, hourly);
         }
-        if ("today".equals(scope)) {
-            Instant since = LocalDate.now(ANALYTICS_ZONE)
-                    .atStartOfDay(ANALYTICS_ZONE)
-                    .toInstant();
-            String label = "Today (" + ANALYTICS_ZONE.getId() + ")";
-            return new ScopeContext(scope, label, since);
+
+        if ("all".equals(scope)) {
+            return new ScopeContext("all", "All Time", null, null, false);
         }
-        return new ScopeContext("all", "All Time", null);
+
+        Instant since = LocalDate.now(ANALYTICS_ZONE)
+                .atStartOfDay(ANALYTICS_ZONE)
+                .toInstant();
+        String label = "Today (" + ANALYTICS_ZONE.getId() + ")";
+        return new ScopeContext("today", label, since, null, true);
+    }
+
+    private static LocalDate parseDate(String raw, String field) {
+        if (raw == null || raw.isBlank()) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Custom range requires both from and to dates (YYYY-MM-DD). Missing: " + field);
+        }
+        try {
+            return LocalDate.parse(raw.trim(), ISO_DATE);
+        } catch (DateTimeParseException ex) {
+            throw new ResponseStatusException(
+                    HttpStatus.BAD_REQUEST,
+                    "Invalid " + field + " date. Use YYYY-MM-DD.");
+        }
     }
 
     private static String formatTimestamp(Object value) {
@@ -271,7 +312,6 @@ public class AnalyticsService {
         return value == null ? null : value.toString();
     }
 
-    @SuppressWarnings("unchecked")
     private static List<String> asStringList(Object value) {
         if (value == null) {
             return List.of();
@@ -303,6 +343,11 @@ public class AnalyticsService {
         return List.of();
     }
 
-    private record ScopeContext(String scope, String scopeLabel, Instant since) {
+    private record ScopeContext(
+            String scope,
+            String scopeLabel,
+            Instant since,
+            Instant until,
+            boolean hourly) {
     }
 }

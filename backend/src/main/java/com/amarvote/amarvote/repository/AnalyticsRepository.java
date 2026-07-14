@@ -37,13 +37,9 @@ public class AnalyticsRepository {
 
     private final NamedParameterJdbcTemplate jdbc;
 
-    public List<Map<String, Object>> aggregateByIp(Instant sinceInclusive) {
+    public List<Map<String, Object>> aggregateByIp(Instant sinceInclusive, Instant untilExclusive) {
         Map<String, Object> params = new HashMap<>();
-        String timeFilter = "";
-        if (sinceInclusive != null) {
-            timeFilter = "WHERE l.request_time >= :since";
-            params.put("since", Timestamp.from(sinceInclusive));
-        }
+        String timeFilter = buildWhereClause(params, sinceInclusive, untilExclusive, null);
         String sql = """
                 SELECT
                     COALESCE(NULLIF(TRIM(l.request_ip), ''), 'unknown') AS ip,
@@ -71,18 +67,13 @@ public class AnalyticsRepository {
         return jdbc.queryForList(sql, params);
     }
 
-    public List<Map<String, Object>> timeseries(Instant sinceInclusive, boolean hourly, String ipFilter) {
+    public List<Map<String, Object>> timeseries(
+            Instant sinceInclusive,
+            Instant untilExclusive,
+            boolean hourly,
+            String ipFilter) {
         Map<String, Object> params = new HashMap<>();
-        List<String> conditions = new ArrayList<>();
-        if (sinceInclusive != null) {
-            conditions.add("l.request_time >= :since");
-            params.put("since", Timestamp.from(sinceInclusive));
-        }
-        if (ipFilter != null && !ipFilter.isBlank()) {
-            conditions.add("COALESCE(NULLIF(TRIM(l.request_ip), ''), 'unknown') = :ipFilter");
-            params.put("ipFilter", ipFilter.trim());
-        }
-        String whereClause = conditions.isEmpty() ? "" : "WHERE " + String.join(" AND ", conditions);
+        String whereClause = buildWhereClause(params, sinceInclusive, untilExclusive, ipFilter);
         String trunc = hourly ? "hour" : "day";
         String sql = """
                 SELECT
@@ -97,13 +88,9 @@ public class AnalyticsRepository {
         return jdbc.queryForList(sql, params);
     }
 
-    public List<Map<String, Object>> findSessions(Instant sinceInclusive) {
+    public List<Map<String, Object>> findSessions(Instant sinceInclusive, Instant untilExclusive) {
         Map<String, Object> params = new HashMap<>();
-        String whereClause = "";
-        if (sinceInclusive != null) {
-            whereClause = "WHERE l.request_time >= :since";
-            params.put("since", Timestamp.from(sinceInclusive));
-        }
+        String whereClause = buildWhereClause(params, sinceInclusive, untilExclusive, null);
         String sql = buildClusterCte(whereClause) + """
                 SELECT
                     c.ip_key AS ip,
@@ -124,25 +111,17 @@ public class AnalyticsRepository {
         return jdbc.queryForList(sql, params);
     }
 
-    public long countActiveClusters(Instant sinceInclusive) {
+    public long countActiveClusters(Instant sinceInclusive, Instant untilExclusive) {
         Map<String, Object> params = new HashMap<>();
-        String whereClause = "";
-        if (sinceInclusive != null) {
-            whereClause = "WHERE l.request_time >= :since";
-            params.put("since", Timestamp.from(sinceInclusive));
-        }
+        String whereClause = buildWhereClause(params, sinceInclusive, untilExclusive, null);
         String sql = buildClusterCte(whereClause) + "SELECT COUNT(*) FROM cluster_agg";
         Long value = jdbc.queryForObject(sql, params, Long.class);
         return value == null ? 0L : value;
     }
 
-    public Map<String, Object> summaryTotals(Instant sinceInclusive) {
+    public Map<String, Object> summaryTotals(Instant sinceInclusive, Instant untilExclusive) {
         Map<String, Object> params = new HashMap<>();
-        String timeFilter = "";
-        if (sinceInclusive != null) {
-            timeFilter = "WHERE l.request_time >= :since";
-            params.put("since", Timestamp.from(sinceInclusive));
-        }
+        String timeFilter = buildWhereClause(params, sinceInclusive, untilExclusive, null);
         String sql = """
                 SELECT
                     COUNT(*)::bigint AS total_requests,
@@ -153,6 +132,30 @@ public class AnalyticsRepository {
                 """.formatted(FAILED_AUTH_PREDICATE, timeFilter);
         List<Map<String, Object>> rows = jdbc.queryForList(sql, params);
         return rows.isEmpty() ? Map.of() : rows.get(0);
+    }
+
+    private static String buildWhereClause(
+            Map<String, Object> params,
+            Instant sinceInclusive,
+            Instant untilExclusive,
+            String ipFilter) {
+        List<String> conditions = new ArrayList<>();
+        if (sinceInclusive != null) {
+            conditions.add("l.request_time >= :since");
+            params.put("since", Timestamp.from(sinceInclusive));
+        }
+        if (untilExclusive != null) {
+            conditions.add("l.request_time < :until");
+            params.put("until", Timestamp.from(untilExclusive));
+        }
+        if (ipFilter != null && !ipFilter.isBlank()) {
+            conditions.add("COALESCE(NULLIF(TRIM(l.request_ip), ''), 'unknown') = :ipFilter");
+            params.put("ipFilter", ipFilter.trim());
+        }
+        if (conditions.isEmpty()) {
+            return "";
+        }
+        return "WHERE " + String.join(" AND ", conditions);
     }
 
     private static String buildClusterCte(String whereClause) {

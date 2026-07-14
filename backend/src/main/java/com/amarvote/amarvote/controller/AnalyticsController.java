@@ -30,32 +30,40 @@ public class AnalyticsController {
     private final AuthorizedUserService authorizedUserService;
 
     @GetMapping("/locations")
-    public ResponseEntity<?> locations(@RequestParam(defaultValue = "today") String scope) {
+    public ResponseEntity<?> locations(
+            @RequestParam(defaultValue = "today") String scope,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
         ResponseEntity<?> denied = denyUnlessCanView();
         if (denied != null) {
             return denied;
         }
-        return ResponseEntity.ok(analyticsService.getLocations(scope));
+        return ResponseEntity.ok(analyticsService.getLocations(scope, from, to));
     }
 
     @GetMapping("/timeseries")
     public ResponseEntity<?> timeseries(
             @RequestParam(defaultValue = "today") String scope,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to,
             @RequestParam(required = false) String ip) {
         ResponseEntity<?> denied = denyUnlessCanView();
         if (denied != null) {
             return denied;
         }
-        return ResponseEntity.ok(analyticsService.getTimeseries(scope, ip));
+        return ResponseEntity.ok(analyticsService.getTimeseries(scope, from, to, ip));
     }
 
     @GetMapping("/sessions")
-    public ResponseEntity<?> sessions(@RequestParam(defaultValue = "today") String scope) {
+    public ResponseEntity<?> sessions(
+            @RequestParam(defaultValue = "today") String scope,
+            @RequestParam(required = false) String from,
+            @RequestParam(required = false) String to) {
         ResponseEntity<?> denied = denyUnlessCanView();
         if (denied != null) {
             return denied;
         }
-        return ResponseEntity.ok(analyticsService.getSessions(scope));
+        return ResponseEntity.ok(analyticsService.getSessions(scope, from, to));
     }
 
     private ResponseEntity<?> denyUnlessCanView() {
