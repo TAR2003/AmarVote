@@ -109,6 +109,8 @@ public class AnalyticsService {
                     geo.lon(),
                     geo.city(),
                     geo.country(),
+                    geo.region(),
+                    geo.isp(),
                     requests,
                     uniqueEmails,
                     emails,

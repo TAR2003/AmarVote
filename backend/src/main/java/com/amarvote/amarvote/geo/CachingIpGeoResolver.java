@@ -18,19 +18,23 @@ import org.springframework.stereotype.Component;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Redis + in-memory LRU cache over {@link IpApiComGeoResolver}.
- * Cache lives outside api_logs — keyed by IP with a long TTL.
+ * Redis + in-memory LRU cache over {@link CascadingIpGeoResolver}.
+ * <p>
+ * Only successful / local resolutions are cached long-term. Failed "Unknown"
+ * responses are never persisted for 30 days — that was causing IPs like
+ * 103.121.62.80 to stick as Unknown after a temporary rate-limit or HTTP failure.
  */
 @Component
 @Primary
 public class CachingIpGeoResolver implements IpGeoResolver {
 
     private static final Logger log = LoggerFactory.getLogger(CachingIpGeoResolver.class);
-    private static final String KEY_PREFIX = "analytics:geo:";
-    private static final Duration TTL = Duration.ofDays(30);
+    /** Bumped to invalidate stale Unknown entries written by the first release. */
+    private static final String KEY_PREFIX = "analytics:geo:v2:";
+    private static final Duration SUCCESS_TTL = Duration.ofDays(30);
     private static final int LRU_CAPACITY = 4000;
 
-    private final IpApiComGeoResolver delegate;
+    private final CascadingIpGeoResolver delegate;
     private final RedisTemplate<String, String> redisTemplate;
     private final ObjectMapper objectMapper;
     private final Map<String, GeoLocation> lru = Collections.synchronizedMap(
@@ -42,7 +46,7 @@ public class CachingIpGeoResolver implements IpGeoResolver {
             });
 
     public CachingIpGeoResolver(
-            IpApiComGeoResolver delegate,
+            CascadingIpGeoResolver delegate,
             RedisTemplate<String, String> redisTemplate,
             ObjectMapper objectMapper) {
         this.delegate = delegate;
@@ -61,7 +65,7 @@ public class CachingIpGeoResolver implements IpGeoResolver {
         }
 
         GeoLocation cached = getCached(trimmed);
-        if (cached != null) {
+        if (cached != null && cached.isCacheableSuccess()) {
             return cached;
         }
 
@@ -85,7 +89,7 @@ public class CachingIpGeoResolver implements IpGeoResolver {
                 continue;
             }
             GeoLocation cached = getCached(trimmed);
-            if (cached != null) {
+            if (cached != null && cached.isCacheableSuccess()) {
                 results.put(trimmed, cached);
             } else {
                 misses.add(trimmed);
@@ -104,7 +108,7 @@ public class CachingIpGeoResolver implements IpGeoResolver {
 
     private GeoLocation getCached(String ip) {
         GeoLocation memory = lru.get(ip);
-        if (memory != null) {
+        if (memory != null && memory.isCacheableSuccess()) {
             return memory;
         }
         try {
@@ -112,8 +116,12 @@ public class CachingIpGeoResolver implements IpGeoResolver {
             if (json != null && !json.isBlank()) {
                 CachedGeo dto = objectMapper.readValue(json, CachedGeo.class);
                 GeoLocation location = dto.toGeoLocation();
-                lru.put(ip, location);
-                return location;
+                if (location.isCacheableSuccess()) {
+                    lru.put(ip, location);
+                    return location;
+                }
+                // Drop bad legacy cache entries
+                redisTemplate.delete(KEY_PREFIX + ip);
             }
         } catch (Exception ex) {
             log.debug("Redis geo cache read miss for {}: {}", ip, ex.getMessage());
@@ -122,25 +130,32 @@ public class CachingIpGeoResolver implements IpGeoResolver {
     }
 
     private void putCached(String ip, GeoLocation location) {
-        if (location == null) {
+        if (location == null || !location.isCacheableSuccess()) {
             return;
         }
         lru.put(ip, location);
         try {
             String json = objectMapper.writeValueAsString(CachedGeo.from(location));
-            redisTemplate.opsForValue().set(KEY_PREFIX + ip, json, TTL);
+            redisTemplate.opsForValue().set(KEY_PREFIX + ip, json, SUCCESS_TTL);
         } catch (Exception ex) {
             log.debug("Redis geo cache write failed for {}: {}", ip, ex.getMessage());
         }
     }
 
-    private record CachedGeo(Double lat, Double lon, String city, String country, boolean local) {
+    private record CachedGeo(
+            Double lat,
+            Double lon,
+            String city,
+            String country,
+            String region,
+            String isp,
+            boolean local) {
         static CachedGeo from(GeoLocation g) {
-            return new CachedGeo(g.lat(), g.lon(), g.city(), g.country(), g.local());
+            return new CachedGeo(g.lat(), g.lon(), g.city(), g.country(), g.region(), g.isp(), g.local());
         }
 
         GeoLocation toGeoLocation() {
-            return new GeoLocation(lat, lon, city, country, local);
+            return new GeoLocation(lat, lon, city, country, region, isp, local);
         }
     }
 }

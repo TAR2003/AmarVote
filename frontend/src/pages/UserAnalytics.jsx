@@ -301,6 +301,8 @@ function LocationBreakdownTable({
         verified,
         unverified,
         locationLabel: `${loc.city || "Unknown"}, ${loc.country || "Unknown"}`,
+        region: loc.region || "",
+        isp: loc.isp || "",
         isLocal: false,
       };
     });
@@ -336,11 +338,13 @@ function LocationBreakdownTable({
     }
     const q = (textFilter || "").trim().toLowerCase();
     if (q) {
-      filtered = filtered.filter((r) => {
+          filtered = filtered.filter((r) => {
         const emails = (r.emails || []).join(" ").toLowerCase();
         return (
           (r.ip || "").toLowerCase().includes(q) ||
           (r.locationLabel || "").toLowerCase().includes(q) ||
+          (r.region || "").toLowerCase().includes(q) ||
+          (r.isp || "").toLowerCase().includes(q) ||
           emails.includes(q)
         );
       });
@@ -475,7 +479,14 @@ function LocationBreakdownTable({
                           Local / Internal
                         </span>
                       ) : (
-                        row.locationLabel
+                        <span className="flex flex-col gap-0.5">
+                          <span>{row.locationLabel}</span>
+                          {(row.region || row.isp) ? (
+                            <span className="text-sm text-dusk">
+                              {[row.region, row.isp].filter(Boolean).join(" · ")}
+                            </span>
+                          ) : null}
+                        </span>
                       )}
                     </td>
                     <td className="px-3 py-3">

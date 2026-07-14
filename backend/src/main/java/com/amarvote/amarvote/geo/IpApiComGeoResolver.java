@@ -19,15 +19,17 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
 /**
- * Free ip-api.com resolver (non-commercial). Batch endpoint used to stay under rate limits.
- * Swap this bean for a MaxMind GeoLite2 implementation later without changing callers.
+ * Free ip-api.com resolver (HTTP, non-commercial).
+ * Failures must NOT be cached long-term by the caching layer.
  */
 @Component
 public class IpApiComGeoResolver implements IpGeoResolver {
 
     private static final Logger log = LoggerFactory.getLogger(IpApiComGeoResolver.class);
-    private static final String BATCH_URL = "http://ip-api.com/batch?fields=status,message,country,city,lat,lon,query";
-    private static final String SINGLE_URL = "http://ip-api.com/json/%s?fields=status,message,country,city,lat,lon,query";
+    private static final String BATCH_URL =
+            "http://ip-api.com/batch?fields=status,message,country,regionName,city,lat,lon,isp,org,query";
+    private static final String SINGLE_URL =
+            "http://ip-api.com/json/%s?fields=status,message,country,regionName,city,lat,lon,isp,org,query";
     private static final int BATCH_SIZE = 100;
 
     private final RestTemplate restTemplate;
@@ -47,11 +49,12 @@ public class IpApiComGeoResolver implements IpGeoResolver {
             String url = String.format(SINGLE_URL, ip.trim());
             ResponseEntity<String> response = restTemplate.getForEntity(url, String.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
+                log.warn("ip-api single lookup HTTP {} for {}", response.getStatusCode(), ip);
                 return GeoLocation.ofUnknown(ip);
             }
             return parseNode(objectMapper.readTree(response.getBody()), ip);
         } catch (Exception ex) {
-            log.debug("Geo lookup failed for {}: {}", ip, ex.getMessage());
+            log.warn("ip-api single lookup failed for {}: {}", ip, ex.getMessage());
             return GeoLocation.ofUnknown(ip);
         }
     }
@@ -78,8 +81,7 @@ public class IpApiComGeoResolver implements IpGeoResolver {
             results.putAll(resolveBatch(chunk));
             if (i + BATCH_SIZE < toLookup.size()) {
                 try {
-                    // ip-api free tier: 15 requests/minute for batch — pause between chunks
-                    Thread.sleep(1500L);
+                    Thread.sleep(1600L);
                 } catch (InterruptedException ie) {
                     Thread.currentThread().interrupt();
                     break;
@@ -100,9 +102,7 @@ public class IpApiComGeoResolver implements IpGeoResolver {
             HttpEntity<List<String>> entity = new HttpEntity<>(ips, headers);
             ResponseEntity<String> response = restTemplate.postForEntity(BATCH_URL, entity, String.class);
             if (!response.getStatusCode().is2xxSuccessful() || response.getBody() == null) {
-                for (String ip : ips) {
-                    results.put(ip, GeoLocation.ofUnknown(ip));
-                }
+                log.warn("ip-api batch HTTP {} for {} IPs", response.getStatusCode(), ips.size());
                 return results;
             }
             JsonNode array = objectMapper.readTree(response.getBody());
@@ -112,17 +112,11 @@ public class IpApiComGeoResolver implements IpGeoResolver {
                     if (query == null || query.isBlank()) {
                         continue;
                     }
-                    results.put(query, parseNode(node, query));
+                    results.put(query.trim(), parseNode(node, query));
                 }
             }
-            for (String ip : ips) {
-                results.putIfAbsent(ip, GeoLocation.ofUnknown(ip));
-            }
         } catch (Exception ex) {
-            log.warn("Batch geo lookup failed ({} IPs): {}", ips.size(), ex.getMessage());
-            for (String ip : ips) {
-                results.put(ip, GeoLocation.ofUnknown(ip));
-            }
+            log.warn("ip-api batch lookup failed ({} IPs): {}", ips.size(), ex.getMessage());
         }
         return results;
     }
@@ -130,19 +124,29 @@ public class IpApiComGeoResolver implements IpGeoResolver {
     private GeoLocation parseNode(JsonNode node, String fallbackIp) {
         String status = text(node, "status");
         if (!"success".equalsIgnoreCase(status)) {
+            String message = text(node, "message");
+            log.warn("ip-api miss for {}: status={}, message={}", fallbackIp, status, message);
             return GeoLocation.ofUnknown(fallbackIp);
         }
         Double lat = node.has("lat") && !node.get("lat").isNull() ? node.get("lat").asDouble() : null;
         Double lon = node.has("lon") && !node.get("lon").isNull() ? node.get("lon").asDouble() : null;
-        String city = text(node, "city");
-        String country = text(node, "country");
-        if (city == null || city.isBlank()) {
-            city = "Unknown";
+        String city = firstNonBlank(text(node, "city"), text(node, "regionName"), "Unknown");
+        String country = firstNonBlank(text(node, "country"), "Unknown");
+        String region = text(node, "regionName");
+        String isp = firstNonBlank(text(node, "isp"), text(node, "org"));
+        return new GeoLocation(lat, lon, city, country, region, isp, false);
+    }
+
+    private static String firstNonBlank(String... values) {
+        if (values == null) {
+            return null;
         }
-        if (country == null || country.isBlank()) {
-            country = "Unknown";
+        for (String value : values) {
+            if (value != null && !value.isBlank()) {
+                return value.trim();
+            }
         }
-        return new GeoLocation(lat, lon, city, country, false);
+        return null;
     }
 
     private static String text(JsonNode node, String field) {

@@ -10,12 +10,26 @@ const MUTED_LIGHT = "#5B5D74";
 
 const RECENT_MS = 5 * 60 * 1000;
 const FLARE_DURATION_MS = 1800;
+/** Typical default camera altitude for a full-earth view. */
+const REF_ALTITUDE = 2.4;
 
-function logScaleRadius(requests, maxRequests) {
-  if (!requests || requests <= 0) return 0.25;
+/**
+ * Relative size from request volume (kept constant across zoom).
+ * Absolute on-screen size is then scaled by camera altitude so nearby
+ * cities (Dhaka vs Rajshahi) separate when zoomed in.
+ */
+function relativeRadius(requests, maxRequests) {
+  if (!requests || requests <= 0) return 0.22;
   const logMax = Math.log10(Math.max(maxRequests, 2));
   const logVal = Math.log10(requests + 1);
-  return 0.25 + (logVal / logMax) * 1.4;
+  return 0.22 + (logVal / logMax) * 1.15;
+}
+
+/** Shrink angular radius as the camera moves closer (altitude ↓). */
+function zoomScale(altitude) {
+  const a = Number.isFinite(altitude) ? altitude : REF_ALTITUDE;
+  // floors keep dots clickable; ceiling avoids huge blobs when pulled way out
+  return Math.min(1.35, Math.max(0.08, a / REF_ALTITUDE));
 }
 
 function usePrefersReducedMotion() {
@@ -36,7 +50,7 @@ function usePrefersReducedMotion() {
 
 /**
  * 3D globe of traffic locations. Ambient rotation + Today-only flare for recent activity.
- * Collapses to static dots under prefers-reduced-motion.
+ * Point radius scales with camera altitude so relative volumes stay clear when zoomed in.
  */
 export default function AnalyticsGlobe({
   locations = [],
@@ -47,10 +61,12 @@ export default function AnalyticsGlobe({
 }) {
   const globeRef = useRef(null);
   const containerRef = useRef(null);
+  const altitudeRafRef = useRef(null);
   const [dims, setDims] = useState({ w: 640, h: 420 });
   const [hover, setHover] = useState(null);
   const [pointer, setPointer] = useState({ x: 0, y: 0 });
   const [autoRotate, setAutoRotate] = useState(true);
+  const [altitude, setAltitude] = useState(REF_ALTITUDE);
   const [flaringIps, setFlaringIps] = useState(() => new Set());
   const seenKeysRef = useRef(new Set());
   const prefersReduced = usePrefersReducedMotion();
@@ -67,6 +83,8 @@ export default function AnalyticsGlobe({
     () => plottable.reduce((m, l) => Math.max(m, l.requests || 0), 1),
     [plottable]
   );
+
+  const zScale = zoomScale(altitude);
 
   // Detect genuinely new recent activity in Today scope (not on every re-render of same data)
   useEffect(() => {
@@ -114,12 +132,36 @@ export default function AnalyticsGlobe({
 
   useEffect(() => {
     const globe = globeRef.current;
-    if (!globe) return;
+    if (!globe) return undefined;
     const controls = globe.controls?.();
-    if (!controls) return;
+    if (!controls) return undefined;
+
     controls.autoRotate = autoRotate && !prefersReduced;
     controls.autoRotateSpeed = 0.35;
     controls.enableZoom = true;
+    controls.minDistance = 120;
+    controls.maxDistance = 800;
+
+    const syncAltitude = () => {
+      if (altitudeRafRef.current != null) return;
+      altitudeRafRef.current = requestAnimationFrame(() => {
+        altitudeRafRef.current = null;
+        const pov = globe.pointOfView?.();
+        if (pov?.altitude != null && Number.isFinite(pov.altitude)) {
+          setAltitude((prev) => (Math.abs(prev - pov.altitude) > 0.01 ? pov.altitude : prev));
+        }
+      });
+    };
+
+    controls.addEventListener("change", syncAltitude);
+    syncAltitude();
+    return () => {
+      controls.removeEventListener("change", syncAltitude);
+      if (altitudeRafRef.current != null) {
+        cancelAnimationFrame(altitudeRafRef.current);
+        altitudeRafRef.current = null;
+      }
+    };
   }, [autoRotate, prefersReduced, dims]);
 
   const pointsData = useMemo(
@@ -127,14 +169,14 @@ export default function AnalyticsGlobe({
       plottable.map((loc) => {
         const flaring = flaringIps.has(loc.ip);
         const selected = selectedIp === loc.ip;
+        const base = relativeRadius(loc.requests, maxRequests);
         return {
           ...loc,
-          size: logScaleRadius(loc.requests, maxRequests) * (flaring ? 1.55 : selected ? 1.25 : 1),
-          color: loc.verified_events > 0 ? VIOLET : VIOLET,
-          altitude: flaring ? 0.04 : 0.01,
+          size: base * zScale * (flaring ? 1.45 : selected ? 1.2 : 1),
+          altitude: flaring ? 0.03 : 0.008,
         };
       }),
-    [plottable, maxRequests, flaringIps, selectedIp]
+    [plottable, maxRequests, flaringIps, selectedIp, zScale]
   );
 
   const ringsData = useMemo(
@@ -144,11 +186,11 @@ export default function AnalyticsGlobe({
         .map((l) => ({
           lat: l.lat,
           lon: l.lon,
-          maxR: 2.2,
+          maxR: Math.max(0.35, 1.8 * zScale),
           propagationSpeed: prefersReduced ? 0 : 1.2,
           repeatPeriod: prefersReduced ? 0 : 1400,
         })),
-    [plottable, prefersReduced]
+    [plottable, prefersReduced, zScale]
   );
 
   const arcsData = useMemo(() => {
@@ -158,7 +200,7 @@ export default function AnalyticsGlobe({
       .map((l) => ({
         startLat: l.lat,
         startLng: l.lon,
-        endLat: Math.min(90, l.lat + 12),
+        endLat: Math.min(90, l.lat + 8),
         endLng: l.lon,
         color: [VIOLET, TEAL],
       }));
@@ -285,11 +327,10 @@ export default function AnalyticsGlobe({
         arcDashLength={0.4}
         arcDashGap={0.2}
         arcDashAnimateTime={FLARE_DURATION_MS}
-        arcAltitude={0.25}
+        arcAltitude={0.2}
         arcStroke={1.2}
       />
 
-      {/* Keyboard-accessible location list (globe itself is pointer-first) */}
       <div className="absolute bottom-3 left-3 right-3 z-10 sm:left-auto sm:right-4 sm:w-72">
         <label htmlFor="globe-location-select" className="sr-only">
           Select location on globe
@@ -330,7 +371,16 @@ export default function AnalyticsGlobe({
           <p className="font-display text-base font-semibold text-ink">
             {hover.city}, {hover.country}
           </p>
+          {(hover.region || hover.isp) ? (
+            <p className="mt-0.5 text-sm text-dusk">
+              {[hover.region, hover.isp].filter(Boolean).join(" · ")}
+            </p>
+          ) : null}
           <dl className="mt-2 space-y-1 text-base text-ink">
+            <div className="flex justify-between gap-4">
+              <dt className="text-dusk">IP</dt>
+              <dd className="font-mono text-sm">{hover.ip}</dd>
+            </div>
             <div className="flex justify-between gap-4">
               <dt className="text-dusk">Requests</dt>
               <dd>{hover.requests}</dd>
@@ -356,7 +406,6 @@ export default function AnalyticsGlobe({
         </div>
       ) : null}
 
-      {/* CSS token reference — keep unused constants from tree-shake scrutiny */}
       <span className="sr-only" aria-hidden>
         {IVORY}
         {INK}

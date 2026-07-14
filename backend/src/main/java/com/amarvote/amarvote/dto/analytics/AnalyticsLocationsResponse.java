@@ -18,6 +18,8 @@ public record AnalyticsLocationsResponse(
             Double lon,
             String city,
             String country,
+            String region,
+            String isp,
             long requests,
             @JsonProperty("unique_emails") long uniqueEmails,
             List<String> emails,

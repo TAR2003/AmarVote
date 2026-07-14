@@ -9,17 +9,25 @@ public record GeoLocation(
         Double lon,
         String city,
         String country,
+        String region,
+        String isp,
         boolean local) {
 
     public static GeoLocation ofLocal() {
-        return new GeoLocation(null, null, "Local / Internal", "Local / Internal", true);
+        return new GeoLocation(null, null, "Local / Internal", "Local / Internal", null, null, true);
     }
 
     public static GeoLocation ofUnknown(String ip) {
-        return new GeoLocation(null, null, "Unknown", "Unknown", false);
+        return new GeoLocation(null, null, "Unknown", "Unknown", null, null, false);
     }
 
     public boolean isPlottable() {
-        return !local && lat != null && lon != null;
+        return !local && lat != null && lon != null
+                && Double.isFinite(lat) && Double.isFinite(lon);
+    }
+
+    /** True when this is a lasting geo hit worth keeping in Redis. */
+    public boolean isCacheableSuccess() {
+        return local || isPlottable();
     }
 }
