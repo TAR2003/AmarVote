@@ -1,37 +1,29 @@
-/** Bright, high-chroma marker hues — one color per location (by IP). */
+/** Saturated neon-bright marker hues only — no yellows or pale/washed tones. */
 const MARKER_PALETTE = [
   "#FF1744", // vivid red
-  "#FF9100", // bright orange
-  "#FFEA00", // electric yellow
+  "#FF3D00", // neon orange-red
+  "#FF6D00", // bright orange
+  "#FF9100", // vivid amber-orange
   "#76FF03", // neon lime
   "#00E676", // bright green
   "#1DE9B6", // aqua mint
-  "#00E5FF", // cyan
+  "#00E5FF", // electric cyan
+  "#00B0FF", // vivid sky
   "#2979FF", // bright blue
-  "#651FFF", // vivid violet
-  "#D500F9", // magenta
-  "#FF4081", // hot pink
-  "#F50057", // rose
-  "#FF6D00", // amber orange
-  "#C6FF00", // chartreuse
-  "#00B0FF", // sky
-  "#AEEA00", // yellow-green
-  "#FF3D00", // deep orange
-  "#E040FB", // fuchsia
-  "#40C4FF", // light cyan-blue
-  "#69F0AE", // mint
-  "#FFAB00", // gold
-  "#7C4DFF", // indigo flash
-  "#18FFFF", // turquoise
-  "#FF80AB", // soft pink
-  "#B2FF59", // lime punch
-  "#82B1FF", // periwinkle
-  "#FFD740", // sunflower
-  "#EA80FC", // orchid
-  "#64FFDA", // teal bright
-  "#FF5252", // coral red
   "#448AFF", // royal blue
-  "#EEFF41", // lemon
+  "#651FFF", // vivid violet
+  "#7C4DFF", // indigo flash
+  "#D500F9", // magenta
+  "#E040FB", // fuchsia
+  "#F50057", // rose
+  "#FF4081", // hot pink
+  "#FF5252", // coral red
+  "#18FFFF", // turquoise
+  "#69F0AE", // mint neon
+  "#B2FF59", // lime punch
+  "#AA00FF", // electric purple
+  "#C51162", // deep pink
+  "#0091EA", // vivid azure
 ];
 
 export function colorForKey(key) {

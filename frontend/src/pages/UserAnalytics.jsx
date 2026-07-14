@@ -17,6 +17,7 @@ import {
   FiChevronDown,
   FiChevronUp,
   FiClock,
+  FiDownload,
   FiGlobe,
   FiLayers,
   FiMaximize2,
@@ -28,6 +29,7 @@ import {
   FiX,
 } from "react-icons/fi";
 import { fetchAllAnalytics, fetchAnalyticsTimeseries } from "../utils/analyticsApi";
+import { downloadAnalyticsMap } from "../utils/exportAnalyticsMap";
 import { timezoneUtils } from "../utils/timezoneUtils";
 import { colorForLocation } from "../components/analytics/markerColors";
 
@@ -573,6 +575,7 @@ export default function UserAnalytics() {
   const [sortDir, setSortDir] = useState("desc");
   const [insightsOpen, setInsightsOpen] = useState(false);
   const [spinEnabled, setSpinEnabled] = useState(true);
+  const [exportingMap, setExportingMap] = useState(false);
 
   const queryOpts = useMemo(() => {
     if (scope === "range" && appliedRange?.from && appliedRange?.to) {
@@ -696,6 +699,21 @@ export default function UserAnalytics() {
   const localBucket = locationsData?.local;
   const locations = locationsData?.locations || [];
 
+  const handleExportMap = useCallback(async () => {
+    if (exportingMap || !locations.length) return;
+    setExportingMap(true);
+    try {
+      await downloadAnalyticsMap({
+        locations,
+        scopeLabel: locationsData?.scope_label || "Traffic map",
+      });
+    } catch (err) {
+      setError(err.message || "Failed to export map");
+    } finally {
+      setExportingMap(false);
+    }
+  }, [exportingMap, locations, locationsData?.scope_label]);
+
   const filteredStats = useMemo(() => {
     if (!selectedLocation) {
       return {
@@ -800,6 +818,16 @@ export default function UserAnalytics() {
                 aria-pressed={spinEnabled}
               >
                 {spinEnabled ? "Pause spin" : "Spin globe"}
+              </button>
+              <button
+                type="button"
+                onClick={handleExportMap}
+                disabled={exportingMap || loading || !locations.length}
+                className="inline-flex items-center gap-2 rounded-xl border border-paper/20 bg-deep/90 px-3 py-2 text-base text-paper outline-none ring-brand backdrop-blur-md focus-visible:ring-2 disabled:opacity-50"
+                aria-label="Export 2D world map with location markers"
+              >
+                <FiDownload className={`h-4 w-4 ${exportingMap ? "animate-pulse" : ""}`} aria-hidden />
+                {exportingMap ? "Exporting…" : "Export map"}
               </button>
               <button
                 type="button"
